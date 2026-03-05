@@ -68,7 +68,7 @@ function handleRowClick(row: RecipeSearchResult) {
         </template>
       </el-table-column>
       <el-table-column prop="name" label="名稱" />
-      <el-table-column prop="level" label="等級" width="80" align="center" />
+      <el-table-column prop="level" label="配方等級" width="100" align="center" />
       <el-table-column prop="job" label="職業" width="80" align="center" />
     </el-table>
   </div>
