@@ -14,7 +14,12 @@ const gearsetsStore = useGearsetsStore()
 const simStore = useSimulatorStore()
 
 const recipe = computed(() => recipeStore.currentRecipe)
-const gearset = computed(() => gearsetsStore.activeGearset)
+const gearset = computed(() => {
+  if (!recipe.value) return null
+  const stats = gearsetsStore.getGearsetForJob(recipe.value.job)
+  if (!stats) return null
+  return { job: recipe.value.job, ...stats }
+})
 const canSolve = computed(() => !!recipe.value && !!gearset.value)
 
 const status = ref<SolverStatus>('idle')

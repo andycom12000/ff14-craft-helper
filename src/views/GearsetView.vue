@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { ElMessage } from 'element-plus'
 import { useGearsetsStore } from '@/stores/gearsets'
 import { JOB_NAMES } from '@/utils/jobs'
 
@@ -11,28 +10,16 @@ const jobs = Object.keys(JOB_NAMES)
 const tableData = computed(() =>
   jobs.map(job => ({ job, ...store.gearsets[job] }))
 )
-
-function getRowClassName({ row }: { row: { job: string } }): string {
-  return row.job === store.activeJob ? 'active-row' : ''
-}
-
-function handleSetActive(job: string) {
-  store.setActive(job)
-  ElMessage.success(`已切換啟用職業：${JOB_NAMES[job]}`)
-}
 </script>
 
 <template>
   <div class="view-container">
     <h2>配裝管理</h2>
 
-    <el-table :data="tableData" stripe style="width: 100%"
-      :row-class-name="getRowClassName">
+    <el-table :data="tableData" stripe style="width: 100%">
       <el-table-column label="職業" width="120" align="center">
         <template #default="{ row }">
-          <span :class="{ 'active-job': row.job === store.activeJob }">
-            {{ JOB_NAMES[row.job] }}
-          </span>
+          {{ JOB_NAMES[row.job] }}
         </template>
       </el-table-column>
 
@@ -75,19 +62,6 @@ function handleSetActive(job: string) {
           />
         </template>
       </el-table-column>
-
-      <el-table-column label="" min-width="100" align="center">
-        <template #default="{ row }">
-          <el-button
-            size="small"
-            :type="row.job === store.activeJob ? 'success' : 'default'"
-            @click="handleSetActive(row.job)"
-            :disabled="row.job === store.activeJob"
-          >
-            {{ row.job === store.activeJob ? '使用中' : '啟用' }}
-          </el-button>
-        </template>
-      </el-table-column>
     </el-table>
   </div>
 </template>
@@ -100,14 +74,5 @@ function handleSetActive(job: string) {
 .view-container h2 {
   margin-top: 0;
   margin-bottom: 20px;
-}
-
-.active-job {
-  font-weight: bold;
-  color: var(--el-color-primary);
-}
-
-:deep(.active-row) {
-  --el-table-tr-bg-color: rgba(64, 158, 255, 0.08);
 }
 </style>

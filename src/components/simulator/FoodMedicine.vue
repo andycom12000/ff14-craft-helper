@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useRecipeStore } from '@/stores/recipe'
 import { useGearsetsStore } from '@/stores/gearsets'
 import {
   COMMON_FOODS,
@@ -15,8 +16,13 @@ const emit = defineEmits<{
   'update:enhancedStats': [value: EnhancedStats]
 }>()
 
+const recipeStore = useRecipeStore()
 const gearsetsStore = useGearsetsStore()
-const gearset = computed(() => gearsetsStore.activeGearset)
+const gearset = computed(() => {
+  const recipe = recipeStore.currentRecipe
+  if (!recipe) return null
+  return gearsetsStore.getGearsetForJob(recipe.job) ?? null
+})
 
 const selectedFoodId = ref<number | null>(null)
 const selectedMedicineId = ref<number | null>(null)

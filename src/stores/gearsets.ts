@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { JOB_NAMES } from '@/utils/jobs'
 
 export interface GearsetStats {
@@ -23,23 +23,14 @@ function createDefaultGearsets(): GearsetMap {
 
 export const useGearsetsStore = defineStore('gearsets', () => {
   const gearsets = ref<GearsetMap>(createDefaultGearsets())
-  const activeJob = ref<string>(Object.keys(JOB_NAMES)[0])
 
-  const activeGearset = computed(() => {
-    const stats = gearsets.value[activeJob.value]
-    if (!stats) return null
-    return { job: activeJob.value, ...stats }
-  })
+  function getGearsetForJob(job: string): GearsetStats | null {
+    return gearsets.value[job] ?? null
+  }
 
   function updateGearset(job: string, updates: Partial<GearsetStats>) {
     if (gearsets.value[job]) {
       gearsets.value[job] = { ...gearsets.value[job], ...updates }
-    }
-  }
-
-  function setActive(job: string) {
-    if (gearsets.value[job]) {
-      activeJob.value = job
     }
   }
 
@@ -54,7 +45,7 @@ export const useGearsetsStore = defineStore('gearsets', () => {
 
   ensureAllJobs()
 
-  return { gearsets, activeJob, activeGearset, updateGearset, setActive }
+  return { gearsets, getGearsetForJob, updateGearset }
 }, {
   persist: true,
 })

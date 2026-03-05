@@ -19,7 +19,12 @@ const gearsetsStore = useGearsetsStore()
 const simStore = useSimulatorStore()
 
 const recipe = computed(() => recipeStore.currentRecipe)
-const gearset = computed(() => gearsetsStore.activeGearset)
+const gearset = computed(() => {
+  if (!recipe.value) return null
+  const stats = gearsetsStore.getGearsetForJob(recipe.value.job)
+  if (!stats) return null
+  return { job: recipe.value.job, ...stats }
+})
 
 const canSimulate = computed(() => !!recipe.value && !!gearset.value)
 
@@ -98,8 +103,8 @@ function handleClearActions() {
       </el-alert>
 
       <el-alert
-        v-if="!gearset || (gearset.craftsmanship === 0 && gearset.control === 0)"
-        title="尚未設定裝備數值"
+        v-if="recipe && gearset && gearset.craftsmanship === 0 && gearset.control === 0"
+        title="尚未設定該職業的裝備數值"
         type="warning"
         :closable="false"
         show-icon
