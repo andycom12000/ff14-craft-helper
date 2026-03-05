@@ -31,17 +31,7 @@ const craftParams = computed<CraftParams | null>(() => {
     craftsmanship: gearset.value.craftsmanship,
     control: gearset.value.control,
     cp: gearset.value.cp,
-    recipeLevelTable: {
-      classJobLevel: recipe.value.recipeLevelTable.classJobLevel,
-      stars: recipe.value.recipeLevelTable.stars,
-      difficulty: recipe.value.recipeLevelTable.difficulty,
-      quality: recipe.value.recipeLevelTable.quality,
-      durability: recipe.value.recipeLevelTable.durability,
-      progressDivider: recipe.value.recipeLevelTable.progressDivider,
-      qualityDivider: recipe.value.recipeLevelTable.qualityDivider,
-      progressModifier: recipe.value.recipeLevelTable.progressModifier,
-      qualityModifier: recipe.value.recipeLevelTable.qualityModifier,
-    },
+    recipeLevelTable: { ...recipe.value.recipeLevelTable },
     crafterLevel: gearset.value.level,
     initialQuality: 0,
   }
@@ -66,7 +56,7 @@ function runSimulation() {
   simStore.setSimulationResults(results)
 }
 
-watch([craftParams, () => simStore.actions], runSimulation, { deep: true, immediate: true })
+watch([craftParams, () => simStore.actions], runSimulation, { immediate: true })
 
 function handleRemoveAction(index: number) {
   simStore.removeAction(index)

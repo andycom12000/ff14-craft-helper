@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRecipeStore } from '@/stores/recipe'
 import { useGearsetsStore } from '@/stores/gearsets'
@@ -11,35 +11,31 @@ const recipeStore = useRecipeStore()
 const gearsetsStore = useGearsetsStore()
 const simStore = useSimulatorStore()
 
-const recipe = computed(() => recipeStore.currentRecipe)
-const gearset = computed(() => {
-  if (!recipe.value) return null
-  return gearsetsStore.getGearsetForJob(recipe.value.job)
-})
-const canSolve = computed(() => !!recipe.value && !!gearset.value)
-
 const status = ref<SolverStatus>('idle')
 const progress = ref(0)
 const errorMessage = ref('')
 
 function buildConfig(): SolverConfig | null {
-  if (!recipe.value || !gearset.value) return null
-  const rlt = recipe.value.recipeLevelTable
+  const recipe = recipeStore.currentRecipe
+  if (!recipe) return null
+  const gearset = gearsetsStore.getGearsetForJob(recipe.job)
+  if (!gearset) return null
+  const rlt = recipe.recipeLevelTable
   return {
     recipe_level: rlt.classJobLevel,
     stars: rlt.stars,
     progress: rlt.difficulty,
     quality: rlt.quality,
     durability: rlt.durability,
-    cp: gearset.value.cp,
-    craftsmanship: gearset.value.craftsmanship,
-    control: gearset.value.control,
-    crafter_level: gearset.value.level,
+    cp: gearset.cp,
+    craftsmanship: gearset.craftsmanship,
+    control: gearset.control,
+    crafter_level: gearset.level,
     progress_divider: rlt.progressDivider,
     quality_divider: rlt.qualityDivider,
     progress_modifier: rlt.progressModifier,
     quality_modifier: rlt.qualityModifier,
-    hq_target: recipe.value.canHq,
+    hq_target: recipe.canHq,
   }
 }
 
@@ -93,7 +89,6 @@ onUnmounted(() => {
       <el-button
         v-if="status !== 'solving'"
         type="warning"
-        :disabled="!canSolve"
         @click="handleSolve"
       >
         自動求解

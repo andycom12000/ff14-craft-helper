@@ -16,7 +16,6 @@ const qualityPct = computed(() => {
   return Math.round((props.craftState.quality / props.craftState.maxQuality) * 100)
 })
 
-
 const completionText = computed(() => {
   if (!props.craftState) return ''
   if (!props.craftState.isComplete) return '製作中'
