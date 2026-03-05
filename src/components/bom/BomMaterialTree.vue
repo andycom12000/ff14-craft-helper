@@ -1,0 +1,98 @@
+<script setup lang="ts">
+import type { MaterialNode } from '@/stores/bom'
+
+defineProps<{
+  tree: MaterialNode[]
+}>()
+
+const emit = defineEmits<{
+  'simulate-recipe': [recipeId: number]
+}>()
+
+interface TreeData {
+  label: string
+  icon: string
+  amount: number
+  recipeId?: number
+  children?: TreeData[]
+}
+
+function toTreeData(nodes: MaterialNode[]): TreeData[] {
+  return nodes.map((node) => ({
+    label: node.name,
+    icon: node.icon,
+    amount: node.amount,
+    recipeId: node.recipeId,
+    children: node.children ? toTreeData(node.children) : undefined,
+  }))
+}
+</script>
+
+<template>
+  <el-card shadow="never">
+    <template #header>
+      <span class="card-title">材料樹狀圖</span>
+    </template>
+
+    <el-empty v-if="tree.length === 0" description="尚未計算" :image-size="80" />
+
+    <el-tree
+      v-else
+      :data="toTreeData(tree)"
+      :props="{ label: 'label', children: 'children' }"
+      default-expand-all
+      :expand-on-click-node="false"
+    >
+      <template #default="{ data }">
+        <div class="tree-node">
+          <img :src="data.icon" :alt="data.label" class="node-icon" />
+          <span class="node-name">{{ data.label }}</span>
+          <el-tag size="small" type="info" class="node-amount">
+            x{{ data.amount }}
+          </el-tag>
+          <el-button
+            v-if="data.recipeId"
+            type="primary"
+            size="small"
+            text
+            class="node-simulate"
+            @click.stop="emit('simulate-recipe', data.recipeId)"
+          >
+            模擬製作
+          </el-button>
+        </div>
+      </template>
+    </el-tree>
+  </el-card>
+</template>
+
+<style scoped>
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.tree-node {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.node-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.node-name {
+  font-size: 14px;
+}
+
+.node-amount {
+  margin-left: 4px;
+}
+
+.node-simulate {
+  margin-left: auto;
+}
+</style>
