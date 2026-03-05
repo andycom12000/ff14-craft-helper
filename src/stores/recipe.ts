@@ -15,7 +15,6 @@ export interface RecipeLevelTable {
   quality: number
   durability: number
   suggestedCraftsmanship: number
-  suggestedControl: number
   progressDivider: number
   qualityDivider: number
   progressModifier: number

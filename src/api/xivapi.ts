@@ -1,6 +1,25 @@
 import type { Recipe, Ingredient, RecipeLevelTable } from '@/stores/recipe'
+import * as OpenCC from 'opencc-js'
 
-const BASE_URL = 'https://xivapi.com'
+const BASE_URL = 'https://cafemaker.wakingsands.com'
+
+const toSimplified = OpenCC.Converter({ from: 'tw', to: 'cn' })
+const toTraditional = OpenCC.Converter({ from: 'cn', to: 'tw' })
+
+function iconUrl(path: string): string {
+  return `${BASE_URL}${path}`
+}
+
+const SEARCH_COLUMNS = 'ID,Name,Icon,RecipeLevelTable.ClassJobLevel,ClassJob.Abbreviation'
+
+const RECIPE_COLUMNS = [
+  'ID', 'Name', 'Icon',
+  'ClassJob.Name', 'ClassJob.Abbreviation',
+  'RecipeLevelTable',
+  'CanHq', 'MaterialQualityFactor',
+  ...Array.from({ length: 10 }, (_, i) => `ItemIngredient${i}`),
+  ...Array.from({ length: 10 }, (_, i) => `AmountIngredient${i}`),
+].join(',')
 
 export interface RecipeSearchResult {
   id: number
@@ -10,7 +29,7 @@ export interface RecipeSearchResult {
   job: string
 }
 
-interface XIVAPISearchResponse {
+interface CafeSearchResponse {
   Results: Array<{
     ID: number
     Name: string
@@ -23,15 +42,9 @@ interface XIVAPISearchResponse {
       Abbreviation: string
     }
   }>
-  Pagination: {
-    Page: number
-    PageTotal: number
-    Results: number
-    ResultsTotal: number
-  }
 }
 
-interface XIVAPIRecipeResponse {
+interface CafeRecipeResponse {
   ID: number
   Name: string
   Icon: string
@@ -46,7 +59,6 @@ interface XIVAPIRecipeResponse {
     Quality: number
     Durability: number
     SuggestedCraftsmanship: number
-    SuggestedControl: number
     ProgressDivider: number
     QualityDivider: number
     ProgressModifier: number
@@ -81,7 +93,8 @@ export async function searchRecipes(
   filters?: { job?: string }
 ): Promise<RecipeSearchResult[]> {
   try {
-    let url = `${BASE_URL}/search?indexes=Recipe&string=${encodeURIComponent(query)}&language=en`
+    const simplifiedQuery = toSimplified(query)
+    let url = `${BASE_URL}/search?indexes=Recipe&string=${encodeURIComponent(simplifiedQuery)}&language=zh&columns=${SEARCH_COLUMNS}`
 
     if (filters?.job) {
       url += `&filters=ClassJob.Abbreviation=${encodeURIComponent(filters.job)}`
@@ -89,15 +102,15 @@ export async function searchRecipes(
 
     const response = await fetch(url)
     if (!response.ok) {
-      throw new Error(`XIVAPI search failed: ${response.status} ${response.statusText}`)
+      throw new Error(`API search failed: ${response.status} ${response.statusText}`)
     }
 
-    const data: XIVAPISearchResponse = await response.json()
+    const data: CafeSearchResponse = await response.json()
 
     return data.Results.map((item) => ({
       id: item.ID,
-      name: item.Name,
-      icon: `${BASE_URL}${item.Icon}`,
+      name: toTraditional(item.Name),
+      icon: iconUrl(item.Icon),
       level: item.RecipeLevelTable?.ClassJobLevel ?? 0,
       job: item.ClassJob?.Abbreviation ?? '',
     }))
@@ -109,35 +122,26 @@ export async function searchRecipes(
 
 export async function getRecipe(id: number): Promise<Recipe> {
   try {
-    const columns = [
-      'ID', 'Name', 'Icon',
-      'ClassJob.Name', 'ClassJob.Abbreviation',
-      'RecipeLevelTable',
-      'CanHq', 'MaterialQualityFactor',
-      ...Array.from({ length: 10 }, (_, i) => `ItemIngredient${i}`),
-      ...Array.from({ length: 10 }, (_, i) => `AmountIngredient${i}`),
-    ].join(',')
-
-    const url = `${BASE_URL}/recipe/${id}?columns=${columns}`
+    const url = `${BASE_URL}/recipe/${id}?columns=${RECIPE_COLUMNS}&language=zh`
     const response = await fetch(url)
     if (!response.ok) {
-      throw new Error(`XIVAPI getRecipe failed: ${response.status} ${response.statusText}`)
+      throw new Error(`API getRecipe failed: ${response.status} ${response.statusText}`)
     }
 
-    const data: XIVAPIRecipeResponse = await response.json()
+    const data: CafeRecipeResponse = await response.json()
 
     const ingredients: Ingredient[] = []
     for (let i = 0; i < 10; i++) {
-      const item = data[`ItemIngredient${i}` as keyof XIVAPIRecipeResponse] as
+      const item = data[`ItemIngredient${i}` as keyof CafeRecipeResponse] as
         | { ID: number; Name: string; Icon: string }
         | null
-      const amount = data[`AmountIngredient${i}` as keyof XIVAPIRecipeResponse] as number
+      const amount = data[`AmountIngredient${i}` as keyof CafeRecipeResponse] as number
 
       if (item && item.ID > 0 && amount > 0) {
         ingredients.push({
           itemId: item.ID,
-          name: item.Name,
-          icon: `${BASE_URL}${item.Icon}`,
+          name: toTraditional(item.Name),
+          icon: iconUrl(item.Icon),
           amount,
         })
       }
@@ -151,7 +155,6 @@ export async function getRecipe(id: number): Promise<Recipe> {
       quality: rlt.Quality,
       durability: rlt.Durability,
       suggestedCraftsmanship: rlt.SuggestedCraftsmanship,
-      suggestedControl: rlt.SuggestedControl,
       progressDivider: rlt.ProgressDivider,
       qualityDivider: rlt.QualityDivider,
       progressModifier: rlt.ProgressModifier,
@@ -160,8 +163,8 @@ export async function getRecipe(id: number): Promise<Recipe> {
 
     return {
       id: data.ID,
-      name: data.Name,
-      icon: `${BASE_URL}${data.Icon}`,
+      name: toTraditional(data.Name),
+      icon: iconUrl(data.Icon),
       job: data.ClassJob?.Abbreviation ?? '',
       level: rlt.ClassJobLevel,
       stars: rlt.Stars,

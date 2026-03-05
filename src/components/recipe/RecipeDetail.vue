@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Recipe } from '@/stores/recipe'
+import { JOB_NAMES } from '@/utils/jobs'
 
 defineProps<{
   recipe: Recipe | null
@@ -24,7 +25,7 @@ function starsDisplay(count: number): string {
         <img :src="recipe.icon" :alt="recipe.name" class="recipe-icon" />
         <div class="recipe-title">
           <h3>{{ recipe.name }}</h3>
-          <el-tag size="small" type="info">{{ recipe.job }}</el-tag>
+          <el-tag size="small" type="info">{{ JOB_NAMES[recipe.job] ?? recipe.job }}</el-tag>
           <el-tag size="small" style="margin-left: 6px">
             Lv.{{ recipe.level }}
             <span v-if="recipe.stars" class="stars">{{ starsDisplay(recipe.stars) }}</span>
@@ -38,9 +39,6 @@ function starsDisplay(count: number): string {
       <el-descriptions :column="2" border style="margin-top: 16px">
         <el-descriptions-item label="作業精度需求">
           {{ recipe.recipeLevelTable.suggestedCraftsmanship }}
-        </el-descriptions-item>
-        <el-descriptions-item label="加工精度需求">
-          {{ recipe.recipeLevelTable.suggestedControl }}
         </el-descriptions-item>
         <el-descriptions-item label="難度">
           {{ recipe.recipeLevelTable.difficulty }}
