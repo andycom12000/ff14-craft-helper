@@ -1,15 +1,232 @@
 <script setup lang="ts">
+import { computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { useRecipeStore } from '@/stores/recipe'
+import { useGearsetsStore } from '@/stores/gearsets'
+import { useSimulatorStore } from '@/stores/simulator'
+import { simulateAll, createInitialState, type CraftParams } from '@/engine/simulator'
+import StatusBar from '@/components/simulator/StatusBar.vue'
+import BuffDisplay from '@/components/simulator/BuffDisplay.vue'
+import SkillPanel from '@/components/simulator/SkillPanel.vue'
+import ActionList from '@/components/simulator/ActionList.vue'
+
+const router = useRouter()
+const recipeStore = useRecipeStore()
+const gearsetsStore = useGearsetsStore()
+const simStore = useSimulatorStore()
+
+const recipe = computed(() => recipeStore.currentRecipe)
+const gearset = computed(() => gearsetsStore.activeGearset)
+
+const canSimulate = computed(() => !!recipe.value && !!gearset.value)
+
+const craftParams = computed<CraftParams | null>(() => {
+  if (!recipe.value || !gearset.value) return null
+  return {
+    craftsmanship: gearset.value.craftsmanship,
+    control: gearset.value.control,
+    cp: gearset.value.cp,
+    recipeLevelTable: {
+      classJobLevel: recipe.value.recipeLevelTable.classJobLevel,
+      stars: recipe.value.recipeLevelTable.stars,
+      difficulty: recipe.value.recipeLevelTable.difficulty,
+      quality: recipe.value.recipeLevelTable.quality,
+      durability: recipe.value.recipeLevelTable.durability,
+      progressDivider: recipe.value.recipeLevelTable.progressDivider,
+      qualityDivider: recipe.value.recipeLevelTable.qualityDivider,
+      progressModifier: recipe.value.recipeLevelTable.progressModifier,
+      qualityModifier: recipe.value.recipeLevelTable.qualityModifier,
+    },
+    crafterLevel: gearset.value.level,
+    initialQuality: 0,
+  }
+})
+
+const currentState = computed(() => {
+  if (!craftParams.value) return null
+  const initial = createInitialState(craftParams.value)
+  if (simStore.simulationResults.length > 0) {
+    return simStore.simulationResults[simStore.simulationResults.length - 1].state
+  }
+  return initial
+})
+
+const crafterLevel = computed(() => gearset.value?.level ?? 90)
+
+// Re-run simulation whenever actions change
+watch(
+  () => [...simStore.actions],
+  (actions) => {
+    if (!craftParams.value) {
+      simStore.setSimulationResults([])
+      return
+    }
+    const initial = createInitialState(craftParams.value)
+    const results = simulateAll(craftParams.value, initial, actions)
+    simStore.setSimulationResults(results)
+  },
+  { immediate: true },
+)
+
+// Also re-run when params change (recipe/gearset switch)
+watch(craftParams, () => {
+  if (!craftParams.value) {
+    simStore.setSimulationResults([])
+    return
+  }
+  const initial = createInitialState(craftParams.value)
+  const results = simulateAll(craftParams.value, initial, simStore.actions)
+  simStore.setSimulationResults(results)
+})
+
+function handleUseSkill(skillId: string) {
+  simStore.addAction(skillId)
+}
+
+function handleRemoveAction(index: number) {
+  simStore.removeAction(index)
+}
+
+function handleClearActions() {
+  simStore.clearActions()
+}
 </script>
 
 <template>
   <div class="view-container">
     <h2>製作模擬</h2>
-    <p>模擬製作過程並測試技能序列。</p>
+
+    <!-- Recipe / Gearset Info -->
+    <div class="info-section">
+      <el-alert
+        v-if="!recipe"
+        title="尚未選擇配方"
+        type="warning"
+        :closable="false"
+        show-icon
+      >
+        <el-link type="primary" @click="router.push('/recipe')">前往配方頁面選擇配方</el-link>
+      </el-alert>
+
+      <el-alert
+        v-if="!gearset"
+        title="尚未選擇裝備組"
+        type="warning"
+        :closable="false"
+        show-icon
+        style="margin-top: 8px"
+      >
+        <el-link type="primary" @click="router.push('/')">前往裝備頁面設定裝備組</el-link>
+      </el-alert>
+
+      <el-descriptions
+        v-if="recipe && gearset"
+        :column="2"
+        border
+        size="small"
+        class="info-desc"
+      >
+        <el-descriptions-item label="配方">
+          {{ recipe.name }} (Lv.{{ recipe.level }}<template v-if="recipe.stars > 0"> {{ '★'.repeat(recipe.stars) }}</template>)
+        </el-descriptions-item>
+        <el-descriptions-item label="裝備組">
+          {{ gearset.name }} (Lv.{{ gearset.level }})
+        </el-descriptions-item>
+        <el-descriptions-item label="作業精度">{{ gearset.craftsmanship }}</el-descriptions-item>
+        <el-descriptions-item label="加工精度">{{ gearset.control }}</el-descriptions-item>
+        <el-descriptions-item label="CP">{{ gearset.cp }}</el-descriptions-item>
+        <el-descriptions-item label="難度 / 品質 / 耐久">
+          {{ recipe.recipeLevelTable.difficulty }} / {{ recipe.recipeLevelTable.quality }} / {{ recipe.recipeLevelTable.durability }}
+        </el-descriptions-item>
+      </el-descriptions>
+    </div>
+
+    <!-- Main Tabs -->
+    <el-tabs type="border-card" class="main-tabs">
+      <el-tab-pane label="模擬">
+        <template v-if="canSimulate">
+          <el-card shadow="never" class="sim-section">
+            <template #header>
+              <span>製作狀態</span>
+            </template>
+            <StatusBar :craft-state="currentState" />
+            <el-divider style="margin: 8px 0" />
+            <BuffDisplay :buffs="currentState?.buffs ?? new Map()" />
+          </el-card>
+
+          <el-card shadow="never" class="sim-section">
+            <template #header>
+              <span>技能序列</span>
+            </template>
+            <ActionList
+              :actions="simStore.actions"
+              :results="simStore.simulationResults"
+              @remove="handleRemoveAction"
+              @clear="handleClearActions"
+            />
+          </el-card>
+
+          <el-card shadow="never" class="sim-section">
+            <template #header>
+              <span>技能面板</span>
+            </template>
+            <SkillPanel
+              :level="crafterLevel"
+              :craft-state="currentState"
+              @use-skill="handleUseSkill"
+            />
+          </el-card>
+        </template>
+
+        <el-empty v-else description="請先選擇配方與裝備組" />
+      </el-tab-pane>
+
+      <el-tab-pane label="初期品質">
+        <div class="placeholder-tab">
+          <el-text type="info" size="large">初期品質計算 (開發中)</el-text>
+        </div>
+      </el-tab-pane>
+
+      <el-tab-pane label="食藥">
+        <div class="placeholder-tab">
+          <el-text type="info" size="large">食藥選擇 (開發中)</el-text>
+        </div>
+      </el-tab-pane>
+
+      <el-tab-pane label="求解">
+        <div class="placeholder-tab">
+          <el-text type="info" size="large">求解器 (開發中)</el-text>
+        </div>
+      </el-tab-pane>
+    </el-tabs>
   </div>
 </template>
 
 <style scoped>
 .view-container {
   padding: 20px;
+}
+
+.info-section {
+  margin-bottom: 16px;
+}
+
+.info-desc {
+  margin-top: 12px;
+}
+
+.main-tabs {
+  margin-top: 12px;
+}
+
+.sim-section {
+  margin-bottom: 12px;
+}
+
+.placeholder-tab {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 60px 0;
 }
 </style>
