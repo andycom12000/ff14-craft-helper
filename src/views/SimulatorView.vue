@@ -9,6 +9,8 @@ import StatusBar from '@/components/simulator/StatusBar.vue'
 import BuffDisplay from '@/components/simulator/BuffDisplay.vue'
 import SkillPanel from '@/components/simulator/SkillPanel.vue'
 import ActionList from '@/components/simulator/ActionList.vue'
+import MacroExport from '@/components/simulator/MacroExport.vue'
+import SolverPanel from '@/components/simulator/SolverPanel.vue'
 
 const router = useRouter()
 const recipeStore = useRecipeStore()
@@ -194,9 +196,11 @@ function handleClearActions() {
       </el-tab-pane>
 
       <el-tab-pane label="求解">
-        <div class="placeholder-tab">
-          <el-text type="info" size="large">求解器 (開發中)</el-text>
-        </div>
+        <SolverPanel />
+      </el-tab-pane>
+
+      <el-tab-pane label="匯出">
+        <MacroExport />
       </el-tab-pane>
     </el-tabs>
   </div>
