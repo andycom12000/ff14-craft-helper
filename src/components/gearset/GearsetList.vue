@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Edit, Delete, Check, Plus } from '@element-plus/icons-vue'
 import type { Gearset } from '@/stores/gearsets'
+import { JOB_NAMES } from '@/utils/jobs'
 
 const props = defineProps<{
   gearsets: Gearset[]
@@ -35,7 +36,11 @@ function getRowClassName({ row }: { row: Gearset }): string {
       style="width: 100%"
     >
       <el-table-column prop="name" label="名稱" min-width="120" />
-      <el-table-column prop="job" label="職業" width="80" align="center" />
+      <el-table-column prop="job" label="職業" width="100" align="center">
+        <template #default="{ row }">
+          {{ JOB_NAMES[row.job] ?? row.job }}
+        </template>
+      </el-table-column>
       <el-table-column prop="level" label="等級" width="70" align="center" />
       <el-table-column prop="craftsmanship" label="作業精度" width="100" align="center" />
       <el-table-column prop="control" label="加工精度" width="100" align="center" />

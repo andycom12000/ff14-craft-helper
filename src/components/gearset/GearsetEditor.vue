@@ -2,6 +2,7 @@
 import { ref, watch, computed } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import type { Gearset } from '@/stores/gearsets'
+import { JOB_NAMES } from '@/utils/jobs'
 
 const props = defineProps<{
   visible: boolean
@@ -13,7 +14,7 @@ const emit = defineEmits<{
   save: [data: Omit<Gearset, 'id' | 'createdAt'>]
 }>()
 
-const CRAFTING_JOBS = ['CRP', 'BSM', 'ARM', 'GSM', 'LTW', 'WVR', 'ALC', 'CUL'] as const
+const CRAFTING_JOBS = Object.entries(JOB_NAMES).map(([value, label]) => ({ value, label }))
 
 const formRef = ref<FormInstance>()
 
@@ -111,9 +112,9 @@ function handleClose() {
         <el-select v-model="form.job" placeholder="選擇製作職業" style="width: 100%">
           <el-option
             v-for="job in CRAFTING_JOBS"
-            :key="job"
-            :label="job"
-            :value="job"
+            :key="job.value"
+            :label="job.label"
+            :value="job.value"
           />
         </el-select>
       </el-form-item>
