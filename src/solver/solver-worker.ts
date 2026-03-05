@@ -111,7 +111,7 @@ function mockSolve(config: SolverConfig): SolverResult {
   }
 
   // Estimate rough progress/quality (not accurate, just for display)
-  const estimatedProgress = Math.min(config.progress, config.progress)
+  const estimatedProgress = config.progress
   const estimatedQuality = config.hq_target
     ? Math.min(config.quality, Math.floor(config.quality * 0.85))
     : 0

@@ -71,100 +71,50 @@ export function createInitialState(params: CraftParams): CraftState {
   }
 }
 
-function getProgressEfficiency(action: string): number {
-  const map: Record<string, number> = {
-    BasicSynthesis: 120,
-    CarefulSynthesis: 180,
-    RapidSynthesis: 500,
-    Groundwork: 360,
-    IntensiveSynthesis: 400,
-    PrudentSynthesis: 180,
-    MuscleMemory: 300,
-    FocusedSynthesis: 200,
-    Veneration: 0,
-  }
-  return map[action] ?? 0
+const PROGRESS_EFFICIENCY: Record<string, number> = {
+  BasicSynthesis: 120, CarefulSynthesis: 180, RapidSynthesis: 500,
+  Groundwork: 360, IntensiveSynthesis: 400, PrudentSynthesis: 180,
+  MuscleMemory: 300, FocusedSynthesis: 200, Veneration: 0,
 }
 
-function getQualityEfficiency(action: string): number {
-  const map: Record<string, number> = {
-    BasicTouch: 100,
-    StandardTouch: 125,
-    AdvancedTouch: 150,
-    PreciseTouch: 150,
-    PrudentTouch: 100,
-    PreparatoryTouch: 200,
-    HastyTouch: 100,
-    FocusedTouch: 150,
-    TrainedFinesse: 100,
-    ByregotsBlessing: 100,
-    Reflect: 300,
-    TrainedEye: 0,
-  }
-  return map[action] ?? 0
+const QUALITY_EFFICIENCY: Record<string, number> = {
+  BasicTouch: 100, StandardTouch: 125, AdvancedTouch: 150,
+  PreciseTouch: 150, PrudentTouch: 100, PreparatoryTouch: 200,
+  HastyTouch: 100, FocusedTouch: 150, TrainedFinesse: 100,
+  ByregotsBlessing: 100, Reflect: 300, TrainedEye: 0,
 }
 
-function getCpCost(action: string): number {
-  const map: Record<string, number> = {
-    BasicSynthesis: 0,
-    CarefulSynthesis: 7,
-    RapidSynthesis: 0,
-    Groundwork: 18,
-    IntensiveSynthesis: 6,
-    PrudentSynthesis: 18,
-    MuscleMemory: 6,
-    FocusedSynthesis: 5,
-    BasicTouch: 18,
-    StandardTouch: 32,
-    AdvancedTouch: 46,
-    PreciseTouch: 18,
-    PrudentTouch: 25,
-    PreparatoryTouch: 40,
-    HastyTouch: 0,
-    FocusedTouch: 18,
-    TrainedFinesse: 32,
-    ByregotsBlessing: 24,
-    Reflect: 6,
-    TrainedEye: 250,
-    Observe: 7,
-    WasteNot: 56,
-    WasteNotII: 98,
-    Veneration: 18,
-    Innovation: 18,
-    GreatStrides: 32,
-    MastersMend: 88,
-    Manipulation: 96,
-    Immovable: 0,
-    FinalAppraisal: 1,
-    TricksOfTheTrade: 0,
-    DelicateSynthesis: 32,
-  }
-  return map[action] ?? 0
+const CP_COST: Record<string, number> = {
+  BasicSynthesis: 0, CarefulSynthesis: 7, RapidSynthesis: 0,
+  Groundwork: 18, IntensiveSynthesis: 6, PrudentSynthesis: 18,
+  MuscleMemory: 6, FocusedSynthesis: 5, BasicTouch: 18,
+  StandardTouch: 32, AdvancedTouch: 46, PreciseTouch: 18,
+  PrudentTouch: 25, PreparatoryTouch: 40, HastyTouch: 0,
+  FocusedTouch: 18, TrainedFinesse: 32, ByregotsBlessing: 24,
+  Reflect: 6, TrainedEye: 250, Observe: 7, WasteNot: 56,
+  WasteNotII: 98, Veneration: 18, Innovation: 18, GreatStrides: 32,
+  MastersMend: 88, Manipulation: 96, Immovable: 0,
+  FinalAppraisal: 1, TricksOfTheTrade: 0, DelicateSynthesis: 32,
 }
 
-function getDurabilityCost(action: string): number {
-  const map: Record<string, number> = {
-    PrudentSynthesis: 5,
-    PrudentTouch: 5,
-    PreparatoryTouch: 20,
-    Groundwork: 20,
-    TrainedFinesse: 0,
-    Observe: 0,
-    WasteNot: 0,
-    WasteNotII: 0,
-    Veneration: 0,
-    Innovation: 0,
-    GreatStrides: 0,
-    MastersMend: 0,
-    Manipulation: 0,
-    FinalAppraisal: 0,
-    TricksOfTheTrade: 0,
-    MuscleMemory: 10,
-    Reflect: 10,
-    TrainedEye: 10,
-  }
-  return map[action] ?? 10
+const DURABILITY_COST: Record<string, number> = {
+  PrudentSynthesis: 5, PrudentTouch: 5, PreparatoryTouch: 20,
+  Groundwork: 20, TrainedFinesse: 0, Observe: 0,
+  WasteNot: 0, WasteNotII: 0, Veneration: 0, Innovation: 0,
+  GreatStrides: 0, MastersMend: 0, Manipulation: 0,
+  FinalAppraisal: 0, TricksOfTheTrade: 0,
+  MuscleMemory: 10, Reflect: 10, TrainedEye: 10,
 }
+
+const BUFF_ACTIONS = new Set([
+  'WasteNot', 'WasteNotII', 'Veneration', 'Innovation',
+  'GreatStrides', 'Manipulation', 'FinalAppraisal',
+])
+
+function getProgressEfficiency(action: string): number { return PROGRESS_EFFICIENCY[action] ?? 0 }
+function getQualityEfficiency(action: string): number { return QUALITY_EFFICIENCY[action] ?? 0 }
+function getCpCost(action: string): number { return CP_COST[action] ?? 0 }
+function getDurabilityCost(action: string): number { return DURABILITY_COST[action] ?? 10 }
 
 function isProgressAction(action: string): boolean {
   return getProgressEfficiency(action) > 0
@@ -175,7 +125,7 @@ function isQualityAction(action: string): boolean {
 }
 
 function isBuff(action: string): boolean {
-  return ['WasteNot', 'WasteNotII', 'Veneration', 'Innovation', 'GreatStrides', 'Manipulation', 'FinalAppraisal'].includes(action)
+  return BUFF_ACTIONS.has(action)
 }
 
 function calculateProgressIncrease(

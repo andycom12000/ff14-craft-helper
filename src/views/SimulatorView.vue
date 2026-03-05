@@ -55,23 +55,7 @@ const currentState = computed(() => {
 
 const crafterLevel = computed(() => gearset.value?.level ?? 90)
 
-// Re-run simulation whenever actions change
-watch(
-  () => [...simStore.actions],
-  (actions) => {
-    if (!craftParams.value) {
-      simStore.setSimulationResults([])
-      return
-    }
-    const initial = createInitialState(craftParams.value)
-    const results = simulateAll(craftParams.value, initial, actions)
-    simStore.setSimulationResults(results)
-  },
-  { immediate: true },
-)
-
-// Also re-run when params change (recipe/gearset switch)
-watch(craftParams, () => {
+function runSimulation() {
   if (!craftParams.value) {
     simStore.setSimulationResults([])
     return
@@ -79,7 +63,9 @@ watch(craftParams, () => {
   const initial = createInitialState(craftParams.value)
   const results = simulateAll(craftParams.value, initial, simStore.actions)
   simStore.setSimulationResults(results)
-})
+}
+
+watch(() => [craftParams.value, ...simStore.actions], runSimulation, { immediate: true })
 
 function handleUseSkill(skillId: string) {
   simStore.addAction(skillId)

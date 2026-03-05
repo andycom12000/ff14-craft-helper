@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onUnmounted } from 'vue'
 import { Search } from '@element-plus/icons-vue'
 import { searchRecipes, type RecipeSearchResult } from '@/api/xivapi'
 
@@ -35,6 +35,8 @@ watch(query, (value) => {
     }
   }, 500)
 })
+
+onUnmounted(() => { if (debounceTimer) clearTimeout(debounceTimer) })
 
 function handleRowClick(row: RecipeSearchResult) {
   emit('select', row.id)

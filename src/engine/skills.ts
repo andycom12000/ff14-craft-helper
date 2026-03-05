@@ -52,8 +52,10 @@ export const SKILLS: SkillDefinition[] = [
   { id: 'TricksOfTheTrade', name: 'Tricks of the Trade', nameZh: '秘诀', category: 'other', level: 13, cp: 0, durability: 0, description: '恢復 20 CP（高品質限定）' },
 ]
 
+const SKILL_MAP = new Map<string, SkillDefinition>(SKILLS.map(s => [s.id, s]))
+
 export function getSkillById(id: string): SkillDefinition | undefined {
-  return SKILLS.find(s => s.id === id)
+  return SKILL_MAP.get(id)
 }
 
 export function getSkillsByLevel(level: number): SkillDefinition[] {

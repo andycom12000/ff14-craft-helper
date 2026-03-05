@@ -6,6 +6,7 @@ import { useGearsetsStore } from '@/stores/gearsets'
 import { useSimulatorStore } from '@/stores/simulator'
 import { solveCraft, cancelSolve, disposeWorker } from '@/solver/worker'
 import type { SolverConfig, SolverResult, SolverStatus } from '@/solver/raphael'
+import { getSkillById } from '@/engine/skills'
 
 const recipeStore = useRecipeStore()
 const gearsetsStore = useGearsetsStore()
@@ -20,42 +21,8 @@ const progress = ref(0)
 const solverResult = ref<SolverResult | null>(null)
 const errorMessage = ref('')
 
-const actionNameMap: Record<string, string> = {
-  BasicSynthesis: '製作',
-  CarefulSynthesis: '模範製作',
-  RapidSynthesis: '高速製作',
-  Groundwork: '坯料製作',
-  IntensiveSynthesis: '集中製作',
-  PrudentSynthesis: '儉約製作',
-  MuscleMemory: '堅信',
-  FocusedSynthesis: '注視製作',
-  BasicTouch: '加工',
-  StandardTouch: '中級加工',
-  AdvancedTouch: '上級加工',
-  PreciseTouch: '集中加工',
-  PrudentTouch: '儉約加工',
-  PreparatoryTouch: '坯料加工',
-  HastyTouch: '倉促加工',
-  FocusedTouch: '注視加工',
-  TrainedFinesse: '工匠的神技',
-  ByregotsBlessing: '比爾格的祝福',
-  Reflect: '閒靜',
-  TrainedEye: '工匠的神速技',
-  Observe: '觀察',
-  WasteNot: '儉約',
-  WasteNotII: '長期儉約',
-  Veneration: '崇敬',
-  Innovation: '改革',
-  GreatStrides: '闊步',
-  MastersMend: '精修',
-  Manipulation: '掌握',
-  FinalAppraisal: '最終確認',
-  TricksOfTheTrade: '秘訣',
-  DelicateSynthesis: '精密製作',
-}
-
 function getActionLabel(action: string): string {
-  return actionNameMap[action] ?? action
+  return getSkillById(action)?.nameZh ?? action
 }
 
 function buildConfig(): SolverConfig | null {

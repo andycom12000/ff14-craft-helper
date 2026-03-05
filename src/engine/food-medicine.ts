@@ -95,37 +95,20 @@ function applyBonus(base: number, bonus: StatBonus | undefined): number {
   return base + Math.min(increase, bonus.max)
 }
 
-/**
- * Apply a food buff to crafter stats.
- * If food is null, returns stats unchanged.
- */
-export function applyFoodBuff(
+export function applyBuff(
   stats: EnhancedStats,
-  food: FoodBuff | null,
+  buff: FoodBuff | null,
 ): EnhancedStats {
-  if (!food) return { ...stats }
+  if (!buff) return { ...stats }
   return {
-    craftsmanship: applyBonus(stats.craftsmanship, food.craftsmanship),
-    control: applyBonus(stats.control, food.control),
-    cp: applyBonus(stats.cp, food.cp),
+    craftsmanship: applyBonus(stats.craftsmanship, buff.craftsmanship),
+    control: applyBonus(stats.control, buff.control),
+    cp: applyBonus(stats.cp, buff.cp),
   }
 }
 
-/**
- * Apply a medicine buff to crafter stats.
- * If medicine is null, returns stats unchanged.
- */
-export function applyMedicineBuff(
-  stats: EnhancedStats,
-  medicine: FoodBuff | null,
-): EnhancedStats {
-  if (!medicine) return { ...stats }
-  return {
-    craftsmanship: applyBonus(stats.craftsmanship, medicine.craftsmanship),
-    control: applyBonus(stats.control, medicine.control),
-    cp: applyBonus(stats.cp, medicine.cp),
-  }
-}
+export const applyFoodBuff = applyBuff
+export const applyMedicineBuff = applyBuff
 
 /**
  * Scale a FoodBuff for HQ (doubles percent and max values).
