@@ -1,44 +1,24 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { Plus } from '@element-plus/icons-vue'
+import { computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { useGearsetsStore, type Gearset } from '@/stores/gearsets'
-import GearsetList from '@/components/gearset/GearsetList.vue'
-import GearsetEditor from '@/components/gearset/GearsetEditor.vue'
+import { useGearsetsStore } from '@/stores/gearsets'
+import { JOB_NAMES } from '@/utils/jobs'
 
 const store = useGearsetsStore()
 
-const editorVisible = ref(false)
-const editingGearset = ref<Gearset | null>(null)
+const jobs = Object.keys(JOB_NAMES)
 
-function handleAdd() {
-  editingGearset.value = null
-  editorVisible.value = true
+const tableData = computed(() =>
+  jobs.map(job => ({ job, ...store.gearsets[job] }))
+)
+
+function getRowClassName({ row }: { row: { job: string } }): string {
+  return row.job === store.activeJob ? 'active-row' : ''
 }
 
-function handleEdit(gearset: Gearset) {
-  editingGearset.value = gearset
-  editorVisible.value = true
-}
-
-function handleDelete(id: string) {
-  store.removeGearset(id)
-  ElMessage.success('已刪除配裝')
-}
-
-function handleSetActive(id: string) {
-  store.setActive(id)
-  ElMessage.success('已切換啟用配裝')
-}
-
-function handleSave(data: Omit<Gearset, 'id' | 'createdAt'>) {
-  if (editingGearset.value) {
-    store.updateGearset(editingGearset.value.id, data)
-    ElMessage.success('已更新配裝')
-  } else {
-    store.addGearset(data)
-    ElMessage.success('已新增配裝')
-  }
+function handleSetActive(job: string) {
+  store.setActive(job)
+  ElMessage.success(`已切換啟用職業：${JOB_NAMES[job]}`)
 }
 </script>
 
@@ -46,29 +26,69 @@ function handleSave(data: Omit<Gearset, 'id' | 'createdAt'>) {
   <div class="view-container">
     <h2>配裝管理</h2>
 
-    <template v-if="store.gearsets.length > 0">
-      <GearsetList
-        :gearsets="store.gearsets"
-        :active-gearset-id="store.activeGearsetId"
-        @add="handleAdd"
-        @edit="handleEdit"
-        @delete="handleDelete"
-        @set-active="handleSetActive"
-      />
-    </template>
+    <el-table :data="tableData" stripe style="width: 100%"
+      :row-class-name="getRowClassName">
+      <el-table-column label="職業" width="120" align="center">
+        <template #default="{ row }">
+          <span :class="{ 'active-job': row.job === store.activeJob }">
+            {{ JOB_NAMES[row.job] }}
+          </span>
+        </template>
+      </el-table-column>
 
-    <el-empty v-else description="尚未建立任何配裝">
-      <el-button type="primary" :icon="Plus" @click="handleAdd">
-        建立第一組配裝
-      </el-button>
-    </el-empty>
+      <el-table-column label="等級" width="130" align="center">
+        <template #default="{ row }">
+          <el-input-number
+            :model-value="row.level"
+            @update:model-value="(v: number) => store.updateGearset(row.job, { level: v })"
+            :min="1" :max="100" size="small" controls-position="right"
+          />
+        </template>
+      </el-table-column>
 
-    <GearsetEditor
-      :visible="editorVisible"
-      :gearset="editingGearset"
-      @update:visible="editorVisible = $event"
-      @save="handleSave"
-    />
+      <el-table-column label="作業精度" width="160" align="center">
+        <template #default="{ row }">
+          <el-input-number
+            :model-value="row.craftsmanship"
+            @update:model-value="(v: number) => store.updateGearset(row.job, { craftsmanship: v })"
+            :min="0" :max="9999" size="small" controls-position="right"
+          />
+        </template>
+      </el-table-column>
+
+      <el-table-column label="加工精度" width="160" align="center">
+        <template #default="{ row }">
+          <el-input-number
+            :model-value="row.control"
+            @update:model-value="(v: number) => store.updateGearset(row.job, { control: v })"
+            :min="0" :max="9999" size="small" controls-position="right"
+          />
+        </template>
+      </el-table-column>
+
+      <el-table-column label="CP" width="140" align="center">
+        <template #default="{ row }">
+          <el-input-number
+            :model-value="row.cp"
+            @update:model-value="(v: number) => store.updateGearset(row.job, { cp: v })"
+            :min="0" :max="9999" size="small" controls-position="right"
+          />
+        </template>
+      </el-table-column>
+
+      <el-table-column label="" min-width="100" align="center">
+        <template #default="{ row }">
+          <el-button
+            size="small"
+            :type="row.job === store.activeJob ? 'success' : 'default'"
+            @click="handleSetActive(row.job)"
+            :disabled="row.job === store.activeJob"
+          >
+            {{ row.job === store.activeJob ? '使用中' : '啟用' }}
+          </el-button>
+        </template>
+      </el-table-column>
+    </el-table>
   </div>
 </template>
 
@@ -80,5 +100,14 @@ function handleSave(data: Omit<Gearset, 'id' | 'createdAt'>) {
 .view-container h2 {
   margin-top: 0;
   margin-bottom: 20px;
+}
+
+.active-job {
+  font-weight: bold;
+  color: var(--el-color-primary);
+}
+
+:deep(.active-row) {
+  --el-table-tr-bg-color: rgba(64, 158, 255, 0.08);
 }
 </style>

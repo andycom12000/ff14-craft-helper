@@ -3,6 +3,7 @@ import { ref, computed, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRecipeStore } from '@/stores/recipe'
 import { useGearsetsStore } from '@/stores/gearsets'
+import { JOB_NAMES } from '@/utils/jobs'
 import { useSimulatorStore } from '@/stores/simulator'
 import { solveCraft, cancelSolve, disposeWorker } from '@/solver/worker'
 import type { SolverConfig, SolverResult, SolverStatus } from '@/solver/raphael'
@@ -104,8 +105,8 @@ onUnmounted(() => {
           {{ recipe!.name }}
           (Lv.{{ recipe!.level }}<template v-if="recipe!.stars > 0"> {{ '\u2605'.repeat(recipe!.stars) }}</template>)
         </el-descriptions-item>
-        <el-descriptions-item label="裝備組">
-          {{ gearset!.name }} (Lv.{{ gearset!.level }})
+        <el-descriptions-item label="職業 / 等級">
+          {{ JOB_NAMES[gearset!.job] ?? gearset!.job }} Lv.{{ gearset!.level }}
         </el-descriptions-item>
         <el-descriptions-item label="作業精度">{{ gearset!.craftsmanship }}</el-descriptions-item>
         <el-descriptions-item label="加工精度">{{ gearset!.control }}</el-descriptions-item>

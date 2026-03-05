@@ -84,8 +84,8 @@ function statDiff(base: number, enhanced: number): string {
   <div class="food-medicine">
     <el-alert
       v-if="!gearset"
-      title="尚未選擇配裝"
-      description="請先在配裝管理中新增並選擇一組配裝。"
+      title="尚未設定配裝"
+      description="請先在配裝管理中設定職業配裝數值。"
       type="warning"
       :closable="false"
       show-icon

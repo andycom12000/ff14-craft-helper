@@ -1,57 +1,60 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { JOB_NAMES } from '@/utils/jobs'
 
-export interface Gearset {
-  id: string
-  name: string
-  job: string
+export interface GearsetStats {
   level: number
   craftsmanship: number
   control: number
   cp: number
-  createdAt: number
+}
+
+export type GearsetMap = Record<string, GearsetStats>
+
+const DEFAULT_GEARSET_STATS: GearsetStats = { level: 100, craftsmanship: 0, control: 0, cp: 0 }
+
+function createDefaultGearsets(): GearsetMap {
+  const map: GearsetMap = {}
+  for (const job of Object.keys(JOB_NAMES)) {
+    map[job] = { ...DEFAULT_GEARSET_STATS }
+  }
+  return map
 }
 
 export const useGearsetsStore = defineStore('gearsets', () => {
-  const gearsets = ref<Gearset[]>([])
-  const activeGearsetId = ref<string | null>(null)
+  const gearsets = ref<GearsetMap>(createDefaultGearsets())
+  const activeJob = ref<string>(Object.keys(JOB_NAMES)[0])
 
-  const activeGearset = computed(() =>
-    gearsets.value.find(g => g.id === activeGearsetId.value) ?? null
-  )
+  const activeGearset = computed(() => {
+    const stats = gearsets.value[activeJob.value]
+    if (!stats) return null
+    return { job: activeJob.value, ...stats }
+  })
 
-  function addGearset(gearset: Omit<Gearset, 'id' | 'createdAt'>) {
-    const newGearset: Gearset = {
-      ...gearset,
-      id: crypto.randomUUID(),
-      createdAt: Date.now(),
-    }
-    gearsets.value.push(newGearset)
-    if (!activeGearsetId.value) {
-      activeGearsetId.value = newGearset.id
-    }
-    return newGearset
-  }
-
-  function updateGearset(id: string, updates: Partial<Omit<Gearset, 'id' | 'createdAt'>>) {
-    const index = gearsets.value.findIndex(g => g.id === id)
-    if (index !== -1) {
-      gearsets.value[index] = { ...gearsets.value[index], ...updates }
+  function updateGearset(job: string, updates: Partial<GearsetStats>) {
+    if (gearsets.value[job]) {
+      gearsets.value[job] = { ...gearsets.value[job], ...updates }
     }
   }
 
-  function removeGearset(id: string) {
-    gearsets.value = gearsets.value.filter(g => g.id !== id)
-    if (activeGearsetId.value === id) {
-      activeGearsetId.value = gearsets.value[0]?.id ?? null
+  function setActive(job: string) {
+    if (gearsets.value[job]) {
+      activeJob.value = job
     }
   }
 
-  function setActive(id: string) {
-    activeGearsetId.value = id
+  // Ensure all jobs exist (handles migration from old data)
+  function ensureAllJobs() {
+    for (const job of Object.keys(JOB_NAMES)) {
+      if (!gearsets.value[job]) {
+        gearsets.value[job] = { ...DEFAULT_GEARSET_STATS }
+      }
+    }
   }
 
-  return { gearsets, activeGearsetId, activeGearset, addGearset, updateGearset, removeGearset, setActive }
+  ensureAllJobs()
+
+  return { gearsets, activeJob, activeGearset, updateGearset, setActive }
 }, {
   persist: true,
 })

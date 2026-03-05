@@ -3,6 +3,7 @@ import { computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRecipeStore } from '@/stores/recipe'
 import { useGearsetsStore } from '@/stores/gearsets'
+import { JOB_NAMES } from '@/utils/jobs'
 import { useSimulatorStore } from '@/stores/simulator'
 import { simulateAll, createInitialState, type CraftParams } from '@/engine/simulator'
 import StatusBar from '@/components/simulator/StatusBar.vue'
@@ -97,14 +98,14 @@ function handleClearActions() {
       </el-alert>
 
       <el-alert
-        v-if="!gearset"
-        title="尚未選擇裝備組"
+        v-if="!gearset || (gearset.craftsmanship === 0 && gearset.control === 0)"
+        title="尚未設定裝備數值"
         type="warning"
         :closable="false"
         show-icon
         style="margin-top: 8px"
       >
-        <el-link type="primary" @click="router.push('/')">前往裝備頁面設定裝備組</el-link>
+        <el-link type="primary" @click="router.push('/')">前往裝備頁面設定配裝</el-link>
       </el-alert>
 
       <el-descriptions
@@ -117,8 +118,8 @@ function handleClearActions() {
         <el-descriptions-item label="配方">
           {{ recipe.name }} (Lv.{{ recipe.level }}<template v-if="recipe.stars > 0"> {{ '★'.repeat(recipe.stars) }}</template>)
         </el-descriptions-item>
-        <el-descriptions-item label="裝備組">
-          {{ gearset.name }} (Lv.{{ gearset.level }})
+        <el-descriptions-item label="職業 / 等級">
+          {{ JOB_NAMES[gearset.job] ?? gearset.job }} Lv.{{ gearset.level }}
         </el-descriptions-item>
         <el-descriptions-item label="作業精度">{{ gearset.craftsmanship }}</el-descriptions-item>
         <el-descriptions-item label="加工精度">{{ gearset.control }}</el-descriptions-item>
