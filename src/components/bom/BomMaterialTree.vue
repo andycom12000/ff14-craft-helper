@@ -8,24 +8,6 @@ defineProps<{
 const emit = defineEmits<{
   'simulate-recipe': [recipeId: number]
 }>()
-
-interface TreeData {
-  label: string
-  icon: string
-  amount: number
-  recipeId?: number
-  children?: TreeData[]
-}
-
-function toTreeData(nodes: MaterialNode[]): TreeData[] {
-  return nodes.map((node) => ({
-    label: node.name,
-    icon: node.icon,
-    amount: node.amount,
-    recipeId: node.recipeId,
-    children: node.children ? toTreeData(node.children) : undefined,
-  }))
-}
 </script>
 
 <template>
@@ -38,15 +20,15 @@ function toTreeData(nodes: MaterialNode[]): TreeData[] {
 
     <el-tree
       v-else
-      :data="toTreeData(tree)"
-      :props="{ label: 'label', children: 'children' }"
+      :data="tree"
+      :props="{ label: 'name', children: 'children' }"
       default-expand-all
       :expand-on-click-node="false"
     >
       <template #default="{ data }">
         <div class="tree-node">
-          <img :src="data.icon" :alt="data.label" class="node-icon" />
-          <span class="node-name">{{ data.label }}</span>
+          <img :src="data.icon" :alt="data.name" class="node-icon" />
+          <span class="node-name">{{ data.name }}</span>
           <el-tag size="small" type="info" class="node-amount">
             x{{ data.amount }}
           </el-tag>

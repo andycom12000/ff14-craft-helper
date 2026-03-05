@@ -32,21 +32,19 @@ export interface World {
   name: string
 }
 
-export async function getMarketData(
+async function fetchUniversalis<T>(path: string): Promise<T> {
+  const response = await fetch(`${BASE_URL}/${path}`)
+  if (!response.ok) {
+    throw new Error(`Universalis request failed: ${response.status} ${response.statusText}`)
+  }
+  return response.json()
+}
+
+export function getMarketData(
   server: string,
   itemId: number
 ): Promise<MarketData> {
-  try {
-    const url = `${BASE_URL}/${encodeURIComponent(server)}/${itemId}`
-    const response = await fetch(url)
-    if (!response.ok) {
-      throw new Error(`Universalis request failed: ${response.status} ${response.statusText}`)
-    }
-    return await response.json()
-  } catch (error) {
-    console.error('[Universalis] getMarketData error:', error)
-    throw error
-  }
+  return fetchUniversalis(`${encodeURIComponent(server)}/${itemId}`)
 }
 
 export async function getAggregatedPrices(
@@ -55,66 +53,39 @@ export async function getAggregatedPrices(
 ): Promise<Map<number, MarketData>> {
   const result = new Map<number, MarketData>()
 
-  try {
-    // Universalis supports max 100 items per request
-    const chunks: number[][] = []
-    for (let i = 0; i < itemIds.length; i += 100) {
-      chunks.push(itemIds.slice(i, i + 100))
-    }
+  // Universalis supports max 100 items per request
+  const chunks: number[][] = []
+  for (let i = 0; i < itemIds.length; i += 100) {
+    chunks.push(itemIds.slice(i, i + 100))
+  }
 
-    for (const chunk of chunks) {
-      const ids = chunk.join(',')
-      const url = `${BASE_URL}/${encodeURIComponent(server)}/${ids}`
-      const response = await fetch(url)
-      if (!response.ok) {
-        throw new Error(`Universalis request failed: ${response.status} ${response.statusText}`)
-      }
+  // Fetch all chunks in parallel
+  const chunkResults = await Promise.all(chunks.map(async (chunk) => {
+    const ids = chunk.join(',')
+    const data = await fetchUniversalis<MarketData | { items: Record<string, MarketData> }>(
+      `${encodeURIComponent(server)}/${ids}`,
+    )
+    return { chunk, data }
+  }))
 
-      const data = await response.json()
-
-      if (chunk.length === 1) {
-        // Single item returns MarketData directly
-        result.set(chunk[0], data)
-      } else {
-        // Multiple items returns { items: { [itemId]: MarketData } }
-        const items = data.items as Record<string, MarketData>
-        for (const [id, marketData] of Object.entries(items)) {
-          result.set(Number(id), marketData)
-        }
+  for (const { chunk, data } of chunkResults) {
+    if (chunk.length === 1) {
+      result.set(chunk[0], data as MarketData)
+    } else {
+      const items = (data as { items: Record<string, MarketData> }).items
+      for (const [id, marketData] of Object.entries(items)) {
+        result.set(Number(id), marketData)
       }
     }
-
-    return result
-  } catch (error) {
-    console.error('[Universalis] getAggregatedPrices error:', error)
-    throw error
   }
+
+  return result
 }
 
-export async function getDataCenters(): Promise<DataCenter[]> {
-  try {
-    const url = `${BASE_URL}/data-centers`
-    const response = await fetch(url)
-    if (!response.ok) {
-      throw new Error(`Universalis request failed: ${response.status} ${response.statusText}`)
-    }
-    return await response.json()
-  } catch (error) {
-    console.error('[Universalis] getDataCenters error:', error)
-    throw error
-  }
+export function getDataCenters(): Promise<DataCenter[]> {
+  return fetchUniversalis('data-centers')
 }
 
-export async function getWorlds(): Promise<World[]> {
-  try {
-    const url = `${BASE_URL}/worlds`
-    const response = await fetch(url)
-    if (!response.ok) {
-      throw new Error(`Universalis request failed: ${response.status} ${response.statusText}`)
-    }
-    return await response.json()
-  } catch (error) {
-    console.error('[Universalis] getWorlds error:', error)
-    throw error
-  }
+export function getWorlds(): Promise<World[]> {
+  return fetchUniversalis('worlds')
 }

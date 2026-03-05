@@ -21,44 +21,40 @@ const RAW_ITEM_ID_THRESHOLD = 20000
 export async function buildMaterialTree(
   targets: BomTarget[],
 ): Promise<MaterialNode[]> {
-  const tree: MaterialNode[] = []
-
-  for (const target of targets) {
-    try {
+  // Fetch all target recipes in parallel
+  const results = await Promise.allSettled(
+    targets.map(async (target) => {
       const recipe = await fetchRecipeCached(target.recipeId)
-
       const children: MaterialNode[] = recipe.ingredients.map((ing) => ({
         itemId: ing.itemId,
         name: ing.name,
         icon: ing.icon,
         amount: ing.amount * target.quantity,
-        // Mark as raw if below threshold (crystals / base mats)
         recipeId: undefined,
         children: undefined,
       }))
-
-      tree.push({
+      return {
         itemId: target.itemId,
         name: target.name,
         icon: target.icon,
         amount: target.quantity,
         recipeId: target.recipeId,
         children,
-      })
-    } catch (err) {
-      console.error(`[BOM] Failed to expand recipe ${target.recipeId}:`, err)
-      // Still add the target as a leaf so the user can see it
-      tree.push({
-        itemId: target.itemId,
-        name: target.name,
-        icon: target.icon,
-        amount: target.quantity,
-        recipeId: target.recipeId,
-      })
-    }
-  }
+      } as MaterialNode
+    }),
+  )
 
-  return tree
+  return results.map((result, i) => {
+    if (result.status === 'fulfilled') return result.value
+    console.error(`[BOM] Failed to expand recipe ${targets[i].recipeId}:`, result.reason)
+    return {
+      itemId: targets[i].itemId,
+      name: targets[i].name,
+      icon: targets[i].icon,
+      amount: targets[i].quantity,
+      recipeId: targets[i].recipeId,
+    }
+  })
 }
 
 /**

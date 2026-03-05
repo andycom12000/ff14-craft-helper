@@ -1,4 +1,6 @@
 import type { BuffType } from './buffs'
+import { BUFF_DEFINITIONS } from './buffs'
+import { getSkillById } from './skills'
 
 export interface CraftState {
   progress: number
@@ -84,26 +86,13 @@ const QUALITY_EFFICIENCY: Record<string, number> = {
   ByregotsBlessing: 100, Reflect: 300, TrainedEye: 0,
 }
 
-const CP_COST: Record<string, number> = {
-  BasicSynthesis: 0, CarefulSynthesis: 7, RapidSynthesis: 0,
-  Groundwork: 18, IntensiveSynthesis: 6, PrudentSynthesis: 18,
-  MuscleMemory: 6, FocusedSynthesis: 5, BasicTouch: 18,
-  StandardTouch: 32, AdvancedTouch: 46, PreciseTouch: 18,
-  PrudentTouch: 25, PreparatoryTouch: 40, HastyTouch: 0,
-  FocusedTouch: 18, TrainedFinesse: 32, ByregotsBlessing: 24,
-  Reflect: 6, TrainedEye: 250, Observe: 7, WasteNot: 56,
-  WasteNotII: 98, Veneration: 18, Innovation: 18, GreatStrides: 32,
-  MastersMend: 88, Manipulation: 96, Immovable: 0,
-  FinalAppraisal: 1, TricksOfTheTrade: 0, DelicateSynthesis: 32,
+// Derive CP and durability costs from the single source of truth in skills.ts
+function getCpCost(action: string): number {
+  return getSkillById(action)?.cp ?? 0
 }
 
-const DURABILITY_COST: Record<string, number> = {
-  PrudentSynthesis: 5, PrudentTouch: 5, PreparatoryTouch: 20,
-  Groundwork: 20, TrainedFinesse: 0, Observe: 0,
-  WasteNot: 0, WasteNotII: 0, Veneration: 0, Innovation: 0,
-  GreatStrides: 0, MastersMend: 0, Manipulation: 0,
-  FinalAppraisal: 0, TricksOfTheTrade: 0,
-  MuscleMemory: 10, Reflect: 10, TrainedEye: 10,
+function getDurabilityCost(action: string): number {
+  return getSkillById(action)?.durability ?? 10
 }
 
 const BUFF_ACTIONS = new Set([
@@ -113,8 +102,6 @@ const BUFF_ACTIONS = new Set([
 
 function getProgressEfficiency(action: string): number { return PROGRESS_EFFICIENCY[action] ?? 0 }
 function getQualityEfficiency(action: string): number { return QUALITY_EFFICIENCY[action] ?? 0 }
-function getCpCost(action: string): number { return CP_COST[action] ?? 0 }
-function getDurabilityCost(action: string): number { return DURABILITY_COST[action] ?? 10 }
 
 function isProgressAction(action: string): boolean {
   return getProgressEfficiency(action) > 0
@@ -256,15 +243,14 @@ export function simulateStep(
     newState.buffs.set('InnerQuiet', { stacks: Math.min(stacks + 1, 10), duration: Infinity })
   }
 
-  // Buff applications
-  if (action === 'WasteNot') newState.buffs.set('WasteNot', { stacks: 1, duration: 4 })
-  if (action === 'WasteNotII') newState.buffs.set('WasteNotII', { stacks: 1, duration: 8 })
-  if (action === 'Veneration') newState.buffs.set('Veneration', { stacks: 1, duration: 4 })
-  if (action === 'Innovation') newState.buffs.set('Innovation', { stacks: 1, duration: 4 })
-  if (action === 'GreatStrides') newState.buffs.set('GreatStrides', { stacks: 1, duration: 3 })
-  if (action === 'Manipulation') newState.buffs.set('Manipulation', { stacks: 1, duration: 8 })
-  if (action === 'FinalAppraisal') newState.buffs.set('FinalAppraisal', { stacks: 1, duration: 5 })
-  if (action === 'MuscleMemory') newState.buffs.set('MuscleMemory', { stacks: 1, duration: 5 })
+  // Buff applications - derive duration from BUFF_DEFINITIONS
+  if (BUFF_ACTIONS.has(action)) {
+    const buffType = action as BuffType
+    newState.buffs.set(buffType, { stacks: 1, duration: BUFF_DEFINITIONS[buffType].maxDuration })
+  }
+  if (action === 'MuscleMemory') {
+    newState.buffs.set('MuscleMemory', { stacks: 1, duration: BUFF_DEFINITIONS.MuscleMemory.maxDuration })
+  }
 
   // Manipulation healing (after durability cost)
   if (state.buffs.has('Manipulation') && !isBuff(action) && newState.durability > 0) {

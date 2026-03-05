@@ -6,7 +6,7 @@ import { useGearsetsStore } from '@/stores/gearsets'
 import { useSimulatorStore } from '@/stores/simulator'
 import { solveCraft, cancelSolve, disposeWorker } from '@/solver/worker'
 import type { SolverConfig, SolverResult, SolverStatus } from '@/solver/raphael'
-import { getSkillById } from '@/engine/skills'
+import { getSkillName } from '@/engine/skills'
 
 const recipeStore = useRecipeStore()
 const gearsetsStore = useGearsetsStore()
@@ -21,9 +21,6 @@ const progress = ref(0)
 const solverResult = ref<SolverResult | null>(null)
 const errorMessage = ref('')
 
-function getActionLabel(action: string): string {
-  return getSkillById(action)?.nameZh ?? action
-}
 
 function buildConfig(): SolverConfig | null {
   if (!recipe.value || !gearset.value) return null
@@ -198,7 +195,7 @@ onUnmounted(() => {
           size="default"
           class="action-tag"
         >
-          {{ getActionLabel(action) }}
+          {{ getSkillName(action) }}
         </el-tag>
       </div>
     </el-card>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { StepResult } from '@/engine/simulator'
-import { getSkillById } from '@/engine/skills'
+import { getSkillName } from '@/engine/skills'
 
 defineProps<{
   actions: string[]
@@ -12,9 +12,6 @@ const emit = defineEmits<{
   clear: []
 }>()
 
-function getSkillName(actionId: string): string {
-  return getSkillById(actionId)?.nameZh ?? actionId
-}
 
 function getStepTooltip(index: number, results: StepResult[]): string {
   if (index >= results.length) return '尚未模擬'

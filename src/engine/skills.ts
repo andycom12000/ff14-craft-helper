@@ -58,6 +58,10 @@ export function getSkillById(id: string): SkillDefinition | undefined {
   return SKILL_MAP.get(id)
 }
 
+export function getSkillName(id: string): string {
+  return SKILL_MAP.get(id)?.nameZh ?? id
+}
+
 export function getSkillsByLevel(level: number): SkillDefinition[] {
   return SKILLS.filter(s => s.level <= level)
 }

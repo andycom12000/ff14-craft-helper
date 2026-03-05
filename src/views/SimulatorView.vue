@@ -65,7 +65,7 @@ function runSimulation() {
   simStore.setSimulationResults(results)
 }
 
-watch(() => [craftParams.value, ...simStore.actions], runSimulation, { immediate: true })
+watch([craftParams, () => simStore.actions], runSimulation, { deep: true, immediate: true })
 
 function handleUseSkill(skillId: string) {
   simStore.addAction(skillId)
