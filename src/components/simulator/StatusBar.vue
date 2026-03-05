@@ -16,15 +16,6 @@ const qualityPct = computed(() => {
   return Math.round((props.craftState.quality / props.craftState.maxQuality) * 100)
 })
 
-const durabilityPct = computed(() => {
-  if (!props.craftState) return 0
-  return Math.round((props.craftState.durability / props.craftState.maxDurability) * 100)
-})
-
-const cpPct = computed(() => {
-  if (!props.craftState) return 0
-  return Math.round((props.craftState.cp / props.craftState.maxCp) * 100)
-})
 
 const completionText = computed(() => {
   if (!props.craftState) return ''
@@ -71,27 +62,6 @@ const completionType = computed(() => {
         />
       </div>
 
-      <div class="bar-row">
-        <span class="bar-label">耐久</span>
-        <el-progress
-          :percentage="durabilityPct"
-          :stroke-width="18"
-          color="#E6A23C"
-          :text-inside="true"
-          :format="() => `${craftState!.durability} / ${craftState!.maxDurability}`"
-        />
-      </div>
-
-      <div class="bar-row">
-        <span class="bar-label">CP</span>
-        <el-progress
-          :percentage="cpPct"
-          :stroke-width="18"
-          color="#9B59B6"
-          :text-inside="true"
-          :format="() => `${craftState!.cp} / ${craftState!.maxCp}`"
-        />
-      </div>
     </template>
   </div>
 </template>

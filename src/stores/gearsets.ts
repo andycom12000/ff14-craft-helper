@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { JOB_NAMES } from '@/utils/jobs'
+import { JOB_NAMES, JOB_ABBR } from '@/utils/jobs'
 
 export interface GearsetStats {
   level: number
@@ -24,8 +24,11 @@ function createDefaultGearsets(): GearsetMap {
 export const useGearsetsStore = defineStore('gearsets', () => {
   const gearsets = ref<GearsetMap>(createDefaultGearsets())
 
-  function getGearsetForJob(job: string): GearsetStats | null {
-    return gearsets.value[job] ?? null
+  function getGearsetForJob(job: string): (GearsetStats & { job: string }) | null {
+    if (gearsets.value[job]) return { job, ...gearsets.value[job] }
+    const abbr = JOB_ABBR[job]
+    if (abbr && gearsets.value[abbr]) return { job: abbr, ...gearsets.value[abbr] }
+    return null
   }
 
   function updateGearset(job: string, updates: Partial<GearsetStats>) {
@@ -34,8 +37,25 @@ export const useGearsetsStore = defineStore('gearsets', () => {
     }
   }
 
-  // Ensure all jobs exist (handles migration from old data)
+  // Migrate from old array format and ensure all jobs exist
   function ensureAllJobs() {
+    if (Array.isArray(gearsets.value)) {
+      const oldArray = gearsets.value as unknown as Array<{ job?: string; level?: number; craftsmanship?: number; control?: number; cp?: number }>
+      const migrated = createDefaultGearsets()
+      for (const entry of oldArray) {
+        if (entry.job && migrated[entry.job]) {
+          migrated[entry.job] = {
+            ...DEFAULT_GEARSET_STATS,
+            level: entry.level ?? DEFAULT_GEARSET_STATS.level,
+            craftsmanship: entry.craftsmanship ?? DEFAULT_GEARSET_STATS.craftsmanship,
+            control: entry.control ?? DEFAULT_GEARSET_STATS.control,
+            cp: entry.cp ?? DEFAULT_GEARSET_STATS.cp,
+          }
+        }
+      }
+      gearsets.value = migrated
+      return
+    }
     for (const job of Object.keys(JOB_NAMES)) {
       if (!gearsets.value[job]) {
         gearsets.value[job] = { ...DEFAULT_GEARSET_STATS }
@@ -43,9 +63,11 @@ export const useGearsetsStore = defineStore('gearsets', () => {
     }
   }
 
-  ensureAllJobs()
-
-  return { gearsets, getGearsetForJob, updateGearset }
+  return { gearsets, getGearsetForJob, updateGearset, ensureAllJobs }
 }, {
-  persist: true,
+  persist: {
+    afterHydrate(ctx) {
+      ctx.store.ensureAllJobs()
+    },
+  },
 })

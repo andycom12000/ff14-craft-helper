@@ -8,7 +8,6 @@ import { useSimulatorStore } from '@/stores/simulator'
 import { simulateAll, createInitialState, type CraftParams } from '@/engine/simulator'
 import StatusBar from '@/components/simulator/StatusBar.vue'
 import BuffDisplay from '@/components/simulator/BuffDisplay.vue'
-import SkillPanel from '@/components/simulator/SkillPanel.vue'
 import ActionList from '@/components/simulator/ActionList.vue'
 import MacroExport from '@/components/simulator/MacroExport.vue'
 import SolverPanel from '@/components/simulator/SolverPanel.vue'
@@ -21,9 +20,7 @@ const simStore = useSimulatorStore()
 const recipe = computed(() => recipeStore.currentRecipe)
 const gearset = computed(() => {
   if (!recipe.value) return null
-  const stats = gearsetsStore.getGearsetForJob(recipe.value.job)
-  if (!stats) return null
-  return { job: recipe.value.job, ...stats }
+  return gearsetsStore.getGearsetForJob(recipe.value.job)
 })
 
 const canSimulate = computed(() => !!recipe.value && !!gearset.value)
@@ -59,8 +56,6 @@ const currentState = computed(() => {
   return initial
 })
 
-const crafterLevel = computed(() => gearset.value?.level ?? 90)
-
 function runSimulation() {
   if (!craftParams.value) {
     simStore.setSimulationResults([])
@@ -72,10 +67,6 @@ function runSimulation() {
 }
 
 watch([craftParams, () => simStore.actions], runSimulation, { deep: true, immediate: true })
-
-function handleUseSkill(skillId: string) {
-  simStore.addAction(skillId)
-}
 
 function handleRemoveAction(index: number) {
   simStore.removeAction(index)
@@ -160,16 +151,7 @@ function handleClearActions() {
             />
           </el-card>
 
-          <el-card shadow="never" class="sim-section">
-            <template #header>
-              <span>技能面板</span>
-            </template>
-            <SkillPanel
-              :level="crafterLevel"
-              :craft-state="currentState"
-              @use-skill="handleUseSkill"
-            />
-          </el-card>
+          <SolverPanel />
         </template>
 
         <el-empty v-else description="請先選擇配方與裝備組" />
@@ -185,10 +167,6 @@ function handleClearActions() {
         <div class="placeholder-tab">
           <el-text type="info" size="large">食藥選擇 (開發中)</el-text>
         </div>
-      </el-tab-pane>
-
-      <el-tab-pane label="求解">
-        <SolverPanel />
       </el-tab-pane>
 
       <el-tab-pane label="匯出">
