@@ -30,138 +30,230 @@ function calcQuality(config: SolverConfig, efficiency: number, hasInnovation: bo
 /* ---------- mock solver ---------- */
 // Quality actions come before progress completion,
 // because the simulator stops executing once progress >= maxProgress.
+// Tries two strategies (WasteNotII+PreparatoryTouch vs BasicTouch combo)
+// and returns the one with better quality.
 
-function mockSolve(config: SolverConfig): SolverResult {
-  const actions: string[] = []
-  let cp = config.cp
-  let dur = config.durability
-  const maxDur = config.durability
-  let qualityDone = config.initial_quality ?? 0
-  let iqStacks = 0
-  let manipStepsLeft = 0
+interface SolveState {
+  actions: string[]
+  cp: number
+  dur: number
+  maxDur: number
+  qualityDone: number
+  iqStacks: number
+  manipStepsLeft: number
+  wasteNotSteps: number
+  innovationSteps: number
+}
 
-  function use(cpCost: number, durCost: number, isBuff: boolean) {
-    cp -= cpCost
-    dur -= durCost
-    if (!isBuff && manipStepsLeft > 0 && dur > 0) {
-      dur = Math.min(dur + 5, maxDur)
-      manipStepsLeft--
+function createState(config: SolverConfig): SolveState {
+  return {
+    actions: [],
+    cp: config.cp,
+    dur: config.durability,
+    maxDur: config.durability,
+    qualityDone: config.initial_quality ?? 0,
+    iqStacks: 0,
+    manipStepsLeft: 0,
+    wasteNotSteps: 0,
+    innovationSteps: 0,
+  }
+}
+
+function effectiveDurCost(s: SolveState, raw: number): number {
+  return s.wasteNotSteps > 0 && raw > 0 ? Math.ceil(raw / 2) : raw
+}
+
+function use(s: SolveState, cpCost: number, rawDurCost: number, isBuff: boolean) {
+  s.cp -= cpCost
+  if (!isBuff) {
+    s.dur -= effectiveDurCost(s, rawDurCost)
+    if (s.wasteNotSteps > 0) s.wasteNotSteps--
+    if (s.innovationSteps > 0) s.innovationSteps--
+    if (s.manipStepsLeft > 0 && s.dur > 0) {
+      s.dur = Math.min(s.dur + 5, s.maxDur)
+      s.manipStepsLeft--
     }
   }
+}
 
-  // Calculate exact progress reserve (CP + durability needed)
-  function calcProgressReserve(): { cp: number; dur: number } {
-    const venGwProg = calcProgress(config, 360, true)
-    const venCsProg = calcProgress(config, 180, true)
+function calcProgressReserve(config: SolverConfig): { cp: number; dur: number } {
+  const venGwProg = calcProgress(config, 360, true)
+  const venCsProg = calcProgress(config, 180, true)
 
-    // Best case: Veneration + 1 Groundwork
-    if (venGwProg >= config.progress) return { cp: 18 + 18, dur: 20 }
-    // Veneration + 2 Groundwork
-    if (venGwProg * 2 >= config.progress) return { cp: 18 + 36, dur: 40 }
-    // Veneration + 1 Groundwork + CarefulSynthesis
-    if (venGwProg + venCsProg >= config.progress) return { cp: 18 + 18 + 7, dur: 30 }
-    // Veneration + 3 Groundwork
-    if (venGwProg * 3 >= config.progress) return { cp: 18 + 54, dur: 60 }
-    // Fallback: Veneration + many CarefulSynthesis
-    const csNeeded = Math.ceil(config.progress / venCsProg)
-    return { cp: 18 + csNeeded * 7, dur: csNeeded * 10 }
-  }
+  if (venGwProg >= config.progress) return { cp: 36, dur: 20 }
+  if (venGwProg * 2 >= config.progress) return { cp: 54, dur: 40 }
+  if (venGwProg + venCsProg >= config.progress) return { cp: 43, dur: 30 }
+  if (venGwProg * 3 >= config.progress) return { cp: 72, dur: 60 }
+  const csNeeded = Math.ceil(config.progress / venCsProg)
+  return { cp: 18 + csNeeded * 7, dur: csNeeded * 10 }
+}
 
-  const reserve = calcProgressReserve()
-
-  // Check if we have enough resources beyond the progress reserve
-  function cpAvail(): number { return cp - reserve.cp }
-  function durAvail(): number { return dur - reserve.dur }
-
-  // ---- Phase 1: Opener (Reflect for IQ stacks, no progress) ----
-  if (cpAvail() >= 6 && durAvail() >= 10) {
-    use(6, 10, false); actions.push('Reflect'); iqStacks = 2
-  }
-
-  // ---- Phase 2: Quality phase ----
-  if (config.hq_target && qualityDone < config.quality && durAvail() > 0 && cpAvail() > 50) {
-    // Manipulation for durability sustain (cp:96, 8 steps of +5 dur)
-    if (config.use_manipulation && cpAvail() >= 96 + 80) {
-      use(96, 0, true); actions.push('Manipulation'); manipStepsLeft = 8
-    }
-
-    const doQualityCycle = (): boolean => {
-      if (cpAvail() < 18) return false
-      use(18, 0, true); actions.push('Innovation')
-
-      if (cpAvail() >= 18 && durAvail() >= 10) {
-        use(18, 10, false); actions.push('BasicTouch'); iqStacks = Math.min(10, iqStacks + 1)
-        qualityDone += calcQuality(config, 100, true, false, iqStacks)
-      } else return false
-
-      if (cpAvail() >= 18 && durAvail() >= 10) {
-        use(18, 10, false); actions.push('StandardTouch'); iqStacks = Math.min(10, iqStacks + 1)
-        qualityDone += calcQuality(config, 125, true, false, iqStacks)
-      } else return true
-
-      if (cpAvail() >= 18 && durAvail() >= 10) {
-        use(18, 10, false); actions.push('AdvancedTouch'); iqStacks = Math.min(10, iqStacks + 1)
-        qualityDone += calcQuality(config, 150, true, false, iqStacks)
-      }
-      return true
-    }
-
-    for (let i = 0; i < 4; i++) {
-      const finisherCp = 74 // GreatStrides(32) + Innovation(18) + Byregot's(24)
-      if (cpAvail() < 18 + 18 + finisherCp || durAvail() < 10 + 10) break
-      if (!doQualityCycle()) break
-    }
-
-    // Finisher: GreatStrides + Innovation + ByregotsBlessing
-    if (iqStacks > 0 && durAvail() >= 10) {
-      const byregotEff = 100 + 20 * iqStacks
-      if (cpAvail() >= 32 + 18 + 24) {
-        use(32, 0, true); actions.push('GreatStrides')
-        use(18, 0, true); actions.push('Innovation')
-        qualityDone += calcQuality(config, byregotEff, true, true, iqStacks)
-        use(24, 10, false); actions.push('ByregotsBlessing')
-      } else if (cpAvail() >= 32 + 24) {
-        use(32, 0, true); actions.push('GreatStrides')
-        qualityDone += calcQuality(config, byregotEff, false, true, iqStacks)
-        use(24, 10, false); actions.push('ByregotsBlessing')
-      } else if (cpAvail() >= 24) {
-        qualityDone += calcQuality(config, byregotEff, false, false, iqStacks)
-        use(24, 10, false); actions.push('ByregotsBlessing')
-      }
-    }
-  }
-
-  // ---- Phase 3: Progress (finish the craft LAST) ----
+function finishProgress(config: SolverConfig, s: SolveState): { progressDone: number } {
   let progressDone = 0
-
-  const useVeneration = cp >= 18
+  const useVeneration = s.cp >= 18
   if (useVeneration) {
-    use(18, 0, true); actions.push('Veneration')
+    use(s, 18, 0, true); s.actions.push('Veneration')
   }
-
   for (let i = 0; i < 10 && progressDone < config.progress; i++) {
     const venActive = useVeneration && i < 4
     const gwProg = calcProgress(config, 360, venActive)
     const csProg = calcProgress(config, 180, venActive)
+    const gwDur = effectiveDurCost(s, 20)
+    const csDur = effectiveDurCost(s, 10)
 
-    if (cp >= 18 && dur >= 20) {
-      use(18, 20, false); actions.push('Groundwork'); progressDone += gwProg
-    } else if (cp >= 7 && dur >= 10) {
-      use(7, 10, false); actions.push('CarefulSynthesis'); progressDone += csProg
-    } else if (dur >= 10) {
-      const bsProg = calcProgress(config, 120, venActive)
-      use(0, 10, false); actions.push('BasicSynthesis'); progressDone += bsProg
+    if (s.cp >= 18 && s.dur >= gwDur) {
+      use(s, 18, 20, false); s.actions.push('Groundwork'); progressDone += gwProg
+    } else if (s.cp >= 7 && s.dur >= csDur) {
+      use(s, 7, 10, false); s.actions.push('CarefulSynthesis'); progressDone += csProg
+    } else if (s.dur >= csDur) {
+      use(s, 0, 10, false); s.actions.push('BasicSynthesis')
+      progressDone += calcProgress(config, 120, venActive)
     } else {
       break
     }
   }
+  return { progressDone }
+}
 
-  return {
-    actions,
-    progress: Math.min(progressDone, config.progress),
-    quality: Math.min(qualityDone, config.quality),
-    steps: actions.length,
+function addByregotFinisher(config: SolverConfig, s: SolveState, reserve: { cp: number; dur: number }) {
+  const cpAvail = s.cp - reserve.cp
+  const durAvail = s.dur - reserve.dur
+  if (s.iqStacks <= 0 || durAvail < effectiveDurCost(s, 10)) return
+  const byregotEff = 100 + 20 * s.iqStacks
+  if (cpAvail >= 32 + 18 + 24) {
+    use(s, 32, 0, true); s.actions.push('GreatStrides')
+    use(s, 18, 0, true); s.actions.push('Innovation'); s.innovationSteps = 4
+    s.qualityDone += calcQuality(config, byregotEff, true, true, s.iqStacks)
+    use(s, 24, 10, false); s.actions.push('ByregotsBlessing')
+  } else if (cpAvail >= 32 + 24) {
+    use(s, 32, 0, true); s.actions.push('GreatStrides')
+    s.qualityDone += calcQuality(config, byregotEff, s.innovationSteps > 0, true, s.iqStacks)
+    use(s, 24, 10, false); s.actions.push('ByregotsBlessing')
+  } else if (cpAvail >= 24) {
+    s.qualityDone += calcQuality(config, byregotEff, s.innovationSteps > 0, false, s.iqStacks)
+    use(s, 24, 10, false); s.actions.push('ByregotsBlessing')
   }
+}
+
+/** Strategy A: WasteNotII + PreparatoryTouch (high efficiency) */
+function solveWasteNot2(config: SolverConfig): SolverResult {
+  const s = createState(config)
+  const reserve = calcProgressReserve(config)
+  const cpAvail = () => s.cp - reserve.cp
+  const durAvail = () => s.dur - reserve.dur
+
+  // Opener
+  if (cpAvail() >= 6 && durAvail() >= 10) {
+    use(s, 6, 10, false); s.actions.push('Reflect'); s.iqStacks = 2
+  }
+
+  if (config.hq_target && s.qualityDone < config.quality && cpAvail() > 0) {
+    // WasteNotII + Innovation + PreparatoryTouch loop + finisher
+    const minNeeded = 98 + 18 + 40 + 32 + 24 // WN2 + Innov + 1×PrepTouch + GS + Byregot
+    if (cpAvail() >= minNeeded) {
+      use(s, 98, 0, true); s.actions.push('WasteNotII'); s.wasteNotSteps = 8
+
+      if (config.use_manipulation && cpAvail() >= 96 + 18 + 40 + 32 + 24) {
+        use(s, 96, 0, true); s.actions.push('Manipulation'); s.manipStepsLeft = 8
+      }
+
+      use(s, 18, 0, true); s.actions.push('Innovation'); s.innovationSteps = 4
+
+      // PreparatoryTouch loop (40cp, 20dur raw → 10 with WN2, +2 IQ)
+      const finisherCp = 32 + 18 + 24
+      while (
+        cpAvail() >= 40 + finisherCp &&
+        durAvail() >= effectiveDurCost(s, 20) + effectiveDurCost(s, 10) &&
+        s.iqStacks < 10 &&
+        s.qualityDone < config.quality
+      ) {
+        // Refresh Innovation if expired
+        if (s.innovationSteps <= 0 && cpAvail() >= 18 + 40 + finisherCp) {
+          use(s, 18, 0, true); s.actions.push('Innovation'); s.innovationSteps = 4
+        }
+        use(s, 40, 20, false); s.actions.push('PreparatoryTouch')
+        s.iqStacks = Math.min(10, s.iqStacks + 2)
+        s.qualityDone += calcQuality(config, 200, s.innovationSteps > 0, false, s.iqStacks)
+      }
+
+      // Byregot finisher
+      addByregotFinisher(config, s, reserve)
+    }
+  }
+
+  const { progressDone } = finishProgress(config, s)
+  return {
+    actions: s.actions,
+    progress: Math.min(progressDone, config.progress),
+    quality: Math.min(s.qualityDone, config.quality),
+    steps: s.actions.length,
+  }
+}
+
+/** Strategy B: Basic touch combo (Innovation → Basic → Standard → Advanced) */
+function solveBasicCombo(config: SolverConfig): SolverResult {
+  const s = createState(config)
+  const reserve = calcProgressReserve(config)
+  const cpAvail = () => s.cp - reserve.cp
+  const durAvail = () => s.dur - reserve.dur
+
+  // Opener
+  if (cpAvail() >= 6 && durAvail() >= 10) {
+    use(s, 6, 10, false); s.actions.push('Reflect'); s.iqStacks = 2
+  }
+
+  if (config.hq_target && s.qualityDone < config.quality && cpAvail() > 50) {
+    if (config.use_manipulation && cpAvail() >= 96 + 80) {
+      use(s, 96, 0, true); s.actions.push('Manipulation'); s.manipStepsLeft = 8
+    }
+
+    for (let cycle = 0; cycle < 4; cycle++) {
+      const finisherCp = 74
+      if (cpAvail() < 18 + 18 + finisherCp || durAvail() < 20) break
+
+      use(s, 18, 0, true); s.actions.push('Innovation'); s.innovationSteps = 4
+
+      if (cpAvail() >= 18 && durAvail() >= 10) {
+        use(s, 18, 10, false); s.actions.push('BasicTouch')
+        s.iqStacks = Math.min(10, s.iqStacks + 1)
+        s.qualityDone += calcQuality(config, 100, true, false, s.iqStacks)
+      } else break
+
+      if (cpAvail() >= 18 && durAvail() >= 10) {
+        use(s, 18, 10, false); s.actions.push('StandardTouch')
+        s.iqStacks = Math.min(10, s.iqStacks + 1)
+        s.qualityDone += calcQuality(config, 125, true, false, s.iqStacks)
+      } else continue
+
+      if (cpAvail() >= 18 && durAvail() >= 10) {
+        use(s, 18, 10, false); s.actions.push('AdvancedTouch')
+        s.iqStacks = Math.min(10, s.iqStacks + 1)
+        s.qualityDone += calcQuality(config, 150, true, false, s.iqStacks)
+      }
+    }
+
+    addByregotFinisher(config, s, reserve)
+  }
+
+  const { progressDone } = finishProgress(config, s)
+  return {
+    actions: s.actions,
+    progress: Math.min(progressDone, config.progress),
+    quality: Math.min(s.qualityDone, config.quality),
+    steps: s.actions.length,
+  }
+}
+
+function mockSolve(config: SolverConfig): SolverResult {
+  const a = solveWasteNot2(config)
+  const b = solveBasicCombo(config)
+
+  const aOk = a.progress >= config.progress
+  const bOk = b.progress >= config.progress
+  if (aOk && bOk) return a.quality >= b.quality ? a : b
+  if (aOk) return a
+  if (bOk) return b
+  return a.quality >= b.quality ? a : b
 }
 
 function delay(ms: number): Promise<void> {
