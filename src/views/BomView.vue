@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import BomTargetList from '@/components/bom/BomTargetList.vue'
 import BomMaterialTree from '@/components/bom/BomMaterialTree.vue'
@@ -13,7 +12,6 @@ import { getAggregatedPrices } from '@/api/universalis'
 import { getRecipe } from '@/api/xivapi'
 import type { PriceInfo, MaterialNode } from '@/stores/bom'
 
-const router = useRouter()
 const bomStore = useBomStore()
 const recipeStore = useRecipeStore()
 const settingsStore = useSettingsStore()
@@ -87,10 +85,10 @@ async function fetchPrices(itemIds?: number[]) {
 async function handleSimulateRecipe(recipeId: number) {
   try {
     const recipe = await getRecipe(recipeId)
-    recipeStore.setRecipe(recipe)
-    router.push('/simulator')
+    recipeStore.addToQueue(recipe)
+    ElMessage.success(`已將「${recipe.name}」加入模擬佇列`)
   } catch (err) {
-    console.error('[BOM] Failed to load recipe for simulator:', err)
+    console.error('[BOM] Failed to load recipe for queue:', err)
     ElMessage.error('載入配方失敗')
   }
 }
