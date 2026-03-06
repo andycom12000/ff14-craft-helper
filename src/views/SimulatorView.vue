@@ -233,8 +233,8 @@ function handleClearActions() {
 }
 
 .sim-right {
-  width: 340px;
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 0;
   position: sticky;
   top: 16px;
   max-height: calc(100vh - 32px);
