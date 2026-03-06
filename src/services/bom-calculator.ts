@@ -1,8 +1,9 @@
-import { getRecipe } from '@/api/xivapi'
+import { getRecipe, findRecipesByItemName } from '@/api/xivapi'
 import type { BomTarget, MaterialNode, FlatMaterial } from '@/stores/bom'
 
 // Cache fetched recipes to avoid redundant API calls
 const recipeCache = new Map<number, Awaited<ReturnType<typeof getRecipe>>>()
+const recipeByItemCache = new Map<number, { recipeId: number; job: string } | null>()
 
 /**
  * Items with IDs below this threshold are treated as crystals / base materials (raw).
@@ -10,29 +11,102 @@ const recipeCache = new Map<number, Awaited<ReturnType<typeof getRecipe>>>()
  */
 const RAW_ITEM_ID_THRESHOLD = 20000
 
+const MAX_RECURSION_DEPTH = 10
+
+/**
+ * Look up the first recipe that produces this item.
+ * Returns null if the item is not craftable.
+ * Results are cached by itemId.
+ */
+async function findFirstRecipe(
+  itemId: number,
+  itemName: string,
+): Promise<{ recipeId: number; job: string } | null> {
+  if (recipeByItemCache.has(itemId)) {
+    return recipeByItemCache.get(itemId)!
+  }
+  if (itemId < RAW_ITEM_ID_THRESHOLD) {
+    recipeByItemCache.set(itemId, null)
+    return null
+  }
+  const results = await findRecipesByItemName(itemName, itemId)
+  const first = results.length > 0 ? results[0] : null
+  recipeByItemCache.set(itemId, first)
+  return first
+}
+
+/**
+ * Recursively expand a single ingredient node.
+ */
+async function expandNode(
+  itemId: number,
+  name: string,
+  icon: string,
+  amount: number,
+  depth: number,
+  ancestorIds: Set<number>,
+): Promise<MaterialNode> {
+  // Stop conditions: max depth, cycle detection, or crystal/base material
+  if (depth >= MAX_RECURSION_DEPTH || ancestorIds.has(itemId) || itemId < RAW_ITEM_ID_THRESHOLD) {
+    return { itemId, name, icon, amount }
+  }
+
+  const recipeInfo = await findFirstRecipe(itemId, name)
+  if (!recipeInfo) {
+    return { itemId, name, icon, amount }
+  }
+
+  const recipe = await fetchRecipeCached(recipeInfo.recipeId)
+  const newAncestors = new Set(ancestorIds)
+  newAncestors.add(itemId)
+
+  const children = await Promise.all(
+    recipe.ingredients.map((ing) =>
+      expandNode(
+        ing.itemId,
+        ing.name,
+        ing.icon,
+        ing.amount * amount,
+        depth + 1,
+        newAncestors,
+      ),
+    ),
+  )
+
+  return {
+    itemId,
+    name,
+    icon,
+    amount,
+    recipeId: recipeInfo.recipeId,
+    children,
+  }
+}
+
 /**
  * Recursively expand recipe ingredients into a material tree.
- *
- * MVP: one level of expansion – fetch the recipe's direct ingredients and
- * mark everything else as raw.
- *
- * TODO: deep recursion with configurable depth limit (max 5).
  */
 export async function buildMaterialTree(
   targets: BomTarget[],
 ): Promise<MaterialNode[]> {
-  // Fetch all target recipes in parallel
   const results = await Promise.allSettled(
     targets.map(async (target) => {
       const recipe = await fetchRecipeCached(target.recipeId)
-      const children: MaterialNode[] = recipe.ingredients.map((ing) => ({
-        itemId: ing.itemId,
-        name: ing.name,
-        icon: ing.icon,
-        amount: ing.amount * target.quantity,
-        recipeId: undefined,
-        children: undefined,
-      }))
+      const ancestorIds = new Set([target.itemId])
+
+      const children = await Promise.all(
+        recipe.ingredients.map((ing) =>
+          expandNode(
+            ing.itemId,
+            ing.name,
+            ing.icon,
+            ing.amount * target.quantity,
+            1,
+            ancestorIds,
+          ),
+        ),
+      )
+
       return {
         itemId: target.itemId,
         name: target.name,
@@ -59,20 +133,21 @@ export async function buildMaterialTree(
 
 /**
  * Flatten the tree into a deduplicated material list.
- * Raw materials are leaf nodes (no children or itemId < RAW_ITEM_ID_THRESHOLD).
+ * Collapsed nodes are treated as purchasable raw materials.
  */
 export function flattenMaterialTree(tree: MaterialNode[]): FlatMaterial[] {
   const map = new Map<number, FlatMaterial>()
 
   function walk(nodes: MaterialNode[]) {
     for (const node of nodes) {
-      if (node.children && node.children.length > 0) {
-        // This is a craftable intermediate – still record it
+      const hasExpandedChildren = node.children && node.children.length > 0 && !node.collapsed
+      if (hasExpandedChildren) {
+        // Craftable intermediate that user wants to craft
         upsert(map, node, false)
-        walk(node.children)
+        walk(node.children!)
       } else {
-        // Leaf node – raw material
-        const isRaw = !node.recipeId || node.itemId < RAW_ITEM_ID_THRESHOLD
+        // Leaf node, collapsed node, or raw material — treat as purchasable
+        const isRaw = !node.recipeId || node.itemId < RAW_ITEM_ID_THRESHOLD || !!node.collapsed
         upsert(map, node, isRaw)
       }
     }
@@ -137,4 +212,9 @@ async function fetchRecipeCached(recipeId: number) {
   const recipe = await getRecipe(recipeId)
   recipeCache.set(recipeId, recipe)
   return recipe
+}
+
+export function clearCaches() {
+  recipeCache.clear()
+  recipeByItemCache.clear()
 }
