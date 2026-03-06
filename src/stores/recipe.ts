@@ -6,6 +6,8 @@ export interface Ingredient {
   name: string
   icon: string
   amount: number
+  canHq: boolean
+  level: number
 }
 
 export interface RecipeLevelTable {

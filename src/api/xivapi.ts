@@ -178,6 +178,8 @@ export async function getRecipe(id: number): Promise<Recipe> {
         name: itemInfos[i]?.name ?? `Item #${itemId}`,
         icon: icons.get(itemId) ?? '',
         amount,
+        canHq: !!(itemInfos[i]?.can_be_hq),
+        level: itemInfos[i]?.level ?? 0,
       }))
 
     const recipeLevelTable: RecipeLevelTable = {
