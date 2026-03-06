@@ -153,34 +153,41 @@ function handleClearActions() {
     <el-tabs type="border-card" class="main-tabs">
       <el-tab-pane label="模擬">
         <template v-if="canSimulate">
-          <el-card shadow="never" class="sim-section">
-            <template #header>
-              <span class="card-title">製作狀態</span>
-            </template>
-            <StatusBar :craft-state="currentState" />
-            <el-divider style="margin: 8px 0" />
-            <BuffDisplay :buffs="currentState?.buffs ?? new Map()" />
-          </el-card>
+          <div class="sim-layout">
+            <div class="sim-left">
+              <el-card shadow="never" class="sim-section">
+                <template #header>
+                  <span class="card-title">製作狀態</span>
+                </template>
+                <StatusBar :craft-state="currentState" />
+                <el-divider style="margin: 8px 0" />
+                <BuffDisplay :buffs="currentState?.buffs ?? new Map()" />
+              </el-card>
 
-          <el-card shadow="never" class="sim-section">
-            <template #header>
-              <span class="card-title">技能序列</span>
-            </template>
-            <ActionList
-              :actions="simStore.actions"
-              :results="simStore.simulationResults"
-              @remove="handleRemoveAction"
-              @clear="handleClearActions"
-            />
-          </el-card>
+              <el-card shadow="never" class="sim-section">
+                <template #header>
+                  <span class="card-title">技能序列</span>
+                </template>
+                <ActionList
+                  :actions="simStore.actions"
+                  :results="simStore.simulationResults"
+                  @remove="handleRemoveAction"
+                  @clear="handleClearActions"
+                />
+              </el-card>
 
-          <SolverPanel />
+              <SolverPanel />
+            </div>
 
-          <el-collapse class="macro-collapse">
-            <el-collapse-item title="遊戲巨集" name="macro">
-              <MacroExport />
-            </el-collapse-item>
-          </el-collapse>
+            <div class="sim-right">
+              <el-card shadow="never" class="sim-section">
+                <template #header>
+                  <span class="card-title">遊戲巨集</span>
+                </template>
+                <MacroExport />
+              </el-card>
+            </div>
+          </div>
         </template>
 
         <el-empty v-else description="請先選擇配方與裝備組" />
@@ -214,12 +221,52 @@ function handleClearActions() {
   margin-top: 12px;
 }
 
+.sim-layout {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.sim-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.sim-right {
+  width: 340px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+}
+
+.sim-right :deep(.el-card) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: 100%;
+}
+
+.sim-right :deep(.el-card__body) {
+  overflow-y: auto;
+  min-height: 0;
+}
+
 .sim-section {
   margin-bottom: 12px;
 }
 
-.macro-collapse {
-  margin-top: 12px;
+@media (max-width: 900px) {
+  .sim-layout {
+    flex-direction: column;
+  }
+
+  .sim-right {
+    width: 100%;
+    position: static;
+  }
 }
 
 .placeholder-tab {
