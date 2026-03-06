@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { ref, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { useRecipeStore } from '@/stores/recipe'
-import { useGearsetsStore } from '@/stores/gearsets'
 import { useSimulatorStore } from '@/stores/simulator'
 import { solveCraft, cancelSolve, disposeWorker } from '@/solver/worker'
+import type { CraftParams } from '@/engine/simulator'
 import type { SolverConfig, SolverStatus } from '@/solver/raphael'
 
-const recipeStore = useRecipeStore()
-const gearsetsStore = useGearsetsStore()
+const props = defineProps<{
+  craftParams: CraftParams | null
+}>()
+
 const simStore = useSimulatorStore()
 
 const status = ref<SolverStatus>('idle')
@@ -22,26 +23,25 @@ const useHeartAndSoul = ref(false)
 const useQuickInnovation = ref(false)
 
 function buildConfig(): SolverConfig | null {
-  const recipe = recipeStore.currentRecipe
-  if (!recipe) return null
-  const gearset = gearsetsStore.getGearsetForJob(recipe.job)
-  if (!gearset) return null
-  const rlt = recipe.recipeLevelTable
+  const p = props.craftParams
+  if (!p) return null
+  const rlt = p.recipeLevelTable
   return {
     recipe_level: rlt.classJobLevel,
     stars: rlt.stars,
     progress: rlt.difficulty,
     quality: rlt.quality,
     durability: rlt.durability,
-    cp: gearset.cp,
-    craftsmanship: gearset.craftsmanship,
-    control: gearset.control,
-    crafter_level: gearset.level,
+    cp: p.cp,
+    craftsmanship: p.craftsmanship,
+    control: p.control,
+    crafter_level: p.crafterLevel,
     progress_divider: rlt.progressDivider,
     quality_divider: rlt.qualityDivider,
     progress_modifier: rlt.progressModifier,
     quality_modifier: rlt.qualityModifier,
-    hq_target: recipe.canHq,
+    hq_target: rlt.quality > 0,
+    initial_quality: p.initialQuality,
     use_manipulation: useManipulation.value,
     use_heart_and_soul: useHeartAndSoul.value,
     use_quick_innovation: useQuickInnovation.value,

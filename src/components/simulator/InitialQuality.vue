@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useRecipeStore } from '@/stores/recipe'
-import { useSimulatorStore } from '@/stores/simulator'
 import { calculateInitialQuality } from '@/engine/quality'
 
 const emit = defineEmits<{
@@ -9,15 +8,7 @@ const emit = defineEmits<{
 }>()
 
 const recipeStore = useRecipeStore()
-const simStore = useSimulatorStore()
 const recipe = computed(() => recipeStore.currentRecipe)
-
-// 從模擬結果取得當前品質
-const simulatedQuality = computed(() => {
-  const results = simStore.simulationResults
-  if (results.length === 0) return 0
-  return results[results.length - 1].state.quality
-})
 
 // Track HQ amounts for each ingredient by index
 const hqAmounts = ref<number[]>([])
@@ -57,21 +48,6 @@ watch(initialQuality, (val) => {
   emit('update:initialQuality', val)
 }, { immediate: true })
 
-const maxQuality = computed(() => recipe.value?.recipeLevelTable.quality ?? 0)
-
-const qualityPercent = computed(() => {
-  if (maxQuality.value === 0) return 0
-  return Math.round((initialQuality.value / maxQuality.value) * 100)
-})
-
-const totalQuality = computed(() => Math.min(initialQuality.value + simulatedQuality.value, maxQuality.value))
-
-const totalQualityPercent = computed(() => {
-  if (maxQuality.value === 0) return 0
-  return Math.round((totalQuality.value / maxQuality.value) * 100)
-})
-
-const remainingQuality = computed(() => Math.max(0, maxQuality.value - totalQuality.value))
 
 function setAllHq() {
   if (!recipe.value) return
@@ -106,46 +82,6 @@ function decrementHq(index: number) {
     <el-empty v-if="!recipe" description="尚未選擇配方" />
 
     <template v-else>
-      <div class="quality-result">
-        <div class="quality-row">
-          <span class="quality-label">初期品質</span>
-          <span class="quality-number">{{ initialQuality.toLocaleString() }}</span>
-        </div>
-        <div class="quality-row">
-          <span class="quality-label">模擬品質</span>
-          <span class="quality-number sim">{{ simulatedQuality.toLocaleString() }}</span>
-        </div>
-        <div class="quality-row">
-          <span class="quality-label">合計</span>
-          <span class="quality-number total">{{ totalQuality.toLocaleString() }}</span>
-          <span class="quality-max">/ {{ maxQuality.toLocaleString() }}</span>
-          <el-tag
-            v-if="remainingQuality > 0"
-            type="warning"
-            size="small"
-            style="margin-left: 8px"
-          >
-            差 {{ remainingQuality.toLocaleString() }}
-          </el-tag>
-          <el-tag
-            v-else
-            type="success"
-            size="small"
-            style="margin-left: 8px"
-          >
-            已滿
-          </el-tag>
-        </div>
-        <el-progress
-          :percentage="totalQualityPercent"
-          :stroke-width="16"
-          :format="() => `${totalQualityPercent}%`"
-          style="margin-top: 8px"
-        />
-      </div>
-
-      <el-divider />
-
       <div class="ingredient-header">
         <h4 style="margin: 0">HQ 素材設定</h4>
         <div class="header-actions">
@@ -208,44 +144,6 @@ function decrementHq(index: number) {
 .initial-quality {
   padding: 4px 0;
   max-width: 600px;
-}
-
-.quality-result {
-  background: var(--el-fill-color-light);
-  border-radius: 8px;
-  padding: 16px 20px;
-}
-
-.quality-row {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.quality-label {
-  font-size: 14px;
-  color: var(--el-text-color-secondary);
-  min-width: 64px;
-}
-
-.quality-number {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--el-color-primary);
-}
-
-.quality-number.sim {
-  color: var(--el-color-success);
-}
-
-.quality-number.total {
-  font-size: 24px;
-}
-
-.quality-max {
-  font-size: 14px;
-  color: var(--el-text-color-secondary);
 }
 
 .ingredient-header {

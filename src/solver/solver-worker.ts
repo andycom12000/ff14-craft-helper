@@ -36,7 +36,7 @@ function mockSolve(config: SolverConfig): SolverResult {
   let cp = config.cp
   let dur = config.durability
   const maxDur = config.durability
-  let qualityDone = 0
+  let qualityDone = config.initial_quality ?? 0
   let iqStacks = 0
   let manipStepsLeft = 0
 
@@ -79,7 +79,7 @@ function mockSolve(config: SolverConfig): SolverResult {
   }
 
   // ---- Phase 2: Quality phase ----
-  if (config.hq_target && durAvail() > 0 && cpAvail() > 50) {
+  if (config.hq_target && qualityDone < config.quality && durAvail() > 0 && cpAvail() > 50) {
     // Manipulation for durability sustain (cp:96, 8 steps of +5 dur)
     if (config.use_manipulation && cpAvail() >= 96 + 80) {
       use(96, 0, true); actions.push('Manipulation'); manipStepsLeft = 8

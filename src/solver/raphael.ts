@@ -18,6 +18,7 @@ export interface SolverConfig {
   progress_modifier: number
   quality_modifier: number
   hq_target: boolean
+  initial_quality: number
   // Skill availability toggles
   use_manipulation: boolean
   use_heart_and_soul: boolean

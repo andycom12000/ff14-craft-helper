@@ -188,21 +188,19 @@ function handleClearActions() {
       </el-descriptions>
     </div>
 
+    <!-- Shared status bars (progress / quality / buffs) -->
+    <el-card v-if="canSimulate" shadow="never" class="shared-status">
+      <StatusBar :craft-state="currentState" />
+      <el-divider style="margin: 8px 0" />
+      <BuffDisplay :buffs="currentState?.buffs ?? new Map()" />
+    </el-card>
+
     <!-- Main Tabs -->
     <el-tabs type="border-card" class="main-tabs">
       <el-tab-pane label="模擬">
         <template v-if="canSimulate">
           <div class="sim-layout">
             <div class="sim-left">
-              <el-card shadow="never" class="sim-section">
-                <template #header>
-                  <span class="card-title">製作狀態</span>
-                </template>
-                <StatusBar :craft-state="currentState" />
-                <el-divider style="margin: 8px 0" />
-                <BuffDisplay :buffs="currentState?.buffs ?? new Map()" />
-              </el-card>
-
               <el-card shadow="never" class="sim-section">
                 <template #header>
                   <span class="card-title">技能序列</span>
@@ -215,7 +213,7 @@ function handleClearActions() {
                 />
               </el-card>
 
-              <SolverPanel />
+              <SolverPanel :craft-params="craftParams" />
             </div>
 
             <div class="sim-right">
@@ -249,6 +247,10 @@ function handleClearActions() {
 }
 
 .info-desc {
+  margin-top: 12px;
+}
+
+.shared-status {
   margin-top: 12px;
 }
 
