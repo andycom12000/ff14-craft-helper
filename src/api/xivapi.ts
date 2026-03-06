@@ -6,6 +6,7 @@ const ICON_ASSET = 'https://beta.xivapi.com/api/1/asset'
 
 export interface RecipeSearchResult {
   id: number
+  itemId: number
   name: string
   icon: string
   level: number
@@ -87,6 +88,7 @@ export async function searchRecipes(
 
     return data.data.map((item) => ({
       id: item.id,
+      itemId: item.item_id,
       name: item.item_name,
       icon: icons.get(item.item_id) ?? '',
       level: item.rlv,

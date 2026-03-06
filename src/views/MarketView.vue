@@ -9,9 +9,9 @@ const settingsStore = useSettingsStore()
 
 const searchQuery = ref('')
 const searching = ref(false)
-const searchResults = ref<Array<{ id: number; name: string; icon: string }>>([])
+const searchResults = ref<Array<{ id: number; itemId: number; name: string; icon: string }>>([])
 
-const selectedItem = ref<{ id: number; name: string; icon: string } | null>(null)
+const selectedItem = ref<{ id: number; itemId: number; name: string; icon: string } | null>(null)
 const loadingMarket = ref(false)
 const worldPrices = ref<WorldPriceSummary[]>([])
 const listings = ref<MarketListing[]>([])
@@ -22,7 +22,7 @@ async function handleSearch() {
   try {
     const { searchRecipes } = await import('@/api/xivapi')
     const results = await searchRecipes(searchQuery.value)
-    searchResults.value = results.map(r => ({ id: r.id, name: r.name, icon: r.icon }))
+    searchResults.value = results.map(r => ({ id: r.id, itemId: r.itemId, name: r.name, icon: r.icon }))
   } catch {
     ElMessage.error('搜尋失敗')
   } finally {
@@ -30,12 +30,12 @@ async function handleSearch() {
   }
 }
 
-async function selectItem(item: { id: number; name: string; icon: string }) {
+async function selectItem(item: { id: number; itemId: number; name: string; icon: string }) {
   selectedItem.value = item
   searchResults.value = []
   loadingMarket.value = true
   try {
-    const data = await getMarketDataByDC(settingsStore.dataCenter, item.id)
+    const data = await getMarketDataByDC(settingsStore.dataCenter, item.itemId)
     worldPrices.value = aggregateByWorld(data.listings)
     listings.value = data.listings.sort((a, b) => a.pricePerUnit - b.pricePerUnit).slice(0, 50)
   } catch {
