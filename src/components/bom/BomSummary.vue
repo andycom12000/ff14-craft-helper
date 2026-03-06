@@ -27,6 +27,14 @@ const craftableMaterials = computed(() =>
   props.materials.filter((m) => !m.isRaw),
 )
 
+function getNqPrice(itemId: number): number {
+  return props.prices.get(itemId)?.minPrice ?? 0
+}
+
+function getHqPrice(itemId: number): number {
+  return props.prices.get(itemId)?.hqMinPrice ?? 0
+}
+
 function getUnitPrice(itemId: number): number {
   const priceInfo = props.prices.get(itemId)
   if (!priceInfo) return 0
@@ -154,9 +162,14 @@ async function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
             {{ row.totalAmount }}
           </template>
         </el-table-column>
-        <el-table-column label="單價" width="120" align="right">
+        <el-table-column label="NQ 最低" width="110" align="right">
           <template #default="{ row }">
-            {{ formatGil(getUnitPrice(row.itemId)) }}
+            {{ getNqPrice(row.itemId) > 0 ? formatGil(getNqPrice(row.itemId)) : '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="HQ 最低" width="110" align="right">
+          <template #default="{ row }">
+            <span class="hq-price">{{ getHqPrice(row.itemId) > 0 ? formatGil(getHqPrice(row.itemId)) : '-' }}</span>
           </template>
         </el-table-column>
         <el-table-column label="小計" width="120" align="right">
@@ -225,9 +238,14 @@ async function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
               {{ row.totalAmount }}
             </template>
           </el-table-column>
-          <el-table-column label="單價" width="120" align="right">
+          <el-table-column label="NQ 最低" width="110" align="right">
             <template #default="{ row }">
-              {{ formatGil(getUnitPrice(row.itemId)) }}
+              {{ getNqPrice(row.itemId) > 0 ? formatGil(getNqPrice(row.itemId)) : '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column label="HQ 最低" width="110" align="right">
+            <template #default="{ row }">
+              <span class="hq-price">{{ getHqPrice(row.itemId) > 0 ? formatGil(getHqPrice(row.itemId)) : '-' }}</span>
             </template>
           </el-table-column>
           <el-table-column label="小計" width="120" align="right">
@@ -279,5 +297,9 @@ async function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
   text-align: right;
   font-size: 18px;
   color: var(--el-color-primary);
+}
+
+.hq-price {
+  color: #e6a23c;
 }
 </style>
