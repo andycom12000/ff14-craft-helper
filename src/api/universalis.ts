@@ -89,3 +89,53 @@ export function getDataCenters(): Promise<DataCenter[]> {
 export function getWorlds(): Promise<World[]> {
   return fetchUniversalis('worlds')
 }
+
+export interface WorldPriceSummary {
+  worldName: string
+  minPriceNQ: number
+  minPriceHQ: number
+  avgPriceNQ: number
+  avgPriceHQ: number
+  lastUploadTime: number
+  listingCount: number
+}
+
+export function getMarketDataByDC(
+  dcName: string,
+  itemId: number
+): Promise<MarketData> {
+  return fetchUniversalis(`${encodeURIComponent(dcName)}/${itemId}`)
+}
+
+export function aggregateByWorld(listings: MarketListing[]): WorldPriceSummary[] {
+  const worldMap = new Map<string, MarketListing[]>()
+
+  for (const listing of listings) {
+    const world = listing.worldName ?? 'Unknown'
+    if (!worldMap.has(world)) worldMap.set(world, [])
+    worldMap.get(world)!.push(listing)
+  }
+
+  return Array.from(worldMap.entries()).map(([worldName, worldListings]) => {
+    const nqListings = worldListings.filter(l => !l.hq)
+    const hqListings = worldListings.filter(l => l.hq)
+
+    return {
+      worldName,
+      minPriceNQ: nqListings.length > 0 ? Math.min(...nqListings.map(l => l.pricePerUnit)) : 0,
+      minPriceHQ: hqListings.length > 0 ? Math.min(...hqListings.map(l => l.pricePerUnit)) : 0,
+      avgPriceNQ: nqListings.length > 0
+        ? Math.round(nqListings.reduce((s, l) => s + l.pricePerUnit, 0) / nqListings.length)
+        : 0,
+      avgPriceHQ: hqListings.length > 0
+        ? Math.round(hqListings.reduce((s, l) => s + l.pricePerUnit, 0) / hqListings.length)
+        : 0,
+      lastUploadTime: Math.max(...worldListings.map(l => l.lastReviewTime)),
+      listingCount: worldListings.length,
+    }
+  }).sort((a, b) => {
+    const priceA = a.minPriceNQ || Infinity
+    const priceB = b.minPriceNQ || Infinity
+    return priceA - priceB
+  })
+}
