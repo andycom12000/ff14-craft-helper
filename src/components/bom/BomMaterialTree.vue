@@ -7,6 +7,7 @@ defineProps<{
 
 const emit = defineEmits<{
   'simulate-recipe': [recipeId: number]
+  'toggle-collapsed': [node: MaterialNode]
 }>()
 </script>
 
@@ -28,20 +29,31 @@ const emit = defineEmits<{
       <template #default="{ data }">
         <div class="tree-node">
           <img :src="data.icon" :alt="data.name" class="node-icon" />
-          <span class="node-name">{{ data.name }}</span>
+          <span class="node-name" :class="{ 'node-collapsed': data.collapsed }">
+            {{ data.name }}
+          </span>
           <el-tag size="small" type="info" class="node-amount">
             x{{ data.amount }}
           </el-tag>
-          <el-button
-            v-if="data.recipeId"
-            type="primary"
-            size="small"
-            text
-            class="node-simulate"
-            @click.stop="emit('simulate-recipe', data.recipeId)"
-          >
-            模擬製作
-          </el-button>
+          <template v-if="data.recipeId">
+            <el-button
+              :type="data.collapsed ? 'success' : 'warning'"
+              size="small"
+              text
+              @click.stop="emit('toggle-collapsed', data)"
+            >
+              {{ data.collapsed ? '改為製作' : '改為購買' }}
+            </el-button>
+            <el-button
+              type="primary"
+              size="small"
+              text
+              class="node-simulate"
+              @click.stop="emit('simulate-recipe', data.recipeId)"
+            >
+              加入模擬佇列
+            </el-button>
+          </template>
         </div>
       </template>
     </el-tree>
@@ -68,6 +80,11 @@ const emit = defineEmits<{
 
 .node-name {
   font-size: 14px;
+}
+
+.node-collapsed {
+  text-decoration: line-through;
+  opacity: 0.6;
 }
 
 .node-amount {

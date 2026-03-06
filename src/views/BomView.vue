@@ -11,7 +11,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { buildMaterialTree, flattenMaterialTree } from '@/services/bom-calculator'
 import { getAggregatedPrices } from '@/api/universalis'
 import { getRecipe } from '@/api/xivapi'
-import type { PriceInfo } from '@/stores/bom'
+import type { PriceInfo, MaterialNode } from '@/stores/bom'
 
 const router = useRouter()
 const bomStore = useBomStore()
@@ -95,6 +95,12 @@ async function handleSimulateRecipe(recipeId: number) {
   }
 }
 
+function handleToggleCollapsed(node: MaterialNode) {
+  bomStore.toggleCollapsed(node)
+  bomStore.recalcFlat()
+  fetchPrices(bomStore.flatMaterials.map(m => m.itemId))
+}
+
 function handleRefreshPrices() {
   fetchPrices()
 }
@@ -120,6 +126,7 @@ function handleRefreshPrices() {
         <BomMaterialTree
           :tree="bomStore.materialTree"
           @simulate-recipe="handleSimulateRecipe"
+          @toggle-collapsed="handleToggleCollapsed"
         />
       </div>
 
