@@ -23,6 +23,11 @@ const router = createRouter({
       name: 'bom',
       component: () => import('@/views/BomView.vue'),
     },
+    {
+      path: '/settings',
+      name: 'settings',
+      component: () => import('@/views/SettingsView.vue'),
+    },
   ],
 })
 

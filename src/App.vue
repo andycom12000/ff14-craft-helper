@@ -5,6 +5,8 @@ import {
   Search,
   Cpu,
   List,
+  TrendCharts,
+  Suitcase,
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -20,7 +22,7 @@ const route = useRoute()
         class="app-menu"
       >
         <el-menu-item index="/">
-          <el-icon><Setting /></el-icon>
+          <el-icon><Suitcase /></el-icon>
           <span>配裝管理</span>
         </el-menu-item>
         <el-menu-item index="/recipe">
@@ -34,6 +36,15 @@ const route = useRoute()
         <el-menu-item index="/bom">
           <el-icon><List /></el-icon>
           <span>材料清單</span>
+        </el-menu-item>
+        <el-menu-item index="/market">
+          <el-icon><TrendCharts /></el-icon>
+          <span>市場查價</span>
+        </el-menu-item>
+        <el-divider style="margin: 8px 16px; border-color: rgba(255,255,255,0.1)" />
+        <el-menu-item index="/settings">
+          <el-icon><Setting /></el-icon>
+          <span>設定</span>
         </el-menu-item>
       </el-menu>
     </el-aside>
