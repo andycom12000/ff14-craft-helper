@@ -142,6 +142,12 @@ function handleClearActions() {
           </el-card>
 
           <SolverPanel />
+
+          <el-collapse class="macro-collapse">
+            <el-collapse-item title="遊戲巨集" name="macro">
+              <MacroExport />
+            </el-collapse-item>
+          </el-collapse>
         </template>
 
         <el-empty v-else description="請先選擇配方與裝備組" />
@@ -157,10 +163,6 @@ function handleClearActions() {
         <div class="placeholder-tab">
           <el-text type="info" size="large">食藥選擇 (開發中)</el-text>
         </div>
-      </el-tab-pane>
-
-      <el-tab-pane label="匯出">
-        <MacroExport />
       </el-tab-pane>
     </el-tabs>
   </div>
@@ -185,6 +187,10 @@ function handleClearActions() {
 
 .sim-section {
   margin-bottom: 12px;
+}
+
+.macro-collapse {
+  margin-top: 12px;
 }
 
 .placeholder-tab {
