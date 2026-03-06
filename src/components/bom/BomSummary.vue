@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { ElMessage } from 'element-plus'
 import type { FlatMaterial, PriceInfo } from '@/stores/bom'
 import { useSettingsStore } from '@/stores/settings'
 import { getPrice } from '@/stores/bom'
+import { getMarketDataByDC, aggregateByWorld } from '@/api/universalis'
+import type { WorldPriceSummary } from '@/api/universalis'
 
 const props = defineProps<{
   materials: FlatMaterial[]
@@ -52,6 +55,40 @@ const craftTotalCost = computed(() =>
 )
 
 const grandTotal = computed(() => rawTotalCost.value + craftTotalCost.value)
+
+const crossWorldData = ref<Map<number, WorldPriceSummary[]>>(new Map())
+const crossWorldLoading = ref<Set<number>>(new Set())
+
+async function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
+  const expanded = expandedRows.some(r => r.itemId === row.itemId)
+  if (!expanded) return
+  if (crossWorldData.value.has(row.itemId)) return
+
+  crossWorldLoading.value = new Set([...crossWorldLoading.value, row.itemId])
+  try {
+    const data = await getMarketDataByDC(settingsStore.dataCenter, row.itemId)
+    const summary = aggregateByWorld(data.listings)
+    crossWorldData.value = new Map(crossWorldData.value).set(row.itemId, summary)
+  } catch {
+    ElMessage.error(`無法取得 ${row.name} 的跨服價格`)
+  } finally {
+    const newSet = new Set(crossWorldLoading.value)
+    newSet.delete(row.itemId)
+    crossWorldLoading.value = newSet
+  }
+}
+
+function formatTimeAgo(timestamp: number): string {
+  const now = Date.now()
+  const diff = now - timestamp * 1000
+  const minutes = Math.floor(diff / 60000)
+  if (minutes < 1) return '剛剛'
+  if (minutes < 60) return `${minutes} 分鐘前`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours} 小時前`
+  const days = Math.floor(hours / 24)
+  return `${days} 天前`
+}
 </script>
 
 <template>
@@ -79,7 +116,47 @@ const grandTotal = computed(() => rawTotalCost.value + craftTotalCost.value)
     <template v-else>
       <!-- Raw materials section -->
       <h4 class="section-title">原始素材（需採集 / 購買）</h4>
-      <el-table :data="rawMaterials" border style="width: 100%" size="small">
+      <el-table :data="rawMaterials" border style="width: 100%" size="small" @expand-change="handleExpand">
+        <el-table-column type="expand">
+          <template #default="{ row }">
+            <div v-if="crossWorldLoading.has(row.itemId)" style="padding: 12px; text-align: center">
+              <el-skeleton :rows="2" animated />
+            </div>
+            <el-table
+              v-else-if="crossWorldData.get(row.itemId)"
+              :data="crossWorldData.get(row.itemId)"
+              size="small"
+              style="margin: 8px 0"
+            >
+              <el-table-column prop="worldName" label="伺服器" width="120">
+                <template #default="{ row: world }">
+                  <span :style="{ fontWeight: world.worldName === settingsStore.server ? 'bold' : 'normal' }">
+                    {{ world.worldName }}
+                    <el-tag v-if="world.worldName === settingsStore.server" size="small" type="primary" style="margin-left: 4px">你</el-tag>
+                  </span>
+                </template>
+              </el-table-column>
+              <el-table-column label="NQ 最低" width="100" align="right">
+                <template #default="{ row: world, $index }">
+                  <span :style="{ color: $index === 0 && world.minPriceNQ > 0 ? '#67c23a' : '' }">
+                    {{ world.minPriceNQ > 0 ? formatGil(world.minPriceNQ) : '-' }}
+                  </span>
+                </template>
+              </el-table-column>
+              <el-table-column label="HQ 最低" width="100" align="right">
+                <template #default="{ row: world }">
+                  {{ world.minPriceHQ > 0 ? formatGil(world.minPriceHQ) : '-' }}
+                </template>
+              </el-table-column>
+              <el-table-column label="更新時間" width="120" align="center">
+                <template #default="{ row: world }">
+                  {{ formatTimeAgo(world.lastUploadTime) }}
+                </template>
+              </el-table-column>
+            </el-table>
+            <el-empty v-else description="無資料" :image-size="40" />
+          </template>
+        </el-table-column>
         <el-table-column label="圖示" width="50" align="center">
           <template #default="{ row }">
             <img :src="row.icon" :alt="row.name" style="width: 24px; height: 24px" />
@@ -110,7 +187,47 @@ const grandTotal = computed(() => rawTotalCost.value + craftTotalCost.value)
       <!-- Craftable intermediates section -->
       <template v-if="craftableMaterials.length > 0">
         <h4 class="section-title">半成品（可製作）</h4>
-        <el-table :data="craftableMaterials" border style="width: 100%" size="small">
+        <el-table :data="craftableMaterials" border style="width: 100%" size="small" @expand-change="handleExpand">
+          <el-table-column type="expand">
+            <template #default="{ row }">
+              <div v-if="crossWorldLoading.has(row.itemId)" style="padding: 12px; text-align: center">
+                <el-skeleton :rows="2" animated />
+              </div>
+              <el-table
+                v-else-if="crossWorldData.get(row.itemId)"
+                :data="crossWorldData.get(row.itemId)"
+                size="small"
+                style="margin: 8px 0"
+              >
+                <el-table-column prop="worldName" label="伺服器" width="120">
+                  <template #default="{ row: world }">
+                    <span :style="{ fontWeight: world.worldName === settingsStore.server ? 'bold' : 'normal' }">
+                      {{ world.worldName }}
+                      <el-tag v-if="world.worldName === settingsStore.server" size="small" type="primary" style="margin-left: 4px">你</el-tag>
+                    </span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="NQ 最低" width="100" align="right">
+                  <template #default="{ row: world, $index }">
+                    <span :style="{ color: $index === 0 && world.minPriceNQ > 0 ? '#67c23a' : '' }">
+                      {{ world.minPriceNQ > 0 ? formatGil(world.minPriceNQ) : '-' }}
+                    </span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="HQ 最低" width="100" align="right">
+                  <template #default="{ row: world }">
+                    {{ world.minPriceHQ > 0 ? formatGil(world.minPriceHQ) : '-' }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="更新時間" width="120" align="center">
+                  <template #default="{ row: world }">
+                    {{ formatTimeAgo(world.lastUploadTime) }}
+                  </template>
+                </el-table-column>
+              </el-table>
+              <el-empty v-else description="無資料" :image-size="40" />
+            </template>
+          </el-table-column>
           <el-table-column label="圖示" width="50" align="center">
             <template #default="{ row }">
               <img :src="row.icon" :alt="row.name" style="width: 24px; height: 24px" />
