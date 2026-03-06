@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
 import type { PriceDisplayMode } from '@/stores/settings'
+import { flattenMaterialTree } from '@/services/bom-calculator'
 
 export interface BomTarget {
   itemId: number
@@ -18,6 +19,7 @@ export interface MaterialNode {
   amount: number
   recipeId?: number
   children?: MaterialNode[]
+  collapsed?: boolean  // true = user chose to buy instead of craft
 }
 
 export interface FlatMaterial {
@@ -94,6 +96,14 @@ export const useBomStore = defineStore('bom', () => {
     return total
   })
 
+  function toggleCollapsed(node: MaterialNode) {
+    node.collapsed = !node.collapsed
+  }
+
+  function recalcFlat() {
+    flatMaterials.value = flattenMaterialTree(materialTree.value)
+  }
+
   return {
     targets,
     materialTree,
@@ -104,5 +114,7 @@ export const useBomStore = defineStore('bom', () => {
     removeTarget,
     updateTargetQuantity,
     clearTargets,
+    toggleCollapsed,
+    recalcFlat,
   }
 })
