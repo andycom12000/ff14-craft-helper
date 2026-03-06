@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import BomTargetList from '@/components/bom/BomTargetList.vue'
 import BomMaterialTree from '@/components/bom/BomMaterialTree.vue'
@@ -18,7 +18,7 @@ const settingsStore = useSettingsStore()
 
 const calculating = ref(false)
 const fetchingPrices = ref(false)
-const calculated = ref(false)
+const calculated = computed(() => bomStore.materialTree.length > 0)
 const loadingMessage = ref('正在計算材料需求...')
 
 async function handleCalculate() {
@@ -28,7 +28,6 @@ async function handleCalculate() {
   }
 
   calculating.value = true
-  calculated.value = false
 
   try {
     loadingMessage.value = '正在展開子配方...'
@@ -38,8 +37,6 @@ async function handleCalculate() {
     loadingMessage.value = '正在整理材料清單...'
     const flat = flattenMaterialTree(tree)
     bomStore.flatMaterials = flat
-
-    calculated.value = true
 
     await fetchPrices(flat.map((m) => m.itemId))
 
