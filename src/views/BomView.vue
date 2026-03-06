@@ -31,19 +31,16 @@ async function handleCalculate() {
   calculated.value = false
 
   try {
-    // Build material tree
     loadingMessage.value = '正在展開子配方...'
     const tree = await buildMaterialTree(bomStore.targets)
     bomStore.materialTree = tree
 
-    // Flatten to deduplicated list
     loadingMessage.value = '正在整理材料清單...'
     const flat = flattenMaterialTree(tree)
     bomStore.flatMaterials = flat
 
     calculated.value = true
 
-    // Fetch prices automatically
     await fetchPrices(flat.map((m) => m.itemId))
 
     ElMessage.success('材料計算完成')
@@ -64,7 +61,6 @@ async function fetchPrices(itemIds?: number[]) {
   try {
     const marketDataMap = await getAggregatedPrices(settingsStore.server, ids)
 
-    // Convert MarketData to PriceInfo and store
     const priceMap = new Map<number, PriceInfo>()
     for (const [id, data] of marketDataMap) {
       priceMap.set(id, {
@@ -112,16 +108,13 @@ function handleRefreshPrices() {
     <h2>材料清單</h2>
     <p class="view-desc">計算製作所需材料、查詢市場價格，一鍵進入模擬器。</p>
 
-    <!-- Target list -->
     <BomTargetList @calculate="handleCalculate" />
 
-    <!-- Loading overlay -->
     <div v-if="calculating" class="loading-section">
       <el-skeleton :rows="4" animated />
       <p class="loading-text">{{ loadingMessage }}</p>
     </div>
 
-    <!-- Material tree -->
     <template v-if="calculated && !calculating">
       <div class="section-gap">
         <BomMaterialTree
@@ -131,7 +124,6 @@ function handleRefreshPrices() {
         />
       </div>
 
-      <!-- Summary with prices -->
       <div class="section-gap">
         <div v-if="fetchingPrices" class="loading-section">
           <el-skeleton :rows="3" animated />
@@ -150,13 +142,7 @@ function handleRefreshPrices() {
 
 <style scoped>
 .bom-view {
-  padding: 20px;
   max-width: 960px;
-}
-
-.view-desc {
-  color: var(--el-text-color-secondary);
-  margin-bottom: 20px;
 }
 
 .section-gap {
@@ -170,7 +156,7 @@ function handleRefreshPrices() {
 
 .loading-text {
   text-align: center;
-  color: var(--el-text-color-secondary);
+  color: var(--app-text-muted);
   margin-top: 12px;
 }
 </style>

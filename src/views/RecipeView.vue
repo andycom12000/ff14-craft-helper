@@ -50,21 +50,23 @@ function handleAddToBom() {
 </script>
 
 <template>
-  <div class="recipe-view">
+  <div class="view-container">
     <h2>配方搜尋</h2>
+    <p class="view-desc">搜尋並選擇配方，查看詳情後可加入模擬器或材料清單。</p>
+
     <el-row :gutter="20" class="recipe-content">
       <el-col :span="10">
-        <el-card shadow="never">
+        <el-card shadow="never" class="recipe-card">
           <template #header>
-            <span>搜尋配方</span>
+            <span class="card-title">搜尋配方</span>
           </template>
           <RecipeSearch @select="handleSelect" />
         </el-card>
       </el-col>
       <el-col :span="14">
-        <el-card v-loading="detailLoading" shadow="never">
+        <el-card v-loading="detailLoading" shadow="never" class="recipe-card">
           <template #header>
-            <span>配方詳情</span>
+            <span class="card-title">配方詳情</span>
           </template>
           <RecipeDetail
             :recipe="selectedRecipe"
@@ -78,20 +80,11 @@ function handleAddToBom() {
 </template>
 
 <style scoped>
-.recipe-view {
-  padding: 20px;
-}
-
-.recipe-view h2 {
-  margin-top: 0;
-  margin-bottom: 16px;
-}
-
 .recipe-content {
-  height: calc(100vh - 140px);
+  height: calc(100vh - 160px);
 }
 
-.recipe-content .el-card {
+.recipe-card {
   height: 100%;
 }
 </style>

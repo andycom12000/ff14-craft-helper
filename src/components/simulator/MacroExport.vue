@@ -139,7 +139,7 @@ async function copyMacro(text: string, index: number) {
   background: var(--el-fill-color-light);
   border: 1px solid var(--el-border-color-lighter);
   border-radius: 4px;
-  font-family: 'Consolas', 'Monaco', monospace;
+  font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
   font-size: 13px;
   line-height: 1.6;
   white-space: pre;

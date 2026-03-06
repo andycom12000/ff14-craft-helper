@@ -44,7 +44,7 @@ const completionType = computed(() => {
         <el-progress
           :percentage="progressPct"
           :stroke-width="18"
-          color="#409EFF"
+          color="var(--app-accent)"
           :text-inside="true"
           :format="() => `${craftState!.progress} / ${craftState!.maxProgress}`"
         />
@@ -55,7 +55,7 @@ const completionType = computed(() => {
         <el-progress
           :percentage="qualityPct"
           :stroke-width="18"
-          color="#67C23A"
+          color="var(--app-success)"
           :text-inside="true"
           :format="() => `${craftState!.quality} / ${craftState!.maxQuality}`"
         />

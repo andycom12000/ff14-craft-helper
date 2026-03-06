@@ -14,8 +14,11 @@ const route = useRoute()
 
 <template>
   <el-container class="app-container">
-    <el-aside width="200px" class="app-aside">
-      <div class="app-logo">FF14 Craft Helper</div>
+    <el-aside width="220px" class="app-aside">
+      <div class="app-logo">
+        <span class="logo-ff">FF14</span>
+        <span class="logo-sub">Craft Helper</span>
+      </div>
       <el-menu
         :default-active="route.path"
         router
@@ -41,7 +44,7 @@ const route = useRoute()
           <el-icon><TrendCharts /></el-icon>
           <span>市場查價</span>
         </el-menu-item>
-        <el-divider style="margin: 8px 16px; border-color: rgba(255,255,255,0.1)" />
+        <el-divider class="menu-divider" />
         <el-menu-item index="/settings">
           <el-icon><Setting /></el-icon>
           <span>設定</span>
@@ -55,57 +58,255 @@ const route = useRoute()
 </template>
 
 <style>
+:root {
+  --app-bg: #0F0F23;
+  --app-sidebar: #0A0A1A;
+  --app-surface: #161630;
+  --app-surface-hover: #1E1E42;
+  --app-border: rgba(124, 58, 237, 0.15);
+  --app-text: #E2E8F0;
+  --app-text-muted: #94A3B8;
+  --app-accent: #7C3AED;
+  --app-accent-light: #A78BFA;
+  --app-accent-glow: rgba(124, 58, 237, 0.2);
+  --app-success: #4ade80;
+}
+
+html {
+  --el-color-primary: #7C3AED;
+  --el-color-primary-light-3: #9461F5;
+  --el-color-primary-light-5: #A78BFA;
+  --el-color-primary-light-7: #C4B5FD;
+  --el-color-primary-light-8: #DDD6FE;
+  --el-color-primary-light-9: #1E1E42;
+  --el-color-primary-dark-2: #6D28D9;
+
+  --el-bg-color: var(--app-bg);
+  --el-bg-color-page: var(--app-bg);
+  --el-bg-color-overlay: var(--app-surface);
+
+  --el-fill-color: var(--app-surface-hover);
+  --el-fill-color-light: var(--app-surface);
+  --el-fill-color-lighter: #1A1A38;
+  --el-fill-color-dark: #252550;
+  --el-fill-color-darker: #2D2D5E;
+  --el-fill-color-blank: var(--app-bg);
+
+  --el-border-color: rgba(124, 58, 237, 0.2);
+  --el-border-color-light: rgba(124, 58, 237, 0.12);
+  --el-border-color-lighter: rgba(124, 58, 237, 0.08);
+  --el-border-color-dark: rgba(124, 58, 237, 0.3);
+
+  --el-text-color-primary: #E2E8F0;
+  --el-text-color-regular: #CBD5E1;
+  --el-text-color-secondary: #94A3B8;
+  --el-text-color-placeholder: #64748B;
+
+  --el-mask-color: rgba(15, 15, 35, 0.8);
+}
+
 html, body {
   margin: 0;
   padding: 0;
   height: 100%;
+  font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: var(--app-bg);
+  color: var(--app-text);
 }
 
 #app {
   height: 100%;
 }
 
+/* Element Plus dark overrides */
+.el-card {
+  --el-card-bg-color: var(--app-surface);
+  border-color: var(--app-border);
+}
+
+.el-card__header {
+  border-bottom-color: var(--app-border);
+}
+
+.el-table {
+  --el-table-bg-color: var(--app-surface);
+  --el-table-tr-bg-color: var(--app-surface);
+  --el-table-header-bg-color: var(--el-fill-color-lighter);
+  --el-table-row-hover-bg-color: var(--app-surface-hover);
+  --el-table-border-color: var(--app-border);
+  --el-table-text-color: var(--app-text);
+  --el-table-header-text-color: var(--app-text-muted);
+}
+
+.el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+  background-color: rgba(124, 58, 237, 0.04);
+}
+
+.el-descriptions {
+  --el-descriptions-item-bordered-label-background: var(--el-fill-color-lighter);
+}
+
+.el-tabs--border-card {
+  --el-bg-color-overlay: var(--app-surface);
+  border-color: var(--app-border);
+}
+
+.el-input__wrapper,
+.el-input-number {
+  --el-input-bg-color: var(--el-fill-color-lighter);
+  --el-input-border-color: var(--app-border);
+}
+
+.el-input__wrapper:hover,
+.el-input__wrapper:focus-within {
+  --el-input-hover-border-color: var(--app-accent-light);
+}
+
+.el-collapse {
+  --el-collapse-border-color: var(--app-border);
+  --el-collapse-header-bg-color: var(--app-surface);
+  --el-collapse-content-bg-color: var(--app-surface);
+}
+
+.el-skeleton__item {
+  background: linear-gradient(90deg, var(--el-fill-color-lighter) 25%, var(--el-fill-color-dark) 37%, var(--el-fill-color-lighter) 63%);
+}
+
+.el-divider {
+  border-color: var(--app-border);
+}
+
+.el-alert {
+  --el-alert-bg-color: var(--app-surface);
+}
+
+.el-select__wrapper {
+  background-color: var(--el-fill-color-lighter);
+}
+
+/* Global scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--app-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--el-border-color-dark);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--app-accent-light);
+}
+
+/* View container shared style */
+.view-container,
+.bom-view,
+.market-view,
+.settings-view {
+  padding: 28px 32px;
+}
+
+.view-container h2,
+.bom-view h2,
+.market-view h2,
+.settings-view h2 {
+  margin-top: 0;
+  margin-bottom: 8px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--app-text);
+}
+
+.view-desc {
+  color: var(--app-text-muted);
+  margin-bottom: 24px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--app-text);
+}
+</style>
+
+<style scoped>
 .app-container {
   height: 100vh;
 }
 
 .app-aside {
-  background-color: #001529;
+  background-color: var(--app-sidebar);
+  border-right: 1px solid var(--app-border);
   overflow-y: auto;
 }
 
 .app-logo {
-  height: 60px;
+  height: 64px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  font-size: 16px;
-  font-weight: bold;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--app-border);
+  gap: 2px;
+}
+
+.logo-ff {
+  font-family: 'Fira Code', monospace;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--app-accent-light);
+  letter-spacing: 2px;
+}
+
+.logo-sub {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--app-text-muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
 }
 
 .app-menu {
   border-right: none;
-  background-color: #001529;
+  background-color: transparent;
+  padding: 8px 0;
 }
 
 .app-menu .el-menu-item {
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--app-text-muted);
+  margin: 2px 8px;
+  border-radius: 8px;
+  height: 44px;
+  line-height: 44px;
+  font-size: 14px;
+  transition: all 0.2s ease;
 }
 
 .app-menu .el-menu-item:hover {
-  color: #fff;
-  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--app-text);
+  background-color: var(--app-accent-glow);
 }
 
 .app-menu .el-menu-item.is-active {
-  color: #409eff;
-  background-color: rgba(64, 158, 255, 0.1);
+  color: #fff;
+  background: linear-gradient(135deg, var(--app-accent) 0%, var(--el-color-primary-dark-2) 100%);
+  font-weight: 500;
+}
+
+.menu-divider {
+  margin: 8px 16px;
+  border-color: var(--app-border);
 }
 
 .app-main {
-  background-color: #f5f7fa;
+  background-color: var(--app-bg);
   overflow-y: auto;
 }
 </style>

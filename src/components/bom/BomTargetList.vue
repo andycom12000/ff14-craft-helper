@@ -114,11 +114,6 @@ function handleClearAll() {
   align-items: center;
 }
 
-.card-title {
-  font-size: 16px;
-  font-weight: 600;
-}
-
 .card-actions {
   display: flex;
   gap: 8px;

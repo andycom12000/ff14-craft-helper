@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useSettingsStore } from '@/stores/settings'
 import { getMarketDataByDC, aggregateByWorld } from '@/api/universalis'
+import { formatGil, formatTimeAgo } from '@/utils/format'
 import type { MarketListing, WorldPriceSummary } from '@/api/universalis'
 
 const settingsStore = useSettingsStore()
@@ -45,20 +46,6 @@ async function selectItem(item: { id: number; itemId: number; name: string; icon
   }
 }
 
-function formatGil(value: number): string {
-  return value.toLocaleString()
-}
-
-function formatTimeAgo(timestamp: number): string {
-  const now = Date.now()
-  const diff = now - timestamp * 1000
-  const minutes = Math.floor(diff / 60000)
-  if (minutes < 1) return '剛剛'
-  if (minutes < 60) return `${minutes} 分鐘前`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours} 小時前`
-  return `${Math.floor(hours / 24)} 天前`
-}
 </script>
 
 <template>
@@ -68,7 +55,6 @@ function formatTimeAgo(timestamp: number): string {
       搜尋物品，比較「{{ settingsStore.dataCenter }}」資料中心各伺服器的價格。
     </p>
 
-    <!-- Search -->
     <el-input
       v-model="searchQuery"
       placeholder="輸入物品名稱搜尋..."
@@ -80,8 +66,7 @@ function formatTimeAgo(timestamp: number): string {
       </template>
     </el-input>
 
-    <!-- Search results -->
-    <el-card v-if="searchResults.length > 0" shadow="never" style="margin-top: 12px">
+    <el-card v-if="searchResults.length > 0" shadow="never" class="search-results">
       <div
         v-for="item in searchResults"
         :key="item.id"
@@ -93,9 +78,8 @@ function formatTimeAgo(timestamp: number): string {
       </div>
     </el-card>
 
-    <!-- Selected item market data -->
     <template v-if="selectedItem">
-      <div class="selected-item" style="margin-top: 20px">
+      <div class="selected-item">
         <img v-if="selectedItem.icon" :src="selectedItem.icon" style="width: 32px; height: 32px" />
         <h3 style="margin: 0">{{ selectedItem.name }}</h3>
       </div>
@@ -103,8 +87,7 @@ function formatTimeAgo(timestamp: number): string {
       <el-skeleton v-if="loadingMarket" :rows="4" animated style="margin-top: 16px" />
 
       <template v-else>
-        <!-- Cross-world price table -->
-        <el-card shadow="never" style="margin-top: 16px">
+        <el-card shadow="never" class="data-card">
           <template #header>
             <span class="card-title">各伺服器價格比較</span>
           </template>
@@ -120,7 +103,7 @@ function formatTimeAgo(timestamp: number): string {
             </el-table-column>
             <el-table-column label="NQ 最低" width="120" align="right">
               <template #default="{ row, $index }">
-                <span :style="{ color: $index === 0 && row.minPriceNQ > 0 ? '#67c23a' : '' }">
+                <span :class="{ 'price-best': $index === 0 && row.minPriceNQ > 0 }">
                   {{ row.minPriceNQ > 0 ? formatGil(row.minPriceNQ) : '-' }}
                 </span>
               </template>
@@ -149,8 +132,7 @@ function formatTimeAgo(timestamp: number): string {
           </el-table>
         </el-card>
 
-        <!-- Listings -->
-        <el-card shadow="never" style="margin-top: 16px">
+        <el-card shadow="never" class="data-card">
           <template #header>
             <span class="card-title">當前掛牌（最便宜 50 筆）</span>
           </template>
@@ -189,31 +171,25 @@ function formatTimeAgo(timestamp: number): string {
 
 <style scoped>
 .market-view {
-  padding: 20px;
   max-width: 960px;
 }
 
-.view-desc {
-  color: var(--el-text-color-secondary);
-  margin-bottom: 20px;
-}
-
-.card-title {
-  font-size: 16px;
-  font-weight: 600;
+.search-results {
+  margin-top: 12px;
 }
 
 .search-result-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px;
+  padding: 8px 12px;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
 }
 
 .search-result-item:hover {
-  background-color: var(--el-fill-color-light);
+  background-color: var(--app-surface-hover);
 }
 
 .result-icon {
@@ -225,5 +201,15 @@ function formatTimeAgo(timestamp: number): string {
   display: flex;
   align-items: center;
   gap: 12px;
+  margin-top: 24px;
+}
+
+.data-card {
+  margin-top: 16px;
+}
+
+.price-best {
+  color: var(--app-success);
+  font-weight: 600;
 }
 </style>

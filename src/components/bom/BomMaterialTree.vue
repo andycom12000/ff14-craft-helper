@@ -61,11 +61,6 @@ const emit = defineEmits<{
 </template>
 
 <style scoped>
-.card-title {
-  font-size: 16px;
-  font-weight: 600;
-}
-
 .tree-node {
   display: flex;
   align-items: center;

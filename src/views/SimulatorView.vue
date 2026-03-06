@@ -70,12 +70,13 @@ function handleClearActions() {
 <template>
   <div class="view-container">
     <h2>製作模擬</h2>
+    <p class="view-desc">模擬製作過程，規劃最佳技能序列。</p>
 
-    <!-- Queue selector (shown when queue has items) -->
+    <!-- Queue selector -->
     <el-card v-if="recipeStore.simulationQueue.length > 0" shadow="never" class="queue-card">
       <template #header>
         <div class="queue-header">
-          <span>模擬佇列</span>
+          <span class="card-title">模擬佇列</span>
           <el-button size="small" text type="danger" @click="recipeStore.clearQueue()">清空佇列</el-button>
         </div>
       </template>
@@ -134,7 +135,7 @@ function handleClearActions() {
         class="info-desc"
       >
         <el-descriptions-item label="配方">
-          {{ recipe.name }} (Lv.{{ recipe.level }}<template v-if="recipe.stars > 0"> {{ '★'.repeat(recipe.stars) }}</template>)
+          {{ recipe.name }} (Lv.{{ recipe.level }}<template v-if="recipe.stars > 0"> {{ '\u2605'.repeat(recipe.stars) }}</template>)
         </el-descriptions-item>
         <el-descriptions-item label="職業 / 等級">
           {{ JOB_NAMES[gearset.job] ?? gearset.job }} Lv.{{ gearset.level }}
@@ -154,7 +155,7 @@ function handleClearActions() {
         <template v-if="canSimulate">
           <el-card shadow="never" class="sim-section">
             <template #header>
-              <span>製作狀態</span>
+              <span class="card-title">製作狀態</span>
             </template>
             <StatusBar :craft-state="currentState" />
             <el-divider style="margin: 8px 0" />
@@ -163,7 +164,7 @@ function handleClearActions() {
 
           <el-card shadow="never" class="sim-section">
             <template #header>
-              <span>技能序列</span>
+              <span class="card-title">技能序列</span>
             </template>
             <ActionList
               :actions="simStore.actions"
@@ -201,10 +202,6 @@ function handleClearActions() {
 </template>
 
 <style scoped>
-.view-container {
-  padding: 20px;
-}
-
 .info-section {
   margin-bottom: 16px;
 }
@@ -245,25 +242,26 @@ function handleClearActions() {
 .queue-items {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .queue-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px;
-  border-radius: 4px;
+  padding: 8px 12px;
+  border-radius: 8px;
   cursor: pointer;
+  transition: background-color 0.2s ease;
 }
 
 .queue-item:hover {
-  background-color: var(--el-fill-color-light);
+  background-color: var(--app-surface-hover);
 }
 
 .queue-item.active {
-  background-color: var(--el-color-primary-light-9);
-  border: 1px solid var(--el-color-primary-light-5);
+  background-color: var(--app-accent-glow);
+  border: 1px solid var(--el-border-color-dark);
 }
 
 .queue-icon {

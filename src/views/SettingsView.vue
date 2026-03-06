@@ -11,7 +11,6 @@ const dataCenters = ref<DataCenter[]>([])
 const worlds = ref<World[]>([])
 const loading = ref(false)
 
-// Group DCs by region
 interface RegionGroup {
   region: string
   dataCenters: (DataCenter & { worldDetails: World[] })[]
@@ -28,7 +27,6 @@ onMounted(async () => {
     dataCenters.value = dcList
     worlds.value = worldList
 
-    // Build region groups
     const regionMap = new Map<string, (DataCenter & { worldDetails: World[] })[]>()
     for (const dc of dcList) {
       const region = dc.region || 'Other'
@@ -74,7 +72,6 @@ watch(selectedDC, (newDC) => {
 })
 
 watch(regionGroups, () => {
-  // Trigger chain after data loads
   const group = regionGroups.value.find(g => g.region === selectedRegion.value)
   availableDCs.value = group?.dataCenters ?? []
   const dc = availableDCs.value.find(d => d.name === selectedDC.value)
@@ -93,6 +90,7 @@ function saveSettings() {
 <template>
   <div class="settings-view">
     <h2>設定</h2>
+    <p class="view-desc">設定伺服器與價格偏好。</p>
 
     <el-skeleton v-if="loading" :rows="6" animated />
 
@@ -138,7 +136,7 @@ function saveSettings() {
         </el-form>
       </el-card>
 
-      <el-card shadow="never" style="margin-top: 20px">
+      <el-card shadow="never" class="price-card">
         <template #header>
           <span class="card-title">價格偏好</span>
         </template>
@@ -154,7 +152,7 @@ function saveSettings() {
         </el-form>
       </el-card>
 
-      <div style="margin-top: 20px; text-align: right">
+      <div class="save-row">
         <el-button type="primary" @click="saveSettings">儲存設定</el-button>
       </div>
     </template>
@@ -163,12 +161,15 @@ function saveSettings() {
 
 <style scoped>
 .settings-view {
-  padding: 20px;
   max-width: 720px;
 }
 
-.card-title {
-  font-size: 16px;
-  font-weight: 600;
+.price-card {
+  margin-top: 20px;
+}
+
+.save-row {
+  margin-top: 20px;
+  text-align: right;
 }
 </style>
