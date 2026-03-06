@@ -846,17 +846,411 @@ git commit -m "feat: add market price comparison page with cross-world view"
 
 ---
 
-### Task 7: 最終檢查與修正
+### Task 7: 設定測試基礎設施
+
+**Files:**
+- Modify: `package.json`
+- Create: `vitest.config.ts`
+- Create: `src/__tests__/setup.ts`
+
+**Step 1: 安裝 Vitest 和相關依賴**
+
+Run:
+```bash
+npm install -D vitest @vue/test-utils happy-dom
+```
+
+**Step 2: 建立 vitest.config.ts**
+
+```ts
+import { defineConfig } from 'vitest/config'
+import vue from '@vitejs/plugin-vue'
+
+export default defineConfig({
+  plugins: [vue()],
+  resolve: {
+    alias: {
+      '@': '/src',
+    },
+  },
+  test: {
+    environment: 'happy-dom',
+    setupFiles: ['src/__tests__/setup.ts'],
+  },
+})
+```
+
+**Step 3: 建立 test setup 檔案**
+
+`src/__tests__/setup.ts`:
+```ts
+// Global test setup - mock fetch by default
+import { vi } from 'vitest'
+
+// Provide a global fetch mock that tests can override
+globalThis.fetch = vi.fn()
+```
+
+**Step 4: 在 package.json 新增 test script**
+
+在 `"scripts"` 中新增：
+```json
+"test": "vitest run",
+"test:watch": "vitest"
+```
+
+**Step 5: 確認 vitest 能跑**
+
+Run: `npx vitest run`
+Expected: 顯示 "No test files found"（正常，尚未寫測試）
+
+**Step 6: Commit**
+
+```bash
+git add package.json package-lock.json vitest.config.ts src/__tests__/setup.ts
+git commit -m "chore: add vitest testing infrastructure"
+```
+
+---
+
+### Task 8: 測試 — Universalis API 層
+
+**Files:**
+- Create: `src/__tests__/api/universalis.test.ts`
+
+**Step 1: 撰寫 aggregateByWorld 單元測試**
+
+```ts
+import { describe, it, expect } from 'vitest'
+import { aggregateByWorld } from '@/api/universalis'
+import type { MarketListing } from '@/api/universalis'
+
+function makeListing(overrides: Partial<MarketListing>): MarketListing {
+  return {
+    pricePerUnit: 100,
+    quantity: 1,
+    total: 100,
+    hq: false,
+    worldName: '巴哈姆特',
+    lastReviewTime: 1700000000,
+    ...overrides,
+  }
+}
+
+describe('aggregateByWorld', () => {
+  it('groups listings by world and computes min/avg prices', () => {
+    const listings: MarketListing[] = [
+      makeListing({ pricePerUnit: 500, worldName: '巴哈姆特', hq: false }),
+      makeListing({ pricePerUnit: 600, worldName: '巴哈姆特', hq: false }),
+      makeListing({ pricePerUnit: 800, worldName: '巴哈姆特', hq: true }),
+      makeListing({ pricePerUnit: 400, worldName: '伊弗利特', hq: false }),
+    ]
+
+    const result = aggregateByWorld(listings)
+
+    expect(result).toHaveLength(2)
+    // Sorted by NQ min price ascending — 伊弗利特 (400) first
+    expect(result[0].worldName).toBe('伊弗利特')
+    expect(result[0].minPriceNQ).toBe(400)
+
+    expect(result[1].worldName).toBe('巴哈姆特')
+    expect(result[1].minPriceNQ).toBe(500)
+    expect(result[1].avgPriceNQ).toBe(550)
+    expect(result[1].minPriceHQ).toBe(800)
+  })
+
+  it('returns empty array for empty listings', () => {
+    expect(aggregateByWorld([])).toEqual([])
+  })
+
+  it('handles world with only HQ listings', () => {
+    const listings: MarketListing[] = [
+      makeListing({ pricePerUnit: 900, worldName: '鳳凰', hq: true }),
+    ]
+
+    const result = aggregateByWorld(listings)
+
+    expect(result).toHaveLength(1)
+    expect(result[0].minPriceNQ).toBe(0)
+    expect(result[0].minPriceHQ).toBe(900)
+  })
+})
+```
+
+**Step 2: 跑測試確認通過**
+
+Run: `npx vitest run src/__tests__/api/universalis.test.ts`
+Expected: 3 tests PASS
+
+**Step 3: Commit**
+
+```bash
+git add src/__tests__/api/universalis.test.ts
+git commit -m "test: add aggregateByWorld unit tests"
+```
+
+---
+
+### Task 9: 測試 — Settings Store
+
+**Files:**
+- Create: `src/__tests__/stores/settings.test.ts`
+
+**Step 1: 撰寫 settings store 測試**
+
+```ts
+import { describe, it, expect, beforeEach } from 'vitest'
+import { setActivePinia, createPinia } from 'pinia'
+import { useSettingsStore } from '@/stores/settings'
+
+describe('useSettingsStore', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  it('has correct TW server defaults', () => {
+    const store = useSettingsStore()
+
+    expect(store.server).toBe('巴哈姆特')
+    expect(store.dataCenter).toBe('陸行鳥')
+    expect(store.region).toBe('繁中服')
+  })
+
+  it('defaults priceDisplayMode to nq', () => {
+    const store = useSettingsStore()
+
+    expect(store.priceDisplayMode).toBe('nq')
+  })
+
+  it('allows updating all settings', () => {
+    const store = useSettingsStore()
+
+    store.server = '伊弗利特'
+    store.dataCenter = '陸行鳥'
+    store.region = '繁中服'
+    store.priceDisplayMode = 'hq'
+
+    expect(store.server).toBe('伊弗利特')
+    expect(store.priceDisplayMode).toBe('hq')
+  })
+})
+```
+
+**Step 2: 跑測試確認通過**
+
+Run: `npx vitest run src/__tests__/stores/settings.test.ts`
+Expected: 3 tests PASS
+
+**Step 3: Commit**
+
+```bash
+git add src/__tests__/stores/settings.test.ts
+git commit -m "test: add settings store unit tests"
+```
+
+---
+
+### Task 10: 測試 — BOM Store getPrice 邏輯
+
+**Files:**
+- Create: `src/__tests__/stores/bom.test.ts`
+
+**Step 1: 撰寫 getPrice 和 totalCost 測試**
+
+```ts
+import { describe, it, expect, beforeEach } from 'vitest'
+import { setActivePinia, createPinia } from 'pinia'
+import { useBomStore, getPrice } from '@/stores/bom'
+import { useSettingsStore } from '@/stores/settings'
+import type { PriceInfo } from '@/stores/bom'
+
+const mockPrice: PriceInfo = {
+  itemId: 1,
+  minPrice: 500,
+  avgPrice: 600,
+  hqMinPrice: 800,
+  hqAvgPrice: 900,
+  lastUpdated: 1700000000,
+}
+
+describe('getPrice', () => {
+  it('returns NQ min price for nq mode', () => {
+    expect(getPrice(mockPrice, 'nq')).toBe(500)
+  })
+
+  it('returns HQ min price for hq mode', () => {
+    expect(getPrice(mockPrice, 'hq')).toBe(800)
+  })
+
+  it('returns min of NQ and HQ for minOf mode', () => {
+    expect(getPrice(mockPrice, 'minOf')).toBe(500)
+  })
+
+  it('minOf ignores zero values', () => {
+    const priceNoNQ: PriceInfo = { ...mockPrice, minPrice: 0 }
+    expect(getPrice(priceNoNQ, 'minOf')).toBe(800)
+
+    const priceNoHQ: PriceInfo = { ...mockPrice, hqMinPrice: 0 }
+    expect(getPrice(priceNoHQ, 'minOf')).toBe(500)
+  })
+
+  it('minOf returns 0 when both are zero', () => {
+    const priceZero: PriceInfo = { ...mockPrice, minPrice: 0, hqMinPrice: 0 }
+    expect(getPrice(priceZero, 'minOf')).toBe(0)
+  })
+})
+
+describe('useBomStore.totalCost', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  it('computes total cost using priceDisplayMode', () => {
+    const bomStore = useBomStore()
+    const settingsStore = useSettingsStore()
+
+    bomStore.flatMaterials = [
+      { itemId: 1, name: 'A', icon: '', totalAmount: 10, isRaw: true },
+      { itemId: 2, name: 'B', icon: '', totalAmount: 5, isRaw: true },
+    ]
+    bomStore.prices = new Map([
+      [1, { itemId: 1, minPrice: 100, avgPrice: 110, hqMinPrice: 200, hqAvgPrice: 210, lastUpdated: 0 }],
+      [2, { itemId: 2, minPrice: 50, avgPrice: 60, hqMinPrice: 80, hqAvgPrice: 90, lastUpdated: 0 }],
+    ])
+
+    settingsStore.priceDisplayMode = 'nq'
+    expect(bomStore.totalCost).toBe(100 * 10 + 50 * 5) // 1250
+
+    settingsStore.priceDisplayMode = 'hq'
+    expect(bomStore.totalCost).toBe(200 * 10 + 80 * 5) // 2400
+  })
+})
+```
+
+**Step 2: 跑測試確認通過**
+
+Run: `npx vitest run src/__tests__/stores/bom.test.ts`
+Expected: 6 tests PASS
+
+**Step 3: Commit**
+
+```bash
+git add src/__tests__/stores/bom.test.ts
+git commit -m "test: add BOM store getPrice and totalCost unit tests"
+```
+
+---
+
+### Task 11: 測試 — flattenMaterialTree 純函式
+
+**Files:**
+- Create: `src/__tests__/services/bom-calculator.test.ts`
+
+**Step 1: 撰寫 flattenMaterialTree 和 getCraftingOrder 測試**
+
+```ts
+import { describe, it, expect } from 'vitest'
+import { flattenMaterialTree, getCraftingOrder } from '@/services/bom-calculator'
+import type { MaterialNode } from '@/stores/bom'
+
+describe('flattenMaterialTree', () => {
+  it('flattens nested tree and deduplicates by itemId', () => {
+    const tree: MaterialNode[] = [
+      {
+        itemId: 100, name: 'Product', icon: '', amount: 1, recipeId: 10,
+        children: [
+          { itemId: 1, name: 'Iron Ore', icon: '', amount: 3 },
+          { itemId: 2, name: 'Coal', icon: '', amount: 2 },
+        ],
+      },
+      {
+        itemId: 200, name: 'Product B', icon: '', amount: 2, recipeId: 20,
+        children: [
+          { itemId: 1, name: 'Iron Ore', icon: '', amount: 5 },
+        ],
+      },
+    ]
+
+    const flat = flattenMaterialTree(tree)
+    const ironOre = flat.find(m => m.itemId === 1)
+
+    expect(ironOre).toBeDefined()
+    expect(ironOre!.totalAmount).toBe(8) // 3 + 5 deduplicated
+    expect(ironOre!.isRaw).toBe(true)
+  })
+
+  it('marks craftable intermediates as non-raw', () => {
+    const tree: MaterialNode[] = [
+      {
+        itemId: 100, name: 'Product', icon: '', amount: 1, recipeId: 10,
+        children: [
+          { itemId: 50, name: 'Intermediate', icon: '', amount: 2, recipeId: 5, children: [
+            { itemId: 1, name: 'Raw', icon: '', amount: 4 },
+          ]},
+        ],
+      },
+    ]
+
+    const flat = flattenMaterialTree(tree)
+    const intermediate = flat.find(m => m.itemId === 50)
+    const raw = flat.find(m => m.itemId === 1)
+
+    expect(intermediate!.isRaw).toBe(false)
+    expect(raw!.isRaw).toBe(true)
+  })
+})
+
+describe('getCraftingOrder', () => {
+  it('returns items in bottom-up order (raw first, products last)', () => {
+    const tree: MaterialNode[] = [
+      {
+        itemId: 100, name: 'Product', icon: '', amount: 1, recipeId: 10,
+        children: [
+          { itemId: 1, name: 'Raw A', icon: '', amount: 3 },
+          { itemId: 2, name: 'Raw B', icon: '', amount: 2 },
+        ],
+      },
+    ]
+
+    const order = getCraftingOrder(tree)
+    const names = order.map(o => o.name)
+
+    expect(names.indexOf('Raw A')).toBeLessThan(names.indexOf('Product'))
+    expect(names.indexOf('Raw B')).toBeLessThan(names.indexOf('Product'))
+  })
+})
+```
+
+**Step 2: 跑測試確認通過**
+
+Run: `npx vitest run src/__tests__/services/bom-calculator.test.ts`
+Expected: 3 tests PASS
+
+**Step 3: Commit**
+
+```bash
+git add src/__tests__/services/bom-calculator.test.ts
+git commit -m "test: add bom-calculator flattenMaterialTree and getCraftingOrder tests"
+```
+
+---
+
+### Task 12: 最終檢查與修正
 
 **Files:**
 - 所有已修改的檔案
 
-**Step 1: TypeScript 編譯檢查**
+**Step 1: 跑全部測試**
+
+Run: `npx vitest run`
+Expected: 所有測試 PASS
+
+**Step 2: TypeScript 編譯檢查**
 
 Run: `npx vue-tsc --noEmit`
 Expected: 無編譯錯誤
 
-**Step 2: 功能驗證清單**
+**Step 3: 功能驗證清單**
 
 手動驗證：
 1. `/#/settings` — 可以選擇 Region > DC > Server，儲存後刷新仍保留
@@ -865,9 +1259,9 @@ Expected: 無編譯錯誤
 4. `/#/market` — 搜尋物品可看到各服價格和掛牌明細
 5. 側邊欄顯示「市場查價」和「設定」項目
 
-**Step 3: 修正任何發現的問題**
+**Step 4: 修正任何發現的問題**
 
-**Step 4: Final commit**
+**Step 5: Final commit**
 
 ```bash
 git add -A
