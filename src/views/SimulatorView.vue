@@ -71,6 +71,38 @@ function handleClearActions() {
   <div class="view-container">
     <h2>製作模擬</h2>
 
+    <!-- Queue selector (shown when queue has items) -->
+    <el-card v-if="recipeStore.simulationQueue.length > 0" shadow="never" class="queue-card">
+      <template #header>
+        <div class="queue-header">
+          <span>模擬佇列</span>
+          <el-button size="small" text type="danger" @click="recipeStore.clearQueue()">清空佇列</el-button>
+        </div>
+      </template>
+      <div class="queue-items">
+        <div
+          v-for="queueRecipe in recipeStore.simulationQueue"
+          :key="queueRecipe.id"
+          class="queue-item"
+          :class="{ active: recipe?.id === queueRecipe.id }"
+          @click="recipeStore.setRecipe(queueRecipe)"
+        >
+          <img :src="queueRecipe.icon" class="queue-icon" />
+          <span>{{ queueRecipe.name }}</span>
+          <el-tag size="small" type="info">{{ queueRecipe.job }}</el-tag>
+          <el-button
+            size="small"
+            text
+            type="danger"
+            class="queue-remove"
+            @click.stop="recipeStore.removeFromQueue(queueRecipe.id)"
+          >
+            移除
+          </el-button>
+        </div>
+      </div>
+    </el-card>
+
     <!-- Recipe / Gearset Info -->
     <div class="info-section">
       <el-alert
@@ -198,5 +230,48 @@ function handleClearActions() {
   justify-content: center;
   align-items: center;
   padding: 60px 0;
+}
+
+.queue-card {
+  margin-bottom: 16px;
+}
+
+.queue-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.queue-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.queue-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.queue-item:hover {
+  background-color: var(--el-fill-color-light);
+}
+
+.queue-item.active {
+  background-color: var(--el-color-primary-light-9);
+  border: 1px solid var(--el-color-primary-light-5);
+}
+
+.queue-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.queue-remove {
+  margin-left: auto;
 }
 </style>
