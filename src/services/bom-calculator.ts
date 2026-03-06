@@ -9,7 +9,7 @@ const recipeByItemCache = new Map<number, { recipeId: number; job: string } | nu
  * Items with IDs below this threshold are treated as crystals / base materials (raw).
  * For the MVP we skip recipe lookup for these.
  */
-const RAW_ITEM_ID_THRESHOLD = 20000
+const RAW_ITEM_ID_THRESHOLD = 20
 
 const MAX_RECURSION_DEPTH = 10
 
