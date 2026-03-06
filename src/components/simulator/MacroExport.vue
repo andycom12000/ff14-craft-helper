@@ -22,7 +22,7 @@ function getWaitTime(skill: SkillDefinition): number {
 function formatAction(skillId: string): string {
   const skill = getSkillById(skillId)
   if (!skill) return `/ac "${skillId}" <wait.${waitTime.value}>`
-  return `/ac "${skill.name}" <wait.${getWaitTime(skill)}>`
+  return `/ac "${skill.nameZh}" <wait.${getWaitTime(skill)}>`
 }
 
 const macros = computed(() => {

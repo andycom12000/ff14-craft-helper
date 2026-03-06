@@ -135,6 +135,7 @@ function clearAllHq() {
 <style scoped>
 .initial-quality {
   padding: 4px 0;
+  max-width: 600px;
 }
 
 .quality-result {

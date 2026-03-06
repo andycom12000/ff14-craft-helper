@@ -15,6 +15,12 @@ const status = ref<SolverStatus>('idle')
 const progress = ref(0)
 const errorMessage = ref('')
 
+// Skill availability toggles (matching bestcraft defaults)
+const useTrainedEye = ref(true)
+const useManipulation = ref(false)
+const useHeartAndSoul = ref(false)
+const useQuickInnovation = ref(false)
+
 function buildConfig(): SolverConfig | null {
   const recipe = recipeStore.currentRecipe
   if (!recipe) return null
@@ -36,6 +42,10 @@ function buildConfig(): SolverConfig | null {
     progress_modifier: rlt.progressModifier,
     quality_modifier: rlt.qualityModifier,
     hq_target: recipe.canHq,
+    use_manipulation: useManipulation.value,
+    use_heart_and_soul: useHeartAndSoul.value,
+    use_quick_innovation: useQuickInnovation.value,
+    use_trained_eye: useTrainedEye.value,
   }
 }
 
@@ -84,6 +94,24 @@ onUnmounted(() => {
 
 <template>
   <div class="solver-panel">
+    <!-- Skill toggles -->
+    <div class="skill-toggles">
+      <span class="toggle-label">可用技能：</span>
+      <el-checkbox v-model="useTrainedEye">工匠的神技</el-checkbox>
+      <el-checkbox v-model="useManipulation">
+        掌握
+        <el-tag v-if="useManipulation" type="warning" size="small" style="margin-left: 4px">專家</el-tag>
+      </el-checkbox>
+      <el-checkbox v-model="useHeartAndSoul">
+        心靈之手
+        <el-tag v-if="useHeartAndSoul" type="warning" size="small" style="margin-left: 4px">專家</el-tag>
+      </el-checkbox>
+      <el-checkbox v-model="useQuickInnovation">
+        快速改革
+        <el-tag v-if="useQuickInnovation" type="warning" size="small" style="margin-left: 4px">專家</el-tag>
+      </el-checkbox>
+    </div>
+
     <!-- Actions -->
     <div class="solver-actions">
       <el-button
@@ -139,6 +167,23 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.skill-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: var(--el-fill-color-light);
+  border-radius: 6px;
+}
+
+.toggle-label {
+  font-size: 14px;
+  color: var(--el-text-color-secondary);
+  margin-right: 4px;
+}
+
 .solver-actions {
   display: flex;
   gap: 8px;

@@ -21,38 +21,38 @@ export interface EnhancedStats {
 
 export const COMMON_FOODS: FoodBuff[] = [
   {
-    id: 1,
-    name: 'Tsai tou Vounou HQ',
+    id: 36060,
+    name: '高山茶 HQ',
     craftsmanship: { percent: 4, max: 198 },
     cp: { percent: 6, max: 86 },
   },
   {
-    id: 2,
-    name: 'Jhinga Biryani HQ',
+    id: 38929,
+    name: '近東蝦香飯 HQ',
     control: { percent: 4, max: 172 },
     cp: { percent: 6, max: 79 },
   },
   {
-    id: 3,
-    name: 'Calamari Ripieni HQ',
+    id: 37282,
+    name: '鑲烤墨魚 HQ',
     control: { percent: 4, max: 186 },
     cp: { percent: 6, max: 84 },
   },
   {
-    id: 4,
-    name: 'Piennolo Tomato Salad HQ',
+    id: 38267,
+    name: '懸掛番茄沙拉 HQ',
     craftsmanship: { percent: 4, max: 191 },
     cp: { percent: 6, max: 83 },
   },
   {
-    id: 5,
-    name: 'Rroneek Steak HQ',
+    id: 44091,
+    name: '犎牛牛排 HQ',
     craftsmanship: { percent: 4, max: 205 },
     cp: { percent: 6, max: 89 },
   },
   {
-    id: 6,
-    name: 'Vegetable Soup HQ',
+    id: 44096,
+    name: '蔬菜湯 HQ',
     control: { percent: 4, max: 154 },
     cp: { percent: 6, max: 72 },
   },
@@ -62,28 +62,16 @@ export const COMMON_FOODS: FoodBuff[] = [
 
 export const COMMON_MEDICINES: FoodBuff[] = [
   {
-    id: 101,
-    name: 'Cunning Craftsman\'s Draught HQ',
+    id: 44169,
+    name: '魔匠藥液 HQ',
     craftsmanship: { percent: 3, max: 86 },
     cp: { percent: 2, max: 21 },
   },
   {
-    id: 102,
-    name: 'Commanding Craftsman\'s Draught HQ',
+    id: 44168,
+    name: '巨匠藥液 HQ',
     control: { percent: 3, max: 86 },
     cp: { percent: 2, max: 21 },
-  },
-  {
-    id: 103,
-    name: 'Cunning Craftsman\'s Syrup HQ',
-    craftsmanship: { percent: 4, max: 102 },
-    cp: { percent: 2, max: 24 },
-  },
-  {
-    id: 104,
-    name: 'Commanding Craftsman\'s Syrup HQ',
-    control: { percent: 4, max: 102 },
-    cp: { percent: 2, max: 24 },
   },
 ]
 

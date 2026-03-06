@@ -28,6 +28,10 @@ const selectedFoodId = ref<number | null>(null)
 const selectedMedicineId = ref<number | null>(null)
 const foodIsHq = ref(true)
 const medicineIsHq = ref(true)
+const useSpecialist = ref(false)
+
+// Specialist soul crystal bonuses (固定值)
+const SPECIALIST_BONUS = { craftsmanship: 20, control: 20, cp: 15 }
 
 const baseStats = computed<EnhancedStats>(() => {
   if (!gearset.value) {
@@ -37,6 +41,16 @@ const baseStats = computed<EnhancedStats>(() => {
     craftsmanship: gearset.value.craftsmanship,
     control: gearset.value.control,
     cp: gearset.value.cp,
+  }
+})
+
+// 專家之證加成後的數值（食物/藥水基數）
+const afterSpecialist = computed<EnhancedStats>(() => {
+  if (!useSpecialist.value) return baseStats.value
+  return {
+    craftsmanship: baseStats.value.craftsmanship + SPECIALIST_BONUS.craftsmanship,
+    control: baseStats.value.control + SPECIALIST_BONUS.control,
+    cp: baseStats.value.cp + SPECIALIST_BONUS.cp,
   }
 })
 
@@ -54,9 +68,9 @@ const selectedMedicine = computed<FoodBuff | null>(() => {
   return medicineIsHq.value ? med : scaleForNq(med)
 })
 
-// Apply food first, then medicine on top of that
+// Apply specialist first, then food, then medicine
 const enhancedStats = computed<EnhancedStats>(() => {
-  const afterFood = applyFoodBuff(baseStats.value, selectedFood.value)
+  const afterFood = applyFoodBuff(afterSpecialist.value, selectedFood.value)
   return applyMedicineBuff(afterFood, selectedMedicine.value)
 })
 
@@ -112,6 +126,20 @@ function statDiff(base: number, enhanced: number): string {
           {{ baseStats.cp }}
         </el-descriptions-item>
       </el-descriptions>
+    </div>
+
+    <el-divider />
+
+    <!-- Specialist soul crystal -->
+    <div class="buff-section">
+      <div class="buff-header">
+        <el-checkbox v-model="useSpecialist" label="專家之證" />
+      </div>
+      <div v-if="useSpecialist" class="buff-preview">
+        <el-tag type="warning" size="small">作業 +{{ SPECIALIST_BONUS.craftsmanship }}</el-tag>
+        <el-tag type="success" size="small">加工 +{{ SPECIALIST_BONUS.control }}</el-tag>
+        <el-tag type="primary" size="small">CP +{{ SPECIALIST_BONUS.cp }}</el-tag>
+      </div>
     </div>
 
     <el-divider />
@@ -262,6 +290,7 @@ function statDiff(base: number, enhanced: number): string {
 <style scoped>
 .food-medicine {
   padding: 4px 0;
+  max-width: 600px;
 }
 
 .stats-section h4,

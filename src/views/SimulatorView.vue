@@ -1,16 +1,19 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRecipeStore } from '@/stores/recipe'
 import { useGearsetsStore } from '@/stores/gearsets'
 import { JOB_NAMES } from '@/utils/jobs'
 import { useSimulatorStore } from '@/stores/simulator'
 import { simulateAll, createInitialState, type CraftParams } from '@/engine/simulator'
+import type { EnhancedStats } from '@/engine/food-medicine'
 import StatusBar from '@/components/simulator/StatusBar.vue'
 import BuffDisplay from '@/components/simulator/BuffDisplay.vue'
 import ActionList from '@/components/simulator/ActionList.vue'
 import MacroExport from '@/components/simulator/MacroExport.vue'
 import SolverPanel from '@/components/simulator/SolverPanel.vue'
+import InitialQuality from '@/components/simulator/InitialQuality.vue'
+import FoodMedicine from '@/components/simulator/FoodMedicine.vue'
 
 const router = useRouter()
 const recipeStore = useRecipeStore()
@@ -25,15 +28,36 @@ const gearset = computed(() => {
 
 const canSimulate = computed(() => !!recipe.value && !!gearset.value)
 
-const craftParams = computed<CraftParams | null>(() => {
-  if (!recipe.value || !gearset.value) return null
+const initialQuality = ref(0)
+const enhancedStats = ref<EnhancedStats | null>(null)
+
+function onInitialQualityUpdate(val: number) {
+  initialQuality.value = val
+}
+
+function onEnhancedStatsUpdate(val: EnhancedStats) {
+  enhancedStats.value = val
+}
+
+const effectiveStats = computed(() => {
+  if (!gearset.value) return null
+  if (enhancedStats.value) return enhancedStats.value
   return {
     craftsmanship: gearset.value.craftsmanship,
     control: gearset.value.control,
     cp: gearset.value.cp,
+  }
+})
+
+const craftParams = computed<CraftParams | null>(() => {
+  if (!recipe.value || !gearset.value || !effectiveStats.value) return null
+  return {
+    craftsmanship: effectiveStats.value.craftsmanship,
+    control: effectiveStats.value.control,
+    cp: effectiveStats.value.cp,
     recipeLevelTable: { ...recipe.value.recipeLevelTable },
     crafterLevel: gearset.value.level,
-    initialQuality: 0,
+    initialQuality: initialQuality.value,
   }
 })
 
@@ -140,9 +164,24 @@ function handleClearActions() {
         <el-descriptions-item label="職業 / 等級">
           {{ JOB_NAMES[gearset.job] ?? gearset.job }} Lv.{{ gearset.level }}
         </el-descriptions-item>
-        <el-descriptions-item label="作業精度">{{ gearset.craftsmanship }}</el-descriptions-item>
-        <el-descriptions-item label="加工精度">{{ gearset.control }}</el-descriptions-item>
-        <el-descriptions-item label="CP">{{ gearset.cp }}</el-descriptions-item>
+        <el-descriptions-item label="作業精度">
+          {{ effectiveStats!.craftsmanship }}
+          <span v-if="effectiveStats!.craftsmanship !== gearset.craftsmanship" class="stat-diff">
+            (+{{ effectiveStats!.craftsmanship - gearset.craftsmanship }})
+          </span>
+        </el-descriptions-item>
+        <el-descriptions-item label="加工精度">
+          {{ effectiveStats!.control }}
+          <span v-if="effectiveStats!.control !== gearset.control" class="stat-diff">
+            (+{{ effectiveStats!.control - gearset.control }})
+          </span>
+        </el-descriptions-item>
+        <el-descriptions-item label="CP">
+          {{ effectiveStats!.cp }}
+          <span v-if="effectiveStats!.cp !== gearset.cp" class="stat-diff">
+            (+{{ effectiveStats!.cp - gearset.cp }})
+          </span>
+        </el-descriptions-item>
         <el-descriptions-item label="難度 / 品質 / 耐久">
           {{ recipe.recipeLevelTable.difficulty }} / {{ recipe.recipeLevelTable.quality }} / {{ recipe.recipeLevelTable.durability }}
         </el-descriptions-item>
@@ -194,15 +233,11 @@ function handleClearActions() {
       </el-tab-pane>
 
       <el-tab-pane label="初期品質">
-        <div class="placeholder-tab">
-          <el-text type="info" size="large">初期品質計算 (開發中)</el-text>
-        </div>
+        <InitialQuality @update:initial-quality="onInitialQualityUpdate" />
       </el-tab-pane>
 
       <el-tab-pane label="食藥">
-        <div class="placeholder-tab">
-          <el-text type="info" size="large">食藥選擇 (開發中)</el-text>
-        </div>
+        <FoodMedicine @update:enhanced-stats="onEnhancedStatsUpdate" />
       </el-tab-pane>
     </el-tabs>
   </div>
@@ -269,11 +304,10 @@ function handleClearActions() {
   }
 }
 
-.placeholder-tab {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 60px 0;
+.stat-diff {
+  color: var(--el-color-success);
+  font-size: 12px;
+  margin-left: 4px;
 }
 
 .queue-card {

@@ -81,7 +81,7 @@ function mockSolve(config: SolverConfig): SolverResult {
   // ---- Phase 2: Quality phase ----
   if (config.hq_target && durAvail() > 0 && cpAvail() > 50) {
     // Manipulation for durability sustain (cp:96, 8 steps of +5 dur)
-    if (cpAvail() >= 96 + 80) {
+    if (config.use_manipulation && cpAvail() >= 96 + 80) {
       use(96, 0, true); actions.push('Manipulation'); manipStepsLeft = 8
     }
 
