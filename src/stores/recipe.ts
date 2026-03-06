@@ -23,6 +23,7 @@ export interface RecipeLevelTable {
 
 export interface Recipe {
   id: number
+  itemId: number
   name: string
   icon: string
   job: string

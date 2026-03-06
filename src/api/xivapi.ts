@@ -195,6 +195,7 @@ export async function getRecipe(id: number): Promise<Recipe> {
 
     return {
       id: recipeData.id,
+      itemId: recipeData.item_id,
       name: recipeData.item_name,
       icon: icons.get(recipeData.item_id) ?? '',
       job: recipeData.job,

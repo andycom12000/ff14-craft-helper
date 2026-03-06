@@ -5,6 +5,7 @@ import type { Recipe } from '@/stores/recipe'
 
 const mockRecipe = (id: number, name: string): Recipe => ({
   id,
+  itemId: id + 10000,
   name,
   icon: '',
   job: '鍛造',

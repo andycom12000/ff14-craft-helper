@@ -14,11 +14,9 @@ const recipeStore = useRecipeStore()
 const bomStore = useBomStore()
 
 const selectedRecipe = ref<Recipe | null>(null)
-const selectedItemId = ref<number>(0)
 const detailLoading = ref(false)
 
-async function handleSelect(id: number, itemId: number) {
-  selectedItemId.value = itemId
+async function handleSelect(id: number) {
   detailLoading.value = true
   try {
     const recipe = await getRecipe(id)
@@ -40,7 +38,7 @@ function handleUseInSimulator() {
 function handleAddToBom() {
   if (selectedRecipe.value) {
     bomStore.addTarget({
-      itemId: selectedItemId.value,
+      itemId: selectedRecipe.value.itemId,
       recipeId: selectedRecipe.value.id,
       name: selectedRecipe.value.name,
       icon: selectedRecipe.value.icon,

@@ -17,7 +17,7 @@ function addCurrentRecipe() {
     return
   }
   bomStore.addTarget({
-    itemId: recipe.id,
+    itemId: recipe.itemId,
     recipeId: recipe.id,
     name: recipe.name,
     icon: recipe.icon,

@@ -4,7 +4,7 @@ import { Search } from '@element-plus/icons-vue'
 import { searchRecipes, type RecipeSearchResult } from '@/api/xivapi'
 
 const emit = defineEmits<{
-  select: [id: number, itemId: number]
+  select: [id: number]
 }>()
 
 const query = ref('')
@@ -39,7 +39,7 @@ watch(query, (value) => {
 onUnmounted(() => { if (debounceTimer) clearTimeout(debounceTimer) })
 
 function handleRowClick(row: RecipeSearchResult) {
-  emit('select', row.id, row.itemId)
+  emit('select', row.id)
 }
 </script>
 
