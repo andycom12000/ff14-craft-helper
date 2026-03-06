@@ -31,6 +31,7 @@ async function handleSelect(id: number) {
 
 function handleUseInSimulator() {
   if (selectedRecipe.value) {
+    recipeStore.addToQueue(selectedRecipe.value)
     router.push({ name: 'simulator' })
   }
 }

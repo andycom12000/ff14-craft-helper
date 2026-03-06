@@ -82,6 +82,7 @@ async function handleSimulateRecipe(recipeId: number) {
   try {
     const recipe = await getRecipe(recipeId)
     recipeStore.addToQueue(recipe)
+    recipeStore.setRecipe(recipe)
     ElMessage.success(`已將「${recipe.name}」加入模擬佇列`)
   } catch (err) {
     console.error('[BOM] Failed to load recipe for queue:', err)
