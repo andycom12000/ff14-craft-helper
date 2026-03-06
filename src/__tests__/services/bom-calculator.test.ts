@@ -49,6 +49,52 @@ describe('flattenMaterialTree', () => {
   })
 })
 
+describe('flattenMaterialTree with collapsed', () => {
+  it('treats collapsed nodes as raw materials', () => {
+    const tree: MaterialNode[] = [{
+      itemId: 1, name: 'Product', icon: '', amount: 1, recipeId: 100,
+      children: [{
+        itemId: 2, name: 'Sub-product', icon: '', amount: 2, recipeId: 200,
+        collapsed: true,
+        children: [
+          { itemId: 3, name: 'Raw', icon: '', amount: 4 },
+        ],
+      }],
+    }]
+
+    const flat = flattenMaterialTree(tree)
+    const subProduct = flat.find(m => m.itemId === 2)
+    expect(subProduct).toBeDefined()
+    expect(subProduct!.isRaw).toBe(true)
+
+    // Raw (child of collapsed node) should NOT appear
+    const raw = flat.find(m => m.itemId === 3)
+    expect(raw).toBeUndefined()
+  })
+
+  it('expands non-collapsed craftable nodes normally', () => {
+    const tree: MaterialNode[] = [{
+      itemId: 1, name: 'Product', icon: '', amount: 1, recipeId: 100,
+      children: [{
+        itemId: 2, name: 'Sub-product', icon: '', amount: 2, recipeId: 200,
+        collapsed: false,
+        children: [
+          { itemId: 3, name: 'Raw', icon: '', amount: 4 },
+        ],
+      }],
+    }]
+
+    const flat = flattenMaterialTree(tree)
+    const subProduct = flat.find(m => m.itemId === 2)
+    expect(subProduct).toBeDefined()
+    expect(subProduct!.isRaw).toBe(false)
+
+    const raw = flat.find(m => m.itemId === 3)
+    expect(raw).toBeDefined()
+    expect(raw!.isRaw).toBe(true)
+  })
+})
+
 describe('getCraftingOrder', () => {
   it('returns items in bottom-up order (raw first, products last)', () => {
     const tree: MaterialNode[] = [
