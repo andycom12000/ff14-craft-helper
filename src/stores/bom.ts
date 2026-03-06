@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { useSettingsStore } from '@/stores/settings'
+import type { PriceDisplayMode } from '@/stores/settings'
 
 export interface BomTarget {
   itemId: number
@@ -35,6 +37,19 @@ export interface PriceInfo {
   lastUpdated: number
 }
 
+export function getPrice(price: PriceInfo, mode: PriceDisplayMode): number {
+  switch (mode) {
+    case 'hq': return price.hqMinPrice
+    case 'minOf': {
+      const nq = price.minPrice || Infinity
+      const hq = price.hqMinPrice || Infinity
+      const min = Math.min(nq, hq)
+      return min === Infinity ? 0 : min
+    }
+    default: return price.minPrice
+  }
+}
+
 export const useBomStore = defineStore('bom', () => {
   const targets = ref<BomTarget[]>([])
   const materialTree = ref<MaterialNode[]>([])
@@ -68,11 +83,12 @@ export const useBomStore = defineStore('bom', () => {
   }
 
   const totalCost = computed(() => {
+    const settings = useSettingsStore()
     let total = 0
     for (const mat of flatMaterials.value) {
       const price = prices.value.get(mat.itemId)
       if (price) {
-        total += price.minPrice * mat.totalAmount
+        total += getPrice(price, settings.priceDisplayMode) * mat.totalAmount
       }
     }
     return total

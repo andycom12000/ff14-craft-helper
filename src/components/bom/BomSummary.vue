@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { FlatMaterial, PriceInfo } from '@/stores/bom'
+import { useSettingsStore } from '@/stores/settings'
+import { getPrice } from '@/stores/bom'
 
 const props = defineProps<{
   materials: FlatMaterial[]
@@ -11,6 +13,8 @@ const emit = defineEmits<{
   'refresh-prices': []
 }>()
 
+const settingsStore = useSettingsStore()
+
 const rawMaterials = computed(() =>
   props.materials.filter((m) => m.isRaw),
 )
@@ -20,7 +24,9 @@ const craftableMaterials = computed(() =>
 )
 
 function getUnitPrice(itemId: number): number {
-  return props.prices.get(itemId)?.minPrice ?? 0
+  const priceInfo = props.prices.get(itemId)
+  if (!priceInfo) return 0
+  return getPrice(priceInfo, settingsStore.priceDisplayMode)
 }
 
 function getTotalPrice(itemId: number, amount: number): number {
@@ -52,7 +58,12 @@ const grandTotal = computed(() => rawTotalCost.value + craftTotalCost.value)
   <el-card shadow="never">
     <template #header>
       <div class="card-header">
-        <span class="card-title">材料總覽與價格</span>
+        <span class="card-title">
+          材料總覽與價格
+          <el-tag size="small" type="info" style="margin-left: 8px">
+            {{ settingsStore.server }}
+          </el-tag>
+        </span>
         <el-button size="small" @click="emit('refresh-prices')">
           重新取得價格
         </el-button>
