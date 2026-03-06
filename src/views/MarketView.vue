@@ -1,0 +1,229 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+import { ElMessage } from 'element-plus'
+import { useSettingsStore } from '@/stores/settings'
+import { getMarketDataByDC, aggregateByWorld } from '@/api/universalis'
+import type { MarketListing, WorldPriceSummary } from '@/api/universalis'
+
+const settingsStore = useSettingsStore()
+
+const searchQuery = ref('')
+const searching = ref(false)
+const searchResults = ref<Array<{ id: number; name: string; icon: string }>>([])
+
+const selectedItem = ref<{ id: number; name: string; icon: string } | null>(null)
+const loadingMarket = ref(false)
+const worldPrices = ref<WorldPriceSummary[]>([])
+const listings = ref<MarketListing[]>([])
+
+async function handleSearch() {
+  if (!searchQuery.value.trim()) return
+  searching.value = true
+  try {
+    const { searchRecipes } = await import('@/api/xivapi')
+    const results = await searchRecipes(searchQuery.value)
+    searchResults.value = results.map(r => ({ id: r.id, name: r.name, icon: r.icon }))
+  } catch {
+    ElMessage.error('搜尋失敗')
+  } finally {
+    searching.value = false
+  }
+}
+
+async function selectItem(item: { id: number; name: string; icon: string }) {
+  selectedItem.value = item
+  searchResults.value = []
+  loadingMarket.value = true
+  try {
+    const data = await getMarketDataByDC(settingsStore.dataCenter, item.id)
+    worldPrices.value = aggregateByWorld(data.listings)
+    listings.value = data.listings.sort((a, b) => a.pricePerUnit - b.pricePerUnit).slice(0, 50)
+  } catch {
+    ElMessage.error('無法取得市場資料')
+  } finally {
+    loadingMarket.value = false
+  }
+}
+
+function formatGil(value: number): string {
+  return value.toLocaleString()
+}
+
+function formatTimeAgo(timestamp: number): string {
+  const now = Date.now()
+  const diff = now - timestamp * 1000
+  const minutes = Math.floor(diff / 60000)
+  if (minutes < 1) return '剛剛'
+  if (minutes < 60) return `${minutes} 分鐘前`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours} 小時前`
+  return `${Math.floor(hours / 24)} 天前`
+}
+</script>
+
+<template>
+  <div class="market-view">
+    <h2>市場查價</h2>
+    <p class="view-desc">
+      搜尋物品，比較「{{ settingsStore.dataCenter }}」資料中心各伺服器的價格。
+    </p>
+
+    <!-- Search -->
+    <el-input
+      v-model="searchQuery"
+      placeholder="輸入物品名稱搜尋..."
+      clearable
+      @keyup.enter="handleSearch"
+    >
+      <template #append>
+        <el-button :loading="searching" @click="handleSearch">搜尋</el-button>
+      </template>
+    </el-input>
+
+    <!-- Search results -->
+    <el-card v-if="searchResults.length > 0" shadow="never" style="margin-top: 12px">
+      <div
+        v-for="item in searchResults"
+        :key="item.id"
+        class="search-result-item"
+        @click="selectItem(item)"
+      >
+        <img v-if="item.icon" :src="item.icon" class="result-icon" />
+        <span>{{ item.name }}</span>
+      </div>
+    </el-card>
+
+    <!-- Selected item market data -->
+    <template v-if="selectedItem">
+      <div class="selected-item" style="margin-top: 20px">
+        <img v-if="selectedItem.icon" :src="selectedItem.icon" style="width: 32px; height: 32px" />
+        <h3 style="margin: 0">{{ selectedItem.name }}</h3>
+      </div>
+
+      <el-skeleton v-if="loadingMarket" :rows="4" animated style="margin-top: 16px" />
+
+      <template v-else>
+        <!-- Cross-world price table -->
+        <el-card shadow="never" style="margin-top: 16px">
+          <template #header>
+            <span class="card-title">各伺服器價格比較</span>
+          </template>
+
+          <el-table :data="worldPrices" border size="small">
+            <el-table-column prop="worldName" label="伺服器" width="140">
+              <template #default="{ row }">
+                <span :style="{ fontWeight: row.worldName === settingsStore.server ? 'bold' : 'normal' }">
+                  {{ row.worldName }}
+                  <el-tag v-if="row.worldName === settingsStore.server" size="small" type="primary">你</el-tag>
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column label="NQ 最低" width="120" align="right">
+              <template #default="{ row, $index }">
+                <span :style="{ color: $index === 0 && row.minPriceNQ > 0 ? '#67c23a' : '' }">
+                  {{ row.minPriceNQ > 0 ? formatGil(row.minPriceNQ) : '-' }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column label="HQ 最低" width="120" align="right">
+              <template #default="{ row }">
+                {{ row.minPriceHQ > 0 ? formatGil(row.minPriceHQ) : '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column label="NQ 平均" width="120" align="right">
+              <template #default="{ row }">
+                {{ row.avgPriceNQ > 0 ? formatGil(row.avgPriceNQ) : '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column label="HQ 平均" width="120" align="right">
+              <template #default="{ row }">
+                {{ row.avgPriceHQ > 0 ? formatGil(row.avgPriceHQ) : '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column label="掛牌數" width="80" align="center" prop="listingCount" />
+            <el-table-column label="更新" width="100" align="center">
+              <template #default="{ row }">
+                {{ formatTimeAgo(row.lastUploadTime) }}
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+
+        <!-- Listings -->
+        <el-card shadow="never" style="margin-top: 16px">
+          <template #header>
+            <span class="card-title">當前掛牌（最便宜 50 筆）</span>
+          </template>
+
+          <el-table :data="listings" border size="small" max-height="400">
+            <el-table-column label="單價" width="120" align="right">
+              <template #default="{ row }">
+                {{ formatGil(row.pricePerUnit) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="數量" width="80" align="center" prop="quantity" />
+            <el-table-column label="總價" width="120" align="right">
+              <template #default="{ row }">
+                {{ formatGil(row.total) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="品質" width="60" align="center">
+              <template #default="{ row }">
+                <el-tag :type="row.hq ? 'warning' : 'info'" size="small">
+                  {{ row.hq ? 'HQ' : 'NQ' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="伺服器" width="120" prop="worldName" />
+            <el-table-column label="時間" width="100" align="center">
+              <template #default="{ row }">
+                {{ formatTimeAgo(row.lastReviewTime) }}
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+      </template>
+    </template>
+  </div>
+</template>
+
+<style scoped>
+.market-view {
+  padding: 20px;
+  max-width: 960px;
+}
+
+.view-desc {
+  color: var(--el-text-color-secondary);
+  margin-bottom: 20px;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.search-result-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.search-result-item:hover {
+  background-color: var(--el-fill-color-light);
+}
+
+.result-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.selected-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+</style>
