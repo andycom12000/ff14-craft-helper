@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   Setting,
@@ -7,17 +8,32 @@ import {
   List,
   TrendCharts,
   Suitcase,
+  Operation,
+  Close,
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
+const sidebarOpen = ref(false)
+
+watch(() => route.path, () => {
+  sidebarOpen.value = false
+})
 </script>
 
 <template>
   <el-container class="app-container">
-    <el-aside width="220px" class="app-aside">
+    <div
+      v-if="sidebarOpen"
+      class="sidebar-backdrop"
+      @click="sidebarOpen = false"
+    />
+    <el-aside width="220px" class="app-aside" :class="{ open: sidebarOpen }">
       <div class="app-logo">
         <span class="logo-ff">FF14</span>
         <span class="logo-sub">Craft Helper</span>
+        <button class="sidebar-close-btn" @click="sidebarOpen = false">
+          <el-icon :size="20"><Close /></el-icon>
+        </button>
       </div>
       <el-menu
         :default-active="route.path"
@@ -52,6 +68,9 @@ const route = useRoute()
       </el-menu>
     </el-aside>
     <el-main class="app-main">
+      <button class="mobile-menu-btn" @click="sidebarOpen = true">
+        <el-icon :size="22"><Operation /></el-icon>
+      </button>
       <router-view />
     </el-main>
   </el-container>
@@ -229,6 +248,15 @@ html, body {
   line-height: 1.6;
 }
 
+@media (max-width: 768px) {
+  .view-container,
+  .bom-view,
+  .market-view,
+  .settings-view {
+    padding: 60px 16px 16px;
+  }
+}
+
 .card-title {
   font-size: 15px;
   font-weight: 600;
@@ -308,5 +336,78 @@ html, body {
 .app-main {
   background-color: var(--app-bg);
   overflow-y: auto;
+}
+
+.sidebar-close-btn {
+  display: none;
+}
+
+.mobile-menu-btn {
+  display: none;
+}
+
+.sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .app-aside {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 2000;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+
+  .app-aside.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1999;
+    background: rgba(0, 0, 0, 0.5);
+  }
+
+  .sidebar-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--app-text-muted);
+    cursor: pointer;
+    padding: 4px;
+  }
+
+  .app-logo {
+    position: relative;
+  }
+
+  .mobile-menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 100;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    border: 1px solid var(--app-border);
+    background: var(--app-surface);
+    color: var(--app-text);
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
 }
 </style>

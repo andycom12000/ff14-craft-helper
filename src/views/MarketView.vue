@@ -212,4 +212,10 @@ async function selectItem(item: { id: number; itemId: number; name: string; icon
   color: var(--app-success);
   font-weight: 600;
 }
+
+@media (max-width: 768px) {
+  .data-card :deep(.el-table) {
+    font-size: 12px;
+  }
+}
 </style>

@@ -21,6 +21,11 @@ const gearsetsStore = useGearsetsStore()
 const simStore = useSimulatorStore()
 
 const recipe = computed(() => recipeStore.currentRecipe)
+
+// Switch per-recipe simulator state when active recipe changes
+watch(() => recipe.value?.id ?? null, (id) => {
+  simStore.switchToRecipe(id)
+}, { immediate: true })
 const gearset = computed(() => {
   if (!recipe.value) return null
   return gearsetsStore.getGearsetForJob(recipe.value.job)
@@ -82,6 +87,18 @@ function runSimulation() {
 
 watch([craftParams, () => simStore.actions], runSimulation, { immediate: true })
 
+function handleRemoveFromQueue(recipeId: number) {
+  simStore.removeRecipeState(recipeId)
+  recipeStore.removeFromQueue(recipeId)
+}
+
+function handleClearQueue() {
+  for (const r of recipeStore.simulationQueue) {
+    simStore.removeRecipeState(r.id)
+  }
+  recipeStore.clearQueue()
+}
+
 function handleRemoveAction(index: number) {
   simStore.removeAction(index)
 }
@@ -101,7 +118,7 @@ function handleClearActions() {
       <template #header>
         <div class="queue-header">
           <span class="card-title">模擬佇列</span>
-          <el-button size="small" text type="danger" @click="recipeStore.clearQueue()">清空佇列</el-button>
+          <el-button size="small" text type="danger" @click="handleClearQueue()">清空佇列</el-button>
         </div>
       </template>
       <div class="queue-items">
@@ -120,7 +137,7 @@ function handleClearActions() {
             text
             type="danger"
             class="queue-remove"
-            @click.stop="recipeStore.removeFromQueue(queueRecipe.id)"
+            @click.stop="handleRemoveFromQueue(queueRecipe.id)"
           >
             移除
           </el-button>

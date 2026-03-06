@@ -56,7 +56,7 @@ function handleAddToBom() {
     <p class="view-desc">搜尋並選擇配方，查看詳情後可加入模擬器或材料清單。</p>
 
     <el-row :gutter="20" class="recipe-content">
-      <el-col :span="10">
+      <el-col :span="10" :xs="24">
         <el-card shadow="never" class="recipe-card">
           <template #header>
             <span class="card-title">搜尋配方</span>
@@ -64,7 +64,7 @@ function handleAddToBom() {
           <RecipeSearch @select="handleSelect" />
         </el-card>
       </el-col>
-      <el-col :span="14">
+      <el-col :span="14" :xs="24" class="detail-col">
         <el-card v-loading="detailLoading" shadow="never" class="recipe-card">
           <template #header>
             <span class="card-title">配方詳情</span>
@@ -87,5 +87,15 @@ function handleAddToBom() {
 
 .recipe-card {
   height: 100%;
+}
+
+@media (max-width: 768px) {
+  .recipe-content {
+    height: auto;
+  }
+
+  .detail-col {
+    margin-top: 16px;
+  }
 }
 </style>
