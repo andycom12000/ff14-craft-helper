@@ -6,15 +6,19 @@ import RecipeSearch from '@/components/recipe/RecipeSearch.vue'
 import RecipeDetail from '@/components/recipe/RecipeDetail.vue'
 import { getRecipe } from '@/api/xivapi'
 import { useRecipeStore } from '@/stores/recipe'
+import { useBomStore } from '@/stores/bom'
 import type { Recipe } from '@/stores/recipe'
 
 const router = useRouter()
 const recipeStore = useRecipeStore()
+const bomStore = useBomStore()
 
 const selectedRecipe = ref<Recipe | null>(null)
+const selectedItemId = ref<number>(0)
 const detailLoading = ref(false)
 
-async function handleSelect(id: number) {
+async function handleSelect(id: number, itemId: number) {
+  selectedItemId.value = itemId
   detailLoading.value = true
   try {
     const recipe = await getRecipe(id)
@@ -35,6 +39,13 @@ function handleUseInSimulator() {
 
 function handleAddToBom() {
   if (selectedRecipe.value) {
+    bomStore.addTarget({
+      itemId: selectedItemId.value,
+      recipeId: selectedRecipe.value.id,
+      name: selectedRecipe.value.name,
+      icon: selectedRecipe.value.icon,
+      quantity: 1,
+    })
     ElMessage.success(`已將「${selectedRecipe.value.name}」加入材料清單。`)
   }
 }
