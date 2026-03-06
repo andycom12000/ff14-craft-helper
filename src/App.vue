@@ -244,7 +244,7 @@ html, body {
 .app-aside {
   background-color: var(--app-sidebar);
   border-right: 1px solid var(--app-border);
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .app-logo {
