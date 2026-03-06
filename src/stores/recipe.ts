@@ -36,6 +36,7 @@ export interface Recipe {
 
 export const useRecipeStore = defineStore('recipe', () => {
   const currentRecipe = ref<Recipe | null>(null)
+  const simulationQueue = ref<Recipe[]>([])
 
   function setRecipe(recipe: Recipe) {
     currentRecipe.value = recipe
@@ -45,5 +46,26 @@ export const useRecipeStore = defineStore('recipe', () => {
     currentRecipe.value = null
   }
 
-  return { currentRecipe, setRecipe, clearRecipe }
+  function addToQueue(recipe: Recipe) {
+    if (simulationQueue.value.some(r => r.id === recipe.id)) return
+    simulationQueue.value.push(recipe)
+  }
+
+  function removeFromQueue(recipeId: number) {
+    simulationQueue.value = simulationQueue.value.filter(r => r.id !== recipeId)
+  }
+
+  function clearQueue() {
+    simulationQueue.value = []
+  }
+
+  return {
+    currentRecipe,
+    simulationQueue,
+    setRecipe,
+    clearRecipe,
+    addToQueue,
+    removeFromQueue,
+    clearQueue,
+  }
 })
