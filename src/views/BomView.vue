@@ -19,6 +19,7 @@ const settingsStore = useSettingsStore()
 const calculating = ref(false)
 const fetchingPrices = ref(false)
 const calculated = ref(false)
+const loadingMessage = ref('正在計算材料需求...')
 
 async function handleCalculate() {
   if (bomStore.targets.length === 0) {
@@ -31,10 +32,12 @@ async function handleCalculate() {
 
   try {
     // Build material tree
+    loadingMessage.value = '正在展開子配方...'
     const tree = await buildMaterialTree(bomStore.targets)
     bomStore.materialTree = tree
 
     // Flatten to deduplicated list
+    loadingMessage.value = '正在整理材料清單...'
     const flat = flattenMaterialTree(tree)
     bomStore.flatMaterials = flat
 
@@ -115,7 +118,7 @@ function handleRefreshPrices() {
     <!-- Loading overlay -->
     <div v-if="calculating" class="loading-section">
       <el-skeleton :rows="4" animated />
-      <p class="loading-text">正在計算材料需求...</p>
+      <p class="loading-text">{{ loadingMessage }}</p>
     </div>
 
     <!-- Material tree -->
