@@ -100,6 +100,29 @@ export async function searchRecipes(
   }
 }
 
+/**
+ * Find recipes that produce a specific item by exact name match.
+ * Returns empty array if the item is not craftable.
+ */
+export async function findRecipesByItemName(
+  itemName: string,
+  itemId: number,
+): Promise<{ recipeId: number; job: string }[]> {
+  try {
+    const url = `${API_BASE}/recipe_table?page_id=0&search_name=${encodeURIComponent(itemName)}`
+    const response = await fetch(url)
+    if (!response.ok) return []
+
+    const data: RecipeTableResponse = await response.json()
+    // Filter by exact item_id match to avoid partial name matches
+    return data.data
+      .filter((r) => r.item_id === itemId)
+      .map((r) => ({ recipeId: r.id, job: r.job }))
+  } catch {
+    return []
+  }
+}
+
 export async function getRecipe(id: number): Promise<Recipe> {
   try {
     // Fetch recipe info and ingredients in parallel
