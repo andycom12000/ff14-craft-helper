@@ -244,16 +244,50 @@ function solveBasicCombo(config: SolverConfig): SolverResult {
   }
 }
 
-function mockSolve(config: SolverConfig): SolverResult {
-  const a = solveWasteNot2(config)
-  const b = solveBasicCombo(config)
+/** Strategy C: Trained Eye (first step, quality maxed instantly) */
+function solveTrainedEye(config: SolverConfig): SolverResult | null {
+  // Trained Eye: must be first action, crafter level >= recipe level + 10, costs 250 CP
+  if (!config.use_trained_eye) return null
+  if (config.crafter_level < config.recipe_level + 10) return null
+  if (config.cp < 250) return null
 
-  const aOk = a.progress >= config.progress
-  const bOk = b.progress >= config.progress
-  if (aOk && bOk) return a.quality >= b.quality ? a : b
-  if (aOk) return a
-  if (bOk) return b
-  return a.quality >= b.quality ? a : b
+  const s = createState(config)
+  // TrainedEye: 250 CP, 10 durability, sets quality to max
+  use(s, 250, 10, false)
+  s.actions.push('TrainedEye')
+  s.qualityDone = config.quality
+
+  const { progressDone } = finishProgress(config, s)
+  return {
+    actions: s.actions,
+    progress: Math.min(progressDone, config.progress),
+    quality: config.quality,
+    steps: s.actions.length,
+  }
+}
+
+function mockSolve(config: SolverConfig): SolverResult {
+  const candidates: SolverResult[] = []
+
+  const te = solveTrainedEye(config)
+  if (te) candidates.push(te)
+
+  candidates.push(solveWasteNot2(config))
+  candidates.push(solveBasicCombo(config))
+
+  // Filter to those that complete progress, then pick best quality with fewest steps
+  const valid = candidates.filter(r => r.progress >= config.progress)
+  if (valid.length > 0) {
+    valid.sort((a, b) => {
+      if (a.quality !== b.quality) return b.quality - a.quality
+      return a.steps - b.steps
+    })
+    return valid[0]
+  }
+
+  // Fallback: pick best quality even if progress incomplete
+  candidates.sort((a, b) => b.quality - a.quality)
+  return candidates[0]
 }
 
 function delay(ms: number): Promise<void> {
