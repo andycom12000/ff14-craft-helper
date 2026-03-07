@@ -5,6 +5,10 @@ if (typeof window === "undefined") {
   self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
   self.addEventListener("fetch", (e) => {
     if (e.request.cache === "only-if-cached" && e.request.mode !== "same-origin") return;
+    // Only intercept same-origin navigations and requests.
+    // Cross-origin requests (images, API calls) must pass through untouched
+    // to avoid breaking opaque responses under COEP.
+    if (new URL(e.request.url).origin !== self.location.origin) return;
     e.respondWith(
       fetch(e.request).then((r) => {
         if (r.status === 0) return r;
