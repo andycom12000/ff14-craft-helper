@@ -142,7 +142,8 @@ function solveWasteNot2(config: SolverConfig): SolverResult {
   const cpAvail = () => s.cp - reserve.cp
   const durAvail = () => s.dur - reserve.dur
 
-  if (config.hq_target && cpAvail() >= 6 && durAvail() >= 10) {
+  // Opener
+  if (cpAvail() >= 6 && durAvail() >= 10) {
     use(s, 6, 10, false); s.actions.push('Reflect'); s.iqStacks = 2
   }
 
@@ -196,7 +197,8 @@ function solveBasicCombo(config: SolverConfig): SolverResult {
   const cpAvail = () => s.cp - reserve.cp
   const durAvail = () => s.dur - reserve.dur
 
-  if (config.hq_target && cpAvail() >= 6 && durAvail() >= 10) {
+  // Opener
+  if (cpAvail() >= 6 && durAvail() >= 10) {
     use(s, 6, 10, false); s.actions.push('Reflect'); s.iqStacks = 2
   }
 
