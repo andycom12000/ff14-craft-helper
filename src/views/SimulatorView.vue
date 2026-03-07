@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { useRecipeStore } from '@/stores/recipe'
 import { useGearsetsStore } from '@/stores/gearsets'
 import { JOB_NAMES } from '@/utils/jobs'
 import { useSimulatorStore } from '@/stores/simulator'
 import { simulateAll, createInitialState, type CraftParams } from '@/engine/simulator'
 import type { EnhancedStats } from '@/engine/food-medicine'
+import { calculateInitialQuality } from '@/engine/quality'
+import { getRecipe, findRecipesByItemName } from '@/api/xivapi'
 import StatusBar from '@/components/simulator/StatusBar.vue'
 import BuffDisplay from '@/components/simulator/BuffDisplay.vue'
 import ActionList from '@/components/simulator/ActionList.vue'
@@ -14,6 +17,7 @@ import MacroExport from '@/components/simulator/MacroExport.vue'
 import SolverPanel from '@/components/simulator/SolverPanel.vue'
 import InitialQuality from '@/components/simulator/InitialQuality.vue'
 import FoodMedicine from '@/components/simulator/FoodMedicine.vue'
+import CraftRecommendation from '@/components/simulator/CraftRecommendation.vue'
 
 const router = useRouter()
 const recipeStore = useRecipeStore()
@@ -105,6 +109,54 @@ function handleRemoveAction(index: number) {
 
 function handleClearActions() {
   simStore.clearActions()
+}
+
+// --- Craft Recommendation integration ---
+const solverResult = ref<{ actions: string[] } | null>(null)
+
+function onSolveComplete(result: { actions: string[] }) {
+  solverResult.value = result
+}
+
+function handleApplyHq(hqAmounts: number[]) {
+  // Update initialQuality by calculating quality from the HQ amounts
+  if (!recipe.value) return
+  const ingredients = recipe.value.ingredients.map((ing, i) => ({
+    amount: ing.amount,
+    hqAmount: hqAmounts[i] ?? 0,
+    level: ing.level,
+    canHq: ing.canHq,
+  }))
+  const quality = calculateInitialQuality(
+    recipe.value.recipeLevelTable.quality,
+    recipe.value.materialQualityFactor,
+    ingredients,
+  )
+  initialQuality.value = quality
+  // Clear solver result to re-trigger recommendation after re-solve
+  solverResult.value = null
+  ElMessage.success(`已套用 HQ 組合，初期品質：${quality.toLocaleString()}`)
+}
+
+async function handleSelfCraft(itemId: number) {
+  if (!recipe.value) return
+  const ingredient = recipe.value.ingredients.find(ing => ing.itemId === itemId)
+  if (!ingredient) return
+
+  try {
+    const results = await findRecipesByItemName(ingredient.name, itemId)
+    if (results.length === 0) {
+      ElMessage.warning(`找不到「${ingredient.name}」的配方`)
+      return
+    }
+    const fullRecipe = await getRecipe(results[0].recipeId)
+    recipeStore.addToQueue(fullRecipe)
+    recipeStore.setRecipe(fullRecipe)
+    ElMessage.success(`已將「${fullRecipe.name}」加入模擬佇列`)
+  } catch (err) {
+    console.error('[SimulatorView] Failed to load recipe for self-craft:', err)
+    ElMessage.error('載入配方失敗')
+  }
 }
 </script>
 
@@ -230,7 +282,15 @@ function handleClearActions() {
                 />
               </el-card>
 
-              <SolverPanel :craft-params="craftParams" />
+              <SolverPanel :craft-params="craftParams" @solve-complete="onSolveComplete" />
+
+              <CraftRecommendation
+                :craft-params="craftParams"
+                :recipe="recipe"
+                :solver-result="solverResult"
+                @apply-hq="handleApplyHq"
+                @self-craft="handleSelfCraft"
+              />
             </div>
 
             <div class="sim-right">

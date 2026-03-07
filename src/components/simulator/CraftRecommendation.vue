@@ -181,8 +181,6 @@ async function loadHqRecommendations() {
   }
 }
 
-// Expose formatGil for template usage
-void formatGil
 </script>
 
 <template>
