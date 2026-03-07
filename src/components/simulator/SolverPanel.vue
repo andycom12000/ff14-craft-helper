@@ -10,6 +10,10 @@ const props = defineProps<{
   craftParams: CraftParams | null
 }>()
 
+const emit = defineEmits<{
+  'solve-complete': [result: { actions: string[] }]
+}>()
+
 const simStore = useSimulatorStore()
 
 const status = ref<SolverStatus>('idle')
@@ -63,6 +67,7 @@ async function handleSolve() {
       progress.value = percent
     })
     simStore.setActions(result.actions)
+    emit('solve-complete', { actions: result.actions })
     status.value = 'done'
     ElMessage.success('求解完成，已套用至模擬器')
   } catch (err) {
