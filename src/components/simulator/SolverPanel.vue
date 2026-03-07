@@ -44,7 +44,7 @@ function buildConfig(): SolverConfig | null {
     quality_divider: rlt.qualityDivider,
     progress_modifier: rlt.progressModifier,
     quality_modifier: rlt.qualityModifier,
-    hq_target: rlt.quality > 0,
+    hq_target: p.canHq && rlt.quality > 0,
     initial_quality: p.initialQuality,
     use_manipulation: useManipulation.value,
     use_heart_and_soul: useHeartAndSoul.value,

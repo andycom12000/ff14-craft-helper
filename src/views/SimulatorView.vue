@@ -67,6 +67,7 @@ const craftParams = computed<CraftParams | null>(() => {
     recipeLevelTable: { ...recipe.value.recipeLevelTable },
     crafterLevel: gearset.value.level,
     initialQuality: initialQuality.value,
+    canHq: recipe.value.canHq,
   }
 })
 

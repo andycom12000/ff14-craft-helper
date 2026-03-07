@@ -53,6 +53,7 @@ export interface CraftParams {
   }
   crafterLevel: number
   initialQuality: number
+  canHq: boolean
 }
 
 export function createInitialState(params: CraftParams): CraftState {
