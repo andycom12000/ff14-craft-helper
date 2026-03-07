@@ -142,6 +142,9 @@ export async function getRecipe(id: number): Promise<Recipe> {
       job: string
       can_hq: boolean
       material_quality_factor: number
+      difficulty_factor: number
+      quality_factor: number
+      durability_factor: number
     }
 
     const rawIngredients: [number, number][] = await ingredientsResp.json()
@@ -185,9 +188,9 @@ export async function getRecipe(id: number): Promise<Recipe> {
     const recipeLevelTable: RecipeLevelTable = {
       classJobLevel: rlt.class_job_level,
       stars: 0,
-      difficulty: rlt.difficulty,
-      quality: rlt.quality,
-      durability: rlt.durability,
+      difficulty: Math.floor(rlt.difficulty * recipeData.difficulty_factor / 100),
+      quality: Math.floor(rlt.quality * recipeData.quality_factor / 100),
+      durability: Math.floor(rlt.durability * recipeData.durability_factor / 100),
       suggestedCraftsmanship: rlt.suggested_craftsmanship,
       progressDivider: rlt.progress_divider,
       qualityDivider: rlt.quality_divider,
