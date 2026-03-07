@@ -153,7 +153,7 @@ async function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
         </el-table-column>
         <el-table-column label="圖示" width="50" align="center">
           <template #default="{ row }">
-            <img :src="row.icon" :alt="row.name" style="width: 24px; height: 24px" />
+            <img :src="row.icon" :alt="row.name" crossorigin="anonymous" style="width: 24px; height: 24px" />
           </template>
         </el-table-column>
         <el-table-column prop="name" label="名稱" />
@@ -229,7 +229,7 @@ async function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
           </el-table-column>
           <el-table-column label="圖示" width="50" align="center">
             <template #default="{ row }">
-              <img :src="row.icon" :alt="row.name" style="width: 24px; height: 24px" />
+              <img :src="row.icon" :alt="row.name" crossorigin="anonymous" style="width: 24px; height: 24px" />
             </template>
           </el-table-column>
           <el-table-column prop="name" label="名稱" />

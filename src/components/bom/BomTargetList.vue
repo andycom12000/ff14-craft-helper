@@ -70,7 +70,7 @@ function handleClearAll() {
     <el-table v-else :data="bomStore.targets" border style="width: 100%">
       <el-table-column label="圖示" width="60" align="center">
         <template #default="{ row }">
-          <img :src="row.icon" :alt="row.name" style="width: 28px; height: 28px" />
+          <img :src="row.icon" :alt="row.name" crossorigin="anonymous" style="width: 28px; height: 28px" />
         </template>
       </el-table-column>
       <el-table-column prop="name" label="品項名稱" />

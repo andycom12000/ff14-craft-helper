@@ -93,7 +93,7 @@ function handleRowClick(row: RecipeSearchResult) {
     >
       <el-table-column label="圖示" width="60" align="center">
         <template #default="{ row }">
-          <img :src="row.icon" :alt="row.name" style="width: 32px; height: 32px" />
+          <img :src="row.icon" :alt="row.name" crossorigin="anonymous" style="width: 32px; height: 32px" />
         </template>
       </el-table-column>
       <el-table-column prop="name" label="名稱" />

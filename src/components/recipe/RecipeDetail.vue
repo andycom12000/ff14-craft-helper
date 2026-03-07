@@ -21,7 +21,7 @@ function starsDisplay(count: number): string {
 
     <template v-else>
       <div class="recipe-header">
-        <img :src="recipe.icon" :alt="recipe.name" class="recipe-icon" />
+        <img :src="recipe.icon" :alt="recipe.name" crossorigin="anonymous" class="recipe-icon" />
         <div class="recipe-title">
           <h3>{{ recipe.name }}</h3>
           <el-tag size="small" type="info">{{ recipe.job }}</el-tag>
@@ -57,7 +57,7 @@ function starsDisplay(count: number): string {
       <el-table :data="recipe.ingredients" border style="width: 100%">
         <el-table-column label="圖示" width="60" align="center">
           <template #default="{ row }">
-            <img :src="row.icon" :alt="row.name" style="width: 28px; height: 28px" />
+            <img :src="row.icon" :alt="row.name" crossorigin="anonymous" style="width: 28px; height: 28px" />
           </template>
         </el-table-column>
         <el-table-column prop="name" label="名稱" />

@@ -28,7 +28,7 @@ const emit = defineEmits<{
     >
       <template #default="{ data }">
         <div class="tree-node">
-          <img :src="data.icon" :alt="data.name" class="node-icon" />
+          <img :src="data.icon" :alt="data.name" crossorigin="anonymous" class="node-icon" />
           <span class="node-name" :class="{ 'node-collapsed': data.collapsed }">
             {{ data.name }}
           </span>

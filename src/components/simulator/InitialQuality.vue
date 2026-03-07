@@ -98,7 +98,7 @@ function decrementHq(index: number) {
           :class="{ disabled: !ing.canHq }"
         >
           <div class="ingredient-info">
-            <img :src="ing.icon" :alt="ing.name" class="ingredient-icon" />
+            <img :src="ing.icon" :alt="ing.name" crossorigin="anonymous" class="ingredient-icon" />
             <span class="ingredient-name">{{ ing.name }}</span>
           </div>
           <div class="ingredient-controls">
