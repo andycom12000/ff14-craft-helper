@@ -9,6 +9,9 @@ export type BuffType =
   | 'FinalAppraisal'
   | 'MuscleMemory'
   | 'Pliant'
+  | 'HeartAndSoul'
+  | 'QuickInnovation'
+  | 'TrainedPerfection'
 
 export interface BuffInfo {
   name: string
@@ -77,5 +80,23 @@ export const BUFF_DEFINITIONS: Record<BuffType, BuffInfo> = {
     maxDuration: 0,
     maxStacks: 1,
     description: 'CP 消耗減半（狀態觸發）',
+  },
+  HeartAndSoul: {
+    name: '心靈之手',
+    maxDuration: 0,
+    maxStacks: 1,
+    description: '下次可使用高品質限定技能（專家）',
+  },
+  QuickInnovation: {
+    name: '快速改革',
+    maxDuration: 1,
+    maxStacks: 1,
+    description: '品質效率提升 50%，1 回合（專家）',
+  },
+  TrainedPerfection: {
+    name: '工匠的神髓',
+    maxDuration: 0,
+    maxStacks: 1,
+    description: '下次行動不消耗耐久',
   },
 }

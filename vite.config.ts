@@ -9,4 +9,10 @@ export default defineConfig({
       '@': '/src',
     },
   },
+  server: {
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'credentialless',
+    },
+  },
 })

@@ -85,6 +85,7 @@ const QUALITY_EFFICIENCY: Record<string, number> = {
   PreciseTouch: 150, PrudentTouch: 100, PreparatoryTouch: 200,
   HastyTouch: 100, FocusedTouch: 150, TrainedFinesse: 100,
   ByregotsBlessing: 100, Reflect: 300, TrainedEye: 0,
+  RefinedTouch: 100, DaringTouch: 150,
 }
 
 // Derive CP and durability costs from the single source of truth in skills.ts
@@ -99,6 +100,7 @@ function getDurabilityCost(action: string): number {
 const BUFF_ACTIONS = new Set([
   'WasteNot', 'WasteNotII', 'Veneration', 'Innovation',
   'GreatStrides', 'Manipulation', 'FinalAppraisal',
+  'HeartAndSoul', 'QuickInnovation', 'TrainedPerfection',
 ])
 
 function getProgressEfficiency(action: string): number { return PROGRESS_EFFICIENCY[action] ?? 0 }
@@ -211,7 +213,7 @@ export function simulateStep(
     if (action !== 'ByregotsBlessing') {
       const iq = newState.buffs.get('InnerQuiet')
       const currentStacks = iq?.stacks ?? 0
-      const addStacks = action === 'PreparatoryTouch' || action === 'Reflect' || action === 'PreciseTouch' ? 2 : 1
+      const addStacks = action === 'PreparatoryTouch' || action === 'Reflect' || action === 'PreciseTouch' || action === 'RefinedTouch' ? 2 : 1
       newState.buffs.set('InnerQuiet', {
         stacks: Math.min(currentStacks + addStacks, 10),
         duration: Infinity,
@@ -224,9 +226,18 @@ export function simulateStep(
     newState.buffs.delete('GreatStrides')
   }
 
+  // TrainedPerfection: no durability cost for this action
+  if (state.buffs.has('TrainedPerfection') && duraCost > 0 && !isBuff(action)) {
+    newState.durability += duraCost // refund the durability cost
+    newState.buffs.delete('TrainedPerfection')
+  }
+
   // Special actions
   if (action === 'MastersMend') {
     newState.durability = Math.min(newState.durability + 30, newState.maxDurability)
+  }
+  if (action === 'ImmaculateMend') {
+    newState.durability = newState.maxDurability
   }
   if (action === 'TricksOfTheTrade') {
     newState.cp = Math.min(newState.cp + 20, newState.maxCp)

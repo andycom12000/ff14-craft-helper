@@ -1,327 +1,162 @@
 /**
- * Web Worker script for running the craft solver off the main thread.
- *
- * TODO: Replace the mock solver with real raphael-rs WASM integration.
+ * Web Worker script for running the raphael-rs WASM craft solver off the main thread.
  */
 
-import type { SolverConfig, SolverResult, SolverMessage, SolverResponse } from './raphael'
+import type { SolverConfig, SolverResult, SolverResponse } from './raphael'
 
-/* ---------- progress / quality formulas (mirror of engine/simulator.ts) ---------- */
+/* ---------- WASM initialization ---------- */
 
-function calcProgress(config: SolverConfig, efficiency: number, hasVeneration: boolean): number {
-  const base = (config.craftsmanship * 10) / config.progress_divider + 2
-  let mod = Math.floor(base * config.progress_modifier / 100)
-  mod = Math.floor(mod * efficiency / 100)
-  if (hasVeneration) mod = Math.floor(mod * 1.5)
-  return mod
+// Load WASM from public/ directory to bypass Vite's module transform.
+// Vite injects HMR code into src/ JS files which breaks rayon's blob sub-workers.
+const base = import.meta.env.BASE_URL ?? '/ff14-craft-helper/'
+const wasmJsUrl = new URL(`${base}solver-wasm/raphael_wasm_wrapper.js`, self.location.origin).href
+
+let wasmReady = false
+let wasmError: string | null = null
+let wasmSolve: ((config: unknown) => { actions: string[] }) | null = null
+
+async function initWasm() {
+  try {
+    const pkg = await import(/* @vite-ignore */ wasmJsUrl)
+    await pkg.default()
+    await pkg.init_threads(navigator.hardwareConcurrency || 4)
+    wasmSolve = pkg.solve
+    wasmReady = true
+    const readyMsg: SolverResponse = { type: 'ready' }
+    self.postMessage(readyMsg)
+  } catch (err) {
+    wasmError = err instanceof Error ? err.message : String(err)
+    const errorMsg: SolverResponse = { type: 'init-error', error: wasmError }
+    self.postMessage(errorMsg)
+  }
 }
 
-function calcQuality(config: SolverConfig, efficiency: number, hasInnovation: boolean, hasGreatStrides: boolean, iqStacks: number): number {
-  const base = (config.control * 10) / config.quality_divider + 35
-  let mod = Math.floor(base * config.quality_modifier / 100)
-  const iqBonus = 1 + iqStacks * 0.1
-  mod = Math.floor(mod * iqBonus)
-  mod = Math.floor(mod * efficiency / 100)
-  if (hasInnovation) mod = Math.floor(mod * 1.5)
-  if (hasGreatStrides) mod = Math.floor(mod * 2)
-  return mod
+initWasm()
+
+/* ---------- Action name mapping: raphael-rs Debug names -> our skill IDs ---------- */
+
+const ACTION_MAP: Record<string, string> = {
+  'BasicSynthesis': 'BasicSynthesis',
+  'BasicTouch': 'BasicTouch',
+  'MasterMend': 'MastersMend',
+  'Observe': 'Observe',
+  'TricksOfTheTrade': 'TricksOfTheTrade',
+  'WasteNot': 'WasteNot',
+  'Veneration': 'Veneration',
+  'StandardTouch': 'StandardTouch',
+  'GreatStrides': 'GreatStrides',
+  'Innovation': 'Innovation',
+  'WasteNot2': 'WasteNotII',
+  'ByregotsBlessing': 'ByregotsBlessing',
+  'PreciseTouch': 'PreciseTouch',
+  'MuscleMemory': 'MuscleMemory',
+  'CarefulSynthesis': 'CarefulSynthesis',
+  'Manipulation': 'Manipulation',
+  'PrudentTouch': 'PrudentTouch',
+  'AdvancedTouch': 'AdvancedTouch',
+  'Reflect': 'Reflect',
+  'PreparatoryTouch': 'PreparatoryTouch',
+  'Groundwork': 'Groundwork',
+  'DelicateSynthesis': 'DelicateSynthesis',
+  'IntensiveSynthesis': 'IntensiveSynthesis',
+  'TrainedEye': 'TrainedEye',
+  'HeartAndSoul': 'HeartAndSoul',
+  'PrudentSynthesis': 'PrudentSynthesis',
+  'TrainedFinesse': 'TrainedFinesse',
+  'RefinedTouch': 'RefinedTouch',
+  'QuickInnovation': 'QuickInnovation',
+  'ImmaculateMend': 'ImmaculateMend',
+  'TrainedPerfection': 'TrainedPerfection',
+  'RapidSynthesis': 'RapidSynthesis',
+  'HastyTouch': 'HastyTouch',
+  'DaringTouch': 'DaringTouch',
+  'FinalAppraisal': 'FinalAppraisal',
+  'FocusedSynthesis': 'FocusedSynthesis',
+  'FocusedTouch': 'FocusedTouch',
 }
 
-/* ---------- mock solver ---------- */
-// Quality actions come before progress completion,
-// because the simulator stops executing once progress >= maxProgress.
-// Tries two strategies (WasteNotII+PreparatoryTouch vs BasicTouch combo)
-// and returns the one with better quality.
+/* ---------- Solver config conversion ---------- */
 
-interface SolveState {
-  actions: string[]
-  cp: number
-  dur: number
-  maxDur: number
-  qualityDone: number
-  iqStacks: number
-  manipStepsLeft: number
-  wasteNotSteps: number
-  innovationSteps: number
-}
+function configToWasmSettings(config: SolverConfig) {
+  const base_progress = Math.floor(
+    Math.floor(config.craftsmanship * 10 / config.progress_divider + 2)
+    * config.progress_modifier / 100
+  )
+  const base_quality = Math.floor(
+    Math.floor(config.control * 10 / config.quality_divider + 35)
+    * config.quality_modifier / 100
+  )
 
-function createState(config: SolverConfig): SolveState {
   return {
-    actions: [],
-    cp: config.cp,
-    dur: config.durability,
-    maxDur: config.durability,
-    qualityDone: config.initial_quality ?? 0,
-    iqStacks: 0,
-    manipStepsLeft: 0,
-    wasteNotSteps: 0,
-    innovationSteps: 0,
+    max_cp: config.cp,
+    max_durability: config.durability,
+    max_progress: config.progress,
+    max_quality: config.hq_target ? config.quality : 0,
+    base_progress,
+    base_quality,
+    job_level: config.crafter_level,
+    use_manipulation: config.use_manipulation,
+    use_heart_and_soul: config.use_heart_and_soul,
+    use_quick_innovation: config.use_quick_innovation,
+    use_trained_eye: config.use_trained_eye,
+    backload_progress: false,
+    adversarial: false,
   }
 }
 
-function effectiveDurCost(s: SolveState, raw: number): number {
-  return s.wasteNotSteps > 0 && raw > 0 ? Math.ceil(raw / 2) : raw
-}
+/* ---------- Message handler ---------- */
 
-function use(s: SolveState, cpCost: number, rawDurCost: number, isBuff: boolean) {
-  s.cp -= cpCost
-  if (!isBuff) {
-    s.dur -= effectiveDurCost(s, rawDurCost)
-    if (s.wasteNotSteps > 0) s.wasteNotSteps--
-    if (s.innovationSteps > 0) s.innovationSteps--
-    if (s.manipStepsLeft > 0 && s.dur > 0) {
-      s.dur = Math.min(s.dur + 5, s.maxDur)
-      s.manipStepsLeft--
-    }
-  }
-}
-
-function calcProgressReserve(config: SolverConfig): { cp: number; dur: number } {
-  const venGwProg = calcProgress(config, 360, true)
-  const venCsProg = calcProgress(config, 180, true)
-
-  if (venGwProg >= config.progress) return { cp: 36, dur: 20 }
-  if (venGwProg * 2 >= config.progress) return { cp: 54, dur: 40 }
-  if (venGwProg + venCsProg >= config.progress) return { cp: 43, dur: 30 }
-  if (venGwProg * 3 >= config.progress) return { cp: 72, dur: 60 }
-  const csNeeded = Math.ceil(config.progress / venCsProg)
-  return { cp: 18 + csNeeded * 7, dur: csNeeded * 10 }
-}
-
-function finishProgress(config: SolverConfig, s: SolveState): { progressDone: number } {
-  let progressDone = 0
-  const useVeneration = s.cp >= 18
-  if (useVeneration) {
-    use(s, 18, 0, true); s.actions.push('Veneration')
-  }
-  for (let i = 0; i < 10 && progressDone < config.progress; i++) {
-    const venActive = useVeneration && i < 4
-    const gwProg = calcProgress(config, 360, venActive)
-    const csProg = calcProgress(config, 180, venActive)
-    const gwDur = effectiveDurCost(s, 20)
-    const csDur = effectiveDurCost(s, 10)
-
-    if (s.cp >= 18 && s.dur >= gwDur) {
-      use(s, 18, 20, false); s.actions.push('Groundwork'); progressDone += gwProg
-    } else if (s.cp >= 7 && s.dur >= csDur) {
-      use(s, 7, 10, false); s.actions.push('CarefulSynthesis'); progressDone += csProg
-    } else if (s.dur >= csDur) {
-      use(s, 0, 10, false); s.actions.push('BasicSynthesis')
-      progressDone += calcProgress(config, 120, venActive)
-    } else {
-      break
-    }
-  }
-  return { progressDone }
-}
-
-function addByregotFinisher(config: SolverConfig, s: SolveState, reserve: { cp: number; dur: number }) {
-  const cpAvail = s.cp - reserve.cp
-  const durAvail = s.dur - reserve.dur
-  if (s.iqStacks <= 0 || durAvail < effectiveDurCost(s, 10)) return
-  const byregotEff = 100 + 20 * s.iqStacks
-  if (cpAvail >= 32 + 18 + 24) {
-    use(s, 32, 0, true); s.actions.push('GreatStrides')
-    use(s, 18, 0, true); s.actions.push('Innovation'); s.innovationSteps = 4
-    s.qualityDone += calcQuality(config, byregotEff, true, true, s.iqStacks)
-    use(s, 24, 10, false); s.actions.push('ByregotsBlessing')
-  } else if (cpAvail >= 32 + 24) {
-    use(s, 32, 0, true); s.actions.push('GreatStrides')
-    s.qualityDone += calcQuality(config, byregotEff, s.innovationSteps > 0, true, s.iqStacks)
-    use(s, 24, 10, false); s.actions.push('ByregotsBlessing')
-  } else if (cpAvail >= 24) {
-    s.qualityDone += calcQuality(config, byregotEff, s.innovationSteps > 0, false, s.iqStacks)
-    use(s, 24, 10, false); s.actions.push('ByregotsBlessing')
-  }
-}
-
-/** Strategy A: WasteNotII + PreparatoryTouch (high efficiency) */
-function solveWasteNot2(config: SolverConfig): SolverResult {
-  const s = createState(config)
-  const reserve = calcProgressReserve(config)
-  const cpAvail = () => s.cp - reserve.cp
-  const durAvail = () => s.dur - reserve.dur
-
-  // Opener
-  if (cpAvail() >= 6 && durAvail() >= 10) {
-    use(s, 6, 10, false); s.actions.push('Reflect'); s.iqStacks = 2
-  }
-
-  if (config.hq_target && s.qualityDone < config.quality && cpAvail() > 0) {
-    // WasteNotII + Innovation + PreparatoryTouch loop + finisher
-    const minNeeded = 98 + 18 + 40 + 32 + 24 // WN2 + Innov + 1×PrepTouch + GS + Byregot
-    if (cpAvail() >= minNeeded) {
-      use(s, 98, 0, true); s.actions.push('WasteNotII'); s.wasteNotSteps = 8
-
-      if (config.use_manipulation && cpAvail() >= 96 + 18 + 40 + 32 + 24) {
-        use(s, 96, 0, true); s.actions.push('Manipulation'); s.manipStepsLeft = 8
-      }
-
-      use(s, 18, 0, true); s.actions.push('Innovation'); s.innovationSteps = 4
-
-      // PreparatoryTouch loop (40cp, 20dur raw → 10 with WN2, +2 IQ)
-      const finisherCp = 32 + 18 + 24
-      while (
-        cpAvail() >= 40 + finisherCp &&
-        durAvail() >= effectiveDurCost(s, 20) + effectiveDurCost(s, 10) &&
-        s.iqStacks < 10 &&
-        s.qualityDone < config.quality
-      ) {
-        // Refresh Innovation if expired
-        if (s.innovationSteps <= 0 && cpAvail() >= 18 + 40 + finisherCp) {
-          use(s, 18, 0, true); s.actions.push('Innovation'); s.innovationSteps = 4
-        }
-        use(s, 40, 20, false); s.actions.push('PreparatoryTouch')
-        s.iqStacks = Math.min(10, s.iqStacks + 2)
-        s.qualityDone += calcQuality(config, 200, s.innovationSteps > 0, false, s.iqStacks)
-      }
-
-      // Byregot finisher
-      addByregotFinisher(config, s, reserve)
-    }
-  }
-
-  const { progressDone } = finishProgress(config, s)
-  return {
-    actions: s.actions,
-    progress: Math.min(progressDone, config.progress),
-    quality: Math.min(s.qualityDone, config.quality),
-    steps: s.actions.length,
-  }
-}
-
-/** Strategy B: Basic touch combo (Innovation → Basic → Standard → Advanced) */
-function solveBasicCombo(config: SolverConfig): SolverResult {
-  const s = createState(config)
-  const reserve = calcProgressReserve(config)
-  const cpAvail = () => s.cp - reserve.cp
-  const durAvail = () => s.dur - reserve.dur
-
-  // Opener
-  if (cpAvail() >= 6 && durAvail() >= 10) {
-    use(s, 6, 10, false); s.actions.push('Reflect'); s.iqStacks = 2
-  }
-
-  if (config.hq_target && s.qualityDone < config.quality && cpAvail() > 50) {
-    if (config.use_manipulation && cpAvail() >= 96 + 80) {
-      use(s, 96, 0, true); s.actions.push('Manipulation'); s.manipStepsLeft = 8
-    }
-
-    for (let cycle = 0; cycle < 4; cycle++) {
-      const finisherCp = 74
-      if (cpAvail() < 18 + 18 + finisherCp || durAvail() < 20) break
-
-      use(s, 18, 0, true); s.actions.push('Innovation'); s.innovationSteps = 4
-
-      if (cpAvail() >= 18 && durAvail() >= 10) {
-        use(s, 18, 10, false); s.actions.push('BasicTouch')
-        s.iqStacks = Math.min(10, s.iqStacks + 1)
-        s.qualityDone += calcQuality(config, 100, true, false, s.iqStacks)
-      } else break
-
-      if (cpAvail() >= 18 && durAvail() >= 10) {
-        use(s, 18, 10, false); s.actions.push('StandardTouch')
-        s.iqStacks = Math.min(10, s.iqStacks + 1)
-        s.qualityDone += calcQuality(config, 125, true, false, s.iqStacks)
-      } else continue
-
-      if (cpAvail() >= 18 && durAvail() >= 10) {
-        use(s, 18, 10, false); s.actions.push('AdvancedTouch')
-        s.iqStacks = Math.min(10, s.iqStacks + 1)
-        s.qualityDone += calcQuality(config, 150, true, false, s.iqStacks)
-      }
-    }
-
-    addByregotFinisher(config, s, reserve)
-  }
-
-  const { progressDone } = finishProgress(config, s)
-  return {
-    actions: s.actions,
-    progress: Math.min(progressDone, config.progress),
-    quality: Math.min(s.qualityDone, config.quality),
-    steps: s.actions.length,
-  }
-}
-
-/** Strategy C: Trained Eye (first step, quality maxed instantly) */
-function solveTrainedEye(config: SolverConfig): SolverResult | null {
-  // Trained Eye: must be first action, crafter level >= recipe level + 10, costs 250 CP
-  if (!config.use_trained_eye) return null
-  if (config.crafter_level < config.recipe_level + 10) return null
-  if (config.cp < 250) return null
-
-  const s = createState(config)
-  // TrainedEye: 250 CP, 10 durability, sets quality to max
-  use(s, 250, 10, false)
-  s.actions.push('TrainedEye')
-  s.qualityDone = config.quality
-
-  const { progressDone } = finishProgress(config, s)
-  return {
-    actions: s.actions,
-    progress: Math.min(progressDone, config.progress),
-    quality: config.quality,
-    steps: s.actions.length,
-  }
-}
-
-function mockSolve(config: SolverConfig): SolverResult {
-  const candidates: SolverResult[] = []
-
-  const te = solveTrainedEye(config)
-  if (te) candidates.push(te)
-
-  candidates.push(solveWasteNot2(config))
-  candidates.push(solveBasicCombo(config))
-
-  // Filter to those that complete progress, then pick best quality with fewest steps
-  const valid = candidates.filter(r => r.progress >= config.progress)
-  if (valid.length > 0) {
-    valid.sort((a, b) => {
-      if (a.quality !== b.quality) return b.quality - a.quality
-      return a.steps - b.steps
-    })
-    return valid[0]
-  }
-
-  // Fallback: pick best quality even if progress incomplete
-  candidates.sort((a, b) => b.quality - a.quality)
-  return candidates[0]
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-self.onmessage = async (e: MessageEvent<SolverMessage>) => {
+self.onmessage = async (e: MessageEvent) => {
   const { type, config } = e.data
 
   if (type === 'solve') {
+    if (!wasmReady) {
+      const errorResponse: SolverResponse = {
+        type: 'error',
+        error: wasmError ?? 'WASM 求解器尚未初始化完成',
+      }
+      self.postMessage(errorResponse)
+      return
+    }
+
     try {
-      const response: SolverResponse = { type: 'progress', progress: 10 }
-      self.postMessage(response)
-
-      await delay(300)
-
-      const progressUpdate: SolverResponse = { type: 'progress', progress: 50 }
+      const progressUpdate: SolverResponse = { type: 'progress', progress: 10 }
       self.postMessage(progressUpdate)
 
-      await delay(400)
+      const settings = configToWasmSettings(config)
 
-      const progressUpdate2: SolverResponse = { type: 'progress', progress: 90 }
+      const progressUpdate2: SolverResponse = { type: 'progress', progress: 30 }
       self.postMessage(progressUpdate2)
 
-      await delay(300)
+      const wasmResult = wasmSolve!(settings)
 
-      const result = mockSolve(config)
+      const progressUpdate3: SolverResponse = { type: 'progress', progress: 90 }
+      self.postMessage(progressUpdate3)
+
+      // Map raphael action names to our skill IDs
+      const mappedActions = (wasmResult.actions as string[]).map(name => {
+        const mapped = ACTION_MAP[name]
+        if (!mapped) {
+          console.warn(`Unknown raphael action: ${name}`)
+          return name
+        }
+        return mapped
+      })
+
+      const result: SolverResult = {
+        actions: mappedActions,
+        progress: config.progress,
+        quality: config.hq_target ? config.quality : 0,
+        steps: mappedActions.length,
+      }
 
       const resultResponse: SolverResponse = { type: 'result', result }
       self.postMessage(resultResponse)
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
       const errorResponse: SolverResponse = {
         type: 'error',
-        error: err instanceof Error ? err.message : String(err),
+        error: msg === 'NoSolution' ? '找不到可行的製作方案，請確認裝備數值與配方是否正確' : msg,
       }
       self.postMessage(errorResponse)
     }

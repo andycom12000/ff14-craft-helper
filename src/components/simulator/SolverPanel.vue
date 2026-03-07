@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useSimulatorStore } from '@/stores/simulator'
-import { solveCraft, cancelSolve, disposeWorker } from '@/solver/worker'
+import { solveCraft, cancelSolve, disposeWorker, waitForWasm, getWasmStatus } from '@/solver/worker'
 import type { CraftParams } from '@/engine/simulator'
 import type { SolverConfig, SolverStatus } from '@/solver/raphael'
 
@@ -19,12 +19,31 @@ const simStore = useSimulatorStore()
 const status = ref<SolverStatus>('idle')
 const progress = ref(0)
 const errorMessage = ref('')
+const wasmStatus = ref<'loading' | 'ready' | 'error'>('loading')
+const wasmError = ref('')
 
 // Skill availability toggles (matching bestcraft defaults)
 const useTrainedEye = ref(true)
 const useManipulation = ref(false)
 const useHeartAndSoul = ref(false)
 const useQuickInnovation = ref(false)
+
+onMounted(async () => {
+  const ws = getWasmStatus()
+  wasmStatus.value = ws.status
+  if (ws.status === 'ready') return
+  if (ws.status === 'error') {
+    wasmError.value = ws.error ?? 'WASM 初始化失敗'
+    return
+  }
+  try {
+    await waitForWasm()
+    wasmStatus.value = 'ready'
+  } catch (err) {
+    wasmStatus.value = 'error'
+    wasmError.value = err instanceof Error ? err.message : String(err)
+  }
+})
 
 function buildConfig(): SolverConfig | null {
   const p = props.craftParams
@@ -117,11 +136,26 @@ onUnmounted(() => {
       </el-checkbox>
     </div>
 
+    <!-- WASM Status -->
+    <div v-if="wasmStatus === 'loading'" class="wasm-status">
+      <el-tag type="info" size="small">WASM 求解器載入中...</el-tag>
+    </div>
+    <el-alert
+      v-if="wasmStatus === 'error'"
+      title="WASM 求解器載入失敗"
+      :description="wasmError || '請確認瀏覽器支援 SharedArrayBuffer（需要 HTTPS 或 localhost）'"
+      type="error"
+      show-icon
+      :closable="false"
+      style="margin-bottom: 12px"
+    />
+
     <!-- Actions -->
     <div class="solver-actions">
       <el-button
         v-if="status !== 'solving'"
         type="warning"
+        :disabled="wasmStatus !== 'ready'"
         @click="handleSolve"
       >
         自動求解

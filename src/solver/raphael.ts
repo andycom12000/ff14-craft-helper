@@ -41,9 +41,9 @@ export interface SolverMessage {
 }
 
 export interface SolverResponse {
-  type: 'result' | 'error' | 'progress'
+  type: 'result' | 'error' | 'progress' | 'ready' | 'init-error'
   result?: SolverResult
   error?: string
-  /** 0-100 progress percentage, used for future real solver integration */
+  /** 0-100 progress percentage */
   progress?: number
 }
