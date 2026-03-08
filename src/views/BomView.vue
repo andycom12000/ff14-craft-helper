@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import BomTargetList from '@/components/bom/BomTargetList.vue'
 import BomMaterialTree from '@/components/bom/BomMaterialTree.vue'
 import BomSummary from '@/components/bom/BomSummary.vue'
+import BomCraftTree from '@/components/bom/BomCraftTree.vue'
 import { useBomStore } from '@/stores/bom'
 import { useRecipeStore } from '@/stores/recipe'
 import { useSettingsStore } from '@/stores/settings'
@@ -16,6 +17,7 @@ const bomStore = useBomStore()
 const recipeStore = useRecipeStore()
 const settingsStore = useSettingsStore()
 
+const activeTab = ref('summary')
 const calculating = ref(false)
 const fetchingPrices = ref(false)
 const calculated = computed(() => bomStore.materialTree.length > 0)
@@ -127,13 +129,22 @@ function handleRefreshPrices() {
           <el-skeleton :rows="3" animated />
           <p class="loading-text">正在取得市場價格...</p>
         </div>
-        <BomSummary
-          v-else
-          :materials="bomStore.flatMaterials"
-          :prices="bomStore.prices"
-          :material-tree="bomStore.materialTree"
-          @refresh-prices="handleRefreshPrices"
-        />
+        <el-tabs v-else v-model="activeTab">
+          <el-tab-pane label="材料總覽" name="summary">
+            <BomSummary
+              :materials="bomStore.flatMaterials"
+              :prices="bomStore.prices"
+              :material-tree="bomStore.materialTree"
+              @refresh-prices="handleRefreshPrices"
+            />
+          </el-tab-pane>
+          <el-tab-pane label="製作價格樹" name="tree">
+            <BomCraftTree
+              :tree="bomStore.materialTree"
+              :prices="bomStore.prices"
+            />
+          </el-tab-pane>
+        </el-tabs>
       </div>
     </template>
   </div>
