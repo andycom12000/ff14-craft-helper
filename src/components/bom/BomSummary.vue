@@ -11,6 +11,7 @@ import type { WorldPriceSummary } from '@/api/universalis'
 const props = defineProps<{
   materials: FlatMaterial[]
   prices: Map<number, PriceInfo>
+  targetItemIds?: number[]
 }>()
 
 const emit = defineEmits<{
@@ -19,12 +20,18 @@ const emit = defineEmits<{
 
 const settingsStore = useSettingsStore()
 
+const targetIdSet = computed(() => new Set(props.targetItemIds ?? []))
+
 const rawMaterials = computed(() =>
   props.materials.filter((m) => m.isRaw),
 )
 
 const craftableMaterials = computed(() =>
-  props.materials.filter((m) => !m.isRaw),
+  props.materials.filter((m) => !m.isRaw && !targetIdSet.value.has(m.itemId)),
+)
+
+const targetMaterials = computed(() =>
+  props.materials.filter((m) => !m.isRaw && targetIdSet.value.has(m.itemId)),
 )
 
 function getNqPrice(itemId: number): number {
@@ -60,6 +67,16 @@ const craftTotalCost = computed(() =>
 )
 
 const grandTotal = computed(() => rawTotalCost.value + craftTotalCost.value)
+
+// Buy-vs-craft comparison for target items
+const targetBuyPrice = computed(() =>
+  targetMaterials.value.reduce(
+    (sum, m) => sum + getTotalPrice(m.itemId, m.totalAmount),
+    0,
+  ),
+)
+
+const craftSaving = computed(() => targetBuyPrice.value - grandTotal.value)
 
 const crossWorldData = ref<Map<number, WorldPriceSummary[]>>(new Map())
 const crossWorldLoading = ref<Set<number>>(new Set())
@@ -263,8 +280,36 @@ async function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
       <!-- Grand total -->
       <el-divider />
       <div class="grand-total">
-        總成本：<strong>{{ formatGil(grandTotal) }}</strong> Gil
+        自製成本：<strong>{{ formatGil(grandTotal) }}</strong> Gil
       </div>
+
+      <!-- Buy vs Craft comparison -->
+      <template v-if="targetMaterials.length > 0 && targetBuyPrice > 0">
+        <div class="buy-compare">
+          <div class="buy-compare-row">
+            <span>直接購買：</span>
+            <span>
+              <template v-for="(m, i) in targetMaterials" :key="m.itemId">
+                <template v-if="i > 0">、</template>
+                {{ m.name }}
+                <template v-if="m.totalAmount > 1"> ×{{ m.totalAmount }}</template>
+              </template>
+              = <strong>{{ formatGil(targetBuyPrice) }}</strong> Gil
+            </span>
+          </div>
+          <div class="buy-compare-verdict">
+            <el-tag v-if="craftSaving > 0" type="success" size="small">
+              自製省 {{ formatGil(craftSaving) }} Gil
+            </el-tag>
+            <el-tag v-else-if="craftSaving < 0" type="warning" size="small">
+              直接購買省 {{ formatGil(-craftSaving) }} Gil
+            </el-tag>
+            <el-tag v-else type="info" size="small">
+              費用相同
+            </el-tag>
+          </div>
+        </div>
+      </template>
     </template>
   </el-card>
 </template>
@@ -301,5 +346,25 @@ async function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
 
 .hq-price {
   color: #e6a23c;
+}
+
+.buy-compare {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--el-fill-color-light);
+  border-radius: 8px;
+}
+
+.buy-compare-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  color: var(--el-text-color-regular);
+}
+
+.buy-compare-verdict {
+  margin-top: 8px;
+  text-align: right;
 }
 </style>

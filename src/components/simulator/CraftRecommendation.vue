@@ -199,7 +199,7 @@ async function loadHqRecommendations() {
       <div v-if="bomLoading">
         <el-skeleton :rows="4" animated />
       </div>
-      <BomSummary v-else-if="flatMaterials.length > 0" :materials="flatMaterials" :prices="prices" @refresh-prices="refreshPrices" />
+      <BomSummary v-else-if="flatMaterials.length > 0" :materials="flatMaterials" :prices="prices" :target-item-ids="[recipe!.itemId]" @refresh-prices="refreshPrices" />
     </el-card>
 
     <!-- Scenario B: 品質不足 -->

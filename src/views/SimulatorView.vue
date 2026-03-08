@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useRecipeStore } from '@/stores/recipe'
 import { useGearsetsStore } from '@/stores/gearsets'
+import { useBomStore } from '@/stores/bom'
 import { JOB_NAMES } from '@/utils/jobs'
 import { useSimulatorStore } from '@/stores/simulator'
 import { simulateAll, createInitialState, type CraftParams } from '@/engine/simulator'
@@ -22,6 +23,7 @@ import CraftRecommendation from '@/components/simulator/CraftRecommendation.vue'
 const router = useRouter()
 const recipeStore = useRecipeStore()
 const gearsetsStore = useGearsetsStore()
+const bomStore = useBomStore()
 const simStore = useSimulatorStore()
 
 const recipe = computed(() => recipeStore.currentRecipe)
@@ -113,10 +115,10 @@ function handleClearActions() {
 }
 
 // --- Craft Recommendation integration ---
-const solverResult = ref<{ actions: string[] } | null>(null)
+const solverResult = computed(() => simStore.solverResult)
 
 function onSolveComplete(result: { actions: string[] }) {
-  solverResult.value = result
+  simStore.setSolverResult(result)
 }
 
 function handleApplyHq(hqAmounts: number[]) {
@@ -135,8 +137,20 @@ function handleApplyHq(hqAmounts: number[]) {
   )
   initialQuality.value = quality
   // Clear solver result to re-trigger recommendation after re-solve
-  solverResult.value = null
+  simStore.setSolverResult(null)
   ElMessage.success(`已套用 HQ 組合，初期品質：${quality.toLocaleString()}`)
+}
+
+function handleAddToBom() {
+  if (!recipe.value) return
+  bomStore.addTarget({
+    itemId: recipe.value.itemId,
+    recipeId: recipe.value.id,
+    name: recipe.value.name,
+    icon: recipe.value.icon,
+    quantity: 1,
+  })
+  ElMessage.success(`已將「${recipe.value.name}」加入材料清單`)
 }
 
 async function handleSelfCraft(itemId: number) {
@@ -221,13 +235,13 @@ async function handleSelfCraft(itemId: number) {
         <el-link type="primary" @click="router.push('/')">前往裝備頁面設定配裝</el-link>
       </el-alert>
 
-      <el-descriptions
-        v-if="recipe && gearset"
-        :column="2"
-        border
-        size="small"
-        class="info-desc"
-      >
+      <div v-if="recipe && gearset" class="info-header-row">
+        <el-descriptions
+          :column="2"
+          border
+          size="small"
+          class="info-desc"
+        >
         <el-descriptions-item label="配方">
           {{ recipe.name }} (Lv.{{ recipe.level }}<template v-if="recipe.stars > 0"> {{ '\u2605'.repeat(recipe.stars) }}</template>)
         </el-descriptions-item>
@@ -255,7 +269,9 @@ async function handleSelfCraft(itemId: number) {
         <el-descriptions-item label="難度 / 品質 / 耐久">
           {{ recipe.recipeLevelTable.difficulty }} / {{ recipe.recipeLevelTable.quality }} / {{ recipe.recipeLevelTable.durability }}
         </el-descriptions-item>
-      </el-descriptions>
+        </el-descriptions>
+        <el-button size="small" @click="handleAddToBom()">加入材料清單</el-button>
+      </div>
     </div>
 
     <!-- Shared status bars (progress / quality / buffs) -->
@@ -324,8 +340,20 @@ async function handleSelfCraft(itemId: number) {
   margin-bottom: 16px;
 }
 
-.info-desc {
+.info-header-row {
   margin-top: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.info-header-row .info-desc {
+  flex: 1;
+  min-width: 0;
+}
+
+.info-desc {
+  margin-top: 0;
 }
 
 .shared-status {

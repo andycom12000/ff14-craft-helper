@@ -5,12 +5,14 @@ import type { StepResult } from '@/engine/simulator'
 interface RecipeSimState {
   actions: string[]
   simulationResults: StepResult[]
+  solverResult: { actions: string[] } | null
 }
 
 export const useSimulatorStore = defineStore('simulator', () => {
   const actions = ref<string[]>([])
   const simulationResults = ref<StepResult[]>([])
   const solverRunning = ref(false)
+  const solverResult = ref<{ actions: string[] } | null>(null)
 
   // Per-recipe storage: saves/restores state when switching recipes
   const stateMap = new Map<number, RecipeSimState>()
@@ -21,6 +23,7 @@ export const useSimulatorStore = defineStore('simulator', () => {
       stateMap.set(activeRecipeId, {
         actions: [...actions.value],
         simulationResults: [...simulationResults.value],
+        solverResult: solverResult.value,
       })
     }
   }
@@ -33,9 +36,11 @@ export const useSimulatorStore = defineStore('simulator', () => {
       const saved = stateMap.get(recipeId)!
       actions.value = [...saved.actions]
       simulationResults.value = [...saved.simulationResults]
+      solverResult.value = saved.solverResult
     } else {
       actions.value = []
       simulationResults.value = []
+      solverResult.value = null
     }
   }
 
@@ -45,6 +50,7 @@ export const useSimulatorStore = defineStore('simulator', () => {
       activeRecipeId = null
       actions.value = []
       simulationResults.value = []
+      solverResult.value = null
     }
   }
 
@@ -68,10 +74,15 @@ export const useSimulatorStore = defineStore('simulator', () => {
     simulationResults.value = results
   }
 
+  function setSolverResult(result: { actions: string[] } | null) {
+    solverResult.value = result
+  }
+
   return {
     actions,
     simulationResults,
     solverRunning,
+    solverResult,
     switchToRecipe,
     removeRecipeState,
     setActions,
@@ -79,5 +90,6 @@ export const useSimulatorStore = defineStore('simulator', () => {
     removeAction,
     clearActions,
     setSimulationResults,
+    setSolverResult,
   }
 })
