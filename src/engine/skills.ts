@@ -32,10 +32,10 @@ export const SKILLS: SkillDefinition[] = [
   { id: 'PreparatoryTouch', name: 'Preparatory Touch', nameZh: '坯料加工', category: 'quality', level: 71, cp: 40, durability: 20, description: '200% 效率，IQ+2' },
   { id: 'HastyTouch', name: 'Hasty Touch', nameZh: '倉促', category: 'quality', level: 9, cp: 0, durability: 10, description: '100% 效率 (60% 成功率)' },
   { id: 'FocusedTouch', name: 'Focused Touch', nameZh: '注視加工', category: 'quality', level: 68, cp: 18, durability: 10, description: '150% 效率（觀察後 100%）' },
-  { id: 'TrainedFinesse', name: 'Trained Finesse', nameZh: '工匠的神速技巧', category: 'quality', level: 90, cp: 32, durability: 0, description: '100% 效率，0 耐久（IQ=10）' },
+  { id: 'TrainedFinesse', name: 'Trained Finesse', nameZh: '工匠的神技', category: 'quality', level: 90, cp: 32, durability: 0, description: '100% 效率，0 耐久（IQ=10）' },
   { id: 'ByregotsBlessing', name: 'Byregot\'s Blessing', nameZh: '比爾格的祝福', category: 'quality', level: 50, cp: 24, durability: 10, description: '100% + IQ*20% 效率' },
   { id: 'Reflect', name: 'Reflect', nameZh: '閒靜', category: 'quality', level: 69, cp: 6, durability: 10, description: '300% 效率（首步限定），IQ+2' },
-  { id: 'TrainedEye', name: 'Trained Eye', nameZh: '工匠的神技', category: 'quality', level: 80, cp: 250, durability: 10, description: '品質拉滿（首步限定）' },
+  { id: 'TrainedEye', name: 'Trained Eye', nameZh: '工匠的神速技巧', category: 'quality', level: 80, cp: 250, durability: 10, description: '品質拉滿（首步限定）' },
   { id: 'RefinedTouch', name: 'Refined Touch', nameZh: '精密加工', category: 'quality', level: 92, cp: 24, durability: 10, description: '100% 效率，IQ+2（加工連段後）' },
   { id: 'DaringTouch', name: 'Daring Touch', nameZh: '大膽加工', category: 'quality', level: 96, cp: 0, durability: 10, description: '150% 效率 (60% 成功率)' },
 
