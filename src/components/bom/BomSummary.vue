@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import type { FlatMaterial, PriceInfo } from '@/stores/bom'
+import type { FlatMaterial, PriceInfo, MaterialNode } from '@/stores/bom'
 import { useSettingsStore } from '@/stores/settings'
 import { getPrice } from '@/stores/bom'
+import { computeOptimalCosts, type CostDecision } from '@/services/bom-calculator'
 import { getMarketDataByDC, aggregateByWorld } from '@/api/universalis'
 import { formatGil, formatTimeAgo } from '@/utils/format'
 import type { WorldPriceSummary } from '@/api/universalis'
@@ -12,6 +13,7 @@ const props = defineProps<{
   materials: FlatMaterial[]
   prices: Map<number, PriceInfo>
   targetItemIds?: number[]
+  materialTree?: MaterialNode[]
 }>()
 
 const emit = defineEmits<{
@@ -66,7 +68,25 @@ const craftTotalCost = computed(() =>
   ),
 )
 
-const grandTotal = computed(() => rawTotalCost.value + craftTotalCost.value)
+const optimalResult = computed(() => {
+  if (!props.materialTree || props.materialTree.length === 0) return null
+  return computeOptimalCosts(props.materialTree, getUnitPrice)
+})
+
+const decisionsMap = computed(() => {
+  const map = new Map<number, CostDecision>()
+  if (optimalResult.value) {
+    for (const d of optimalResult.value.decisions) {
+      map.set(d.itemId, d)
+    }
+  }
+  return map
+})
+
+const grandTotal = computed(() => {
+  if (optimalResult.value) return optimalResult.value.totalCost
+  return rawTotalCost.value
+})
 
 // Buy-vs-craft comparison for target items
 const targetBuyPrice = computed(() =>
@@ -265,9 +285,29 @@ async function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
               <span class="hq-price">{{ getHqPrice(row.itemId) > 0 ? formatGil(getHqPrice(row.itemId)) : '-' }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="小計" width="120" align="right">
+          <el-table-column label="直購成本" width="120" align="right">
             <template #default="{ row }">
               {{ formatGil(getTotalPrice(row.itemId, row.totalAmount)) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="材料成本" width="120" align="right">
+            <template #default="{ row }">
+              <template v-if="decisionsMap.get(row.itemId)">
+                {{ formatGil(decisionsMap.get(row.itemId)!.craftCost) }}
+              </template>
+              <template v-else>-</template>
+            </template>
+          </el-table-column>
+          <el-table-column label="建議" width="120" align="center">
+            <template #default="{ row }">
+              <template v-if="decisionsMap.get(row.itemId)">
+                <el-tag
+                  :type="decisionsMap.get(row.itemId)!.recommendation === 'craft' ? 'success' : 'warning'"
+                  size="small"
+                >
+                  {{ decisionsMap.get(row.itemId)!.recommendation === 'craft' ? '自製較省' : '直購較省' }}
+                </el-tag>
+              </template>
             </template>
           </el-table-column>
         </el-table>
@@ -280,7 +320,7 @@ async function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
       <!-- Grand total -->
       <el-divider />
       <div class="grand-total">
-        自製成本：<strong>{{ formatGil(grandTotal) }}</strong> Gil
+        最優製作成本：<strong>{{ formatGil(grandTotal) }}</strong> Gil
       </div>
 
       <!-- Buy vs Craft comparison -->
