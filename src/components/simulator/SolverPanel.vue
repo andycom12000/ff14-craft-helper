@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useSimulatorStore } from '@/stores/simulator'
 import { solveCraft, cancelSolve, disposeWorker, waitForWasm, getWasmStatus } from '@/solver/worker'
@@ -28,6 +28,13 @@ const useTrainedEye = ref(true)
 const useManipulation = ref(false)
 const useHeartAndSoul = ref(false)
 const useQuickInnovation = ref(false)
+
+// TrainedEye requires crafter level >= recipe level + 10
+const canUseTrainedEye = computed(() => {
+  const p = props.craftParams
+  if (!p) return false
+  return p.crafterLevel >= p.recipeLevelTable.classJobLevel + 10
+})
 
 onMounted(async () => {
   const ws = getWasmStatus()
@@ -69,7 +76,7 @@ function buildConfig(): SolverConfig | null {
     use_manipulation: useManipulation.value,
     use_heart_and_soul: useHeartAndSoul.value,
     use_quick_innovation: useQuickInnovation.value,
-    use_trained_eye: useTrainedEye.value,
+    use_trained_eye: useTrainedEye.value && canUseTrainedEye.value,
   }
 }
 
@@ -122,7 +129,13 @@ onUnmounted(() => {
     <!-- Skill toggles -->
     <div class="skill-toggles">
       <span class="toggle-label">可用技能：</span>
-      <el-checkbox v-model="useTrainedEye">{{ getSkillName('TrainedEye') }}</el-checkbox>
+      <el-tooltip
+        :disabled="canUseTrainedEye"
+        content="需要工匠等級比配方等級高 10 等以上"
+        placement="top"
+      >
+        <el-checkbox v-model="useTrainedEye" :disabled="!canUseTrainedEye">{{ getSkillName('TrainedEye') }}</el-checkbox>
+      </el-tooltip>
       <el-checkbox v-model="useManipulation">
         {{ getSkillName('Manipulation') }}
         <el-tag v-if="useManipulation" type="warning" size="small" style="margin-left: 4px">專家</el-tag>

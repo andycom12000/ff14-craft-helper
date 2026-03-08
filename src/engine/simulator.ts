@@ -320,13 +320,17 @@ export function simulateAll(
   return results
 }
 
-export function canUseAction(state: CraftState, action: string): boolean {
+export function canUseAction(state: CraftState, action: string, params?: CraftParams): boolean {
   if (state.isComplete) return false
   if (state.cp < getCpCost(action)) return false
 
   if (action === 'MuscleMemory' && state.step !== 0) return false
   if (action === 'Reflect' && state.step !== 0) return false
-  if (action === 'TrainedEye' && state.step !== 0) return false
+  if (action === 'TrainedEye') {
+    if (state.step !== 0) return false
+    // TrainedEye requires crafter level >= recipe level + 10
+    if (params && params.crafterLevel < params.recipeLevelTable.classJobLevel + 10) return false
+  }
   if (action === 'TrainedFinesse') {
     const iq = state.buffs.get('InnerQuiet')
     if (!iq || iq.stacks < 10) return false
