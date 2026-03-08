@@ -104,7 +104,7 @@ function handleRefreshPrices() {
 </script>
 
 <template>
-  <div class="bom-view">
+  <div class="bom-view" :class="{ 'full-width': activeTab === 'tree' && calculated && !calculating }">
     <h2>材料清單</h2>
     <p class="view-desc">計算製作所需材料、查詢市場價格，一鍵進入模擬器。</p>
 
@@ -153,6 +153,10 @@ function handleRefreshPrices() {
 <style scoped>
 .bom-view {
   max-width: 960px;
+}
+
+.bom-view.full-width {
+  max-width: none;
 }
 
 .section-gap {
