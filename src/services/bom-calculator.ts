@@ -214,6 +214,98 @@ async function fetchRecipeCached(recipeId: number) {
   return recipe
 }
 
+export interface CostDecision {
+  itemId: number
+  name: string
+  icon: string
+  amount: number
+  buyCost: number
+  craftCost: number
+  optimalCost: number
+  recommendation: 'buy' | 'craft'
+}
+
+export interface OptimalCostResult {
+  totalCost: number
+  decisions: CostDecision[]
+}
+
+export function computeOptimalCosts(
+  tree: MaterialNode[],
+  getUnitPrice: (itemId: number) => number,
+): OptimalCostResult {
+  const decisionsMap = new Map<number, CostDecision>()
+
+  function getNodeOptimalCost(node: MaterialNode): number {
+    const unitPrice = getUnitPrice(node.itemId)
+    const buyCost = unitPrice * node.amount
+
+    if (
+      !node.children || node.children.length === 0 ||
+      node.collapsed ||
+      node.itemId < RAW_ITEM_ID_THRESHOLD
+    ) {
+      return buyCost
+    }
+
+    const craftCost = node.children.reduce(
+      (sum, child) => sum + getNodeOptimalCost(child), 0,
+    )
+
+    let recommendation: 'buy' | 'craft'
+    let optimalCost: number
+
+    if (buyCost <= 0) {
+      recommendation = 'craft'
+      optimalCost = craftCost
+    } else if (craftCost <= 0) {
+      recommendation = 'buy'
+      optimalCost = buyCost
+    } else if (buyCost <= craftCost) {
+      recommendation = 'buy'
+      optimalCost = buyCost
+    } else {
+      recommendation = 'craft'
+      optimalCost = craftCost
+    }
+
+    const existing = decisionsMap.get(node.itemId)
+    if (existing) {
+      existing.amount += node.amount
+      existing.buyCost += buyCost
+      existing.craftCost += craftCost
+      existing.optimalCost += optimalCost
+    } else {
+      decisionsMap.set(node.itemId, {
+        itemId: node.itemId,
+        name: node.name,
+        icon: node.icon,
+        amount: node.amount,
+        buyCost,
+        craftCost,
+        optimalCost,
+        recommendation,
+      })
+    }
+
+    return optimalCost
+  }
+
+  let totalCost = 0
+  for (const root of tree) {
+    if (root.children && root.children.length > 0) {
+      for (const child of root.children) {
+        totalCost += getNodeOptimalCost(child)
+      }
+    }
+  }
+
+  return {
+    totalCost,
+    decisions: Array.from(decisionsMap.values()),
+  }
+}
+
 export function clearCaches() {
   recipeCache.clear()
   recipeByItemCache.clear()
