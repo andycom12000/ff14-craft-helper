@@ -121,7 +121,7 @@ onUnmounted(() => {
     <!-- Skill toggles -->
     <div class="skill-toggles">
       <span class="toggle-label">可用技能：</span>
-      <el-checkbox v-model="useTrainedEye">工匠的神技</el-checkbox>
+      <el-checkbox v-model="useTrainedEye">工匠的神速技巧</el-checkbox>
       <el-checkbox v-model="useManipulation">
         掌握
         <el-tag v-if="useManipulation" type="warning" size="small" style="margin-left: 4px">專家</el-tag>
