@@ -8,7 +8,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { buildMaterialTree, flattenMaterialTree } from '@/services/bom-calculator'
 import { getAggregatedPrices } from '@/api/universalis'
 import { findOptimalHqCombinations, type HqRecommendation } from '@/services/hq-optimizer'
-import type { FlatMaterial, PriceInfo } from '@/stores/bom'
+import type { FlatMaterial, PriceInfo, MaterialNode } from '@/stores/bom'
 import type { BomTarget } from '@/stores/bom'
 import BomSummary from '@/components/bom/BomSummary.vue'
 import { formatGil } from '@/utils/format'
@@ -40,6 +40,7 @@ const scenario = computed(() => {
 // Scenario A state
 const bomLoading = ref(false)
 const flatMaterials = ref<FlatMaterial[]>([])
+const bomTree = ref<MaterialNode[]>([])
 const prices = ref<Map<number, PriceInfo>>(new Map())
 
 // Scenario B state
@@ -87,6 +88,7 @@ watch(() => props.solverResult, async (result) => {
 async function loadBom() {
   bomLoading.value = true
   flatMaterials.value = []
+  bomTree.value = []
   prices.value = new Map()
 
   try {
@@ -99,6 +101,7 @@ async function loadBom() {
       quantity: 1,
     }]
     const tree = await buildMaterialTree(targets)
+    bomTree.value = tree
     const flat = flattenMaterialTree(tree)
     flatMaterials.value = flat
 
@@ -199,7 +202,7 @@ async function loadHqRecommendations() {
       <div v-if="bomLoading">
         <el-skeleton :rows="4" animated />
       </div>
-      <BomSummary v-else-if="flatMaterials.length > 0" :materials="flatMaterials" :prices="prices" :target-item-ids="[recipe!.itemId]" @refresh-prices="refreshPrices" />
+      <BomSummary v-else-if="flatMaterials.length > 0" :materials="flatMaterials" :prices="prices" :target-item-ids="[recipe!.itemId]" :material-tree="bomTree" @refresh-prices="refreshPrices" />
     </el-card>
 
     <!-- Scenario B: 品質不足 -->

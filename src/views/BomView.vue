@@ -131,6 +131,7 @@ function handleRefreshPrices() {
           v-else
           :materials="bomStore.flatMaterials"
           :prices="bomStore.prices"
+          :material-tree="bomStore.materialTree"
           @refresh-prices="handleRefreshPrices"
         />
       </div>
