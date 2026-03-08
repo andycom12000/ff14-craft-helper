@@ -73,7 +73,7 @@ pub fn solve(config_js: JsValue) -> Result<JsValue, JsValue> {
 
     let solver_settings = SolverSettings {
         simulator_settings,
-        allow_non_max_quality_solutions: false,
+        allow_non_max_quality_solutions: true,
     };
 
     let interrupt_signal = AtomicFlag::new();
