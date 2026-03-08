@@ -5,6 +5,7 @@ import { useSimulatorStore } from '@/stores/simulator'
 import { solveCraft, cancelSolve, disposeWorker, waitForWasm, getWasmStatus } from '@/solver/worker'
 import type { CraftParams } from '@/engine/simulator'
 import type { SolverConfig, SolverStatus } from '@/solver/raphael'
+import { getSkillName } from '@/engine/skills'
 
 const props = defineProps<{
   craftParams: CraftParams | null
@@ -121,17 +122,17 @@ onUnmounted(() => {
     <!-- Skill toggles -->
     <div class="skill-toggles">
       <span class="toggle-label">可用技能：</span>
-      <el-checkbox v-model="useTrainedEye">工匠的神速技巧</el-checkbox>
+      <el-checkbox v-model="useTrainedEye">{{ getSkillName('TrainedEye') }}</el-checkbox>
       <el-checkbox v-model="useManipulation">
-        掌握
+        {{ getSkillName('Manipulation') }}
         <el-tag v-if="useManipulation" type="warning" size="small" style="margin-left: 4px">專家</el-tag>
       </el-checkbox>
       <el-checkbox v-model="useHeartAndSoul">
-        心靈之手
+        {{ getSkillName('HeartAndSoul') }}
         <el-tag v-if="useHeartAndSoul" type="warning" size="small" style="margin-left: 4px">專家</el-tag>
       </el-checkbox>
       <el-checkbox v-model="useQuickInnovation">
-        快速改革
+        {{ getSkillName('QuickInnovation') }}
         <el-tag v-if="useQuickInnovation" type="warning" size="small" style="margin-left: 4px">專家</el-tag>
       </el-checkbox>
     </div>
