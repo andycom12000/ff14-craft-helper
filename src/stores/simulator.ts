@@ -32,14 +32,16 @@ export const useSimulatorStore = defineStore('simulator', () => {
     if (recipeId === activeRecipeId) return
     saveCurrentState()
     activeRecipeId = recipeId
+    // Always clear simulationResults – they will be recalculated by
+    // runSimulation() with the current craftParams so we never show stale
+    // results computed against a different recipe's parameters.
+    simulationResults.value = []
     if (recipeId != null && stateMap.has(recipeId)) {
       const saved = stateMap.get(recipeId)!
       actions.value = [...saved.actions]
-      simulationResults.value = [...saved.simulationResults]
       solverResult.value = saved.solverResult
     } else {
       actions.value = []
-      simulationResults.value = []
       solverResult.value = null
     }
   }

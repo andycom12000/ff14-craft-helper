@@ -7,7 +7,7 @@ import { ElMessage } from 'element-plus'
 const simStore = useSimulatorStore()
 
 const MACRO_LINE_LIMIT = 15
-const BUFF_CATEGORIES = new Set(['buff', 'repair', 'other'])
+const BUFF_CATEGORIES = new Set(['buff', 'other'])
 
 const waitTime = ref(3)
 const includeEcho = ref(true)

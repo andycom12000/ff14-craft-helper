@@ -30,6 +30,10 @@ const recipe = computed(() => recipeStore.currentRecipe)
 
 // Switch per-recipe simulator state when active recipe changes
 watch(() => recipe.value?.id ?? null, (id) => {
+  // Reset initialQuality immediately so craftParams never uses a stale value
+  // from the previous recipe (the InitialQuality component will also emit 0,
+  // but its watcher runs later in the flush queue).
+  initialQuality.value = 0
   simStore.switchToRecipe(id)
 }, { immediate: true })
 const gearset = computed(() => {
