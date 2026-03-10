@@ -28,6 +28,9 @@ const simStore = useSimulatorStore()
 
 const recipe = computed(() => recipeStore.currentRecipe)
 
+const initialQuality = ref(0)
+const enhancedStats = ref<EnhancedStats | null>(null)
+
 // Switch per-recipe simulator state when active recipe changes
 watch(() => recipe.value?.id ?? null, (id) => {
   // Reset initialQuality immediately so craftParams never uses a stale value
@@ -42,9 +45,6 @@ const gearset = computed(() => {
 })
 
 const canSimulate = computed(() => !!recipe.value && !!gearset.value)
-
-const initialQuality = ref(0)
-const enhancedStats = ref<EnhancedStats | null>(null)
 
 function onInitialQualityUpdate(val: number) {
   initialQuality.value = val

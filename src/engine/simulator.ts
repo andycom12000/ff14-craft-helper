@@ -74,10 +74,20 @@ export function createInitialState(params: CraftParams): CraftState {
   }
 }
 
-const PROGRESS_EFFICIENCY: Record<string, number> = {
-  BasicSynthesis: 120, CarefulSynthesis: 180, RapidSynthesis: 500,
-  Groundwork: 360, IntensiveSynthesis: 400, PrudentSynthesis: 180,
-  MuscleMemory: 300, FocusedSynthesis: 200, Veneration: 0,
+// Level-dependent efficiency values (matching raphael-rs / game data)
+function getBaseProgressEfficiency(action: string, level: number): number {
+  switch (action) {
+    case 'BasicSynthesis': return level < 31 ? 100 : 120
+    case 'CarefulSynthesis': return level < 82 ? 150 : 180
+    case 'RapidSynthesis': return level < 63 ? 250 : 500
+    case 'Groundwork': return level < 86 ? 300 : 360
+    case 'IntensiveSynthesis': return 400
+    case 'PrudentSynthesis': return 180
+    case 'MuscleMemory': return 300
+    case 'FocusedSynthesis': return 200
+    case 'DelicateSynthesis': return level < 94 ? 100 : 150
+    default: return 0
+  }
 }
 
 const QUALITY_EFFICIENCY: Record<string, number> = {
@@ -103,11 +113,11 @@ const BUFF_ACTIONS = new Set([
   'HeartAndSoul', 'QuickInnovation', 'TrainedPerfection',
 ])
 
-function getProgressEfficiency(action: string): number { return PROGRESS_EFFICIENCY[action] ?? 0 }
+function getProgressEfficiency(action: string, level: number): number { return getBaseProgressEfficiency(action, level) }
 function getQualityEfficiency(action: string): number { return QUALITY_EFFICIENCY[action] ?? 0 }
 
-function isProgressAction(action: string): boolean {
-  return getProgressEfficiency(action) > 0
+function isProgressAction(action: string, level: number): boolean {
+  return getProgressEfficiency(action, level) > 0
 }
 
 function isQualityAction(action: string): boolean {
@@ -191,8 +201,8 @@ export function simulateStep(
   newState.durability -= duraCost
 
   // Progress actions
-  if (isProgressAction(action)) {
-    const eff = getProgressEfficiency(action)
+  if (isProgressAction(action, params.crafterLevel)) {
+    const eff = getProgressEfficiency(action, params.crafterLevel)
     const increase = calculateProgressIncrease(params, state, eff)
     newState.progress = Math.min(newState.progress + increase, newState.maxProgress)
     // Remove MuscleMemory buff after progress action
@@ -246,7 +256,8 @@ export function simulateStep(
     newState.quality = newState.maxQuality
   }
   if (action === 'DelicateSynthesis') {
-    const pIncrease = calculateProgressIncrease(params, state, 100)
+    const dsEff = getProgressEfficiency('DelicateSynthesis', params.crafterLevel)
+    const pIncrease = calculateProgressIncrease(params, state, dsEff)
     newState.progress = Math.min(newState.progress + pIncrease, newState.maxProgress)
     const qIncrease = calculateQualityIncrease(params, state, 100)
     newState.quality = Math.min(newState.quality + qIncrease, newState.maxQuality)
