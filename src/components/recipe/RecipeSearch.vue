@@ -3,7 +3,7 @@ import { ref, computed, watch, onUnmounted } from 'vue'
 import { Search } from '@element-plus/icons-vue'
 import { searchRecipes, type RecipeSearchResult } from '@/api/xivapi'
 
-const CRAFT_JOBS = ['木工', '鍛造', '甲冑', '金工', '皮革', '裁縫', '煉金', '烹調'] as const
+const CRAFT_JOBS = ['木工', '鍛造', '甲冑', '金工', '皮革', '裁縫', '鍊金', '烹調'] as const
 
 const emit = defineEmits<{
   select: [id: number]
