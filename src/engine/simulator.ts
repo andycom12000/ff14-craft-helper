@@ -201,8 +201,8 @@ export function simulateStep(
   // Progress actions
   if (isProgressAction(action, params.crafterLevel)) {
     let eff = getProgressEfficiency(action, params.crafterLevel)
-    // Groundwork and CarefulSynthesis: half efficiency when durability < cost
-    if ((action === 'Groundwork' || action === 'CarefulSynthesis') && state.durability < getDurabilityCost(action)) {
+    // Groundwork and CarefulSynthesis: half efficiency when durability < actual cost (after WasteNot)
+    if ((action === 'Groundwork' || action === 'CarefulSynthesis') && state.durability < duraCost) {
       eff = Math.floor(eff / 2)
     }
     const increase = calculateProgressIncrease(params, state, eff)
