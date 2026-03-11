@@ -139,12 +139,11 @@ function calculateProgressIncrease(
   let modified = Math.floor(base * progressModifier / 100)
   modified = Math.floor(modified * efficiency / 100)
 
-  if (state.buffs.has('Veneration')) {
-    modified = Math.floor(modified * 1.5)
-  }
-  if (state.buffs.has('MuscleMemory')) {
-    modified = Math.floor(modified * 2)
-  }
+  // Buff bonuses are additive, then applied once (matching game formula)
+  let buffBonus = 100
+  if (state.buffs.has('Veneration')) buffBonus += 50
+  if (state.buffs.has('MuscleMemory')) buffBonus += 100
+  modified = Math.floor(modified * buffBonus / 100)
 
   return modified
 }
@@ -165,12 +164,11 @@ function calculateQualityIncrease(
 
   modified = Math.floor(modified * efficiency / 100)
 
-  if (state.buffs.has('Innovation')) {
-    modified = Math.floor(modified * 1.5)
-  }
-  if (state.buffs.has('GreatStrides')) {
-    modified = Math.floor(modified * 2)
-  }
+  // Buff bonuses are additive, then applied once (matching game formula)
+  let buffBonus = 100
+  if (state.buffs.has('Innovation')) buffBonus += 50
+  if (state.buffs.has('GreatStrides')) buffBonus += 100
+  modified = Math.floor(modified * buffBonus / 100)
 
   return modified
 }
