@@ -135,7 +135,7 @@ function calculateProgressIncrease(
 ): number {
   const { craftsmanship } = params
   const { progressDivider, progressModifier } = params.recipeLevelTable
-  const base = (craftsmanship * 10) / progressDivider + 2
+  const base = Math.floor(craftsmanship * 10 / progressDivider + 2)
   let modified = Math.floor(base * progressModifier / 100)
   modified = Math.floor(modified * efficiency / 100)
 
@@ -156,7 +156,7 @@ function calculateQualityIncrease(
 ): number {
   const { control } = params
   const { qualityDivider, qualityModifier } = params.recipeLevelTable
-  const base = (control * 10) / qualityDivider + 35
+  const base = Math.floor(control * 10 / qualityDivider + 35)
   let modified = Math.floor(base * qualityModifier / 100)
 
   const innerQuietStacks = state.buffs.get('InnerQuiet')?.stacks ?? 0
@@ -202,7 +202,11 @@ export function simulateStep(
 
   // Progress actions
   if (isProgressAction(action, params.crafterLevel)) {
-    const eff = getProgressEfficiency(action, params.crafterLevel)
+    let eff = getProgressEfficiency(action, params.crafterLevel)
+    // Groundwork and CarefulSynthesis: half efficiency when durability < cost
+    if ((action === 'Groundwork' || action === 'CarefulSynthesis') && state.durability < getDurabilityCost(action)) {
+      eff = Math.floor(eff / 2)
+    }
     const increase = calculateProgressIncrease(params, state, eff)
     newState.progress = Math.min(newState.progress + increase, newState.maxProgress)
     // Remove MuscleMemory buff after progress action
@@ -280,9 +284,12 @@ export function simulateStep(
     newState.durability = Math.min(newState.durability + 5, newState.maxDurability)
   }
 
-  // Tick down buff durations
+  // Tick down buff durations (all actions consume buff turns, including buff actions)
   for (const [buff, info] of newState.buffs) {
-    if (info.duration !== Infinity && !isBuff(action)) {
+    if (info.duration !== Infinity) {
+      // Skip ticking the buff that was just applied this step
+      if (BUFF_ACTIONS.has(action) && buff === (action as BuffType)) continue
+      if (action === 'MuscleMemory' && buff === 'MuscleMemory') continue
       const newDuration = info.duration - 1
       if (newDuration <= 0) {
         newState.buffs.delete(buff)
