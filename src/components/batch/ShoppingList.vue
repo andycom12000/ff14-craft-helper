@@ -37,6 +37,7 @@ function getCrystalColor(name: string): string {
     </div>
 
     <!-- Server groups -->
+    <div class="server-grid">
     <div v-for="group in serverGroups" :key="group.server" class="server-group">
       <div class="server-header">
         <div class="server-info">
@@ -89,6 +90,7 @@ function getCrystalColor(name: string): string {
         <el-table-column label="數量" prop="amount" width="60" />
       </el-table>
     </div>
+    </div>
 
     <el-divider />
     <div class="grand-total">
@@ -117,8 +119,14 @@ function getCrystalColor(name: string): string {
   vertical-align: middle;
 }
 
+.server-grid {
+  columns: 2;
+  column-gap: 16px;
+}
+
 .server-group {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
+  break-inside: avoid;
 }
 
 .server-header {
@@ -149,5 +157,11 @@ function getCrystalColor(name: string): string {
   font-size: 17px;
   font-weight: 700;
   color: var(--el-color-warning);
+}
+
+@media (max-width: 900px) {
+  .server-grid {
+    columns: 1;
+  }
 }
 </style>
