@@ -73,9 +73,28 @@ function resetAll() {
             <span v-if="item.isSemiFinished" class="todo-badge">半成品</span>
           </div>
         </div>
-        <el-button size="small" @click="toggleMacro(index)">
-          {{ expandedMacro === index ? '收起巨集' : '查看巨集' }}
-        </el-button>
+        <div class="todo-actions">
+          <!-- Quick copy: single macro = one button, multiple = numbered buttons -->
+          <template v-if="getMacros(index).length === 1">
+            <el-button size="small" type="primary" @click="copyMacro(getMacros(index)[0])">
+              複製巨集
+            </el-button>
+          </template>
+          <template v-else-if="getMacros(index).length > 1">
+            <el-button
+              v-for="(_, mi) in getMacros(index)"
+              :key="mi"
+              size="small"
+              type="primary"
+              @click="copyMacro(getMacros(index)[mi])"
+            >
+              巨集{{ mi + 1 }}
+            </el-button>
+          </template>
+          <el-button size="small" @click="toggleMacro(index)">
+            {{ expandedMacro === index ? '收起' : '展開' }}
+          </el-button>
+        </div>
       </div>
 
       <!-- Macro expansion -->
@@ -174,6 +193,12 @@ function resetAll() {
 .todo-badge {
   color: var(--el-color-success);
   font-size: 11px;
+}
+
+.todo-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .macro-expand {
