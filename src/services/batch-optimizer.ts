@@ -212,9 +212,10 @@ export async function runBatchOptimization(
     pricedMaterials = nonCrystals.map(m => {
       const md = dcPriceMap.get(m.itemId)
       const isHq = (m as TypedMaterial).matType === 'hq'
+      // Find cheapest server from per-world listings (not DC aggregate)
       let cheapestServer = settings.server
-      let cheapestPrice = isHq ? (md?.minPriceHQ ?? 0) : (md?.minPriceNQ ?? 0)
-      if (md?.listings) {
+      let cheapestPrice = Infinity
+      if (md?.listings && md.listings.length > 0) {
         const worldSummaries = aggregateByWorld(md.listings)
         for (const ws of worldSummaries) {
           const price = isHq ? ws.minPriceHQ : ws.minPriceNQ
@@ -223,6 +224,10 @@ export async function runBatchOptimization(
             cheapestServer = ws.worldName
           }
         }
+      }
+      // Fallback to DC aggregate if no per-world data
+      if (cheapestPrice === Infinity) {
+        cheapestPrice = isHq ? (md?.minPriceHQ ?? 0) : (md?.minPriceNQ ?? 0)
       }
       return {
         itemId: m.itemId, name: m.name, icon: m.icon, amount: m.amount,
