@@ -40,10 +40,78 @@ export interface SolverMessage {
   config: SolverConfig
 }
 
+// --- Simulation types ---
+
+export interface WasmEffects {
+  inner_quiet: number
+  waste_not: number
+  innovation: number
+  veneration: number
+  great_strides: number
+  muscle_memory: number
+  manipulation: number
+  trained_perfection_available: boolean
+  trained_perfection_active: boolean
+  heart_and_soul_available: boolean
+  heart_and_soul_active: boolean
+  quick_innovation_available: boolean
+}
+
+export interface SimulateResult {
+  progress: number
+  quality: number
+  durability: number
+  cp: number
+  max_progress: number
+  max_quality: number
+  max_durability: number
+  max_cp: number
+  effects: WasmEffects
+  is_finished: boolean
+  is_success: boolean
+  steps_used: number
+}
+
+export interface StepDetail {
+  action: string
+  progress: number
+  quality: number
+  durability: number
+  cp: number
+  effects: WasmEffects
+  success: boolean
+  is_finished: boolean
+}
+
+export interface SimulateDetailResult {
+  steps: StepDetail[]
+  final_progress: number
+  final_quality: number
+  final_durability: number
+  final_cp: number
+  is_finished: boolean
+  is_success: boolean
+}
+
+export interface SimulateConfig {
+  max_cp: number
+  max_durability: number
+  max_progress: number
+  max_quality: number
+  base_progress: number
+  base_quality: number
+  job_level: number
+  actions: string[]
+}
+
 export interface SolverResponse {
-  type: 'result' | 'error' | 'progress' | 'ready' | 'init-error'
+  type: 'result' | 'error' | 'progress' | 'ready' | 'init-error' | 'simulate-result' | 'simulate-detail-result'
   result?: SolverResult
+  simulateResult?: SimulateResult
+  simulateDetailResult?: SimulateDetailResult
   error?: string
   /** 0-100 progress percentage */
   progress?: number
+  /** Request ID for multiplexed simulate calls */
+  requestId?: number
 }
