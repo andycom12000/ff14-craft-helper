@@ -7,21 +7,21 @@ const settings = useSettingsStore()
 <template>
   <el-card shadow="never">
     <template #header>計算設定</template>
-    <div style="display: flex; gap: 32px; flex-wrap: wrap;">
-      <div>
+    <div class="settings-grid">
+      <div class="settings-item">
         <el-switch v-model="settings.recursivePricing" active-text="遞迴查價（半成品）" />
-        <div v-if="settings.recursivePricing" style="margin-left: 50px; margin-top: 8px;">
+        <div v-if="settings.recursivePricing" class="settings-sub">
           <el-text size="small" type="info">最大遞迴深度：</el-text>
           <el-input-number v-model="settings.maxRecursionDepth" :min="1" :max="10" size="small" style="width:80px;" />
         </div>
       </div>
-      <div>
+      <div class="settings-item">
         <el-switch v-model="settings.crossServer" active-text="跨服採購" />
-        <div v-if="settings.crossServer" style="margin-left: 50px; margin-top: 4px;">
+        <div v-if="settings.crossServer" class="settings-sub">
           <el-text size="small" type="info">查詢 {{ settings.dataCenter }} 全伺服器最低價</el-text>
         </div>
       </div>
-      <div>
+      <div class="settings-item">
         <el-text size="small" style="display: block; margin-bottom: 6px;">例外處理策略</el-text>
         <el-radio-group v-model="settings.exceptionStrategy" size="small">
           <el-radio-button value="skip">跳過</el-radio-button>
@@ -34,3 +34,31 @@ const settings = useSettingsStore()
     </div>
   </el-card>
 </template>
+
+<style scoped>
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.settings-item {
+  min-width: 0;
+}
+
+.settings-sub {
+  margin-top: 8px;
+  padding-left: 50px;
+}
+
+@media (max-width: 768px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-sub {
+    padding-left: 0;
+    margin-top: 6px;
+  }
+}
+</style>

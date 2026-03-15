@@ -61,7 +61,7 @@ function handleTodoDone(index: number, done: boolean) {
 
 <template>
   <div class="batch-view">
-    <h2 style="margin-bottom: 24px;">批量製作</h2>
+    <h2 class="batch-title">批量製作</h2>
 
     <BatchList />
     <BatchSettings style="margin-top: 16px;" />
@@ -79,38 +79,84 @@ function handleTodoDone(index: number, done: boolean) {
 
     <BatchProgress />
 
-    <el-card v-if="batchStore.results" shadow="never" style="margin-top: 16px;">
-      <el-tabs>
-        <el-tab-pane label="採購清單">
+    <!-- Results: split layout on wide screens -->
+    <template v-if="batchStore.results">
+      <!-- Exception banner (full width, above split) -->
+      <el-card
+        v-if="batchStore.results.exceptions.length > 0"
+        shadow="never"
+        class="results-exceptions"
+      >
+        <template #header>
+          <span style="color: var(--el-color-danger);">
+            例外提示
+            <el-badge :value="batchStore.results.exceptions.length" :max="99" style="margin-left: 4px;" />
+          </span>
+        </template>
+        <ExceptionList :exceptions="batchStore.results.exceptions" />
+      </el-card>
+
+      <div class="results-split">
+        <!-- Left: Shopping List -->
+        <el-card shadow="never" class="results-panel">
+          <template #header>採購清單</template>
           <ShoppingList
-            :crystals="batchStore.results!.crystals"
-            :server-groups="batchStore.results!.serverGroups"
-            :self-craft-items="batchStore.results!.selfCraftItems"
-            :grand-total="batchStore.results!.grandTotal"
+            :crystals="batchStore.results.crystals"
+            :server-groups="batchStore.results.serverGroups"
+            :self-craft-items="batchStore.results.selfCraftItems"
+            :grand-total="batchStore.results.grandTotal"
           />
-        </el-tab-pane>
-        <el-tab-pane label="製作待辦">
+        </el-card>
+
+        <!-- Right: Todo List -->
+        <el-card shadow="never" class="results-panel">
+          <template #header>製作待辦</template>
           <TodoList
-            :items="batchStore.results!.todoList"
+            :items="batchStore.results.todoList"
             @update:done="handleTodoDone"
           />
-        </el-tab-pane>
-        <el-tab-pane v-if="batchStore.results!.exceptions.length > 0">
-          <template #label>
-            <span style="color: var(--el-color-danger);">
-              例外提示
-              <el-badge :value="batchStore.results!.exceptions.length" :max="99" style="margin-left: 4px;" />
-            </span>
-          </template>
-          <ExceptionList :exceptions="batchStore.results!.exceptions" />
-        </el-tab-pane>
-      </el-tabs>
-    </el-card>
+        </el-card>
+      </div>
+    </template>
   </div>
 </template>
 
 <style scoped>
 .batch-view {
-  max-width: 960px;
+  max-width: 1400px;
+}
+
+.batch-title {
+  margin-bottom: 24px;
+}
+
+.results-exceptions {
+  margin-top: 16px;
+}
+
+.results-split {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.results-panel {
+  min-width: 0;
+}
+
+/* Wide screen: side by side */
+@media (min-width: 1200px) {
+  .results-split {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Medium screen: stacked */
+@media (max-width: 768px) {
+  .batch-title {
+    font-size: 18px;
+    margin-bottom: 16px;
+  }
 }
 </style>
