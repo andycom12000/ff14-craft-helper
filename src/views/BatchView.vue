@@ -60,65 +60,70 @@ function handleTodoDone(index: number, done: boolean) {
 </script>
 
 <template>
-  <div class="batch-layout">
-    <!-- Left column: batch list + settings + action + shopping list -->
-    <div class="batch-main">
-      <h2 class="batch-title">批量製作</h2>
+  <div class="view-container">
+    <h2>批量製作</h2>
+    <p class="view-desc">選擇多個配方一次計算，自動產出最佳採購清單與製作順序。</p>
 
-      <BatchList />
-      <BatchSettings style="margin-top: 16px;" />
+    <div class="batch-layout">
+      <!-- Left: inputs + shopping list -->
+      <div class="batch-main">
+        <BatchList />
+        <BatchSettings />
 
-      <div style="text-align: center; margin: 20px 0;">
-        <el-button
-          type="primary"
-          size="large"
-          :disabled="batchStore.targets.length === 0 || batchStore.isRunning"
-          @click="startOptimization"
-        >
-          &#9654; 開始最佳化計算
-        </el-button>
+        <div class="batch-action">
+          <el-button
+            type="primary"
+            size="large"
+            :disabled="batchStore.targets.length === 0 || batchStore.isRunning"
+            @click="startOptimization"
+          >
+            &#9654; 開始最佳化計算
+          </el-button>
+        </div>
+
+        <BatchProgress />
+
+        <template v-if="batchStore.results">
+          <el-card
+            v-if="batchStore.results.exceptions.length > 0"
+            shadow="never"
+            class="batch-card"
+          >
+            <template #header>
+              <span class="card-title" style="color: var(--el-color-danger);">
+                例外提示
+                <el-badge :value="batchStore.results.exceptions.length" :max="99" />
+              </span>
+            </template>
+            <ExceptionList :exceptions="batchStore.results.exceptions" />
+          </el-card>
+
+          <el-card shadow="never" class="batch-card">
+            <template #header>
+              <span class="card-title">採購清單</span>
+            </template>
+            <ShoppingList
+              :crystals="batchStore.results.crystals"
+              :server-groups="batchStore.results.serverGroups"
+              :self-craft-items="batchStore.results.selfCraftItems"
+              :grand-total="batchStore.results.grandTotal"
+            />
+          </el-card>
+        </template>
       </div>
 
-      <BatchProgress />
-
-      <template v-if="batchStore.results">
-        <!-- Exception banner -->
-        <el-card
-          v-if="batchStore.results.exceptions.length > 0"
-          shadow="never"
-          style="margin-top: 16px;"
-        >
+      <!-- Right: todo list -->
+      <div v-if="batchStore.results" class="batch-aside">
+        <el-card shadow="never" class="todo-card">
           <template #header>
-            <span style="color: var(--el-color-danger);">
-              例外提示
-              <el-badge :value="batchStore.results.exceptions.length" :max="99" style="margin-left: 4px;" />
-            </span>
+            <span class="card-title">製作待辦</span>
           </template>
-          <ExceptionList :exceptions="batchStore.results.exceptions" />
-        </el-card>
-
-        <!-- Shopping list -->
-        <el-card shadow="never" style="margin-top: 16px;">
-          <template #header>採購清單</template>
-          <ShoppingList
-            :crystals="batchStore.results.crystals"
-            :server-groups="batchStore.results.serverGroups"
-            :self-craft-items="batchStore.results.selfCraftItems"
-            :grand-total="batchStore.results.grandTotal"
+          <TodoList
+            :items="batchStore.results.todoList"
+            @update:done="handleTodoDone"
           />
         </el-card>
-      </template>
-    </div>
-
-    <!-- Right column: todo list (sticky on wide screens) -->
-    <div v-if="batchStore.results" class="batch-aside">
-      <el-card shadow="never" class="todo-card">
-        <template #header>製作待辦</template>
-        <TodoList
-          :items="batchStore.results.todoList"
-          @update:done="handleTodoDone"
-        />
-      </el-card>
+      </div>
     </div>
   </div>
 </template>
@@ -126,24 +131,28 @@ function handleTodoDone(index: number, done: boolean) {
 <style scoped>
 .batch-layout {
   display: flex;
-  gap: 16px;
+  gap: 20px;
   align-items: flex-start;
 }
 
 .batch-main {
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
-  max-width: 720px;
 }
 
 .batch-aside {
-  flex: 0 0 380px;
+  flex: 0 0 420px;
   position: sticky;
   top: 16px;
 }
 
-.batch-title {
-  margin-bottom: 24px;
+.batch-card {
+  margin-top: 16px;
+}
+
+.batch-action {
+  text-align: center;
+  padding: 20px 0;
 }
 
 .todo-card {
@@ -151,19 +160,14 @@ function handleTodoDone(index: number, done: boolean) {
   overflow-y: auto;
 }
 
-/* When no results yet, main takes full width */
+/* When no results, main can expand */
 .batch-layout:not(:has(.batch-aside)) .batch-main {
   max-width: 960px;
 }
 
-/* Stacked on narrow screens */
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
   .batch-layout {
     flex-direction: column;
-  }
-
-  .batch-main {
-    max-width: none;
   }
 
   .batch-aside {
@@ -178,9 +182,8 @@ function handleTodoDone(index: number, done: boolean) {
 }
 
 @media (max-width: 768px) {
-  .batch-title {
-    font-size: 18px;
-    margin-bottom: 16px;
+  .batch-action {
+    padding: 12px 0;
   }
 }
 </style>

@@ -10,7 +10,6 @@ const emit = defineEmits<{ 'update:done': [index: number, done: boolean] }>()
 
 const expandedMacro = ref<number | null>(null)
 
-// Cache macros to avoid re-formatting on every render
 const macroCache = computed(() =>
   new Map(props.items.map((item, i) => [i, formatMacros(item.actions)])),
 )
@@ -44,25 +43,35 @@ function resetAll() {
 </script>
 
 <template>
-  <div>
-    <el-text size="small" type="info" tag="div" style="margin-bottom: 12px;">
+  <div class="todo-list">
+    <el-text size="small" type="info" tag="div" class="todo-desc">
       製作順序（依相依性排列，由底層半成品到頂層成品）
     </el-text>
 
-    <div v-for="(item, index) in items" :key="index" style="border-bottom: 1px solid var(--el-border-color-lighter); padding: 12px 0;">
-      <div style="display: flex; align-items: center; gap: 12px;">
+    <div
+      v-for="(item, index) in items"
+      :key="index"
+      class="todo-item"
+      :class="{ 'todo-item--done': item.done }"
+    >
+      <div class="todo-row">
         <el-checkbox :model-value="item.done" @update:model-value="() => toggleDone(index)" />
-        <el-text type="info" size="small" style="width: 24px; text-align: center;">{{ index + 1 }}</el-text>
-        <div style="flex: 1;">
-          <div :style="{ textDecoration: item.done ? 'line-through' : 'none', color: item.done ? 'var(--el-text-color-placeholder)' : '' }">
-            <img v-if="item.recipe.icon" :src="item.recipe.icon" style="width:20px;height:20px;vertical-align:middle;margin-right:4px;border-radius:2px;" />
+        <span class="todo-num">{{ index + 1 }}</span>
+        <div class="todo-info">
+          <div class="todo-name">
+            <img
+              v-if="item.recipe.icon"
+              :src="item.recipe.icon"
+              :alt="item.recipe.name"
+              class="todo-icon"
+            />
             {{ item.recipe.name }}
           </div>
-          <el-text size="small" type="info">
+          <div class="todo-meta">
             x{{ item.quantity }} |
             <el-tag size="small" type="primary">{{ getJobName(item.recipe.job) }}</el-tag>
-            {{ item.isSemiFinished ? '半成品' : '' }}
-          </el-text>
+            <span v-if="item.isSemiFinished" class="todo-badge">半成品</span>
+          </div>
         </div>
         <el-button size="small" @click="toggleMacro(index)">
           {{ expandedMacro === index ? '收起巨集' : '查看巨集' }}
@@ -70,18 +79,18 @@ function resetAll() {
       </div>
 
       <!-- Macro expansion -->
-      <div v-if="expandedMacro === index" style="margin-top: 8px; margin-left: 60px;">
-        <div v-for="(macro, mi) in getMacros(index)" :key="mi" style="margin-bottom: 8px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+      <div v-if="expandedMacro === index" class="macro-expand">
+        <div v-for="(macro, mi) in getMacros(index)" :key="mi" class="macro-block">
+          <div class="macro-header">
             <el-text size="small" tag="b">巨集 {{ mi + 1 }}</el-text>
             <el-button size="small" type="primary" @click="copyMacro(macro)">複製</el-button>
           </div>
-          <pre style="margin:0;padding:12px;background:var(--el-fill-color-light);border-radius:4px;font-size:12px;line-height:1.6;white-space:pre;cursor:pointer;" @click="copyMacro(macro)">{{ macro }}</pre>
+          <pre class="macro-code" @click="copyMacro(macro)">{{ macro }}</pre>
         </div>
       </div>
     </div>
 
-    <div v-if="items.length > 0" style="display: flex; justify-content: space-between; margin-top: 12px;">
+    <div v-if="items.length > 0" class="todo-footer">
       <el-text size="small" type="info">
         進度：{{ items.filter(i => i.done).length }} / {{ items.length }} 完成
       </el-text>
@@ -89,3 +98,124 @@ function resetAll() {
     </div>
   </div>
 </template>
+
+<style scoped>
+.todo-desc {
+  margin-bottom: 12px;
+}
+
+.todo-item {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  transition: background-color 0.15s;
+}
+
+.todo-item:last-of-type {
+  border-bottom: none;
+}
+
+.todo-item:hover {
+  background: var(--el-fill-color-light);
+  border-radius: 4px;
+}
+
+.todo-item--done {
+  opacity: 0.55;
+}
+
+.todo-item--done .todo-name {
+  text-decoration: line-through;
+}
+
+.todo-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.todo-num {
+  width: 20px;
+  text-align: center;
+  color: var(--el-text-color-placeholder);
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.todo-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.todo-name {
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.todo-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.todo-meta {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.todo-badge {
+  color: var(--el-color-success);
+  font-size: 11px;
+}
+
+.macro-expand {
+  margin-top: 8px;
+  padding-left: 52px;
+}
+
+.macro-block {
+  margin-bottom: 8px;
+}
+
+.macro-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.macro-code {
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 4px;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.macro-code:hover {
+  background: var(--el-fill-color);
+}
+
+.todo-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+</style>

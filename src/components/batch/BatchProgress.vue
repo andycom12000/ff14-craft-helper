@@ -9,7 +9,6 @@ const percentage = computed(() => {
   if (p.total === 0) return 0
   if (p.phase === 'pricing') return 95
   if (p.phase === 'done') return 100
-  // Fine-grained: completed recipes + current recipe's solver progress
   const completedPortion = (p.current - 1) / p.total
   const currentPortion = (p.solverPercent / 100) / p.total
   return Math.min(95, Math.round((completedPortion + currentPortion) * 100))
@@ -24,10 +23,12 @@ const statusText = computed(() => {
 </script>
 
 <template>
-  <el-card shadow="never" v-if="batchStore.isRunning">
-    <template #header>計算進度</template>
-    <div>
-      <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+  <el-card v-if="batchStore.isRunning" shadow="never" class="progress-card">
+    <template #header>
+      <span class="card-title">計算進度</span>
+    </template>
+    <div class="progress-body">
+      <div class="progress-status">
         <el-text size="small" type="info">
           <strong>{{ statusText }}</strong>
         </el-text>
@@ -36,9 +37,26 @@ const statusText = computed(() => {
         </el-text>
       </div>
       <el-progress :percentage="percentage" :stroke-width="8" />
-      <div style="text-align: right; margin-top: 8px;">
+      <div class="progress-actions">
         <el-button size="small" @click="batchStore.cancel()">取消</el-button>
       </div>
     </div>
   </el-card>
 </template>
+
+<style scoped>
+.progress-card {
+  margin-bottom: 16px;
+}
+
+.progress-status {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.progress-actions {
+  text-align: right;
+  margin-top: 8px;
+}
+</style>
