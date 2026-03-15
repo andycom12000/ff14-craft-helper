@@ -8,18 +8,13 @@ interface FormatOptions {
   includeEcho?: boolean
 }
 
-function getWaitTime(skillId: string, defaultWait: number): number {
-  const skill = getSkillById(skillId)
-  if (skill && BUFF_CATEGORIES.has(skill.category)) {
-    return Math.min(defaultWait, 2)
-  }
-  return defaultWait
-}
-
 function formatAction(skillId: string, waitTime: number): string {
   const skill = getSkillById(skillId)
   const name = skill?.nameZh ?? skillId
-  return `/ac ${name} <wait.${getWaitTime(skillId, waitTime)}>`
+  const wait = skill && BUFF_CATEGORIES.has(skill.category)
+    ? Math.min(waitTime, 2)
+    : waitTime
+  return `/ac ${name} <wait.${wait}>`
 }
 
 export function formatMacros(

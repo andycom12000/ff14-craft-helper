@@ -5,7 +5,7 @@ import type { MaterialWithPrice, MaterialBase } from '@/services/shopping-list'
 import { solveCraft, simulateCraft, waitForWasm } from '@/solver/worker'
 import { craftParamsToSolverConfig, recipeToCraftParams } from '@/solver/config'
 import { findOptimalHqCombinations } from '@/services/hq-optimizer'
-import { getAggregatedPrices, getMarketData, aggregateByWorld } from '@/api/universalis'
+import { getAggregatedPrices, getMarketData } from '@/api/universalis'
 import { separateCrystals, groupByServer, calculateBestPurchase } from '@/services/shopping-list'
 import { buildMaterialTree, flattenMaterialTree, computeOptimalCosts } from '@/services/bom-calculator'
 
@@ -24,8 +24,6 @@ export async function optimizeRecipe(
   gearset: GearsetStats,
   onSolverProgress?: (percent: number) => void,
 ): Promise<RecipeOptimizeResult> {
-  await waitForWasm()
-
   const craftParams = recipeToCraftParams(recipe, gearset)
   const solverConfig = craftParamsToSolverConfig(craftParams)
   const solverResult = await solveCraft(solverConfig, onSolverProgress)
@@ -221,7 +219,7 @@ export async function runBatchOptimization(
     const dcPriceMap = await getAggregatedPrices(settings.dataCenter, itemIds)
     pricedMaterials = nonCrystals.map(m => {
       const md = dcPriceMap.get(m.itemId)
-      const isHq = (m as TypedMaterial).matType === 'hq'
+      const isHq = m.matType === 'hq'
       let bestServer = settings.server
       let bestCost = Infinity
 
@@ -258,7 +256,7 @@ export async function runBatchOptimization(
     const priceMap = await getAggregatedPrices(settings.server, itemIds)
     pricedMaterials = nonCrystals.map(m => {
       const md = priceMap.get(m.itemId)
-      const isHq = (m as TypedMaterial).matType === 'hq'
+      const isHq = m.matType === 'hq'
 
       if (md?.listings && md.listings.length > 0) {
         const purchase = calculateBestPurchase(md.listings, m.amount, isHq)

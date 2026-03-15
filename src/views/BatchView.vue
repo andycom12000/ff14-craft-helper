@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { useBatchStore } from '@/stores/batch'
 import { useSettingsStore } from '@/stores/settings'
 import { useGearsetsStore } from '@/stores/gearsets'
@@ -14,9 +13,6 @@ import ExceptionList from '@/components/batch/ExceptionList.vue'
 const batchStore = useBatchStore()
 const settings = useSettingsStore()
 const gearsets = useGearsetsStore()
-
-const hasResults = computed(() => batchStore.results !== null)
-const exceptionCount = computed(() => batchStore.results?.exceptions.length ?? 0)
 
 async function startOptimization() {
   if (batchStore.targets.length === 0) return
@@ -83,7 +79,7 @@ function handleTodoDone(index: number, done: boolean) {
 
     <BatchProgress />
 
-    <el-card v-if="hasResults" shadow="never" style="margin-top: 16px;">
+    <el-card v-if="batchStore.results" shadow="never" style="margin-top: 16px;">
       <el-tabs>
         <el-tab-pane label="採購清單">
           <ShoppingList
@@ -99,11 +95,11 @@ function handleTodoDone(index: number, done: boolean) {
             @update:done="handleTodoDone"
           />
         </el-tab-pane>
-        <el-tab-pane v-if="exceptionCount > 0">
+        <el-tab-pane v-if="batchStore.results!.exceptions.length > 0">
           <template #label>
             <span style="color: var(--el-color-danger);">
               例外提示
-              <el-badge :value="exceptionCount" :max="99" style="margin-left: 4px;" />
+              <el-badge :value="batchStore.results!.exceptions.length" :max="99" style="margin-left: 4px;" />
             </span>
           </template>
           <ExceptionList :exceptions="batchStore.results!.exceptions" />

@@ -1,3 +1,5 @@
+import type { MarketListing } from '@/api/universalis'
+
 export interface MaterialBase {
   itemId: number
   name: string
@@ -25,9 +27,9 @@ export interface ServerGroup {
 
 const CRYSTAL_THRESHOLD = 20
 
-export function separateCrystals(materials: MaterialBase[]): {
+export function separateCrystals<T extends MaterialBase>(materials: T[]): {
   crystals: CrystalSummary[]
-  nonCrystals: MaterialBase[]
+  nonCrystals: T[]
 } {
   const crystals: CrystalSummary[] = []
   const nonCrystals: MaterialBase[] = []
@@ -57,8 +59,6 @@ export function groupByServer(materials: MaterialWithPrice[]): ServerGroup[] {
     subtotal: items.reduce((sum, item) => sum + item.unitPrice * item.amount, 0),
   }))
 }
-
-import type { MarketListing } from '@/api/universalis'
 
 export interface PurchaseResult {
   totalCost: number
@@ -103,19 +103,25 @@ export function calculateBestPurchase(
   // Sort by total cost ascending for greedy fallback
   const sorted = [...filtered].sort((a, b) => a.total - b.total)
 
+  // Pre-filter dominated listings: remove any listing where another listing
+  // has both lower cost AND higher-or-equal quantity (strictly better)
+  const pruned = sorted.filter((a, i) =>
+    !sorted.some((b, j) => j !== i && b.total <= a.total && b.quantity >= a.quantity && (b.total < a.total || b.quantity > a.quantity)),
+  )
+
   // For small listing counts (<=20), use bitmask enumeration for optimal result
-  if (sorted.length <= 20) {
+  if (pruned.length <= 20) {
     let bestCost = Infinity
     let bestQty = 0
-    const n = sorted.length
+    const n = pruned.length
 
     for (let mask = 1; mask < (1 << n); mask++) {
       let qty = 0
       let cost = 0
       for (let j = 0; j < n; j++) {
         if (mask & (1 << j)) {
-          qty += sorted[j].quantity
-          cost += sorted[j].total
+          qty += pruned[j].quantity
+          cost += pruned[j].total
         }
       }
       if (qty >= neededQty && cost < bestCost) {

@@ -1,16 +1,9 @@
 <script setup lang="ts">
 import { useBatchStore } from '@/stores/batch'
-import { JOB_NAMES } from '@/utils/jobs'
+import { getJobName } from '@/utils/jobs'
+import { starsDisplay } from '@/utils/format'
 
 const batchStore = useBatchStore()
-
-function getJobName(abbr: string): string {
-  return JOB_NAMES[abbr] ?? abbr
-}
-
-function starsDisplay(stars: number): string {
-  return stars > 0 ? '\u2605'.repeat(stars) : ''
-}
 </script>
 
 <template>

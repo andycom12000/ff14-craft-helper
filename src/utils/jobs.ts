@@ -25,3 +25,7 @@ export const JOB_ABBR: Record<string, string> = Object.fromEntries([
   ...Object.entries(JOB_NAMES).map(([abbr, name]) => [name, abbr]),
   ...Object.entries(API_JOB_NAMES).map(([abbr, name]) => [name, abbr]),
 ])
+
+export function getJobName(abbr: string): string {
+  return JOB_NAMES[abbr] ?? abbr
+}

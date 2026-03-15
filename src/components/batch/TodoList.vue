@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { formatMacros } from '@/services/macro-formatter'
-import { JOB_NAMES } from '@/utils/jobs'
+import { getJobName } from '@/utils/jobs'
 import { ElMessage } from 'element-plus'
 import type { TodoItem } from '@/stores/batch'
 
@@ -10,12 +10,17 @@ const emit = defineEmits<{ 'update:done': [index: number, done: boolean] }>()
 
 const expandedMacro = ref<number | null>(null)
 
+// Cache macros to avoid re-formatting on every render
+const macroCache = computed(() =>
+  new Map(props.items.map((item, i) => [i, formatMacros(item.actions)])),
+)
+
 function toggleMacro(index: number) {
   expandedMacro.value = expandedMacro.value === index ? null : index
 }
 
-function getMacros(item: TodoItem): string[] {
-  return formatMacros(item.actions)
+function getMacros(index: number): string[] {
+  return macroCache.value.get(index) ?? []
 }
 
 async function copyMacro(text: string) {
@@ -25,10 +30,6 @@ async function copyMacro(text: string) {
   } catch {
     ElMessage.error('複製失敗')
   }
-}
-
-function getJobName(abbr: string): string {
-  return JOB_NAMES[abbr] ?? abbr
 }
 
 function toggleDone(index: number) {
@@ -70,7 +71,7 @@ function resetAll() {
 
       <!-- Macro expansion -->
       <div v-if="expandedMacro === index" style="margin-top: 8px; margin-left: 60px;">
-        <div v-for="(macro, mi) in getMacros(item)" :key="mi" style="margin-bottom: 8px;">
+        <div v-for="(macro, mi) in getMacros(index)" :key="mi" style="margin-bottom: 8px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
             <el-text size="small" tag="b">巨集 {{ mi + 1 }}</el-text>
             <el-button size="small" type="primary" @click="copyMacro(macro)">複製</el-button>
