@@ -65,8 +65,8 @@ function handleTodoDone(index: number, done: boolean) {
     <p class="view-desc">選擇多個配方一次計算，自動產出最佳採購清單與製作順序。</p>
 
     <div class="batch-layout">
-      <!-- Left: inputs + shopping list -->
-      <div class="batch-main">
+      <!-- Left column: always present, capped width -->
+      <div class="batch-left">
         <BatchList />
         <BatchSettings />
 
@@ -83,44 +83,44 @@ function handleTodoDone(index: number, done: boolean) {
 
         <BatchProgress />
 
-        <template v-if="batchStore.results">
-          <el-card
-            v-if="batchStore.results.exceptions.length > 0"
-            shadow="never"
-            class="batch-card"
-          >
-            <template #header>
-              <span class="card-title" style="color: var(--el-color-danger);">
-                例外提示
-                <el-badge :value="batchStore.results.exceptions.length" :max="99" />
-              </span>
-            </template>
-            <ExceptionList :exceptions="batchStore.results.exceptions" />
-          </el-card>
+        <!-- Exceptions -->
+        <el-card
+          v-if="batchStore.results && batchStore.results.exceptions.length > 0"
+          shadow="never"
+          class="batch-card"
+        >
+          <template #header>
+            <span class="card-title" style="color: var(--el-color-danger);">
+              例外提示
+              <el-badge :value="batchStore.results.exceptions.length" :max="99" />
+            </span>
+          </template>
+          <ExceptionList :exceptions="batchStore.results.exceptions" />
+        </el-card>
 
-          <el-card shadow="never" class="batch-card">
-            <template #header>
-              <span class="card-title">採購清單</span>
-            </template>
-            <ShoppingList
-              :crystals="batchStore.results.crystals"
-              :server-groups="batchStore.results.serverGroups"
-              :self-craft-items="batchStore.results.selfCraftItems"
-              :grand-total="batchStore.results.grandTotal"
-            />
-          </el-card>
-        </template>
-      </div>
-
-      <!-- Right: todo list -->
-      <div v-if="batchStore.results" class="batch-aside">
-        <el-card shadow="never" class="todo-card">
+        <!-- Todo list: appears below inputs after calculation -->
+        <el-card v-if="batchStore.results" shadow="never" class="batch-card">
           <template #header>
             <span class="card-title">製作待辦</span>
           </template>
           <TodoList
             :items="batchStore.results.todoList"
             @update:done="handleTodoDone"
+          />
+        </el-card>
+      </div>
+
+      <!-- Right column: shopping list, only after calculation -->
+      <div v-if="batchStore.results" class="batch-right">
+        <el-card shadow="never">
+          <template #header>
+            <span class="card-title">採購清單</span>
+          </template>
+          <ShoppingList
+            :crystals="batchStore.results.crystals"
+            :server-groups="batchStore.results.serverGroups"
+            :self-craft-items="batchStore.results.selfCraftItems"
+            :grand-total="batchStore.results.grandTotal"
           />
         </el-card>
       </div>
@@ -131,23 +131,21 @@ function handleTodoDone(index: number, done: boolean) {
 <style scoped>
 .batch-layout {
   display: flex;
-  gap: 20px;
+  gap: 16px;
   align-items: flex-start;
 }
 
-.batch-main {
-  flex: 1 1 0;
+.batch-left {
+  flex: 0 0 auto;
+  width: 740px;
   min-width: 0;
 }
 
-.batch-aside {
-  flex: 0 0 420px;
+.batch-right {
+  flex: 1;
+  min-width: 0;
   position: sticky;
   top: 16px;
-}
-
-.batch-card {
-  margin-top: 16px;
 }
 
 .batch-action {
@@ -155,29 +153,21 @@ function handleTodoDone(index: number, done: boolean) {
   padding: 20px 0;
 }
 
-.todo-card {
-  max-height: calc(100vh - 48px);
-  overflow-y: auto;
+.batch-card {
+  margin-top: 16px;
 }
 
-/* When no results, main can expand */
-.batch-layout:not(:has(.batch-aside)) .batch-main {
-  max-width: 960px;
-}
-
-@media (max-width: 1200px) {
+@media (max-width: 1100px) {
   .batch-layout {
     flex-direction: column;
   }
 
-  .batch-aside {
-    flex: none;
+  .batch-left {
     width: 100%;
-    position: static;
   }
 
-  .todo-card {
-    max-height: none;
+  .batch-right {
+    position: static;
   }
 }
 

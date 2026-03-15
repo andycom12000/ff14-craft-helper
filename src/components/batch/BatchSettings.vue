@@ -9,37 +9,32 @@ const settings = useSettingsStore()
     <template #header>
       <span class="card-title">計算設定</span>
     </template>
-    <div class="settings-grid">
+    <div class="settings-row">
       <div class="settings-item">
-        <el-switch v-model="settings.recursivePricing" active-text="遞迴查價（半成品）" />
-        <transition name="el-fade-in">
-          <div v-if="settings.recursivePricing" class="settings-sub">
-            <el-text size="small" type="info">最大遞迴深度：</el-text>
-            <el-input-number
-              v-model="settings.maxRecursionDepth"
-              :min="1" :max="10" size="small"
-              style="width: 90px;"
-            />
-          </div>
-        </transition>
+        <el-switch v-model="settings.recursivePricing" size="small" />
+        <span class="settings-text">遞迴查價</span>
+        <el-input-number
+          v-if="settings.recursivePricing"
+          v-model="settings.maxRecursionDepth"
+          :min="1" :max="10" size="small"
+          controls-position="right"
+          style="width: 70px;"
+        />
       </div>
+      <el-divider direction="vertical" />
       <div class="settings-item">
-        <el-switch v-model="settings.crossServer" active-text="跨服採購" />
-        <transition name="el-fade-in">
-          <div v-if="settings.crossServer" class="settings-sub">
-            <el-text size="small" type="info">查詢 {{ settings.dataCenter }} 全伺服器最低價</el-text>
-          </div>
-        </transition>
+        <el-switch v-model="settings.crossServer" size="small" />
+        <span class="settings-text">跨服採購</span>
+        <el-text v-if="settings.crossServer" size="small" type="info">{{ settings.dataCenter }}</el-text>
       </div>
+      <el-divider direction="vertical" />
       <div class="settings-item">
-        <div class="settings-label">例外處理策略</div>
+        <span class="settings-text">例外：</span>
         <el-radio-group v-model="settings.exceptionStrategy" size="small">
           <el-radio-button value="skip">跳過</el-radio-button>
-          <el-radio-button value="buy">套用購買價</el-radio-button>
+          <el-radio-button value="buy">購買</el-radio-button>
         </el-radio-group>
-        <el-text size="small" type="info" class="settings-hint">
-          等級不足或無法雙滿時的處理方式
-        </el-text>
+        <el-text size="small" type="info">等級不足/無法雙滿</el-text>
       </div>
     </div>
   </el-card>
@@ -50,42 +45,21 @@ const settings = useSettingsStore()
   margin-top: 16px;
 }
 
-.settings-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 24px;
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .settings-item {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
 }
 
-.settings-sub {
-  padding-left: 50px;
-  padding-top: 4px;
-}
-
-.settings-label {
+.settings-text {
   font-size: 13px;
-  color: var(--el-text-color-regular);
-  margin-bottom: 4px;
-}
-
-.settings-hint {
-  display: block;
-  margin-top: 4px;
-}
-
-@media (max-width: 768px) {
-  .settings-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-
-  .settings-sub {
-    padding-left: 0;
-  }
 }
 </style>
