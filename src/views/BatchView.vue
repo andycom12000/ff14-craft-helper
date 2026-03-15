@@ -37,8 +37,14 @@ async function startOptimization() {
         server: settings.server,
         dataCenter: settings.dataCenter,
       },
-      (current, total, name) => {
-        batchStore.progress = { current, total, currentName: name }
+      (info) => {
+        batchStore.progress = {
+          current: info.current,
+          total: info.total,
+          currentName: info.name,
+          phase: info.phase,
+          solverPercent: info.solverPercent,
+        }
       },
       () => batchStore.isCancelled,
     )

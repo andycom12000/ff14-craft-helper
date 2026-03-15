@@ -42,7 +42,13 @@ export const useBatchStore = defineStore('batch', () => {
   const targets = ref<BatchTarget[]>([])
   const isRunning = ref(false)
   const isCancelled = ref(false)
-  const progress = ref({ current: 0, total: 0, currentName: '' })
+  const progress = ref({
+    current: 0,
+    total: 0,
+    currentName: '',
+    phase: 'idle' as 'idle' | 'solving' | 'pricing' | 'done',
+    solverPercent: 0,
+  })
   const results = ref<BatchResults | null>(null)
 
   function addTarget(recipe: Recipe) {

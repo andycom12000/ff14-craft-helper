@@ -22,12 +22,13 @@ export interface RecipeOptimizeResult {
 export async function optimizeRecipe(
   recipe: Recipe,
   gearset: GearsetStats,
+  onSolverProgress?: (percent: number) => void,
 ): Promise<RecipeOptimizeResult> {
   await waitForWasm()
 
   const craftParams = recipeToCraftParams(recipe, gearset)
   const solverConfig = craftParamsToSolverConfig(craftParams)
-  const solverResult = await solveCraft(solverConfig)
+  const solverResult = await solveCraft(solverConfig, onSolverProgress)
   const simResult = await simulateCraft(solverConfig, solverResult.actions)
 
   const isDoubleMax =
@@ -79,7 +80,13 @@ export async function runBatchOptimization(
     server: string
     dataCenter: string
   },
-  onProgress: (current: number, total: number, name: string) => void,
+  onProgress: (info: {
+    current: number
+    total: number
+    name: string
+    phase: 'solving' | 'pricing' | 'done'
+    solverPercent: number
+  }) => void,
   isCancelled: () => boolean,
 ): Promise<BatchResults> {
   const recipeResults: RecipeOptimizeResult[] = []
@@ -91,7 +98,9 @@ export async function runBatchOptimization(
   for (let i = 0; i < targets.length; i++) {
     if (isCancelled()) break
     const target = targets[i]
-    onProgress(i + 1, targets.length, target.recipe.name)
+    const report = (phase: 'solving' | 'pricing' | 'done', solverPercent = 0) =>
+      onProgress({ current: i + 1, total: targets.length, name: target.recipe.name, phase, solverPercent })
+    report('solving', 0)
 
     const gearset = getGearset(target.recipe.job)
     if (!gearset || gearset.level < target.recipe.level) {
@@ -114,7 +123,7 @@ export async function runBatchOptimization(
     }
 
     try {
-      const result = await optimizeRecipe(target.recipe, gearset)
+      const result = await optimizeRecipe(target.recipe, gearset, (pct) => report('solving', pct))
       result.quantity = target.quantity
 
       if (!result.isDoubleMax && result.hqAmounts.length === 0) {
@@ -204,6 +213,7 @@ export async function runBatchOptimization(
   }
 
   // === Phase 5: Price query + cross-server grouping ===
+  onProgress({ current: targets.length, total: targets.length, name: '', phase: 'pricing', solverPercent: 100 })
   const itemIds = nonCrystals.map(m => m.itemId)
   let pricedMaterials: MaterialWithPrice[]
 

@@ -5,8 +5,21 @@ import { computed } from 'vue'
 const batchStore = useBatchStore()
 
 const percentage = computed(() => {
-  if (batchStore.progress.total === 0) return 0
-  return Math.round((batchStore.progress.current / batchStore.progress.total) * 100)
+  const p = batchStore.progress
+  if (p.total === 0) return 0
+  if (p.phase === 'pricing') return 95
+  if (p.phase === 'done') return 100
+  // Fine-grained: completed recipes + current recipe's solver progress
+  const completedPortion = (p.current - 1) / p.total
+  const currentPortion = (p.solverPercent / 100) / p.total
+  return Math.min(95, Math.round((completedPortion + currentPortion) * 100))
+})
+
+const statusText = computed(() => {
+  const p = batchStore.progress
+  if (p.phase === 'pricing') return '正在查價...'
+  if (p.phase === 'done') return '計算完成'
+  return `正在求解：${p.currentName}`
 })
 </script>
 
@@ -16,7 +29,7 @@ const percentage = computed(() => {
     <div>
       <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
         <el-text size="small" type="info">
-          正在計算：<strong>{{ batchStore.progress.currentName }}</strong>
+          <strong>{{ statusText }}</strong>
         </el-text>
         <el-text size="small" type="info">
           {{ batchStore.progress.current }} / {{ batchStore.progress.total }}
