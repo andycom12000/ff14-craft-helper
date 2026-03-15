@@ -7,10 +7,13 @@ import { useGearsetsStore } from '@/stores/gearsets'
 import { useBomStore } from '@/stores/bom'
 import { JOB_NAMES } from '@/utils/jobs'
 import { useSimulatorStore } from '@/stores/simulator'
-import { simulateAll, createInitialState, type CraftParams } from '@/engine/simulator'
+import { createInitialState, type CraftParams, type CraftState, type StepResult } from '@/engine/simulator'
+import type { BuffType } from '@/engine/buffs'
 import type { EnhancedStats } from '@/engine/food-medicine'
 import { calculateInitialQuality } from '@/engine/quality'
 import { getRecipe, findRecipesByItemName } from '@/api/xivapi'
+import { simulateCraftDetail, waitForWasm } from '@/solver/worker'
+import type { SolverConfig, WasmEffects, StepDetail } from '@/solver/raphael'
 import StatusBar from '@/components/simulator/StatusBar.vue'
 import BuffDisplay from '@/components/simulator/BuffDisplay.vue'
 import ActionList from '@/components/simulator/ActionList.vue'
@@ -86,14 +89,99 @@ const currentState = computed(() => {
   return initial
 })
 
-function runSimulation() {
-  if (!craftParams.value) {
+// --- WASM effects → CraftState buff map conversion ---
+
+function wasmEffectsToBuffs(effects: WasmEffects): Map<BuffType, { stacks: number; duration: number }> {
+  const buffs = new Map<BuffType, { stacks: number; duration: number }>()
+  if (effects.inner_quiet > 0) buffs.set('InnerQuiet', { stacks: effects.inner_quiet, duration: Infinity })
+  if (effects.waste_not > 0) buffs.set('WasteNot', { stacks: 1, duration: effects.waste_not })
+  if (effects.innovation > 0) buffs.set('Innovation', { stacks: 1, duration: effects.innovation })
+  if (effects.veneration > 0) buffs.set('Veneration', { stacks: 1, duration: effects.veneration })
+  if (effects.great_strides > 0) buffs.set('GreatStrides', { stacks: 1, duration: effects.great_strides })
+  if (effects.muscle_memory > 0) buffs.set('MuscleMemory', { stacks: 1, duration: effects.muscle_memory })
+  if (effects.manipulation > 0) buffs.set('Manipulation', { stacks: 1, duration: effects.manipulation })
+  if (effects.trained_perfection_active) buffs.set('TrainedPerfection', { stacks: 1, duration: 0 })
+  if (effects.heart_and_soul_active) buffs.set('HeartAndSoul', { stacks: 1, duration: 0 })
+  return buffs
+}
+
+function wasmStepToStepResult(
+  step: StepDetail,
+  index: number,
+  params: CraftParams,
+): StepResult {
+  const state: CraftState = {
+    progress: step.progress,
+    quality: step.quality,
+    durability: step.durability,
+    cp: step.cp,
+    maxProgress: params.recipeLevelTable.difficulty,
+    maxQuality: params.recipeLevelTable.quality,
+    maxDurability: params.recipeLevelTable.durability,
+    maxCp: params.cp,
+    buffs: wasmEffectsToBuffs(step.effects),
+    step: index + 1,
+    condition: 'Normal',
+    isComplete: step.is_finished,
+    isSuccess: step.is_finished && step.progress >= params.recipeLevelTable.difficulty,
+  }
+  return { action: step.action, state, success: step.success }
+}
+
+function craftParamsToSolverConfig(params: CraftParams): SolverConfig {
+  return {
+    recipe_level: params.recipeLevelTable.classJobLevel,
+    stars: params.recipeLevelTable.stars,
+    progress: params.recipeLevelTable.difficulty,
+    quality: params.recipeLevelTable.quality,
+    durability: params.recipeLevelTable.durability,
+    cp: params.cp,
+    craftsmanship: params.craftsmanship,
+    control: params.control,
+    crafter_level: params.crafterLevel,
+    progress_divider: params.recipeLevelTable.progressDivider,
+    quality_divider: params.recipeLevelTable.qualityDivider,
+    progress_modifier: params.recipeLevelTable.progressModifier,
+    quality_modifier: params.recipeLevelTable.qualityModifier,
+    hq_target: params.canHq,
+    initial_quality: params.initialQuality,
+    use_manipulation: true,
+    use_heart_and_soul: true,
+    use_quick_innovation: true,
+    use_trained_eye: true,
+  }
+}
+
+// --- WASM simulation ---
+
+let simulationVersion = 0
+
+async function runSimulation() {
+  if (!craftParams.value || simStore.actions.length === 0) {
     simStore.setSimulationResults([])
     return
   }
-  const initial = createInitialState(craftParams.value)
-  const results = simulateAll(craftParams.value, initial, simStore.actions)
-  simStore.setSimulationResults(results)
+
+  const version = ++simulationVersion
+  const params = craftParams.value
+  const actions = [...simStore.actions]
+
+  try {
+    await waitForWasm()
+    const config = craftParamsToSolverConfig(params)
+    const detail = await simulateCraftDetail(config, actions)
+
+    // Discard stale results if another simulation was triggered
+    if (version !== simulationVersion) return
+
+    const results: StepResult[] = detail.steps.map((step, i) =>
+      wasmStepToStepResult(step, i, params),
+    )
+    simStore.setSimulationResults(results)
+  } catch (err) {
+    console.error('[SimulatorView] WASM simulation failed:', err)
+    simStore.setSimulationResults([])
+  }
 }
 
 watch([craftParams, () => simStore.actions], runSimulation, { immediate: true })

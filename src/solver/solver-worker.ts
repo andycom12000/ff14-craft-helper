@@ -2,7 +2,7 @@
  * Web Worker script for running the raphael-rs WASM craft solver off the main thread.
  */
 
-import type { SolverConfig, SolverResult, SolverResponse } from './raphael'
+import type { SolverConfig, SolverResult, SolverResponse, SimulateConfig } from './raphael'
 
 /* ---------- WASM initialization ---------- */
 
@@ -14,6 +14,8 @@ const wasmJsUrl = new URL(`${base}solver-wasm/raphael_wasm_wrapper.js`, self.loc
 let wasmReady = false
 let wasmError: string | null = null
 let wasmSolve: ((config: unknown) => { actions: string[] }) | null = null
+let wasmSimulate: ((config: unknown) => unknown) | null = null
+let wasmSimulateDetail: ((config: unknown) => unknown) | null = null
 
 async function initWasm() {
   try {
@@ -21,6 +23,8 @@ async function initWasm() {
     await pkg.default()
     await pkg.init_threads(navigator.hardwareConcurrency || 4)
     wasmSolve = pkg.solve
+    wasmSimulate = pkg.simulate
+    wasmSimulateDetail = pkg.simulate_detail
     wasmReady = true
     const readyMsg: SolverResponse = { type: 'ready' }
     self.postMessage(readyMsg)
@@ -75,6 +79,12 @@ const ACTION_MAP: Record<string, string> = {
   'FocusedTouch': 'FocusedTouch',
 }
 
+// Reverse map: our skill IDs -> raphael-rs action names
+const REVERSE_ACTION_MAP: Record<string, string> = {}
+for (const [raphaelName, ourName] of Object.entries(ACTION_MAP)) {
+  REVERSE_ACTION_MAP[ourName] = raphaelName
+}
+
 /* ---------- Solver config conversion ---------- */
 
 function configToWasmSettings(config: SolverConfig) {
@@ -87,11 +97,15 @@ function configToWasmSettings(config: SolverConfig) {
     * config.quality_modifier / 100
   )
 
+  // Subtract initial_quality from max_quality so solver accounts for HQ materials
+  const rawMaxQuality = config.hq_target ? config.quality : 0
+  const max_quality = Math.max(0, rawMaxQuality - config.initial_quality)
+
   return {
     max_cp: config.cp,
     max_durability: config.durability,
     max_progress: config.progress,
-    max_quality: config.hq_target ? config.quality : 0,
+    max_quality,
     base_progress,
     base_quality,
     job_level: config.crafter_level,
@@ -104,21 +118,49 @@ function configToWasmSettings(config: SolverConfig) {
   }
 }
 
+/* ---------- Simulate config conversion ---------- */
+
+function buildSimulateConfig(config: SolverConfig, actions: string[]): SimulateConfig {
+  const base_progress = Math.floor(
+    Math.floor(config.craftsmanship * 10 / config.progress_divider + 2)
+    * config.progress_modifier / 100
+  )
+  const base_quality = Math.floor(
+    Math.floor(config.control * 10 / config.quality_divider + 35)
+    * config.quality_modifier / 100
+  )
+
+  // Map our skill IDs to raphael-rs action names
+  const raphaelActions = actions.map(a => REVERSE_ACTION_MAP[a] ?? a)
+
+  return {
+    max_cp: config.cp,
+    max_durability: config.durability,
+    max_progress: config.progress,
+    max_quality: config.hq_target ? config.quality : 0,
+    base_progress,
+    base_quality,
+    job_level: config.crafter_level,
+    actions: raphaelActions,
+  }
+}
+
 /* ---------- Message handler ---------- */
 
 self.onmessage = async (e: MessageEvent) => {
-  const { type, config } = e.data
+  const { type, config, actions, requestId } = e.data
+
+  if (!wasmReady) {
+    const errorResponse: SolverResponse = {
+      type: 'error',
+      error: wasmError ?? 'WASM 求解器尚未初始化完成',
+      requestId,
+    }
+    self.postMessage(errorResponse)
+    return
+  }
 
   if (type === 'solve') {
-    if (!wasmReady) {
-      const errorResponse: SolverResponse = {
-        type: 'error',
-        error: wasmError ?? 'WASM 求解器尚未初始化完成',
-      }
-      self.postMessage(errorResponse)
-      return
-    }
-
     try {
       const progressUpdate: SolverResponse = { type: 'progress', progress: 10 }
       self.postMessage(progressUpdate)
@@ -159,6 +201,24 @@ self.onmessage = async (e: MessageEvent) => {
         error: msg === 'NoSolution' ? '找不到可行的製作方案，請確認裝備數值與配方是否正確' : msg,
       }
       self.postMessage(errorResponse)
+    }
+  } else if (type === 'simulate') {
+    try {
+      const simConfig = buildSimulateConfig(config, actions)
+      const result = wasmSimulate!(simConfig)
+      self.postMessage({ type: 'simulate-result', simulateResult: result, requestId })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      self.postMessage({ type: 'error', error: `模擬失敗: ${msg}`, requestId })
+    }
+  } else if (type === 'simulate-detail') {
+    try {
+      const simConfig = buildSimulateConfig(config, actions)
+      const result = wasmSimulateDetail!(simConfig)
+      self.postMessage({ type: 'simulate-detail-result', simulateDetailResult: result, requestId })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      self.postMessage({ type: 'error', error: `模擬失敗: ${msg}`, requestId })
     }
   }
 }
