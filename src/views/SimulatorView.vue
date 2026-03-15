@@ -13,6 +13,7 @@ import type { EnhancedStats } from '@/engine/food-medicine'
 import { calculateInitialQuality } from '@/engine/quality'
 import { getRecipe, findRecipesByItemName } from '@/api/xivapi'
 import { simulateCraftDetail, waitForWasm } from '@/solver/worker'
+import { craftParamsToSolverConfig } from '@/solver/config'
 import type { SolverConfig, WasmEffects, StepDetail } from '@/solver/raphael'
 import StatusBar from '@/components/simulator/StatusBar.vue'
 import BuffDisplay from '@/components/simulator/BuffDisplay.vue'
@@ -128,29 +129,7 @@ function wasmStepToStepResult(
   return { action: step.action, state, success: step.success }
 }
 
-function craftParamsToSolverConfig(params: CraftParams): SolverConfig {
-  return {
-    recipe_level: params.recipeLevelTable.classJobLevel,
-    stars: params.recipeLevelTable.stars,
-    progress: params.recipeLevelTable.difficulty,
-    quality: params.recipeLevelTable.quality,
-    durability: params.recipeLevelTable.durability,
-    cp: params.cp,
-    craftsmanship: params.craftsmanship,
-    control: params.control,
-    crafter_level: params.crafterLevel,
-    progress_divider: params.recipeLevelTable.progressDivider,
-    quality_divider: params.recipeLevelTable.qualityDivider,
-    progress_modifier: params.recipeLevelTable.progressModifier,
-    quality_modifier: params.recipeLevelTable.qualityModifier,
-    hq_target: params.canHq,
-    initial_quality: params.initialQuality,
-    use_manipulation: true,
-    use_heart_and_soul: true,
-    use_quick_innovation: true,
-    use_trained_eye: true,
-  }
-}
+// craftParamsToSolverConfig imported from shared util
 
 // --- WASM simulation ---
 

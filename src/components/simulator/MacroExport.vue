@@ -1,58 +1,20 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useSimulatorStore } from '@/stores/simulator'
-import { getSkillById, type SkillDefinition } from '@/engine/skills'
+import { formatMacros } from '@/services/macro-formatter'
 import { ElMessage } from 'element-plus'
 
 const simStore = useSimulatorStore()
 
-const MACRO_LINE_LIMIT = 15
-const BUFF_CATEGORIES = new Set(['buff', 'other'])
-
 const waitTime = ref(3)
 const includeEcho = ref(true)
 
-function getWaitTime(skill: SkillDefinition): number {
-  if (BUFF_CATEGORIES.has(skill.category)) {
-    return Math.min(waitTime.value, 2)
-  }
-  return waitTime.value
-}
-
-function formatAction(skillId: string): string {
-  const skill = getSkillById(skillId)
-  if (!skill) return `/ac "${skillId}" <wait.${waitTime.value}>`
-  return `/ac "${skill.nameZh}" <wait.${getWaitTime(skill)}>`
-}
-
-const macros = computed(() => {
-  const actions = simStore.actions
-  if (actions.length === 0) return []
-
-  const lines = actions.map(formatAction)
-  const result: string[][] = []
-  let current: string[] = []
-
-  for (const line of lines) {
-    const limit = includeEcho.value ? MACRO_LINE_LIMIT - 1 : MACRO_LINE_LIMIT
-    if (current.length >= limit) {
-      result.push(current)
-      current = []
-    }
-    current.push(line)
-  }
-  if (current.length > 0) {
-    result.push(current)
-  }
-
-  return result.map((chunk, i) => {
-    const macroLines = [...chunk]
-    if (includeEcho.value) {
-      macroLines.push(`/echo 巨集 ${i + 1} 完成 <se.1>`)
-    }
-    return macroLines.join('\n')
+const macros = computed(() =>
+  formatMacros(simStore.actions, {
+    waitTime: waitTime.value,
+    includeEcho: includeEcho.value,
   })
-})
+)
 
 const summaryText = computed(() => {
   const skillCount = simStore.actions.length

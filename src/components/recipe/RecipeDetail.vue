@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Recipe } from '@/stores/recipe'
+import { starsDisplay } from '@/utils/format'
 
 defineProps<{
   recipe: Recipe | null
@@ -8,11 +9,8 @@ defineProps<{
 const emit = defineEmits<{
   'use-in-simulator': []
   'add-to-bom': []
+  'add-to-batch': []
 }>()
-
-function starsDisplay(count: number): string {
-  return count > 0 ? '\u2605'.repeat(count) : ''
-}
 </script>
 
 <template>
@@ -70,6 +68,9 @@ function starsDisplay(count: number): string {
         </el-button>
         <el-button @click="emit('add-to-bom')">
           加入材料清單
+        </el-button>
+        <el-button type="warning" @click="emit('add-to-batch')">
+          加入批量
         </el-button>
       </div>
     </template>

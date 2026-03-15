@@ -21,6 +21,14 @@ describe('useSettingsStore', () => {
     expect(store.priceDisplayMode).toBe('nq')
   })
 
+  it('has default batch settings', () => {
+    const store = useSettingsStore()
+    expect(store.crossServer).toBe(false)
+    expect(store.recursivePricing).toBe(true)
+    expect(store.maxRecursionDepth).toBe(3)
+    expect(store.exceptionStrategy).toBe('skip')
+  })
+
   it('allows updating all settings', () => {
     const store = useSettingsStore()
 
