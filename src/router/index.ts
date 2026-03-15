@@ -24,6 +24,11 @@ const router = createRouter({
       component: () => import('@/views/BomView.vue'),
     },
     {
+      path: '/batch',
+      name: 'batch',
+      component: () => import('@/views/BatchView.vue'),
+    },
+    {
       path: '/market',
       name: 'market',
       component: () => import('@/views/MarketView.vue'),

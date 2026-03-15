@@ -8,6 +8,7 @@ defineProps<{
 const emit = defineEmits<{
   'use-in-simulator': []
   'add-to-bom': []
+  'add-to-batch': []
 }>()
 
 function starsDisplay(count: number): string {
@@ -70,6 +71,9 @@ function starsDisplay(count: number): string {
         </el-button>
         <el-button @click="emit('add-to-bom')">
           加入材料清單
+        </el-button>
+        <el-button type="warning" @click="emit('add-to-batch')">
+          加入批量
         </el-button>
       </div>
     </template>

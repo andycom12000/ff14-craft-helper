@@ -7,11 +7,13 @@ import RecipeDetail from '@/components/recipe/RecipeDetail.vue'
 import { getRecipe } from '@/api/xivapi'
 import { useRecipeStore } from '@/stores/recipe'
 import { useBomStore } from '@/stores/bom'
+import { useBatchStore } from '@/stores/batch'
 import type { Recipe } from '@/stores/recipe'
 
 const router = useRouter()
 const recipeStore = useRecipeStore()
 const bomStore = useBomStore()
+const batchStore = useBatchStore()
 
 const selectedRecipe = ref<Recipe | null>(null)
 const detailLoading = ref(false)
@@ -33,6 +35,13 @@ function handleUseInSimulator() {
   if (selectedRecipe.value) {
     recipeStore.addToQueue(selectedRecipe.value)
     router.push({ name: 'simulator' })
+  }
+}
+
+function handleAddToBatch() {
+  if (selectedRecipe.value) {
+    batchStore.addTarget(selectedRecipe.value)
+    ElMessage.success(`已加入批量：${selectedRecipe.value.name}`)
   }
 }
 
@@ -73,6 +82,7 @@ function handleAddToBom() {
             :recipe="selectedRecipe"
             @use-in-simulator="handleUseInSimulator"
             @add-to-bom="handleAddToBom"
+            @add-to-batch="handleAddToBatch"
           />
         </el-card>
       </el-col>

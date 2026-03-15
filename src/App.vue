@@ -56,6 +56,10 @@ watch(() => route.path, () => {
           <el-icon><List /></el-icon>
           <span>材料清單</span>
         </el-menu-item>
+        <el-menu-item index="/batch">
+          <el-icon><Operation /></el-icon>
+          <span>批量製作</span>
+        </el-menu-item>
         <el-menu-item index="/market">
           <el-icon><TrendCharts /></el-icon>
           <span>市場查價</span>
