@@ -2,7 +2,6 @@
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { CraftParams } from '@/engine/simulator'
-import { simulateAll, createInitialState } from '@/engine/simulator'
 import type { Recipe } from '@/stores/recipe'
 import { useSettingsStore } from '@/stores/settings'
 import { buildMaterialTree, flattenMaterialTree } from '@/services/bom-calculator'
@@ -12,6 +11,8 @@ import type { FlatMaterial, PriceInfo, MaterialNode } from '@/stores/bom'
 import type { BomTarget } from '@/stores/bom'
 import BomSummary from '@/components/bom/BomSummary.vue'
 import { formatGil } from '@/utils/format'
+import { simulateCraft, waitForWasm } from '@/solver/worker'
+import type { SolverConfig } from '@/solver/raphael'
 
 const props = defineProps<{
   craftParams: CraftParams | null
@@ -60,28 +61,57 @@ const missingPriceIngredients = computed(() => {
   return [...indices].map(i => props.recipe!.ingredients[i])
 })
 
+function craftParamsToSolverConfig(params: CraftParams): SolverConfig {
+  return {
+    recipe_level: params.recipeLevelTable.classJobLevel,
+    stars: params.recipeLevelTable.stars,
+    progress: params.recipeLevelTable.difficulty,
+    quality: params.recipeLevelTable.quality,
+    durability: params.recipeLevelTable.durability,
+    cp: params.cp,
+    craftsmanship: params.craftsmanship,
+    control: params.control,
+    crafter_level: params.crafterLevel,
+    progress_divider: params.recipeLevelTable.progressDivider,
+    quality_divider: params.recipeLevelTable.qualityDivider,
+    progress_modifier: params.recipeLevelTable.progressModifier,
+    quality_modifier: params.recipeLevelTable.qualityModifier,
+    hq_target: params.canHq,
+    initial_quality: params.initialQuality,
+    use_manipulation: true,
+    use_heart_and_soul: true,
+    use_quick_innovation: true,
+    use_trained_eye: true,
+  }
+}
+
 watch(() => props.solverResult, async (result) => {
   if (!result || !props.craftParams || !props.recipe) {
     analyzed.value = false
     return
   }
 
-  // Analyze
-  const initial = createInitialState(props.craftParams)
-  const steps = simulateAll(props.craftParams, initial, result.actions)
-  const finalState = steps.length > 0 ? steps[steps.length - 1].state : initial
+  try {
+    // Use WASM simulation for analysis
+    await waitForWasm()
+    const config = craftParamsToSolverConfig(props.craftParams)
+    const simResult = await simulateCraft(config, result.actions)
 
-  isMaxProgress.value = finalState.progress >= finalState.maxProgress
-  isMaxQuality.value = finalState.quality >= finalState.maxQuality
-  achievedQuality.value = finalState.quality
-  maxQuality.value = finalState.maxQuality
-  qualityDeficit.value = finalState.maxQuality - finalState.quality
-  analyzed.value = true
+    isMaxProgress.value = simResult.progress >= simResult.max_progress
+    isMaxQuality.value = simResult.quality >= simResult.max_quality
+    achievedQuality.value = simResult.quality
+    maxQuality.value = simResult.max_quality
+    qualityDeficit.value = simResult.max_quality - simResult.quality
+    analyzed.value = true
 
-  if (isMaxProgress.value && isMaxQuality.value) {
-    await loadBom()
-  } else if (isMaxProgress.value && !isMaxQuality.value) {
-    await loadHqRecommendations()
+    if (isMaxProgress.value && isMaxQuality.value) {
+      await loadBom()
+    } else if (isMaxProgress.value && !isMaxQuality.value) {
+      await loadHqRecommendations()
+    }
+  } catch (err) {
+    console.error('[CraftRecommendation] WASM simulation failed:', err)
+    analyzed.value = false
   }
 }, { immediate: true })
 
