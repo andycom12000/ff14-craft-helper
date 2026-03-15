@@ -58,6 +58,100 @@ export function groupByServer(materials: MaterialWithPrice[]): ServerGroup[] {
   }))
 }
 
+import type { MarketListing } from '@/api/universalis'
+
+export interface PurchaseResult {
+  totalCost: number
+  effectiveUnitPrice: number  // totalCost / neededQty
+  wastedQty: number           // bought - needed
+  availableQty: number        // total qty across all matching listings
+  fulfilled: boolean          // availableQty >= neededQty
+}
+
+/**
+ * Find the cheapest way to buy `neededQty` items from market listings.
+ * Each listing must be bought in full (whole-stack purchase).
+ *
+ * Strategy: enumerate all subsets of listings (via bitmask for small N,
+ * fallback to greedy-by-total-cost for large N) and pick the subset
+ * with total qty >= neededQty and minimum total cost.
+ */
+export function calculateBestPurchase(
+  listings: MarketListing[],
+  neededQty: number,
+  hq: boolean,
+): PurchaseResult {
+  const filtered = listings.filter(l => l.hq === hq)
+  const availableQty = filtered.reduce((sum, l) => sum + l.quantity, 0)
+
+  if (filtered.length === 0) {
+    return { totalCost: 0, effectiveUnitPrice: 0, wastedQty: 0, availableQty: 0, fulfilled: false }
+  }
+
+  if (availableQty < neededQty) {
+    // Can't fulfill — return best effort cost (buy everything available)
+    const totalCost = filtered.reduce((sum, l) => sum + l.total, 0)
+    return {
+      totalCost,
+      effectiveUnitPrice: availableQty > 0 ? Math.round(totalCost / availableQty) : 0,
+      wastedQty: 0,
+      availableQty,
+      fulfilled: false,
+    }
+  }
+
+  // Sort by total cost ascending for greedy fallback
+  const sorted = [...filtered].sort((a, b) => a.total - b.total)
+
+  // For small listing counts (<=20), use bitmask enumeration for optimal result
+  if (sorted.length <= 20) {
+    let bestCost = Infinity
+    let bestQty = 0
+    const n = sorted.length
+
+    for (let mask = 1; mask < (1 << n); mask++) {
+      let qty = 0
+      let cost = 0
+      for (let j = 0; j < n; j++) {
+        if (mask & (1 << j)) {
+          qty += sorted[j].quantity
+          cost += sorted[j].total
+        }
+      }
+      if (qty >= neededQty && cost < bestCost) {
+        bestCost = cost
+        bestQty = qty
+      }
+    }
+
+    return {
+      totalCost: bestCost,
+      effectiveUnitPrice: Math.round(bestCost / neededQty),
+      wastedQty: bestQty - neededQty,
+      availableQty,
+      fulfilled: true,
+    }
+  }
+
+  // Fallback for large N: greedy by total cost ascending
+  // Pick cheapest listings until we meet the needed quantity
+  let totalCost = 0
+  let totalQty = 0
+  for (const l of sorted) {
+    totalCost += l.total
+    totalQty += l.quantity
+    if (totalQty >= neededQty) break
+  }
+
+  return {
+    totalCost,
+    effectiveUnitPrice: Math.round(totalCost / neededQty),
+    wastedQty: totalQty - neededQty,
+    availableQty,
+    fulfilled: true,
+  }
+}
+
 export function aggregateMaterials(
   materialsArrays: MaterialBase[][],
 ): MaterialBase[] {

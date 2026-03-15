@@ -6,7 +6,7 @@ import { solveCraft, simulateCraft, waitForWasm } from '@/solver/worker'
 import { craftParamsToSolverConfig, recipeToCraftParams } from '@/solver/config'
 import { findOptimalHqCombinations } from '@/services/hq-optimizer'
 import { getAggregatedPrices, getMarketData, aggregateByWorld } from '@/api/universalis'
-import { separateCrystals, groupByServer } from '@/services/shopping-list'
+import { separateCrystals, groupByServer, calculateBestPurchase } from '@/services/shopping-list'
 import { buildMaterialTree, flattenMaterialTree, computeOptimalCosts } from '@/services/bom-calculator'
 
 export interface RecipeOptimizeResult {
@@ -222,27 +222,36 @@ export async function runBatchOptimization(
     pricedMaterials = nonCrystals.map(m => {
       const md = dcPriceMap.get(m.itemId)
       const isHq = (m as TypedMaterial).matType === 'hq'
-      // Find cheapest server from per-world listings (not DC aggregate)
-      let cheapestServer = settings.server
-      let cheapestPrice = Infinity
+      let bestServer = settings.server
+      let bestCost = Infinity
+
       if (md?.listings && md.listings.length > 0) {
-        const worldSummaries = aggregateByWorld(md.listings)
-        for (const ws of worldSummaries) {
-          const price = isHq ? ws.minPriceHQ : ws.minPriceNQ
-          if (price > 0 && price < cheapestPrice) {
-            cheapestPrice = price
-            cheapestServer = ws.worldName
+        // Group listings by world, then find cheapest whole-stack purchase per world
+        const worldMap = new Map<string, typeof md.listings>()
+        for (const l of md.listings) {
+          const w = l.worldName ?? settings.server
+          if (!worldMap.has(w)) worldMap.set(w, [])
+          worldMap.get(w)!.push(l)
+        }
+        for (const [world, worldListings] of worldMap) {
+          const purchase = calculateBestPurchase(worldListings, m.amount, isHq)
+          if (purchase.fulfilled && purchase.totalCost < bestCost) {
+            bestCost = purchase.totalCost
+            bestServer = world
           }
         }
       }
-      // Fallback to DC aggregate if no per-world data
-      if (cheapestPrice === Infinity) {
-        cheapestPrice = isHq ? (md?.minPriceHQ ?? 0) : (md?.minPriceNQ ?? 0)
+
+      // Fallback to aggregate min price if no listings
+      if (bestCost === Infinity) {
+        const fallbackUnit = isHq ? (md?.minPriceHQ ?? 0) : (md?.minPriceNQ ?? 0)
+        bestCost = fallbackUnit * m.amount
       }
+
       return {
         itemId: m.itemId, name: m.name, icon: m.icon, amount: m.amount,
         type: isHq ? 'hq' as const : 'nq' as const,
-        unitPrice: cheapestPrice, server: cheapestServer,
+        unitPrice: Math.round(bestCost / m.amount), server: bestServer,
       }
     })
   } else {
@@ -250,6 +259,19 @@ export async function runBatchOptimization(
     pricedMaterials = nonCrystals.map(m => {
       const md = priceMap.get(m.itemId)
       const isHq = (m as TypedMaterial).matType === 'hq'
+
+      if (md?.listings && md.listings.length > 0) {
+        const purchase = calculateBestPurchase(md.listings, m.amount, isHq)
+        if (purchase.fulfilled) {
+          return {
+            itemId: m.itemId, name: m.name, icon: m.icon, amount: m.amount,
+            type: isHq ? 'hq' as const : 'nq' as const,
+            unitPrice: purchase.effectiveUnitPrice, server: settings.server,
+          }
+        }
+      }
+
+      // Fallback
       return {
         itemId: m.itemId, name: m.name, icon: m.icon, amount: m.amount,
         type: isHq ? 'hq' as const : 'nq' as const,
