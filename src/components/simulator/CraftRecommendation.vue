@@ -12,6 +12,7 @@ import type { BomTarget } from '@/stores/bom'
 import BomSummary from '@/components/bom/BomSummary.vue'
 import { formatGil } from '@/utils/format'
 import { simulateCraft, waitForWasm } from '@/solver/worker'
+import { craftParamsToSolverConfig } from '@/solver/config'
 import type { SolverConfig } from '@/solver/raphael'
 
 const props = defineProps<{
@@ -60,30 +61,6 @@ const missingPriceIngredients = computed(() => {
   const indices = new Set(recommendations.value.flatMap(r => r.missingPriceIndices))
   return [...indices].map(i => props.recipe!.ingredients[i])
 })
-
-function craftParamsToSolverConfig(params: CraftParams): SolverConfig {
-  return {
-    recipe_level: params.recipeLevelTable.classJobLevel,
-    stars: params.recipeLevelTable.stars,
-    progress: params.recipeLevelTable.difficulty,
-    quality: params.recipeLevelTable.quality,
-    durability: params.recipeLevelTable.durability,
-    cp: params.cp,
-    craftsmanship: params.craftsmanship,
-    control: params.control,
-    crafter_level: params.crafterLevel,
-    progress_divider: params.recipeLevelTable.progressDivider,
-    quality_divider: params.recipeLevelTable.qualityDivider,
-    progress_modifier: params.recipeLevelTable.progressModifier,
-    quality_modifier: params.recipeLevelTable.qualityModifier,
-    hq_target: params.canHq,
-    initial_quality: params.initialQuality,
-    use_manipulation: true,
-    use_heart_and_soul: true,
-    use_quick_innovation: true,
-    use_trained_eye: true,
-  }
-}
 
 watch(() => props.solverResult, async (result) => {
   if (!result || !props.craftParams || !props.recipe) {
