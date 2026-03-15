@@ -32,7 +32,7 @@ export function separateCrystals<T extends MaterialBase>(materials: T[]): {
   nonCrystals: T[]
 } {
   const crystals: CrystalSummary[] = []
-  const nonCrystals: MaterialBase[] = []
+  const nonCrystals: T[] = []
 
   for (const m of materials) {
     if (m.itemId < CRYSTAL_THRESHOLD) {

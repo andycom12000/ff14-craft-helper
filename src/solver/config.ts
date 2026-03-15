@@ -45,7 +45,7 @@ export function craftParamsToSolverConfig(
     quality_divider: params.recipeLevelTable.qualityDivider,
     progress_modifier: params.recipeLevelTable.progressModifier,
     quality_modifier: params.recipeLevelTable.qualityModifier,
-    hq_target: params.recipeLevelTable.quality > 0,
+    hq_target: params.canHq,
     initial_quality: params.initialQuality,
     use_manipulation: useManipulation,
     use_heart_and_soul: useHeartAndSoul,

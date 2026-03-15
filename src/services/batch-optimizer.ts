@@ -212,7 +212,7 @@ export async function runBatchOptimization(
 
   // === Phase 5: Price query + cross-server grouping ===
   onProgress({ current: targets.length, total: targets.length, name: '', phase: 'pricing', solverPercent: 100 })
-  const itemIds = nonCrystals.map(m => m.itemId)
+  const itemIds = [...new Set(nonCrystals.map(m => m.itemId))]
   let pricedMaterials: MaterialWithPrice[]
 
   if (settings.crossServer) {

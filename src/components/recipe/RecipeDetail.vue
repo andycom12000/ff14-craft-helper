@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Recipe } from '@/stores/recipe'
+import { starsDisplay } from '@/utils/format'
 
 defineProps<{
   recipe: Recipe | null
@@ -10,10 +11,6 @@ const emit = defineEmits<{
   'add-to-bom': []
   'add-to-batch': []
 }>()
-
-function starsDisplay(count: number): string {
-  return count > 0 ? '\u2605'.repeat(count) : ''
-}
 </script>
 
 <template>
