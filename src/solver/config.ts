@@ -3,7 +3,34 @@ import type { SolverConfig } from '@/solver/raphael'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 
-export function craftParamsToSolverConfig(params: CraftParams): SolverConfig {
+export interface SolverSkillOptions {
+  useManipulation?: boolean
+  useHeartAndSoul?: boolean
+  useQuickInnovation?: boolean
+  useTrainedEye?: boolean
+}
+
+/**
+ * Convert CraftParams to SolverConfig for the WASM solver.
+ *
+ * Skill defaults match SolverPanel.vue:
+ * - Manipulation, HeartAndSoul, QuickInnovation are expert-only skills → default OFF
+ * - TrainedEye → default ON but auto-disabled if crafter level < recipe level + 10
+ */
+export function craftParamsToSolverConfig(
+  params: CraftParams,
+  skills: SolverSkillOptions = {},
+): SolverConfig {
+  const {
+    useManipulation = false,
+    useHeartAndSoul = false,
+    useQuickInnovation = false,
+    useTrainedEye = true,
+  } = skills
+
+  // TrainedEye requires crafter level >= recipe level + 10
+  const canUseTrainedEye = params.crafterLevel >= params.recipeLevelTable.classJobLevel + 10
+
   return {
     recipe_level: params.recipeLevelTable.classJobLevel,
     stars: params.recipeLevelTable.stars,
@@ -18,12 +45,12 @@ export function craftParamsToSolverConfig(params: CraftParams): SolverConfig {
     quality_divider: params.recipeLevelTable.qualityDivider,
     progress_modifier: params.recipeLevelTable.progressModifier,
     quality_modifier: params.recipeLevelTable.qualityModifier,
-    hq_target: params.canHq,
+    hq_target: params.recipeLevelTable.quality > 0,
     initial_quality: params.initialQuality,
-    use_manipulation: true,
-    use_heart_and_soul: true,
-    use_quick_innovation: true,
-    use_trained_eye: true,
+    use_manipulation: useManipulation,
+    use_heart_and_soul: useHeartAndSoul,
+    use_quick_innovation: useQuickInnovation,
+    use_trained_eye: useTrainedEye && canUseTrainedEye,
   }
 }
 
