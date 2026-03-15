@@ -75,7 +75,9 @@
       "mcp__plugin_figma_figma__generate_diagram",
       "mcp__plugin_figma_figma__generate_figma_design",
       "Bash(start:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Read(//c/Users/andyc/Projects/ff14-craft-helper/$TEMP/**)",
+      "Read(//c/Users/andyc/Projects/ff14-craft-helper/$USERPROFILE/AppData/Local/Temp/**)"
     ]
   }
 }

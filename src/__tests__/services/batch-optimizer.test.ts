@@ -54,7 +54,7 @@ describe('optimizeRecipe', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('returns double-max result when solver achieves full quality', async () => {
-    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory', 'groundwork'] })
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory', 'groundwork'], progress: 3500, quality: 7200, steps: 2 })
     vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
 
     const result = await optimizeRecipe(mockRecipe, mockGearset)
@@ -63,7 +63,7 @@ describe('optimizeRecipe', () => {
   })
 
   it('returns hq combo when quality deficit exists', async () => {
-    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory'] })
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory'], progress: 3500, quality: 5000, steps: 1 })
     vi.mocked(simulateCraft).mockResolvedValue(qualityDeficitSim as any)
 
     const result = await optimizeRecipe(mockRecipe, mockGearset)
@@ -107,7 +107,7 @@ describe('runBatchOptimization', () => {
 
   it('respects cancellation', async () => {
     let cancelled = false
-    vi.mocked(solveCraft).mockResolvedValue({ actions: ['groundwork'] })
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['groundwork'], progress: 3500, quality: 7200, steps: 1 })
     vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
 
     const result = await runBatchOptimization(

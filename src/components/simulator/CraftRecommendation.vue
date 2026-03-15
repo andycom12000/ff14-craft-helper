@@ -13,7 +13,6 @@ import BomSummary from '@/components/bom/BomSummary.vue'
 import { formatGil } from '@/utils/format'
 import { simulateCraft, waitForWasm } from '@/solver/worker'
 import { craftParamsToSolverConfig } from '@/solver/config'
-import type { SolverConfig } from '@/solver/raphael'
 
 const props = defineProps<{
   craftParams: CraftParams | null
