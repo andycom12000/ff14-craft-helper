@@ -121,6 +121,7 @@ function handleTodoDone(index: number, done: boolean) {
             :server-groups="batchStore.results.serverGroups"
             :self-craft-items="batchStore.results.selfCraftItems"
             :grand-total="batchStore.results.grandTotal"
+            :cross-world-cache="batchStore.results.crossWorldCache"
           />
         </el-card>
       </div>

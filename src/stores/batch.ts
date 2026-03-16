@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { Recipe } from '@/stores/recipe'
 import type { MaterialWithPrice as ShoppingItem, ServerGroup, CrystalSummary } from '@/services/shopping-list'
+import type { WorldPriceSummary } from '@/api/universalis'
 
 export type { ShoppingItem, ServerGroup, CrystalSummary }
 
@@ -36,6 +37,7 @@ export interface BatchResults {
   todoList: TodoItem[]
   exceptions: BatchException[]
   grandTotal: number
+  crossWorldCache: Map<number, WorldPriceSummary[]>
 }
 
 export const useBatchStore = defineStore('batch', () => {

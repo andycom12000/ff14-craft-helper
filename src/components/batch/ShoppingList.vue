@@ -1,17 +1,33 @@
 <script setup lang="ts">
+import { watch, triggerRef } from 'vue'
 import type { CrystalSummary, ServerGroup, MaterialWithPrice } from '@/services/shopping-list'
+import type { WorldPriceSummary } from '@/api/universalis'
 import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
 import CrossWorldPriceDetail from '@/components/common/CrossWorldPriceDetail.vue'
 import { formatGil } from '@/utils/format'
 
-defineProps<{
+const props = defineProps<{
   crystals: CrystalSummary[]
   serverGroups: ServerGroup[]
   selfCraftItems: MaterialWithPrice[]
   grandTotal: number
+  crossWorldCache?: Map<number, WorldPriceSummary[]>
 }>()
 
 const { crossWorldData, crossWorldLoading, fetchCrossWorldData } = useCrossWorldPricing()
+
+// Seed composable cache with pre-fetched data from batch optimizer
+watch(() => props.crossWorldCache, (cache) => {
+  if (!cache) return
+  let seeded = false
+  for (const [id, summary] of cache) {
+    if (!crossWorldData.value.has(id)) {
+      crossWorldData.value.set(id, summary)
+      seeded = true
+    }
+  }
+  if (seeded) triggerRef(crossWorldData)
+}, { immediate: true })
 
 const crystalColors: Record<string, string> = {
   '火': '#F87171', '水': '#60A5FA', '風': '#34D399',

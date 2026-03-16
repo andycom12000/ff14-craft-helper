@@ -9,7 +9,7 @@ export function useCrossWorldPricing() {
   const data = shallowRef(new Map<number, WorldPriceSummary[]>())
   const loading = shallowRef(new Set<number>())
 
-  async function fetch(itemId: number, itemName?: string) {
+  async function loadPricing(itemId: number, itemName?: string) {
     if (data.value.has(itemId) || loading.value.has(itemId)) return
 
     loading.value.add(itemId)
@@ -26,5 +26,5 @@ export function useCrossWorldPricing() {
     }
   }
 
-  return { crossWorldData: data, crossWorldLoading: loading, fetchCrossWorldData: fetch }
+  return { crossWorldData: data, crossWorldLoading: loading, fetchCrossWorldData: loadPricing }
 }

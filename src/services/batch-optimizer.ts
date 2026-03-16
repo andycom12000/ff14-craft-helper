@@ -2,10 +2,12 @@ import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 import type { BatchException, BatchTarget, BatchResults, TodoItem } from '@/stores/batch'
 import type { MaterialWithPrice, MaterialBase } from '@/services/shopping-list'
+import { markRaw } from 'vue'
 import { solveCraft, simulateCraft, waitForWasm } from '@/solver/worker'
 import { craftParamsToSolverConfig, recipeToCraftParams } from '@/solver/config'
 import { findOptimalHqCombinations } from '@/services/hq-optimizer'
-import { getAggregatedPrices, getMarketData } from '@/api/universalis'
+import { getAggregatedPrices, getMarketData, aggregateByWorld } from '@/api/universalis'
+import type { MarketData, WorldPriceSummary } from '@/api/universalis'
 import { separateCrystals, groupByServer, calculateBestPurchase } from '@/services/shopping-list'
 import { buildMaterialTree, flattenMaterialTree, computeOptimalCosts } from '@/services/bom-calculator'
 
@@ -215,10 +217,11 @@ export async function runBatchOptimization(
   const itemIds = [...new Set(nonCrystals.map(m => m.itemId))]
   let pricedMaterials: MaterialWithPrice[]
 
+  let dcPriceMap: Map<number, MarketData> | null = null
   if (settings.crossServer) {
-    const dcPriceMap = await getAggregatedPrices(settings.dataCenter, itemIds)
+    dcPriceMap = await getAggregatedPrices(settings.dataCenter, itemIds)
     pricedMaterials = nonCrystals.map(m => {
-      const md = dcPriceMap.get(m.itemId)
+      const md = dcPriceMap!.get(m.itemId)
       const isHq = m.matType === 'hq'
       let bestServer = settings.server
       let bestCost = Infinity
@@ -282,11 +285,21 @@ export async function runBatchOptimization(
   const serverGroups = groupByServer(pricedMaterials)
   const grandTotal = serverGroups.reduce((sum, g) => sum + g.subtotal, 0)
 
+  // Build cross-world price cache from already-fetched market data (markRaw to avoid deep proxy)
+  const crossWorldCache = markRaw(new Map<number, WorldPriceSummary[]>())
+  if (dcPriceMap) {
+    for (const [id, md] of dcPriceMap) {
+      if (md.listings?.length) {
+        crossWorldCache.set(id, aggregateByWorld(md.listings))
+      }
+    }
+  }
+
   // === Phase 6: Todo list (semi-finished first, then top-level) ===
   const todoList: TodoItem[] = recipeResults.map(r => ({
     recipe: r.recipe, quantity: r.quantity, actions: r.actions,
     hqAmounts: r.hqAmounts, isSemiFinished: false, done: false,
   }))
 
-  return { serverGroups, crystals, selfCraftItems, todoList, exceptions, grandTotal }
+  return { serverGroups, crystals, selfCraftItems, todoList, exceptions, grandTotal, crossWorldCache }
 }

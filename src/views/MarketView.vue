@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useSettingsStore } from '@/stores/settings'
 import { getMarketDataByDC, aggregateByWorld } from '@/api/universalis'
+import CrossWorldPriceDetail from '@/components/common/CrossWorldPriceDetail.vue'
 import { formatGil, formatTimeAgo } from '@/utils/format'
 import type { MarketListing, WorldPriceSummary } from '@/api/universalis'
 
@@ -92,44 +93,12 @@ async function selectItem(item: { id: number; itemId: number; name: string; icon
             <span class="card-title">各伺服器價格比較</span>
           </template>
 
-          <el-table :data="worldPrices" border size="small">
-            <el-table-column prop="worldName" label="伺服器" width="140">
-              <template #default="{ row }">
-                <span :style="{ fontWeight: row.worldName === settingsStore.server ? 'bold' : 'normal' }">
-                  {{ row.worldName }}
-                  <el-tag v-if="row.worldName === settingsStore.server" size="small" type="primary">你</el-tag>
-                </span>
-              </template>
-            </el-table-column>
-            <el-table-column label="NQ 最低" width="120" align="right">
-              <template #default="{ row, $index }">
-                <span :class="{ 'price-best': $index === 0 && row.minPriceNQ > 0 }">
-                  {{ row.minPriceNQ > 0 ? formatGil(row.minPriceNQ) : '-' }}
-                </span>
-              </template>
-            </el-table-column>
-            <el-table-column label="HQ 最低" width="120" align="right">
-              <template #default="{ row }">
-                {{ row.minPriceHQ > 0 ? formatGil(row.minPriceHQ) : '-' }}
-              </template>
-            </el-table-column>
-            <el-table-column label="NQ 平均" width="120" align="right">
-              <template #default="{ row }">
-                {{ row.avgPriceNQ > 0 ? formatGil(row.avgPriceNQ) : '-' }}
-              </template>
-            </el-table-column>
-            <el-table-column label="HQ 平均" width="120" align="right">
-              <template #default="{ row }">
-                {{ row.avgPriceHQ > 0 ? formatGil(row.avgPriceHQ) : '-' }}
-              </template>
-            </el-table-column>
-            <el-table-column label="掛牌數" width="80" align="center" prop="listingCount" />
-            <el-table-column label="更新" width="100" align="center">
-              <template #default="{ row }">
-                {{ formatTimeAgo(row.lastUploadTime) }}
-              </template>
-            </el-table-column>
-          </el-table>
+          <CrossWorldPriceDetail
+            :data="worldPrices"
+            show-listing-count
+            show-avg-price
+            border
+          />
         </el-card>
 
         <el-card shadow="never" class="data-card">
@@ -206,11 +175,6 @@ async function selectItem(item: { id: number; itemId: number; name: string; icon
 
 .data-card {
   margin-top: 16px;
-}
-
-.price-best {
-  color: var(--app-success);
-  font-weight: 600;
 }
 
 @media (max-width: 768px) {
