@@ -1,6 +1,16 @@
 <script setup lang="ts">
 const changelog = [
   {
+    version: 'v1.7.3',
+    date: '2026-03-16',
+    highlights: [
+      '材料樹狀圖合併至製作價格樹：節點可直接切換製作/購買、加入模擬佇列',
+      '水晶統整至卡片 header，不再佔據樹狀分支',
+      '切換製作/購買不再重新打 API，純本地即時反應',
+      '移除獨立材料樹狀圖元件，簡化 UI',
+    ],
+  },
+  {
     version: 'v1.7.2',
     date: '2026-03-16',
     highlights: [

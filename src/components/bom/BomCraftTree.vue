@@ -11,7 +11,70 @@ const props = defineProps<{
   prices: Map<number, PriceInfo>
 }>()
 
+const emit = defineEmits<{
+  'simulate-recipe': [recipeId: number]
+  'toggle-collapsed': [node: MaterialNode]
+}>()
+
 const settings = useSettingsStore()
+
+const CRYSTAL_THRESHOLD = 20
+
+function isCrystal(node: MaterialNode): boolean {
+  return node.itemId < CRYSTAL_THRESHOLD
+}
+
+function getNonCrystalChildren(node: MaterialNode): MaterialNode[] {
+  return node.children?.filter(c => !isCrystal(c)) ?? []
+}
+
+function getCrystalChildren(node: MaterialNode): MaterialNode[] {
+  return node.children?.filter(c => isCrystal(c)) ?? []
+}
+
+interface CrystalSummary {
+  itemId: number
+  name: string
+  amount: number
+}
+
+const allCrystals = computed(() => {
+  const map = new Map<number, CrystalSummary>()
+  function walk(nodes: MaterialNode[]) {
+    for (const node of nodes) {
+      if (node.collapsed) {
+        // collapsed node: only count its own crystals (not sub-tree)
+        continue
+      }
+      for (const child of node.children ?? []) {
+        if (isCrystal(child)) {
+          const existing = map.get(child.itemId)
+          if (existing) {
+            existing.amount += child.amount
+          } else {
+            map.set(child.itemId, { itemId: child.itemId, name: child.name, amount: child.amount })
+          }
+        }
+      }
+      if (node.children) walk(node.children)
+    }
+  }
+  walk(props.tree)
+  return Array.from(map.values()).sort((a, b) => a.itemId - b.itemId)
+})
+
+const crystalColorsByElement = [
+  '#F87171', // fire
+  '#A78BFA', // ice
+  '#34D399', // wind
+  '#F472B6', // earth
+  '#FBBF24', // lightning
+  '#60A5FA', // water
+]
+
+function getCrystalColor(itemId: number): string {
+  return crystalColorsByElement[(itemId - 2) % 6]
+}
 
 function getUnitPrice(itemId: number): number {
   const info = props.prices.get(itemId)
@@ -39,7 +102,7 @@ interface NodeDisplayInfo {
 }
 
 function getNodeDisplayInfo(node: MaterialNode): NodeDisplayInfo | null {
-  if (!node.children || node.children.length === 0 || !node.recipeId) return null
+  if (!node.children || node.children.length === 0 || !node.recipeId || node.collapsed) return null
   const decision = decisionsMap.value.get(node.itemId)
   if (decision) {
     return {
@@ -88,12 +151,23 @@ const rootSummary = computed(() => {
       <div class="card-header">
         <span class="card-title">製作價格樹</span>
         <el-tag type="info" size="small">{{ settings.server }}</el-tag>
+        <div v-if="allCrystals.length > 0" class="crystal-tags">
+          <el-tag
+            v-for="c in allCrystals" :key="c.itemId"
+            type="info" effect="plain" round size="small"
+          >
+            <span class="crystal-dot" :style="{ background: getCrystalColor(c.itemId) }" />
+            {{ c.name }} ×{{ c.amount }}
+          </el-tag>
+        </div>
       </div>
     </template>
 
     <el-empty v-if="tree.length === 0" description="尚未計算" :image-size="80" />
 
-    <div v-else class="tree-scroll-container">
+    <template v-else>
+
+    <div class="tree-scroll-container">
       <!-- Iterate root nodes (usually 1) -->
       <div v-for="root in tree" :key="root.itemId" class="tree-root">
         <!-- Root node card -->
@@ -110,6 +184,11 @@ const rootSummary = computed(() => {
                 = {{ formatGil(getUnitPrice(root.itemId) * root.amount) }} Gil
               </span>
             </div>
+          </div>
+          <div v-if="root.recipeId" class="node-actions">
+            <el-button type="primary" size="small" text @click="emit('simulate-recipe', root.recipeId!)">
+              加入模擬佇列
+            </el-button>
           </div>
         </div>
 
@@ -134,17 +213,17 @@ const rootSummary = computed(() => {
           </div>
         </div>
 
-        <!-- Level 1 children -->
+        <!-- Level 1 children (non-crystal only) -->
         <div
-          v-if="root.children && root.children.length > 0"
+          v-if="getNonCrystalChildren(root).length > 0"
           class="tree-children"
         >
           <div
-            v-for="child in root.children"
+            v-for="child in getNonCrystalChildren(root)"
             :key="child.itemId"
             class="tree-branch"
           >
-            <!-- Intermediate decision box (only for craftable intermediates) -->
+            <!-- Intermediate decision box -->
             <div
               v-if="getNodeDisplayInfo(child)"
               class="decision-box node-decision"
@@ -167,7 +246,7 @@ const rootSummary = computed(() => {
             <!-- Child node card -->
             <div
               class="tree-node-card"
-              :class="child.recipeId ? 'intermediate-node' : 'raw-node'"
+              :class="[child.recipeId ? 'intermediate-node' : 'raw-node', { 'node-collapsed-card': child.collapsed }]"
             >
               <div class="node-content">
                 <div class="node-icon-wrapper">
@@ -175,22 +254,34 @@ const rootSummary = computed(() => {
                   <span v-if="child.amount > 1" class="qty-badge">{{ child.amount }}</span>
                 </div>
                 <div class="node-info">
-                  <span class="node-name">{{ child.name }}</span>
+                  <span class="node-name" :class="{ 'name-collapsed': child.collapsed }">{{ child.name }}</span>
                   <span class="node-price">
                     {{ formatGil(getUnitPrice(child.itemId)) }} × {{ child.amount }}
                     = {{ formatGil(getUnitPrice(child.itemId) * child.amount) }} Gil
                   </span>
                 </div>
               </div>
+              <div v-if="child.recipeId" class="node-actions">
+                <el-button
+                  :type="child.collapsed ? 'success' : 'warning'"
+                  size="small" text
+                  @click="emit('toggle-collapsed', child)"
+                >
+                  {{ child.collapsed ? '改為製作' : '改為購買' }}
+                </el-button>
+                <el-button type="primary" size="small" text @click="emit('simulate-recipe', child.recipeId!)">
+                  加入模擬佇列
+                </el-button>
+              </div>
             </div>
 
-            <!-- Level 2 children (grandchildren) -->
+            <!-- Level 2 children (non-crystal only) -->
             <div
-              v-if="child.children && child.children.length > 0"
+              v-if="getNonCrystalChildren(child).length > 0 && !child.collapsed"
               class="tree-children"
             >
               <div
-                v-for="grandchild in child.children"
+                v-for="grandchild in getNonCrystalChildren(child)"
                 :key="grandchild.itemId"
                 class="tree-branch"
               >
@@ -217,7 +308,7 @@ const rootSummary = computed(() => {
                 <!-- Grandchild node card -->
                 <div
                   class="tree-node-card"
-                  :class="grandchild.recipeId ? 'intermediate-node' : 'raw-node'"
+                  :class="[grandchild.recipeId ? 'intermediate-node' : 'raw-node', { 'node-collapsed-card': grandchild.collapsed }]"
                 >
                   <div class="node-content">
                     <div class="node-icon-wrapper">
@@ -225,22 +316,34 @@ const rootSummary = computed(() => {
                       <span v-if="grandchild.amount > 1" class="qty-badge">{{ grandchild.amount }}</span>
                     </div>
                     <div class="node-info">
-                      <span class="node-name">{{ grandchild.name }}</span>
+                      <span class="node-name" :class="{ 'name-collapsed': grandchild.collapsed }">{{ grandchild.name }}</span>
                       <span class="node-price">
                         {{ formatGil(getUnitPrice(grandchild.itemId)) }} × {{ grandchild.amount }}
                         = {{ formatGil(getUnitPrice(grandchild.itemId) * grandchild.amount) }} Gil
                       </span>
                     </div>
                   </div>
+                  <div v-if="grandchild.recipeId" class="node-actions">
+                    <el-button
+                      :type="grandchild.collapsed ? 'success' : 'warning'"
+                      size="small" text
+                      @click="emit('toggle-collapsed', grandchild)"
+                    >
+                      {{ grandchild.collapsed ? '改為製作' : '改為購買' }}
+                    </el-button>
+                    <el-button type="primary" size="small" text @click="emit('simulate-recipe', grandchild.recipeId!)">
+                      加入模擬佇列
+                    </el-button>
+                  </div>
                 </div>
 
-                <!-- Level 3 children -->
+                <!-- Level 3 children (non-crystal only) -->
                 <div
-                  v-if="grandchild.children && grandchild.children.length > 0"
+                  v-if="getNonCrystalChildren(grandchild).length > 0 && !grandchild.collapsed"
                   class="tree-children"
                 >
                   <div
-                    v-for="leaf in grandchild.children"
+                    v-for="leaf in getNonCrystalChildren(grandchild)"
                     :key="leaf.itemId"
                     class="tree-branch"
                   >
@@ -267,6 +370,7 @@ const rootSummary = computed(() => {
         </div>
       </div>
     </div>
+    </template>
   </el-card>
 </template>
 
@@ -278,6 +382,7 @@ const rootSummary = computed(() => {
 .card-header {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -305,7 +410,7 @@ const rootSummary = computed(() => {
   padding: 10px 14px;
   background: var(--el-bg-color);
   min-width: 160px;
-  max-width: 240px;
+  max-width: 280px;
 }
 
 .root-node {
@@ -370,10 +475,42 @@ const rootSummary = computed(() => {
   text-overflow: ellipsis;
 }
 
+.name-collapsed {
+  text-decoration: line-through;
+}
+
+.node-collapsed-card {
+  opacity: 0.5;
+}
+
+.node-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
 .node-price {
   font-size: 11px;
   color: var(--el-text-color-secondary);
   white-space: nowrap;
+}
+
+/* ---- Crystal tags in header ---- */
+.crystal-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.crystal-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 2px;
+  vertical-align: middle;
 }
 
 /* ---- Decision boxes ---- */

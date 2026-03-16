@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import BomTargetList from '@/components/bom/BomTargetList.vue'
-import BomMaterialTree from '@/components/bom/BomMaterialTree.vue'
+
 import BomSummary from '@/components/bom/BomSummary.vue'
 import BomCraftTree from '@/components/bom/BomCraftTree.vue'
 import { useBomStore } from '@/stores/bom'
@@ -17,7 +17,7 @@ const bomStore = useBomStore()
 const recipeStore = useRecipeStore()
 const settingsStore = useSettingsStore()
 
-const activeTab = ref('summary')
+const activeTab = ref('tree')
 const calculating = ref(false)
 const fetchingPrices = ref(false)
 const calculated = computed(() => bomStore.materialTree.length > 0)
@@ -60,7 +60,7 @@ async function fetchPrices(itemIds?: number[]) {
   try {
     const marketDataMap = await getAggregatedPrices(settingsStore.server, ids)
 
-    const priceMap = new Map<number, PriceInfo>()
+    const priceMap = new Map(bomStore.prices)
     for (const [id, data] of marketDataMap) {
       priceMap.set(id, {
         itemId: id,
@@ -95,7 +95,14 @@ async function handleSimulateRecipe(recipeId: number) {
 function handleToggleCollapsed(node: MaterialNode) {
   bomStore.toggleCollapsed(node)
   bomStore.recalcFlat()
-  fetchPrices(bomStore.flatMaterials.map(m => m.itemId))
+
+  // Only fetch prices for items not already in the cache
+  const missingIds = bomStore.flatMaterials
+    .map(m => m.itemId)
+    .filter(id => !bomStore.prices.has(id))
+  if (missingIds.length > 0) {
+    fetchPrices(missingIds)
+  }
 }
 
 function handleRefreshPrices() {
@@ -117,31 +124,25 @@ function handleRefreshPrices() {
 
     <template v-if="calculated && !calculating">
       <div class="section-gap">
-        <BomMaterialTree
-          :tree="bomStore.materialTree"
-          @simulate-recipe="handleSimulateRecipe"
-          @toggle-collapsed="handleToggleCollapsed"
-        />
-      </div>
-
-      <div class="section-gap">
         <div v-if="fetchingPrices" class="loading-section">
           <el-skeleton :rows="3" animated />
           <p class="loading-text">正在取得市場價格...</p>
         </div>
         <el-tabs v-else v-model="activeTab">
+          <el-tab-pane label="製作價格樹" name="tree">
+            <BomCraftTree
+              :tree="bomStore.materialTree"
+              :prices="bomStore.prices"
+              @simulate-recipe="handleSimulateRecipe"
+              @toggle-collapsed="handleToggleCollapsed"
+            />
+          </el-tab-pane>
           <el-tab-pane label="材料總覽" name="summary">
             <BomSummary
               :materials="bomStore.flatMaterials"
               :prices="bomStore.prices"
               :material-tree="bomStore.materialTree"
               @refresh-prices="handleRefreshPrices"
-            />
-          </el-tab-pane>
-          <el-tab-pane label="製作價格樹" name="tree">
-            <BomCraftTree
-              :tree="bomStore.materialTree"
-              :prices="bomStore.prices"
             />
           </el-tab-pane>
         </el-tabs>
