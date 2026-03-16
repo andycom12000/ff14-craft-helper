@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { watch, triggerRef } from 'vue'
+import { watch, triggerRef, computed } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useSettingsStore } from '@/stores/settings'
 import type { CrystalSummary, ServerGroup, MaterialWithPrice } from '@/services/shopping-list'
 import type { WorldPriceSummary } from '@/api/universalis'
 import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
@@ -15,6 +16,7 @@ const props = defineProps<{
   crossWorldCache?: Map<number, WorldPriceSummary[]>
 }>()
 
+const settingsStore = useSettingsStore()
 const { crossWorldData, crossWorldLoading, fetchCrossWorldData } = useCrossWorldPricing()
 
 // Seed composable cache with pre-fetched data from batch optimizer
@@ -47,6 +49,35 @@ function handleExpand(row: MaterialWithPrice, expandedRows: MaterialWithPrice[])
   if (!expanded) return
   fetchCrossWorldData(row.itemId, row.name)
 }
+
+// Compute single-server total from crossWorldCache for comparison
+const singleServerTotal = computed(() => {
+  if (!props.crossWorldCache || props.crossWorldCache.size === 0) return null
+  const server = settingsStore.server
+  let total = 0
+  for (const group of props.serverGroups) {
+    for (const item of group.items) {
+      const worlds = props.crossWorldCache.get(item.itemId)
+      if (!worlds) {
+        total += item.unitPrice * item.amount
+        continue
+      }
+      const myWorld = worlds.find(w => w.worldName === server)
+      // 0 means not listed in that quality — fall back to cross-server price
+      const localPrice = myWorld
+        ? (item.type === 'hq' ? myWorld.minPriceHQ : myWorld.minPriceNQ)
+        : 0
+      total += (localPrice > 0 ? localPrice : item.unitPrice) * item.amount
+    }
+  }
+  return total
+})
+
+const savingPercent = computed(() => {
+  const single = singleServerTotal.value
+  if (!single || single === 0 || props.grandTotal === 0) return null
+  return Math.round((1 - props.grandTotal / single) * 100)
+})
 
 function copyName(row: MaterialWithPrice, _col: unknown, event: Event) {
   // Don't copy when clicking the expand arrow column
@@ -140,6 +171,9 @@ function copyName(row: MaterialWithPrice, _col: unknown, event: Event) {
     <div class="grand-total">
       購買合計：{{ formatGil(grandTotal) }} Gil
     </div>
+    <div v-if="savingPercent != null && savingPercent > 0" class="cross-server-compare">
+      不跨服（{{ settingsStore.server }}）：{{ formatGil(singleServerTotal) }} Gil，跨服省 {{ savingPercent }}%
+    </div>
   </div>
 </template>
 
@@ -205,6 +239,13 @@ function copyName(row: MaterialWithPrice, _col: unknown, event: Event) {
   font-size: 17px;
   font-weight: 700;
   color: var(--el-color-warning);
+}
+
+.cross-server-compare {
+  text-align: right;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  margin-top: 4px;
 }
 
 @container (min-width: 900px) {
