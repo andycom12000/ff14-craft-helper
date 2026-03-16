@@ -140,8 +140,8 @@ const changelog = [
         :key="entry.version"
         :timestamp="`${entry.version}  —  ${entry.date}`"
         placement="top"
-        :type="entry.version === 'v1.7.2' ? 'primary' : ''"
-        :hollow="entry.version !== 'v1.7.2'"
+        :type="entry.version === changelog[0].version ? 'primary' : ''"
+        :hollow="entry.version !== changelog[0].version"
       >
         <ul class="changelog-list">
           <li v-for="(item, i) in entry.highlights" :key="i">{{ item }}</li>
