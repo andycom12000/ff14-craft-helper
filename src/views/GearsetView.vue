@@ -31,8 +31,7 @@ const tableData = computed(() =>
             <el-input-number
               :model-value="row.level"
               @update:model-value="(v: number) => store.updateGearset(row.job, { level: v })"
-              :min="1" :max="100" size="small" controls-position="right"
-            />
+              :min="1" :max="100" size="small"            />
           </template>
         </el-table-column>
 
@@ -41,8 +40,7 @@ const tableData = computed(() =>
             <el-input-number
               :model-value="row.craftsmanship"
               @update:model-value="(v: number) => store.updateGearset(row.job, { craftsmanship: v })"
-              :min="0" :max="9999" size="small" controls-position="right"
-            />
+              :min="0" :max="9999" size="small"            />
           </template>
         </el-table-column>
 
@@ -51,8 +49,7 @@ const tableData = computed(() =>
             <el-input-number
               :model-value="row.control"
               @update:model-value="(v: number) => store.updateGearset(row.job, { control: v })"
-              :min="0" :max="9999" size="small" controls-position="right"
-            />
+              :min="0" :max="9999" size="small"            />
           </template>
         </el-table-column>
 
@@ -61,8 +58,7 @@ const tableData = computed(() =>
             <el-input-number
               :model-value="row.cp"
               @update:model-value="(v: number) => store.updateGearset(row.job, { cp: v })"
-              :min="0" :max="9999" size="small" controls-position="right"
-            />
+              :min="0" :max="9999" size="small"            />
           </template>
         </el-table-column>
       </el-table>
@@ -78,32 +74,28 @@ const tableData = computed(() =>
             <el-input-number
               :model-value="row.level"
               @update:model-value="(v: number) => store.updateGearset(row.job, { level: v })"
-              :min="1" :max="100" size="small" controls-position="right"
-            />
+              :min="1" :max="100" size="small"            />
           </div>
           <div class="job-field">
             <label>作業精度</label>
             <el-input-number
               :model-value="row.craftsmanship"
               @update:model-value="(v: number) => store.updateGearset(row.job, { craftsmanship: v })"
-              :min="0" :max="9999" size="small" controls-position="right"
-            />
+              :min="0" :max="9999" size="small"            />
           </div>
           <div class="job-field">
             <label>加工精度</label>
             <el-input-number
               :model-value="row.control"
               @update:model-value="(v: number) => store.updateGearset(row.job, { control: v })"
-              :min="0" :max="9999" size="small" controls-position="right"
-            />
+              :min="0" :max="9999" size="small"            />
           </div>
           <div class="job-field">
             <label>CP</label>
             <el-input-number
               :model-value="row.cp"
               @update:model-value="(v: number) => store.updateGearset(row.job, { cp: v })"
-              :min="0" :max="9999" size="small" controls-position="right"
-            />
+              :min="0" :max="9999" size="small"            />
           </div>
         </div>
       </el-card>

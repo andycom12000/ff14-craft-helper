@@ -1,6 +1,19 @@
 <script setup lang="ts">
 const changelog = [
   {
+    version: 'v1.7.1',
+    highlights: [
+      '全站 UI/UX 改善：統一設計規範與視覺一致性',
+      '採購清單：購買合計強調框、伺服器群組標頭美化、複製閃爍回饋',
+      '批量製作：按鈕載入狀態、計算前空狀態提示、待辦進度條',
+      '全站數字輸入框統一為 +/- 按鈕樣式',
+      '新增全域 CSS 設計規範：spacing 變數、section-title、code-block',
+      '新增 prefers-reduced-motion 支援',
+      '配方頁面高度修正，改善手機版佈局',
+      '市場查價頁面新增空狀態提示',
+    ],
+  },
+  {
     version: 'v1.7.0',
     highlights: [
       '採購清單材料可展開查看跨服價格比較',
@@ -98,8 +111,8 @@ const changelog = [
         :key="entry.version"
         :timestamp="entry.version"
         placement="top"
-        :type="entry.version.startsWith('v1.7') ? 'primary' : ''"
-        :hollow="!entry.version.startsWith('v1.7')"
+        :type="entry.version === 'v1.7.1' ? 'primary' : ''"
+        :hollow="entry.version !== 'v1.7.1'"
       >
         <ul class="changelog-list">
           <li v-for="(item, i) in entry.highlights" :key="i">{{ item }}</li>

@@ -282,15 +282,6 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
   align-items: center;
 }
 
-.section-title {
-  margin: 16px 0 8px;
-  font-size: 14px;
-  color: var(--el-text-color-secondary);
-}
-
-.section-title:first-of-type {
-  margin-top: 0;
-}
 
 .subtotal {
   margin-top: 8px;

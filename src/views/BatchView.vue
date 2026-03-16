@@ -74,10 +74,11 @@ function handleTodoDone(index: number, done: boolean) {
           <el-button
             type="primary"
             size="large"
+            :loading="batchStore.isRunning"
             :disabled="batchStore.targets.length === 0 || batchStore.isRunning"
             @click="startOptimization"
           >
-            &#9654; 開始最佳化計算
+            {{ batchStore.isRunning ? '計算中...' : '▶ 開始最佳化計算' }}
           </el-button>
         </div>
 
@@ -90,9 +91,9 @@ function handleTodoDone(index: number, done: boolean) {
           class="batch-card"
         >
           <template #header>
-            <span class="card-title" style="color: var(--el-color-danger);">
+            <span class="card-title">
               例外提示
-              <el-badge :value="batchStore.results.exceptions.length" :max="99" />
+              <el-badge :value="batchStore.results.exceptions.length" :max="99" type="danger" />
             </span>
           </template>
           <ExceptionList :exceptions="batchStore.results.exceptions" />
@@ -110,7 +111,10 @@ function handleTodoDone(index: number, done: boolean) {
         </el-card>
       </div>
 
-      <!-- Right column: shopping list, only after calculation -->
+      <!-- Right column: shopping list or empty state -->
+      <div class="batch-right batch-right--empty" v-if="!batchStore.results">
+        <el-empty description="計算完成後，採購清單將顯示於此" />
+      </div>
       <div v-if="batchStore.results" class="batch-right">
         <el-card shadow="never">
           <template #header>
@@ -154,7 +158,21 @@ function handleTodoDone(index: number, done: boolean) {
 
 .batch-action {
   text-align: center;
-  padding: 20px 0;
+  padding: var(--space-md) 0;
+}
+
+.batch-right--empty {
+  display: none;
+}
+
+@media (min-width: 1601px) {
+  .batch-right--empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    min-height: 300px;
+  }
 }
 
 .batch-card {

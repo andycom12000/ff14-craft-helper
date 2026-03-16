@@ -57,7 +57,7 @@ async function copyMacro(text: string, index: number) {
       <div v-for="(macro, index) in macros" :key="index" class="macro-item">
         <el-text tag="b" size="small">巨集 {{ index + 1 }}</el-text>
         <pre
-          class="macro-block"
+          class="code-block"
           @click="copyMacro(macro, index)"
         >{{ macro }}</pre>
       </div>
@@ -95,26 +95,7 @@ async function copyMacro(text: string, index: number) {
   gap: 4px;
 }
 
-.macro-block {
-  margin: 0;
-  padding: 12px;
-  background: var(--el-fill-color-light);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 4px;
-  font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
-  font-size: 13px;
-  line-height: 1.6;
-  white-space: pre;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  user-select: none;
-}
-
-.macro-block:hover {
-  background: var(--el-fill-color);
-}
-
-.macro-block:active {
+.macro-export :deep(.code-block:active) {
   background: var(--el-fill-color-dark);
 }
 </style>

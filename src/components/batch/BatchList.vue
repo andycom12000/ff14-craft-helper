@@ -10,19 +10,19 @@ const batchStore = useBatchStore()
   <el-card shadow="never">
     <template #header>
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <span>製作清單</span>
+        <span class="card-title">製作清單</span>
         <el-text type="info" size="small">{{ batchStore.targets.length }} 個配方</el-text>
       </div>
     </template>
 
-    <el-table :data="batchStore.targets" v-if="batchStore.targets.length > 0">
+    <el-table :data="batchStore.targets" v-if="batchStore.targets.length > 0" size="small">
       <el-table-column label="" width="50">
         <template #default="{ row }">
           <img v-if="row.recipe.icon" :src="row.recipe.icon" style="width:24px;height:24px;border-radius:4px;" />
         </template>
       </el-table-column>
       <el-table-column label="配方名稱" prop="recipe.name" />
-      <el-table-column label="數量" width="100">
+      <el-table-column label="數量" width="150">
         <template #default="{ row }">
           <el-input-number
             :model-value="row.quantity"
@@ -30,8 +30,7 @@ const batchStore = useBatchStore()
             :min="1"
             :max="99"
             size="small"
-            controls-position="right"
-          />
+                      />
         </template>
       </el-table-column>
       <el-table-column label="職業" width="100">

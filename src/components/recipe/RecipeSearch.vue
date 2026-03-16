@@ -77,9 +77,9 @@ function handleRowClick(row: RecipeSearchResult) {
         <el-option v-for="job in CRAFT_JOBS" :key="job" :label="job" :value="job" />
       </el-select>
       <span class="filter-label">Lv.</span>
-      <el-input-number v-model="levelMin" :min="1" :max="999" placeholder="最低" size="small" controls-position="right" class="filter-level" />
+      <el-input-number v-model="levelMin" :min="1" :max="999" placeholder="最低" size="small" class="filter-level" />
       <span class="filter-sep">–</span>
-      <el-input-number v-model="levelMax" :min="1" :max="999" placeholder="最高" size="small" controls-position="right" class="filter-level" />
+      <el-input-number v-model="levelMax" :min="1" :max="999" placeholder="最高" size="small" class="filter-level" />
     </div>
 
     <el-table
@@ -133,6 +133,6 @@ function handleRowClick(row: RecipeSearchResult) {
 }
 
 .filter-level {
-  width: 90px;
+  width: 120px;
 }
 </style>

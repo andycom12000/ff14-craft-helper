@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { watch, triggerRef, computed } from 'vue'
+import { ref, watch, triggerRef, computed, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useSettingsStore } from '@/stores/settings'
 import type { CrystalSummary, ServerGroup, MaterialWithPrice } from '@/services/shopping-list'
@@ -32,16 +32,19 @@ watch(() => props.crossWorldCache, (cache) => {
   if (seeded) triggerRef(crossWorldData)
 }, { immediate: true })
 
-const crystalColors: Record<string, string> = {
-  '火': '#F87171', '水': '#60A5FA', '風': '#34D399',
-  '雷': '#FBBF24', '冰': '#A78BFA', '土': '#F472B6',
-}
+// Crystal itemIds 2-19, repeating every 6: fire, ice, wind, earth, lightning, water
+const crystalColorsByElement = [
+  '#F87171', // fire
+  '#A78BFA', // ice
+  '#34D399', // wind
+  '#F472B6', // earth
+  '#FBBF24', // lightning
+  '#60A5FA', // water
+]
 
-function getCrystalColor(name: string): string {
-  for (const [key, color] of Object.entries(crystalColors)) {
-    if (name.includes(key)) return color
-  }
-  return '#94A3B8'
+function getCrystalColor(itemId: number): string {
+  if (itemId < 2 || itemId > 19) return '#94A3B8'
+  return crystalColorsByElement[(itemId - 2) % 6]
 }
 
 function handleExpand(row: MaterialWithPrice, expandedRows: MaterialWithPrice[]) {
@@ -79,12 +82,26 @@ const savingPercent = computed(() => {
   return Math.round((1 - props.grandTotal / single) * 100)
 })
 
+const flashRowKey = ref<string | null>(null)
+
 function copyName(row: MaterialWithPrice, _col: unknown, event: Event) {
   // Don't copy when clicking the expand arrow column
   const target = event.target as HTMLElement
   if (target.closest('.el-table__expand-icon')) return
   navigator.clipboard.writeText(row.name)
   ElMessage({ message: `已複製「${row.name}」`, type: 'success', duration: 1500 })
+
+  // Flash feedback
+  const key = `${row.itemId}-${row.type}`
+  flashRowKey.value = key
+  nextTick(() => {
+    setTimeout(() => { flashRowKey.value = null }, 300)
+  })
+}
+
+function rowClassName({ row }: { row: MaterialWithPrice }) {
+  if (flashRowKey.value === `${row.itemId}-${row.type}`) return 'row-flash'
+  return ''
 }
 </script>
 
@@ -94,8 +111,8 @@ function copyName(row: MaterialWithPrice, _col: unknown, event: Event) {
     <div v-if="crystals.length > 0" class="crystal-section">
       <el-text size="small" type="info" tag="div" class="section-label">水晶（不計入費用）</el-text>
       <div class="crystal-tags">
-        <el-tag v-for="c in crystals" :key="c.itemId" effect="dark" round size="small">
-          <span class="crystal-dot" :style="{ background: getCrystalColor(c.name) }" />
+        <el-tag v-for="c in crystals" :key="c.itemId" type="info" effect="plain" round size="small">
+          <span class="crystal-dot" :style="{ background: getCrystalColor(c.itemId) }" />
           {{ c.name }} x{{ c.amount }}
         </el-tag>
       </div>
@@ -112,7 +129,7 @@ function copyName(row: MaterialWithPrice, _col: unknown, event: Event) {
         </div>
         <el-text type="warning" size="small" tag="b">小計：{{ formatGil(group.subtotal) }} Gil</el-text>
       </div>
-      <el-table :data="group.items" size="small" class="material-table clickable-rows" @expand-change="handleExpand" @row-click="copyName">
+      <el-table :data="group.items" size="small" class="material-table clickable-rows" :row-class-name="rowClassName" @expand-change="handleExpand" @row-click="copyName">
         <el-table-column type="expand">
           <template #default="{ row }">
             <CrossWorldPriceDetail
@@ -168,11 +185,14 @@ function copyName(row: MaterialWithPrice, _col: unknown, event: Event) {
     </div>
 
     <el-divider />
-    <div class="grand-total">
-      購買合計：{{ formatGil(grandTotal) }} Gil
-    </div>
-    <div v-if="savingPercent != null && savingPercent > 0" class="cross-server-compare">
-      不跨服（{{ settingsStore.server }}）：{{ formatGil(singleServerTotal) }} Gil，跨服省 {{ savingPercent }}%
+    <div class="grand-total-box">
+      <div class="grand-total">
+        購買合計：{{ formatGil(grandTotal) }} Gil
+      </div>
+      <div v-if="savingPercent != null && savingPercent > 0" class="cross-server-compare">
+        不跨服（{{ settingsStore.server }}）：{{ formatGil(singleServerTotal) }} Gil，跨服省
+        <span class="saving-percent">{{ savingPercent }}%</span>
+      </div>
     </div>
   </div>
 </template>
@@ -211,7 +231,10 @@ function copyName(row: MaterialWithPrice, _col: unknown, event: Event) {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-sm);
+  background: var(--el-fill-color-lighter);
+  border-radius: 6px;
+  padding: 8px 12px;
 }
 
 .server-info {
@@ -234,18 +257,35 @@ function copyName(row: MaterialWithPrice, _col: unknown, event: Event) {
   cursor: pointer;
 }
 
+.grand-total-box {
+  background: rgba(124, 58, 237, 0.08);
+  border-left: 3px solid var(--app-accent);
+  border-radius: 8px;
+  padding: 16px 20px;
+}
+
 .grand-total {
   text-align: right;
-  font-size: 17px;
+  font-size: 20px;
   font-weight: 700;
   color: var(--el-color-warning);
 }
 
 .cross-server-compare {
   text-align: right;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--el-text-color-secondary);
   margin-top: 4px;
+}
+
+.saving-percent {
+  color: var(--app-success);
+  font-weight: 600;
+}
+
+.clickable-rows :deep(.row-flash td) {
+  background-color: var(--app-accent-glow) !important;
+  transition: background-color 0.3s;
 }
 
 @container (min-width: 900px) {

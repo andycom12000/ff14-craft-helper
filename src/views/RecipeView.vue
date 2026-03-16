@@ -92,7 +92,8 @@ function handleAddToBom() {
 
 <style scoped>
 .recipe-content {
-  height: calc(100vh - 160px);
+  min-height: 400px;
+  flex: 1;
 }
 
 .recipe-card {

@@ -79,6 +79,8 @@ async function selectItem(item: { id: number; itemId: number; name: string; icon
       </div>
     </el-card>
 
+    <el-empty v-if="!selectedItem && searchResults.length === 0" description="搜尋物品名稱以查看市場價格" style="margin-top: 48px;" />
+
     <template v-if="selectedItem">
       <div class="selected-item">
         <img v-if="selectedItem.icon" :src="selectedItem.icon" style="width: 32px; height: 32px" />

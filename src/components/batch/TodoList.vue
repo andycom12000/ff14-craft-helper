@@ -10,6 +10,11 @@ const emit = defineEmits<{ 'update:done': [index: number, done: boolean] }>()
 
 const expandedMacro = ref<number | null>(null)
 
+const doneCount = computed(() => props.items.filter(i => i.done).length)
+const progressPercent = computed(() =>
+  props.items.length === 0 ? 0 : Math.round((doneCount.value / props.items.length) * 100),
+)
+
 const macroCache = computed(() =>
   new Map(props.items.map((item, i) => [i, formatMacros(item.actions)])),
 )
@@ -104,16 +109,19 @@ function resetAll() {
             <el-text size="small" tag="b">巨集 {{ mi + 1 }}</el-text>
             <el-button size="small" type="primary" @click="copyMacro(macro)">複製</el-button>
           </div>
-          <pre class="macro-code" @click="copyMacro(macro)">{{ macro }}</pre>
+          <pre class="code-block" @click="copyMacro(macro)">{{ macro }}</pre>
         </div>
       </div>
     </div>
 
     <div v-if="items.length > 0" class="todo-footer">
-      <el-text size="small" type="info">
-        進度：{{ items.filter(i => i.done).length }} / {{ items.length }} 完成
-      </el-text>
-      <el-button size="small" @click="resetAll">全部重設</el-button>
+      <el-progress :percentage="progressPercent" :stroke-width="10" class="todo-progress" />
+      <div class="todo-footer-row">
+        <el-text size="small" type="info">
+          進度：{{ doneCount }} / {{ items.length }} 完成
+        </el-text>
+        <el-button size="small" @click="resetAll">全部重設</el-button>
+      </div>
     </div>
   </div>
 </template>
@@ -217,30 +225,20 @@ function resetAll() {
   margin-bottom: 4px;
 }
 
-.macro-code {
-  margin: 0;
-  padding: 10px 12px;
-  background: var(--el-fill-color-light);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 4px;
-  font-family: 'Fira Code', 'Consolas', monospace;
-  font-size: 12px;
-  line-height: 1.6;
-  white-space: pre;
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-
-.macro-code:hover {
-  background: var(--el-fill-color);
-}
 
 .todo-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.todo-progress {
+  margin-bottom: 8px;
+}
+
+.todo-footer-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 </style>

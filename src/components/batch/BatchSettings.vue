@@ -17,8 +17,7 @@ const settings = useSettingsStore()
           v-if="settings.recursivePricing"
           v-model="settings.maxRecursionDepth"
           :min="1" :max="10" size="small"
-          controls-position="right"
-          style="width: 70px;"
+                    style="width: 120px;"
         />
       </div>
       <el-divider direction="vertical" />
@@ -61,5 +60,15 @@ const settings = useSettingsStore()
 
 .settings-text {
   font-size: 13px;
+}
+
+@media (max-width: 768px) {
+  .settings-row :deep(.el-divider--vertical) {
+    display: none;
+  }
+
+  .settings-row {
+    gap: var(--space-md);
+  }
 }
 </style>

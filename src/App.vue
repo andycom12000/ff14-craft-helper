@@ -98,6 +98,13 @@ watch(() => route.path, () => {
   --app-accent-light: #A78BFA;
   --app-accent-glow: rgba(124, 58, 237, 0.2);
   --app-success: #4ade80;
+
+  /* Spacing scale */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
 }
 
 html {
@@ -270,6 +277,53 @@ html, body {
   font-size: 15px;
   font-weight: 600;
   color: var(--app-text);
+}
+
+/* Unified section title for sub-headings within cards */
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-secondary);
+  margin: var(--space-md) 0 var(--space-sm);
+}
+
+.section-title:first-child {
+  margin-top: 0;
+}
+
+/* Unified code block for macro/snippet display */
+.code-block {
+  margin: 0;
+  padding: 12px;
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 4px;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s;
+}
+
+.code-block:hover {
+  background: var(--el-fill-color);
+}
+
+/*
+ * Max-width conventions:
+ *   720px  — forms/settings (SettingsView, ChangelogView)
+ *   960px  — single-column data views (BomView, MarketView)
+ *   full   — complex multi-column layouts (BatchView, SimulatorView, RecipeView, GearsetView)
+ */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 </style>
 
