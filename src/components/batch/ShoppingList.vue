@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { watch, triggerRef } from 'vue'
+import { ElMessage } from 'element-plus'
 import type { CrystalSummary, ServerGroup, MaterialWithPrice } from '@/services/shopping-list'
 import type { WorldPriceSummary } from '@/api/universalis'
 import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
@@ -46,6 +47,14 @@ function handleExpand(row: MaterialWithPrice, expandedRows: MaterialWithPrice[])
   if (!expanded) return
   fetchCrossWorldData(row.itemId, row.name)
 }
+
+function copyName(row: MaterialWithPrice, _col: unknown, event: Event) {
+  // Don't copy when clicking the expand arrow column
+  const target = event.target as HTMLElement
+  if (target.closest('.el-table__expand-icon')) return
+  navigator.clipboard.writeText(row.name)
+  ElMessage({ message: `已複製「${row.name}」`, type: 'success', duration: 1500 })
+}
 </script>
 
 <template>
@@ -72,7 +81,7 @@ function handleExpand(row: MaterialWithPrice, expandedRows: MaterialWithPrice[])
         </div>
         <el-text type="warning" size="small" tag="b">小計：{{ formatGil(group.subtotal) }} Gil</el-text>
       </div>
-      <el-table :data="group.items" size="small" class="material-table" @expand-change="handleExpand">
+      <el-table :data="group.items" size="small" class="material-table clickable-rows" @expand-change="handleExpand" @row-click="copyName">
         <el-table-column type="expand">
           <template #default="{ row }">
             <CrossWorldPriceDetail
@@ -115,7 +124,7 @@ function handleExpand(row: MaterialWithPrice, expandedRows: MaterialWithPrice[])
           <el-text size="small" type="info">{{ selfCraftItems.length }} 項素材</el-text>
         </div>
       </div>
-      <el-table :data="selfCraftItems" size="small" class="material-table">
+      <el-table :data="selfCraftItems" size="small" class="material-table clickable-rows" @row-click="copyName">
         <el-table-column label="" width="36">
           <template #default="{ row }">
             <img v-if="row.icon" :src="row.icon" :alt="row.name" class="material-icon" />
@@ -185,6 +194,10 @@ function handleExpand(row: MaterialWithPrice, expandedRows: MaterialWithPrice[])
 
 .material-table {
   --el-table-border-color: var(--el-border-color-lighter);
+}
+
+.clickable-rows :deep(.el-table__row) {
+  cursor: pointer;
 }
 
 .grand-total {

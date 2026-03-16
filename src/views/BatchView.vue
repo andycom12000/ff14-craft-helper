@@ -114,7 +114,10 @@ function handleTodoDone(index: number, done: boolean) {
       <div v-if="batchStore.results" class="batch-right">
         <el-card shadow="never">
           <template #header>
-            <span class="card-title">採購清單</span>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span class="card-title">採購清單</span>
+              <el-text size="small" type="info">點擊素材行可複製品名</el-text>
+            </div>
           </template>
           <ShoppingList
             :crystals="batchStore.results.crystals"
