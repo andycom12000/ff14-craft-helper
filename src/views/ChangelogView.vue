@@ -1,6 +1,14 @@
 <script setup lang="ts">
 const changelog = [
   {
+    version: 'v1.7.2',
+    date: '2026-03-16',
+    highlights: [
+      '新增 deploy-verify agent：推送 tag 後自動監控部署並截圖驗證 production',
+      '新增 PostToolUse hook：偵測 tag push 後自動觸發部署驗證流程',
+    ],
+  },
+  {
     version: 'v1.7.1',
     date: '2026-03-16',
     highlights: [
@@ -122,8 +130,8 @@ const changelog = [
         :key="entry.version"
         :timestamp="`${entry.version}  —  ${entry.date}`"
         placement="top"
-        :type="entry.version === 'v1.7.1' ? 'primary' : ''"
-        :hollow="entry.version !== 'v1.7.1'"
+        :type="entry.version === 'v1.7.2' ? 'primary' : ''"
+        :hollow="entry.version !== 'v1.7.2'"
       >
         <ul class="changelog-list">
           <li v-for="(item, i) in entry.highlights" :key="i">{{ item }}</li>
