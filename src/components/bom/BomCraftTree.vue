@@ -28,10 +28,6 @@ function getNonCrystalChildren(node: MaterialNode): MaterialNode[] {
   return node.children?.filter(c => !isCrystal(c)) ?? []
 }
 
-function getCrystalChildren(node: MaterialNode): MaterialNode[] {
-  return node.children?.filter(c => isCrystal(c)) ?? []
-}
-
 interface CrystalSummary {
   itemId: number
   name: string

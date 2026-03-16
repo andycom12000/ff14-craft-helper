@@ -11,7 +11,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { buildMaterialTree, flattenMaterialTree } from '@/services/bom-calculator'
 import { getAggregatedPrices } from '@/api/universalis'
 import { getRecipe } from '@/api/xivapi'
-import type { PriceInfo, MaterialNode } from '@/stores/bom'
+import type { MaterialNode } from '@/stores/bom'
 
 const bomStore = useBomStore()
 const recipeStore = useRecipeStore()
