@@ -34,6 +34,11 @@ const router = createRouter({
       component: () => import('@/views/MarketView.vue'),
     },
     {
+      path: '/changelog',
+      name: 'changelog',
+      component: () => import('@/views/ChangelogView.vue'),
+    },
+    {
       path: '/settings',
       name: 'settings',
       component: () => import('@/views/SettingsView.vue'),

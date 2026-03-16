@@ -6,6 +6,9 @@
 - 建立 tag 時，務必先用 `git tag --sort=-v:refname | head -1` 查詢目前最大版本號
 - 新 tag 必須基於最大版本遞增（例如最大版本為 v1.3.0，則下一個 patch 為 v1.3.1）
 - 絕對不要自行猜測版本號
+- **打 tag 前必須先將該版本的 changelog 寫入 `src/views/ChangelogView.vue` 並 commit**
+  - PreToolUse hook（`.claude/scripts/check-changelog.sh`）會自動檢查
+  - 若 ChangelogView.vue 中找不到該版本號，`git tag` 指令會被攔截
 
 ### Commit Convention
 - 使用 conventional commits 格式（feat/fix/refactor/docs/chore）

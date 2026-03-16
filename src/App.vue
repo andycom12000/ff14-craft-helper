@@ -10,6 +10,7 @@ import {
   Suitcase,
   Operation,
   Close,
+  Document,
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -65,6 +66,10 @@ watch(() => route.path, () => {
           <span>市場查價</span>
         </el-menu-item>
         <el-divider class="menu-divider" />
+        <el-menu-item index="/changelog">
+          <el-icon><Document /></el-icon>
+          <span>更新日誌</span>
+        </el-menu-item>
         <el-menu-item index="/settings">
           <el-icon><Setting /></el-icon>
           <span>設定</span>
