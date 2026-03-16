@@ -190,7 +190,7 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
         購買合計：{{ formatGil(grandTotal) }} Gil
       </div>
       <div v-if="savingPercent != null && savingPercent > 0" class="cross-server-compare">
-        不跨服（{{ settingsStore.server }}）：{{ formatGil(singleServerTotal) }} Gil，跨服省
+        不跨服（{{ settingsStore.server }}）：{{ formatGil(singleServerTotal!) }} Gil，跨服省
         <span class="saving-percent">{{ savingPercent }}%</span>
       </div>
     </div>
