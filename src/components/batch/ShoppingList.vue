@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { CrystalSummary, ServerGroup, MaterialWithPrice } from '@/services/shopping-list'
+import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
+import CrossWorldPriceDetail from '@/components/common/CrossWorldPriceDetail.vue'
 import { formatGil } from '@/utils/format'
 
 defineProps<{
@@ -8,6 +10,8 @@ defineProps<{
   selfCraftItems: MaterialWithPrice[]
   grandTotal: number
 }>()
+
+const { crossWorldData, crossWorldLoading, fetchCrossWorldData } = useCrossWorldPricing()
 
 const crystalColors: Record<string, string> = {
   '火': '#F87171', '水': '#60A5FA', '風': '#34D399',
@@ -20,10 +24,16 @@ function getCrystalColor(name: string): string {
   }
   return '#94A3B8'
 }
+
+function handleExpand(row: MaterialWithPrice, expandedRows: MaterialWithPrice[]) {
+  const expanded = expandedRows.some(r => r.itemId === row.itemId && r.type === row.type)
+  if (!expanded) return
+  fetchCrossWorldData(row.itemId, row.name)
+}
 </script>
 
 <template>
-  <div class="shopping-list">
+  <div class="shopping-list" style="container-type: inline-size;">
     <!-- Crystals -->
     <div v-if="crystals.length > 0" class="crystal-section">
       <el-text size="small" type="info" tag="div" class="section-label">水晶（不計入費用）</el-text>
@@ -46,7 +56,16 @@ function getCrystalColor(name: string): string {
         </div>
         <el-text type="warning" size="small" tag="b">小計：{{ formatGil(group.subtotal) }} Gil</el-text>
       </div>
-      <el-table :data="group.items" size="small" class="material-table">
+      <el-table :data="group.items" size="small" class="material-table" @expand-change="handleExpand">
+        <el-table-column type="expand">
+          <template #default="{ row }">
+            <CrossWorldPriceDetail
+              :data="crossWorldData.get(row.itemId)"
+              :loading="crossWorldLoading.has(row.itemId)"
+              show-listing-count
+            />
+          </template>
+        </el-table-column>
         <el-table-column label="" width="36">
           <template #default="{ row }">
             <img v-if="row.icon" :src="row.icon" :alt="row.name" class="material-icon" />
@@ -120,7 +139,7 @@ function getCrystalColor(name: string): string {
 }
 
 .server-grid {
-  columns: 2;
+  columns: 1;
   column-gap: 16px;
 }
 
@@ -159,9 +178,9 @@ function getCrystalColor(name: string): string {
   color: var(--el-color-warning);
 }
 
-@media (max-width: 900px) {
+@container (min-width: 900px) {
   .server-grid {
-    columns: 1;
+    columns: 2;
   }
 }
 </style>

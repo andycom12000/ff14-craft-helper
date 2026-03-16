@@ -157,7 +157,7 @@ function handleTodoDone(index: number, done: boolean) {
   margin-top: 16px;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1600px) {
   .batch-layout {
     flex-direction: column;
   }
@@ -168,6 +168,7 @@ function handleTodoDone(index: number, done: boolean) {
 
   .batch-right {
     position: static;
+    width: 100%;
   }
 }
 
