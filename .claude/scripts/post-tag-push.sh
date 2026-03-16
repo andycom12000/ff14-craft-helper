@@ -24,9 +24,9 @@ esac
 VERSION=$(echo "$COMMAND" | sed -n 's/.*\(v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p')
 
 if [ -n "$VERSION" ]; then
-  echo "Tag $VERSION was pushed. Spawn the deploy-verify agent (run_in_background) to monitor the deployment and verify production UI with screenshots."
+  echo "Tag $VERSION was pushed. Spawn the deploy-verify agent in FOREGROUND (do NOT use run_in_background) to monitor the deployment and verify production UI with screenshots. Wait for the agent to complete before proceeding."
 else
-  echo "Tags were pushed. Spawn the deploy-verify agent (run_in_background) to monitor the deployment and verify production UI with screenshots."
+  echo "Tags were pushed. Spawn the deploy-verify agent in FOREGROUND (do NOT use run_in_background) to monitor the deployment and verify production UI with screenshots. Wait for the agent to complete before proceeding."
 fi
 
 exit 0
