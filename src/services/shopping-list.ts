@@ -11,6 +11,8 @@ export interface MaterialWithPrice extends MaterialBase {
   type: 'nq' | 'hq' | 'craft'
   unitPrice: number
   server?: string
+  isFinishedProduct?: boolean
+  craftCostComparison?: { craftCost: number; buyPrice: number }
 }
 
 export interface CrystalSummary {

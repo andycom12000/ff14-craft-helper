@@ -30,12 +30,21 @@ export interface TodoItem {
   done: boolean
 }
 
+export interface BuyFinishedDecision {
+  recipe: Recipe
+  quantity: number
+  craftCost: number    // per-unit craft cost
+  buyPrice: number     // per-unit buy price
+  buyServer?: string
+}
+
 export interface BatchResults {
   serverGroups: ServerGroup[]
   crystals: CrystalSummary[]
   selfCraftItems: ShoppingItem[]
   todoList: TodoItem[]
   exceptions: BatchException[]
+  buyFinishedItems: BuyFinishedDecision[]
   grandTotal: number
   crossWorldCache: Map<number, WorldPriceSummary[]>
 }

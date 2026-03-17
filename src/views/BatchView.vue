@@ -127,6 +127,7 @@ function handleTodoDone(index: number, done: boolean) {
             :crystals="batchStore.results.crystals"
             :server-groups="batchStore.results.serverGroups"
             :self-craft-items="batchStore.results.selfCraftItems"
+            :buy-finished-items="batchStore.results.buyFinishedItems"
             :grand-total="batchStore.results.grandTotal"
             :cross-world-cache="batchStore.results.crossWorldCache"
           />

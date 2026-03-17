@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { useSettingsStore } from '@/stores/settings'
 import type { CrystalSummary, ServerGroup, MaterialWithPrice } from '@/services/shopping-list'
 import type { WorldPriceSummary } from '@/api/universalis'
+import type { BuyFinishedDecision } from '@/stores/batch'
 import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
 import CrossWorldPriceDetail from '@/components/common/CrossWorldPriceDetail.vue'
 import { formatGil } from '@/utils/format'
@@ -12,9 +13,17 @@ const props = defineProps<{
   crystals: CrystalSummary[]
   serverGroups: ServerGroup[]
   selfCraftItems: MaterialWithPrice[]
+  buyFinishedItems: BuyFinishedDecision[]
   grandTotal: number
   crossWorldCache?: Map<number, WorldPriceSummary[]>
 }>()
+
+const buyFinishedSavings = computed(() => {
+  if (!props.buyFinishedItems.length) return null
+  const totalSaved = props.buyFinishedItems.reduce(
+    (sum, bf) => sum + (bf.craftCost - bf.buyPrice) * bf.quantity, 0)
+  return { count: props.buyFinishedItems.length, totalSaved }
+})
 
 const settingsStore = useSettingsStore()
 const { crossWorldData, crossWorldLoading, fetchCrossWorldData } = useCrossWorldPricing()
@@ -119,6 +128,15 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
       <el-divider />
     </div>
 
+    <!-- Buy-finished summary -->
+    <div v-if="buyFinishedSavings" class="buy-finished-summary">
+      <el-alert type="success" :closable="false" show-icon>
+        <template #title>
+          {{ buyFinishedSavings.count }} 件配方改為直購成品，共省 {{ formatGil(buyFinishedSavings.totalSaved) }} Gil
+        </template>
+      </el-alert>
+    </div>
+
     <!-- Server groups -->
     <div class="server-grid">
     <div v-for="group in serverGroups" :key="group.server" class="server-group">
@@ -144,7 +162,17 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
             <img v-if="row.icon" :src="row.icon" :alt="row.name" class="material-icon" />
           </template>
         </el-table-column>
-        <el-table-column label="素材" prop="name" min-width="120" />
+        <el-table-column label="素材" min-width="120">
+          <template #default="{ row }">
+            <span>{{ row.name }}</span>
+            <template v-if="row.isFinishedProduct">
+              <el-tag size="small" type="success" class="finished-badge">直購成品</el-tag>
+              <div v-if="row.craftCostComparison" class="craft-compare-hint">
+                自製需 {{ formatGil(row.craftCostComparison.craftCost) }} Gil，省 {{ formatGil(row.craftCostComparison.craftCost - row.craftCostComparison.buyPrice) }} Gil
+              </div>
+            </template>
+          </template>
+        </el-table-column>
         <el-table-column label="類型" width="55">
           <template #default="{ row }">
             <el-tag size="small" :type="row.type === 'hq' ? 'warning' : 'info'">
@@ -286,6 +314,21 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
 .clickable-rows :deep(.row-flash td) {
   background-color: var(--app-accent-glow) !important;
   transition: background-color 0.3s;
+}
+
+.buy-finished-summary {
+  margin-bottom: 12px;
+}
+
+.finished-badge {
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.craft-compare-hint {
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+  margin-top: 2px;
 }
 
 @container (min-width: 900px) {

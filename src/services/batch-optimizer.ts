@@ -1,6 +1,6 @@
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
-import type { BatchException, BatchTarget, BatchResults, TodoItem } from '@/stores/batch'
+import type { BatchException, BatchTarget, BatchResults, TodoItem, BuyFinishedDecision } from '@/stores/batch'
 import type { MaterialWithPrice, MaterialBase } from '@/services/shopping-list'
 import { markRaw } from 'vue'
 import { solveCraft, simulateCraft, waitForWasm } from '@/solver/worker'
@@ -154,11 +154,88 @@ export async function runBatchOptimization(
     }
   }
 
-  // === Phase 4: Aggregate materials with HQ/NQ distinction ===
+  // === Phase 4: Early price query (materials + finished products) ===
+  onProgress({ current: targets.length, total: targets.length, name: '查詢市場價格', phase: 'pricing', solverPercent: 100 })
+
+  // Collect all material itemIds (excluding crystals) + finished product itemIds
+  const allMaterialIds = new Set<number>()
+  const finishedProductIds = new Set<number>()
+  for (const r of recipeResults) {
+    finishedProductIds.add(r.recipe.itemId)
+    for (const m of r.materials) {
+      if (m.itemId >= 20) allMaterialIds.add(m.itemId)
+    }
+  }
+  // Merge into single query
+  const allItemIds = [...new Set([...allMaterialIds, ...finishedProductIds])]
+  const priceSource = settings.crossServer ? settings.dataCenter : settings.server
+  const earlyPriceMap = await getAggregatedPrices(priceSource, allItemIds)
+
+  // === Phase 4.5: Compare craft cost vs buy price per recipe ===
+  const recipesToCraft: RecipeOptimizeResult[] = []
+  const buyFinishedItems: BuyFinishedDecision[] = []
+
+  for (const r of recipeResults) {
+    // Calculate per-unit craft cost from materials
+    let craftCostPerUnit = 0
+    for (let j = 0; j < r.materials.length; j++) {
+      const m = r.materials[j]
+      if (m.itemId < 20) continue // skip crystals
+      const md = earlyPriceMap.get(m.itemId)
+      const hqCount = r.hqAmounts[j] ?? 0
+      const nqCount = m.amount - hqCount
+      const nqPrice = md?.minPriceNQ ?? 0
+      const hqPrice = md?.minPriceHQ ?? 0
+      craftCostPerUnit += nqPrice * nqCount + hqPrice * hqCount
+    }
+
+    // Get finished product buy price
+    const finishedMd = earlyPriceMap.get(r.recipe.itemId)
+    let buyPrice = 0
+    let buyServer: string | undefined
+
+    if (settings.crossServer && finishedMd?.listings?.length) {
+      // Find cheapest server for the needed quantity
+      const worldMap = new Map<string, typeof finishedMd.listings>()
+      for (const l of finishedMd.listings) {
+        const w = l.worldName ?? settings.server
+        if (!worldMap.has(w)) worldMap.set(w, [])
+        worldMap.get(w)!.push(l)
+      }
+      let bestCost = Infinity
+      for (const [world, worldListings] of worldMap) {
+        const purchase = calculateBestPurchase(worldListings, r.quantity, false)
+        if (purchase.fulfilled && purchase.totalCost < bestCost) {
+          bestCost = purchase.totalCost
+          buyServer = world
+        }
+      }
+      if (bestCost < Infinity) {
+        buyPrice = Math.round(bestCost / r.quantity)
+      }
+    } else {
+      buyPrice = finishedMd?.minPriceNQ ?? 0
+      buyServer = settings.server
+    }
+
+    if (buyPrice > 0 && buyPrice <= craftCostPerUnit) {
+      buyFinishedItems.push({
+        recipe: r.recipe,
+        quantity: r.quantity,
+        craftCost: craftCostPerUnit,
+        buyPrice,
+        buyServer,
+      })
+    } else {
+      recipesToCraft.push(r)
+    }
+  }
+
+  // === Phase 5: Aggregate materials (only for recipes still being crafted) ===
   const allTypedMaterials: TypedMaterial[] = []
   const selfCraftItems: MaterialWithPrice[] = []
 
-  for (const r of recipeResults) {
+  for (const r of recipesToCraft) {
     for (let j = 0; j < r.materials.length; j++) {
       const m = r.materials[j]
       const hqCount = r.hqAmounts[j] ?? 0
@@ -212,14 +289,22 @@ export async function runBatchOptimization(
     }
   }
 
-  // === Phase 5: Price query + cross-server grouping ===
-  onProgress({ current: targets.length, total: targets.length, name: '', phase: 'pricing', solverPercent: 100 })
+  // === Phase 5.5: Price materials + add buy-finished items to shopping list ===
   const itemIds = [...new Set(nonCrystals.map(m => m.itemId))]
-  let pricedMaterials: MaterialWithPrice[]
+  // If we need prices for items not already fetched, extend the query
+  const missingIds = itemIds.filter(id => !earlyPriceMap.has(id))
+  if (missingIds.length > 0) {
+    const extraPrices = await getAggregatedPrices(priceSource, missingIds)
+    for (const [id, md] of extraPrices) {
+      earlyPriceMap.set(id, md)
+    }
+  }
 
+  let pricedMaterials: MaterialWithPrice[]
   let dcPriceMap: Map<number, MarketData> | null = null
+
   if (settings.crossServer) {
-    dcPriceMap = await getAggregatedPrices(settings.dataCenter, itemIds)
+    dcPriceMap = earlyPriceMap
     pricedMaterials = nonCrystals.map(m => {
       const md = dcPriceMap!.get(m.itemId)
       const isHq = m.matType === 'hq'
@@ -227,7 +312,6 @@ export async function runBatchOptimization(
       let bestCost = Infinity
 
       if (md?.listings && md.listings.length > 0) {
-        // Group listings by world, then find cheapest whole-stack purchase per world
         const worldMap = new Map<string, typeof md.listings>()
         for (const l of md.listings) {
           const w = l.worldName ?? settings.server
@@ -243,7 +327,6 @@ export async function runBatchOptimization(
         }
       }
 
-      // Fallback to aggregate min price if no listings
       if (bestCost === Infinity) {
         const fallbackUnit = isHq ? (md?.minPriceHQ ?? 0) : (md?.minPriceNQ ?? 0)
         bestCost = fallbackUnit * m.amount
@@ -256,9 +339,8 @@ export async function runBatchOptimization(
       }
     })
   } else {
-    const priceMap = await getAggregatedPrices(settings.server, itemIds)
     pricedMaterials = nonCrystals.map(m => {
-      const md = priceMap.get(m.itemId)
+      const md = earlyPriceMap.get(m.itemId)
       const isHq = m.matType === 'hq'
 
       if (md?.listings && md.listings.length > 0) {
@@ -272,13 +354,27 @@ export async function runBatchOptimization(
         }
       }
 
-      // Fallback
       return {
         itemId: m.itemId, name: m.name, icon: m.icon, amount: m.amount,
         type: isHq ? 'hq' as const : 'nq' as const,
         unitPrice: isHq ? (md?.minPriceHQ ?? 0) : (md?.minPriceNQ ?? 0),
         server: settings.server,
       }
+    })
+  }
+
+  // Add buy-finished items into pricedMaterials
+  for (const bf of buyFinishedItems) {
+    pricedMaterials.push({
+      itemId: bf.recipe.itemId,
+      name: bf.recipe.name,
+      icon: bf.recipe.icon,
+      amount: bf.quantity,
+      type: 'nq',
+      unitPrice: bf.buyPrice,
+      server: bf.buyServer,
+      isFinishedProduct: true,
+      craftCostComparison: { craftCost: bf.craftCost, buyPrice: bf.buyPrice },
     })
   }
 
@@ -295,11 +391,11 @@ export async function runBatchOptimization(
     }
   }
 
-  // === Phase 6: Todo list (semi-finished first, then top-level) ===
-  const todoList: TodoItem[] = recipeResults.map(r => ({
+  // === Phase 6: Todo list (only recipes still being crafted) ===
+  const todoList: TodoItem[] = recipesToCraft.map(r => ({
     recipe: r.recipe, quantity: r.quantity, actions: r.actions,
     hqAmounts: r.hqAmounts, isSemiFinished: false, done: false,
   }))
 
-  return { serverGroups, crystals, selfCraftItems, todoList, exceptions, grandTotal, crossWorldCache }
+  return { serverGroups, crystals, selfCraftItems, todoList, exceptions, buyFinishedItems, grandTotal, crossWorldCache }
 }
