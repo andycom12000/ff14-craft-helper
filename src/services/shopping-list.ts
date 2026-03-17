@@ -160,6 +160,33 @@ export function calculateBestPurchase(
   }
 }
 
+/**
+ * Group listings by worldName, find the cheapest server that can fulfill the needed quantity.
+ */
+export function findCheapestServerPurchase(
+  listings: MarketListing[],
+  neededQty: number,
+  hq: boolean,
+  fallbackServer: string,
+): { bestCost: number; bestServer: string } {
+  const worldMap = new Map<string, MarketListing[]>()
+  for (const l of listings) {
+    const w = l.worldName ?? fallbackServer
+    if (!worldMap.has(w)) worldMap.set(w, [])
+    worldMap.get(w)!.push(l)
+  }
+  let bestCost = Infinity
+  let bestServer = fallbackServer
+  for (const [world, worldListings] of worldMap) {
+    const purchase = calculateBestPurchase(worldListings, neededQty, hq)
+    if (purchase.fulfilled && purchase.totalCost < bestCost) {
+      bestCost = purchase.totalCost
+      bestServer = world
+    }
+  }
+  return { bestCost, bestServer }
+}
+
 export function aggregateMaterials(
   materialsArrays: MaterialBase[][],
 ): MaterialBase[] {

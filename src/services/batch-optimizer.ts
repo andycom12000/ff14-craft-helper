@@ -8,7 +8,7 @@ import { craftParamsToSolverConfig, recipeToCraftParams } from '@/solver/config'
 import { findOptimalHqCombinations } from '@/services/hq-optimizer'
 import { getAggregatedPrices, getMarketData, aggregateByWorld } from '@/api/universalis'
 import type { MarketData, WorldPriceSummary } from '@/api/universalis'
-import { separateCrystals, groupByServer, calculateBestPurchase } from '@/services/shopping-list'
+import { separateCrystals, groupByServer, calculateBestPurchase, findCheapestServerPurchase } from '@/services/shopping-list'
 import { buildMaterialTree, flattenMaterialTree, computeOptimalCosts } from '@/services/bom-calculator'
 
 export interface RecipeOptimizeResult {
@@ -167,9 +167,9 @@ export async function runBatchOptimization(
     }
   }
   // Merge into single query
-  const allItemIds = [...new Set([...allMaterialIds, ...finishedProductIds])]
+  for (const id of finishedProductIds) allMaterialIds.add(id)
   const priceSource = settings.crossServer ? settings.dataCenter : settings.server
-  const earlyPriceMap = await getAggregatedPrices(priceSource, allItemIds)
+  const priceMap = await getAggregatedPrices(priceSource, [...allMaterialIds])
 
   // === Phase 4.5: Compare craft cost vs buy price per recipe ===
   const recipesToCraft: RecipeOptimizeResult[] = []
@@ -181,7 +181,7 @@ export async function runBatchOptimization(
     for (let j = 0; j < r.materials.length; j++) {
       const m = r.materials[j]
       if (m.itemId < 20) continue // skip crystals
-      const md = earlyPriceMap.get(m.itemId)
+      const md = priceMap.get(m.itemId)
       const hqCount = r.hqAmounts[j] ?? 0
       const nqCount = m.amount - hqCount
       const nqPrice = md?.minPriceNQ ?? 0
@@ -190,28 +190,15 @@ export async function runBatchOptimization(
     }
 
     // Get finished product buy price
-    const finishedMd = earlyPriceMap.get(r.recipe.itemId)
+    const finishedMd = priceMap.get(r.recipe.itemId)
     let buyPrice = 0
     let buyServer: string | undefined
 
     if (settings.crossServer && finishedMd?.listings?.length) {
-      // Find cheapest server for the needed quantity
-      const worldMap = new Map<string, typeof finishedMd.listings>()
-      for (const l of finishedMd.listings) {
-        const w = l.worldName ?? settings.server
-        if (!worldMap.has(w)) worldMap.set(w, [])
-        worldMap.get(w)!.push(l)
-      }
-      let bestCost = Infinity
-      for (const [world, worldListings] of worldMap) {
-        const purchase = calculateBestPurchase(worldListings, r.quantity, false)
-        if (purchase.fulfilled && purchase.totalCost < bestCost) {
-          bestCost = purchase.totalCost
-          buyServer = world
-        }
-      }
-      if (bestCost < Infinity) {
-        buyPrice = Math.round(bestCost / r.quantity)
+      const result = findCheapestServerPurchase(finishedMd.listings, r.quantity, false, settings.server)
+      if (result.bestCost < Infinity) {
+        buyPrice = Math.round(result.bestCost / r.quantity)
+        buyServer = result.bestServer
       }
     } else {
       buyPrice = finishedMd?.minPriceNQ ?? 0
@@ -271,9 +258,9 @@ export async function runBatchOptimization(
       }))
       const tree = await buildMaterialTree(bomTargets)
       const flatList = flattenMaterialTree(tree)
-      const priceMap = await getAggregatedPrices(settings.server, flatList.map(f => f.itemId))
+      const bomPriceMap = await getAggregatedPrices(priceSource, flatList.map(f => f.itemId))
       const costResult = computeOptimalCosts(tree, (id) => {
-        const md = priceMap.get(id)
+        const md = bomPriceMap.get(id)
         return md?.minPriceNQ ?? 0
       })
       for (const decision of costResult.decisions) {
@@ -290,21 +277,11 @@ export async function runBatchOptimization(
   }
 
   // === Phase 5.5: Price materials + add buy-finished items to shopping list ===
-  const itemIds = [...new Set(nonCrystals.map(m => m.itemId))]
-  // If we need prices for items not already fetched, extend the query
-  const missingIds = itemIds.filter(id => !earlyPriceMap.has(id))
-  if (missingIds.length > 0) {
-    const extraPrices = await getAggregatedPrices(priceSource, missingIds)
-    for (const [id, md] of extraPrices) {
-      earlyPriceMap.set(id, md)
-    }
-  }
-
   let pricedMaterials: MaterialWithPrice[]
   let dcPriceMap: Map<number, MarketData> | null = null
 
   if (settings.crossServer) {
-    dcPriceMap = earlyPriceMap
+    dcPriceMap = priceMap
     pricedMaterials = nonCrystals.map(m => {
       const md = dcPriceMap!.get(m.itemId)
       const isHq = m.matType === 'hq'
@@ -312,19 +289,9 @@ export async function runBatchOptimization(
       let bestCost = Infinity
 
       if (md?.listings && md.listings.length > 0) {
-        const worldMap = new Map<string, typeof md.listings>()
-        for (const l of md.listings) {
-          const w = l.worldName ?? settings.server
-          if (!worldMap.has(w)) worldMap.set(w, [])
-          worldMap.get(w)!.push(l)
-        }
-        for (const [world, worldListings] of worldMap) {
-          const purchase = calculateBestPurchase(worldListings, m.amount, isHq)
-          if (purchase.fulfilled && purchase.totalCost < bestCost) {
-            bestCost = purchase.totalCost
-            bestServer = world
-          }
-        }
+        const result = findCheapestServerPurchase(md.listings, m.amount, isHq, settings.server)
+        bestCost = result.bestCost
+        bestServer = result.bestServer
       }
 
       if (bestCost === Infinity) {
@@ -340,7 +307,7 @@ export async function runBatchOptimization(
     })
   } else {
     pricedMaterials = nonCrystals.map(m => {
-      const md = earlyPriceMap.get(m.itemId)
+      const md = priceMap.get(m.itemId)
       const isHq = m.matType === 'hq'
 
       if (md?.listings && md.listings.length > 0) {

@@ -11,7 +11,22 @@ const batchStore = useBatchStore()
     <template #header>
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <span class="card-title">製作清單</span>
-        <el-text type="info" size="small">{{ batchStore.targets.length }} 個配方</el-text>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <el-text type="info" size="small">{{ batchStore.targets.length }} 個配方</el-text>
+          <el-popconfirm
+            v-if="batchStore.targets.length > 0 || batchStore.results"
+            title="確定要清除所有配方與計算結果嗎？"
+            confirm-button-text="確定"
+            cancel-button-text="取消"
+            @confirm="batchStore.resetAll()"
+          >
+            <template #reference>
+              <el-button type="danger" text size="small">
+                全部清除
+              </el-button>
+            </template>
+          </el-popconfirm>
+        </div>
       </div>
     </template>
 

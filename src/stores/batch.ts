@@ -49,17 +49,19 @@ export interface BatchResults {
   crossWorldCache: Map<number, WorldPriceSummary[]>
 }
 
+const defaultProgress = () => ({
+  current: 0,
+  total: 0,
+  currentName: '',
+  phase: 'idle' as 'idle' | 'solving' | 'pricing' | 'done',
+  solverPercent: 0,
+})
+
 export const useBatchStore = defineStore('batch', () => {
   const targets = ref<BatchTarget[]>([])
   const isRunning = ref(false)
   const isCancelled = ref(false)
-  const progress = ref({
-    current: 0,
-    total: 0,
-    currentName: '',
-    phase: 'idle' as 'idle' | 'solving' | 'pricing' | 'done',
-    solverPercent: 0,
-  })
+  const progress = ref(defaultProgress())
   const results = ref<BatchResults | null>(null)
 
   function addTarget(recipe: Recipe) {
@@ -92,6 +94,14 @@ export const useBatchStore = defineStore('batch', () => {
     isCancelled.value = true
   }
 
+  function resetAll() {
+    isCancelled.value = true
+    targets.value = []
+    results.value = null
+    isRunning.value = false
+    progress.value = defaultProgress()
+  }
+
   return {
     targets,
     isRunning,
@@ -104,9 +114,6 @@ export const useBatchStore = defineStore('batch', () => {
     clearTargets,
     clearResults,
     cancel,
+    resetAll,
   }
-}, {
-  persist: {
-    pick: ['targets'],
-  },
 })
