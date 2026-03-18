@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useBatchStore } from '@/stores/batch'
 import { getJobName } from '@/utils/jobs'
 import { starsDisplay } from '@/utils/format'
+import OcrImportDialog from './OcrImportDialog.vue'
 
 const batchStore = useBatchStore()
+const showOcrDialog = ref(false)
 </script>
 
 <template>
@@ -12,6 +15,9 @@ const batchStore = useBatchStore()
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <span class="card-title">製作清單</span>
         <div style="display: flex; align-items: center; gap: 12px;">
+          <el-button type="primary" text size="small" @click="showOcrDialog = true">
+            從截圖匯入
+          </el-button>
           <el-text type="info" size="small">{{ batchStore.targets.length }} 個配方</el-text>
           <el-popconfirm
             v-if="batchStore.targets.length > 0 || batchStore.results"
@@ -68,5 +74,7 @@ const batchStore = useBatchStore()
     </el-table>
 
     <el-empty v-else description="尚未加入任何配方，請至「配方搜尋」頁面新增" />
+
+    <OcrImportDialog v-model="showOcrDialog" />
   </el-card>
 </template>
