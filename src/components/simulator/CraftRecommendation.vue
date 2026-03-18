@@ -73,11 +73,12 @@ watch(() => props.solverResult, async (result) => {
     const config = craftParamsToSolverConfig(props.craftParams)
     const simResult = await simulateCraft(config, result.actions)
 
+    const effectiveQuality = simResult.quality + config.initial_quality
     isMaxProgress.value = simResult.progress >= simResult.max_progress
-    isMaxQuality.value = simResult.quality >= simResult.max_quality
-    achievedQuality.value = simResult.quality
+    isMaxQuality.value = effectiveQuality >= simResult.max_quality
+    achievedQuality.value = effectiveQuality
     maxQuality.value = simResult.max_quality
-    qualityDeficit.value = simResult.max_quality - simResult.quality
+    qualityDeficit.value = simResult.max_quality - effectiveQuality
     analyzed.value = true
 
     if (isMaxProgress.value && isMaxQuality.value) {

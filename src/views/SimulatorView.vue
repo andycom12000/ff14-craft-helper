@@ -113,7 +113,7 @@ function wasmStepToStepResult(
 ): StepResult {
   const state: CraftState = {
     progress: step.progress,
-    quality: step.quality,
+    quality: step.quality + params.initialQuality,
     durability: step.durability,
     cp: step.cp,
     maxProgress: params.recipeLevelTable.difficulty,
