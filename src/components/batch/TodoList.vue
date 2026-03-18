@@ -77,6 +77,14 @@ function resetAll() {
             <el-tag size="small" type="primary">{{ getJobName(item.recipe.job) }}</el-tag>
             <span v-if="item.isSemiFinished" class="todo-badge">半成品</span>
           </div>
+          <div v-if="item.hqAmounts.some(a => a > 0)" class="todo-hq-hint">
+            <el-tag size="small" type="warning">HQ</el-tag>
+            <template v-for="(ing, ii) in item.recipe.ingredients" :key="ii">
+              <span v-if="item.hqAmounts[ii] > 0" class="hq-ingredient">
+                {{ ing.name }} x{{ item.hqAmounts[ii] }}
+              </span>
+            </template>
+          </div>
         </div>
         <div class="todo-actions">
           <!-- Quick copy: single macro = one button, multiple = numbered buttons -->
@@ -201,6 +209,20 @@ function resetAll() {
 .todo-badge {
   color: var(--el-color-success);
   font-size: 11px;
+}
+
+.todo-hq-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--el-color-warning);
+  margin-top: 2px;
+}
+
+.hq-ingredient + .hq-ingredient::before {
+  content: '、';
+  color: var(--el-text-color-secondary);
 }
 
 .todo-actions {
