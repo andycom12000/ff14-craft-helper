@@ -1,6 +1,16 @@
 <script setup lang="ts">
 const changelog = [
   {
+    version: 'v1.7.6',
+    date: '2026-03-18',
+    highlights: [
+      '新增 OCR 截圖匯入：在批量清單貼上軍需品截圖，自動辨識物品名稱並配對配方',
+      '批量待辦清單顯示 HQ 素材提示：標示每個配方需要的 HQ 材料及數量',
+      '修正模擬器未計入 HQ 素材初期品質的問題：設定 HQ 素材後品質條正確顯示滿值',
+      'OCR 匯入對話框圖示改為 SVG，統一全站 icon 風格',
+    ],
+  },
+  {
     version: 'v1.7.5',
     date: '2026-03-17',
     highlights: [
