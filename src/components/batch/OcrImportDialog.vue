@@ -9,6 +9,7 @@ import type { RecipeSearchResult } from '@/api/xivapi'
 import type { Recipe } from '@/stores/recipe'
 import { useBatchStore } from '@/stores/batch'
 import { getJobName } from '@/utils/jobs'
+import { Picture } from '@element-plus/icons-vue'
 
 interface OcrMatchItem {
   ocrText: string
@@ -317,7 +318,7 @@ onUnmounted(() => {
       <el-col :span="10">
         <div v-if="!imageUrl" class="drop-zone" @drop="handleDrop" @dragover="handleDragOver" @click="triggerFileSelect">
           <div class="drop-zone-content">
-            <div class="drop-zone-icon">📷</div>
+            <el-icon class="drop-zone-icon"><Picture /></el-icon>
             <div class="drop-zone-text">按 Ctrl+V 貼上截圖</div>
             <div class="drop-zone-hint">或拖放 / 點擊上傳圖片</div>
           </div>
