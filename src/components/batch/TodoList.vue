@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { formatMacros } from '@/services/macro-formatter'
 import { getJobName } from '@/utils/jobs'
 import { ElMessage } from 'element-plus'
+import { DocumentCopy } from '@element-plus/icons-vue'
 import type { TodoItem } from '@/stores/batch'
 
 const props = defineProps<{ items: TodoItem[] }>()
@@ -27,13 +28,21 @@ function getMacros(index: number): string[] {
   return macroCache.value.get(index) ?? []
 }
 
-async function copyMacro(text: string) {
+async function copyText(text: string, label = '巨集') {
   try {
     await navigator.clipboard.writeText(text)
-    ElMessage.success('巨集已複製')
+    ElMessage.success(`${label}已複製`)
   } catch {
     ElMessage.error('複製失敗')
   }
+}
+
+async function copyMacro(text: string) {
+  copyText(text, '巨集')
+}
+
+async function copyRecipeName(name: string) {
+  copyText(name, `「${name}」`)
 }
 
 function toggleDone(index: number) {
@@ -48,11 +57,12 @@ function resetAll() {
 </script>
 
 <template>
-  <div class="todo-list">
+  <div class="todo-list" style="container-type: inline-size;">
     <el-text size="small" type="info" tag="div" class="todo-desc">
       製作順序（依相依性排列，由底層半成品到頂層成品）
     </el-text>
 
+    <div class="todo-grid">
     <div
       v-for="(item, index) in items"
       :key="index"
@@ -71,6 +81,13 @@ function resetAll() {
               class="todo-icon"
             />
             {{ item.recipe.name }}
+            <el-button
+              :icon="DocumentCopy"
+              size="small"
+              text
+              class="copy-name-btn"
+              @click.stop="copyRecipeName(item.recipe.name)"
+            />
           </div>
           <div class="todo-meta">
             x{{ item.quantity }} |
@@ -120,6 +137,7 @@ function resetAll() {
           <pre class="code-block" @click="copyMacro(macro)">{{ macro }}</pre>
         </div>
       </div>
+    </div>
     </div>
 
     <div v-if="items.length > 0" class="todo-footer">
@@ -197,6 +215,16 @@ function resetAll() {
   flex-shrink: 0;
 }
 
+.copy-name-btn {
+  opacity: 0;
+  transition: opacity 0.15s;
+  margin-left: 2px;
+}
+
+.todo-item:hover .copy-name-btn {
+  opacity: 1;
+}
+
 .todo-meta {
   font-size: 12px;
   color: var(--el-text-color-secondary);
@@ -262,5 +290,17 @@ function resetAll() {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+/* Wide screen: 2-column todo grid */
+@container (min-width: 1000px) {
+  .todo-grid {
+    columns: 2;
+    column-gap: 20px;
+  }
+
+  .todo-item {
+    break-inside: avoid;
+  }
 }
 </style>
