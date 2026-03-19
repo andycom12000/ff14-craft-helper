@@ -1,6 +1,15 @@
 <script setup lang="ts">
 const changelog = [
   {
+    version: 'v1.7.7',
+    date: '2026-03-19',
+    highlights: [
+      '修正 OCR 無法辨識含 HQ 圖示的籌備任務截圖：改用結構化分段解析取代脆弱的 0/60 正則',
+      '新增純物品列表截圖支援：無 section header 或數量欄的截圖也能正確辨識',
+      '圖片前處理改用 Otsu 自適應閾值，適應不同 UI 配色方案',
+    ],
+  },
+  {
     version: 'v1.7.6',
     date: '2026-03-18',
     highlights: [
