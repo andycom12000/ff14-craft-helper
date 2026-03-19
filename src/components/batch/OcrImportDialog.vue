@@ -177,11 +177,10 @@ async function matchSingleItem(index: number, item: OcrMatchItem) {
       } catch { /* try next query */ }
     }
 
-    matchItems.value[index].searchResults = allResults
-
-    // Score results by combined LCS ratio + length similarity
+    // Score results by combined LCS ratio + length similarity, store sorted
     const scored = allResults.map(r => ({ result: r, score: combinedScore(item.ocrText, r.name) }))
     scored.sort((a, b) => b.score - a.score)
+    matchItems.value[index].searchResults = scored.map(s => s.result)
 
     const exactMatches = allResults.filter(r => r.name === item.ocrText)
     if (exactMatches.length === 1) {
@@ -192,8 +191,10 @@ async function matchSingleItem(index: number, item: OcrMatchItem) {
       matchItems.value[index].status = 'multiple'
     } else if (scored.length > 0 && scored[0].score >= 0.35) {
       const best = scored[0].result
-      // High confidence → auto-match; lower confidence → let user confirm
-      if (scored[0].score >= 0.65) {
+      // If top two candidates score nearly equal, let user choose
+      const hasCloseRunner = scored.length > 1 && (scored[0].score - scored[1].score) < 0.05
+      // High confidence + clear winner → auto-match; otherwise → let user confirm
+      if (scored[0].score >= 0.65 && !hasCloseRunner) {
         const recipe = await getRecipe(best.id)
         matchItems.value[index].selectedRecipe = recipe
         matchItems.value[index].status = 'matched'
@@ -260,7 +261,7 @@ function lcsRatio(a: string, b: string): number {
       curr[j] = 0
     }
   }
-  return prev[n] / n
+  return prev[n] / Math.max(m, n)
 }
 
 async function selectRecipe(index: number, recipeId: number) {
@@ -309,13 +310,13 @@ onUnmounted(() => {
   <el-dialog
     v-model="dialogVisible"
     title="從截圖匯入籌備任務"
-    width="900px"
+    width="1100px"
     @close="handleClose"
     :close-on-click-modal="false"
   >
     <el-row :gutter="20">
       <!-- Left: Image panel -->
-      <el-col :span="10">
+      <el-col :span="12">
         <div v-if="!imageUrl" class="drop-zone" @drop="handleDrop" @dragover="handleDragOver" @click="triggerFileSelect">
           <div class="drop-zone-content">
             <el-icon class="drop-zone-icon"><Picture /></el-icon>
@@ -354,7 +355,7 @@ onUnmounted(() => {
       </el-col>
 
       <!-- Right: Results panel -->
-      <el-col :span="14">
+      <el-col :span="12">
         <el-table
           v-if="matchItems.length > 0"
           :data="matchItems"
@@ -402,7 +403,7 @@ onUnmounted(() => {
                 @change="(id: number) => selectRecipe($index, id)"
               >
                 <el-option
-                  v-for="r in row.searchResults.slice(0, 10)"
+                  v-for="r in row.searchResults.slice(0, 20)"
                   :key="r.id"
                   :label="`${r.name} (${getJobName(r.job)})`"
                   :value="r.id"
@@ -416,7 +417,7 @@ onUnmounted(() => {
                 @change="(id: number) => selectRecipe($index, id)"
               >
                 <el-option
-                  v-for="r in row.searchResults.slice(0, 10)"
+                  v-for="r in row.searchResults.slice(0, 20)"
                   :key="r.id"
                   :label="`${r.name} (${getJobName(r.job)})`"
                   :value="r.id"
@@ -480,7 +481,7 @@ onUnmounted(() => {
 
 .image-preview img {
   max-width: 100%;
-  max-height: 350px;
+  max-height: 500px;
   border-radius: 8px;
   object-fit: contain;
 }

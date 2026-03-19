@@ -40,9 +40,25 @@ function otsuThreshold(grayPixels: Uint8Array): number {
 }
 
 /**
+ * Compute pixel saturation (0–1) from RGB.
+ * High saturation = colorful (icons), low saturation = neutral (text, background).
+ */
+function saturation(r: number, g: number, b: number): number {
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  if (max === 0) return 0
+  return (max - min) / max
+}
+
+/**
  * Preprocess game screenshot for better OCR accuracy.
- * Game UI has light text on dark background.
- * Steps: upscale 3x → grayscale → Otsu binarize (bright text → black, dark bg → white)
+ * Game UI has light text on dark background with colorful item icons.
+ *
+ * Steps:
+ * 1. Upscale 3x for better character resolution
+ * 2. Desaturate colorful pixels (icons) to background — keeps only neutral text
+ * 3. Grayscale → Otsu binarize (bright text → black, dark bg → white)
+ *
  * Tesseract expects black text on white background and works best with large text.
  */
 export async function preprocessForOcr(imageBlob: Blob): Promise<Blob> {
@@ -57,21 +73,33 @@ export async function preprocessForOcr(imageBlob: Blob): Promise<Blob> {
   ctx.imageSmoothingQuality = 'high'
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
 
-  // Step 2: Grayscale
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
   const data = imageData.data
   const pixelCount = data.length / 4
-  const grayPixels = new Uint8Array(pixelCount)
 
+  // Step 2: Mask out high-saturation pixels (colorful icons)
+  // Game text is white/grey (low saturation); icons are colorful (high saturation).
+  // Replace saturated pixels with black (will become white background after binarize).
+  for (let i = 0; i < pixelCount; i++) {
+    const off = i * 4
+    if (saturation(data[off], data[off + 1], data[off + 2]) > 0.35) {
+      data[off] = 0
+      data[off + 1] = 0
+      data[off + 2] = 0
+    }
+  }
+
+  // Step 3: Grayscale
+  const grayPixels = new Uint8Array(pixelCount)
   for (let i = 0; i < pixelCount; i++) {
     const off = i * 4
     grayPixels[i] = Math.round(0.299 * data[off] + 0.587 * data[off + 1] + 0.114 * data[off + 2])
   }
 
-  // Step 3: Otsu's adaptive threshold
+  // Step 4: Otsu's adaptive threshold
   const threshold = otsuThreshold(grayPixels)
 
-  // Step 4: Binarize — bright pixels (text) → black(0), dark pixels (bg) → white(255)
+  // Step 5: Binarize — bright pixels (text) → black(0), dark pixels (bg) → white(255)
   for (let i = 0; i < pixelCount; i++) {
     const off = i * 4
     const binary = grayPixels[i] > threshold ? 0 : 255
