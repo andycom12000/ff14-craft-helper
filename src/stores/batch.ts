@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import type { Recipe } from '@/stores/recipe'
 import type { MaterialWithPrice as ShoppingItem, ServerGroup, CrystalSummary } from '@/services/shopping-list'
@@ -63,6 +63,43 @@ export const useBatchStore = defineStore('batch', () => {
   const isCancelled = ref(false)
   const progress = ref(defaultProgress())
   const results = ref<BatchResults | null>(null)
+  const checkedShoppingKeys = ref(new Set<string>())
+
+  /** Total number of shopping items (server groups + self-craft) */
+  const shoppingItemCount = computed(() => {
+    if (!results.value) return 0
+    const keys = new Set<string>()
+    for (const g of results.value.serverGroups) {
+      for (const item of g.items) keys.add(shoppingKey(item.itemId, item.type, item.isFinishedProduct))
+    }
+    for (const item of results.value.selfCraftItems) keys.add(shoppingKey(item.itemId, item.type))
+    return keys.size
+  })
+
+  const shoppingCheckedCount = computed(() => checkedShoppingKeys.value.size)
+
+  const allShoppingDone = computed(() =>
+    shoppingItemCount.value > 0 && checkedShoppingKeys.value.size >= shoppingItemCount.value,
+  )
+
+  function shoppingKey(itemId: number, type: string, isFinished?: boolean) {
+    return isFinished ? `${itemId}-${type}-fp` : `${itemId}-${type}`
+  }
+
+  function toggleShoppingItem(itemId: number, type: string, isFinished?: boolean) {
+    const key = shoppingKey(itemId, type, isFinished)
+    if (checkedShoppingKeys.value.has(key)) {
+      checkedShoppingKeys.value.delete(key)
+    } else {
+      checkedShoppingKeys.value.add(key)
+    }
+    // Trigger reactivity
+    checkedShoppingKeys.value = new Set(checkedShoppingKeys.value)
+  }
+
+  function isShoppingChecked(itemId: number, type: string, isFinished?: boolean) {
+    return checkedShoppingKeys.value.has(shoppingKey(itemId, type, isFinished))
+  }
 
   function addTarget(recipe: Recipe) {
     const existing = targets.value.find(t => t.recipe.id === recipe.id)
@@ -88,6 +125,7 @@ export const useBatchStore = defineStore('batch', () => {
 
   function clearResults() {
     results.value = null
+    checkedShoppingKeys.value = new Set()
   }
 
   function cancel() {
@@ -100,6 +138,7 @@ export const useBatchStore = defineStore('batch', () => {
     results.value = null
     isRunning.value = false
     progress.value = defaultProgress()
+    checkedShoppingKeys.value = new Set()
   }
 
   return {
@@ -108,6 +147,10 @@ export const useBatchStore = defineStore('batch', () => {
     isCancelled,
     progress,
     results,
+    checkedShoppingKeys,
+    shoppingItemCount,
+    shoppingCheckedCount,
+    allShoppingDone,
     addTarget,
     removeTarget,
     updateQuantity,
@@ -115,5 +158,7 @@ export const useBatchStore = defineStore('batch', () => {
     clearResults,
     cancel,
     resetAll,
+    toggleShoppingItem,
+    isShoppingChecked,
   }
 })

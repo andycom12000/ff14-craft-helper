@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, watch, triggerRef, computed, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
-import { useSettingsStore } from '@/stores/settings'
 import type { CrystalSummary, ServerGroup, MaterialWithPrice } from '@/services/shopping-list'
 import type { WorldPriceSummary } from '@/api/universalis'
 import type { BuyFinishedDecision } from '@/stores/batch'
+import { useBatchStore } from '@/stores/batch'
 import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
 import CrossWorldPriceDetail from '@/components/common/CrossWorldPriceDetail.vue'
 import { formatGil } from '@/utils/format'
@@ -25,7 +25,7 @@ const buyFinishedSavings = computed(() => {
   return { count: props.buyFinishedItems.length, totalSaved }
 })
 
-const settingsStore = useSettingsStore()
+const batchStore = useBatchStore()
 const { crossWorldData, crossWorldLoading, fetchCrossWorldData } = useCrossWorldPricing()
 
 // Seed composable cache with pre-fetched data from batch optimizer
@@ -62,39 +62,10 @@ function handleExpand(row: MaterialWithPrice, expandedRows: MaterialWithPrice[])
   fetchCrossWorldData(row.itemId, row.name)
 }
 
-// Compute single-server total from crossWorldCache for comparison
-const singleServerTotal = computed(() => {
-  if (!props.crossWorldCache || props.crossWorldCache.size === 0) return null
-  const server = settingsStore.server
-  let total = 0
-  for (const group of props.serverGroups) {
-    for (const item of group.items) {
-      const worlds = props.crossWorldCache.get(item.itemId)
-      if (!worlds) {
-        total += item.unitPrice * item.amount
-        continue
-      }
-      const myWorld = worlds.find(w => w.worldName === server)
-      // 0 means not listed in that quality — fall back to cross-server price
-      const localPrice = myWorld
-        ? (item.type === 'hq' ? myWorld.minPriceHQ : myWorld.minPriceNQ)
-        : 0
-      total += (localPrice > 0 ? localPrice : item.unitPrice) * item.amount
-    }
-  }
-  return total
-})
-
-const savingPercent = computed(() => {
-  const single = singleServerTotal.value
-  if (!single || single === 0 || props.grandTotal === 0) return null
-  return Math.round((1 - props.grandTotal / single) * 100)
-})
-
 const flashRowKey = ref<string | null>(null)
 
 function copyName(row: MaterialWithPrice, _col: unknown, event: Event) {
-  // Don't copy when clicking the expand arrow column
+  // Don't copy when clicking the expand arrow
   const target = event.target as HTMLElement
   if (target.closest('.el-table__expand-icon')) return
   navigator.clipboard.writeText(row.name)
@@ -109,8 +80,10 @@ function copyName(row: MaterialWithPrice, _col: unknown, event: Event) {
 }
 
 function rowClassName({ row }: { row: MaterialWithPrice }) {
-  if (flashRowKey.value === `${row.itemId}-${row.type}`) return 'row-flash'
-  return ''
+  const classes: string[] = []
+  if (flashRowKey.value === `${row.itemId}-${row.type}`) classes.push('row-flash')
+  if (batchStore.isShoppingChecked(row.itemId, row.type, row.isFinishedProduct)) classes.push('row-checked')
+  return classes.join(' ')
 }
 </script>
 
@@ -157,6 +130,16 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
             />
           </template>
         </el-table-column>
+        <el-table-column label="" width="40" align="center">
+          <template #default="{ row }">
+            <div @click.stop>
+              <el-checkbox
+                :model-value="batchStore.isShoppingChecked(row.itemId, row.type, row.isFinishedProduct)"
+                @change="() => batchStore.toggleShoppingItem(row.itemId, row.type, row.isFinishedProduct)"
+              />
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column label="" width="36">
           <template #default="{ row }">
             <img v-if="row.icon" :src="row.icon" :alt="row.name" class="material-icon" />
@@ -200,7 +183,17 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
           <el-text size="small" type="info">{{ selfCraftItems.length }} 項素材</el-text>
         </div>
       </div>
-      <el-table :data="selfCraftItems" size="small" class="material-table clickable-rows" @row-click="copyName">
+      <el-table :data="selfCraftItems" size="small" class="material-table clickable-rows" :row-class-name="rowClassName" @row-click="copyName">
+        <el-table-column label="" width="40" align="center">
+          <template #default="{ row }">
+            <div @click.stop>
+              <el-checkbox
+                :model-value="batchStore.isShoppingChecked(row.itemId, row.type, row.isFinishedProduct)"
+                @change="() => batchStore.toggleShoppingItem(row.itemId, row.type, row.isFinishedProduct)"
+              />
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column label="" width="36">
           <template #default="{ row }">
             <img v-if="row.icon" :src="row.icon" :alt="row.name" class="material-icon" />
@@ -212,14 +205,19 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
     </div>
     </div>
 
-    <el-divider />
-    <div class="grand-total-box">
-      <div class="grand-total">
-        購買合計：{{ formatGil(grandTotal) }} Gil
-      </div>
-      <div v-if="savingPercent != null && savingPercent > 0" class="cross-server-compare">
-        不跨服（{{ settingsStore.server }}）：{{ formatGil(singleServerTotal!) }} Gil，跨服省
-        <span class="saving-percent">{{ savingPercent }}%</span>
+    <!-- Shopping progress -->
+    <div v-if="batchStore.shoppingItemCount > 0" class="shopping-footer">
+      <el-divider />
+      <el-progress
+        :percentage="Math.round((batchStore.shoppingCheckedCount / batchStore.shoppingItemCount) * 100)"
+        :stroke-width="10"
+        class="shopping-progress"
+      />
+      <div class="shopping-footer-row">
+        <el-text size="small" type="info">
+          採購進度：{{ batchStore.shoppingCheckedCount }} / {{ batchStore.shoppingItemCount }} 完成
+        </el-text>
+        <el-tag v-if="batchStore.allShoppingDone" type="success" size="small">全部採購完成</el-tag>
       </div>
     </div>
   </div>
@@ -285,35 +283,32 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
   cursor: pointer;
 }
 
-.grand-total-box {
-  background: rgba(124, 58, 237, 0.08);
-  border-left: 3px solid var(--app-accent);
-  border-radius: 8px;
-  padding: 16px 20px;
-}
-
-.grand-total {
-  text-align: right;
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--el-color-warning);
-}
-
-.cross-server-compare {
-  text-align: right;
-  font-size: 13px;
-  color: var(--el-text-color-secondary);
-  margin-top: 4px;
-}
-
-.saving-percent {
-  color: var(--app-success);
-  font-weight: 600;
-}
-
 .clickable-rows :deep(.row-flash td) {
   background-color: var(--app-accent-glow) !important;
   transition: background-color 0.3s;
+}
+
+.clickable-rows :deep(.row-checked td) {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.clickable-rows :deep(.row-checked:hover td) {
+  opacity: 0.65;
+}
+
+.shopping-footer {
+  margin-top: 4px;
+}
+
+.shopping-progress {
+  margin-bottom: 8px;
+}
+
+.shopping-footer-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .buy-finished-summary {
@@ -334,6 +329,12 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
 @container (min-width: 900px) {
   .server-grid {
     columns: 2;
+  }
+}
+
+@container (min-width: 1400px) {
+  .server-grid {
+    columns: 3;
   }
 }
 </style>

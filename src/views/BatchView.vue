@@ -1,18 +1,90 @@
 <script setup lang="ts">
+import { ref, computed, watch, nextTick } from 'vue'
 import { useBatchStore } from '@/stores/batch'
 import { useSettingsStore } from '@/stores/settings'
 import { useGearsetsStore } from '@/stores/gearsets'
 import { runBatchOptimization } from '@/services/batch-optimizer'
+import BatchStepper from '@/components/batch/BatchStepper.vue'
+import CostSummaryPanel from '@/components/batch/CostSummaryPanel.vue'
 import BatchList from '@/components/batch/BatchList.vue'
 import BatchSettings from '@/components/batch/BatchSettings.vue'
 import BatchProgress from '@/components/batch/BatchProgress.vue'
 import ShoppingList from '@/components/batch/ShoppingList.vue'
 import TodoList from '@/components/batch/TodoList.vue'
 import ExceptionList from '@/components/batch/ExceptionList.vue'
+import BatchSearchSidebar from '@/components/batch/BatchSearchSidebar.vue'
 
 const batchStore = useBatchStore()
 const settings = useSettingsStore()
 const gearsets = useGearsetsStore()
+
+const sidebarOpen = ref(false)
+const isClassic = computed(() => settings.batchLayout === 'classic')
+function toggleLayout() {
+  settings.batchLayout = isClassic.value ? 'stepper' : 'classic'
+}
+
+// Section refs for scroll navigation
+const sectionPrepare = ref<HTMLElement>()
+const sectionProgress = ref<HTMLElement>()
+const sectionShopping = ref<HTMLElement>()
+const sectionTodo = ref<HTMLElement>()
+
+// currentStep: 0-3 = active step, 4 = all done (exceeds step count to mark all finished)
+const currentStep = computed(() => {
+  if (batchStore.results) {
+    const allTodoDone = batchStore.results.todoList.length > 0
+      && batchStore.results.todoList.every(t => t.done)
+    if (allTodoDone) return 4
+    if (batchStore.allShoppingDone) return 3
+    return 2
+  }
+  if (batchStore.isRunning) return 1
+  return 0
+})
+
+// Cost summary computed values
+const singleServerTotal = computed(() => {
+  if (!batchStore.results?.crossWorldCache || batchStore.results.crossWorldCache.size === 0) return null
+  const server = settings.server
+  let total = 0
+  for (const group of batchStore.results.serverGroups) {
+    for (const item of group.items) {
+      const worlds = batchStore.results.crossWorldCache.get(item.itemId)
+      if (!worlds) {
+        total += item.unitPrice * item.amount
+        continue
+      }
+      const myWorld = worlds.find(w => w.worldName === server)
+      const localPrice = myWorld
+        ? (item.type === 'hq' ? myWorld.minPriceHQ : myWorld.minPriceNQ)
+        : 0
+      total += (localPrice > 0 ? localPrice : item.unitPrice) * item.amount
+    }
+  }
+  return total
+})
+
+const savingPercent = computed(() => {
+  const single = singleServerTotal.value
+  const gt = batchStore.results?.grandTotal ?? 0
+  if (!single || single === 0 || gt === 0) return null
+  return Math.round((1 - gt / single) * 100)
+})
+
+function navigateToStep(step: number) {
+  const sections = [sectionPrepare, sectionProgress, sectionShopping, sectionTodo]
+  sections[step]?.value?.scrollIntoView({ behavior: 'smooth' })
+}
+
+// Auto-scroll to shopping section when optimization finishes
+watch(() => batchStore.isRunning, (running, wasRunning) => {
+  if (wasRunning && !running && batchStore.results) {
+    nextTick(() => {
+      sectionShopping.value?.scrollIntoView({ behavior: 'smooth' })
+    })
+  }
+})
 
 async function startOptimization() {
   if (batchStore.targets.length === 0) return
@@ -60,33 +132,78 @@ function handleTodoDone(index: number, done: boolean) {
 </script>
 
 <template>
-  <div class="view-container">
-    <h2>批量製作</h2>
-    <p class="view-desc">選擇多個配方一次計算，自動產出最佳採購清單與製作順序。</p>
+  <div class="view-container batch-view" :class="{ 'batch-view--classic': isClassic }">
+    <div class="batch-title-row">
+      <div>
+        <h2>批量製作</h2>
+        <p class="view-desc">選擇多個配方一次計算，自動產出最佳採購清單與製作順序。</p>
+      </div>
+      <el-button text size="small" @click="toggleLayout">
+        {{ isClassic ? '切換新版介面' : '切換經典介面' }}
+      </el-button>
+    </div>
 
-    <div class="batch-layout">
-      <!-- Left column: always present, capped width -->
-      <div class="batch-left">
-        <BatchList />
-        <BatchSettings />
+    <!-- ==================== New stepper layout ==================== -->
+    <template v-if="!isClassic">
+      <BatchStepper :current-step="currentStep" @navigate="navigateToStep" />
 
-        <div class="batch-action">
-          <el-button
-            type="primary"
-            size="large"
-            :loading="batchStore.isRunning"
-            :disabled="batchStore.targets.length === 0 || batchStore.isRunning"
-            @click="startOptimization"
-          >
-            {{ batchStore.isRunning ? '計算中...' : '▶ 開始最佳化計算' }}
-          </el-button>
+      <CostSummaryPanel
+        v-if="batchStore.results"
+        :grand-total="batchStore.results.grandTotal"
+        :saving-percent="savingPercent"
+        :single-server-total="singleServerTotal"
+        :server="settings.server"
+      />
+
+      <!-- Section 1: 準備清單 -->
+      <section ref="sectionPrepare" class="batch-section">
+        <div class="section-header">
+          <span class="section-step" :class="{ 'section-step--active': currentStep === 0 }">1</span>
+          <h3 class="section-title">準備清單</h3>
+          <span class="section-desc">加入要製作的配方並設定計算參數</span>
+        </div>
+        <div class="prepare-grid">
+          <div class="prepare-main">
+            <BatchList @open-search="sidebarOpen = true" />
+          </div>
+          <div class="prepare-side">
+            <BatchSettings />
+            <div class="batch-action">
+              <el-button
+                type="primary"
+                size="large"
+                :loading="batchStore.isRunning"
+                :disabled="batchStore.targets.length === 0 || batchStore.isRunning"
+                @click="startOptimization"
+              >
+                {{ batchStore.isRunning ? '計算中...' : '▶ 開始最佳化計算' }}
+              </el-button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 2: 計算進度 -->
+      <section v-if="batchStore.isRunning" ref="sectionProgress" class="batch-section">
+        <div class="section-header">
+          <span class="section-step section-step--active">2</span>
+          <h3 class="section-title">計算最佳化</h3>
+          <span class="section-desc">正在求解最佳製作方案與查價</span>
+        </div>
+        <BatchProgress />
+      </section>
+
+      <!-- Section 3: 採購材料 -->
+      <section v-if="batchStore.results" ref="sectionShopping" class="batch-section">
+        <div class="section-header">
+          <span class="section-step" :class="{ 'section-step--active': currentStep === 2 }">3</span>
+          <h3 class="section-title">採購材料</h3>
+          <span class="section-desc">按伺服器分組購買所需素材</span>
+          <el-text size="small" type="info" class="section-hint">點擊素材行可複製品名</el-text>
         </div>
 
-        <BatchProgress />
-
-        <!-- Exceptions -->
         <el-card
-          v-if="batchStore.results && batchStore.results.exceptions.length > 0"
+          v-if="batchStore.results.exceptions.length > 0"
           shadow="never"
           class="batch-card"
         >
@@ -99,62 +216,164 @@ function handleTodoDone(index: number, done: boolean) {
           <ExceptionList :exceptions="batchStore.results.exceptions" />
         </el-card>
 
-        <!-- Todo list: appears below inputs after calculation -->
-        <el-card v-if="batchStore.results" shadow="never" class="batch-card">
-          <template #header>
-            <span class="card-title">製作待辦</span>
-          </template>
-          <TodoList
-            :items="batchStore.results.todoList"
-            @update:done="handleTodoDone"
-          />
-        </el-card>
-      </div>
+        <ShoppingList
+          :crystals="batchStore.results.crystals"
+          :server-groups="batchStore.results.serverGroups"
+          :self-craft-items="batchStore.results.selfCraftItems"
+          :buy-finished-items="batchStore.results.buyFinishedItems"
+          :grand-total="batchStore.results.grandTotal"
+          :cross-world-cache="batchStore.results.crossWorldCache"
+        />
+      </section>
 
-      <!-- Right column: shopping list or empty state -->
-      <div class="batch-right batch-right--empty" v-if="!batchStore.results">
-        <el-empty description="計算完成後，採購清單將顯示於此" />
+      <!-- Section 4: 製作待辦 -->
+      <section v-if="batchStore.results" ref="sectionTodo" class="batch-section">
+        <div class="section-header">
+          <span class="section-step" :class="{ 'section-step--active': currentStep === 3 }">4</span>
+          <h3 class="section-title">開始製作</h3>
+          <span class="section-desc">依相依順序逐一完成製作</span>
+        </div>
+        <TodoList
+          :items="batchStore.results.todoList"
+          @update:done="handleTodoDone"
+        />
+      </section>
+    </template>
+
+    <!-- ==================== Classic two-column layout ==================== -->
+    <template v-else>
+      <div class="classic-layout">
+        <div class="classic-left">
+          <BatchList @open-search="sidebarOpen = true" />
+          <BatchSettings />
+
+          <div class="batch-action">
+            <el-button
+              type="primary"
+              size="large"
+              :loading="batchStore.isRunning"
+              :disabled="batchStore.targets.length === 0 || batchStore.isRunning"
+              @click="startOptimization"
+            >
+              {{ batchStore.isRunning ? '計算中...' : '▶ 開始最佳化計算' }}
+            </el-button>
+          </div>
+
+          <BatchProgress />
+
+          <el-card
+            v-if="batchStore.results && batchStore.results.exceptions.length > 0"
+            shadow="never"
+            class="batch-card"
+          >
+            <template #header>
+              <span class="card-title">
+                例外提示
+                <el-badge :value="batchStore.results.exceptions.length" :max="99" type="danger" />
+              </span>
+            </template>
+            <ExceptionList :exceptions="batchStore.results.exceptions" />
+          </el-card>
+
+          <el-card v-if="batchStore.results" shadow="never" class="batch-card">
+            <template #header>
+              <span class="card-title">製作待辦</span>
+            </template>
+            <TodoList
+              :items="batchStore.results.todoList"
+              @update:done="handleTodoDone"
+            />
+          </el-card>
+        </div>
+
+        <div class="classic-right classic-right--empty" v-if="!batchStore.results">
+          <el-empty description="計算完成後，採購清單將顯示於此" />
+        </div>
+        <div v-if="batchStore.results" class="classic-right">
+          <el-card shadow="never">
+            <template #header>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="card-title">採購清單</span>
+                <el-text size="small" type="info">點擊素材行可複製品名</el-text>
+              </div>
+            </template>
+            <ShoppingList
+              :crystals="batchStore.results.crystals"
+              :server-groups="batchStore.results.serverGroups"
+              :self-craft-items="batchStore.results.selfCraftItems"
+              :buy-finished-items="batchStore.results.buyFinishedItems"
+              :grand-total="batchStore.results.grandTotal"
+              :cross-world-cache="batchStore.results.crossWorldCache"
+            />
+          </el-card>
+        </div>
       </div>
-      <div v-if="batchStore.results" class="batch-right">
-        <el-card shadow="never">
-          <template #header>
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span class="card-title">採購清單</span>
-              <el-text size="small" type="info">點擊素材行可複製品名</el-text>
-            </div>
-          </template>
-          <ShoppingList
-            :crystals="batchStore.results.crystals"
-            :server-groups="batchStore.results.serverGroups"
-            :self-craft-items="batchStore.results.selfCraftItems"
-            :buy-finished-items="batchStore.results.buyFinishedItems"
-            :grand-total="batchStore.results.grandTotal"
-            :cross-world-cache="batchStore.results.crossWorldCache"
-          />
-        </el-card>
-      </div>
-    </div>
+    </template>
+
+    <!-- Search Sidebar (shared) -->
+    <BatchSearchSidebar v-model="sidebarOpen" />
   </div>
 </template>
 
 <style scoped>
-.batch-layout {
+.batch-view {
+  max-width: 1200px;
+}
+
+.batch-section {
+  scroll-margin-top: 100px;
+  margin-bottom: 8px;
+  padding-top: 24px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.batch-section:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+/* Section header with step number */
+.section-header {
   display: flex;
-  gap: 16px;
-  align-items: flex-start;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
-.batch-left {
-  flex: 0 0 auto;
-  width: 740px;
-  min-width: 0;
+.section-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-secondary);
+  border: 2px solid var(--el-border-color);
 }
 
-.batch-right {
-  flex: 1;
-  min-width: 0;
-  position: sticky;
-  top: 16px;
+.section-step--active {
+  background: #e9c176;
+  color: var(--el-bg-color);
+  border-color: #e9c176;
+}
+
+.section-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.section-desc {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.section-hint {
+  margin-left: auto;
 }
 
 .batch-action {
@@ -162,12 +381,66 @@ function handleTodoDone(index: number, done: boolean) {
   padding: var(--space-md) 0;
 }
 
-.batch-right--empty {
+.batch-card {
+  margin-bottom: 16px;
+}
+
+/* Prepare section: single column by default */
+.prepare-grid {
+  display: flex;
+  flex-direction: column;
+}
+
+.prepare-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.prepare-side :deep(.settings-card) {
+  margin-top: 16px;
+}
+
+/* Title row with layout toggle */
+.batch-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.batch-title-row h2 {
+  margin-bottom: 0;
+}
+
+/* ===== Classic two-column layout ===== */
+.batch-view--classic {
+  max-width: none !important;
+}
+
+.classic-layout {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.classic-left {
+  flex: 0 0 auto;
+  width: 740px;
+  min-width: 0;
+}
+
+.classic-right {
+  flex: 1;
+  min-width: 0;
+  position: sticky;
+  top: 16px;
+}
+
+.classic-right--empty {
   display: none;
 }
 
 @media (min-width: 1601px) {
-  .batch-right--empty {
+  .classic-right--empty {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -176,20 +449,16 @@ function handleTodoDone(index: number, done: boolean) {
   }
 }
 
-.batch-card {
-  margin-top: 16px;
-}
-
 @media (max-width: 1600px) {
-  .batch-layout {
+  .classic-layout {
     flex-direction: column;
   }
 
-  .batch-left {
+  .classic-left {
     width: 100%;
   }
 
-  .batch-right {
+  .classic-right {
     position: static;
     width: 100%;
   }
@@ -198,6 +467,57 @@ function handleTodoDone(index: number, done: boolean) {
 @media (max-width: 768px) {
   .batch-action {
     padding: 12px 0;
+  }
+
+  .batch-section {
+    scroll-margin-top: 80px;
+  }
+}
+
+/* Wide screen: expand container + 2-column prepare section */
+@media (min-width: 1440px) {
+  .batch-view {
+    max-width: 1400px;
+  }
+
+  .prepare-grid {
+    flex-direction: row;
+    gap: 20px;
+    align-items: flex-start;
+  }
+
+  .prepare-main {
+    flex: 1;
+  }
+
+  .prepare-side {
+    flex: 0 0 340px;
+    position: sticky;
+    top: 100px;
+  }
+
+  .prepare-side :deep(.settings-card) {
+    margin-top: 0;
+  }
+}
+
+@media (min-width: 1920px) {
+  .batch-view {
+    max-width: 1700px;
+  }
+
+  .prepare-side {
+    flex: 0 0 380px;
+  }
+}
+
+@media (min-width: 2560px) {
+  .batch-view {
+    max-width: 2100px;
+  }
+
+  .prepare-side {
+    flex: 0 0 420px;
   }
 }
 </style>
