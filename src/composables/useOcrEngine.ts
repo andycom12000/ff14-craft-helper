@@ -18,10 +18,10 @@ export function useOcrEngine() {
         }
       },
     })
-    // PSM 4 = Assume a single column of text of variable sizes
-    // Good for game UI table rows with mixed content
+    // PSM 6 = Assume a single uniform block of text
+    // Better for game UI tables with consistent row structure
     await worker.setParameters({
-      tessedit_pageseg_mode: '4' as any,
+      tessedit_pageseg_mode: '6' as any,
     })
     isReady.value = true
     isLoading.value = false
