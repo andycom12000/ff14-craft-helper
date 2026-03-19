@@ -1,46 +1,86 @@
 const NON_ITEM_STRINGS = new Set([
   '籌備軍需品', '籌備補給品', '籌備單位', '持有數量',
-  '關閉', '閑閉', '閉閉', '閣閉',
+  '關閉', '閑閉', '閉閉', '閣閉', '閱閉',
   '木工', '鍛造', '甲冑', '金工', '皮革', '裁縫', '鍊金', '烹調',
   '木工師', '鍛造師', '甲冑師', '金工師', '皮革師', '裁縫師', '鍊金術師', '烹調師',
 ])
 
+/** Patterns that indicate a section header line (not an item) */
+const SECTION_HEADER_RE = /籌備軍需品|籌備補給品|籌備單位|持有數量/
+const CJK_RE = /[\u4e00-\u9fff\u3400-\u4dbf]+/g
+const HAS_DIGIT_RE = /\d/
+
 /**
- * Parse OCR raw text from FF14 supply mission screenshot.
- * Extracts item names from the "籌備軍需品" section only.
+ * Extract CJK item name candidates from a single line.
+ * Returns null if the line has no usable CJK content.
+ */
+function extractCandidate(line: string): string | null {
+  const cjkMatches = line.match(CJK_RE)
+  if (!cjkMatches) return null
+
+  const filtered = cjkMatches.filter(m => !NON_ITEM_STRINGS.has(m))
+  if (filtered.length === 0) return null
+
+  const candidate = filtered.join('')
+  if (candidate.length < 2) return null
+  if (NON_ITEM_STRINGS.has(candidate)) return null
+
+  return candidate
+}
+
+/**
+ * Parse OCR raw text from FF14 screenshots.
  *
- * Strategy: identify lines that contain item data by looking for
- * the "0/60" pattern (OCR often reads as "0/C0", "0/co", "0/G0" etc.)
- * in the held quantity column. Supply items have this pattern,
- * provisioning items only have plain "0".
+ * Supports two formats:
+ * 1. Supply/provisioning mission table (籌備任務) — has section headers + quantity columns
+ * 2. Plain item list — just item names with icons, no numbers
+ *
+ * Strategy:
+ * - First pass: structural section-based parsing (looks for headers + digit lines)
+ * - Fallback: if structured parsing yields ≤ 1 result, extract all CJK lines permissively
  */
 export function parseSupplyItems(rawText: string): string[] {
   const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean)
-  const itemNames: string[] = []
+
+  // --- First pass: structured parsing (for supply mission tables) ---
+  const structuredItems: string[] = []
+  let inSection = false
+  let foundAnyHeader = false
 
   for (const line of lines) {
-    // Supply items have "0/60" pattern (OCR variants: 0/C0, 0/co, 0/G0, 0/cO)
-    // This distinguishes them from provisioning items (which just have "0")
-    if (!/0\/[CcGg][0Oo]/i.test(line)) continue
+    if (SECTION_HEADER_RE.test(line)) {
+      inSection = true
+      foundAnyHeader = true
+      continue
+    }
 
-    // Extract all CJK character segments from the line
-    const cjkMatches = line.match(/[\u4e00-\u9fff\u3400-\u4dbf]+/g)
-    if (!cjkMatches) continue
+    if (/^[關閑閣閉閱]{2}$/.test(line)) {
+      inSection = false
+      continue
+    }
 
-    // Filter out known non-item fragments
-    const filtered = cjkMatches.filter(m => !NON_ITEM_STRINGS.has(m))
-    if (filtered.length === 0) continue
+    if (!inSection && foundAnyHeader) continue
+    if (!HAS_DIGIT_RE.test(line)) continue
 
-    // Join all CJK fragments on this line to form the item name
-    const candidate = filtered.join('')
-
-    // Skip if too short (likely noise)
-    if (candidate.length < 3) continue
-    if (NON_ITEM_STRINGS.has(candidate)) continue
-
-    itemNames.push(candidate)
+    const candidate = extractCandidate(line)
+    if (candidate) structuredItems.push(candidate)
   }
 
-  // Deduplicate while preserving order
-  return [...new Set(itemNames)]
+  // If structured parsing found enough items, use those results
+  if (structuredItems.length > 1) {
+    return [...new Set(structuredItems)]
+  }
+
+  // --- Fallback: permissive extraction (for plain item lists / unknown formats) ---
+  const allItems: string[] = []
+
+  for (const line of lines) {
+    if (SECTION_HEADER_RE.test(line)) continue
+    if (/^[關閑閣閉閱]{2}$/.test(line)) continue
+
+    const candidate = extractCandidate(line)
+    if (candidate) allItems.push(candidate)
+  }
+
+  return [...new Set(allItems)]
 }

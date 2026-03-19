@@ -308,7 +308,7 @@ onUnmounted(() => {
 <template>
   <el-dialog
     v-model="dialogVisible"
-    title="從截圖匯入軍需品"
+    title="從截圖匯入籌備任務"
     width="900px"
     @close="handleClose"
     :close-on-click-modal="false"
