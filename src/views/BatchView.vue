@@ -30,6 +30,23 @@ const sectionProgress = ref<HTMLElement>()
 const sectionShopping = ref<HTMLElement>()
 const sectionTodo = ref<HTMLElement>()
 
+// Track which completed sections are manually expanded
+const expandedSections = ref(new Set<number>())
+
+function isSectionCollapsed(sectionStep: number) {
+  return sectionStep < currentStep.value && !expandedSections.value.has(sectionStep)
+}
+
+function toggleSection(sectionStep: number) {
+  const next = new Set(expandedSections.value)
+  if (next.has(sectionStep)) {
+    next.delete(sectionStep)
+  } else {
+    next.add(sectionStep)
+  }
+  expandedSections.value = next
+}
+
 // currentStep: 0-3 = active step, 4 = all done (exceeds step count to mark all finished)
 const currentStep = computed(() => {
   if (batchStore.results) {
@@ -156,13 +173,17 @@ function handleTodoDone(index: number, done: boolean) {
       />
 
       <!-- Section 1: 準備清單 -->
-      <section ref="sectionPrepare" class="batch-section">
-        <div class="section-header">
-          <span class="section-step" :class="{ 'section-step--active': currentStep === 0 }">1</span>
+      <section ref="sectionPrepare" class="batch-section" :class="{ 'batch-section--collapsed': isSectionCollapsed(0) }">
+        <div class="section-header" :class="{ 'section-header--clickable': currentStep > 0 }" @click="currentStep > 0 ? toggleSection(0) : undefined">
+          <span class="section-step" :class="{ 'section-step--active': currentStep === 0, 'section-step--done': currentStep > 0 }">
+            <template v-if="currentStep > 0">✓</template>
+            <template v-else>1</template>
+          </span>
           <h3 class="section-title">準備清單</h3>
-          <span class="section-desc">加入要製作的配方並設定計算參數</span>
+          <span class="section-desc">{{ currentStep > 0 ? `${batchStore.targets.length} 個配方` : '加入要製作的配方並設定計算參數' }}</span>
+          <span v-if="currentStep > 0" class="section-toggle">{{ isSectionCollapsed(0) ? '展開' : '收起' }}</span>
         </div>
-        <div class="prepare-grid">
+        <div v-if="!isSectionCollapsed(0)" class="prepare-grid">
           <div class="prepare-main">
             <BatchList @open-search="sidebarOpen = true" />
           </div>
@@ -194,36 +215,44 @@ function handleTodoDone(index: number, done: boolean) {
       </section>
 
       <!-- Section 3: 採購材料 -->
-      <section v-if="batchStore.results" ref="sectionShopping" class="batch-section">
-        <div class="section-header">
-          <span class="section-step" :class="{ 'section-step--active': currentStep === 2 }">3</span>
+      <section v-if="batchStore.results" ref="sectionShopping" class="batch-section" :class="{ 'batch-section--collapsed': isSectionCollapsed(2) }">
+        <div class="section-header" :class="{ 'section-header--clickable': currentStep > 2 }" @click="currentStep > 2 ? toggleSection(2) : undefined">
+          <span class="section-step" :class="{ 'section-step--active': currentStep === 2, 'section-step--done': currentStep > 2 }">
+            <template v-if="currentStep > 2">✓</template>
+            <template v-else>3</template>
+          </span>
           <h3 class="section-title">採購材料</h3>
-          <span class="section-desc">按伺服器分組購買所需素材</span>
-          <el-text size="small" type="info" class="section-hint">點擊素材行可複製品名</el-text>
+          <span class="section-desc">{{ currentStep > 2 ? `${batchStore.shoppingCheckedCount} 項已採購` : '按伺服器分組購買所需素材' }}</span>
+          <template v-if="currentStep <= 2">
+            <el-text size="small" type="info" class="section-hint">點擊素材行可複製品名</el-text>
+          </template>
+          <span v-if="currentStep > 2" class="section-toggle">{{ isSectionCollapsed(2) ? '展開' : '收起' }}</span>
         </div>
 
-        <el-card
-          v-if="batchStore.results.exceptions.length > 0"
-          shadow="never"
-          class="batch-card"
-        >
-          <template #header>
-            <span class="card-title">
-              例外提示
-              <el-badge :value="batchStore.results.exceptions.length" :max="99" type="danger" />
-            </span>
-          </template>
-          <ExceptionList :exceptions="batchStore.results.exceptions" />
-        </el-card>
+        <template v-if="!isSectionCollapsed(2)">
+          <el-card
+            v-if="batchStore.results.exceptions.length > 0"
+            shadow="never"
+            class="batch-card"
+          >
+            <template #header>
+              <span class="card-title">
+                例外提示
+                <el-badge :value="batchStore.results.exceptions.length" :max="99" type="danger" />
+              </span>
+            </template>
+            <ExceptionList :exceptions="batchStore.results.exceptions" />
+          </el-card>
 
-        <ShoppingList
-          :crystals="batchStore.results.crystals"
-          :server-groups="batchStore.results.serverGroups"
-          :self-craft-items="batchStore.results.selfCraftItems"
-          :buy-finished-items="batchStore.results.buyFinishedItems"
-          :grand-total="batchStore.results.grandTotal"
-          :cross-world-cache="batchStore.results.crossWorldCache"
-        />
+          <ShoppingList
+            :crystals="batchStore.results.crystals"
+            :server-groups="batchStore.results.serverGroups"
+            :self-craft-items="batchStore.results.selfCraftItems"
+            :buy-finished-items="batchStore.results.buyFinishedItems"
+            :grand-total="batchStore.results.grandTotal"
+            :cross-world-cache="batchStore.results.crossWorldCache"
+          />
+        </template>
       </section>
 
       <!-- Section 4: 製作待辦 -->
@@ -374,6 +403,37 @@ function handleTodoDone(index: number, done: boolean) {
 
 .section-hint {
   margin-left: auto;
+}
+
+/* Collapsible sections */
+.section-header--clickable {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin: -8px -12px 16px;
+  transition: background-color 0.15s;
+}
+
+.section-header--clickable:hover {
+  background: var(--el-fill-color-light);
+}
+
+.batch-section--collapsed .section-header--clickable {
+  margin-bottom: -8px;
+}
+
+.section-step--done {
+  background: var(--el-color-success-light-3);
+  color: var(--el-color-success-dark-2);
+  border-color: var(--el-color-success-light-3);
+  font-size: 11px;
+}
+
+.section-toggle {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  flex-shrink: 0;
 }
 
 .batch-action {
