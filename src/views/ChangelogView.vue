@@ -1,6 +1,14 @@
 <script setup lang="ts">
 const changelog = [
   {
+    version: 'v1.7.9',
+    date: '2026-03-20',
+    highlights: [
+      '修正 RefinedTouch 中文技能名稱錯誤：「精密加工」→「精煉加工」，修復巨集執行時技能被跳過的問題',
+      '批量製作待辦清單：已完成的步驟自動折疊收起，減少視覺干擾',
+    ],
+  },
+  {
     version: 'v1.7.8',
     date: '2026-03-19',
     highlights: [
