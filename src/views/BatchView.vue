@@ -410,7 +410,7 @@ function handleTodoDone(index: number, done: boolean) {
   cursor: pointer;
   border-radius: 6px;
   padding: 8px 12px;
-  margin: -8px -12px 16px;
+  margin: 0 -12px 16px;
   transition: background-color 0.15s;
 }
 
@@ -418,8 +418,13 @@ function handleTodoDone(index: number, done: boolean) {
   background: var(--el-fill-color-light);
 }
 
+.batch-section--collapsed {
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
 .batch-section--collapsed .section-header--clickable {
-  margin-bottom: -8px;
+  margin-bottom: 0;
 }
 
 .section-step--done {
