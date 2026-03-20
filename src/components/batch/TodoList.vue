@@ -3,17 +3,25 @@ import { ref, computed } from 'vue'
 import { formatMacros } from '@/services/macro-formatter'
 import { getJobName } from '@/utils/jobs'
 import { ElMessage } from 'element-plus'
-import { DocumentCopy } from '@element-plus/icons-vue'
+import { DocumentCopy, ArrowRight } from '@element-plus/icons-vue'
 import type { TodoItem } from '@/stores/batch'
 
 const props = defineProps<{ items: TodoItem[] }>()
 const emit = defineEmits<{ 'update:done': [index: number, done: boolean] }>()
 
 const expandedMacro = ref<number | null>(null)
+const showDoneItems = ref(false)
 
 const doneCount = computed(() => props.items.filter(i => i.done).length)
 const progressPercent = computed(() =>
   props.items.length === 0 ? 0 : Math.round((doneCount.value / props.items.length) * 100),
+)
+
+const pendingItems = computed(() =>
+  props.items.map((item, index) => ({ item, index })).filter(({ item }) => !item.done),
+)
+const doneItems = computed(() =>
+  props.items.map((item, index) => ({ item, index })).filter(({ item }) => item.done),
 )
 
 const macroCache = computed(() =>
@@ -62,12 +70,52 @@ function resetAll() {
       製作順序（依相依性排列，由底層半成品到頂層成品）
     </el-text>
 
+    <!-- Completed items collapsed section -->
+    <div v-if="doneItems.length > 0" class="done-collapse">
+      <div class="done-collapse-header" @click="showDoneItems = !showDoneItems">
+        <el-icon class="done-collapse-arrow" :class="{ 'is-expanded': showDoneItems }">
+          <ArrowRight />
+        </el-icon>
+        <el-text size="small" type="success">
+          已完成 {{ doneItems.length }} 項
+        </el-text>
+      </div>
+      <div v-if="showDoneItems" class="todo-grid">
+        <div
+          v-for="{ item, index } in doneItems"
+          :key="index"
+          class="todo-item todo-item--done"
+        >
+          <div class="todo-row">
+            <el-checkbox :model-value="item.done" @update:model-value="() => toggleDone(index)" />
+            <span class="todo-num">{{ index + 1 }}</span>
+            <div class="todo-info">
+              <div class="todo-name">
+                <img
+                  v-if="item.recipe.icon"
+                  :src="item.recipe.icon"
+                  :alt="item.recipe.name"
+                  class="todo-icon"
+                />
+                {{ item.recipe.name }}
+              </div>
+              <div class="todo-meta">
+                x{{ item.quantity }} |
+                <el-tag size="small" type="primary">{{ getJobName(item.recipe.job) }}</el-tag>
+                <span v-if="item.isSemiFinished" class="todo-badge">半成品</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pending items -->
     <div class="todo-grid">
     <div
-      v-for="(item, index) in items"
+      v-for="{ item, index } in pendingItems"
       :key="index"
       class="todo-item"
-      :class="{ 'todo-item--done': item.done }"
     >
       <div class="todo-row">
         <el-checkbox :model-value="item.done" @update:model-value="() => toggleDone(index)" />
@@ -170,6 +218,37 @@ function resetAll() {
 .todo-item:hover {
   background: var(--el-fill-color-light);
   border-radius: 4px;
+}
+
+.done-collapse {
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  padding-bottom: 8px;
+}
+
+.done-collapse-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 6px 4px;
+  border-radius: 4px;
+  user-select: none;
+  transition: background-color 0.15s;
+}
+
+.done-collapse-header:hover {
+  background: var(--el-fill-color-light);
+}
+
+.done-collapse-arrow {
+  transition: transform 0.2s;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.done-collapse-arrow.is-expanded {
+  transform: rotate(90deg);
 }
 
 .todo-item--done {
