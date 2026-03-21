@@ -21,7 +21,7 @@ export const SKILLS: SkillDefinition[] = [
   { id: 'PrudentSynthesis', name: 'Prudent Synthesis', nameZh: '儉約製作', category: 'progress', level: 88, cp: 18, durability: 5, description: '180% 效率，5 耐久' },
   { id: 'MuscleMemory', name: 'Muscle Memory', nameZh: '堅信', category: 'progress', level: 54, cp: 6, durability: 10, description: '300% 效率（首步限定）' },
   { id: 'FocusedSynthesis', name: 'Focused Synthesis', nameZh: '注視製作', category: 'progress', level: 67, cp: 5, durability: 10, description: '200% 效率（觀察後 100%）' },
-  { id: 'DelicateSynthesis', name: 'Delicate Synthesis', nameZh: '精密製作', category: 'progress', level: 76, cp: 32, durability: 10, description: '100% 進展 + 100% 品質' },
+  { id: 'DelicateSynthesis', name: 'Delicate Synthesis', nameZh: '精密製作', category: 'progress', level: 76, cp: 32, durability: 10, description: '150% 進展 + 100% 品質（Lv.94 前為 100% 進展）' },
 
   // Quality
   { id: 'BasicTouch', name: 'Basic Touch', nameZh: '加工', category: 'quality', level: 5, cp: 18, durability: 10, description: '100% 效率品質' },

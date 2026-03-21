@@ -1,6 +1,17 @@
 <script setup lang="ts">
 const changelog = [
   {
+    version: 'v1.7.12',
+    date: '2026-03-21',
+    highlights: [
+      '修正食物/藥水資料全部錯誤的嚴重 bug：作業/加工精度搞反、百分比和上限值不正確，導致求解器產出在遊戲中無法完成的巨集',
+      '移除非製作食物（懸掛番茄沙拉、蔬菜湯）——這些是戰鬥食物，不應出現在製作模擬器中',
+      'NQ 食藥資料改為精確值（不再用 HQ 減半近似），來源為 Garland Tools + raphael-rs 遊戲數據',
+      '修正精密製作技能描述：Lv.94 後進展效率為 150%（原誤標為 100%）',
+      '更新 raphael-rs WASM 至最新版本 (47c4ea77)',
+    ],
+  },
+  {
     version: 'v1.7.11',
     date: '2026-03-20',
     highlights: [
