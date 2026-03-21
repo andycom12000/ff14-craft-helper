@@ -1,6 +1,6 @@
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
-import type { BatchException, BatchTarget, BatchResults, TodoItem, BuyFinishedDecision } from '@/stores/batch'
+import type { BatchException, BatchTarget, BatchResults, TodoItem, BuyFinishedDecision, BuffRecommendation } from '@/stores/batch'
 import type { MaterialWithPrice, MaterialBase } from '@/services/shopping-list'
 import { markRaw } from 'vue'
 import { solveCraft, simulateCraft, waitForWasm } from '@/solver/worker'
@@ -11,6 +11,7 @@ import type { MarketData, WorldPriceSummary } from '@/api/universalis'
 import { separateCrystals, groupByServer, calculateBestPurchase, findCheapestServerPurchase } from '@/services/shopping-list'
 import { buildMaterialTree, flattenMaterialTree, computeOptimalCosts } from '@/services/bom-calculator'
 import { applyFoodBuff, applyMedicineBuff, resolveBuff, COMMON_FOODS, COMMON_MEDICINES, type FoodBuff } from '@/engine/food-medicine'
+import { evaluateBuffRecommendation, getBuffItemIds } from '@/services/buff-recommender'
 
 export interface RecipeOptimizeResult {
   recipe: Recipe
@@ -190,6 +191,13 @@ export async function runBatchOptimization(
   // Merge into single query
   for (const id of finishedProductIds) allMaterialIds.add(id)
   const priceSource = settings.crossServer ? settings.dataCenter : settings.server
+
+  // Add food/medicine item IDs for buff recommendation (only when user hasn't selected any)
+  const noBuffSelected = !settings.foodId && !settings.medicineId
+  if (noBuffSelected) {
+    for (const id of getBuffItemIds()) allMaterialIds.add(id)
+  }
+
   const priceMap = await getAggregatedPrices(priceSource, [...allMaterialIds])
 
   // === Phase 4.5: Compare craft cost vs buy price per recipe ===
@@ -236,6 +244,20 @@ export async function runBatchOptimization(
       })
     } else {
       recipesToCraft.push(r)
+    }
+  }
+
+  // === Phase 4.6-buff: Evaluate food/medicine recommendation ===
+  let buffRecommendation: BuffRecommendation | undefined
+  if (noBuffSelected && !isCancelled()) {
+    const buyFinishedIds = new Set(buyFinishedItems.map(bf => bf.recipe.id))
+    const hasDeficit = recipesToCraft.some(r => !r.isDoubleMax && r.recipe.canHq)
+    if (hasDeficit) {
+      const recommendation = await evaluateBuffRecommendation(
+        recipesToCraft, buyFinishedIds, getGearset as (job: string) => GearsetStats | null,
+        priceMap, isCancelled,
+      )
+      if (recommendation) buffRecommendation = recommendation
     }
   }
 
@@ -385,5 +407,5 @@ export async function runBatchOptimization(
     hqAmounts: r.hqAmounts, isSemiFinished: false, done: false,
   }))
 
-  return { serverGroups, crystals, selfCraftItems, todoList, exceptions, buyFinishedItems, grandTotal, crossWorldCache }
+  return { serverGroups, crystals, selfCraftItems, todoList, exceptions, buyFinishedItems, grandTotal, crossWorldCache, buffRecommendation }
 }
