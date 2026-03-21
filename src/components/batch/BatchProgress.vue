@@ -4,21 +4,58 @@ import { computed } from 'vue'
 
 const batchStore = useBatchStore()
 
+const PHASE_RANGES: Record<string, [number, number]> = {
+  solving: [0, 85],
+  pricing: [85, 90],
+  'evaluating-buffs': [90, 95],
+  aggregating: [95, 99],
+  done: [100, 100],
+}
+
 const percentage = computed(() => {
   const p = batchStore.progress
-  if (p.total === 0) return 0
-  if (p.phase === 'pricing') return 95
-  if (p.phase === 'done') return 100
-  const completedPortion = (p.current - 1) / p.total
-  const currentPortion = (p.solverPercent / 100) / p.total
-  return Math.min(95, Math.round((completedPortion + currentPortion) * 100))
+  if (p.phase === 'idle' || p.phase === 'done') return p.phase === 'done' ? 100 : 0
+
+  const range = PHASE_RANGES[p.phase]
+  if (!range) return 0
+  const [start, end] = range
+
+  if (p.phase === 'solving' && p.total > 0) {
+    const completedPortion = (p.current - 1) / p.total
+    const currentPortion = (p.solverPercent / 100) / p.total
+    return Math.round(start + (completedPortion + currentPortion) * (end - start))
+  }
+
+  if (p.phase === 'evaluating-buffs' && p.total > 0) {
+    return Math.round(start + (p.current / p.total) * (end - start))
+  }
+
+  return start
 })
 
 const statusText = computed(() => {
   const p = batchStore.progress
-  if (p.phase === 'pricing') return '正在查價...'
-  if (p.phase === 'done') return '計算完成'
-  return `正在求解：${p.currentName}`
+  switch (p.phase) {
+    case 'solving':
+      return `正在求解：${p.currentName}`
+    case 'pricing':
+      return '正在查詢市場價格...'
+    case 'evaluating-buffs':
+      return p.total > 0
+        ? `正在評估食藥組合 (${p.current}/${p.total})...`
+        : '正在評估食藥組合...'
+    case 'aggregating':
+      return p.currentName || '正在整理採購清單...'
+    case 'done':
+      return '計算完成'
+    default:
+      return ''
+  }
+})
+
+const showCounter = computed(() => {
+  const phase = batchStore.progress.phase
+  return phase === 'solving' || phase === 'evaluating-buffs'
 })
 </script>
 
@@ -32,7 +69,7 @@ const statusText = computed(() => {
         <el-text size="small" type="info">
           <strong>{{ statusText }}</strong>
         </el-text>
-        <el-text size="small" type="info">
+        <el-text v-if="showCounter" size="small" type="info">
           {{ batchStore.progress.current }} / {{ batchStore.progress.total }}
         </el-text>
       </div>

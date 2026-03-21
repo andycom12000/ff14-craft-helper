@@ -18,6 +18,10 @@ vi.mock('@/services/bom-calculator', () => ({
   getCraftingOrder: vi.fn().mockReturnValue([]),
   computeOptimalCosts: vi.fn().mockReturnValue({ totalCost: 0, decisions: [] }),
 }))
+vi.mock('@/services/buff-recommender', () => ({
+  evaluateBuffRecommendation: vi.fn().mockResolvedValue(null),
+  getBuffItemIds: vi.fn().mockReturnValue([]),
+}))
 
 import { optimizeRecipe, runBatchOptimization } from '@/services/batch-optimizer'
 import { solveCraft, simulateCraft } from '@/solver/worker'
@@ -70,6 +74,22 @@ describe('optimizeRecipe', () => {
     expect(result.isDoubleMax).toBe(false)
     expect(result.hqAmounts.length).toBe(2)
   })
+
+  it('returns qualityDeficit = 0 when double-max', async () => {
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory', 'groundwork'], progress: 3500, quality: 7200, steps: 2 })
+    vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
+
+    const result = await optimizeRecipe(mockRecipe, mockGearset)
+    expect(result.qualityDeficit).toBe(0)
+  })
+
+  it('returns qualityDeficit when quality < max', async () => {
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory'], progress: 3500, quality: 5000, steps: 1 })
+    vi.mocked(simulateCraft).mockResolvedValue(qualityDeficitSim as any)
+
+    const result = await optimizeRecipe(mockRecipe, mockGearset)
+    expect(result.qualityDeficit).toBe(2200) // 7200 - 5000
+  })
 })
 
 describe('runBatchOptimization', () => {
@@ -119,5 +139,27 @@ describe('runBatchOptimization', () => {
     )
     // First recipe may complete before cancellation is checked
     expect(result.todoList.length).toBeLessThanOrEqual(2)
+  })
+})
+
+describe('runBatchOptimization buff recommendation', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const defaultSettings = {
+    crossServer: false, recursivePricing: false, maxRecursionDepth: 3,
+    exceptionStrategy: 'skip' as const, server: 'Chocobo', dataCenter: 'Mana',
+  }
+
+  it('does not run buff evaluation when food is selected', async () => {
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory'], progress: 3500, quality: 5000, steps: 1 })
+    vi.mocked(simulateCraft).mockResolvedValue(qualityDeficitSim as any)
+
+    const result = await runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 1 }],
+      () => mockGearset,
+      { ...defaultSettings, foodId: 44091, foodIsHq: true },
+      () => {}, () => false,
+    )
+    expect(result.buffRecommendation).toBeUndefined()
   })
 })

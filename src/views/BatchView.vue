@@ -13,6 +13,7 @@ import ShoppingList from '@/components/batch/ShoppingList.vue'
 import TodoList from '@/components/batch/TodoList.vue'
 import ExceptionList from '@/components/batch/ExceptionList.vue'
 import BatchSearchSidebar from '@/components/batch/BatchSearchSidebar.vue'
+import BuffRecommendationCard from '@/components/batch/BuffRecommendationCard.vue'
 
 const batchStore = useBatchStore()
 const settings = useSettingsStore()
@@ -176,6 +177,11 @@ function handleTodoDone(index: number, done: boolean) {
         :server="settings.server"
       />
 
+      <BuffRecommendationCard
+        v-if="batchStore.results?.buffRecommendation"
+        :recommendation="batchStore.results.buffRecommendation"
+      />
+
       <!-- Section 1: 準備清單 -->
       <section ref="sectionPrepare" class="batch-section" :class="{ 'batch-section--collapsed': isSectionCollapsed(0) }">
         <div class="section-header" :class="{ 'section-header--clickable': currentStep > 0 }" @click="currentStep > 0 ? toggleSection(0) : undefined">
@@ -293,6 +299,11 @@ function handleTodoDone(index: number, done: boolean) {
           </div>
 
           <BatchProgress />
+
+          <BuffRecommendationCard
+            v-if="batchStore.results?.buffRecommendation"
+            :recommendation="batchStore.results.buffRecommendation"
+          />
 
           <el-card
             v-if="batchStore.results && batchStore.results.exceptions.length > 0"

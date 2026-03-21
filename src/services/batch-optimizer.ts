@@ -1,6 +1,6 @@
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
-import type { BatchException, BatchTarget, BatchResults, TodoItem, BuyFinishedDecision } from '@/stores/batch'
+import type { BatchException, BatchTarget, BatchResults, TodoItem, BuyFinishedDecision, BuffRecommendation } from '@/stores/batch'
 import type { MaterialWithPrice, MaterialBase } from '@/services/shopping-list'
 import { markRaw } from 'vue'
 import { solveCraft, simulateCraft, waitForWasm } from '@/solver/worker'
@@ -11,6 +11,7 @@ import type { MarketData, WorldPriceSummary } from '@/api/universalis'
 import { separateCrystals, groupByServer, calculateBestPurchase, findCheapestServerPurchase } from '@/services/shopping-list'
 import { buildMaterialTree, flattenMaterialTree, computeOptimalCosts } from '@/services/bom-calculator'
 import { applyFoodBuff, applyMedicineBuff, resolveBuff, COMMON_FOODS, COMMON_MEDICINES, type FoodBuff } from '@/engine/food-medicine'
+import { evaluateBuffRecommendation, getBuffItemIds } from '@/services/buff-recommender'
 
 export interface RecipeOptimizeResult {
   recipe: Recipe
@@ -20,6 +21,7 @@ export interface RecipeOptimizeResult {
   initialQuality: number
   isDoubleMax: boolean
   materials: MaterialBase[]
+  qualityDeficit: number
 }
 
 export async function optimizeRecipe(
@@ -54,7 +56,7 @@ export async function optimizeRecipe(
   if (isDoubleMax) {
     return {
       recipe, quantity: 1, actions: solverResult.actions,
-      hqAmounts: [], initialQuality: 0, isDoubleMax: true, materials,
+      hqAmounts: [], initialQuality: 0, isDoubleMax: true, materials, qualityDeficit: 0,
     }
   }
 
@@ -72,7 +74,7 @@ export async function optimizeRecipe(
     recipe, quantity: 1, actions: solverResult.actions,
     hqAmounts: bestCombo?.hqAmounts ?? [],
     initialQuality: bestCombo?.initialQuality ?? 0,
-    isDoubleMax: false, materials,
+    isDoubleMax: false, materials, qualityDeficit,
   }
 }
 
@@ -100,7 +102,7 @@ export async function runBatchOptimization(
     current: number
     total: number
     name: string
-    phase: 'solving' | 'pricing' | 'done'
+    phase: 'solving' | 'pricing' | 'evaluating-buffs' | 'aggregating' | 'done'
     solverPercent: number
   }) => void,
   isCancelled: () => boolean,
@@ -175,7 +177,7 @@ export async function runBatchOptimization(
   }
 
   // === Phase 4: Early price query (materials + finished products) ===
-  onProgress({ current: targets.length, total: targets.length, name: '查詢市場價格', phase: 'pricing', solverPercent: 100 })
+  onProgress({ current: 0, total: 0, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
 
   // Collect all material itemIds (excluding crystals) + finished product itemIds
   const allMaterialIds = new Set<number>()
@@ -189,6 +191,13 @@ export async function runBatchOptimization(
   // Merge into single query
   for (const id of finishedProductIds) allMaterialIds.add(id)
   const priceSource = settings.crossServer ? settings.dataCenter : settings.server
+
+  // Add food/medicine item IDs for buff recommendation (only when user hasn't selected any)
+  const noBuffSelected = !settings.foodId && !settings.medicineId
+  if (noBuffSelected) {
+    for (const id of getBuffItemIds()) allMaterialIds.add(id)
+  }
+
   const priceMap = await getAggregatedPrices(priceSource, [...allMaterialIds])
 
   // === Phase 4.5: Compare craft cost vs buy price per recipe ===
@@ -238,7 +247,24 @@ export async function runBatchOptimization(
     }
   }
 
+  // === Phase 4.6-buff: Evaluate food/medicine recommendation ===
+  let buffRecommendation: BuffRecommendation | undefined
+  if (noBuffSelected && !isCancelled()) {
+    const buyFinishedIds = new Set(buyFinishedItems.map(bf => bf.recipe.id))
+    const hasDeficit = recipesToCraft.some(r => !r.isDoubleMax && r.recipe.canHq)
+    if (hasDeficit) {
+      onProgress({ current: 0, total: 0, name: '', phase: 'evaluating-buffs', solverPercent: 0 })
+      const recommendation = await evaluateBuffRecommendation(
+        recipesToCraft, buyFinishedIds, getGearset as (job: string) => GearsetStats | null,
+        priceMap, isCancelled,
+        (info) => onProgress({ current: info.current, total: info.total, name: '', phase: 'evaluating-buffs', solverPercent: 0 }),
+      )
+      if (recommendation) buffRecommendation = recommendation
+    }
+  }
+
   // === Phase 5: Aggregate materials (only for recipes still being crafted) ===
+  onProgress({ current: 0, total: 0, name: '整理材料清單', phase: 'aggregating', solverPercent: 0 })
   const allTypedMaterials: TypedMaterial[] = []
   const selfCraftItems: MaterialWithPrice[] = []
 
@@ -273,11 +299,13 @@ export async function runBatchOptimization(
   // Recursive BOM: expand craftable materials
   if (settings.recursivePricing) {
     try {
+      onProgress({ current: 0, total: 0, name: '展開遞迴材料', phase: 'aggregating', solverPercent: 0 })
       const bomTargets = nonCrystals.map(m => ({
         itemId: m.itemId, recipeId: 0, name: m.name, icon: m.icon, quantity: m.amount,
       }))
       const tree = await buildMaterialTree(bomTargets)
       const flatList = flattenMaterialTree(tree)
+      onProgress({ current: 0, total: 0, name: '查詢材料價格', phase: 'aggregating', solverPercent: 0 })
       const bomPriceMap = await getAggregatedPrices(priceSource, flatList.map(f => f.itemId))
       const costResult = computeOptimalCosts(tree, (id) => {
         const md = bomPriceMap.get(id)
@@ -297,6 +325,7 @@ export async function runBatchOptimization(
   }
 
   // === Phase 5.5: Price materials + add buy-finished items to shopping list ===
+  onProgress({ current: 0, total: 0, name: '分組採購清單', phase: 'aggregating', solverPercent: 0 })
   let pricedMaterials: MaterialWithPrice[]
   let dcPriceMap: Map<number, MarketData> | null = null
 
@@ -384,5 +413,5 @@ export async function runBatchOptimization(
     hqAmounts: r.hqAmounts, isSemiFinished: false, done: false,
   }))
 
-  return { serverGroups, crystals, selfCraftItems, todoList, exceptions, buyFinishedItems, grandTotal, crossWorldCache }
+  return { serverGroups, crystals, selfCraftItems, todoList, exceptions, buyFinishedItems, grandTotal, crossWorldCache, buffRecommendation }
 }
