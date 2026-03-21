@@ -10,7 +10,7 @@ vi.mock('@/solver/worker', () => ({
 }))
 
 import { generateCandidateCombos, evaluateBuffRecommendation } from '@/services/buff-recommender'
-import { simulateCraft, solveCraft } from '@/solver/worker'
+import { simulateCraft } from '@/solver/worker'
 
 const mockGearset: GearsetStats = { level: 100, craftsmanship: 4000, control: 3800, cp: 600 }
 
