@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import type { Recipe } from '@/stores/recipe'
 import type { MaterialWithPrice as ShoppingItem, ServerGroup, CrystalSummary } from '@/services/shopping-list'
 import type { WorldPriceSummary } from '@/api/universalis'
+import type { FoodBuff } from '@/engine/food-medicine'
 
 export type { ShoppingItem, ServerGroup, CrystalSummary }
 
@@ -38,6 +39,14 @@ export interface BuyFinishedDecision {
   buyServer?: string
 }
 
+export interface BuffRecommendation {
+  food: { buff: FoodBuff; isHq: boolean } | null
+  medicine: { buff: FoodBuff; isHq: boolean } | null
+  buffCost: number
+  hqMaterialSavings: number
+  affectedRecipes: Array<{ id: number; name: string }>
+}
+
 export interface BatchResults {
   serverGroups: ServerGroup[]
   crystals: CrystalSummary[]
@@ -47,6 +56,7 @@ export interface BatchResults {
   buyFinishedItems: BuyFinishedDecision[]
   grandTotal: number
   crossWorldCache: Map<number, WorldPriceSummary[]>
+  buffRecommendation?: BuffRecommendation
 }
 
 const defaultProgress = () => ({
