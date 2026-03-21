@@ -102,7 +102,7 @@ export async function runBatchOptimization(
     current: number
     total: number
     name: string
-    phase: 'solving' | 'pricing' | 'done'
+    phase: 'solving' | 'pricing' | 'evaluating-buffs' | 'aggregating' | 'done'
     solverPercent: number
   }) => void,
   isCancelled: () => boolean,
