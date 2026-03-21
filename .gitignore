@@ -23,5 +23,8 @@ Thumbs.db
 *.log
 npm-debug.log*
 
+# Claude Code
+.claude/settings.local.json
+
 # Rust
 raphael-wasm-wrapper/target/
