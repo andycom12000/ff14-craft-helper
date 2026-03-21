@@ -177,7 +177,7 @@ export async function runBatchOptimization(
   }
 
   // === Phase 4: Early price query (materials + finished products) ===
-  onProgress({ current: targets.length, total: targets.length, name: '查詢市場價格', phase: 'pricing', solverPercent: 100 })
+  onProgress({ current: 0, total: 0, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
 
   // Collect all material itemIds (excluding crystals) + finished product itemIds
   const allMaterialIds = new Set<number>()
@@ -253,15 +253,18 @@ export async function runBatchOptimization(
     const buyFinishedIds = new Set(buyFinishedItems.map(bf => bf.recipe.id))
     const hasDeficit = recipesToCraft.some(r => !r.isDoubleMax && r.recipe.canHq)
     if (hasDeficit) {
+      onProgress({ current: 0, total: 0, name: '', phase: 'evaluating-buffs', solverPercent: 0 })
       const recommendation = await evaluateBuffRecommendation(
         recipesToCraft, buyFinishedIds, getGearset as (job: string) => GearsetStats | null,
         priceMap, isCancelled,
+        (info) => onProgress({ current: info.current, total: info.total, name: '', phase: 'evaluating-buffs', solverPercent: 0 }),
       )
       if (recommendation) buffRecommendation = recommendation
     }
   }
 
   // === Phase 5: Aggregate materials (only for recipes still being crafted) ===
+  onProgress({ current: 0, total: 0, name: '整理材料清單', phase: 'aggregating', solverPercent: 0 })
   const allTypedMaterials: TypedMaterial[] = []
   const selfCraftItems: MaterialWithPrice[] = []
 
@@ -296,11 +299,13 @@ export async function runBatchOptimization(
   // Recursive BOM: expand craftable materials
   if (settings.recursivePricing) {
     try {
+      onProgress({ current: 0, total: 0, name: '展開遞迴材料', phase: 'aggregating', solverPercent: 0 })
       const bomTargets = nonCrystals.map(m => ({
         itemId: m.itemId, recipeId: 0, name: m.name, icon: m.icon, quantity: m.amount,
       }))
       const tree = await buildMaterialTree(bomTargets)
       const flatList = flattenMaterialTree(tree)
+      onProgress({ current: 0, total: 0, name: '查詢材料價格', phase: 'aggregating', solverPercent: 0 })
       const bomPriceMap = await getAggregatedPrices(priceSource, flatList.map(f => f.itemId))
       const costResult = computeOptimalCosts(tree, (id) => {
         const md = bomPriceMap.get(id)
@@ -320,6 +325,7 @@ export async function runBatchOptimization(
   }
 
   // === Phase 5.5: Price materials + add buy-finished items to shopping list ===
+  onProgress({ current: 0, total: 0, name: '分組採購清單', phase: 'aggregating', solverPercent: 0 })
   let pricedMaterials: MaterialWithPrice[]
   let dcPriceMap: Map<number, MarketData> | null = null
 

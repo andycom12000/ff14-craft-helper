@@ -190,6 +190,7 @@ export async function evaluateBuffRecommendation(
   getGearset: (job: string) => GearsetStats | null,
   priceMap: Map<number, MarketData>,
   isCancelled: () => boolean,
+  onProgress?: (info: { current: number; total: number }) => void,
 ): Promise<BuffRecommendation | null> {
   // Step 1: collect deficit recipes (exclude buy-finished and canHq=false)
   const deficitRecipes = recipeResults.filter(
@@ -237,8 +238,10 @@ export async function evaluateBuffRecommendation(
   if (candidates.length === 0) return null
 
   // Step 2.5 + Step 3 + Step 4: try combos cheapest-first
-  for (const candidate of candidates) {
+  for (let i = 0; i < candidates.length; i++) {
     if (isCancelled()) return null
+    onProgress?.({ current: i + 1, total: candidates.length })
+    const candidate = candidates[i]
     const combo: BuffCombo = { food: candidate.food, medicine: candidate.medicine }
 
     let hardestPasses = await simulateWithBuffedStats(
