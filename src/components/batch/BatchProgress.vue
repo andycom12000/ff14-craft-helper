@@ -5,10 +5,10 @@ import { computed } from 'vue'
 const batchStore = useBatchStore()
 
 const PHASE_RANGES: Record<string, [number, number]> = {
-  solving: [0, 60],
-  pricing: [60, 70],
-  'evaluating-buffs': [70, 85],
-  aggregating: [85, 95],
+  solving: [0, 85],
+  pricing: [85, 90],
+  'evaluating-buffs': [90, 95],
+  aggregating: [95, 99],
   done: [100, 100],
 }
 
