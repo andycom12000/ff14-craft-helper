@@ -10,6 +10,7 @@ import { getAggregatedPrices, getMarketData, aggregateByWorld } from '@/api/univ
 import type { MarketData, WorldPriceSummary } from '@/api/universalis'
 import { separateCrystals, groupByServer, calculateBestPurchase, findCheapestServerPurchase } from '@/services/shopping-list'
 import { buildMaterialTree, flattenMaterialTree, computeOptimalCosts } from '@/services/bom-calculator'
+import { applyFoodBuff, applyMedicineBuff, resolveBuff, COMMON_FOODS, COMMON_MEDICINES, type FoodBuff } from '@/engine/food-medicine'
 
 export interface RecipeOptimizeResult {
   recipe: Recipe
@@ -25,8 +26,19 @@ export async function optimizeRecipe(
   recipe: Recipe,
   gearset: GearsetStats,
   onSolverProgress?: (percent: number) => void,
+  buffs?: { food: FoodBuff | null; medicine: FoodBuff | null },
 ): Promise<RecipeOptimizeResult> {
   const craftParams = recipeToCraftParams(recipe, gearset)
+  if (buffs) {
+    const afterFood = applyFoodBuff(
+      { craftsmanship: craftParams.craftsmanship, control: craftParams.control, cp: craftParams.cp },
+      buffs.food,
+    )
+    const enhanced = applyMedicineBuff(afterFood, buffs.medicine)
+    craftParams.craftsmanship = enhanced.craftsmanship
+    craftParams.control = enhanced.control
+    craftParams.cp = enhanced.cp
+  }
   const solverConfig = craftParamsToSolverConfig(craftParams)
   const solverResult = await solveCraft(solverConfig, onSolverProgress)
   const simResult = await simulateCraft(solverConfig, solverResult.actions)
@@ -79,6 +91,10 @@ export async function runBatchOptimization(
     exceptionStrategy: 'skip' | 'buy'
     server: string
     dataCenter: string
+    foodId?: number | null
+    foodIsHq?: boolean
+    medicineId?: number | null
+    medicineIsHq?: boolean
   },
   onProgress: (info: {
     current: number
@@ -91,6 +107,10 @@ export async function runBatchOptimization(
 ): Promise<BatchResults> {
   const recipeResults: RecipeOptimizeResult[] = []
   const exceptions: BatchException[] = []
+
+  const foodBuff = resolveBuff(COMMON_FOODS, settings.foodId ?? null, settings.foodIsHq ?? true)
+  const medicineBuff = resolveBuff(COMMON_MEDICINES, settings.medicineId ?? null, settings.medicineIsHq ?? true)
+  const buffs = (foodBuff || medicineBuff) ? { food: foodBuff, medicine: medicineBuff } : undefined
 
   await waitForWasm()
 
@@ -123,7 +143,7 @@ export async function runBatchOptimization(
     }
 
     try {
-      const result = await optimizeRecipe(target.recipe, gearset, (pct) => report('solving', pct))
+      const result = await optimizeRecipe(target.recipe, gearset, (pct) => report('solving', pct), buffs)
       result.quantity = target.quantity
 
       if (!result.isDoubleMax && result.hqAmounts.length === 0) {

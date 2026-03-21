@@ -65,6 +65,11 @@ export const useBatchStore = defineStore('batch', () => {
   const results = ref<BatchResults | null>(null)
   const checkedShoppingKeys = ref(new Set<string>())
 
+  const foodId = ref<number | null>(null)
+  const foodIsHq = ref(true)
+  const medicineId = ref<number | null>(null)
+  const medicineIsHq = ref(true)
+
   /** Total number of shopping items (server groups + self-craft) */
   const shoppingItemCount = computed(() => {
     if (!results.value) return 0
@@ -139,6 +144,10 @@ export const useBatchStore = defineStore('batch', () => {
     isRunning.value = false
     progress.value = defaultProgress()
     checkedShoppingKeys.value = new Set()
+    foodId.value = null
+    foodIsHq.value = true
+    medicineId.value = null
+    medicineIsHq.value = true
   }
 
   return {
@@ -148,6 +157,10 @@ export const useBatchStore = defineStore('batch', () => {
     progress,
     results,
     checkedShoppingKeys,
+    foodId,
+    foodIsHq,
+    medicineId,
+    medicineIsHq,
     shoppingItemCount,
     shoppingCheckedCount,
     allShoppingDone,

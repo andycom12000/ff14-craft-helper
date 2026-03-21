@@ -121,6 +121,10 @@ async function startOptimization() {
         exceptionStrategy: settings.exceptionStrategy,
         server: settings.server,
         dataCenter: settings.dataCenter,
+        foodId: batchStore.foodId,
+        foodIsHq: batchStore.foodIsHq,
+        medicineId: batchStore.medicineId,
+        medicineIsHq: batchStore.medicineIsHq,
       },
       (info) => {
         batchStore.progress = {
