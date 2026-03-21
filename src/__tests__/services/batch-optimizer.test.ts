@@ -70,6 +70,22 @@ describe('optimizeRecipe', () => {
     expect(result.isDoubleMax).toBe(false)
     expect(result.hqAmounts.length).toBe(2)
   })
+
+  it('returns qualityDeficit = 0 when double-max', async () => {
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory', 'groundwork'], progress: 3500, quality: 7200, steps: 2 })
+    vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
+
+    const result = await optimizeRecipe(mockRecipe, mockGearset)
+    expect(result.qualityDeficit).toBe(0)
+  })
+
+  it('returns qualityDeficit when quality < max', async () => {
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory'], progress: 3500, quality: 5000, steps: 1 })
+    vi.mocked(simulateCraft).mockResolvedValue(qualityDeficitSim as any)
+
+    const result = await optimizeRecipe(mockRecipe, mockGearset)
+    expect(result.qualityDeficit).toBe(2200) // 7200 - 5000
+  })
 })
 
 describe('runBatchOptimization', () => {

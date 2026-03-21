@@ -20,6 +20,7 @@ export interface RecipeOptimizeResult {
   initialQuality: number
   isDoubleMax: boolean
   materials: MaterialBase[]
+  qualityDeficit: number
 }
 
 export async function optimizeRecipe(
@@ -54,7 +55,7 @@ export async function optimizeRecipe(
   if (isDoubleMax) {
     return {
       recipe, quantity: 1, actions: solverResult.actions,
-      hqAmounts: [], initialQuality: 0, isDoubleMax: true, materials,
+      hqAmounts: [], initialQuality: 0, isDoubleMax: true, materials, qualityDeficit: 0,
     }
   }
 
@@ -72,7 +73,7 @@ export async function optimizeRecipe(
     recipe, quantity: 1, actions: solverResult.actions,
     hqAmounts: bestCombo?.hqAmounts ?? [],
     initialQuality: bestCombo?.initialQuality ?? 0,
-    isDoubleMax: false, materials,
+    isDoubleMax: false, materials, qualityDeficit,
   }
 }
 
