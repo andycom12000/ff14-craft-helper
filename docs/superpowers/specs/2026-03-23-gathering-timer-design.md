@@ -301,7 +301,7 @@ cropRegion(px, py, mapSize, cropSize): { sx, sy, sw, sh }
 ## Non-Goals
 
 - No fishing (FSH) nodes — timed fishing works differently and is out of scope
-- No interactive/pannable map viewer
+- No full-screen map viewer (minimap is inline within cards only)
 - No integration with in-game macros
 - No push notifications beyond browser tab (no service worker)
 - No social/sharing features
