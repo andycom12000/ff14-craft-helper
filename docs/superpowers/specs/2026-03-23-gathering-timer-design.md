@@ -223,7 +223,12 @@ Source: royalty-free sounds generated via Web Audio API synthesis or sourced fro
 
 ## Minimap
 
-Each node card can be expanded to reveal a static minimap showing the gathering point location.
+Each node card can be expanded to reveal a minimap showing the gathering point location. Two modes based on device:
+
+- **Desktop (≥ 768px):** Interactive minimap — drag to pan, scroll to zoom
+- **Mobile (< 768px):** Static minimap — fixed 200×200 crop, no interaction
+
+Detection via CSS media query + `window.matchMedia` in component logic.
 
 **Map image source:**
 - XIVAPI asset API: `https://beta.xivapi.com/api/1/asset/map/{mapId}` (game map images)
@@ -238,11 +243,45 @@ Each node card can be expanded to reveal a static minimap showing the gathering 
   where `offsetX`, `offsetY`, `sizeFactor` come from the `Map` sheet
 - Display coordinates (X:25.3, Y:30.1) are separate from pixel positions
 
-**Display:**
-- Minimap size: 200×200px (cropped around the gathering point, not full map)
-- Marker: colored dot matching node status color, with subtle pulse on active nodes
+**Interactive mode (desktop):**
+- Container: 100% width × 260px height, overflow hidden
+- Inner map: full map image, positioned so gathering point is centered
+- Drag to pan: mousedown/mousemove/mouseup on inner container
+- Zoom: scroll wheel or +/− buttons (0.4x–2.0x range, 0.2x step)
+- Shows nearby points of interest: aetherytes (blue diamond), other tracked nodes (dimmed gray dots)
+- Zoom controls: bottom-left corner, zoom level indicator between +/− buttons
+- Zone name: top-left overlay
+- Coordinates: bottom-right overlay
+
+**Static mode (mobile):**
+- Minimap size: 200×200px (cropped around the gathering point)
+- No drag/zoom controls
+- Zone name and coordinates overlay only
+
+**Shared behavior:**
+- Marker: colored dot matching node status color, with subtle pulse animation on active nodes
 - Shown on card expand (click/tap card body to toggle)
 - Map images lazy-loaded and cached in memory (same zone = same image)
+- Expand/collapse animation: max-height + opacity transition, 300ms
+
+**New component: `src/components/timer/NodeMinimap.vue`**
+- Props: `node: GatheringNode`, `interactive: boolean`, `nearbyNodes?: GatheringNode[]`
+- Handles both modes via `interactive` prop (bound to media query)
+
+**Data additions to `GatheringNode`:**
+```typescript
+interface GatheringNode {
+  // ... existing fields ...
+  mapId: number          // XIVAPI Map row ID
+  rawCoords: { x: number; y: number }  // raw coords for pixel conversion
+}
+```
+
+**New utility: `src/utils/map-coords.ts`**
+```typescript
+convertToPixel(rawX, rawY, offsetX, offsetY, sizeFactor): { px: number; py: number }
+cropRegion(px, py, mapSize, cropSize): { sx, sy, sw, sh }
+```
 
 **Data additions to `GatheringNode`:**
 ```typescript
