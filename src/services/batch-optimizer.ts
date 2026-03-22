@@ -109,6 +109,7 @@ export async function runBatchOptimization(
 ): Promise<BatchResults> {
   const recipeResults: RecipeOptimizeResult[] = []
   const exceptions: BatchException[] = []
+  const qualityUnachievableResults: RecipeOptimizeResult[] = []
 
   const foodBuff = resolveBuff(COMMON_FOODS, settings.foodId ?? null, settings.foodIsHq ?? true)
   const medicineBuff = resolveBuff(COMMON_MEDICINES, settings.medicineId ?? null, settings.medicineIsHq ?? true)
@@ -149,6 +150,10 @@ export async function runBatchOptimization(
       result.quantity = target.quantity
 
       if (!result.isDoubleMax && result.hqAmounts.length === 0) {
+        // Save for buff recommendation evaluation (food/medicine may fix this)
+        if (result.recipe.canHq) {
+          qualityUnachievableResults.push(result)
+        }
         const exc: BatchException = {
           type: 'quality-unachievable',
           recipe: target.recipe,
@@ -183,6 +188,13 @@ export async function runBatchOptimization(
   const allMaterialIds = new Set<number>()
   const finishedProductIds = new Set<number>()
   for (const r of recipeResults) {
+    finishedProductIds.add(r.recipe.itemId)
+    for (const m of r.materials) {
+      if (m.itemId >= 20) allMaterialIds.add(m.itemId)
+    }
+  }
+  // Include quality-unachievable recipes for buff recommendation price queries
+  for (const r of qualityUnachievableResults) {
     finishedProductIds.add(r.recipe.itemId)
     for (const m of r.materials) {
       if (m.itemId >= 20) allMaterialIds.add(m.itemId)
@@ -252,12 +264,14 @@ export async function runBatchOptimization(
   if (noBuffSelected && !isCancelled()) {
     const buyFinishedIds = new Set(buyFinishedItems.map(bf => bf.recipe.id))
     const hasDeficit = recipesToCraft.some(r => !r.isDoubleMax && r.recipe.canHq)
-    if (hasDeficit) {
+    const hasUnachievable = qualityUnachievableResults.length > 0
+    if (hasDeficit || hasUnachievable) {
       onProgress({ current: 0, total: 0, name: '', phase: 'evaluating-buffs', solverPercent: 0 })
       const recommendation = await evaluateBuffRecommendation(
         recipesToCraft, buyFinishedIds, getGearset as (job: string) => GearsetStats | null,
         priceMap, isCancelled,
         (info) => onProgress({ current: info.current, total: info.total, name: '', phase: 'evaluating-buffs', solverPercent: 0 }),
+        qualityUnachievableResults,
       )
       if (recommendation) buffRecommendation = recommendation
     }

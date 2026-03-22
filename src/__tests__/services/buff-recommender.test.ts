@@ -106,4 +106,37 @@ describe('evaluateBuffRecommendation', () => {
     )
     expect(result).toBeNull()
   })
+
+  it('returns recommendation for quality-unachievable recipes via unachievableRecipes param', async () => {
+    vi.mocked(simulateCraft).mockResolvedValue({
+      progress: 3500, max_progress: 3500,
+      quality: 7200, max_quality: 7200,
+    } as any)
+
+    const unachievable: RecipeOptimizeResult = {
+      recipe: { ...mockRecipe, id: 2, name: 'Hard Potion' },
+      quantity: 6, actions: ['muscle_memory'],
+      hqAmounts: [], initialQuality: 0, isDoubleMax: false,
+      materials: [{ itemId: 200, name: 'Mat A', icon: '', amount: 3 }],
+      qualityDeficit: 3000,
+    }
+
+    const result = await evaluateBuffRecommendation(
+      [], new Set(), () => mockGearset, priceMap, () => false,
+      undefined, [unachievable],
+    )
+
+    expect(result).not.toBeNull()
+    expect(result!.enabledRecipes).toHaveLength(1)
+    expect(result!.enabledRecipes[0].name).toBe('Hard Potion')
+    expect(result!.affectedRecipes).toHaveLength(0)
+  })
+
+  it('returns null when no deficit and no unachievable recipes', async () => {
+    const result = await evaluateBuffRecommendation(
+      [], new Set(), () => mockGearset, priceMap, () => false,
+      undefined, [],
+    )
+    expect(result).toBeNull()
+  })
 })

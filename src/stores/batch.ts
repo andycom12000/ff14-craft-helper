@@ -45,6 +45,8 @@ export interface BuffRecommendation {
   buffCost: number
   hqMaterialSavings: number
   affectedRecipes: Array<{ id: number; name: string }>
+  /** Recipes that were quality-unachievable without buffs but become craftable with them */
+  enabledRecipes: Array<{ id: number; name: string }>
 }
 
 export interface BatchResults {

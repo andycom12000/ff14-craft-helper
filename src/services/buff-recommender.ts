@@ -181,7 +181,8 @@ function calculateHqSavings(
 }
 
 /**
- * Main entry point: evaluate whether food/medicine buffs can replace HQ materials.
+ * Main entry point: evaluate whether food/medicine buffs can replace HQ materials
+ * or enable quality-unachievable recipes.
  * Phase 4.6-buff in the batch pipeline.
  */
 export async function evaluateBuffRecommendation(
@@ -191,16 +192,19 @@ export async function evaluateBuffRecommendation(
   priceMap: Map<number, MarketData>,
   isCancelled: () => boolean,
   onProgress?: (info: { current: number; total: number }) => void,
+  unachievableRecipes: RecipeOptimizeResult[] = [],
 ): Promise<BuffRecommendation | null> {
   // Step 1: collect deficit recipes (exclude buy-finished and canHq=false)
   const deficitRecipes = recipeResults.filter(
     r => !r.isDoubleMax && r.recipe.canHq && !buyFinishedIds.has(r.recipe.id),
   )
-  if (deficitRecipes.length === 0) return null
+  // Also include quality-unachievable recipes (canHq already checked by caller)
+  const allCandidateRecipes = [...deficitRecipes, ...unachievableRecipes]
+  if (allCandidateRecipes.length === 0) return null
 
   // Sort by qualityDeficit descending — hardest first
-  deficitRecipes.sort((a, b) => b.qualityDeficit - a.qualityDeficit)
-  const hardest = deficitRecipes[0]
+  allCandidateRecipes.sort((a, b) => b.qualityDeficit - a.qualityDeficit)
+  const hardest = allCandidateRecipes[0]
 
   const hardestGearset = getGearset(hardest.recipe.job)
   if (!hardestGearset) return null
@@ -237,6 +241,8 @@ export async function evaluateBuffRecommendation(
   const candidates = dedupCombos(allCombos, baseStats, priceMap)
   if (candidates.length === 0) return null
 
+  const unachievableIds = new Set(unachievableRecipes.map(r => r.recipe.id))
+
   // Step 2.5 + Step 3 + Step 4: try combos cheapest-first
   for (let i = 0; i < candidates.length; i++) {
     if (isCancelled()) return null
@@ -257,7 +263,8 @@ export async function evaluateBuffRecommendation(
 
     // Step 4: verify remaining recipes
     let allPass = true
-    for (const r of deficitRecipes.slice(1)) {
+    const passedRecipes: RecipeOptimizeResult[] = [hardest]
+    for (const r of allCandidateRecipes.slice(1)) {
       if (isCancelled()) return null
       const gs = getGearset(r.recipe.job)
       if (!gs) { allPass = false; break }
@@ -268,20 +275,28 @@ export async function evaluateBuffRecommendation(
         passes = await solveWithBuffedStats(r.recipe, gs, combo)
       }
       if (!passes) { allPass = false; break }
+      passedRecipes.push(r)
     }
 
     if (!allPass) continue
 
     // Step 5: cost comparison
-    const hqSavings = calculateHqSavings(deficitRecipes, priceMap)
-    if (candidate.price >= hqSavings) continue
+    // Separate deficit recipes (HQ savings) from enabled recipes (newly craftable)
+    const passedDeficit = passedRecipes.filter(r => !unachievableIds.has(r.recipe.id))
+    const passedEnabled = passedRecipes.filter(r => unachievableIds.has(r.recipe.id))
+
+    const hqSavings = calculateHqSavings(passedDeficit, priceMap)
+    // If buff enables previously-unachievable recipes, always recommend (skip cost check)
+    // Otherwise, require positive ROI from HQ material savings
+    if (passedEnabled.length === 0 && candidate.price >= hqSavings) continue
 
     return {
       food: combo.food,
       medicine: combo.medicine,
       buffCost: candidate.price,
       hqMaterialSavings: hqSavings,
-      affectedRecipes: deficitRecipes.map(r => ({ id: r.recipe.id, name: r.recipe.name })),
+      affectedRecipes: passedDeficit.map(r => ({ id: r.recipe.id, name: r.recipe.name })),
+      enabledRecipes: passedEnabled.map(r => ({ id: r.recipe.id, name: r.recipe.name })),
     }
   }
 
