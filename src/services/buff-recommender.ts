@@ -198,24 +198,27 @@ export async function evaluateBuffRecommendation(
   const deficitRecipes = recipeResults.filter(
     r => !r.isDoubleMax && r.recipe.canHq && !buyFinishedIds.has(r.recipe.id),
   )
-  // Also include quality-unachievable recipes (canHq already checked by caller)
-  const allCandidateRecipes = [...deficitRecipes, ...unachievableRecipes]
-  if (allCandidateRecipes.length === 0) return null
+  if (deficitRecipes.length === 0 && unachievableRecipes.length === 0) return null
 
-  // Sort by qualityDeficit descending — hardest first
-  allCandidateRecipes.sort((a, b) => b.qualityDeficit - a.qualityDeficit)
-  const hardest = allCandidateRecipes[0]
+  const unachievableIds = new Set(unachievableRecipes.map(r => r.recipe.id))
 
-  const hardestGearset = getGearset(hardest.recipe.job)
-  if (!hardestGearset) return null
+  // Determine the primary target for ceiling check:
+  // Prioritize unachievable recipes (enabling crafting is the main goal)
+  // Fall back to deficit recipes if no unachievable
+  const ceilingTarget = unachievableRecipes.length > 0
+    ? [...unachievableRecipes].sort((a, b) => b.qualityDeficit - a.qualityDeficit)[0]
+    : [...deficitRecipes].sort((a, b) => b.qualityDeficit - a.qualityDeficit)[0]
+
+  const ceilingGearset = getGearset(ceilingTarget.recipe.job)
+  if (!ceilingGearset) return null
 
   const baseStats: EnhancedStats = {
-    craftsmanship: hardestGearset.craftsmanship,
-    control: hardestGearset.control,
-    cp: hardestGearset.cp,
+    craftsmanship: ceilingGearset.craftsmanship,
+    control: ceilingGearset.control,
+    cp: ceilingGearset.cp,
   }
 
-  // Step 0: stat ceiling pre-check
+  // Step 0: stat ceiling pre-check on the primary target
   const allCombos = generateCandidateCombos()
   let bestCeilingCombo: BuffCombo = allCombos[0]
   let bestCeilingScore = 0
@@ -228,20 +231,25 @@ export async function evaluateBuffRecommendation(
     }
   }
   const ceilingSimPass = await simulateWithBuffedStats(
-    hardest.recipe, hardestGearset, bestCeilingCombo, hardest.actions,
+    ceilingTarget.recipe, ceilingGearset, bestCeilingCombo, ceilingTarget.actions,
   )
   if (!ceilingSimPass) {
     const ceilingSolvePass = await solveWithBuffedStats(
-      hardest.recipe, hardestGearset, bestCeilingCombo,
+      ceilingTarget.recipe, ceilingGearset, bestCeilingCombo,
     )
-    if (!ceilingSolvePass) return null
+    if (!ceilingSolvePass) {
+      // If we were checking an unachievable recipe and it failed, no recommendation possible
+      // If we were checking a deficit recipe, also give up (original behavior)
+      return null
+    }
   }
 
   // Step 2: generate, dedup, sort by price
   const candidates = dedupCombos(allCombos, baseStats, priceMap)
   if (candidates.length === 0) return null
 
-  const unachievableIds = new Set(unachievableRecipes.map(r => r.recipe.id))
+  // All recipes to evaluate (unachievable + deficit)
+  const allCandidateRecipes = [...unachievableRecipes, ...deficitRecipes]
 
   // Step 2.5 + Step 3 + Step 4: try combos cheapest-first
   for (let i = 0; i < candidates.length; i++) {
@@ -250,45 +258,44 @@ export async function evaluateBuffRecommendation(
     const candidate = candidates[i]
     const combo: BuffCombo = { food: candidate.food, medicine: candidate.medicine }
 
-    let hardestPasses = await simulateWithBuffedStats(
-      hardest.recipe, hardestGearset, combo, hardest.actions,
-    )
-
-    if (!hardestPasses) {
-      if (isCancelled()) return null
-      hardestPasses = await solveWithBuffedStats(hardest.recipe, hardestGearset, combo)
-    }
-
-    if (!hardestPasses) continue
-
-    // Step 4: verify remaining recipes
-    let allPass = true
-    const passedRecipes: RecipeOptimizeResult[] = [hardest]
-    for (const r of allCandidateRecipes.slice(1)) {
+    // Step 4: test each recipe with this combo (partial pass)
+    const passedRecipes: RecipeOptimizeResult[] = []
+    for (const r of allCandidateRecipes) {
       if (isCancelled()) return null
       const gs = getGearset(r.recipe.job)
-      if (!gs) { allPass = false; break }
+      if (!gs) continue
 
       let passes = await simulateWithBuffedStats(r.recipe, gs, combo, r.actions)
       if (!passes) {
         if (isCancelled()) return null
         passes = await solveWithBuffedStats(r.recipe, gs, combo)
       }
-      if (!passes) { allPass = false; break }
-      passedRecipes.push(r)
+      if (passes) passedRecipes.push(r)
     }
 
-    if (!allPass) continue
-
-    // Step 5: cost comparison
-    // Separate deficit recipes (HQ savings) from enabled recipes (newly craftable)
-    const passedDeficit = passedRecipes.filter(r => !unachievableIds.has(r.recipe.id))
+    // Step 5: evaluate results
     const passedEnabled = passedRecipes.filter(r => unachievableIds.has(r.recipe.id))
+    const passedDeficit = passedRecipes.filter(r => !unachievableIds.has(r.recipe.id))
+
+    if (passedEnabled.length === 0 && passedDeficit.length === 0) continue
 
     const hqSavings = calculateHqSavings(passedDeficit, priceMap)
-    // If buff enables previously-unachievable recipes, always recommend (skip cost check)
-    // Otherwise, require positive ROI from HQ material savings
-    if (passedEnabled.length === 0 && candidate.price >= hqSavings) continue
+
+    if (passedEnabled.length > 0) {
+      // Enables previously-unachievable recipes → always recommend
+      return {
+        food: combo.food,
+        medicine: combo.medicine,
+        buffCost: candidate.price,
+        hqMaterialSavings: hqSavings,
+        affectedRecipes: passedDeficit.map(r => ({ id: r.recipe.id, name: r.recipe.name })),
+        enabledRecipes: passedEnabled.map(r => ({ id: r.recipe.id, name: r.recipe.name })),
+      }
+    }
+
+    // Pure deficit case: require all deficit recipes to pass + positive ROI
+    if (passedDeficit.length < deficitRecipes.length) continue
+    if (candidate.price >= hqSavings) continue
 
     return {
       food: combo.food,
@@ -296,7 +303,7 @@ export async function evaluateBuffRecommendation(
       buffCost: candidate.price,
       hqMaterialSavings: hqSavings,
       affectedRecipes: passedDeficit.map(r => ({ id: r.recipe.id, name: r.recipe.name })),
-      enabledRecipes: passedEnabled.map(r => ({ id: r.recipe.id, name: r.recipe.name })),
+      enabledRecipes: [],
     }
   }
 
