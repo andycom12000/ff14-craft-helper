@@ -55,7 +55,7 @@ export async function playAlarmSound(soundFile: string, volume: number): Promise
   if (audioContext.state === 'suspended') await audioContext.resume()
 
   const isCustom = soundFile.startsWith('data:') || soundFile.startsWith('blob:')
-  const url = isCustom ? soundFile : `${import.meta.env.BASE_URL}sounds/${soundFile}.mp3`
+  const url = isCustom ? soundFile : `${import.meta.env.BASE_URL}sounds/${soundFile}.wav`
 
   let audioBuffer = bufferCache.get(url)
   if (!audioBuffer) {
