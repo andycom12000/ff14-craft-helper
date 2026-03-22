@@ -11,7 +11,9 @@ import {
   Operation,
   Close,
   Document,
+  AlarmClock,
 } from '@element-plus/icons-vue'
+import EorzeaClock from '@/components/EorzeaClock.vue'
 
 const route = useRoute()
 const sidebarOpen = ref(false)
@@ -65,6 +67,10 @@ watch(() => route.path, () => {
           <el-icon><TrendCharts /></el-icon>
           <span>市場查價</span>
         </el-menu-item>
+        <el-menu-item index="/timer">
+          <el-icon><AlarmClock /></el-icon>
+          <span>採集計時器</span>
+        </el-menu-item>
         <el-divider class="menu-divider" />
         <el-menu-item index="/changelog">
           <el-icon><Document /></el-icon>
@@ -75,6 +81,7 @@ watch(() => route.path, () => {
           <span>設定</span>
         </el-menu-item>
       </el-menu>
+      <EorzeaClock />
     </el-aside>
     <el-main class="app-main">
       <button class="mobile-menu-btn" @click="sidebarOpen = true">
@@ -336,6 +343,8 @@ html, body {
   background-color: var(--app-sidebar);
   border-right: 1px solid var(--app-border);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .app-logo {
@@ -368,6 +377,7 @@ html, body {
   border-right: none;
   background-color: transparent;
   padding: 8px 0;
+  flex: 1;
 }
 
 .app-menu .el-menu-item {
