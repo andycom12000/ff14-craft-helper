@@ -221,10 +221,48 @@ Source: royalty-free sounds generated via Web Audio API synthesis or sourced fro
 - `GainNode.gain.value` = `alarmSettings.volume / 100`
 - Respect browser autoplay policies (user gesture required for first play)
 
+## Minimap
+
+Each node card can be expanded to reveal a static minimap showing the gathering point location.
+
+**Map image source:**
+- XIVAPI asset API: `https://beta.xivapi.com/api/1/asset/map/{mapId}` (game map images)
+- Map ID resolved from the node's zone data via XIVAPI `Map` sheet
+
+**Coordinate conversion:**
+- XIVAPI provides raw coordinates; conversion to map pixel position uses:
+  ```
+  pixelX = (rawX - offsetX) * sizeFactor / 100 + 1024
+  pixelY = (rawY - offsetY) * sizeFactor / 100 + 1024
+  ```
+  where `offsetX`, `offsetY`, `sizeFactor` come from the `Map` sheet
+- Display coordinates (X:25.3, Y:30.1) are separate from pixel positions
+
+**Display:**
+- Minimap size: 200×200px (cropped around the gathering point, not full map)
+- Marker: colored dot matching node status color, with subtle pulse on active nodes
+- Shown on card expand (click/tap card body to toggle)
+- Map images lazy-loaded and cached in memory (same zone = same image)
+
+**Data additions to `GatheringNode`:**
+```typescript
+interface GatheringNode {
+  // ... existing fields ...
+  mapId: number          // XIVAPI Map row ID
+  rawCoords: { x: number; y: number }  // raw coords for pixel conversion
+}
+```
+
+**New utility: `src/utils/map-coords.ts`**
+```typescript
+convertToPixel(rawX, rawY, offsetX, offsetY, sizeFactor): { px: number; py: number }
+cropRegion(px, py, mapSize, cropSize): { sx, sy, sw, sh }
+```
+
 ## Non-Goals
 
 - No fishing (FSH) nodes — timed fishing works differently and is out of scope
-- No map visualization or minimap
+- No interactive/pannable map viewer
 - No integration with in-game macros
 - No push notifications beyond browser tab (no service worker)
 - No social/sharing features
