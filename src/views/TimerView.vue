@@ -161,14 +161,10 @@ function tick() {
     })
 
     if (alertType) {
-      // Build key from the nearest spawn hour
-      for (const spawnHour of node.spawnTimes) {
-        const key = buildAlarmKey(node.id, spawnHour, alertType)
-        if (!hasAlarmFired(key)) {
-          markAlarmFired(key)
-          playAlarmSound(store.alarmSettings.soundFile, store.alarmSettings.volume).catch(() => {})
-          break // fire once per tick
-        }
+      const key = buildAlarmKey(node.id, spawn.relevantSpawnHour, alertType)
+      if (!hasAlarmFired(key)) {
+        markAlarmFired(key)
+        playAlarmSound(store.alarmSettings.soundFile, store.alarmSettings.volume).catch(() => {})
       }
     }
 

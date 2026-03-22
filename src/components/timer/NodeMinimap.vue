@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import type { GatheringNode } from '@/api/garland'
-import { convertToPixel } from '@/utils/map-coords'
 
 const props = withDefaults(defineProps<{
   node: GatheringNode
@@ -86,6 +85,8 @@ const dragStart = ref({ x: 0, y: 0, panX: 0, panY: 0 })
 function onMousedown(e: MouseEvent) {
   dragging.value = true
   dragStart.value = { x: e.clientX, y: e.clientY, panX: panX.value, panY: panY.value }
+  window.addEventListener('mousemove', onMousemove)
+  window.addEventListener('mouseup', onMouseup)
 }
 
 function onMousemove(e: MouseEvent) {
@@ -96,6 +97,8 @@ function onMousemove(e: MouseEvent) {
 
 function onMouseup() {
   dragging.value = false
+  window.removeEventListener('mousemove', onMousemove)
+  window.removeEventListener('mouseup', onMouseup)
 }
 
 function onWheel(e: WheelEvent) {
@@ -132,16 +135,11 @@ function zoomOut() {
   zoom.value = newZoom
 }
 
-// Cleanup listeners attached to window
+// Safety cleanup if component unmounts during drag
 onUnmounted(() => {
   window.removeEventListener('mousemove', onMousemove)
   window.removeEventListener('mouseup', onMouseup)
 })
-
-function attachWindowListeners() {
-  window.addEventListener('mousemove', onMousemove)
-  window.addEventListener('mouseup', onMouseup)
-}
 
 // Transform for the inner wrapper
 const innerTransform = computed(
@@ -194,7 +192,7 @@ const coordsLabel = computed(() => {
     ref="containerRef"
     class="minimap-interactive"
     :class="{ dragging }"
-    @mousedown="(e) => { onMousedown(e); attachWindowListeners() }"
+    @mousedown="onMousedown"
     @wheel.prevent="onWheel"
   >
     <!-- Inner pan/zoom wrapper, transform-origin: top-left -->

@@ -12,7 +12,7 @@ export function getEorzeaTime(): { hour: number; minute: number } {
 export function getNextSpawn(
   node: { spawnTimes: number[]; duration: number },
   currentET: { hour: number; minute: number },
-): { realSecondsUntil: number; isActive: boolean } {
+): { realSecondsUntil: number; isActive: boolean; relevantSpawnHour: number } {
   const nowMinutes = currentET.hour * 60 + currentET.minute
 
   for (const spawnHour of node.spawnTimes) {
@@ -20,25 +20,29 @@ export function getNextSpawn(
     const endMin = startMin + node.duration
     if (endMin <= 1440) {
       if (nowMinutes >= startMin && nowMinutes < endMin) {
-        return { realSecondsUntil: 0, isActive: true }
+        return { realSecondsUntil: 0, isActive: true, relevantSpawnHour: spawnHour }
       }
     } else {
       if (nowMinutes >= startMin || nowMinutes < endMin - 1440) {
-        return { realSecondsUntil: 0, isActive: true }
+        return { realSecondsUntil: 0, isActive: true, relevantSpawnHour: spawnHour }
       }
     }
   }
 
   let minEtMinutesUntil = Infinity
+  let nextSpawnHour = node.spawnTimes[0]
   for (const spawnHour of node.spawnTimes) {
     const spawnMin = spawnHour * 60
     let diff = spawnMin - nowMinutes
     if (diff <= 0) diff += 1440
-    if (diff < minEtMinutesUntil) minEtMinutesUntil = diff
+    if (diff < minEtMinutesUntil) {
+      minEtMinutesUntil = diff
+      nextSpawnHour = spawnHour
+    }
   }
 
   const realSeconds = Math.round((minEtMinutesUntil * REAL_SECONDS_PER_ET_HOUR) / 60)
-  return { realSecondsUntil: realSeconds, isActive: false }
+  return { realSecondsUntil: realSeconds, isActive: false, relevantSpawnHour: nextSpawnHour }
 }
 
 export function formatCountdown(totalSeconds: number): string {
