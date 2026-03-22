@@ -78,6 +78,7 @@ function onRemoveClick(event: Event) {
           :model-value="alarmEnabled"
           size="small"
           class="alarm-switch"
+          :aria-label="alarmEnabled ? '關閉提醒' : '開啟提醒'"
           @click="onAlarmClick"
         />
       </div>

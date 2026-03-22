@@ -20,6 +20,7 @@ const label = computed(() =>
       v-model="store.globalAlarmEnabled"
       size="small"
       class="alarm-switch"
+      :aria-label="store.globalAlarmEnabled ? '全局提醒已啟用，點擊暫停' : '全局提醒已暫停，點擊啟用'"
     />
   </div>
 </template>

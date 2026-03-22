@@ -116,6 +116,7 @@ function setVolume(val: number) {
       <el-switch
         :model-value="settings.firstAlert.enabled"
         size="small"
+        aria-label="啟用第一提醒"
         @update:model-value="(v: boolean) => settings.firstAlert.enabled = v"
       />
       <span class="row-label">第一提醒（開始前）</span>
@@ -140,6 +141,7 @@ function setVolume(val: number) {
       <el-switch
         :model-value="settings.secondAlert.enabled"
         size="small"
+        aria-label="啟用第二提醒"
         @update:model-value="(v: boolean) => settings.secondAlert.enabled = v"
       />
       <span class="row-label">第二提醒（開始前）</span>
