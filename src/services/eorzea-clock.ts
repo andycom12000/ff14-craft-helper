@@ -13,12 +13,10 @@ export function getNextSpawn(
   currentET: { hour: number; minute: number },
 ): { realSecondsUntil: number; isActive: boolean } {
   const nowMinutes = currentET.hour * 60 + currentET.minute
-  // duration is in real seconds; convert to ET minutes
-  const durationEtMinutes = Math.floor((node.duration * 60) / 175)
 
   for (const spawnHour of node.spawnTimes) {
     const startMin = spawnHour * 60
-    const endMin = startMin + durationEtMinutes
+    const endMin = startMin + node.duration
     if (endMin <= 1440) {
       if (nowMinutes >= startMin && nowMinutes < endMin) {
         return { realSecondsUntil: 0, isActive: true }

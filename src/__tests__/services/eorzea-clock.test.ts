@@ -46,8 +46,17 @@ describe('getNextSpawn', () => {
   })
 
   it('wraps around midnight for next spawn', () => {
+    // Current: ET 17:00, both windows closed (2:00-4:00 and 14:00-16:00)
+    // Next spawn: ET 2:00 → 9 ET hours away
+    const result = getNextSpawn(node, { hour: 17, minute: 0 })
+    expect(result.isActive).toBe(false)
+    expect(result.realSecondsUntil).toBe(9 * 175)
+  })
+
+  it('returns isActive=true near end of spawn window', () => {
+    // ET 15:00 is within 14:00-16:00 window
     const result = getNextSpawn(node, { hour: 15, minute: 0 })
-    expect(result.realSecondsUntil).toBe(11 * 175)
+    expect(result.isActive).toBe(true)
   })
 
   it('returns 0 seconds when active', () => {
