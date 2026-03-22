@@ -1,4 +1,5 @@
-const ET_FACTOR = 3600 / 175
+export const REAL_SECONDS_PER_ET_HOUR = 175
+const ET_FACTOR = 3600 / REAL_SECONDS_PER_ET_HOUR
 
 export function getEorzeaTime(): { hour: number; minute: number } {
   const etTotalMs = Date.now() * ET_FACTOR
@@ -36,7 +37,7 @@ export function getNextSpawn(
     if (diff < minEtMinutesUntil) minEtMinutesUntil = diff
   }
 
-  const realSeconds = Math.round((minEtMinutesUntil * 175) / 60)
+  const realSeconds = Math.round((minEtMinutesUntil * REAL_SECONDS_PER_ET_HOUR) / 60)
   return { realSecondsUntil: realSeconds, isActive: false }
 }
 

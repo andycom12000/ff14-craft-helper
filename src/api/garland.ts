@@ -1,5 +1,3 @@
-import { XIVAPI_SHEET_BASE, fetchSheetFields } from '@/api/xivapi'
-
 const GARLAND_BROWSE = 'https://garlandtools.org/db/doc/browse/en/2/node.json'
 
 export interface GatheringNode {

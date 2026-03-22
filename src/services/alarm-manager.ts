@@ -1,4 +1,5 @@
 import type { AlarmSettings } from '@/stores/timer'
+import { REAL_SECONDS_PER_ET_HOUR } from '@/services/eorzea-clock'
 
 interface AlarmCheckInput {
   realSecondsUntil: number
@@ -13,13 +14,13 @@ export function shouldTriggerAlarm(input: AlarmCheckInput): 'first' | 'second' |
   if (!globalAlarmEnabled || !itemAlarmEnabled) return false
 
   if (alarmSettings.secondAlert.enabled) {
-    const secondRealSec = alarmSettings.secondAlert.etMinutesBefore * 175 / 60
+    const secondRealSec = alarmSettings.secondAlert.etMinutesBefore * REAL_SECONDS_PER_ET_HOUR / 60
     if (isActive && secondRealSec === 0) return 'second'
     if (!isActive && Math.abs(realSecondsUntil - secondRealSec) < 2) return 'second'
   }
 
   if (alarmSettings.firstAlert.enabled && !isActive) {
-    const firstRealSec = alarmSettings.firstAlert.etMinutesBefore * 175 / 60
+    const firstRealSec = alarmSettings.firstAlert.etMinutesBefore * REAL_SECONDS_PER_ET_HOUR / 60
     if (Math.abs(realSecondsUntil - firstRealSec) < 2) return 'first'
   }
 

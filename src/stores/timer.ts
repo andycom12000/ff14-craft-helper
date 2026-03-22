@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, shallowRef } from 'vue'
 import type { GatheringNode } from '@/api/garland'
 
 export interface TrackedItem {
@@ -24,7 +24,7 @@ export const useTimerStore = defineStore('timer', () => {
     soundFile: 'chime',
     volume: 70,
   })
-  const nodeCache = ref<GatheringNode[]>([])
+  const nodeCache = shallowRef<GatheringNode[]>([])
   const nodeCacheTimestamp = ref(0)
 
   function addTrackedItem(nodeId: number, itemId: number) {
