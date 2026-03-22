@@ -25,6 +25,7 @@ npm-debug.log*
 
 # Claude Code
 .claude/settings.local.json
+.worktrees/
 
 # Rust
 raphael-wasm-wrapper/target/
