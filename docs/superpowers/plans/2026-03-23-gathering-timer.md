@@ -255,13 +255,13 @@ import { convertToPixel, cropRegion } from '@/utils/map-coords'
 describe('convertToPixel', () => {
   it('converts raw coords to pixel position', () => {
     // sizeFactor=100, offset=0 → pixel = raw + 1024
-    const result = convertToPixel(100, 200, 0, 0, 100)
+    const result = convertToPixel({ rawX: 100, rawY: 200, offsetX: 0, offsetY: 0, sizeFactor: 100 })
     expect(result.px).toBe(1124)
     expect(result.py).toBe(1224)
   })
 
   it('applies offset and sizeFactor', () => {
-    const result = convertToPixel(300, 400, 100, 100, 200)
+    const result = convertToPixel({ rawX: 300, rawY: 400, offsetX: 100, offsetY: 100, sizeFactor: 200 })
     // (300 - 100) * 200 / 100 + 1024 = 400 + 1024 = 1424
     expect(result.px).toBe(1424)
     expect(result.py).toBe(1624)
@@ -294,14 +294,14 @@ Expected: FAIL
 
 ```typescript
 // src/utils/map-coords.ts
-export function convertToPixel(
-  rawX: number, rawY: number,
-  offsetX: number, offsetY: number,
-  sizeFactor: number,
-): { px: number; py: number } {
+export function convertToPixel(opts: {
+  rawX: number; rawY: number;
+  offsetX: number; offsetY: number;
+  sizeFactor: number;
+}): { px: number; py: number } {
   return {
-    px: (rawX - offsetX) * sizeFactor / 100 + 1024,
-    py: (rawY - offsetY) * sizeFactor / 100 + 1024,
+    px: (opts.rawX - opts.offsetX) * opts.sizeFactor / 100 + 1024,
+    py: (opts.rawY - opts.offsetY) * opts.sizeFactor / 100 + 1024,
   }
 }
 
@@ -389,10 +389,39 @@ Refer to:
 - Garland browse data format: `{ i, n, l, t, z, s, lt, ti }` where `lt` is the limited type string and `ti` is the ET hours array
 - XIVAPI Item sheet: `https://xivapi-v2.xivcdn.com/api/sheet/Item?rows=X,Y,Z&fields=Name`
 
+First, export the XIVAPI base URL from `src/api/xivapi.ts` (currently `const ICON_API`):
+```typescript
+// Add to src/api/xivapi.ts — export the base URL constant
+export const XIVAPI_SHEET_BASE = 'https://xivapi-v2.xivcdn.com/api'
+```
+
+Also export a generic `fetchSheetFields` helper in `src/api/xivapi.ts` to reuse the fetch-item-fields pattern (shared with `fetchIcons`):
+```typescript
+// Add to src/api/xivapi.ts
+export async function fetchSheetFields<T>(
+  sheet: string, rows: number[], fields: string,
+): Promise<Map<number, T>> {
+  const map = new Map<number, T>()
+  if (rows.length === 0) return map
+  try {
+    const url = `${XIVAPI_SHEET_BASE}/sheet/${sheet}?rows=${rows.join(',')}&fields=${fields}`
+    const resp = await fetch(url)
+    if (!resp.ok) return map
+    const data = await resp.json()
+    for (const row of data.rows) {
+      map.set(row.row_id, row.fields as T)
+    }
+  } catch { /* non-critical */ }
+  return map
+}
+```
+
+Then in garland.ts:
 ```typescript
 // src/api/garland.ts
+import { XIVAPI_SHEET_BASE, fetchSheetFields } from '@/api/xivapi'
+
 const GARLAND_BROWSE = 'https://garlandtools.org/db/doc/browse/en/2/node.json'
-const XIVAPI_SHEET = 'https://xivapi-v2.xivcdn.com/api'
 
 export interface GatheringNode {
   id: number
@@ -430,20 +459,9 @@ function durationFromType(lt: string): number {
   return lt === 'Ephemeral' ? 240 : 120
 }
 
-async function fetchItemNames(itemIds: number[]): Promise<Map<number, string>> {
-  const map = new Map<number, string>()
-  if (itemIds.length === 0) return map
-  try {
-    const url = `${XIVAPI_SHEET}/sheet/Item?rows=${itemIds.join(',')}&fields=Name`
-    const resp = await fetch(url)
-    if (!resp.ok) return map
-    const data = await resp.json()
-    for (const row of data.rows) {
-      map.set(row.row_id, row.fields?.Name ?? `Item #${row.row_id}`)
-    }
-  } catch { /* non-critical */ }
-  return map
-}
+// Use fetchSheetFields from xivapi.ts instead of a local fetchItemNames:
+// const nameFields = await fetchSheetFields<{ Name: string }>('Item', itemIds, 'Name')
+// nameFields.get(id)?.Name → item name string
 
 export async function fetchAllTimedNodes(): Promise<GatheringNode[]> {
   try {
@@ -657,7 +675,7 @@ git commit -m "feat(timer): add Pinia timer store with tracking and alarm settin
 ```typescript
 // src/__tests__/services/alarm-manager.test.ts
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { shouldTriggerAlarm, createAlarmChecker } from '@/services/alarm-manager'
+import { shouldTriggerAlarm, buildAlarmKey, markAlarmFired, hasAlarmFired, clearFiredAlarmsForNode } from '@/services/alarm-manager'
 
 describe('shouldTriggerAlarm', () => {
   it('returns true when within first alert window', () => {
@@ -725,6 +743,24 @@ describe('shouldTriggerAlarm', () => {
     expect(result).toBe('second')
   })
 })
+
+describe('alarm deduplication', () => {
+  it('tracks fired alarms to prevent duplicates', () => {
+    const key = buildAlarmKey(123, 2, 'first')
+    expect(hasAlarmFired(key)).toBe(false)
+    markAlarmFired(key)
+    expect(hasAlarmFired(key)).toBe(true)
+  })
+
+  it('clears fired alarms for a specific node', () => {
+    markAlarmFired(buildAlarmKey(123, 2, 'first'))
+    markAlarmFired(buildAlarmKey(123, 14, 'second'))
+    markAlarmFired(buildAlarmKey(456, 0, 'first'))
+    clearFiredAlarmsForNode(123)
+    expect(hasAlarmFired(buildAlarmKey(123, 2, 'first'))).toBe(false)
+    expect(hasAlarmFired(buildAlarmKey(456, 0, 'first'))).toBe(true)
+  })
+})
 ```
 
 - [ ] **Step 2: Run tests to verify failure**
@@ -770,18 +806,46 @@ export function shouldTriggerAlarm(input: AlarmCheckInput): 'first' | 'second' |
   return false
 }
 
+// Track which alarms have already fired to prevent duplicates.
+// Key format: `${nodeId}-${spawnHour}-${alertType}`
+// Cleared when a node's active state changes (new spawn cycle).
+const firedAlarms = new Set<string>()
+
+export function buildAlarmKey(nodeId: number, spawnHour: number, alertType: 'first' | 'second'): string {
+  return `${nodeId}-${spawnHour}-${alertType}`
+}
+
+export function markAlarmFired(key: string): void {
+  firedAlarms.add(key)
+}
+
+export function hasAlarmFired(key: string): boolean {
+  return firedAlarms.has(key)
+}
+
+export function clearFiredAlarmsForNode(nodeId: number): void {
+  for (const key of firedAlarms) {
+    if (key.startsWith(`${nodeId}-`)) firedAlarms.delete(key)
+  }
+}
+
 let audioContext: AudioContext | null = null
+const bufferCache = new Map<string, AudioBuffer>()
 
 export async function playAlarmSound(soundFile: string, volume: number): Promise<void> {
   if (!audioContext) audioContext = new AudioContext()
   if (audioContext.state === 'suspended') await audioContext.resume()
 
   const isCustom = soundFile.startsWith('data:') || soundFile.startsWith('blob:')
-  const url = isCustom ? soundFile : `/ff14-craft-helper/sounds/${soundFile}.mp3`
+  const url = isCustom ? soundFile : `${import.meta.env.BASE_URL}sounds/${soundFile}.mp3`
 
-  const resp = await fetch(url)
-  const buffer = await resp.arrayBuffer()
-  const audioBuffer = await audioContext.decodeAudioData(buffer)
+  let audioBuffer = bufferCache.get(url)
+  if (!audioBuffer) {
+    const resp = await fetch(url)
+    const raw = await resp.arrayBuffer()
+    audioBuffer = await audioContext.decodeAudioData(raw)
+    bufferCache.set(url, audioBuffer)
+  }
 
   const source = audioContext.createBufferSource()
   const gain = audioContext.createGain()
@@ -983,6 +1047,10 @@ Emits:
 - `toggle-alarm` — when per-item toggle clicked
 - `toggle-map` — when card body clicked to expand/collapse map
 
+Reuse existing utilities from `src/utils/format.ts`:
+- `formatGil(price)` for price display
+- `starsDisplay(stars)` for star rendering
+
 Refer to the mockup in `.superpowers/brainstorm/13753-1774193866/alarm-switches.html` for visual design. Use:
 - Gradient backgrounds per status (active=green, upcoming=blue, later=gray)
 - Monospace countdown at 22px
@@ -1155,7 +1223,7 @@ Layout (refer to responsive mockups):
   - 768–1439px: single column + FAB button → el-drawer
   - ≤ 767px: compact cards + FAB → fullscreen drawer
 - **NodeMinimap:** inside each NodeCard, toggled on click
-- **Price integration:** use `getMarketData` from `src/api/universalis.ts`, keyed by `node.itemId`
+- **Price integration:** use `getAggregatedPrices` from `src/api/universalis.ts` to batch-fetch prices for all tracked itemIds. Use existing `formatGil` from `src/utils/format.ts` for display. Use existing `useCrossWorldPricing` composable from `src/composables/useCrossWorldPricing.ts` for cross-world detail popover.
 
 Reactive data:
 - `setInterval` every second to update all countdowns
@@ -1248,9 +1316,11 @@ async function resolveNodeDetails(
       if (terrId) { nodeToTerritory.set(row.row_id, terrId); territoryIds.add(terrId) }
     }
 
-    // Step 2: Query GatheringPointBase for item IDs
-    const gpbUrl = `${XIVAPI_SHEET}/sheet/GatheringPointBase?rows=${[...baseIds].join(',')}&fields=Item[0],Item[1],Item[2],Item[3],Item[4],Item[5],Item[6],Item[7]`
-    const gpbResp = await fetch(gpbUrl)
+    // Steps 2 & 4 are independent — run in parallel
+    const gpbUrl = `${XIVAPI_SHEET_BASE}/sheet/GatheringPointBase?rows=${[...baseIds].join(',')}&fields=Item[0],Item[1],Item[2],Item[3],Item[4],Item[5],Item[6],Item[7]`
+    const ttUrl = `${XIVAPI_SHEET_BASE}/sheet/TerritoryType?rows=${[...territoryIds].join(',')}&fields=Map,PlaceName`
+
+    const [gpbResp, ttResp] = await Promise.all([fetch(gpbUrl), fetch(ttUrl)])
     const gpbData = gpbResp.ok ? await gpbResp.json() : { rows: [] }
 
     const baseToItems = new Map<number, number[]>()
@@ -1263,14 +1333,11 @@ async function resolveNodeDetails(
       baseToItems.set(row.row_id, items)
     }
 
-    // Step 3: Query Item names
+    // Step 3: Query Item names (depends on step 2 results)
     const allItemIds = new Set<number>()
     baseToItems.forEach((items) => items.forEach((id) => allItemIds.add(id)))
-    const itemNames = await fetchItemNames([...allItemIds])
+    const nameFields = await fetchSheetFields<{ Name: string }>('Item', [...allItemIds], 'Name')
 
-    // Step 4: Query TerritoryType → Map + PlaceName
-    const ttUrl = `${XIVAPI_SHEET}/sheet/TerritoryType?rows=${[...territoryIds].join(',')}&fields=Map,PlaceName`
-    const ttResp = await fetch(ttUrl)
     const ttData = ttResp.ok ? await ttResp.json() : { rows: [] }
 
     const territoryToMap = new Map<number, number>()
@@ -1292,7 +1359,7 @@ async function resolveNodeDetails(
       return {
         ...node,
         itemId: firstItemId,
-        itemName: itemNames.get(firstItemId) ?? node.itemName,
+        itemName: nameFields.get(firstItemId)?.Name ?? node.itemName,
         zone: terrId ? territoryToPlace.get(terrId) ?? node.zone : node.zone,
         mapId: terrId ? territoryToMap.get(terrId) ?? 0 : 0,
         // Note: raw coords for pixel conversion need Map sheet offset/sizeFactor

@@ -279,22 +279,7 @@ interface GatheringNode {
 
 **New utility: `src/utils/map-coords.ts`**
 ```typescript
-convertToPixel(rawX, rawY, offsetX, offsetY, sizeFactor): { px: number; py: number }
-cropRegion(px, py, mapSize, cropSize): { sx, sy, sw, sh }
-```
-
-**Data additions to `GatheringNode`:**
-```typescript
-interface GatheringNode {
-  // ... existing fields ...
-  mapId: number          // XIVAPI Map row ID
-  rawCoords: { x: number; y: number }  // raw coords for pixel conversion
-}
-```
-
-**New utility: `src/utils/map-coords.ts`**
-```typescript
-convertToPixel(rawX, rawY, offsetX, offsetY, sizeFactor): { px: number; py: number }
+convertToPixel(opts: { rawX, rawY, offsetX, offsetY, sizeFactor }): { px: number; py: number }
 cropRegion(px, py, mapSize, cropSize): { sx, sy, sw, sh }
 ```
 
