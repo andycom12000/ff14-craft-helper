@@ -46,8 +46,8 @@ interface TrackedItem {
 }
 
 interface AlarmSettings {
-  firstAlert: { enabled: boolean; etHoursBefore: number }
-  secondAlert: { enabled: boolean; etHoursBefore: number }
+  firstAlert: { enabled: boolean; etMinutesBefore: number }
+  secondAlert: { enabled: boolean; etMinutesBefore: number }
   soundFile: string      // built-in name or custom base64/URL
   volume: number         // 0-100
 }
@@ -174,8 +174,8 @@ Each tracked item displayed as a card with:
 - Browse: tree view (class → node type → items)
 
 **Alert settings:**
-- First alert: enable toggle + ET hours before (number input)
-- Second alert: enable toggle + ET hours before
+- First alert: enable toggle + ET minutes before (number input)
+- Second alert: enable toggle + ET minutes before
 - Sound: dropdown (3 presets + custom) + preview button
 - Volume: slider 0-100
 - Upload custom: file input (.mp3/.wav/.ogg, ≤ 500KB)
@@ -209,6 +209,8 @@ Located at sidebar bottom, visible on all pages:
 2. `alert` — short alert beep
 3. `soft` — gentle notification
 
+Source: royalty-free sounds generated via Web Audio API synthesis or sourced from freesound.org (CC0 license). Each ≤ 50KB, .mp3 format.
+
 **Custom sound:**
 - Upload via file input, validate ≤ 500KB, .mp3/.wav/.ogg
 - Store as base64 string in localStorage
@@ -221,6 +223,7 @@ Located at sidebar bottom, visible on all pages:
 
 ## Non-Goals
 
+- No fishing (FSH) nodes — timed fishing works differently and is out of scope
 - No map visualization or minimap
 - No integration with in-game macros
 - No push notifications beyond browser tab (no service worker)
