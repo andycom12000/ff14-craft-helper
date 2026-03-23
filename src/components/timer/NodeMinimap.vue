@@ -36,18 +36,24 @@ function onMapError() { mapError.value = true }
 
 // ---------------------------------------------------------------------------
 // Pixel coordinate helpers
-// Raw map images from XIVAPI are 2048×2048. The rawCoords are already in
-// pixel space on that canvas (populated by the Garland API layer).
-// When coords are 0,0 we fall back to centre (1024,1024).
+// Map images from XIVAPI are 2048×2048. Convert game coordinates (e.g. X:29.2, Y:12.8)
+// to pixel positions using the FF14 coordinate formula:
+//   pixel = 2048 * ((gameCoord - 1) * (sizeFactor / 100) / 41.0 + 0.5)
 // ---------------------------------------------------------------------------
 const MAP_PX = 2048
 
+function gameCoordToPixel(coord: number, sizeFactor: number): number {
+  return MAP_PX * ((coord - 1) * (sizeFactor / 100) / 41.0 + 0.5)
+}
+
 function nodeToPx(n: GatheringNode): { px: number; py: number } {
-  if (n.rawCoords.x === 0 && n.rawCoords.y === 0) {
+  if (n.coords.x === 0 && n.coords.y === 0) {
     return { px: MAP_PX / 2, py: MAP_PX / 2 }
   }
-  // rawCoords are already pixel positions on the 2048-map
-  return { px: n.rawCoords.x, py: n.rawCoords.y }
+  return {
+    px: gameCoordToPixel(n.coords.x, n.mapSizeFactor),
+    py: gameCoordToPixel(n.coords.y, n.mapSizeFactor),
+  }
 }
 
 // ---------------------------------------------------------------------------
