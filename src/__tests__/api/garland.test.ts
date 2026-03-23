@@ -37,7 +37,7 @@ describe('fetchAllTimedNodes', () => {
     expect(nodes).toEqual([])
   })
 
-  it('enriches nodes via Garland detail + XIVAPI item names', async () => {
+  it('enriches nodes via Garland detail + tnze zh-TW item names', async () => {
     const mockBrowseData = [
       { i: 211, n: 'Test Location', l: 90, t: 0, z: 100, s: 3, lt: 'Unspoiled', ti: [2, 14] },
     ]
@@ -52,16 +52,14 @@ describe('fetchAllTimedNodes', () => {
           node: { id: 211, items: [{ id: 5395 }], coords: [29.17, 12.79], zoneid: 63 }
         }) } as Response)
       }
-      if (u.includes('sheet/Item')) {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve({ rows: [{
-          row_id: 5395,
-          fields: { Name: '暗物質礦' }
-        }]}) } as Response)
+      if (u.includes('tnze.yyyy.games') && u.includes('item_id=5395')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ name: '雲杉原木' }) } as Response)
       }
       if (u.includes('sheet/PlaceName')) {
+        // XIVAPI returns Simplified Chinese; sToT converts to Traditional
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ rows: [{
           row_id: 63,
-          fields: { Name: '庫爾札斯中央高地' }
+          fields: { Name: '库尔札斯中央高地' }
         }]}) } as Response)
       }
       return Promise.resolve({ ok: false } as Response)
@@ -70,7 +68,7 @@ describe('fetchAllTimedNodes', () => {
     const nodes = await fetchAllTimedNodes()
     expect(nodes).toHaveLength(1)
     expect(nodes[0].itemId).toBe(5395)
-    expect(nodes[0].itemName).toBe('暗物質礦')
+    expect(nodes[0].itemName).toBe('雲杉原木')
     expect(nodes[0].coords).toEqual({ x: 29.17, y: 12.79 })
     expect(nodes[0].zone).toBe('庫爾札斯中央高地')
   })

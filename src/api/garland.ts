@@ -1,4 +1,5 @@
-import { XIVAPI_SHEET_BASE, fetchSheetFields } from '@/api/xivapi'
+import { fetchSheetFields } from '@/api/xivapi'
+import { sToT } from '@/utils/s2t'
 
 const GARLAND_BROWSE = 'https://garlandtools.org/db/doc/browse/en/2/node.json'
 
@@ -89,15 +90,35 @@ export async function resolveNodeDetails(nodes: GatheringNode[]): Promise<Gather
       }
     }
 
-    // Fetch item names from XIVAPI
-    const nameFields = await fetchSheetFields<{ Name: string }>('Item', [...allItemIds], 'Name')
+    // Fetch item names from tnze zh-TW API (Traditional Chinese)
+    // and zone names from XIVAPI chs + simplified-to-traditional conversion
+    const TNZE_BASE = 'https://tnze.yyyy.games/api/datasource/zh-TW'
+    const itemNames = new Map<number, string>()
+    const itemBatch = [...allItemIds]
+    const ITEM_BATCH_SIZE = 30
+    for (let i = 0; i < itemBatch.length; i += ITEM_BATCH_SIZE) {
+      const batch = itemBatch.slice(i, i + ITEM_BATCH_SIZE)
+      const results = await Promise.allSettled(
+        batch.map(async (id) => {
+          const resp = await fetch(`${TNZE_BASE}/item_info?item_id=${id}`)
+          if (!resp.ok) return null
+          const data = await resp.json()
+          return { id, name: data.name as string }
+        }),
+      )
+      for (const r of results) {
+        if (r.status === 'fulfilled' && r.value) {
+          itemNames.set(r.value.id, r.value.name)
+        }
+      }
+    }
 
-    // Fetch zone names from XIVAPI PlaceName sheet
+    // Fetch zone names from XIVAPI (Simplified Chinese) and convert to Traditional
     const zoneIds = new Set<number>()
     for (const detail of detailMap.values()) {
       if (detail.zoneid) zoneIds.add(detail.zoneid)
     }
-    const zoneFields = await fetchSheetFields<{ Name: string }>('PlaceName', [...zoneIds], 'Name')
+    const zoneFieldsChs = await fetchSheetFields<{ Name: string }>('PlaceName', [...zoneIds], 'Name')
 
     // Enrich nodes
     return nodes.map((node) => {
@@ -106,14 +127,14 @@ export async function resolveNodeDetails(nodes: GatheringNode[]): Promise<Gather
 
       const firstItemId = detail.items?.[0]?.id ?? 0
       const coords = detail.coords ?? [0, 0]
-      const zoneName = detail.zoneid ? zoneFields.get(detail.zoneid)?.Name : undefined
+      const zoneNameChs = detail.zoneid ? zoneFieldsChs.get(detail.zoneid)?.Name : undefined
 
       return {
         ...node,
         itemId: firstItemId,
-        itemName: nameFields.get(firstItemId)?.Name ?? node.itemName,
+        itemName: itemNames.get(firstItemId) ?? node.itemName,
         coords: { x: coords[0], y: coords[1] },
-        zone: zoneName ?? node.zone,
+        zone: zoneNameChs ? sToT(zoneNameChs) : node.zone,
       }
     })
   } catch (error) {
