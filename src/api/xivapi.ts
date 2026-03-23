@@ -216,3 +216,22 @@ export async function getRecipe(id: number): Promise<Recipe> {
     throw error
   }
 }
+
+export const XIVAPI_SHEET_BASE = 'https://xivapi-v2.xivcdn.com/api'
+
+export async function fetchSheetFields<T>(
+  sheet: string, rows: number[], fields: string,
+): Promise<Map<number, T>> {
+  const map = new Map<number, T>()
+  if (rows.length === 0) return map
+  try {
+    const url = `${XIVAPI_SHEET_BASE}/sheet/${sheet}?rows=${rows.join(',')}&fields=${fields}`
+    const resp = await fetch(url)
+    if (!resp.ok) return map
+    const data = await resp.json()
+    for (const row of data.rows) {
+      map.set(row.row_id, row.fields as T)
+    }
+  } catch { /* non-critical */ }
+  return map
+}
