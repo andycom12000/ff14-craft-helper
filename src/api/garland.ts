@@ -37,75 +37,83 @@ function durationFromType(lt: string): number {
   return lt === 'Ephemeral' ? 240 : 120
 }
 
+const GARLAND_NODE = 'https://garlandtools.org/db/doc/node/en/2'
+
+interface GarlandNodeDetail {
+  node: {
+    id: number
+    items?: { id: number }[]
+    coords?: [number, number]
+    zoneid?: number
+  }
+}
+
+async function fetchNodeBatch(ids: number[]): Promise<Map<number, GarlandNodeDetail['node']>> {
+  const map = new Map<number, GarlandNodeDetail['node']>()
+  const results = await Promise.allSettled(
+    ids.map(async (id) => {
+      const resp = await fetch(`${GARLAND_NODE}/${id}.json`)
+      if (!resp.ok) return null
+      const data: GarlandNodeDetail = await resp.json()
+      return data.node
+    }),
+  )
+  for (const r of results) {
+    if (r.status === 'fulfilled' && r.value) {
+      map.set(r.value.id, r.value)
+    }
+  }
+  return map
+}
+
 export async function resolveNodeDetails(nodes: GatheringNode[]): Promise<GatheringNode[]> {
   if (nodes.length === 0) return nodes
 
   try {
-    const nodeIds = nodes.map((n) => n.id)
-
-    // Step 1: Query GatheringPoint for baseId and territoryId
-    const gpUrl = `${XIVAPI_SHEET_BASE}/sheet/GatheringPoint?rows=${nodeIds.join(',')}&fields=GatheringPointBase,TerritoryType`
-    const gpResp = await fetch(gpUrl)
-    if (!gpResp.ok) return nodes
-    const gpData = await gpResp.json()
-
-    const baseIds = new Set<number>()
-    const territoryIds = new Set<number>()
-    const nodeToBase = new Map<number, number>()
-    const nodeToTerritory = new Map<number, number>()
-    for (const row of gpData.rows) {
-      const baseId = row.fields?.GatheringPointBase?.row_id
-      const terrId = row.fields?.TerritoryType?.row_id
-      if (baseId) { nodeToBase.set(row.row_id, baseId); baseIds.add(baseId) }
-      if (terrId) { nodeToTerritory.set(row.row_id, terrId); territoryIds.add(terrId) }
+    // Fetch detailed node data from Garland in batches of 30
+    const BATCH_SIZE = 30
+    const detailMap = new Map<number, GarlandNodeDetail['node']>()
+    for (let i = 0; i < nodes.length; i += BATCH_SIZE) {
+      const batch = nodes.slice(i, i + BATCH_SIZE).map((n) => n.id)
+      const results = await fetchNodeBatch(batch)
+      results.forEach((v, k) => detailMap.set(k, v))
     }
 
-    // Steps 2 & 4: GatheringPointBase + TerritoryType in parallel
-    const gpbUrl = `${XIVAPI_SHEET_BASE}/sheet/GatheringPointBase?rows=${[...baseIds].join(',')}&fields=Item[0],Item[1],Item[2],Item[3],Item[4],Item[5],Item[6],Item[7]`
-    const ttUrl = `${XIVAPI_SHEET_BASE}/sheet/TerritoryType?rows=${[...territoryIds].join(',')}&fields=Map,PlaceName`
-
-    const [gpbResp, ttResp] = await Promise.all([fetch(gpbUrl), fetch(ttUrl)])
-    const gpbData = gpbResp.ok ? await gpbResp.json() : { rows: [] }
-
-    const baseToItems = new Map<number, number[]>()
-    for (const row of gpbData.rows) {
-      const items: number[] = []
-      for (let i = 0; i < 8; i++) {
-        const itemId = row.fields?.[`Item[${i}]`]?.row_id
-        if (itemId && itemId > 0) items.push(itemId)
-      }
-      baseToItems.set(row.row_id, items)
-    }
-
-    // Step 3: Item names (depends on step 2)
+    // Collect all item IDs for name resolution
     const allItemIds = new Set<number>()
-    baseToItems.forEach((items) => items.forEach((id) => allItemIds.add(id)))
+    for (const detail of detailMap.values()) {
+      if (detail.items) {
+        for (const item of detail.items) {
+          if (item.id > 0) allItemIds.add(item.id)
+        }
+      }
+    }
+
+    // Fetch item names from XIVAPI
     const nameFields = await fetchSheetFields<{ Name: string }>('Item', [...allItemIds], 'Name')
 
-    const ttData = ttResp.ok ? await ttResp.json() : { rows: [] }
-
-    const territoryToMap = new Map<number, number>()
-    const territoryToPlace = new Map<number, string>()
-    for (const row of ttData.rows) {
-      const mapId = row.fields?.Map?.row_id
-      const placeName = row.fields?.PlaceName?.fields?.Name
-      if (mapId) territoryToMap.set(row.row_id, mapId)
-      if (placeName) territoryToPlace.set(row.row_id, placeName)
+    // Fetch zone names from XIVAPI PlaceName sheet
+    const zoneIds = new Set<number>()
+    for (const detail of detailMap.values()) {
+      if (detail.zoneid) zoneIds.add(detail.zoneid)
     }
+    const zoneFields = await fetchSheetFields<{ Name: string }>('PlaceName', [...zoneIds], 'Name')
 
     // Enrich nodes
     return nodes.map((node) => {
-      const baseId = nodeToBase.get(node.id)
-      const terrId = nodeToTerritory.get(node.id)
-      const items = baseId ? baseToItems.get(baseId) ?? [] : []
-      const firstItemId = items[0] ?? 0
+      const detail = detailMap.get(node.id)
+      if (!detail) return node
+
+      const firstItemId = detail.items?.[0]?.id ?? 0
+      const coords = detail.coords ?? [0, 0]
+      const zoneName = detail.zoneid ? zoneFields.get(detail.zoneid)?.Name : undefined
 
       return {
         ...node,
         itemId: firstItemId,
         itemName: nameFields.get(firstItemId)?.Name ?? node.itemName,
-        zone: terrId ? territoryToPlace.get(terrId) ?? node.zone : node.zone,
-        mapId: terrId ? territoryToMap.get(terrId) ?? 0 : 0,
+        coords: { x: coords[0], y: coords[1] },
+        zone: zoneName ?? node.zone,
       }
     })
   } catch (error) {
