@@ -23,8 +23,8 @@ const isInteractive = computed(() => {
 // Map image URL
 // ---------------------------------------------------------------------------
 const mapUrl = computed(() =>
-  props.node.mapId !== 0
-    ? `https://beta.xivapi.com/api/1/asset/map/${props.node.mapId}?format=png`
+  props.node.mapAssetPath
+    ? `https://beta.xivapi.com/api/1/asset/${props.node.mapAssetPath}?format=png`
     : '',
 )
 
@@ -159,7 +159,7 @@ const nearbyMarkers = computed(() =>
 // Static (mobile) mode — object-position crop
 // ---------------------------------------------------------------------------
 const staticObjectPosition = computed(() => {
-  if (props.node.mapId === 0) return 'center center'
+  if (!props.node.mapAssetPath) return 'center center'
   const { px, py } = nodeToPx(props.node)
   // The image natural size is MAP_PX × MAP_PX; we display it at STATIC_SIZE
   // object-position: x% y% where 0% = left/top edge at center, 100% = right/bottom at center
@@ -180,7 +180,7 @@ const coordsLabel = computed(() => {
 
 <template>
   <!-- No mapId: show skeleton -->
-  <div v-if="node.mapId === 0" class="minimap-skeleton">
+  <div v-if="!node.mapAssetPath" class="minimap-skeleton">
     <span class="skeleton-text">地圖載入中...</span>
   </div>
 

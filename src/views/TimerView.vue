@@ -209,7 +209,7 @@ const sortedTrackedNodes = computed(() => {
 // ---------------------------------------------------------------------------
 function getNearbyNodes(node: GatheringNode): GatheringNode[] {
   return store.nodeCache.filter(
-    (n) => n.id !== node.id && n.zone === node.zone && n.mapId === node.mapId && n.mapId !== 0,
+    (n) => n.id !== node.id && n.zone === node.zone && n.mapAssetPath === node.mapAssetPath && n.mapAssetPath !== '',
   )
 }
 

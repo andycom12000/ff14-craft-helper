@@ -15,7 +15,7 @@ export interface GatheringNode {
   coords: { x: number; y: number }
   spawnTimes: number[]
   duration: number
-  mapId: number
+  mapAssetPath: string
   rawCoords: { x: number; y: number }
 }
 
@@ -122,20 +122,25 @@ export async function resolveNodeDetails(nodes: GatheringNode[]): Promise<Gather
     // Zone names from PlaceName sheet (chs → convert to Traditional)
     const zoneFieldsChs = await fetchSheetFields<{ Name: string }>('PlaceName', [...zoneIds], 'Name')
 
-    // Map IDs via XIVAPI search: Map sheet where PlaceName = zoneid
-    const zoneToMapId = new Map<number, number>()
+    // Map asset paths via XIVAPI search: Map sheet where PlaceName = zoneid
+    // Map.Id is a string like "r1f1/00", asset URL = ui/map/{folder}/{sub}/{folder}{sub}_m.tex
+    const zoneToMapAssetPath = new Map<number, string>()
     const mapSearchResults = await Promise.allSettled(
       [...zoneIds].map(async (zid) => {
         const resp = await fetch(`${XIVAPI_SHEET_BASE}/search?sheets=Map&query=PlaceName=${zid}&fields=Id`)
         if (!resp.ok) return null
         const data = await resp.json()
-        const mapRowId = data.results?.[0]?.row_id
-        return mapRowId ? { zoneId: zid, mapId: mapRowId as number } : null
+        const mapStringId = data.results?.[0]?.fields?.Id as string | undefined
+        if (!mapStringId) return null
+        // "r1f1/00" → folder="r1f1", sub="00" → asset path "ui/map/r1f1/00/r1f100_m.tex"
+        const [folder, sub] = mapStringId.split('/')
+        const assetPath = `ui/map/${folder}/${sub}/${folder}${sub}_m.tex`
+        return { zoneId: zid, assetPath }
       }),
     )
     for (const r of mapSearchResults) {
       if (r.status === 'fulfilled' && r.value) {
-        zoneToMapId.set(r.value.zoneId, r.value.mapId)
+        zoneToMapAssetPath.set(r.value.zoneId, r.value.assetPath)
       }
     }
 
@@ -147,7 +152,7 @@ export async function resolveNodeDetails(nodes: GatheringNode[]): Promise<Gather
       const firstItemId = detail.items?.[0]?.id ?? 0
       const coords = detail.coords ?? [0, 0]
       const zoneNameChs = detail.zoneid ? zoneFieldsChs.get(detail.zoneid)?.Name : undefined
-      const mapId = detail.zoneid ? zoneToMapId.get(detail.zoneid) ?? 0 : 0
+      const mapAssetPath = detail.zoneid ? zoneToMapAssetPath.get(detail.zoneid) ?? '' : ''
 
       return {
         ...node,
@@ -155,7 +160,7 @@ export async function resolveNodeDetails(nodes: GatheringNode[]): Promise<Gather
         itemName: itemNames.get(firstItemId) ?? node.itemName,
         coords: { x: coords[0], y: coords[1] },
         zone: zoneNameChs ? sToT(zoneNameChs) : node.zone,
-        mapId,
+        mapAssetPath,
       }
     })
   } catch (error) {
@@ -185,7 +190,7 @@ export async function fetchAllTimedNodes(): Promise<GatheringNode[]> {
       coords: { x: 0, y: 0 },
       spawnTimes: e.ti!,
       duration: durationFromType(e.lt!),
-      mapId: 0,
+      mapAssetPath: '',
       rawCoords: { x: 0, y: 0 },
     }))
 
