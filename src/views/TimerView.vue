@@ -276,14 +276,14 @@ onUnmounted(() => {
             :class="{ active: gatheringClassFilter === 'MIN' }"
             @click="gatheringClassFilter = gatheringClassFilter === 'MIN' ? 'all' : 'MIN'"
           >
-            MIN
+            採礦
           </button>
           <button
             class="chip"
             :class="{ active: gatheringClassFilter === 'BTN' }"
             @click="gatheringClassFilter = gatheringClassFilter === 'BTN' ? 'all' : 'BTN'"
           >
-            BTN
+            園藝
           </button>
           <span class="filter-separator" />
           <button
@@ -298,28 +298,28 @@ onUnmounted(() => {
             :class="{ active: nodeTypeFilter === 'Unspoiled' }"
             @click="nodeTypeFilter = nodeTypeFilter === 'Unspoiled' ? 'all' : 'Unspoiled'"
           >
-            Unspoiled
+            未知
           </button>
           <button
             class="chip chip-sm"
             :class="{ active: nodeTypeFilter === 'Legendary' }"
             @click="nodeTypeFilter = nodeTypeFilter === 'Legendary' ? 'all' : 'Legendary'"
           >
-            Legendary
+            傳說
           </button>
           <button
             class="chip chip-sm"
             :class="{ active: nodeTypeFilter === 'Ephemeral' }"
             @click="nodeTypeFilter = nodeTypeFilter === 'Ephemeral' ? 'all' : 'Ephemeral'"
           >
-            Ephemeral
+            刻限
           </button>
           <button
             class="chip chip-sm"
             :class="{ active: nodeTypeFilter === 'Concealed' }"
             @click="nodeTypeFilter = nodeTypeFilter === 'Concealed' ? 'all' : 'Concealed'"
           >
-            Concealed
+            隱藏
           </button>
         </div>
         <GlobalAlarmToggle />

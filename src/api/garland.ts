@@ -113,12 +113,18 @@ export async function resolveNodeDetails(nodes: GatheringNode[]): Promise<Gather
       }
     }
 
-    // Fetch zone names from XIVAPI (Simplified Chinese) and convert to Traditional
+    // Fetch zone names + mapId from XIVAPI
+    // zoneid in Garland = PlaceName ID, but we need TerritoryType to get Map ID
+    // Use PlaceName for zone name (chs → convert to Traditional)
+    // Use TerritoryType for Map ID (need to query by PlaceName relationship)
     const zoneIds = new Set<number>()
     for (const detail of detailMap.values()) {
       if (detail.zoneid) zoneIds.add(detail.zoneid)
     }
+    // Zone names from PlaceName sheet
     const zoneFieldsChs = await fetchSheetFields<{ Name: string }>('PlaceName', [...zoneIds], 'Name')
+    // Map IDs from TerritoryType sheet — zoneid maps to TerritoryType, which has Map field
+    const territoryFields = await fetchSheetFields<{ Map: { row_id: number } }>('TerritoryType', [...zoneIds], 'Map')
 
     // Enrich nodes
     return nodes.map((node) => {
@@ -128,6 +134,7 @@ export async function resolveNodeDetails(nodes: GatheringNode[]): Promise<Gather
       const firstItemId = detail.items?.[0]?.id ?? 0
       const coords = detail.coords ?? [0, 0]
       const zoneNameChs = detail.zoneid ? zoneFieldsChs.get(detail.zoneid)?.Name : undefined
+      const mapId = detail.zoneid ? territoryFields.get(detail.zoneid)?.Map?.row_id ?? 0 : 0
 
       return {
         ...node,
@@ -135,6 +142,7 @@ export async function resolveNodeDetails(nodes: GatheringNode[]): Promise<Gather
         itemName: itemNames.get(firstItemId) ?? node.itemName,
         coords: { x: coords[0], y: coords[1] },
         zone: zoneNameChs ? sToT(zoneNameChs) : node.zone,
+        mapId,
       }
     })
   } catch (error) {

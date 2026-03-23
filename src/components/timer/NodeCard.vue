@@ -37,7 +37,13 @@ const statusLabel = computed(() => {
   return '稍後'
 })
 
-const nodeTypeLabel = computed(() => props.node.nodeType)
+const NODE_TYPE_LABELS: Record<string, string> = {
+  Unspoiled: '未知', Legendary: '傳說', Ephemeral: '刻限', Concealed: '隱藏',
+}
+const CLASS_LABELS: Record<string, string> = { MIN: '採礦', BTN: '園藝' }
+
+const nodeTypeLabel = computed(() => NODE_TYPE_LABELS[props.node.nodeType] ?? props.node.nodeType)
+const classLabel = computed(() => CLASS_LABELS[props.node.gatheringClass] ?? props.node.gatheringClass)
 
 const coordsLabel = computed(() => {
   const { x, y } = props.node.coords
@@ -92,7 +98,7 @@ function onRemoveClick(event: Event) {
           <span v-if="node.stars > 0" class="item-stars">{{ starsDisplay(node.stars) }}</span>
         </div>
         <div class="item-meta">
-          <span class="gathering-class">{{ node.gatheringClass }}</span>
+          <span class="gathering-class">{{ classLabel }}</span>
           <span class="separator">·</span>
           <span class="node-type">Lv{{ node.level }}</span>
           <span class="separator">·</span>

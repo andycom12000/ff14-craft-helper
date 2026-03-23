@@ -3,6 +3,11 @@ import { ref, computed } from 'vue'
 import { useTimerStore } from '@/stores/timer'
 import type { GatheringNode } from '@/api/garland'
 
+const NODE_TYPE_LABELS: Record<string, string> = {
+  Unspoiled: '未知', Legendary: '傳說', Ephemeral: '刻限', Concealed: '隱藏',
+}
+const CLASS_LABELS: Record<string, string> = { MIN: '採礦', BTN: '園藝' }
+
 const store = useTimerStore()
 
 // ---------------------------------------------------------------------------
@@ -128,7 +133,7 @@ function toggleExpand(key: string) {
           <div class="result-info">
             <span class="result-name">{{ node.itemName }}</span>
             <span class="result-meta">
-              {{ node.gatheringClass }} · Lv{{ node.level }} · {{ node.nodeType }}
+              {{ CLASS_LABELS[node.gatheringClass] ?? node.gatheringClass }} · Lv{{ node.level }} · {{ NODE_TYPE_LABELS[node.nodeType] ?? node.nodeType }}
             </span>
           </div>
           <button
@@ -179,7 +184,7 @@ function toggleExpand(key: string) {
                 @click="toggleExpand(`${cls.key}/${group.nodeType}`)"
               >
                 <span class="accordion-arrow" :class="{ open: expanded.has(`${cls.key}/${group.nodeType}`) }">▶</span>
-                {{ group.nodeType }}
+                {{ NODE_TYPE_LABELS[group.nodeType] ?? group.nodeType }}
                 <span class="count-badge">{{ group.nodes.length }}</span>
               </button>
 
