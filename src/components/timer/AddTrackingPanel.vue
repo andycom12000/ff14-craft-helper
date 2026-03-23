@@ -8,7 +8,22 @@ const NODE_TYPE_LABELS: Record<string, string> = {
 }
 const CLASS_LABELS: Record<string, string> = { MIN: '採礦', BTN: '園藝' }
 
+const props = withDefaults(defineProps<{
+  classFilter?: 'all' | 'MIN' | 'BTN'
+  typeFilter?: 'all' | 'Unspoiled' | 'Legendary' | 'Ephemeral' | 'Concealed'
+}>(), {
+  classFilter: 'all',
+  typeFilter: 'all',
+})
+
 const store = useTimerStore()
+
+const filteredCache = computed(() => {
+  let list = store.nodeCache
+  if (props.classFilter !== 'all') list = list.filter((n) => n.gatheringClass === props.classFilter)
+  if (props.typeFilter !== 'all') list = list.filter((n) => n.nodeType === props.typeFilter)
+  return list
+})
 
 // ---------------------------------------------------------------------------
 // Tab state
@@ -32,8 +47,8 @@ function onInput(val: string) {
 
 const searchResults = computed<GatheringNode[]>(() => {
   const q = query.value.trim().toLowerCase()
-  if (!q) return store.nodeCache.slice(0, 50)
-  return store.nodeCache.filter((n) => n.itemName.toLowerCase().includes(q)).slice(0, 100)
+  if (!q) return filteredCache.value.slice(0, 50)
+  return filteredCache.value.filter((n) => n.itemName.toLowerCase().includes(q)).slice(0, 100)
 })
 
 function addItem(node: GatheringNode) {
@@ -56,8 +71,8 @@ interface ClassGroup {
 }
 
 const browseGroups = computed<ClassGroup[]>(() => {
-  const minNodes = store.nodeCache.filter((n) => n.gatheringClass === 'MIN')
-  const btnNodes = store.nodeCache.filter((n) => n.gatheringClass === 'BTN')
+  const minNodes = filteredCache.value.filter((n) => n.gatheringClass === 'MIN')
+  const btnNodes = filteredCache.value.filter((n) => n.gatheringClass === 'BTN')
 
   function groupByType(nodes: GatheringNode[]): NodeGroup[] {
     const map = new Map<string, GatheringNode[]>()
