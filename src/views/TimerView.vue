@@ -375,7 +375,7 @@ onUnmounted(() => {
 
       <!-- Side panel (1440-2559+) -->
       <div v-if="showSidePanel" class="side-panel">
-        <AddTrackingPanel :class-filter="gatheringClassFilter" :type-filter="nodeTypeFilter" />
+        <AddTrackingPanel />
         <div class="side-panel-divider" />
         <AlarmSettingsPanel />
       </div>
@@ -389,7 +389,7 @@ onUnmounted(() => {
       direction="rtl"
       title="追蹤管理"
     >
-      <AddTrackingPanel :class-filter="gatheringClassFilter" :type-filter="nodeTypeFilter" />
+      <AddTrackingPanel />
       <div class="drawer-divider" />
       <AlarmSettingsPanel />
     </el-drawer>

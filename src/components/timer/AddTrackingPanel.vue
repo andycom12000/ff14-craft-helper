@@ -8,20 +8,18 @@ const NODE_TYPE_LABELS: Record<string, string> = {
 }
 const CLASS_LABELS: Record<string, string> = { MIN: '採礦', BTN: '園藝' }
 
-const props = withDefaults(defineProps<{
-  classFilter?: 'all' | 'MIN' | 'BTN'
-  typeFilter?: 'all' | 'Unspoiled' | 'Legendary' | 'Ephemeral' | 'Concealed'
-}>(), {
-  classFilter: 'all',
-  typeFilter: 'all',
-})
-
 const store = useTimerStore()
+
+// ---------------------------------------------------------------------------
+// Panel-local filters (independent from tracking list filters)
+// ---------------------------------------------------------------------------
+const classFilter = ref<'all' | 'MIN' | 'BTN'>('all')
+const typeFilter = ref<'all' | 'Unspoiled' | 'Legendary' | 'Ephemeral' | 'Concealed'>('all')
 
 const filteredCache = computed(() => {
   let list = store.nodeCache
-  if (props.classFilter !== 'all') list = list.filter((n) => n.gatheringClass === props.classFilter)
-  if (props.typeFilter !== 'all') list = list.filter((n) => n.nodeType === props.typeFilter)
+  if (classFilter.value !== 'all') list = list.filter((n) => n.gatheringClass === classFilter.value)
+  if (typeFilter.value !== 'all') list = list.filter((n) => n.nodeType === typeFilter.value)
   return list
 })
 
@@ -134,6 +132,19 @@ function toggleExpand(key: string) {
         @input="onInput"
         @clear="() => { rawQuery = ''; query = '' }"
       />
+
+      <!-- Panel-local filter chips -->
+      <div class="panel-filters">
+        <button class="pf-chip" :class="{ active: classFilter === 'all' }" @click="classFilter = 'all'">全部</button>
+        <button class="pf-chip" :class="{ active: classFilter === 'MIN' }" @click="classFilter = classFilter === 'MIN' ? 'all' : 'MIN'">採礦</button>
+        <button class="pf-chip" :class="{ active: classFilter === 'BTN' }" @click="classFilter = classFilter === 'BTN' ? 'all' : 'BTN'">園藝</button>
+        <span class="pf-sep" />
+        <button class="pf-chip" :class="{ active: typeFilter === 'all' }" @click="typeFilter = 'all'">全類型</button>
+        <button class="pf-chip" :class="{ active: typeFilter === 'Unspoiled' }" @click="typeFilter = typeFilter === 'Unspoiled' ? 'all' : 'Unspoiled'">未知</button>
+        <button class="pf-chip" :class="{ active: typeFilter === 'Legendary' }" @click="typeFilter = typeFilter === 'Legendary' ? 'all' : 'Legendary'">傳說</button>
+        <button class="pf-chip" :class="{ active: typeFilter === 'Ephemeral' }" @click="typeFilter = typeFilter === 'Ephemeral' ? 'all' : 'Ephemeral'">刻限</button>
+        <button class="pf-chip" :class="{ active: typeFilter === 'Concealed' }" @click="typeFilter = typeFilter === 'Concealed' ? 'all' : 'Concealed'">隱藏</button>
+      </div>
 
       <div v-if="store.nodeCache.length === 0" class="empty-hint">
         資料載入中，請稍候...
@@ -286,6 +297,37 @@ function toggleExpand(key: string) {
 .search-input {
   flex-shrink: 0;
   margin-bottom: 4px;
+}
+
+.panel-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.pf-chip {
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--app-border);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.pf-chip:hover {
+  border-color: var(--app-accent-light);
+  color: var(--app-accent-light);
+}
+.pf-chip.active {
+  background: var(--app-accent);
+  border-color: var(--app-accent);
+  color: #fff;
+}
+.pf-sep {
+  width: 1px;
+  background: var(--app-border);
+  margin: 2px 2px;
 }
 
 /* ------------------------------------------------------------------ */
