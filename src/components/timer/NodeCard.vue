@@ -66,10 +66,9 @@ function onRemoveClick(event: Event) {
   <div
     class="node-card"
     :class="[statusClass, { 'alarm-off': !alarmEnabled }]"
-    @click="$emit('toggle-map')"
   >
     <!-- Card header: status dot + label, countdown, alarm switch, remove -->
-    <div class="card-header">
+    <div class="card-header" @click="$emit('toggle-map')" style="cursor:pointer">
       <div class="header-left">
         <span class="status-dot" />
         <span class="status-label">{{ statusLabel }}</span>
@@ -89,7 +88,7 @@ function onRemoveClick(event: Event) {
     </div>
 
     <!-- Card body: info on left, price on right -->
-    <div class="card-body">
+    <div class="card-body" @click="$emit('toggle-map')" style="cursor:pointer">
       <div class="card-info">
         <div class="item-name">
           {{ node.itemName }}
@@ -115,10 +114,8 @@ function onRemoveClick(event: Event) {
       </div>
     </div>
 
-    <!-- Slot for minimap expansion — stop click from collapsing the card -->
-    <div v-if="$slots.default" @click.stop>
-      <slot />
-    </div>
+    <!-- Slot for minimap expansion -->
+    <slot />
   </div>
 </template>
 
@@ -154,7 +151,6 @@ function onRemoveClick(event: Event) {
   border: 1px solid color-mix(in srgb, var(--status-color) 30%, transparent);
   border-radius: 10px;
   padding: 12px 14px;
-  cursor: pointer;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
   box-shadow:
     0 2px 8px rgba(0, 0, 0, 0.3),
