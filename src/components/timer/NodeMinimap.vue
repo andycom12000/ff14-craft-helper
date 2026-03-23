@@ -43,7 +43,7 @@ function onMapError() { mapError.value = true }
 const MAP_PX = 2048
 
 function gameCoordToPixel(coord: number, sizeFactor: number): number {
-  return MAP_PX * ((coord - 1) * (sizeFactor / 100) / 41.0 + 0.5)
+  return (coord - 1) / 41 * MAP_PX * sizeFactor / 100
 }
 
 function nodeToPx(n: GatheringNode): { px: number; py: number } {
