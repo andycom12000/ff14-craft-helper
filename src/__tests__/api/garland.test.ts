@@ -16,7 +16,7 @@ describe('fetchAllTimedNodes', () => {
     vi.mocked(globalThis.fetch).mockImplementation((url: any) => {
       const u = typeof url === 'string' ? url : url.toString()
       if (u.includes('garlandtools')) {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(mockBrowseData) } as Response)
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ browse: mockBrowseData }) } as Response)
       }
       // Return failure for XIVAPI calls so resolveNodeDetails falls back gracefully
       return Promise.resolve({ ok: false } as Response)
@@ -45,7 +45,7 @@ describe('fetchAllTimedNodes', () => {
     vi.mocked(globalThis.fetch).mockImplementation((url: any) => {
       const u = typeof url === 'string' ? url : url.toString()
       if (u.includes('garlandtools')) {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(mockBrowseData) } as Response)
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ browse: mockBrowseData }) } as Response)
       }
       if (u.includes('GatheringPoint?')) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ rows: [{

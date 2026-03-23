@@ -118,7 +118,8 @@ export async function fetchAllTimedNodes(): Promise<GatheringNode[]> {
   try {
     const resp = await fetch(GARLAND_BROWSE)
     if (!resp.ok) throw new Error(`Garland API failed: ${resp.status}`)
-    const data: GarlandBrowseEntry[] = await resp.json()
+    const raw = await resp.json()
+    const data: GarlandBrowseEntry[] = Array.isArray(raw) ? raw : raw.browse ?? []
 
     const timedEntries = data.filter((e) => e.lt && e.ti && e.ti.length > 0)
 
