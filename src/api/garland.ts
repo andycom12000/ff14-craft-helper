@@ -1,4 +1,4 @@
-import { fetchSheetFields } from '@/api/xivapi'
+import { XIVAPI_SHEET_BASE, fetchSheetFields } from '@/api/xivapi'
 import { sToT } from '@/utils/s2t'
 
 const GARLAND_BROWSE = 'https://garlandtools.org/db/doc/browse/en/2/node.json'
