@@ -93,11 +93,11 @@ async function onFileChange(event: Event) {
 // Helpers: bind number inputs safely
 // ---------------------------------------------------------------------------
 function setFirstMinutes(val: number | undefined) {
-  if (typeof val === 'number') settings.value.firstAlert.etMinutesBefore = val
+  if (typeof val === 'number') settings.value.firstAlert.realMinutesBefore = val
 }
 
 function setSecondMinutes(val: number | undefined) {
-  if (typeof val === 'number') settings.value.secondAlert.etMinutesBefore = val
+  if (typeof val === 'number') settings.value.secondAlert.realMinutesBefore = val
 }
 
 function setVolume(val: number) {
@@ -121,17 +121,17 @@ function setVolume(val: number) {
       />
       <span class="row-label">第一提醒（開始前）</span>
       <el-input-number
-        :model-value="settings.firstAlert.etMinutesBefore"
+        :model-value="settings.firstAlert.realMinutesBefore"
         :disabled="!settings.firstAlert.enabled"
         :min="0"
-        :max="600"
-        :step="10"
+        :max="60"
+        :step="1"
         size="small"
         controls-position="right"
         class="minutes-input"
         @update:model-value="setFirstMinutes"
       />
-      <span class="unit-label">ET 分</span>
+      <span class="unit-label">分鐘</span>
     </div>
 
     <!-- ---------------------------------------------------------------- -->
@@ -146,17 +146,17 @@ function setVolume(val: number) {
       />
       <span class="row-label">第二提醒（開始前）</span>
       <el-input-number
-        :model-value="settings.secondAlert.etMinutesBefore"
+        :model-value="settings.secondAlert.realMinutesBefore"
         :disabled="!settings.secondAlert.enabled"
         :min="0"
-        :max="600"
-        :step="10"
+        :max="60"
+        :step="1"
         size="small"
         controls-position="right"
         class="minutes-input"
         @update:model-value="setSecondMinutes"
       />
-      <span class="unit-label">ET 分</span>
+      <span class="unit-label">分鐘</span>
     </div>
 
     <div class="divider" />

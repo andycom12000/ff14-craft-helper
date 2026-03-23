@@ -9,8 +9,8 @@ export interface TrackedItem {
 }
 
 export interface AlarmSettings {
-  firstAlert: { enabled: boolean; etMinutesBefore: number }
-  secondAlert: { enabled: boolean; etMinutesBefore: number }
+  firstAlert: { enabled: boolean; realMinutesBefore: number }
+  secondAlert: { enabled: boolean; realMinutesBefore: number }
   soundFile: string
   volume: number
 }
@@ -19,8 +19,8 @@ export const useTimerStore = defineStore('timer', () => {
   const trackedItems = ref<TrackedItem[]>([])
   const globalAlarmEnabled = ref(true)
   const alarmSettings = ref<AlarmSettings>({
-    firstAlert: { enabled: true, etMinutesBefore: 120 },
-    secondAlert: { enabled: true, etMinutesBefore: 0 },
+    firstAlert: { enabled: true, realMinutesBefore: 5 },
+    secondAlert: { enabled: true, realMinutesBefore: 0 },
     soundFile: 'chime',
     volume: 70,
   })

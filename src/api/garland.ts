@@ -114,17 +114,30 @@ export async function resolveNodeDetails(nodes: GatheringNode[]): Promise<Gather
     }
 
     // Fetch zone names + mapId from XIVAPI
-    // zoneid in Garland = PlaceName ID, but we need TerritoryType to get Map ID
-    // Use PlaceName for zone name (chs → convert to Traditional)
-    // Use TerritoryType for Map ID (need to query by PlaceName relationship)
+    // Garland zoneid = PlaceName ID (NOT TerritoryType ID)
     const zoneIds = new Set<number>()
     for (const detail of detailMap.values()) {
       if (detail.zoneid) zoneIds.add(detail.zoneid)
     }
-    // Zone names from PlaceName sheet
+    // Zone names from PlaceName sheet (chs → convert to Traditional)
     const zoneFieldsChs = await fetchSheetFields<{ Name: string }>('PlaceName', [...zoneIds], 'Name')
-    // Map IDs from TerritoryType sheet — zoneid maps to TerritoryType, which has Map field
-    const territoryFields = await fetchSheetFields<{ Map: { row_id: number } }>('TerritoryType', [...zoneIds], 'Map')
+
+    // Map IDs via XIVAPI search: Map sheet where PlaceName = zoneid
+    const zoneToMapId = new Map<number, number>()
+    const mapSearchResults = await Promise.allSettled(
+      [...zoneIds].map(async (zid) => {
+        const resp = await fetch(`${XIVAPI_SHEET_BASE}/search?sheets=Map&query=PlaceName=${zid}&fields=Id`)
+        if (!resp.ok) return null
+        const data = await resp.json()
+        const mapRowId = data.results?.[0]?.row_id
+        return mapRowId ? { zoneId: zid, mapId: mapRowId as number } : null
+      }),
+    )
+    for (const r of mapSearchResults) {
+      if (r.status === 'fulfilled' && r.value) {
+        zoneToMapId.set(r.value.zoneId, r.value.mapId)
+      }
+    }
 
     // Enrich nodes
     return nodes.map((node) => {
@@ -134,7 +147,7 @@ export async function resolveNodeDetails(nodes: GatheringNode[]): Promise<Gather
       const firstItemId = detail.items?.[0]?.id ?? 0
       const coords = detail.coords ?? [0, 0]
       const zoneNameChs = detail.zoneid ? zoneFieldsChs.get(detail.zoneid)?.Name : undefined
-      const mapId = detail.zoneid ? territoryFields.get(detail.zoneid)?.Map?.row_id ?? 0 : 0
+      const mapId = detail.zoneid ? zoneToMapId.get(detail.zoneid) ?? 0 : 0
 
       return {
         ...node,

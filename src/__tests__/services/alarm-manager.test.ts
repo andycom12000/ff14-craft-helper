@@ -4,11 +4,11 @@ import { shouldTriggerAlarm, buildAlarmKey, markAlarmFired, hasAlarmFired, clear
 describe('shouldTriggerAlarm', () => {
   it('returns first when within first alert window', () => {
     const result = shouldTriggerAlarm({
-      realSecondsUntil: 350,
+      realSecondsUntil: 300,
       isActive: false,
       alarmSettings: {
-        firstAlert: { enabled: true, etMinutesBefore: 120 },
-        secondAlert: { enabled: false, etMinutesBefore: 0 },
+        firstAlert: { enabled: true, realMinutesBefore: 5 },
+        secondAlert: { enabled: false, realMinutesBefore: 0 },
         soundFile: 'chime',
         volume: 70,
       },
@@ -20,11 +20,11 @@ describe('shouldTriggerAlarm', () => {
 
   it('returns false when global alarm disabled', () => {
     const result = shouldTriggerAlarm({
-      realSecondsUntil: 350,
+      realSecondsUntil: 300,
       isActive: false,
       alarmSettings: {
-        firstAlert: { enabled: true, etMinutesBefore: 120 },
-        secondAlert: { enabled: false, etMinutesBefore: 0 },
+        firstAlert: { enabled: true, realMinutesBefore: 5 },
+        secondAlert: { enabled: false, realMinutesBefore: 0 },
         soundFile: 'chime',
         volume: 70,
       },
@@ -36,11 +36,11 @@ describe('shouldTriggerAlarm', () => {
 
   it('returns false when item alarm disabled', () => {
     const result = shouldTriggerAlarm({
-      realSecondsUntil: 350,
+      realSecondsUntil: 300,
       isActive: false,
       alarmSettings: {
-        firstAlert: { enabled: true, etMinutesBefore: 120 },
-        secondAlert: { enabled: false, etMinutesBefore: 0 },
+        firstAlert: { enabled: true, realMinutesBefore: 5 },
+        secondAlert: { enabled: false, realMinutesBefore: 0 },
         soundFile: 'chime',
         volume: 70,
       },
@@ -55,8 +55,8 @@ describe('shouldTriggerAlarm', () => {
       realSecondsUntil: 0,
       isActive: true,
       alarmSettings: {
-        firstAlert: { enabled: true, etMinutesBefore: 120 },
-        secondAlert: { enabled: true, etMinutesBefore: 0 },
+        firstAlert: { enabled: true, realMinutesBefore: 5 },
+        secondAlert: { enabled: true, realMinutesBefore: 0 },
         soundFile: 'chime',
         volume: 70,
       },
