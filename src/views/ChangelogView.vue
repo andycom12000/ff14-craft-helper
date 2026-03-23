@@ -1,6 +1,19 @@
 <script setup lang="ts">
 const changelog = [
   {
+    version: 'v1.8.1',
+    date: '2026-03-23',
+    highlights: [
+      '修正小地圖座標標記：使用正確的 FF14 座標轉換公式，紅旗圖示精準標示採集位置',
+      '修正拖曳小地圖會收合卡片的問題',
+      '修正 toggle 和關閉按鈕重疊問題',
+      '搜尋面板加入獨立的職業/類型過濾（與追蹤清單 filter 分開）',
+      '提醒設定改為真實時間（分鐘）而非 ET 時間',
+      'UI 全面中文化：filter chips、狀態標籤、節點類型',
+      '修正 XIVAPI 地圖載入：使用正確的 asset URL 格式',
+    ],
+  },
+  {
     version: 'v1.8.0',
     date: '2026-03-23',
     highlights: [
