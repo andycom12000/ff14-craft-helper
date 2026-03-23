@@ -32,9 +32,9 @@ const statusClass = computed(() => {
 })
 
 const statusLabel = computed(() => {
-  if (props.isActive) return 'Active'
-  if (countdownMinutes.value < 30) return 'Upcoming'
-  return 'Later'
+  if (props.isActive) return '採集中'
+  if (countdownMinutes.value < 30) return '即將出現'
+  return '稍後'
 })
 
 const nodeTypeLabel = computed(() => props.node.nodeType)

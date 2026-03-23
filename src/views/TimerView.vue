@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, reactive, watch } from 'vue'
+import { AlarmClock } from '@element-plus/icons-vue'
 import { useTimerStore } from '@/stores/timer'
 import { useSettingsStore } from '@/stores/settings'
 import type { GatheringNode } from '@/api/garland'
@@ -257,7 +258,7 @@ onUnmounted(() => {
     <!-- Top bar -->
     <div class="timer-header">
       <h2 class="timer-title">
-        <span class="title-icon">&#x23F1;</span>
+        <el-icon class="title-icon"><AlarmClock /></el-icon>
         採集計時器
       </h2>
       <div class="header-controls">
