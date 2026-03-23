@@ -218,13 +218,14 @@ const coordsLabel = computed(() => {
         :style="{ left: `${m.px}px`, top: `${m.py}px` }"
       />
 
-      <!-- Main node marker -->
-      <div
+      <!-- Main node marker (red flag) -->
+      <img
         class="marker marker-main"
+        src="https://beta.xivapi.com/api/1/asset/ui/icon/060000/060561_hr1.tex?format=png"
+        draggable="false"
         :style="{
           left: `${mainMarkerPx.px}px`,
           top: `${mainMarkerPx.py}px`,
-          '--marker-color': statusColor,
         }"
       />
     </div>
@@ -315,23 +316,22 @@ const coordsLabel = computed(() => {
 /* ------------------------------------------------------------------ */
 .marker {
   position: absolute;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
   pointer-events: none;
 }
 
 .marker-main {
-  width: 14px;
-  height: 14px;
-  background-color: var(--marker-color, #4ADE80);
-  box-shadow: 0 0 8px var(--marker-color, #4ADE80);
-  border: 2px solid rgba(255,255,255,0.9);
+  width: 32px;
+  height: 32px;
+  transform: translate(-50%, -100%);
   z-index: 2;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
 }
 
 .marker-nearby {
   width: 8px;
   height: 8px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
   background-color: rgba(148, 163, 184, 0.5);
   border: 1px solid rgba(255,255,255,0.3);
   z-index: 1;
