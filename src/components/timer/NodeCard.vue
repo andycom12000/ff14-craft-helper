@@ -68,10 +68,7 @@ function onRemoveClick(event: Event) {
     :class="[statusClass, { 'alarm-off': !alarmEnabled }]"
     @click="$emit('toggle-map')"
   >
-    <!-- Remove button, visible on hover -->
-    <button class="remove-btn" title="Remove" @click="onRemoveClick">&#x2715;</button>
-
-    <!-- Card header: status dot + label, countdown, alarm switch -->
+    <!-- Card header: status dot + label, countdown, alarm switch, remove -->
     <div class="card-header">
       <div class="header-left">
         <span class="status-dot" />
@@ -87,6 +84,7 @@ function onRemoveClick(event: Event) {
           :aria-label="alarmEnabled ? '關閉提醒' : '開啟提醒'"
           @click="onAlarmClick"
         />
+        <button class="remove-btn" title="移除追蹤" @click="onRemoveClick">&#x2715;</button>
       </div>
     </div>
 
@@ -117,8 +115,10 @@ function onRemoveClick(event: Event) {
       </div>
     </div>
 
-    <!-- Slot for minimap expansion -->
-    <slot />
+    <!-- Slot for minimap expansion — stop click from collapsing the card -->
+    <div v-if="$slots.default" @click.stop>
+      <slot />
+    </div>
   </div>
 </template>
 
@@ -178,9 +178,6 @@ function onRemoveClick(event: Event) {
 /* ------------------------------------------------------------------ */
 .remove-btn {
   display: none;
-  position: absolute;
-  top: 8px;
-  right: 8px;
   width: 22px;
   height: 22px;
   border-radius: 50%;
@@ -194,7 +191,7 @@ function onRemoveClick(event: Event) {
   justify-content: center;
   transition: background 0.15s, color 0.15s;
   padding: 0;
-  z-index: 1;
+  flex-shrink: 0;
 }
 
 .remove-btn:hover {
@@ -259,8 +256,6 @@ function onRemoveClick(event: Event) {
   display: flex;
   align-items: center;
   gap: 8px;
-  /* push away from remove button when hovered */
-  padding-right: 4px;
 }
 
 .countdown {
