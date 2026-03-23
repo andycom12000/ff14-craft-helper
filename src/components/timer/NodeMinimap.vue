@@ -158,8 +158,6 @@ const nearbyMarkers = computed(() =>
 // ---------------------------------------------------------------------------
 // Static (mobile) mode — object-position crop
 // ---------------------------------------------------------------------------
-const STATIC_SIZE = 200  // container px
-
 const staticObjectPosition = computed(() => {
   if (props.node.mapId === 0) return 'center center'
   const { px, py } = nodeToPx(props.node)
