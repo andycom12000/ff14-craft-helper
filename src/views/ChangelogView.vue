@@ -1,6 +1,14 @@
 <script setup lang="ts">
 const changelog = [
   {
+    version: 'v1.8.3',
+    date: '2026-03-24',
+    highlights: [
+      '設定頁新增「關於」區塊：顯示 App 資訊（版本號、技術棧、求解器）與作者資訊',
+      'App 版本號改為從 git tag 動態注入，確保與實際發布版本一致',
+    ],
+  },
+  {
     version: 'v1.8.2',
     date: '2026-03-24',
     highlights: [
