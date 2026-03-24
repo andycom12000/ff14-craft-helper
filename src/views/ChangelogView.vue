@@ -1,6 +1,15 @@
 <script setup lang="ts">
 const changelog = [
   {
+    version: 'v1.8.2',
+    date: '2026-03-24',
+    highlights: [
+      '配方搜尋內嵌化：製作模擬、材料清單、批量製作頁面均可直接搜尋配方，不再需要跳轉至獨立的配方選擇頁面',
+      '統一配方搜尋元件（RecipeSearchSidebar），取代各頁面獨立的搜尋實作',
+      '移除獨立的配方選擇路由，簡化導覽結構',
+    ],
+  },
+  {
     version: 'v1.8.1',
     date: '2026-03-23',
     highlights: [
