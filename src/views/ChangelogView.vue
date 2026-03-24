@@ -1,6 +1,13 @@
 <script setup lang="ts">
 const changelog = [
   {
+    version: 'v1.8.5',
+    date: '2026-03-25',
+    highlights: [
+      '批量製作準備清單：新增拖曳排序功能，可自由調整製作順序',
+    ],
+  },
+  {
     version: 'v1.8.4',
     date: '2026-03-24',
     highlights: [
