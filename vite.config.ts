@@ -1,9 +1,21 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import { execSync } from 'child_process'
+
+function getLatestTag(): string {
+  try {
+    return execSync('git tag --sort=-v:refname', { encoding: 'utf-8' }).split('\n')[0].trim() || 'dev'
+  } catch {
+    return 'dev'
+  }
+}
 
 export default defineConfig({
   base: '/ff14-craft-helper/',
   plugins: [vue()],
+  define: {
+    __APP_VERSION__: JSON.stringify(getLatestTag()),
+  },
   resolve: {
     alias: {
       '@': '/src',
