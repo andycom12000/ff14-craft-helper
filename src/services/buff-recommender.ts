@@ -2,7 +2,7 @@ import type { RecipeOptimizeResult } from '@/services/batch-optimizer'
 import type { GearsetStats } from '@/stores/gearsets'
 import type { MarketData } from '@/api/universalis'
 import type { FoodBuff, EnhancedStats } from '@/engine/food-medicine'
-import type { BuffRecommendation } from '@/stores/batch'
+import type { BuffRecommendation, BuffPriceInfo } from '@/stores/batch'
 import {
   COMMON_FOODS, COMMON_MEDICINES,
   resolveBuff, applyFoodBuff, applyMedicineBuff,
@@ -64,6 +64,15 @@ export function getBuffItemIds(): number[] {
 }
 
 /**
+ * Find the cheapest listing's price and server for an item.
+ */
+function getCheapestListing(md: MarketData, isHq: boolean): BuffPriceInfo {
+  const price = isHq ? (md.minPriceHQ || Infinity) : (md.minPriceNQ || Infinity)
+  const listing = md.listings?.find(l => l.hq === isHq && l.pricePerUnit === price)
+  return { price, server: listing?.worldName }
+}
+
+/**
  * Get the market price of a buff combo.
  */
 function getComboPrice(combo: BuffCombo, priceMap: Map<number, MarketData>): number {
@@ -79,6 +88,26 @@ function getComboPrice(combo: BuffCombo, priceMap: Map<number, MarketData>): num
     cost += combo.medicine.isHq ? (md.minPriceHQ || Infinity) : (md.minPriceNQ || Infinity)
   }
   return cost
+}
+
+/**
+ * Get per-item price info (price + server) for a buff combo.
+ */
+function getComboPriceInfo(combo: BuffCombo, priceMap: Map<number, MarketData>): {
+  foodPrice?: BuffPriceInfo
+  medicinePrice?: BuffPriceInfo
+} {
+  let foodPrice: BuffPriceInfo | undefined
+  let medicinePrice: BuffPriceInfo | undefined
+  if (combo.food) {
+    const md = priceMap.get(combo.food.buff.id)
+    if (md) foodPrice = getCheapestListing(md, combo.food.isHq)
+  }
+  if (combo.medicine) {
+    const md = priceMap.get(combo.medicine.buff.id)
+    if (md) medicinePrice = getCheapestListing(md, combo.medicine.isHq)
+  }
+  return { foodPrice, medicinePrice }
 }
 
 /**
@@ -283,10 +312,13 @@ export async function evaluateBuffRecommendation(
 
     if (passedEnabled.length > 0) {
       // Enables previously-unachievable recipes → always recommend
+      const { foodPrice, medicinePrice } = getComboPriceInfo(combo, priceMap)
       return {
         food: combo.food,
         medicine: combo.medicine,
         buffCost: candidate.price,
+        foodPrice,
+        medicinePrice,
         hqMaterialSavings: hqSavings,
         affectedRecipes: passedDeficit.map(r => ({ id: r.recipe.id, name: r.recipe.name })),
         enabledRecipes: passedEnabled.map(r => ({ id: r.recipe.id, name: r.recipe.name })),
@@ -297,10 +329,13 @@ export async function evaluateBuffRecommendation(
     if (passedDeficit.length < deficitRecipes.length) continue
     if (candidate.price >= hqSavings) continue
 
+    const { foodPrice, medicinePrice } = getComboPriceInfo(combo, priceMap)
     return {
       food: combo.food,
       medicine: combo.medicine,
       buffCost: candidate.price,
+      foodPrice,
+      medicinePrice,
       hqMaterialSavings: hqSavings,
       affectedRecipes: passedDeficit.map(r => ({ id: r.recipe.id, name: r.recipe.name })),
       enabledRecipes: [],

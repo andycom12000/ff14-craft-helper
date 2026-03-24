@@ -39,10 +39,17 @@ export interface BuyFinishedDecision {
   buyServer?: string
 }
 
+export interface BuffPriceInfo {
+  price: number
+  server?: string
+}
+
 export interface BuffRecommendation {
   food: { buff: FoodBuff; isHq: boolean } | null
   medicine: { buff: FoodBuff; isHq: boolean } | null
   buffCost: number
+  foodPrice?: BuffPriceInfo
+  medicinePrice?: BuffPriceInfo
   hqMaterialSavings: number
   affectedRecipes: Array<{ id: number; name: string }>
   /** Recipes that were quality-unachievable without buffs but become craftable with them */
