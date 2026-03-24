@@ -143,6 +143,11 @@ export const useBatchStore = defineStore('batch', () => {
     if (target) target.quantity = quantity
   }
 
+  function reorderTargets(fromIndex: number, toIndex: number) {
+    const [item] = targets.value.splice(fromIndex, 1)
+    targets.value.splice(toIndex, 0, item)
+  }
+
   function clearTargets() {
     targets.value = []
   }
@@ -186,6 +191,7 @@ export const useBatchStore = defineStore('batch', () => {
     addTarget,
     removeTarget,
     updateQuantity,
+    reorderTargets,
     clearTargets,
     clearResults,
     cancel,
