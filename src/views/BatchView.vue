@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
+import { ElMessage } from 'element-plus'
 import { useBatchStore } from '@/stores/batch'
 import { useSettingsStore } from '@/stores/settings'
 import { useGearsetsStore } from '@/stores/gearsets'
@@ -12,7 +13,7 @@ import BatchProgress from '@/components/batch/BatchProgress.vue'
 import ShoppingList from '@/components/batch/ShoppingList.vue'
 import TodoList from '@/components/batch/TodoList.vue'
 import ExceptionList from '@/components/batch/ExceptionList.vue'
-import BatchSearchSidebar from '@/components/batch/BatchSearchSidebar.vue'
+import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
 import BuffRecommendationCard from '@/components/batch/BuffRecommendationCard.vue'
 
 const batchStore = useBatchStore()
@@ -144,6 +145,11 @@ async function startOptimization() {
   } finally {
     batchStore.isRunning = false
   }
+}
+
+function handleAddRecipe(recipe: import('@/stores/recipe').Recipe) {
+  batchStore.addTarget(recipe)
+  ElMessage.success(`已加入「${recipe.name}」`)
 }
 
 function handleTodoDone(index: number, done: boolean) {
@@ -355,7 +361,7 @@ function handleTodoDone(index: number, done: boolean) {
     </template>
 
     <!-- Search Sidebar (shared) -->
-    <BatchSearchSidebar v-model="sidebarOpen" />
+    <RecipeSearchSidebar v-model="sidebarOpen" @add="handleAddRecipe" />
   </div>
 </template>
 

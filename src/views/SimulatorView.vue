@@ -23,6 +23,7 @@ import SolverPanel from '@/components/simulator/SolverPanel.vue'
 import InitialQuality from '@/components/simulator/InitialQuality.vue'
 import FoodMedicine from '@/components/simulator/FoodMedicine.vue'
 import CraftRecommendation from '@/components/simulator/CraftRecommendation.vue'
+import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
 
 const router = useRouter()
 const recipeStore = useRecipeStore()
@@ -31,6 +32,7 @@ const bomStore = useBomStore()
 const simStore = useSimulatorStore()
 
 const recipe = computed(() => recipeStore.currentRecipe)
+const searchSidebarOpen = ref(false)
 
 const initialQuality = ref(0)
 const enhancedStats = ref<EnhancedStats | null>(null)
@@ -165,6 +167,12 @@ async function runSimulation() {
 
 watch([craftParams, () => simStore.actions], runSimulation, { immediate: true })
 
+function handleAddFromSearch(recipe: import('@/stores/recipe').Recipe) {
+  recipeStore.addToQueue(recipe)
+  recipeStore.setRecipe(recipe)
+  ElMessage.success(`已將「${recipe.name}」加入模擬佇列`)
+}
+
 function handleRemoveFromQueue(recipeId: number) {
   simStore.removeRecipeState(recipeId)
   recipeStore.removeFromQueue(recipeId)
@@ -252,14 +260,17 @@ async function handleSelfCraft(itemId: number) {
     <p class="view-desc">模擬製作過程，規劃最佳技能序列。</p>
 
     <!-- Queue selector -->
-    <el-card v-if="recipeStore.simulationQueue.length > 0" shadow="never" class="queue-card">
+    <el-card shadow="never" class="queue-card">
       <template #header>
         <div class="queue-header">
           <span class="card-title">模擬佇列</span>
-          <el-button size="small" text type="danger" @click="handleClearQueue()">清空佇列</el-button>
+          <div class="queue-actions">
+            <el-button size="small" type="primary" text @click="searchSidebarOpen = true">搜尋配方</el-button>
+            <el-button v-if="recipeStore.simulationQueue.length > 0" size="small" text type="danger" @click="handleClearQueue()">清空佇列</el-button>
+          </div>
         </div>
       </template>
-      <div class="queue-items">
+      <div v-if="recipeStore.simulationQueue.length > 0" class="queue-items">
         <div
           v-for="queueRecipe in recipeStore.simulationQueue"
           :key="queueRecipe.id"
@@ -281,19 +292,13 @@ async function handleSelfCraft(itemId: number) {
           </el-button>
         </div>
       </div>
+      <el-empty v-else description="尚未加入任何配方" :image-size="60">
+        <el-button type="primary" @click="searchSidebarOpen = true">搜尋配方</el-button>
+      </el-empty>
     </el-card>
 
     <!-- Recipe / Gearset Info -->
     <div class="info-section">
-      <el-alert
-        v-if="!recipe"
-        title="尚未選擇配方"
-        type="warning"
-        :closable="false"
-        show-icon
-      >
-        <el-link type="primary" @click="router.push('/recipe')">前往配方頁面選擇配方</el-link>
-      </el-alert>
 
       <el-alert
         v-if="recipe && gearset && gearset.craftsmanship === 0 && gearset.control === 0"
@@ -403,6 +408,8 @@ async function handleSelfCraft(itemId: number) {
         <FoodMedicine @update:enhanced-stats="onEnhancedStatsUpdate" />
       </el-tab-pane>
     </el-tabs>
+
+    <RecipeSearchSidebar v-model="searchSidebarOpen" @add="handleAddFromSearch" />
   </div>
 </template>
 
@@ -497,6 +504,12 @@ async function handleSelfCraft(itemId: number) {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.queue-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .queue-items {

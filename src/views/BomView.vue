@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import BomTargetList from '@/components/bom/BomTargetList.vue'
+import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
 
 import BomSummary from '@/components/bom/BomSummary.vue'
 import BomCraftTree from '@/components/bom/BomCraftTree.vue'
@@ -17,6 +18,7 @@ const bomStore = useBomStore()
 const recipeStore = useRecipeStore()
 const settingsStore = useSettingsStore()
 
+const searchSidebarOpen = ref(false)
 const activeTab = ref('tree')
 const calculating = ref(false)
 const fetchingPrices = ref(false)
@@ -105,6 +107,17 @@ function handleToggleCollapsed(node: MaterialNode) {
   }
 }
 
+function handleAddFromSearch(recipe: import('@/stores/recipe').Recipe) {
+  bomStore.addTarget({
+    itemId: recipe.itemId,
+    recipeId: recipe.id,
+    name: recipe.name,
+    icon: recipe.icon,
+    quantity: 1,
+  })
+  ElMessage.success(`已加入「${recipe.name}」`)
+}
+
 function handleRefreshPrices() {
   fetchPrices()
 }
@@ -115,7 +128,7 @@ function handleRefreshPrices() {
     <h2>材料清單</h2>
     <p class="view-desc">計算製作所需材料、查詢市場價格，一鍵進入模擬器。</p>
 
-    <BomTargetList @calculate="handleCalculate" />
+    <BomTargetList @calculate="handleCalculate" @open-search="searchSidebarOpen = true" />
 
     <div v-if="calculating" class="loading-section">
       <el-skeleton :rows="4" animated />
@@ -148,6 +161,7 @@ function handleRefreshPrices() {
         </el-tabs>
       </div>
     </template>
+    <RecipeSearchSidebar v-model="searchSidebarOpen" @add="handleAddFromSearch" />
   </div>
 </template>
 

@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue'
-import { ElMessage } from 'element-plus'
 import { Search, Close } from '@element-plus/icons-vue'
 import { searchRecipes, getRecipe, type RecipeSearchResult } from '@/api/xivapi'
-import { useBatchStore } from '@/stores/batch'
+import type { Recipe } from '@/stores/recipe'
 
 const CRAFT_JOBS = ['木工', '鍛造', '甲冑', '金工', '皮革', '裁縫', '鍊金', '烹調'] as const
 
 defineProps<{ modelValue: boolean }>()
-const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
+const emit = defineEmits<{
+  'update:modelValue': [value: boolean]
+  'add': [recipe: Recipe]
+}>()
 
-const batchStore = useBatchStore()
 const query = ref('')
 const allResults = ref<RecipeSearchResult[]>([])
 const loading = ref(false)
@@ -61,10 +62,9 @@ async function addRecipe(row: RecipeSearchResult) {
   addingIds.value.add(row.id)
   try {
     const recipe = await getRecipe(row.id)
-    batchStore.addTarget(recipe)
-    ElMessage.success(`已加入「${recipe.name}」`)
+    emit('add', recipe)
   } catch {
-    ElMessage.error('加入失敗')
+    // parent handles messaging
   } finally {
     addingIds.value.delete(row.id)
   }
@@ -77,15 +77,15 @@ function close() {
 
 <template>
   <Teleport to="body">
-    <Transition name="sidebar">
-      <div v-if="modelValue" class="sidebar-overlay" @click.self="close" @keydown.esc="close">
-        <div class="sidebar-panel">
-          <div class="sidebar-header">
-            <h3 class="sidebar-title">搜尋配方</h3>
+    <Transition name="dialog">
+      <div v-if="modelValue" class="dialog-overlay" @click.self="close" @keydown.esc="close">
+        <div class="dialog-panel">
+          <div class="dialog-header">
+            <h3 class="dialog-title">搜尋配方</h3>
             <el-button :icon="Close" text @click="close" />
           </div>
 
-          <div class="sidebar-search">
+          <div class="dialog-search">
             <el-input
               v-model="query"
               placeholder="搜尋配方名稱..."
@@ -93,7 +93,7 @@ function close() {
               :prefix-icon="Search"
               size="large"
             />
-            <div class="sidebar-filters">
+            <div class="dialog-filters">
               <el-select v-model="selectedJob" placeholder="職業" clearable size="small" style="width: 100px;">
                 <el-option v-for="job in CRAFT_JOBS" :key="job" :label="job" :value="job" />
               </el-select>
@@ -104,7 +104,7 @@ function close() {
             </div>
           </div>
 
-          <div class="sidebar-results" v-loading="loading">
+          <div class="dialog-results" v-loading="loading">
             <div
               v-for="row in filteredResults"
               :key="row.id"
@@ -132,44 +132,47 @@ function close() {
 </template>
 
 <style scoped>
-.sidebar-overlay {
+.dialog-overlay {
   position: fixed;
   inset: 0;
   z-index: 2000;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.55);
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: center;
 }
 
-.sidebar-panel {
-  width: 400px;
-  max-width: 100vw;
-  height: 100%;
+.dialog-panel {
+  width: 480px;
+  max-width: calc(100vw - 32px);
+  max-height: 72vh;
   background: var(--el-bg-color);
   display: flex;
   flex-direction: column;
-  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.3);
+  border-radius: 16px;
+  border: 1px solid var(--el-border-color-dark);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
 }
 
-.sidebar-header {
+.dialog-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--el-border-color-lighter);
+  padding: 20px 24px 0;
 }
 
-.sidebar-title {
+.dialog-title {
   margin: 0;
-  font-size: 16px;
+  font-size: 18px;
+  font-weight: 600;
 }
 
-.sidebar-search {
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--el-border-color-lighter);
+.dialog-search {
+  padding: 16px 24px;
 }
 
-.sidebar-filters {
+.dialog-filters {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -186,17 +189,17 @@ function close() {
   color: var(--el-text-color-secondary);
 }
 
-.sidebar-results {
+.dialog-results {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 20px;
+  padding: 0 24px 20px;
 }
 
 .search-result-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 0;
+  padding: 10px 0;
   border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
@@ -205,9 +208,9 @@ function close() {
 }
 
 .result-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 4px;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
   flex-shrink: 0;
 }
 
@@ -227,29 +230,30 @@ function close() {
 }
 
 /* Transition */
-.sidebar-enter-active,
-.sidebar-leave-active {
-  transition: opacity 0.3s;
+.dialog-enter-active,
+.dialog-leave-active {
+  transition: opacity 0.25s;
 }
 
-.sidebar-enter-active .sidebar-panel,
-.sidebar-leave-active .sidebar-panel {
-  transition: transform 0.3s;
+.dialog-enter-active .dialog-panel,
+.dialog-leave-active .dialog-panel {
+  transition: transform 0.25s, opacity 0.25s;
 }
 
-.sidebar-enter-from,
-.sidebar-leave-to {
+.dialog-enter-from,
+.dialog-leave-to {
   opacity: 0;
 }
 
-.sidebar-enter-from .sidebar-panel,
-.sidebar-leave-to .sidebar-panel {
-  transform: translateX(100%);
+.dialog-enter-from .dialog-panel,
+.dialog-leave-to .dialog-panel {
+  transform: scale(0.95);
+  opacity: 0;
 }
 
-@media (max-width: 768px) {
-  .sidebar-panel {
-    width: 100vw;
+@media (max-width: 520px) {
+  .dialog-panel {
+    max-height: 85vh;
   }
 }
 </style>

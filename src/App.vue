@@ -3,7 +3,6 @@ import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   Setting,
-  Search,
   Cpu,
   List,
   TrendCharts,
@@ -46,10 +45,6 @@ watch(() => route.path, () => {
         <el-menu-item index="/">
           <el-icon><Suitcase /></el-icon>
           <span>配裝管理</span>
-        </el-menu-item>
-        <el-menu-item index="/recipe">
-          <el-icon><Search /></el-icon>
-          <span>配方選擇</span>
         </el-menu-item>
         <el-menu-item index="/simulator">
           <el-icon><Cpu /></el-icon>

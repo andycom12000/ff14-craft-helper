@@ -9,11 +9,6 @@ const router = createRouter({
       component: () => import('@/views/GearsetView.vue'),
     },
     {
-      path: '/recipe',
-      name: 'recipe',
-      component: () => import('@/views/RecipeView.vue'),
-    },
-    {
       path: '/simulator',
       name: 'simulator',
       component: () => import('@/views/SimulatorView.vue'),

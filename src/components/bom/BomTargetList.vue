@@ -1,30 +1,14 @@
 <script setup lang="ts">
 import { useBomStore } from '@/stores/bom'
-import { useRecipeStore } from '@/stores/recipe'
 import { ElMessage } from 'element-plus'
+import { Search } from '@element-plus/icons-vue'
 
 const bomStore = useBomStore()
-const recipeStore = useRecipeStore()
 
 const emit = defineEmits<{
   calculate: []
+  'open-search': []
 }>()
-
-function addCurrentRecipe() {
-  const recipe = recipeStore.currentRecipe
-  if (!recipe) {
-    ElMessage.warning('目前沒有選擇配方，請先在配方頁面選擇一個配方')
-    return
-  }
-  bomStore.addTarget({
-    itemId: recipe.itemId,
-    recipeId: recipe.id,
-    name: recipe.name,
-    icon: recipe.icon,
-    quantity: 1,
-  })
-  ElMessage.success(`已加入 ${recipe.name}`)
-}
 
 function handleQuantityChange(recipeId: number, val: number | undefined) {
   bomStore.updateTargetQuantity(recipeId, val ?? 1)
@@ -42,8 +26,8 @@ function handleClearAll() {
       <div class="card-header">
         <span class="card-title">製作目標</span>
         <div class="card-actions">
-          <el-button type="primary" size="small" @click="addCurrentRecipe">
-            加入目前配方
+          <el-button type="primary" size="small" :icon="Search" @click="emit('open-search')">
+            搜尋配方
           </el-button>
           <el-popconfirm
             title="確定要清除所有目標嗎？"
@@ -65,7 +49,9 @@ function handleClearAll() {
       v-if="bomStore.targets.length === 0"
       description="尚未加入任何製作目標"
       :image-size="80"
-    />
+    >
+      <el-button type="primary" :icon="Search" @click="emit('open-search')">搜尋配方</el-button>
+    </el-empty>
 
     <el-table v-else :data="bomStore.targets" border style="width: 100%">
       <el-table-column label="圖示" width="60" align="center">
