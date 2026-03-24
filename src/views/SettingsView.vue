@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { useSettingsStore } from '@/stores/settings'
 import { getDataCenters, getWorlds } from '@/api/universalis'
 import type { DataCenter, World } from '@/api/universalis'
+import avatarUrl from '@/assets/avatar.gif'
 
 const settingsStore = useSettingsStore()
 
@@ -51,6 +52,8 @@ const selectedRegion = ref(settingsStore.region)
 const selectedDC = ref(settingsStore.dataCenter)
 const selectedServer = ref(settingsStore.server)
 const selectedPriceMode = ref(settingsStore.priceDisplayMode)
+
+const appVersion = __APP_VERSION__
 
 const availableDCs = ref<(DataCenter & { worldDetails: World[] })[]>([])
 const availableWorlds = ref<World[]>([])
@@ -155,6 +158,59 @@ function saveSettings() {
       <div class="save-row">
         <el-button type="primary" @click="saveSettings">儲存設定</el-button>
       </div>
+
+      <el-card shadow="never" class="about-card">
+        <template #header>
+          <span class="card-title">關於</span>
+        </template>
+
+        <div class="about-app">
+          <div class="about-app-header">
+            <span class="about-app-name">FF14 Craft Helper</span>
+            <el-tag size="small" effect="dark" round>{{ appVersion }}</el-tag>
+          </div>
+          <div class="about-tech">
+            <div class="about-tech-row">
+              <span class="about-tech-label">Tech Stack</span>
+              <span class="about-tech-value">Vue 3 + Pinia + Element Plus + Vite + TypeScript</span>
+            </div>
+            <div class="about-tech-row">
+              <span class="about-tech-label">Solver</span>
+              <a
+                href="https://github.com/KonaeAkira/raphael-rs"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="about-tech-link"
+              >Raphael-rs</a>
+              <span class="about-tech-value"> (WASM multi-threaded)</span>
+            </div>
+          </div>
+          <a
+            href="https://github.com/andycom12000/ff14-craft-helper"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="about-link-item"
+          >
+            <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M2 2.5A2.5 2.5 0 014.5 0h8.75a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75h-2.5a.75.75 0 010-1.5h1.75v-2h-8a1 1 0 00-.714 1.7.75.75 0 01-1.072 1.05A2.495 2.495 0 012 11.5zm10.5-1h-8a1 1 0 00-1 1v6.708A2.486 2.486 0 014.5 9h8zM5 12.25v3.25a.25.25 0 00.4.2l1.45-1.087a.25.25 0 01.3 0L8.6 15.7a.25.25 0 00.4-.2v-3.25a.25.25 0 00-.25-.25h-3.5a.25.25 0 00-.25.25z"/></svg>
+            <span>Source Code</span>
+          </a>
+        </div>
+
+        <el-divider />
+
+        <div class="about-author">
+          <img :src="avatarUrl" alt="Author avatar" class="about-avatar" />
+          <div class="about-author-info">
+            <span class="about-author-label">Author</span>
+            <a
+              href="https://github.com/andycom12000"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="about-author-name"
+            >andycom12000</a>
+          </div>
+        </div>
+      </el-card>
     </template>
   </div>
 </template>
@@ -171,5 +227,127 @@ function saveSettings() {
 .save-row {
   margin-top: 20px;
   text-align: right;
+}
+
+.about-card {
+  margin-top: 20px;
+}
+
+.about-app {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.about-app-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.about-app-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--app-text);
+}
+
+.about-tech {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.about-tech-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.about-tech-label {
+  color: var(--app-text-muted);
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.about-tech-value {
+  color: var(--app-text);
+}
+
+.about-tech-link {
+  color: var(--app-accent-light);
+  text-decoration: none;
+}
+
+.about-tech-link:hover {
+  text-decoration: underline;
+}
+
+.about-link-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface-hover);
+  color: var(--app-text);
+  text-decoration: none;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  width: fit-content;
+}
+
+.about-link-item:hover {
+  border-color: var(--app-accent);
+  background: var(--app-accent-glow);
+  color: var(--app-accent-light);
+}
+
+.about-link-item svg {
+  opacity: 0.7;
+}
+
+.about-link-item:hover svg {
+  opacity: 1;
+}
+
+.about-author {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.about-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 2px solid var(--app-accent);
+  object-fit: cover;
+  background: var(--app-surface-hover);
+  flex-shrink: 0;
+}
+
+.about-author-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.about-author-label {
+  font-size: 12px;
+  color: var(--app-text-muted);
+}
+
+.about-author-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--app-accent-light);
+  text-decoration: none;
+}
+
+.about-author-name:hover {
+  text-decoration: underline;
 }
 </style>
