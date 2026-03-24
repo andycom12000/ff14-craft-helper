@@ -157,6 +157,13 @@ function handleTodoDone(index: number, done: boolean) {
     batchStore.results.todoList[index].done = done
   }
 }
+
+function handleTodoReorder(fromIndex: number, toIndex: number) {
+  if (!batchStore.results) return
+  const list = batchStore.results.todoList
+  const [item] = list.splice(fromIndex, 1)
+  list.splice(toIndex, 0, item)
+}
 </script>
 
 <template>
@@ -281,6 +288,7 @@ function handleTodoDone(index: number, done: boolean) {
         <TodoList
           :items="batchStore.results.todoList"
           @update:done="handleTodoDone"
+          @reorder="handleTodoReorder"
         />
       </section>
     </template>

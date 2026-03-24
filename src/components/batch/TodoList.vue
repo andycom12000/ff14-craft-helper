@@ -7,10 +7,47 @@ import { DocumentCopy, ArrowRight } from '@element-plus/icons-vue'
 import type { TodoItem } from '@/stores/batch'
 
 const props = defineProps<{ items: TodoItem[] }>()
-const emit = defineEmits<{ 'update:done': [index: number, done: boolean] }>()
+const emit = defineEmits<{
+  'update:done': [index: number, done: boolean]
+  'reorder': [fromIndex: number, toIndex: number]
+}>()
 
 const expandedMacro = ref<number | null>(null)
 const showDoneItems = ref(false)
+const dragIndex = ref<number | null>(null)
+const dropTargetIndex = ref<number | null>(null)
+
+function onDragStart(index: number, event: DragEvent) {
+  dragIndex.value = index
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', String(index))
+  }
+}
+
+function onDragOver(index: number, event: DragEvent) {
+  event.preventDefault()
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+  dropTargetIndex.value = index
+}
+
+function onDragLeave() {
+  dropTargetIndex.value = null
+}
+
+function onDrop(index: number, event: DragEvent) {
+  event.preventDefault()
+  if (dragIndex.value !== null && dragIndex.value !== index) {
+    emit('reorder', dragIndex.value, index)
+  }
+  dragIndex.value = null
+  dropTargetIndex.value = null
+}
+
+function onDragEnd() {
+  dragIndex.value = null
+  dropTargetIndex.value = null
+}
 
 const doneCount = computed(() => props.items.filter(i => i.done).length)
 const progressPercent = computed(() =>
@@ -116,8 +153,21 @@ function resetAll() {
       v-for="{ item, index } in pendingItems"
       :key="index"
       class="todo-item"
+      :class="{
+        'todo-item--dragging': dragIndex === index,
+        'todo-item--drop-target': dropTargetIndex === index && dragIndex !== index,
+      }"
+      draggable="true"
+      @dragstart="onDragStart(index, $event)"
+      @dragover="onDragOver(index, $event)"
+      @dragleave="onDragLeave"
+      @drop="onDrop(index, $event)"
+      @dragend="onDragEnd"
     >
       <div class="todo-row">
+        <span class="todo-drag-handle" title="拖曳排序">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+        </span>
         <el-checkbox :model-value="item.done" @update:model-value="() => toggleDone(index)" />
         <span class="todo-num">{{ index + 1 }}</span>
         <div class="todo-info">
@@ -218,6 +268,34 @@ function resetAll() {
 .todo-item:hover {
   background: var(--el-fill-color-light);
   border-radius: 4px;
+}
+
+.todo-item--dragging {
+  opacity: 0.4;
+}
+
+.todo-item--drop-target {
+  border-top: 2px solid var(--app-accent, #7C3AED);
+  padding-top: 10px;
+}
+
+.todo-drag-handle {
+  cursor: grab;
+  color: var(--el-text-color-placeholder);
+  opacity: 0;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+}
+
+.todo-drag-handle:active {
+  cursor: grabbing;
+}
+
+.todo-item:hover .todo-drag-handle {
+  opacity: 1;
 }
 
 .done-collapse {
