@@ -1,6 +1,15 @@
 <script setup lang="ts">
 const changelog = [
   {
+    version: 'v1.8.4',
+    date: '2026-03-24',
+    highlights: [
+      '批量製作食藥推薦：新增點擊複製名稱功能，方便在遊戲內搜尋',
+      '批量製作食藥推薦：顯示最低價所在的伺服器名稱',
+      '批量製作食藥推薦：分別列出食物與藥水的單價明細',
+    ],
+  },
+  {
     version: 'v1.8.3',
     date: '2026-03-24',
     highlights: [
