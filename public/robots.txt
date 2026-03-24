@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://andycom12000.github.io/ff14-craft-helper/sitemap.xml
