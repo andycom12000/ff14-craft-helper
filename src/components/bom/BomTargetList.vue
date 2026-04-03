@@ -2,6 +2,7 @@
 import { useBomStore } from '@/stores/bom'
 import { ElMessage } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
+import AppEmptyState from '@/components/common/AppEmptyState.vue'
 
 const bomStore = useBomStore()
 
@@ -45,13 +46,14 @@ function handleClearAll() {
       </div>
     </template>
 
-    <el-empty
+    <AppEmptyState
       v-if="bomStore.targets.length === 0"
-      description="尚未加入任何製作目標"
-      :image-size="80"
+      icon="📜"
+      title="建立你的材料清單"
+      description="加入想製作的道具，自動計算所需素材和市場價格"
     >
       <el-button type="primary" :icon="Search" @click="emit('open-search')">搜尋配方</el-button>
-    </el-empty>
+    </AppEmptyState>
 
     <el-table v-else :data="bomStore.targets" border style="width: 100%">
       <el-table-column label="圖示" width="60" align="center">

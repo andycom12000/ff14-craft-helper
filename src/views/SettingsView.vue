@@ -93,7 +93,7 @@ function saveSettings() {
 <template>
   <div class="settings-view">
     <h2>設定</h2>
-    <p class="view-desc">設定伺服器與價格偏好。</p>
+    <p class="view-desc">選擇你的伺服器，調整價格顯示方式。</p>
 
     <el-skeleton v-if="loading" :rows="6" animated />
 

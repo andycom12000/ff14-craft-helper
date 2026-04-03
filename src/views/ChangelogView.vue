@@ -285,7 +285,7 @@ const changelog = [
 <template>
   <div class="changelog-view">
     <h2>更新日誌</h2>
-    <p class="view-desc">各版本的功能更新與修正紀錄。</p>
+    <p class="view-desc">看看最近更新了什麼。</p>
 
     <el-timeline>
       <el-timeline-item

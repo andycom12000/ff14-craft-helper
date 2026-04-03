@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { useSettingsStore } from '@/stores/settings'
 import { getMarketDataByDC, aggregateByWorld } from '@/api/universalis'
 import CrossWorldPriceDetail from '@/components/common/CrossWorldPriceDetail.vue'
+import AppEmptyState from '@/components/common/AppEmptyState.vue'
 import { formatGil, formatTimeAgo } from '@/utils/format'
 import type { MarketListing, WorldPriceSummary } from '@/api/universalis'
 
@@ -53,7 +54,7 @@ async function selectItem(item: { id: number; itemId: number; name: string; icon
   <div class="market-view">
     <h2>市場查價</h2>
     <p class="view-desc">
-      搜尋物品，比較「{{ settingsStore.dataCenter }}」資料中心各伺服器的價格。
+      查查看「{{ settingsStore.dataCenter }}」各伺服器現在賣多少。
     </p>
 
     <el-input
@@ -79,7 +80,13 @@ async function selectItem(item: { id: number; itemId: number; name: string; icon
       </div>
     </el-card>
 
-    <el-empty v-if="!selectedItem && searchResults.length === 0" description="搜尋物品名稱以查看市場價格" style="margin-top: 48px;" />
+    <AppEmptyState
+      v-if="!selectedItem && searchResults.length === 0"
+      icon="🪙"
+      title="查詢市場行情"
+      description="輸入物品名稱，比較各伺服器的最新價格"
+      style="margin-top: 48px;"
+    />
 
     <template v-if="selectedItem">
       <div class="selected-item">
@@ -141,6 +148,8 @@ async function selectItem(item: { id: number; itemId: number; name: string; icon
 </template>
 
 <style scoped>
+.market-view { --page-accent: var(--app-market); --page-accent-dim: var(--app-market-dim); }
+
 .market-view {
   max-width: 960px;
 }

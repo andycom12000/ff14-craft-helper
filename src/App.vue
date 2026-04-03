@@ -31,7 +31,7 @@ watch(() => route.path, () => {
     />
     <el-aside width="220px" class="app-aside" :class="{ open: sidebarOpen }">
       <div class="app-logo">
-        <span class="logo-ff">FF14</span>
+        <span class="logo-ff">🔮 FF14</span>
         <span class="logo-sub">Craft Helper</span>
         <button class="sidebar-close-btn" @click="sidebarOpen = false">
           <el-icon :size="20"><Close /></el-icon>
@@ -89,17 +89,32 @@ watch(() => route.path, () => {
 
 <style>
 :root {
-  --app-bg: #0F0F23;
-  --app-sidebar: #0A0A1A;
-  --app-surface: #161630;
-  --app-surface-hover: #1E1E42;
-  --app-border: rgba(124, 58, 237, 0.15);
+  --app-bg: #0F1019;
+  --app-sidebar: #0B0C14;
+  --app-surface: #161822;
+  --app-surface-hover: #1E2030;
+  --app-border: rgba(148, 163, 184, 0.12);
   --app-text: #E2E8F0;
   --app-text-muted: #94A3B8;
   --app-accent: #7C3AED;
   --app-accent-light: #A78BFA;
   --app-accent-glow: rgba(124, 58, 237, 0.2);
   --app-success: #4ade80;
+
+  /* Functional area colors */
+  --app-craft: #F59E0B;
+  --app-craft-dim: rgba(245, 158, 11, 0.12);
+  --app-market: #14B8A6;
+  --app-market-dim: rgba(20, 184, 166, 0.12);
+  --app-gather: #10B981;
+  --app-gather-dim: rgba(16, 185, 129, 0.12);
+
+  /* Page accent — overridden per view */
+  --page-accent: var(--app-accent-light);
+  --page-accent-dim: var(--app-accent-glow);
+
+  /* Easing */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
 
   /* Spacing scale */
   --space-xs: 4px;
@@ -124,15 +139,15 @@ html {
 
   --el-fill-color: var(--app-surface-hover);
   --el-fill-color-light: var(--app-surface);
-  --el-fill-color-lighter: #1A1A38;
-  --el-fill-color-dark: #252550;
-  --el-fill-color-darker: #2D2D5E;
+  --el-fill-color-lighter: #1A1C28;
+  --el-fill-color-dark: #252838;
+  --el-fill-color-darker: #2D3044;
   --el-fill-color-blank: var(--app-bg);
 
-  --el-border-color: rgba(124, 58, 237, 0.2);
-  --el-border-color-light: rgba(124, 58, 237, 0.12);
-  --el-border-color-lighter: rgba(124, 58, 237, 0.08);
-  --el-border-color-dark: rgba(124, 58, 237, 0.3);
+  --el-border-color: rgba(148, 163, 184, 0.15);
+  --el-border-color-light: rgba(148, 163, 184, 0.10);
+  --el-border-color-lighter: rgba(148, 163, 184, 0.07);
+  --el-border-color-dark: rgba(148, 163, 184, 0.22);
 
   --el-text-color-primary: #E2E8F0;
   --el-text-color-regular: #CBD5E1;
@@ -176,7 +191,7 @@ html, body {
 }
 
 .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
-  background-color: rgba(124, 58, 237, 0.04);
+  background-color: rgba(148, 163, 184, 0.04);
 }
 
 .el-descriptions {
@@ -257,6 +272,8 @@ html, body {
   font-weight: 700;
   letter-spacing: 0.5px;
   color: var(--app-text);
+  padding-left: 14px;
+  border-left: 3px solid var(--page-accent);
 }
 
 .view-desc {
@@ -272,6 +289,21 @@ html, body {
   .market-view,
   .settings-view {
     padding: 60px 16px 16px;
+  }
+
+  /* Larger touch targets for input-number +/- buttons */
+  .el-input-number .el-input-number__decrease,
+  .el-input-number .el-input-number__increase {
+    min-width: 36px;
+    min-height: 36px;
+    font-size: 16px;
+  }
+
+  /* Larger touch targets for primary buttons */
+  .el-button {
+    min-height: 40px;
+    padding-left: 16px;
+    padding-right: 16px;
   }
 }
 
@@ -311,6 +343,35 @@ html, body {
 
 .code-block:hover {
   background: var(--el-fill-color);
+}
+
+/* --- Micro-interactions --- */
+
+/* Primary buttons: hover lift + active press */
+.el-button--primary {
+  transition: transform 0.15s var(--ease-out-quart), box-shadow 0.15s var(--ease-out-quart);
+}
+.el-button--primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);
+}
+.el-button--primary:active {
+  transform: translateY(0) scale(0.97);
+  box-shadow: none;
+}
+
+/* Input focus glow */
+.el-input__wrapper:focus-within {
+  box-shadow: 0 0 0 2px var(--page-accent-dim, rgba(124, 58, 237, 0.2)) !important;
+}
+
+/* El-card hover lift */
+.el-card[shadow="never"] {
+  transition: border-color 0.2s var(--ease-out-quart), box-shadow 0.2s var(--ease-out-quart);
+}
+.el-card[shadow="never"]:hover {
+  border-color: rgba(148, 163, 184, 0.2);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
 }
 
 /*
@@ -382,18 +443,20 @@ html, body {
   height: 44px;
   line-height: 44px;
   font-size: 14px;
-  transition: all 0.2s ease;
+  transition: color 0.2s var(--ease-out-quart), background-color 0.25s var(--ease-out-quart), transform 0.15s var(--ease-out-quart);
 }
 
 .app-menu .el-menu-item:hover {
   color: var(--app-text);
   background-color: var(--app-accent-glow);
+  transform: translateX(2px);
 }
 
 .app-menu .el-menu-item.is-active {
   color: #fff;
   background: linear-gradient(135deg, var(--app-accent) 0%, var(--el-color-primary-dark-2) 100%);
   font-weight: 500;
+  transform: translateX(0);
 }
 
 .menu-divider {

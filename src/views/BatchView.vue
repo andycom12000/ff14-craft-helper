@@ -15,6 +15,7 @@ import TodoList from '@/components/batch/TodoList.vue'
 import ExceptionList from '@/components/batch/ExceptionList.vue'
 import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
 import BuffRecommendationCard from '@/components/batch/BuffRecommendationCard.vue'
+import AppEmptyState from '@/components/common/AppEmptyState.vue'
 
 const batchStore = useBatchStore()
 const settings = useSettingsStore()
@@ -171,7 +172,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
     <div class="batch-title-row">
       <div>
         <h2>批量製作</h2>
-        <p class="view-desc">選擇多個配方一次計算，自動產出最佳採購清單與製作順序。</p>
+        <p class="view-desc">一次搞定多個配方，自動幫你規劃採購和製作順序。</p>
       </div>
       <el-button text size="small" @click="toggleLayout">
         {{ isClassic ? '切換新版介面' : '切換經典介面' }}
@@ -345,7 +346,11 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
         </div>
 
         <div class="classic-right classic-right--empty" v-if="!batchStore.results">
-          <el-empty description="計算完成後，採購清單將顯示於此" />
+          <AppEmptyState
+            icon="🛒"
+            title="採購清單"
+            description="完成計算後，最佳採購方案會出現在這裡"
+          />
         </div>
         <div v-if="batchStore.results" class="classic-right">
           <el-card shadow="never">
@@ -374,6 +379,8 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
 </template>
 
 <style scoped>
+.view-container { --page-accent: var(--app-craft); --page-accent-dim: var(--app-craft-dim); }
+
 .batch-view {
   max-width: 1200px;
 }

@@ -306,23 +306,26 @@ function toggleExpand(key: string) {
   margin-bottom: 8px;
 }
 .pf-chip {
-  padding: 2px 8px;
-  border-radius: 4px;
-  border: 1px solid var(--app-border);
-  background: transparent;
+  padding: 3px 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(148, 163, 184, 0.06);
   color: var(--app-text-muted);
   font-size: 11px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.15s ease;
+  white-space: nowrap;
 }
 .pf-chip:hover {
-  border-color: var(--app-accent-light);
-  color: var(--app-accent-light);
+  border-color: rgba(148, 163, 184, 0.35);
+  background: rgba(148, 163, 184, 0.12);
 }
 .pf-chip.active {
-  background: var(--app-accent);
-  border-color: var(--app-accent);
-  color: #fff;
+  background: rgba(16, 185, 129, 0.18);
+  border-color: rgba(16, 185, 129, 0.5);
+  color: #10B981;
+  font-weight: 600;
 }
 .pf-sep {
   width: 1px;

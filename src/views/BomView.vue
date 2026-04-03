@@ -126,7 +126,7 @@ function handleRefreshPrices() {
 <template>
   <div class="bom-view" :class="{ 'full-width': activeTab === 'tree' && calculated && !calculating }">
     <h2>材料清單</h2>
-    <p class="view-desc">計算製作所需材料、查詢市場價格，一鍵進入模擬器。</p>
+    <p class="view-desc">想做什麼就加進來，幫你算好所有材料和花費。</p>
 
     <BomTargetList @calculate="handleCalculate" @open-search="searchSidebarOpen = true" />
 
@@ -166,6 +166,8 @@ function handleRefreshPrices() {
 </template>
 
 <style scoped>
+.bom-view { --page-accent: var(--app-craft); --page-accent-dim: var(--app-craft-dim); }
+
 .bom-view {
   max-width: 960px;
 }

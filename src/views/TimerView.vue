@@ -21,6 +21,7 @@ import NodeMinimap from '@/components/timer/NodeMinimap.vue'
 import AddTrackingPanel from '@/components/timer/AddTrackingPanel.vue'
 import AlarmSettingsPanel from '@/components/timer/AlarmSettingsPanel.vue'
 import GlobalAlarmToggle from '@/components/timer/GlobalAlarmToggle.vue'
+import AppEmptyState from '@/components/common/AppEmptyState.vue'
 
 // ---------------------------------------------------------------------------
 // Stores
@@ -359,18 +360,12 @@ onUnmounted(() => {
             />
           </NodeCard>
         </template>
-        <div v-else class="empty-state">
-          <div class="empty-icon">&#x1F50D;</div>
-          <p class="empty-text">尚未追蹤任何採集點</p>
-          <p class="empty-hint">
-            <template v-if="showSidePanel">
-              使用右側面板搜尋並加入追蹤
-            </template>
-            <template v-else>
-              點擊右下角 <strong>+</strong> 按鈕搜尋並加入追蹤
-            </template>
-          </p>
-        </div>
+        <AppEmptyState
+          v-else
+          icon="🌿"
+          title="追蹤採集時間"
+          :description="showSidePanel ? '從右側面板搜尋素材，加入追蹤就不會錯過採集時段' : '點擊右下角 + 按鈕搜尋素材，加入追蹤'"
+        />
       </div>
 
       <!-- Side panel (1440-2559+) -->
@@ -397,6 +392,8 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.timer-view { --page-accent: var(--app-gather); --page-accent-dim: var(--app-gather-dim); }
+
 /* ------------------------------------------------------------------ */
 /* View container                                                       */
 /* ------------------------------------------------------------------ */
@@ -440,6 +437,8 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  padding-left: 14px;
+  border-left: 3px solid var(--page-accent);
 }
 
 .title-icon {
@@ -490,9 +489,9 @@ onUnmounted(() => {
 }
 
 .chip.active {
-  background: rgba(139, 92, 246, 0.18);
-  border-color: rgba(139, 92, 246, 0.5);
-  color: #A78BFA;
+  background: rgba(16, 185, 129, 0.18);
+  border-color: rgba(16, 185, 129, 0.5);
+  color: #10B981;
   font-weight: 600;
 }
 
@@ -681,13 +680,19 @@ onUnmounted(() => {
   }
 
   .chip {
-    padding: 3px 8px;
-    font-size: 11px;
+    padding: 6px 12px;
+    font-size: 12px;
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
   }
 
   .chip-sm {
-    padding: 2px 6px;
-    font-size: 10px;
+    padding: 5px 10px;
+    font-size: 11px;
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
   }
 
   .fab {

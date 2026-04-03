@@ -7,6 +7,11 @@ const store = useGearsetsStore()
 
 const jobs = Object.keys(JOB_NAMES)
 
+const JOB_ICONS: Record<string, string> = {
+  CRP: '🪓', BSM: '⚒️', ARM: '🛡️', GSM: '💍',
+  LTW: '🧶', WVR: '🪡', ALC: '⚗️', CUL: '🍳',
+}
+
 const tableData = computed(() =>
   jobs.map(job => ({ job, ...store.gearsets[job] }))
 )
@@ -15,136 +20,134 @@ const tableData = computed(() =>
 <template>
   <div class="view-container">
     <h2>配裝管理</h2>
-    <p class="view-desc">設定各製作職業的裝備數值，用於製作模擬計算。</p>
+    <p class="view-desc">填好裝備數值，模擬器就能幫你算出最佳手法。</p>
 
-    <!-- Desktop: table layout -->
-    <el-card shadow="never" class="desktop-table">
-      <el-table :data="tableData" stripe style="width: 100%">
-        <el-table-column label="職業" min-width="100" align="center">
-          <template #default="{ row }">
-            <span style="font-weight: 500">{{ JOB_NAMES[row.job] }}</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="等級" min-width="130" align="center">
-          <template #default="{ row }">
-            <el-input-number
-              :model-value="row.level"
-              @update:model-value="(v: number) => store.updateGearset(row.job, { level: v })"
-              :min="1" :max="100" size="small"            />
-          </template>
-        </el-table-column>
-
-        <el-table-column label="作業精度" min-width="160" align="center">
-          <template #default="{ row }">
-            <el-input-number
-              :model-value="row.craftsmanship"
-              @update:model-value="(v: number) => store.updateGearset(row.job, { craftsmanship: v })"
-              :min="0" :max="9999" size="small"            />
-          </template>
-        </el-table-column>
-
-        <el-table-column label="加工精度" min-width="160" align="center">
-          <template #default="{ row }">
-            <el-input-number
-              :model-value="row.control"
-              @update:model-value="(v: number) => store.updateGearset(row.job, { control: v })"
-              :min="0" :max="9999" size="small"            />
-          </template>
-        </el-table-column>
-
-        <el-table-column label="CP" min-width="140" align="center">
-          <template #default="{ row }">
-            <el-input-number
-              :model-value="row.cp"
-              @update:model-value="(v: number) => store.updateGearset(row.job, { cp: v })"
-              :min="0" :max="9999" size="small"            />
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
-
-    <!-- Mobile: card layout -->
-    <div class="mobile-cards">
-      <el-card v-for="row in tableData" :key="row.job" shadow="never" class="job-card">
-        <div class="job-card-header">{{ JOB_NAMES[row.job] }}</div>
+    <div class="job-grid">
+      <div v-for="row in tableData" :key="row.job" class="job-card">
+        <div class="job-card-header">
+          <span class="job-icon">{{ JOB_ICONS[row.job] }}</span>
+          <span class="job-name">{{ JOB_NAMES[row.job] }}</span>
+          <span class="job-level-badge">Lv.{{ row.level }}</span>
+        </div>
         <div class="job-card-fields">
           <div class="job-field">
             <label>等級</label>
             <el-input-number
               :model-value="row.level"
               @update:model-value="(v: number) => store.updateGearset(row.job, { level: v })"
-              :min="1" :max="100" size="small"            />
+              :min="1" :max="100" size="small" />
           </div>
           <div class="job-field">
             <label>作業精度</label>
             <el-input-number
               :model-value="row.craftsmanship"
               @update:model-value="(v: number) => store.updateGearset(row.job, { craftsmanship: v })"
-              :min="0" :max="9999" size="small"            />
+              :min="0" :max="9999" size="small" />
           </div>
           <div class="job-field">
             <label>加工精度</label>
             <el-input-number
               :model-value="row.control"
               @update:model-value="(v: number) => store.updateGearset(row.job, { control: v })"
-              :min="0" :max="9999" size="small"            />
+              :min="0" :max="9999" size="small" />
           </div>
           <div class="job-field">
             <label>CP</label>
             <el-input-number
               :model-value="row.cp"
               @update:model-value="(v: number) => store.updateGearset(row.job, { cp: v })"
-              :min="0" :max="9999" size="small"            />
+              :min="0" :max="9999" size="small" />
           </div>
         </div>
-      </el-card>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.mobile-cards {
-  display: none;
+.view-container { --page-accent: var(--app-craft); --page-accent-dim: var(--app-craft-dim); }
+
+.job-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.job-card {
+  background: var(--app-surface, #161822);
+  border: 1px solid var(--app-border, rgba(148,163,184,0.12));
+  border-radius: 8px;
+  padding: 16px;
+  transition: transform 0.2s var(--ease-out-quart), border-color 0.2s, box-shadow 0.2s;
+}
+
+.job-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(245, 158, 11, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.job-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--app-border, rgba(148,163,184,0.12));
+}
+
+.job-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.job-name {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--app-text, #E2E8F0);
+}
+
+.job-level-badge {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--app-craft, #F59E0B);
+  background: var(--app-craft-dim, rgba(245,158,11,0.12));
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.job-card-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.job-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.job-field label {
+  font-size: 12px;
+  color: var(--app-text-muted, #94A3B8);
+}
+
+.job-field .el-input-number {
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .job-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 768px) {
-  .desktop-table {
-    display: none;
-  }
-
-  .mobile-cards {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .job-card-header {
-    font-weight: 600;
-    font-size: 16px;
-    margin-bottom: 12px;
-    color: var(--app-accent-light);
-  }
-
-  .job-card-fields {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-
-  .job-field {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .job-field label {
-    font-size: 12px;
-    color: var(--app-text-muted);
-  }
-
-  .job-field .el-input-number {
-    width: 100%;
+  .job-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 }
 </style>

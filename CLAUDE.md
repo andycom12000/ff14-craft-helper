@@ -22,3 +22,6 @@
 ## Tech Stack
 - Vue 3 + Pinia + Element Plus + Vite + TypeScript
 - Raphael-rs WASM solver（多執行緒，需 SharedArrayBuffer / COOP+COEP）
+
+## Design Context
+- 設計相關上下文請參考 `.impeccable.md`

@@ -24,6 +24,7 @@ import InitialQuality from '@/components/simulator/InitialQuality.vue'
 import FoodMedicine from '@/components/simulator/FoodMedicine.vue'
 import CraftRecommendation from '@/components/simulator/CraftRecommendation.vue'
 import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
+import AppEmptyState from '@/components/common/AppEmptyState.vue'
 
 const router = useRouter()
 const recipeStore = useRecipeStore()
@@ -257,7 +258,7 @@ async function handleSelfCraft(itemId: number) {
 <template>
   <div class="view-container">
     <h2>製作模擬</h2>
-    <p class="view-desc">模擬製作過程，規劃最佳技能序列。</p>
+    <p class="view-desc">試試不同手法，找到你的最佳製作流程。</p>
 
     <!-- Queue selector -->
     <el-card shadow="never" class="queue-card">
@@ -292,9 +293,14 @@ async function handleSelfCraft(itemId: number) {
           </el-button>
         </div>
       </div>
-      <el-empty v-else description="尚未加入任何配方" :image-size="60">
+      <AppEmptyState
+        v-else
+        icon="⚗️"
+        title="還沒有配方"
+        description="搜尋你想製作的道具，開始模擬最佳技能序列吧！"
+      >
         <el-button type="primary" @click="searchSidebarOpen = true">搜尋配方</el-button>
-      </el-empty>
+      </AppEmptyState>
     </el-card>
 
     <!-- Recipe / Gearset Info -->
@@ -397,7 +403,12 @@ async function handleSelfCraft(itemId: number) {
           </div>
         </template>
 
-        <el-empty v-else description="請先選擇配方與裝備組" />
+        <AppEmptyState
+          v-else
+          icon="🔮"
+          title="準備就緒"
+          description="從上方佇列選擇一個配方，再確認裝備組，就能開始模擬了"
+        />
       </el-tab-pane>
 
       <el-tab-pane label="初期品質">
@@ -414,6 +425,8 @@ async function handleSelfCraft(itemId: number) {
 </template>
 
 <style scoped>
+.view-container { --page-accent: var(--app-craft); --page-accent-dim: var(--app-craft-dim); }
+
 .info-section {
   margin-bottom: 16px;
 }

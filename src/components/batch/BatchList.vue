@@ -4,6 +4,7 @@ import { useBatchStore } from '@/stores/batch'
 import { Search } from '@element-plus/icons-vue'
 import BatchRecipeCard from './BatchRecipeCard.vue'
 import OcrImportDialog from './OcrImportDialog.vue'
+import AppEmptyState from '@/components/common/AppEmptyState.vue'
 
 const batchStore = useBatchStore()
 const showOcrDialog = ref(false)
@@ -103,12 +104,15 @@ function onDragEnd() {
       </div>
     </div>
 
-    <el-empty v-else description="尚未加入任何配方">
-      <div class="empty-actions">
-        <el-button type="primary" :icon="Search" @click="emit('open-search')">搜尋配方</el-button>
-        <el-button @click="showOcrDialog = true">從截圖匯入</el-button>
-      </div>
-    </el-empty>
+    <AppEmptyState
+      v-else
+      icon="📋"
+      title="開始規劃批量製作"
+      description="加入想製作的配方，一次算出最佳採購方案和製作順序"
+    >
+      <el-button type="primary" :icon="Search" @click="emit('open-search')">搜尋配方</el-button>
+      <el-button @click="showOcrDialog = true">從截圖匯入</el-button>
+    </AppEmptyState>
 
     <OcrImportDialog v-model="showOcrDialog" />
   </el-card>
