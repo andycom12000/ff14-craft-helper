@@ -173,18 +173,18 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
           </div>
           <div class="about-tech">
             <div class="about-tech-row">
-              <span class="about-tech-label">Tech Stack</span>
-              <span class="about-tech-value">Vue 3 + Pinia + Element Plus + Vite + TypeScript</span>
-            </div>
-            <div class="about-tech-row">
-              <span class="about-tech-label">Solver</span>
+              <span class="about-tech-label">求解器</span>
               <a
                 href="https://github.com/KonaeAkira/raphael-rs"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="about-tech-link"
               >Raphael-rs</a>
-              <span class="about-tech-value"> (WASM multi-threaded)</span>
+              <span class="about-tech-value"> (WASM 多執行緒)</span>
+            </div>
+            <div class="about-tech-row">
+              <span class="about-tech-label">技術架構</span>
+              <span class="about-tech-value">Vue 3 + Pinia + Element Plus + Vite + TypeScript</span>
             </div>
           </div>
           <a
@@ -194,7 +194,7 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
             class="about-link-item"
           >
             <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M2 2.5A2.5 2.5 0 014.5 0h8.75a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75h-2.5a.75.75 0 010-1.5h1.75v-2h-8a1 1 0 00-.714 1.7.75.75 0 01-1.072 1.05A2.495 2.495 0 012 11.5zm10.5-1h-8a1 1 0 00-1 1v6.708A2.486 2.486 0 014.5 9h8zM5 12.25v3.25a.25.25 0 00.4.2l1.45-1.087a.25.25 0 01.3 0L8.6 15.7a.25.25 0 00.4-.2v-3.25a.25.25 0 00-.25-.25h-3.5a.25.25 0 00-.25.25z"/></svg>
-            <span>Source Code</span>
+            <span>原始碼</span>
           </a>
         </div>
 
@@ -203,7 +203,7 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
         <div class="about-author">
           <img :src="avatarUrl" alt="Author avatar" class="about-avatar" />
           <div class="about-author-info">
-            <span class="about-author-label">Author</span>
+            <span class="about-author-label">作者</span>
             <a
               href="https://github.com/andycom12000"
               target="_blank"

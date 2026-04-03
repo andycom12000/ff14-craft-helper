@@ -83,13 +83,12 @@ const tableData = computed(() =>
   border: 1px solid var(--app-border, rgba(148,163,184,0.12));
   border-radius: 8px;
   padding: 16px;
-  transition: transform 0.2s var(--ease-out-quart), border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.2s var(--ease-out-quart), box-shadow 0.2s var(--ease-out-quart);
 }
 
 .job-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(245, 158, 11, 0.2);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  border-color: rgba(245, 158, 11, 0.18);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
 }
 
 .job-card-header {

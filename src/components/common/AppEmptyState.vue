@@ -38,12 +38,6 @@ defineProps<{
   align-items: center;
   justify-content: center;
   margin-bottom: 16px;
-  animation: float 3s ease-in-out infinite;
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
 }
 
 .empty-icon {

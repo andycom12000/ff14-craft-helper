@@ -1,11 +1,26 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGearsetsStore } from '@/stores/gearsets'
+import { useBatchStore } from '@/stores/batch'
+import { useTimerStore } from '@/stores/timer'
 import { JOB_NAMES } from '@/utils/jobs'
 
 const router = useRouter()
 const gearsets = useGearsetsStore()
+const batchStore = useBatchStore()
+const timerStore = useTimerStore()
+
+const guideCollapsed = ref(localStorage.getItem('ff14-guide-collapsed') === 'true')
+
+function toggleGuide() {
+  guideCollapsed.value = !guideCollapsed.value
+  localStorage.setItem('ff14-guide-collapsed', String(guideCollapsed.value))
+}
+
+const batchTargetCount = computed(() => batchStore.targets.length)
+const trackedTimerCount = computed(() => timerStore.trackedItems.length)
+const hasActiveWork = computed(() => batchTargetCount.value > 0 || trackedTimerCount.value > 0)
 
 const JOB_ICONS: Record<string, string> = {
   CRP: '🪓', BSM: '⚒️', ARM: '🛡️', GSM: '💍',
@@ -47,7 +62,7 @@ const tools = [
     <!-- Welcome -->
     <div class="welcome">
       <h2>歡迎回來，冒險者</h2>
-      <p class="view-desc">選一個功能開始，或先設定好你的裝備。</p>
+      <p class="view-desc">選一個功能開始，或先設定好你的裝備。<kbd class="shortcut-hint" title="快速跳轉頁面">Ctrl+K</kbd></p>
     </div>
 
     <!-- Workflow Cards -->
@@ -71,7 +86,7 @@ const tools = [
     </div>
 
     <!-- Tools -->
-    <div class="section-header" style="margin-top: 28px; margin-bottom: 12px">
+    <div class="section-header section-gap-sm">
       <h3>實用工具</h3>
     </div>
     <div class="tools-row">
@@ -87,8 +102,33 @@ const tools = [
       </button>
     </div>
 
+    <!-- Active Work Status -->
+    <template v-if="hasActiveWork">
+      <div class="section-header section-gap-lg">
+        <h3>進行中</h3>
+      </div>
+      <div class="status-row">
+        <button v-if="batchTargetCount > 0" class="status-card" @click="router.push('/batch')">
+          <span class="status-icon">📋</span>
+          <div class="status-body">
+            <span class="status-label">批量製作</span>
+            <span class="status-value">{{ batchTargetCount }} 個配方待處理</span>
+          </div>
+          <span class="wf-arrow">→</span>
+        </button>
+        <button v-if="trackedTimerCount > 0" class="status-card" @click="router.push('/timer')">
+          <span class="status-icon">🌿</span>
+          <div class="status-body">
+            <span class="status-label">採集追蹤</span>
+            <span class="status-value">{{ trackedTimerCount }} 個素材追蹤中</span>
+          </div>
+          <span class="wf-arrow">→</span>
+        </button>
+      </div>
+    </template>
+
     <!-- Gearset Summary -->
-    <div class="section-header">
+    <div class="section-header section-gap-lg">
       <h3>裝備狀態</h3>
       <button class="link-btn" @click="router.push('/gearset')">管理裝備 →</button>
     </div>
@@ -113,10 +153,11 @@ const tools = [
     </p>
 
     <!-- Getting Started -->
-    <div class="section-header" style="margin-top: 32px">
+    <div class="section-header section-gap-lg">
       <h3>新手指南</h3>
+      <button class="link-btn" @click="toggleGuide">{{ guideCollapsed ? '展開' : '收起' }}</button>
     </div>
-    <div class="steps">
+    <div v-if="!guideCollapsed" class="steps">
       <div class="step">
         <span class="step-num">1</span>
         <div>
@@ -165,13 +206,12 @@ const tools = [
   cursor: pointer;
   text-align: left;
   color: var(--app-text);
-  transition: transform 0.2s var(--ease-out-quart), border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.2s var(--ease-out-quart), box-shadow 0.2s var(--ease-out-quart);
 }
 
 .workflow-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(148, 163, 184, 0.25);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  border-color: rgba(148, 163, 184, 0.22);
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.15);
 }
 
 .wf-icon {
@@ -223,13 +263,12 @@ const tools = [
   border-radius: 10px;
   cursor: pointer;
   color: var(--app-text);
-  transition: transform 0.2s var(--ease-out-quart), border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.2s var(--ease-out-quart), box-shadow 0.2s var(--ease-out-quart);
 }
 
 .tool-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(148, 163, 184, 0.25);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  border-color: rgba(148, 163, 184, 0.22);
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.15);
 }
 
 .tool-icon {
@@ -244,6 +283,10 @@ const tools = [
 }
 
 .tool-title { font-weight: 600; font-size: 14px; flex: 1; }
+
+/* Section Spacing Rhythm */
+.section-gap-sm { margin-top: 24px; }
+.section-gap-lg { margin-top: 36px; }
 
 /* Section Headers */
 .section-header {
@@ -271,6 +314,58 @@ const tools = [
 
 .link-btn:hover {
   text-decoration: underline;
+}
+
+/* Active Work Status */
+.status-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.status-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--app-text);
+  text-align: left;
+  transition: border-color 0.2s var(--ease-out-quart), box-shadow 0.2s var(--ease-out-quart);
+}
+
+.status-card:hover {
+  border-color: rgba(148, 163, 184, 0.22);
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.15);
+}
+
+.status-card:hover .wf-arrow {
+  transform: translateX(3px);
+}
+
+.status-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.status-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.status-label {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.status-value {
+  font-size: 12px;
+  color: var(--app-text-muted);
 }
 
 /* Gearset Summary */
@@ -320,6 +415,20 @@ const tools = [
   font-size: 13px;
   padding: 0;
   text-decoration: underline;
+}
+
+/* Shortcut hint */
+.shortcut-hint {
+  font-size: 11px;
+  color: var(--app-text-muted);
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-left: 8px;
+  font-family: inherit;
+  cursor: pointer;
+  vertical-align: middle;
 }
 
 /* Steps */

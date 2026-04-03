@@ -14,6 +14,7 @@ import {
   HomeFilled,
 } from '@element-plus/icons-vue'
 import EorzeaClock from '@/components/EorzeaClock.vue'
+import CommandPalette from '@/components/CommandPalette.vue'
 
 const route = useRoute()
 const sidebarOpen = ref(false)
@@ -110,6 +111,7 @@ watch(() => route.path, () => {
       <div class="mobile-clock"><EorzeaClock /></div>
       <router-view />
     </el-main>
+    <CommandPalette />
   </el-container>
 </template>
 
@@ -124,7 +126,7 @@ watch(() => route.path, () => {
   --app-text-muted: #94A3B8;
   --app-accent: #7C3AED;
   --app-accent-light: #A78BFA;
-  --app-accent-glow: rgba(124, 58, 237, 0.2);
+  --app-accent-glow: rgba(124, 58, 237, 0.15);
   --app-success: #4ade80;
 
   /* Functional area colors */
@@ -379,7 +381,7 @@ html, body {
 }
 .el-button--primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.18);
 }
 .el-button--primary:active {
   transform: translateY(0) scale(0.97);
@@ -396,8 +398,8 @@ html, body {
   transition: border-color 0.2s var(--ease-out-quart), box-shadow 0.2s var(--ease-out-quart);
 }
 .el-card[shadow="never"]:hover {
-  border-color: rgba(148, 163, 184, 0.2);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  border-color: rgba(148, 163, 184, 0.18);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
 }
 
 /*
@@ -469,21 +471,18 @@ html, body {
   height: 44px;
   line-height: 44px;
   font-size: 14px;
-  transition: color 0.2s var(--ease-out-quart), background-color 0.25s var(--ease-out-quart), transform 0.15s var(--ease-out-quart);
+  transition: color 0.2s var(--ease-out-quart), background-color 0.25s var(--ease-out-quart);
 }
 
 .app-menu .el-menu-item:hover {
   color: var(--app-text);
-  background-color: var(--app-accent-glow);
-  transform: translateX(2px);
+  background-color: rgba(124, 58, 237, 0.18);
 }
 
 .app-menu .el-menu-item.is-active {
-  color: #fff;
   background: var(--sidebar-active-dim, var(--app-accent-glow));
   color: var(--sidebar-active-color, var(--app-accent-light));
   font-weight: 600;
-  transform: translateX(0);
 }
 
 .menu-divider {

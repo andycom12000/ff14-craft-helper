@@ -22,11 +22,11 @@ onUnmounted(() => clearInterval(intervalId))
 
 <template>
   <div class="eorzea-clock">
-    <div class="clock-row">
+    <div class="clock-row" title="艾歐澤亞時間（遊戲內時間）">
       <span class="clock-label">ET</span>
       <span class="clock-value">{{ etTime }}</span>
     </div>
-    <div class="clock-row">
+    <div class="clock-row" title="本地時間">
       <span class="clock-label">LT</span>
       <span class="clock-value">{{ ltTime }}</span>
     </div>
