@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useGearsetsStore } from '@/stores/gearsets'
+import FlowBreadcrumb from '@/components/common/FlowBreadcrumb.vue'
 import { JOB_NAMES } from '@/utils/jobs'
 
 const store = useGearsetsStore()
@@ -19,6 +20,10 @@ const tableData = computed(() =>
 
 <template>
   <div class="view-container">
+    <FlowBreadcrumb :steps="[
+      { label: '配裝', path: '/gearset', icon: '🛠️' },
+      { label: '模擬', path: '/simulator', icon: '⚗️' },
+    ]" />
     <h2>配裝管理</h2>
     <p class="view-desc">填好裝備數值，模擬器就能幫你算出最佳手法。</p>
 

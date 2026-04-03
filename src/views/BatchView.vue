@@ -16,6 +16,7 @@ import ExceptionList from '@/components/batch/ExceptionList.vue'
 import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
 import BuffRecommendationCard from '@/components/batch/BuffRecommendationCard.vue'
 import AppEmptyState from '@/components/common/AppEmptyState.vue'
+import FlowBreadcrumb from '@/components/common/FlowBreadcrumb.vue'
 
 const batchStore = useBatchStore()
 const settings = useSettingsStore()
@@ -169,6 +170,17 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
 
 <template>
   <div class="view-container batch-view" :class="{ 'batch-view--classic': isClassic }">
+    <FlowBreadcrumb
+      v-if="!isClassic"
+      :steps="[
+        { label: '準備清單', icon: '📋' },
+        { label: '計算最佳化', icon: '⚙️' },
+        { label: '採購材料', icon: '🛒' },
+        { label: '開始製作', icon: '🔨' },
+      ]"
+      :active-step="currentStep"
+      @navigate="navigateToStep"
+    />
     <div class="batch-title-row">
       <div>
         <h2>批量製作</h2>
@@ -181,7 +193,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
 
     <!-- ==================== New stepper layout ==================== -->
     <template v-if="!isClassic">
-      <BatchStepper :current-step="currentStep" @navigate="navigateToStep" />
+      <!-- Flow breadcrumb replaces BatchStepper -->
 
       <CostSummaryPanel
         v-if="batchStore.results"
@@ -374,7 +386,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
     </template>
 
     <!-- Search Sidebar (shared) -->
-    <RecipeSearchSidebar v-model="sidebarOpen" @add="handleAddRecipe" />
+    <RecipeSearchSidebar v-model="sidebarOpen" context="加入批量清單" @add="handleAddRecipe" />
   </div>
 </template>
 

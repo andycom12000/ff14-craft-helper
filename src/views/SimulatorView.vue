@@ -25,6 +25,7 @@ import FoodMedicine from '@/components/simulator/FoodMedicine.vue'
 import CraftRecommendation from '@/components/simulator/CraftRecommendation.vue'
 import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
 import AppEmptyState from '@/components/common/AppEmptyState.vue'
+import FlowBreadcrumb from '@/components/common/FlowBreadcrumb.vue'
 
 const router = useRouter()
 const recipeStore = useRecipeStore()
@@ -257,6 +258,10 @@ async function handleSelfCraft(itemId: number) {
 
 <template>
   <div class="view-container">
+    <FlowBreadcrumb :steps="[
+      { label: '配裝', path: '/gearset', icon: '🛠️' },
+      { label: '模擬', path: '/simulator', icon: '⚗️' },
+    ]" />
     <h2>製作模擬</h2>
     <p class="view-desc">試試不同手法，找到你的最佳製作流程。</p>
 
@@ -420,7 +425,7 @@ async function handleSelfCraft(itemId: number) {
       </el-tab-pane>
     </el-tabs>
 
-    <RecipeSearchSidebar v-model="searchSidebarOpen" @add="handleAddFromSearch" />
+    <RecipeSearchSidebar v-model="searchSidebarOpen" context="加入模擬佇列" @add="handleAddFromSearch" />
   </div>
 </template>
 

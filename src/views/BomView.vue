@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import BomTargetList from '@/components/bom/BomTargetList.vue'
 import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
+import FlowBreadcrumb from '@/components/common/FlowBreadcrumb.vue'
 
 import BomSummary from '@/components/bom/BomSummary.vue'
 import BomCraftTree from '@/components/bom/BomCraftTree.vue'
@@ -125,6 +126,9 @@ function handleRefreshPrices() {
 
 <template>
   <div class="bom-view" :class="{ 'full-width': activeTab === 'tree' && calculated && !calculating }">
+    <FlowBreadcrumb :steps="[
+      { label: '材料清單', path: '/bom', icon: '📜' },
+    ]" />
     <h2>材料清單</h2>
     <p class="view-desc">想做什麼就加進來，幫你算好所有材料和花費。</p>
 
@@ -161,7 +165,7 @@ function handleRefreshPrices() {
         </el-tabs>
       </div>
     </template>
-    <RecipeSearchSidebar v-model="searchSidebarOpen" @add="handleAddFromSearch" />
+    <RecipeSearchSidebar v-model="searchSidebarOpen" context="加入材料清單" @add="handleAddFromSearch" />
   </div>
 </template>
 

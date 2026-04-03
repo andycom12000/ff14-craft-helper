@@ -11,6 +11,7 @@ import {
   Close,
   Document,
   AlarmClock,
+  HomeFilled,
 } from '@element-plus/icons-vue'
 import EorzeaClock from '@/components/EorzeaClock.vue'
 
@@ -43,6 +44,10 @@ watch(() => route.path, () => {
         class="app-menu"
       >
         <el-menu-item index="/">
+          <el-icon><HomeFilled /></el-icon>
+          <span>首頁</span>
+        </el-menu-item>
+        <el-menu-item index="/gearset">
           <el-icon><Suitcase /></el-icon>
           <span>配裝管理</span>
         </el-menu-item>

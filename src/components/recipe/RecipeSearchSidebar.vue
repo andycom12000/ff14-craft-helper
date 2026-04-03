@@ -6,7 +6,7 @@ import type { Recipe } from '@/stores/recipe'
 
 const CRAFT_JOBS = ['木工', '鍛造', '甲冑', '金工', '皮革', '裁縫', '鍊金', '烹調'] as const
 
-defineProps<{ modelValue: boolean }>()
+defineProps<{ modelValue: boolean; context?: string }>()
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   'add': [recipe: Recipe]
@@ -81,7 +81,7 @@ function close() {
       <div v-if="modelValue" class="dialog-overlay" @click.self="close" @keydown.esc="close">
         <div class="dialog-panel">
           <div class="dialog-header">
-            <h3 class="dialog-title">搜尋配方</h3>
+            <h3 class="dialog-title">搜尋配方{{ context ? ` — ${context}` : '' }}</h3>
             <el-button :icon="Close" text @click="close" />
           </div>
 
