@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   Setting,
@@ -18,6 +18,26 @@ import EorzeaClock from '@/components/EorzeaClock.vue'
 const route = useRoute()
 const sidebarOpen = ref(false)
 
+const PAGE_ACCENTS: Record<string, { color: string; dim: string }> = {
+  '/gearset': { color: 'var(--app-craft)', dim: 'var(--app-craft-dim)' },
+  '/simulator': { color: 'var(--app-craft)', dim: 'var(--app-craft-dim)' },
+  '/bom': { color: 'var(--app-craft)', dim: 'var(--app-craft-dim)' },
+  '/batch': { color: 'var(--app-craft)', dim: 'var(--app-craft-dim)' },
+  '/market': { color: 'var(--app-market)', dim: 'var(--app-market-dim)' },
+  '/timer': { color: 'var(--app-gather)', dim: 'var(--app-gather-dim)' },
+}
+
+const activeAccent = computed(() => PAGE_ACCENTS[route.path])
+
+const sidebarActiveStyle = computed(() => {
+  const a = activeAccent.value
+  if (!a) return {}
+  return {
+    '--sidebar-active-color': a.color,
+    '--sidebar-active-dim': a.dim,
+  } as Record<string, string>
+})
+
 watch(() => route.path, () => {
   sidebarOpen.value = false
 })
@@ -30,7 +50,7 @@ watch(() => route.path, () => {
       class="sidebar-backdrop"
       @click="sidebarOpen = false"
     />
-    <el-aside width="220px" class="app-aside" :class="{ open: sidebarOpen }">
+    <el-aside width="220px" class="app-aside" :class="{ open: sidebarOpen }" :style="sidebarActiveStyle">
       <div class="app-logo">
         <span class="logo-ff">🔮 FF14</span>
         <span class="logo-sub">Craft Helper</span>
@@ -87,6 +107,7 @@ watch(() => route.path, () => {
       <button class="mobile-menu-btn" @click="sidebarOpen = true">
         <el-icon :size="22"><Operation /></el-icon>
       </button>
+      <div class="mobile-clock"><EorzeaClock /></div>
       <router-view />
     </el-main>
   </el-container>
@@ -459,8 +480,9 @@ html, body {
 
 .app-menu .el-menu-item.is-active {
   color: #fff;
-  background: linear-gradient(135deg, var(--app-accent) 0%, var(--el-color-primary-dark-2) 100%);
-  font-weight: 500;
+  background: var(--sidebar-active-dim, var(--app-accent-glow));
+  color: var(--sidebar-active-color, var(--app-accent-light));
+  font-weight: 600;
   transform: translateX(0);
 }
 
@@ -479,6 +501,10 @@ html, body {
 }
 
 .mobile-menu-btn {
+  display: none;
+}
+
+.mobile-clock {
   display: none;
 }
 
@@ -544,6 +570,16 @@ html, body {
     color: var(--app-text);
     cursor: pointer;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  .mobile-clock {
+    display: block;
+    position: fixed;
+    top: 14px;
+    right: 12px;
+    z-index: 100;
+    font-size: 11px;
+    color: var(--app-text-muted);
   }
 }
 </style>

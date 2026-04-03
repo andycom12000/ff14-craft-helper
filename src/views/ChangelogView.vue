@@ -318,6 +318,14 @@ const changelog = [
   font-size: 14px;
 }
 
+/* Make hollow timeline dots more visible on dark bg */
+:deep(.el-timeline-item__node--normal) {
+  border-color: rgba(148, 163, 184, 0.4);
+}
+:deep(.el-timeline-item__tail) {
+  border-color: rgba(148, 163, 184, 0.15);
+}
+
 @media (max-width: 768px) {
   .changelog-view {
     padding: 60px 16px 16px;

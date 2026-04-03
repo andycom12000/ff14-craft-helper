@@ -111,4 +111,15 @@ function handleClick(i: number, step: FlowStep) {
   opacity: 0.5;
   user-select: none;
 }
+
+@media (max-width: 768px) {
+  .flow-breadcrumb {
+    flex-wrap: wrap;
+    width: auto;
+  }
+  .flow-step {
+    padding: 6px 10px;
+    min-height: 32px;
+  }
+}
 </style>

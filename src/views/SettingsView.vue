@@ -81,13 +81,18 @@ watch(regionGroups, () => {
   availableWorlds.value = dc?.worldDetails ?? []
 })
 
-function saveSettings() {
+let saveTimeout: ReturnType<typeof setTimeout> | null = null
+
+function autoSave() {
   settingsStore.region = selectedRegion.value
   settingsStore.dataCenter = selectedDC.value
   settingsStore.server = selectedServer.value
   settingsStore.priceDisplayMode = selectedPriceMode.value
-  ElMessage.success('設定已儲存')
+  if (saveTimeout) clearTimeout(saveTimeout)
+  saveTimeout = setTimeout(() => ElMessage.success('設定已自動儲存'), 300)
 }
+
+watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
 </script>
 
 <template>
@@ -155,9 +160,6 @@ function saveSettings() {
         </el-form>
       </el-card>
 
-      <div class="save-row">
-        <el-button type="primary" @click="saveSettings">儲存設定</el-button>
-      </div>
 
       <el-card shadow="never" class="about-card">
         <template #header>
