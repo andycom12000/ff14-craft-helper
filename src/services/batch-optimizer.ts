@@ -259,6 +259,20 @@ export async function runBatchOptimization(
     }
   }
 
+  // Add exception-based buy-finished items to the shopping list
+  for (const exc of exceptions) {
+    if (exc.action === 'buy-finished' && exc.buyPrice) {
+      const target = targets.find(t => t.recipe.id === exc.recipe.id)
+      buyFinishedItems.push({
+        recipe: exc.recipe,
+        quantity: target?.quantity ?? 1,
+        craftCost: Infinity,
+        buyPrice: exc.buyPrice,
+        buyServer: exc.buyServer,
+      })
+    }
+  }
+
   // === Phase 4.6-buff: Evaluate food/medicine recommendation ===
   let buffRecommendation: BuffRecommendation | undefined
   if (noBuffSelected && !isCancelled()) {
