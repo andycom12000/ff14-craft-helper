@@ -1,6 +1,13 @@
 <script setup lang="ts">
 const changelog = [
   {
+    version: 'v1.8.7',
+    date: '2026-04-04',
+    highlights: [
+      '修正批量製作：職業等級不足或無法雙滿的配方改為購買時，採購清單現在會正確顯示該成品',
+    ],
+  },
+  {
     version: 'v1.8.6',
     date: '2026-04-04',
     highlights: [
