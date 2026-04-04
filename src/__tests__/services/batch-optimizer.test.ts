@@ -122,7 +122,7 @@ describe('runBatchOptimization', () => {
       () => {}, () => false,
     )
     expect(result.exceptions[0].action).toBe('buy-finished')
-    expect(result.exceptions[0].buyPrice).toBe(12000)
+    expect(result.exceptions[0].buyPrice).toBe(15000) // HQ price for canHq recipe
   })
 
   it('respects cancellation', async () => {
