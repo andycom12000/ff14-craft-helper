@@ -137,7 +137,7 @@ export async function runBatchOptimization(
       if (settings.exceptionStrategy === 'buy') {
         try {
           const md = await getMarketData(settings.server, target.recipe.itemId)
-          exc.buyPrice = md.minPriceNQ
+          exc.buyPrice = target.recipe.canHq ? md.minPriceHQ : md.minPriceNQ
           exc.buyServer = settings.server
         } catch { /* buyPrice stays undefined */ }
       }
@@ -164,7 +164,7 @@ export async function runBatchOptimization(
         if (settings.exceptionStrategy === 'buy') {
           try {
             const md = await getMarketData(settings.server, target.recipe.itemId)
-            exc.buyPrice = md.minPriceNQ
+            exc.buyPrice = target.recipe.canHq ? md.minPriceHQ : md.minPriceNQ
             exc.buyServer = settings.server
           } catch { /* ignore */ }
         }
@@ -230,19 +230,20 @@ export async function runBatchOptimization(
       craftCostPerUnit += nqPrice * nqCount + hqPrice * hqCount
     }
 
-    // Get finished product buy price
+    // Get finished product buy price (HQ for items that can be HQ)
     const finishedMd = priceMap.get(r.recipe.itemId)
+    const buyHq = r.recipe.canHq
     let buyPrice = 0
     let buyServer: string | undefined
 
     if (settings.crossServer && finishedMd?.listings?.length) {
-      const result = findCheapestServerPurchase(finishedMd.listings, r.quantity, false, settings.server)
+      const result = findCheapestServerPurchase(finishedMd.listings, r.quantity, buyHq, settings.server)
       if (result.bestCost < Infinity) {
         buyPrice = Math.round(result.bestCost / r.quantity)
         buyServer = result.bestServer
       }
     } else {
-      buyPrice = finishedMd?.minPriceNQ ?? 0
+      buyPrice = (buyHq ? finishedMd?.minPriceHQ : finishedMd?.minPriceNQ) ?? 0
       buyServer = settings.server
     }
 
@@ -407,14 +408,14 @@ export async function runBatchOptimization(
     })
   }
 
-  // Add buy-finished items into pricedMaterials
+  // Add buy-finished items into pricedMaterials (HQ for items that can be HQ)
   for (const bf of buyFinishedItems) {
     pricedMaterials.push({
       itemId: bf.recipe.itemId,
       name: bf.recipe.name,
       icon: bf.recipe.icon,
       amount: bf.quantity,
-      type: 'nq',
+      type: bf.recipe.canHq ? 'hq' : 'nq',
       unitPrice: bf.buyPrice,
       server: bf.buyServer,
       isFinishedProduct: true,
