@@ -1,6 +1,14 @@
 <script setup lang="ts">
 const changelog = [
   {
+    version: 'v1.8.8',
+    date: '2026-04-05',
+    highlights: [
+      '配裝管理頁面重新設計：改為單欄列表佈局，8 個職業一頁可見，由上往下快速迭代',
+      '配裝管理：每個輸入欄位加入 aria-label 提升無障礙體驗',
+    ],
+  },
+  {
     version: 'v1.8.7',
     date: '2026-04-04',
     highlights: [
