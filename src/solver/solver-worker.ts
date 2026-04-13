@@ -88,14 +88,15 @@ for (const [raphaelName, ourName] of Object.entries(ACTION_MAP)) {
 /* ---------- Solver config conversion ---------- */
 
 function configToWasmSettings(config: SolverConfig) {
-  const base_progress = Math.floor(
-    Math.floor(config.craftsmanship * 10 / config.progress_divider + 2)
-    * config.progress_modifier / 100
-  )
-  const base_quality = Math.floor(
-    Math.floor(config.control * 10 / config.quality_divider + 35)
-    * config.quality_modifier / 100
-  )
+  // Match raphael-rs get_game_settings: modifiers only apply when crafter level <= recipe level
+  let base_progress = config.craftsmanship * 10 / config.progress_divider + 2
+  let base_quality = config.control * 10 / config.quality_divider + 35
+  if (config.crafter_level <= config.recipe_level) {
+    base_progress = base_progress * config.progress_modifier / 100
+    base_quality = base_quality * config.quality_modifier / 100
+  }
+  base_progress = Math.floor(base_progress)
+  base_quality = Math.floor(base_quality)
 
   // Subtract initial_quality from max_quality so solver accounts for HQ materials
   const rawMaxQuality = config.hq_target ? config.quality : 0
@@ -121,14 +122,15 @@ function configToWasmSettings(config: SolverConfig) {
 /* ---------- Simulate config conversion ---------- */
 
 function buildSimulateConfig(config: SolverConfig, actions: string[]): SimulateConfig {
-  const base_progress = Math.floor(
-    Math.floor(config.craftsmanship * 10 / config.progress_divider + 2)
-    * config.progress_modifier / 100
-  )
-  const base_quality = Math.floor(
-    Math.floor(config.control * 10 / config.quality_divider + 35)
-    * config.quality_modifier / 100
-  )
+  // Match raphael-rs get_game_settings: modifiers only apply when crafter level <= recipe level
+  let base_progress = config.craftsmanship * 10 / config.progress_divider + 2
+  let base_quality = config.control * 10 / config.quality_divider + 35
+  if (config.crafter_level <= config.recipe_level) {
+    base_progress = base_progress * config.progress_modifier / 100
+    base_quality = base_quality * config.quality_modifier / 100
+  }
+  base_progress = Math.floor(base_progress)
+  base_quality = Math.floor(base_quality)
 
   // Map our skill IDs to raphael-rs action names
   const raphaelActions = actions.map(a => REVERSE_ACTION_MAP[a] ?? a)
