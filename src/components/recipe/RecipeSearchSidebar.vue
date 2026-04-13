@@ -72,6 +72,8 @@ async function addRecipe(row: RecipeSearchResult) {
 
 function close() {
   emit('update:modelValue', false)
+  query.value = ''
+  allResults.value = []
 }
 </script>
 
