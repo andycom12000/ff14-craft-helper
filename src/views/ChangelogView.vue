@@ -1,6 +1,13 @@
 <script setup lang="ts">
 const changelog = [
   {
+    version: 'v1.8.11',
+    date: '2026-04-14',
+    highlights: [
+      '製作模擬 tab 頂部新增批量製作提示橫幅，點擊可直接跳轉至批量製作頁面',
+    ],
+  },
+  {
     version: 'v1.8.10',
     date: '2026-04-13',
     highlights: [
