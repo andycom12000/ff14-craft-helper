@@ -1,6 +1,13 @@
 <script setup lang="ts">
 const changelog = [
   {
+    version: 'v1.8.10',
+    date: '2026-04-13',
+    highlights: [
+      '關閉配方搜尋對話框時自動清除搜尋結果，重新開啟不再殘留上次搜尋',
+    ],
+  },
+  {
     version: 'v1.8.9',
     date: '2026-04-13',
     highlights: [
