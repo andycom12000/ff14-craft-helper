@@ -371,6 +371,9 @@ async function handleSelfCraft(itemId: number) {
     <!-- Main Tabs -->
     <el-tabs type="border-card" class="main-tabs">
       <el-tab-pane label="模擬">
+        <router-link to="/batch" class="batch-tip">
+          一次要製作很多配方嗎？來回模擬複製貼上很累嗎？試試<span class="batch-tip-link">批量製作</span>吧！
+        </router-link>
         <template v-if="canSimulate">
           <div class="sim-layout">
             <div class="sim-left">
@@ -562,5 +565,34 @@ async function handleSelfCraft(itemId: number) {
 
 .queue-remove {
   margin-left: auto;
+}
+
+.batch-tip {
+  display: block;
+  background: var(--el-color-primary-light-9);
+  border: 1px solid var(--el-color-primary-light-5);
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.batch-tip:hover {
+  background: var(--el-color-primary-light-7);
+  border-color: var(--el-color-primary-light-3);
+}
+
+.batch-tip:focus-visible {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 2px;
+}
+
+.batch-tip-link {
+  color: var(--el-color-primary);
+  font-weight: 600;
 }
 </style>
