@@ -1,6 +1,13 @@
 <script setup lang="ts">
 const changelog = [
   {
+    version: 'v1.8.9',
+    date: '2026-04-13',
+    highlights: [
+      '修正求解器：工匠等級高於配方等級時，進展/品質基礎值計算錯誤，導致產生的巨集在遊戲中提早完成製作',
+    ],
+  },
+  {
     version: 'v1.8.8',
     date: '2026-04-05',
     highlights: [
