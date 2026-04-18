@@ -3,7 +3,12 @@ import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 import type { MaterialNode } from '@/stores/bom'
 import type { MaterialBase } from '@/services/shopping-list'
-import { SELF_CRAFT_SAVINGS_THRESHOLD } from '@/services/bom-calculator'
+import { SELF_CRAFT_SAVINGS_THRESHOLD, buildMaterialTree, computeOptimalCosts } from '@/services/bom-calculator'
+import type { MarketData } from '@/api/universalis'
+import { findRecipesByItemName, getRecipe } from '@/api/xivapi'
+import type { RecipeOptimizeResult } from '@/services/batch-optimizer'
+import type { FoodBuff } from '@/engine/food-medicine'
+import type { SelfCraftCandidate } from '@/stores/batch'
 
 export interface PrelimCandidate {
   itemId: number
@@ -84,4 +89,68 @@ export function computeRawMaterials(childNodes: MaterialNode[]): MaterialBase[] 
   return childNodes.map(c => ({
     itemId: c.itemId, name: c.name, icon: c.icon, amount: c.amount,
   }))
+}
+
+type OptimizeRecipeFn = (
+  recipe: Recipe,
+  gearset: GearsetStats,
+  onSolverProgress?: (pct: number) => void,
+  buffs?: { food: FoodBuff | null; medicine: FoodBuff | null },
+) => Promise<RecipeOptimizeResult>
+
+interface ProduceArgs {
+  recipesToCraft: RecipeOptimizeResult[]
+  priceMap: Map<number, MarketData>
+  getGearset: (job: string) => GearsetStats | null
+  maxDepth: number
+  buffs: { food: FoodBuff | null; medicine: FoodBuff | null } | undefined
+  optimizeRecipe: OptimizeRecipeFn  // injected to avoid circular import
+  onProgress: (info: { current: number; total: number; name: string }) => void
+  isCancelled: () => boolean
+}
+
+export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<SelfCraftCandidate[]> {
+  const { recipesToCraft, priceMap, getGearset, maxDepth, buffs, optimizeRecipe, onProgress, isCancelled } = args
+  // Referenced to satisfy noUnusedLocals in skeleton; fully consumed in Tasks 11-12.
+  void getGearset; void buffs; void optimizeRecipe; void onProgress; void findRecipesByItemName; void getRecipe
+
+  if (recipesToCraft.length === 0) return []
+
+  // Step 1: Collect BOM targets — one per recipesToCraft entry
+  const bomTargets: Array<{ itemId: number; recipeId: number; name: string; icon: string; quantity: number }> = []
+  for (const r of recipesToCraft) {
+    bomTargets.push({
+      itemId: r.recipe.itemId,
+      recipeId: r.recipe.id,
+      name: r.recipe.name,
+      icon: r.recipe.icon,
+      quantity: r.quantity,
+    })
+  }
+
+  // Step 2: Build the tree
+  const tree = await buildMaterialTree(bomTargets, maxDepth)
+  if (isCancelled()) return []
+
+  // Step 3: Price lookup already complete via priceMap; compute costs
+  const costResult = computeOptimalCosts(tree, (id) => {
+    const md = priceMap.get(id)
+    return md?.minPriceNQ ?? 0
+  })
+
+  // Step 4: threshold filter
+  const viableDecisions = filterCandidatesByThreshold(costResult.decisions)
+  if (viableDecisions.length === 0) return []
+
+  // Step 5: for each viable decision, find matching tree node for childNodes + recipeId
+  const treeNodes = walkTreeForCandidates(tree)
+  const nodeByItem = new Map<number, typeof treeNodes[number]>()
+  for (const n of treeNodes) nodeByItem.set(n.itemId, n)
+  void nodeByItem
+
+  // Step 6: fetch full Recipe for each candidate (for solver + UI)
+  // Step 7: filter by level
+  // Step 8: solver validation
+  // All these happen in Tasks 11-12; stub returns [] for now.
+  return []
 }

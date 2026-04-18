@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { filterCandidatesByThreshold, filterCandidatesByLevel, walkTreeForCandidates, computeRawMaterials } from '@/services/self-craft-candidates'
 import type { CostDecision } from '@/services/bom-calculator'
 import type { Recipe } from '@/stores/recipe'
@@ -95,5 +95,48 @@ describe('computeRawMaterials', () => {
       { itemId: 1, name: 'Log', icon: '', amount: 20 },
       { itemId: 2, name: 'Sap', icon: '', amount: 4 },
     ])
+  })
+})
+
+vi.mock('@/services/bom-calculator', async (importActual) => {
+  const actual = await importActual<typeof import('@/services/bom-calculator')>()
+  return {
+    ...actual,
+    buildMaterialTree: vi.fn(),
+    computeOptimalCosts: vi.fn(),
+  }
+})
+vi.mock('@/solver/worker', () => ({
+  solveCraft: vi.fn(),
+  simulateCraft: vi.fn(),
+  waitForWasm: vi.fn().mockResolvedValue(undefined),
+}))
+vi.mock('@/api/xivapi', () => ({
+  findRecipesByItemName: vi.fn(),
+  getRecipe: vi.fn(),
+}))
+
+import { produceSelfCraftCandidates } from '@/services/self-craft-candidates'
+import { buildMaterialTree, computeOptimalCosts } from '@/services/bom-calculator'
+import { solveCraft, simulateCraft } from '@/solver/worker'
+import { findRecipesByItemName, getRecipe } from '@/api/xivapi'
+
+describe('produceSelfCraftCandidates', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('returns [] when tree is empty', async () => {
+    vi.mocked(buildMaterialTree).mockResolvedValue([])
+    vi.mocked(computeOptimalCosts).mockReturnValue({ totalCost: 0, decisions: [] })
+    const result = await produceSelfCraftCandidates({
+      recipesToCraft: [],
+      priceMap: new Map(),
+      getGearset: () => ({ level: 100, craftsmanship: 4000, control: 3800, cp: 600 }),
+      maxDepth: 2,
+      buffs: undefined,
+      optimizeRecipe: vi.fn() as any,
+      onProgress: () => {},
+      isCancelled: () => false,
+    })
+    expect(result).toEqual([])
   })
 })
