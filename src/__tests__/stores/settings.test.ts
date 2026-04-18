@@ -25,7 +25,7 @@ describe('useSettingsStore', () => {
     const store = useSettingsStore()
     expect(store.crossServer).toBe(false)
     expect(store.recursivePricing).toBe(true)
-    expect(store.maxRecursionDepth).toBe(3)
+    expect(store.maxRecursionDepth).toBe(2)
     expect(store.exceptionStrategy).toBe('skip')
   })
 

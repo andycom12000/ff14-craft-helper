@@ -11,7 +11,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const priceDisplayMode = ref<PriceDisplayMode>('nq')
   const crossServer = ref(false)
   const recursivePricing = ref(true)
-  const maxRecursionDepth = ref(3)
+  const maxRecursionDepth = ref(2)
   const exceptionStrategy = ref<'skip' | 'buy'>('skip')
   const batchLayout = ref<'stepper' | 'classic'>('stepper')
 
