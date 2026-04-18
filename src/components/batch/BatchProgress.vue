@@ -7,7 +7,8 @@ const batchStore = useBatchStore()
 const PHASE_RANGES: Record<string, [number, number]> = {
   solving: [0, 85],
   pricing: [85, 90],
-  'evaluating-buffs': [90, 95],
+  'evaluating-buffs': [90, 93],
+  'evaluating-self-craft': [93, 95],
   aggregating: [95, 99],
   done: [100, 100],
 }
@@ -44,6 +45,8 @@ const statusText = computed(() => {
       return p.total > 0
         ? `正在評估食藥組合 (${p.current}/${p.total})...`
         : '正在評估食藥組合...'
+    case 'evaluating-self-craft':
+      return '評估自製建議'
     case 'aggregating':
       return p.currentName || '正在整理採購清單...'
     case 'done':
