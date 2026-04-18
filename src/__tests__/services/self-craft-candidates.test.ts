@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { filterCandidatesByThreshold } from '@/services/self-craft-candidates'
+import { filterCandidatesByThreshold, filterCandidatesByLevel } from '@/services/self-craft-candidates'
 import type { CostDecision } from '@/services/bom-calculator'
+import type { Recipe } from '@/stores/recipe'
+import type { GearsetStats } from '@/stores/gearsets'
 
 describe('filterCandidatesByThreshold', () => {
   it('keeps decisions with savingsRatio >= 0.05 and recommendation=craft', () => {
@@ -12,5 +14,32 @@ describe('filterCandidatesByThreshold', () => {
     ]
     const filtered = filterCandidatesByThreshold(decisions)
     expect(filtered.map(d => d.itemId)).toEqual([1, 4])
+  })
+})
+
+const mkRecipe = (id: number, job: string, level: number): Recipe => ({
+  id, itemId: id * 10, name: `Recipe ${id}`, icon: '', job,
+  level, stars: 0, canHq: true, materialQualityFactor: 50, ingredients: [],
+  recipeLevelTable: {
+    classJobLevel: level, stars: 0, difficulty: 1000, quality: 2000,
+    durability: 70, suggestedCraftsmanship: 0,
+    progressDivider: 100, qualityDivider: 100, progressModifier: 100, qualityModifier: 100,
+  },
+})
+
+describe('filterCandidatesByLevel', () => {
+  it('keeps only candidates the player can craft', () => {
+    const candidates = [
+      { itemId: 1, recipe: mkRecipe(1, 'CRP', 80) },
+      { itemId: 2, recipe: mkRecipe(2, 'BSM', 90) },
+      { itemId: 3, recipe: mkRecipe(3, 'CRP', 100) },
+    ] as any[]
+    const getGearset = (job: string): GearsetStats | null => {
+      if (job === 'CRP') return { level: 90, craftsmanship: 3000, control: 3000, cp: 500 }
+      if (job === 'BSM') return { level: 80, craftsmanship: 3000, control: 3000, cp: 500 }
+      return null
+    }
+    const filtered = filterCandidatesByLevel(candidates, getGearset)
+    expect(filtered.map(c => c.itemId)).toEqual([1]) // CRP 90 ≥ 80 ✓, BSM 80 < 90 ✗, CRP 90 < 100 ✗
   })
 })
