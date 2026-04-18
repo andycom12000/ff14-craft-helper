@@ -2,6 +2,7 @@ import type { CostDecision } from '@/services/bom-calculator'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 import type { MaterialNode } from '@/stores/bom'
+import type { MaterialBase } from '@/services/shopping-list'
 import { SELF_CRAFT_SAVINGS_THRESHOLD } from '@/services/bom-calculator'
 
 export interface PrelimCandidate {
@@ -77,4 +78,10 @@ export function walkTreeForCandidates(tree: MaterialNode[]): TreeNodeInfo[] {
     visit(root, 0)
   }
   return out
+}
+
+export function computeRawMaterials(childNodes: MaterialNode[]): MaterialBase[] {
+  return childNodes.map(c => ({
+    itemId: c.itemId, name: c.name, icon: c.icon, amount: c.amount,
+  }))
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { filterCandidatesByThreshold, filterCandidatesByLevel, walkTreeForCandidates } from '@/services/self-craft-candidates'
+import { filterCandidatesByThreshold, filterCandidatesByLevel, walkTreeForCandidates, computeRawMaterials } from '@/services/self-craft-candidates'
 import type { CostDecision } from '@/services/bom-calculator'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
@@ -81,5 +81,19 @@ describe('walkTreeForCandidates', () => {
     ]
     const nodes = walkTreeForCandidates(tree)
     expect(nodes).toHaveLength(0)
+  })
+})
+
+describe('computeRawMaterials', () => {
+  it('returns immediate children of a candidate node (not deeper)', () => {
+    const childNodes: MaterialNode[] = [
+      { itemId: 1, name: 'Log', icon: '', amount: 20 },
+      { itemId: 2, name: 'Sap', icon: '', amount: 4 },
+    ]
+    const raws = computeRawMaterials(childNodes)
+    expect(raws).toEqual([
+      { itemId: 1, name: 'Log', icon: '', amount: 20 },
+      { itemId: 2, name: 'Sap', icon: '', amount: 4 },
+    ])
   })
 })
