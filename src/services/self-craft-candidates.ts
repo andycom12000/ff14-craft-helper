@@ -4,7 +4,7 @@ import type { GearsetStats } from '@/stores/gearsets'
 import type { MaterialNode } from '@/stores/bom'
 import type { MaterialBase } from '@/services/shopping-list'
 import { SELF_CRAFT_SAVINGS_THRESHOLD, buildMaterialTree, computeOptimalCosts } from '@/services/bom-calculator'
-import type { MarketData } from '@/api/universalis'
+import { getAggregatedPrices, type MarketData } from '@/api/universalis'
 import { findRecipesByItemName, getRecipe } from '@/api/xivapi'
 import type { RecipeOptimizeResult } from '@/services/batch-optimizer'
 import type { FoodBuff } from '@/engine/food-medicine'
@@ -101,6 +101,7 @@ type OptimizeRecipeFn = (
 interface ProduceArgs {
   recipesToCraft: RecipeOptimizeResult[]
   priceMap: Map<number, MarketData>
+  priceSource: string  // server or DC used for price lookups
   getGearset: (job: string) => GearsetStats | null
   maxDepth: number
   buffs: { food: FoodBuff | null; medicine: FoodBuff | null } | undefined
@@ -109,8 +110,18 @@ interface ProduceArgs {
   isCancelled: () => boolean
 }
 
+function collectTreeItemIds(tree: MaterialNode[]): Set<number> {
+  const ids = new Set<number>()
+  function visit(n: MaterialNode) {
+    if (n.itemId >= 20) ids.add(n.itemId)  // skip crystals
+    if (n.children) for (const c of n.children) visit(c)
+  }
+  for (const r of tree) visit(r)
+  return ids
+}
+
 export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<SelfCraftCandidate[]> {
-  const { recipesToCraft, priceMap, getGearset, maxDepth, buffs, optimizeRecipe, onProgress, isCancelled } = args
+  const { recipesToCraft, priceMap, priceSource, getGearset, maxDepth, buffs, optimizeRecipe, onProgress, isCancelled } = args
 
   if (recipesToCraft.length === 0) return []
 
@@ -130,22 +141,40 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
   const tree = await buildMaterialTree(bomTargets, maxDepth)
   if (isCancelled()) return []
 
-  // Step 3: Price lookup already complete via priceMap; compute costs
+  // Step 3: Backfill prices for BOM-expanded descendants (grand-children and deeper)
+  // that weren't in the original priceMap (Phase 4 only fetched direct materials).
+  const treeItemIds = collectTreeItemIds(tree)
+  const missingIds: number[] = []
+  for (const id of treeItemIds) if (!priceMap.has(id)) missingIds.push(id)
+  if (missingIds.length > 0) {
+    try {
+      const extra = await getAggregatedPrices(priceSource, missingIds)
+      for (const [id, md] of extra) priceMap.set(id, md)
+    } catch (err) {
+      console.warn('[self-craft] price backfill failed:', err)
+    }
+  }
+  if (isCancelled()) return []
+
+  // Step 4: Compute costs from completed priceMap
   const costResult = computeOptimalCosts(tree, (id) => {
     const md = priceMap.get(id)
     return md?.minPriceNQ ?? 0
   })
 
-  // Step 4: threshold filter
+  // Step 5: threshold filter — exclude root targets (those are the batch targets themselves,
+  // not self-craft substitutes). Root-level buy-vs-craft is handled by Phase 4.5.
+  const rootItemIds = new Set(bomTargets.map(t => t.itemId))
   const viableDecisions = filterCandidatesByThreshold(costResult.decisions)
+    .filter(d => !rootItemIds.has(d.itemId))
   if (viableDecisions.length === 0) return []
 
-  // Step 5: for each viable decision, find matching tree node for childNodes + recipeId
+  // Step 6: for each viable decision, find matching tree node for childNodes + recipeId
   const treeNodes = walkTreeForCandidates(tree)
   const nodeByItem = new Map<number, typeof treeNodes[number]>()
   for (const n of treeNodes) nodeByItem.set(n.itemId, n)
 
-  // Step 6: attach recipe data + filter by level
+  // Step 7: attach recipe data + filter by level
   const withRecipes: Array<{
     decision: typeof viableDecisions[number]
     node: typeof treeNodes[number]
@@ -173,7 +202,7 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
   if (withRecipes.length === 0) return []
   if (isCancelled()) return []
 
-  // Step 7: solver validation (Task 12)
+  // Step 8: solver validation
   // Build a map of parent HQ requirements: itemId → whether any parent requires HQ of this material
   const hqRequiredMap = new Map<number, boolean>()
   for (const r of recipesToCraft) {

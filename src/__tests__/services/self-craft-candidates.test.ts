@@ -115,10 +115,14 @@ vi.mock('@/api/xivapi', () => ({
   findRecipesByItemName: vi.fn(),
   getRecipe: vi.fn(),
 }))
+vi.mock('@/api/universalis', () => ({
+  getAggregatedPrices: vi.fn().mockResolvedValue(new Map()),
+}))
 
 import { produceSelfCraftCandidates } from '@/services/self-craft-candidates'
 import { buildMaterialTree, computeOptimalCosts } from '@/services/bom-calculator'
 import { findRecipesByItemName, getRecipe } from '@/api/xivapi'
+import { getAggregatedPrices } from '@/api/universalis'
 
 describe('produceSelfCraftCandidates', () => {
   beforeEach(() => vi.clearAllMocks())
@@ -129,6 +133,7 @@ describe('produceSelfCraftCandidates', () => {
     const result = await produceSelfCraftCandidates({
       recipesToCraft: [],
       priceMap: new Map(),
+      priceSource: 'Chocobo',
       getGearset: () => ({ level: 100, craftsmanship: 4000, control: 3800, cp: 600 }),
       maxDepth: 2,
       buffs: undefined,
@@ -173,6 +178,7 @@ describe('produceSelfCraftCandidates', () => {
         isDoubleMax: true, materials: [], qualityDeficit: 0,
       }],
       priceMap: new Map(),
+      priceSource: 'Chocobo',
       getGearset: () => ({ level: 80, craftsmanship: 3000, control: 3000, cp: 500 }), // below 90
       maxDepth: 2,
       buffs: undefined,
@@ -232,6 +238,7 @@ describe('produceSelfCraftCandidates', () => {
     const result = await produceSelfCraftCandidates({
       recipesToCraft: [parentResult as any],
       priceMap: new Map(),
+      priceSource: 'Chocobo',
       getGearset: () => ({ level: 90, craftsmanship: 4000, control: 3800, cp: 600 }),
       maxDepth: 2,
       buffs: undefined,
@@ -246,5 +253,85 @@ describe('produceSelfCraftCandidates', () => {
     expect(result[0].hqRequired).toBe(true) // parent hqAmounts[0] = 2 > 0
     expect(result[0].rawMaterials).toEqual([{ itemId: 1, name: 'Raw', icon: '', amount: 20 }])
     expect(result[0].savings).toBe(4000) // 10000 - 6000
+  })
+
+  it('excludes root batch targets from candidate list', async () => {
+    // Regression: computeOptimalCosts emits a decision for every node including root.
+    // When the root's craft-vs-buy ratio passes the threshold it must NOT be offered
+    // as a self-craft candidate — root is the batch target itself, not an intermediate
+    // substitution. Root-level buy-vs-craft lives in Phase 4.5.
+    vi.mocked(buildMaterialTree).mockResolvedValue([{
+      itemId: 100, name: 'Root', icon: '', amount: 1, recipeId: 10,
+      children: [{ itemId: 1, name: 'Raw', icon: '', amount: 5 }],
+    }])
+    vi.mocked(computeOptimalCosts).mockReturnValue({
+      totalCost: 0,
+      decisions: [{
+        itemId: 100, name: 'Root', icon: '', amount: 1,
+        buyCost: 5000, craftCost: 1000, optimalCost: 1000,
+        savingsRatio: 0.8, recommendation: 'craft',
+      }],
+    })
+    const result = await produceSelfCraftCandidates({
+      recipesToCraft: [{
+        recipe: { id: 10, itemId: 100, name: 'Root', icon: '', job: 'CRP', level: 90 } as any,
+        quantity: 1, actions: [], hqAmounts: [], initialQuality: 0,
+        isDoubleMax: true, materials: [], qualityDeficit: 0,
+      }],
+      priceMap: new Map(),
+      priceSource: 'Chocobo',
+      getGearset: () => ({ level: 100, craftsmanship: 4000, control: 3800, cp: 600 }),
+      maxDepth: 2,
+      buffs: undefined,
+      optimizeRecipe: vi.fn() as any,
+      onProgress: () => {},
+      isCancelled: () => false,
+    })
+    expect(result).toEqual([])
+    expect(vi.mocked(findRecipesByItemName)).not.toHaveBeenCalled()
+  })
+
+  it('backfills prices for BOM descendants missing from the original priceMap', async () => {
+    // Regression: Phase 4 only fetches direct materials. When the BOM tree expands deeper,
+    // grandchild prices are missing — computeOptimalCosts then reads 0 for them, which
+    // makes craftCost appear free and breaks the 5% savings calculation. Fix: re-fetch
+    // missing descendant prices before computing costs.
+    vi.mocked(buildMaterialTree).mockResolvedValue([{
+      itemId: 100, name: 'Root', icon: '', amount: 1, recipeId: 10,
+      children: [{
+        itemId: 50, name: 'Inter', icon: '', amount: 2, recipeId: 5,
+        children: [
+          { itemId: 20, name: 'Grandchild A', icon: '', amount: 3 },
+          { itemId: 21, name: 'Grandchild B', icon: '', amount: 1 },
+        ],
+      }],
+    }])
+    vi.mocked(computeOptimalCosts).mockReturnValue({ totalCost: 0, decisions: [] })
+    const priceMap = new Map()
+    priceMap.set(50, { minPriceNQ: 1000 } as any) // direct material only
+
+    await produceSelfCraftCandidates({
+      recipesToCraft: [{
+        recipe: { id: 10, itemId: 100, name: 'Root', icon: '', job: 'CRP', level: 90 } as any,
+        quantity: 1, actions: [], hqAmounts: [], initialQuality: 0,
+        isDoubleMax: true, materials: [], qualityDeficit: 0,
+      }],
+      priceMap,
+      priceSource: 'Chocobo',
+      getGearset: () => ({ level: 100, craftsmanship: 4000, control: 3800, cp: 600 }),
+      maxDepth: 2,
+      buffs: undefined,
+      optimizeRecipe: vi.fn() as any,
+      onProgress: () => {},
+      isCancelled: () => false,
+    })
+
+    // Must have called getAggregatedPrices for the missing grandchildren (20, 21)
+    expect(vi.mocked(getAggregatedPrices)).toHaveBeenCalledTimes(1)
+    const [server, missingIds] = vi.mocked(getAggregatedPrices).mock.calls[0]
+    expect(server).toBe('Chocobo')
+    expect([...missingIds].sort((a, b) => a - b)).toEqual([20, 21, 100]) // root also missing from priceMap
+    // And did NOT re-fetch item 50 (already in priceMap)
+    expect(missingIds).not.toContain(50)
   })
 })

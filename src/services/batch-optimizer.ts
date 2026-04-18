@@ -331,6 +331,7 @@ export async function runBatchOptimization(
       selfCraftCandidates = await produceSelfCraftCandidates({
         recipesToCraft,
         priceMap,
+        priceSource,
         getGearset: getGearset as (job: string) => GearsetStats | null,
         maxDepth: settings.maxRecursionDepth,
         buffs,
