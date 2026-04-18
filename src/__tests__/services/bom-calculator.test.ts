@@ -277,6 +277,21 @@ describe('computeOptimalCosts', () => {
     expect(craftDecision!.recommendation).toBe('craft')
   })
 
+  it('includes savingsRatio on decisions', () => {
+    const tree: MaterialNode[] = [
+      {
+        itemId: 50, name: 'Lumber', icon: '', amount: 10, recipeId: 5,
+        children: [{ itemId: 1, name: 'Log', icon: '', amount: 10 }],
+      },
+    ]
+    // buy=10×1000=10000, craft=10×500=5000, savingsRatio=0.5
+    const prices: Record<number, number> = { 50: 1000, 1: 500 }
+    const result = computeOptimalCosts(tree, (id) => prices[id] ?? 0)
+
+    const d = result.decisions.find(x => x.itemId === 50)!
+    expect(d.savingsRatio).toBeCloseTo(0.5, 2)
+  })
+
   it('decides on root nodes themselves (not just their children)', () => {
     const tree: MaterialNode[] = [
       {

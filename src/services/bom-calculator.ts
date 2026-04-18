@@ -228,6 +228,7 @@ export interface CostDecision {
   buyCost: number
   craftCost: number
   optimalCost: number
+  savingsRatio: number
   recommendation: 'buy' | 'craft'
 }
 
@@ -275,12 +276,17 @@ export function computeOptimalCosts(
       optimalCost = craftCost
     }
 
+    const savingsRatio = buyCost > 0 ? (buyCost - craftCost) / buyCost : 0
+
     const existing = decisionsMap.get(node.itemId)
     if (existing) {
       existing.amount += node.amount
       existing.buyCost += buyCost
       existing.craftCost += craftCost
       existing.optimalCost += optimalCost
+      existing.savingsRatio = existing.buyCost > 0
+        ? (existing.buyCost - existing.craftCost) / existing.buyCost
+        : 0
     } else {
       decisionsMap.set(node.itemId, {
         itemId: node.itemId,
@@ -290,6 +296,7 @@ export function computeOptimalCosts(
         buyCost,
         craftCost,
         optimalCost,
+        savingsRatio,
         recommendation,
       })
     }
