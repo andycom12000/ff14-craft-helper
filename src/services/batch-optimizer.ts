@@ -332,6 +332,8 @@ export async function runBatchOptimization(
         recipesToCraft,
         priceMap,
         priceSource,
+        crossServer: settings.crossServer,
+        server: settings.server,
         getGearset: getGearset as (job: string) => GearsetStats | null,
         maxDepth: settings.maxRecursionDepth,
         buffs,

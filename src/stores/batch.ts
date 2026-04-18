@@ -1,7 +1,8 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import type { Recipe } from '@/stores/recipe'
-import type { MaterialWithPrice as ShoppingItem, ServerGroup, CrystalSummary, MaterialBase } from '@/services/shopping-list'
+import type { MaterialWithPrice as ShoppingItem, ServerGroup, CrystalSummary } from '@/services/shopping-list'
+import { isCrystal } from '@/services/shopping-list'
 import type { WorldPriceSummary } from '@/api/universalis'
 import type { FoodBuff } from '@/engine/food-medicine'
 
@@ -52,7 +53,7 @@ export interface SelfCraftCandidate {
   savingsRatio: number
   actions: string[]
   hqAmounts: number[]
-  rawMaterials: MaterialBase[]
+  rawMaterials: ShoppingItem[]
   hqRequired: boolean
   depth: number
 }
@@ -181,26 +182,42 @@ export const useBatchStore = defineStore('batch', () => {
   const finalShoppingItems = computed(() => {
     if (!results.value) return [] as ShoppingItem[]
     const selected = selectedSelfCraftIds.value
-    const removeIds = new Set(selected)
 
     const kept: ShoppingItem[] = []
     for (const g of results.value.serverGroups) {
       for (const item of g.items) {
-        if (!removeIds.has(item.itemId)) kept.push(item)
+        if (!selected.has(item.itemId)) kept.push(item)
       }
     }
 
-    // Append rawMaterials from selected candidates as NQ shopping items.
+    // Crystals are surfaced via finalCrystals, not the shopping list.
     for (const c of results.value.selfCraftCandidates) {
       if (!selected.has(c.itemId)) continue
       for (const raw of c.rawMaterials) {
-        kept.push({
-          itemId: raw.itemId, name: raw.name, icon: raw.icon, amount: raw.amount,
-          type: 'nq', unitPrice: 0,
-        })
+        if (isCrystal(raw.itemId)) continue
+        kept.push(raw)
       }
     }
     return kept
+  })
+
+  const finalCrystals = computed<CrystalSummary[]>(() => {
+    if (!results.value) return []
+    const selected = selectedSelfCraftIds.value
+    const map = new Map<number, CrystalSummary>()
+    for (const c of results.value.crystals) {
+      map.set(c.itemId, { ...c })
+    }
+    for (const c of results.value.selfCraftCandidates) {
+      if (!selected.has(c.itemId)) continue
+      for (const raw of c.rawMaterials) {
+        if (!isCrystal(raw.itemId)) continue
+        const existing = map.get(raw.itemId)
+        if (existing) existing.amount += raw.amount
+        else map.set(raw.itemId, { itemId: raw.itemId, name: raw.name, amount: raw.amount })
+      }
+    }
+    return Array.from(map.values())
   })
 
   const finalTodoList = computed<TodoItem[]>(() => {
@@ -298,6 +315,7 @@ export const useBatchStore = defineStore('batch', () => {
     selectedSelfCraftIds,
     doneSelfCraftIds,
     finalShoppingItems,
+    finalCrystals,
     finalTodoList,
     toggleSelfCraft,
     selectAllSelfCraft,

@@ -309,7 +309,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
           </div>
 
           <ShoppingList
-            :crystals="batchStore.results.crystals"
+            :crystals="batchStore.finalCrystals"
             :server-groups="batchStore.results.serverGroups"
             :self-craft-candidates="batchStore.results.selfCraftCandidates"
             :buy-finished-items="batchStore.results.buyFinishedItems"
@@ -397,7 +397,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
             <el-text size="small" type="info">點擊素材行可複製品名</el-text>
           </div>
           <ShoppingList
-            :crystals="batchStore.results.crystals"
+            :crystals="batchStore.finalCrystals"
             :server-groups="batchStore.results.serverGroups"
             :self-craft-candidates="batchStore.results.selfCraftCandidates"
             :buy-finished-items="batchStore.results.buyFinishedItems"

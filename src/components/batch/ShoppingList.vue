@@ -38,9 +38,11 @@ const effectiveServerGroups = computed<ServerGroup[]>(() => {
 
 const buyFinishedSavings = computed(() => {
   if (!props.buyFinishedItems.length) return null
-  const totalSaved = props.buyFinishedItems.reduce(
+  const craftable = props.buyFinishedItems.filter(bf => Number.isFinite(bf.craftCost))
+  if (!craftable.length) return null
+  const totalSaved = craftable.reduce(
     (sum, bf) => sum + (bf.craftCost - bf.buyPrice) * bf.quantity, 0)
-  return { count: props.buyFinishedItems.length, totalSaved }
+  return { count: craftable.length, totalSaved }
 })
 
 // Seed composable cache with pre-fetched data from batch optimizer
@@ -183,7 +185,12 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
             <template v-if="row.isFinishedProduct">
               <el-tag size="small" type="success" class="finished-badge">直購成品</el-tag>
               <div v-if="row.craftCostComparison" class="craft-compare-hint">
-                自製需 {{ formatGil(row.craftCostComparison.craftCost) }} Gil，省 {{ formatGil(row.craftCostComparison.craftCost - row.craftCostComparison.buyPrice) }} Gil
+                <template v-if="Number.isFinite(row.craftCostComparison.craftCost)">
+                  自製需 {{ formatGil(row.craftCostComparison.craftCost) }} Gil，省 {{ formatGil(row.craftCostComparison.craftCost - row.craftCostComparison.buyPrice) }} Gil
+                </template>
+                <template v-else>
+                  無法自製
+                </template>
               </div>
             </template>
           </template>

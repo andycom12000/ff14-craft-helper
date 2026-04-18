@@ -2,7 +2,8 @@ import type { CostDecision } from '@/services/bom-calculator'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 import type { MaterialNode } from '@/stores/bom'
-import type { MaterialBase } from '@/services/shopping-list'
+import type { MaterialWithPrice } from '@/services/shopping-list'
+import { calculateBestPurchase, findCheapestServerPurchase, isCrystal } from '@/services/shopping-list'
 import { SELF_CRAFT_SAVINGS_THRESHOLD, buildMaterialTree, computeOptimalCosts } from '@/services/bom-calculator'
 import { getAggregatedPrices, type MarketData } from '@/api/universalis'
 import { findRecipesByItemName, getRecipe } from '@/api/xivapi'
@@ -85,10 +86,32 @@ export function walkTreeForCandidates(tree: MaterialNode[]): TreeNodeInfo[] {
   return out
 }
 
-export function computeRawMaterials(childNodes: MaterialNode[]): MaterialBase[] {
-  return childNodes.map(c => ({
-    itemId: c.itemId, name: c.name, icon: c.icon, amount: c.amount,
-  }))
+export function computeRawMaterials(
+  childNodes: MaterialNode[],
+  priceMap: Map<number, MarketData>,
+  crossServer: boolean,
+  server: string,
+): MaterialWithPrice[] {
+  return childNodes.map(c => {
+    const base = { itemId: c.itemId, name: c.name, icon: c.icon, amount: c.amount, type: 'nq' as const }
+    if (isCrystal(c.itemId)) return { ...base, unitPrice: 0, server }
+
+    const md = priceMap.get(c.itemId)
+    const fallback = { ...base, unitPrice: md?.minPriceNQ ?? 0, server }
+    if (!md?.listings?.length) return fallback
+
+    if (crossServer) {
+      const result = findCheapestServerPurchase(md.listings, c.amount, false, server)
+      return Number.isFinite(result.bestCost)
+        ? { ...base, unitPrice: Math.round(result.bestCost / c.amount), server: result.bestServer }
+        : fallback
+    }
+
+    const purchase = calculateBestPurchase(md.listings, c.amount, false)
+    return purchase.fulfilled
+      ? { ...base, unitPrice: purchase.effectiveUnitPrice, server }
+      : fallback
+  })
 }
 
 type OptimizeRecipeFn = (
@@ -102,6 +125,8 @@ interface ProduceArgs {
   recipesToCraft: RecipeOptimizeResult[]
   priceMap: Map<number, MarketData>
   priceSource: string  // server or DC used for price lookups
+  crossServer: boolean
+  server: string
   getGearset: (job: string) => GearsetStats | null
   maxDepth: number
   buffs: { food: FoodBuff | null; medicine: FoodBuff | null } | undefined
@@ -113,7 +138,7 @@ interface ProduceArgs {
 function collectTreeItemIds(tree: MaterialNode[]): Set<number> {
   const ids = new Set<number>()
   function visit(n: MaterialNode) {
-    if (n.itemId >= 20) ids.add(n.itemId)  // skip crystals
+    if (!isCrystal(n.itemId)) ids.add(n.itemId)
     if (n.children) for (const c of n.children) visit(c)
   }
   for (const r of tree) visit(r)
@@ -121,7 +146,7 @@ function collectTreeItemIds(tree: MaterialNode[]): Set<number> {
 }
 
 export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<SelfCraftCandidate[]> {
-  const { recipesToCraft, priceMap, priceSource, getGearset, maxDepth, buffs, optimizeRecipe, onProgress, isCancelled } = args
+  const { recipesToCraft, priceMap, priceSource, crossServer, server, getGearset, maxDepth, buffs, optimizeRecipe, onProgress, isCancelled } = args
 
   if (recipesToCraft.length === 0) return []
 
@@ -250,7 +275,7 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
       savingsRatio: decision.savingsRatio,
       actions: optResult.actions,
       hqAmounts: optResult.hqAmounts,
-      rawMaterials: computeRawMaterials(node.childNodes),
+      rawMaterials: computeRawMaterials(node.childNodes, priceMap, crossServer, server),
       hqRequired,
       depth: node.depth,
     })

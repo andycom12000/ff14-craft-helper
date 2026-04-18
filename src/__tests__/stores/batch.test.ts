@@ -130,7 +130,7 @@ describe('batch store finalShoppingItems', () => {
         recipe: { job: 'CRP' } as any, job: 'CRP',
         buyCost: 10000, craftCost: 6000, savings: 4000, savingsRatio: 0.4,
         actions: [], hqAmounts: [],
-        rawMaterials: [{ itemId: 1, name: 'Log', icon: '', amount: 20 }],
+        rawMaterials: [{ itemId: 100, name: 'Log', icon: '', amount: 20, type: 'nq', unitPrice: 50, server: 'Local' }],
         hqRequired: false, depth: 1,
       }],
       todoList: [],
@@ -144,10 +144,48 @@ describe('batch store finalShoppingItems', () => {
 
     store.toggleSelfCraft(50)
     final = store.finalShoppingItems
-    // Lumber removed, Log raw added, Other kept
+    // Lumber removed, Log raw added (with priced unitPrice + server), Other kept
     expect(final.find(i => i.itemId === 50)).toBeUndefined()
-    expect(final.find(i => i.itemId === 1)).toMatchObject({ amount: 20, type: 'nq' })
+    expect(final.find(i => i.itemId === 100)).toMatchObject({ amount: 20, type: 'nq', unitPrice: 50, server: 'Local' })
     expect(final.find(i => i.itemId === 60)).toBeDefined()
+  })
+
+  it('routes crystals from selected candidates into finalCrystals, not finalShoppingItems', () => {
+    setActivePinia(createPinia())
+    const store = useBatchStore()
+
+    store.results = {
+      serverGroups: [],
+      crystals: [{ itemId: 2, name: 'Fire', amount: 5 }],
+      selfCraftCandidates: [{
+        itemId: 50, name: 'Lumber', icon: '', amount: 10,
+        recipe: { job: 'CRP' } as any, job: 'CRP',
+        buyCost: 10000, craftCost: 6000, savings: 4000, savingsRatio: 0.4,
+        actions: [], hqAmounts: [],
+        rawMaterials: [
+          { itemId: 2, name: 'Fire', icon: '', amount: 7, type: 'nq', unitPrice: 0, server: 'Local' },
+          { itemId: 5, name: 'Earth', icon: '', amount: 3, type: 'nq', unitPrice: 0, server: 'Local' },
+          { itemId: 100, name: 'Log', icon: '', amount: 20, type: 'nq', unitPrice: 50, server: 'Local' },
+        ],
+        hqRequired: false, depth: 1,
+      }],
+      todoList: [],
+      exceptions: [], buyFinishedItems: [], grandTotal: 0,
+      crossWorldCache: new Map(),
+    }
+
+    store.toggleSelfCraft(50)
+
+    // Crystals should appear only in finalCrystals (aggregated with existing)
+    const crystals = store.finalCrystals
+    expect(crystals.find(c => c.itemId === 2)).toMatchObject({ amount: 12 }) // 5 + 7
+    expect(crystals.find(c => c.itemId === 5)).toMatchObject({ amount: 3 })
+
+    // Non-crystal raw appears in shopping list; crystals do not
+    const shopping = store.finalShoppingItems
+    expect(shopping.find(i => i.itemId === 2)).toBeUndefined()
+    expect(shopping.find(i => i.itemId === 5)).toBeUndefined()
+    expect(shopping.find(i => i.itemId === 100)).toBeDefined()
   })
 })
 

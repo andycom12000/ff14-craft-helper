@@ -87,14 +87,53 @@ describe('walkTreeForCandidates', () => {
 describe('computeRawMaterials', () => {
   it('returns immediate children of a candidate node (not deeper)', () => {
     const childNodes: MaterialNode[] = [
-      { itemId: 1, name: 'Log', icon: '', amount: 20 },
-      { itemId: 2, name: 'Sap', icon: '', amount: 4 },
+      { itemId: 100, name: 'Log', icon: '', amount: 20 },
+      { itemId: 101, name: 'Sap', icon: '', amount: 4 },
     ]
-    const raws = computeRawMaterials(childNodes)
+    const raws = computeRawMaterials(childNodes, new Map(), false, 'Chocobo')
     expect(raws).toEqual([
-      { itemId: 1, name: 'Log', icon: '', amount: 20 },
-      { itemId: 2, name: 'Sap', icon: '', amount: 4 },
+      { itemId: 100, name: 'Log', icon: '', amount: 20, type: 'nq', unitPrice: 0, server: 'Chocobo' },
+      { itemId: 101, name: 'Sap', icon: '', amount: 4, type: 'nq', unitPrice: 0, server: 'Chocobo' },
     ])
+  })
+
+  it('prices non-crystal children using listings (single server)', () => {
+    const childNodes: MaterialNode[] = [
+      { itemId: 200, name: 'Ore', icon: '', amount: 5 },
+    ]
+    const priceMap = new Map<number, any>([
+      [200, {
+        minPriceNQ: 100, minPriceHQ: 0,
+        listings: [{ pricePerUnit: 90, quantity: 5, total: 450, hq: false, worldName: 'Chocobo' }],
+      }],
+    ])
+    const raws = computeRawMaterials(childNodes, priceMap, false, 'Chocobo')
+    expect(raws[0]).toMatchObject({ itemId: 200, unitPrice: 90, server: 'Chocobo', type: 'nq' })
+  })
+
+  it('prices non-crystal children using cheapest server (crossServer)', () => {
+    const childNodes: MaterialNode[] = [
+      { itemId: 300, name: 'Gem', icon: '', amount: 3 },
+    ]
+    const priceMap = new Map<number, any>([
+      [300, {
+        minPriceNQ: 120, minPriceHQ: 0,
+        listings: [
+          { pricePerUnit: 100, quantity: 3, total: 300, hq: false, worldName: 'Phoenix' },
+          { pricePerUnit: 150, quantity: 3, total: 450, hq: false, worldName: 'Chocobo' },
+        ],
+      }],
+    ])
+    const raws = computeRawMaterials(childNodes, priceMap, true, 'Chocobo')
+    expect(raws[0]).toMatchObject({ itemId: 300, unitPrice: 100, server: 'Phoenix' })
+  })
+
+  it('assigns crystals unitPrice 0 and home server', () => {
+    const childNodes: MaterialNode[] = [
+      { itemId: 2, name: 'Fire Crystal', icon: '', amount: 10 },
+    ]
+    const raws = computeRawMaterials(childNodes, new Map(), false, 'Chocobo')
+    expect(raws[0]).toMatchObject({ itemId: 2, unitPrice: 0, server: 'Chocobo' })
   })
 })
 
@@ -134,6 +173,8 @@ describe('produceSelfCraftCandidates', () => {
       recipesToCraft: [],
       priceMap: new Map(),
       priceSource: 'Chocobo',
+      crossServer: false,
+      server: 'Chocobo',
       getGearset: () => ({ level: 100, craftsmanship: 4000, control: 3800, cp: 600 }),
       maxDepth: 2,
       buffs: undefined,
@@ -179,6 +220,8 @@ describe('produceSelfCraftCandidates', () => {
       }],
       priceMap: new Map(),
       priceSource: 'Chocobo',
+      crossServer: false,
+      server: 'Chocobo',
       getGearset: () => ({ level: 80, craftsmanship: 3000, control: 3000, cp: 500 }), // below 90
       maxDepth: 2,
       buffs: undefined,
@@ -239,6 +282,8 @@ describe('produceSelfCraftCandidates', () => {
       recipesToCraft: [parentResult as any],
       priceMap: new Map(),
       priceSource: 'Chocobo',
+      crossServer: false,
+      server: 'Chocobo',
       getGearset: () => ({ level: 90, craftsmanship: 4000, control: 3800, cp: 600 }),
       maxDepth: 2,
       buffs: undefined,
@@ -251,7 +296,9 @@ describe('produceSelfCraftCandidates', () => {
     expect(result[0].itemId).toBe(50)
     expect(result[0].actions).toEqual(['muscle_memory', 'groundwork'])
     expect(result[0].hqRequired).toBe(true) // parent hqAmounts[0] = 2 > 0
-    expect(result[0].rawMaterials).toEqual([{ itemId: 1, name: 'Raw', icon: '', amount: 20 }])
+    expect(result[0].rawMaterials).toEqual([
+      { itemId: 1, name: 'Raw', icon: '', amount: 20, type: 'nq', unitPrice: 0, server: 'Chocobo' },
+    ])
     expect(result[0].savings).toBe(4000) // 10000 - 6000
   })
 
@@ -280,6 +327,8 @@ describe('produceSelfCraftCandidates', () => {
       }],
       priceMap: new Map(),
       priceSource: 'Chocobo',
+      crossServer: false,
+      server: 'Chocobo',
       getGearset: () => ({ level: 100, craftsmanship: 4000, control: 3800, cp: 600 }),
       maxDepth: 2,
       buffs: undefined,
@@ -318,6 +367,8 @@ describe('produceSelfCraftCandidates', () => {
       }],
       priceMap,
       priceSource: 'Chocobo',
+      crossServer: false,
+      server: 'Chocobo',
       getGearset: () => ({ level: 100, craftsmanship: 4000, control: 3800, cp: 600 }),
       maxDepth: 2,
       buffs: undefined,

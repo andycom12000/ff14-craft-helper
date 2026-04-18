@@ -27,7 +27,11 @@ export interface ServerGroup {
   subtotal: number
 }
 
-const CRYSTAL_THRESHOLD = 20
+export const CRYSTAL_THRESHOLD = 20
+
+export function isCrystal(itemId: number): boolean {
+  return itemId < CRYSTAL_THRESHOLD
+}
 
 export function separateCrystals<T extends MaterialBase>(materials: T[]): {
   crystals: CrystalSummary[]
@@ -37,7 +41,7 @@ export function separateCrystals<T extends MaterialBase>(materials: T[]): {
   const nonCrystals: T[] = []
 
   for (const m of materials) {
-    if (m.itemId < CRYSTAL_THRESHOLD) {
+    if (isCrystal(m.itemId)) {
       crystals.push({ itemId: m.itemId, name: m.name, amount: m.amount })
     } else {
       nonCrystals.push(m)
