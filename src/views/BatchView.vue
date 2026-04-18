@@ -298,7 +298,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
           <span class="section-desc">依相依順序逐一完成製作</span>
         </div>
         <TodoList
-          :items="batchStore.results.todoList"
+          :items="batchStore.finalTodoList"
           @update:done="handleTodoDone"
           @reorder="handleTodoReorder"
         />
@@ -350,7 +350,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
               <span class="card-title">製作待辦</span>
             </template>
             <TodoList
-              :items="batchStore.results.todoList"
+              :items="batchStore.finalTodoList"
               @update:done="handleTodoDone"
             />
           </el-card>
