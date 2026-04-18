@@ -11,7 +11,8 @@ const recipeByItemCache = new Map<number, { recipeId: number; job: string } | nu
  */
 const RAW_ITEM_ID_THRESHOLD = 20
 
-const MAX_RECURSION_DEPTH = 10
+const DEFAULT_RECURSION_DEPTH = 10
+export const SELF_CRAFT_SAVINGS_THRESHOLD = 0.05
 
 /**
  * Look up the first recipe that produces this item.
@@ -44,10 +45,11 @@ async function expandNode(
   icon: string,
   amount: number,
   depth: number,
+  maxDepth: number,
   ancestorIds: Set<number>,
 ): Promise<MaterialNode> {
   // Stop conditions: max depth, cycle detection, or crystal/base material
-  if (depth >= MAX_RECURSION_DEPTH || ancestorIds.has(itemId) || itemId < RAW_ITEM_ID_THRESHOLD) {
+  if (depth >= maxDepth || ancestorIds.has(itemId) || itemId < RAW_ITEM_ID_THRESHOLD) {
     return { itemId, name, icon, amount }
   }
 
@@ -68,6 +70,7 @@ async function expandNode(
         ing.icon,
         ing.amount * amount,
         depth + 1,
+        maxDepth,
         newAncestors,
       ),
     ),
@@ -88,6 +91,7 @@ async function expandNode(
  */
 export async function buildMaterialTree(
   targets: BomTarget[],
+  maxDepth: number = DEFAULT_RECURSION_DEPTH,
 ): Promise<MaterialNode[]> {
   const results = await Promise.allSettled(
     targets.map(async (target) => {
@@ -102,6 +106,7 @@ export async function buildMaterialTree(
             ing.icon,
             ing.amount * target.quantity,
             1,
+            maxDepth,
             ancestorIds,
           ),
         ),
