@@ -118,7 +118,6 @@ vi.mock('@/api/xivapi', () => ({
 
 import { produceSelfCraftCandidates } from '@/services/self-craft-candidates'
 import { buildMaterialTree, computeOptimalCosts } from '@/services/bom-calculator'
-import { solveCraft, simulateCraft } from '@/solver/worker'
 import { findRecipesByItemName, getRecipe } from '@/api/xivapi'
 
 describe('produceSelfCraftCandidates', () => {

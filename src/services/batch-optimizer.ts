@@ -1,6 +1,6 @@
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
-import type { BatchException, BatchTarget, BatchResults, TodoItem, BuyFinishedDecision, BuffRecommendation } from '@/stores/batch'
+import type { BatchException, BatchTarget, BatchResults, TodoItem, BuyFinishedDecision, BuffRecommendation, SelfCraftCandidate } from '@/stores/batch'
 import type { MaterialWithPrice, MaterialBase } from '@/services/shopping-list'
 import { markRaw } from 'vue'
 import { solveCraft, simulateCraft, waitForWasm } from '@/solver/worker'
@@ -9,9 +9,9 @@ import { findOptimalHqCombinations } from '@/services/hq-optimizer'
 import { getAggregatedPrices, getMarketData, aggregateByWorld } from '@/api/universalis'
 import type { MarketData, WorldPriceSummary } from '@/api/universalis'
 import { separateCrystals, groupByServer, calculateBestPurchase, findCheapestServerPurchase } from '@/services/shopping-list'
-import { buildMaterialTree, flattenMaterialTree, computeOptimalCosts } from '@/services/bom-calculator'
 import { applyFoodBuff, applyMedicineBuff, resolveBuff, COMMON_FOODS, COMMON_MEDICINES, type FoodBuff } from '@/engine/food-medicine'
 import { evaluateBuffRecommendation, getBuffItemIds } from '@/services/buff-recommender'
+import { produceSelfCraftCandidates } from '@/services/self-craft-candidates'
 
 export interface RecipeOptimizeResult {
   recipe: Recipe
@@ -102,7 +102,7 @@ export async function runBatchOptimization(
     current: number
     total: number
     name: string
-    phase: 'solving' | 'pricing' | 'evaluating-buffs' | 'aggregating' | 'done'
+    phase: 'solving' | 'pricing' | 'evaluating-buffs' | 'evaluating-self-craft' | 'aggregating' | 'done'
     solverPercent: number
   }) => void,
   isCancelled: () => boolean,
@@ -295,7 +295,6 @@ export async function runBatchOptimization(
   // === Phase 5: Aggregate materials (only for recipes still being crafted) ===
   onProgress({ current: 0, total: 0, name: '整理材料清單', phase: 'aggregating', solverPercent: 0 })
   const allTypedMaterials: TypedMaterial[] = []
-  const selfCraftItems: MaterialWithPrice[] = []
 
   for (const r of recipesToCraft) {
     for (let j = 0; j < r.materials.length; j++) {
@@ -325,31 +324,25 @@ export async function runBatchOptimization(
   const aggregated = Array.from(matMap.values())
   const { crystals, nonCrystals } = separateCrystals(aggregated)
 
-  // Recursive BOM: expand craftable materials
-  if (settings.recursivePricing) {
+  // === Phase 4.6: Produce self-craft candidates ===
+  let selfCraftCandidates: SelfCraftCandidate[] = []
+  if (settings.recursivePricing && !isCancelled()) {
     try {
-      onProgress({ current: 0, total: 0, name: '展開遞迴材料', phase: 'aggregating', solverPercent: 0 })
-      const bomTargets = nonCrystals.map(m => ({
-        itemId: m.itemId, recipeId: 0, name: m.name, icon: m.icon, quantity: m.amount,
-      }))
-      const tree = await buildMaterialTree(bomTargets)
-      const flatList = flattenMaterialTree(tree)
-      onProgress({ current: 0, total: 0, name: '查詢材料價格', phase: 'aggregating', solverPercent: 0 })
-      const bomPriceMap = await getAggregatedPrices(priceSource, flatList.map(f => f.itemId))
-      const costResult = computeOptimalCosts(tree, (id) => {
-        const md = bomPriceMap.get(id)
-        return md?.minPriceNQ ?? 0
+      selfCraftCandidates = await produceSelfCraftCandidates({
+        recipesToCraft,
+        priceMap,
+        getGearset: getGearset as (job: string) => GearsetStats | null,
+        maxDepth: settings.maxRecursionDepth,
+        buffs,
+        optimizeRecipe,
+        onProgress: (info) => onProgress({
+          current: info.current, total: info.total, name: info.name,
+          phase: 'evaluating-self-craft', solverPercent: 0,
+        }),
+        isCancelled,
       })
-      for (const decision of costResult.decisions) {
-        if (decision.recommendation === 'craft') {
-          selfCraftItems.push({
-            itemId: decision.itemId, name: decision.name, icon: decision.icon,
-            amount: decision.amount, type: 'craft', unitPrice: 0,
-          })
-        }
-      }
     } catch (err) {
-      console.warn('[batch-optimizer] Recursive BOM expansion failed:', err)
+      console.warn('[batch-optimizer] self-craft candidate production failed:', err)
     }
   }
 
@@ -442,5 +435,5 @@ export async function runBatchOptimization(
     hqAmounts: r.hqAmounts, isSemiFinished: false, done: false,
   }))
 
-  return { serverGroups, crystals, selfCraftItems, todoList, exceptions, buyFinishedItems, grandTotal, crossWorldCache, buffRecommendation }
+  return { serverGroups, crystals, selfCraftCandidates, todoList, exceptions, buyFinishedItems, grandTotal, crossWorldCache, buffRecommendation }
 }

@@ -22,6 +22,9 @@ vi.mock('@/services/buff-recommender', () => ({
   evaluateBuffRecommendation: vi.fn().mockResolvedValue(null),
   getBuffItemIds: vi.fn().mockReturnValue([]),
 }))
+vi.mock('@/services/self-craft-candidates', () => ({
+  produceSelfCraftCandidates: vi.fn().mockResolvedValue([]),
+}))
 
 import { optimizeRecipe, runBatchOptimization } from '@/services/batch-optimizer'
 import { solveCraft, simulateCraft } from '@/solver/worker'
