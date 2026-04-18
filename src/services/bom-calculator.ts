@@ -299,11 +299,7 @@ export function computeOptimalCosts(
 
   let totalCost = 0
   for (const root of tree) {
-    if (root.children && root.children.length > 0) {
-      for (const child of root.children) {
-        totalCost += getNodeOptimalCost(child)
-      }
-    }
+    totalCost += getNodeOptimalCost(root)
   }
 
   return {

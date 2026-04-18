@@ -276,6 +276,26 @@ describe('computeOptimalCosts', () => {
     expect(buyDecision!.recommendation).toBe('buy')
     expect(craftDecision!.recommendation).toBe('craft')
   })
+
+  it('decides on root nodes themselves (not just their children)', () => {
+    const tree: MaterialNode[] = [
+      {
+        itemId: 50, name: 'Maple Lumber', icon: '', amount: 20, recipeId: 5,
+        children: [
+          { itemId: 1, name: 'Maple Log', icon: '', amount: 40 },
+        ],
+      },
+    ]
+    // buy root: 20 × 3000 = 60000; craft root: 40 × 1000 = 40000 → craft
+    const prices: Record<number, number> = { 50: 3000, 1: 1000 }
+    const result = computeOptimalCosts(tree, (id) => prices[id] ?? 0)
+
+    const rootDecision = result.decisions.find(d => d.itemId === 50)
+    expect(rootDecision).toBeDefined()
+    expect(rootDecision!.recommendation).toBe('craft')
+    expect(rootDecision!.buyCost).toBe(60000)
+    expect(rootDecision!.craftCost).toBe(40000)
+  })
 })
 
 describe('buildMaterialTree signature and exports', () => {
