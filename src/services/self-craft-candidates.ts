@@ -111,8 +111,8 @@ interface ProduceArgs {
 
 export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<SelfCraftCandidate[]> {
   const { recipesToCraft, priceMap, getGearset, maxDepth, buffs, optimizeRecipe, onProgress, isCancelled } = args
-  // Referenced to satisfy noUnusedLocals in skeleton; fully consumed in Tasks 11-12.
-  void getGearset; void buffs; void optimizeRecipe; void onProgress; void findRecipesByItemName; void getRecipe
+  // Referenced to satisfy noUnusedLocals in skeleton; fully consumed in Task 12.
+  void buffs; void optimizeRecipe; void onProgress
 
   if (recipesToCraft.length === 0) return []
 
@@ -146,11 +146,35 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
   const treeNodes = walkTreeForCandidates(tree)
   const nodeByItem = new Map<number, typeof treeNodes[number]>()
   for (const n of treeNodes) nodeByItem.set(n.itemId, n)
-  void nodeByItem
 
-  // Step 6: fetch full Recipe for each candidate (for solver + UI)
-  // Step 7: filter by level
-  // Step 8: solver validation
-  // All these happen in Tasks 11-12; stub returns [] for now.
+  // Step 6: attach recipe data + filter by level
+  const withRecipes: Array<{
+    decision: typeof viableDecisions[number]
+    node: typeof treeNodes[number]
+    recipe: Recipe
+    job: string
+  }> = []
+
+  for (const decision of viableDecisions) {
+    const node = nodeByItem.get(decision.itemId)
+    if (!node) continue
+
+    const recipeInfo = await findRecipesByItemName(decision.name, decision.itemId)
+    if (!recipeInfo.length) continue
+
+    const first = recipeInfo[0]
+    const gs = getGearset(first.job)
+    if (!gs) continue
+
+    const recipe = await getRecipe(first.recipeId)
+    if (gs.level < recipe.level) continue
+
+    withRecipes.push({ decision, node, recipe, job: first.job })
+  }
+
+  if (withRecipes.length === 0) return []
+  if (isCancelled()) return []
+
+  // Step 7: solver validation (Task 12)
   return []
 }

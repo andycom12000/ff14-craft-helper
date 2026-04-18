@@ -139,4 +139,48 @@ describe('produceSelfCraftCandidates', () => {
     })
     expect(result).toEqual([])
   })
+
+  it('excludes candidates whose job level player does not meet', async () => {
+    vi.mocked(buildMaterialTree).mockResolvedValue([{
+      itemId: 100, name: 'Root', icon: '', amount: 1, recipeId: 10,
+      children: [{
+        itemId: 50, name: 'Inter', icon: '', amount: 10, recipeId: 5,
+        children: [{ itemId: 1, name: 'Raw', icon: '', amount: 20 }],
+      }],
+    }])
+    vi.mocked(computeOptimalCosts).mockReturnValue({
+      totalCost: 0,
+      decisions: [{
+        itemId: 50, name: 'Inter', icon: '', amount: 10,
+        buyCost: 10000, craftCost: 6000, optimalCost: 6000,
+        savingsRatio: 0.4, recommendation: 'craft',
+      }],
+    })
+    vi.mocked(findRecipesByItemName).mockResolvedValue([{ recipeId: 5, job: 'CRP' }])
+    vi.mocked(getRecipe).mockResolvedValue({
+      id: 5, itemId: 50, name: 'Inter', icon: '', job: 'CRP',
+      level: 90, stars: 0, canHq: true, materialQualityFactor: 50,
+      ingredients: [{ itemId: 1, name: 'Raw', icon: '', amount: 2, canHq: false, level: 1 }],
+      recipeLevelTable: {
+        classJobLevel: 90, stars: 0, difficulty: 1000, quality: 2000, durability: 70,
+        suggestedCraftsmanship: 0, progressDivider: 100, qualityDivider: 100,
+        progressModifier: 100, qualityModifier: 100,
+      },
+    } as any)
+    const result = await produceSelfCraftCandidates({
+      recipesToCraft: [{
+        recipe: { id: 10, itemId: 100, name: 'Root', icon: '', job: 'CRP', level: 100 } as any,
+        quantity: 1, actions: [], hqAmounts: [], initialQuality: 0,
+        isDoubleMax: true, materials: [], qualityDeficit: 0,
+      }],
+      priceMap: new Map(),
+      getGearset: () => ({ level: 80, craftsmanship: 3000, control: 3000, cp: 500 }), // below 90
+      maxDepth: 2,
+      buffs: undefined,
+      optimizeRecipe: vi.fn() as any,
+      onProgress: () => {},
+      isCancelled: () => false,
+    })
+    expect(result).toEqual([])
+  })
 })
