@@ -102,6 +102,7 @@ export const useBatchStore = defineStore('batch', () => {
   const results = ref<BatchResults | null>(null)
   const checkedShoppingKeys = ref(new Set<string>())
   const selectedSelfCraftIds = ref<Set<number>>(new Set())
+  const doneSelfCraftIds = ref<Set<number>>(new Set())
 
   const foodId = ref<number | null>(null)
   const foodIsHq = ref(true)
@@ -174,6 +175,7 @@ export const useBatchStore = defineStore('batch', () => {
     results.value = null
     checkedShoppingKeys.value = new Set()
     selectedSelfCraftIds.value = new Set()
+    doneSelfCraftIds.value = new Set()
   }
 
   const finalShoppingItems = computed(() => {
@@ -213,7 +215,7 @@ export const useBatchStore = defineStore('batch', () => {
         actions: c.actions,
         hqAmounts: c.hqAmounts,
         isSemiFinished: true,
-        done: false,
+        done: doneSelfCraftIds.value.has(c.itemId),
       })
     }
     // Sort semi-finished by depth descending so deeper dependencies come first
@@ -243,6 +245,13 @@ export const useBatchStore = defineStore('batch', () => {
     selectedSelfCraftIds.value = new Set()
   }
 
+  function markSelfCraftDone(itemId: number, done: boolean) {
+    const next = new Set(doneSelfCraftIds.value)
+    if (done) next.add(itemId)
+    else next.delete(itemId)
+    doneSelfCraftIds.value = next
+  }
+
   function cancel() {
     isCancelled.value = true
   }
@@ -255,6 +264,7 @@ export const useBatchStore = defineStore('batch', () => {
     progress.value = defaultProgress()
     checkedShoppingKeys.value = new Set()
     selectedSelfCraftIds.value = new Set()
+    doneSelfCraftIds.value = new Set()
     foodId.value = null
     foodIsHq.value = true
     medicineId.value = null
@@ -286,10 +296,12 @@ export const useBatchStore = defineStore('batch', () => {
     toggleShoppingItem,
     isShoppingChecked,
     selectedSelfCraftIds,
+    doneSelfCraftIds,
     finalShoppingItems,
     finalTodoList,
     toggleSelfCraft,
     selectAllSelfCraft,
     clearSelfCraftSelection,
+    markSelfCraftDone,
   }
 })

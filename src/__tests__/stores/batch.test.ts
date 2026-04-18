@@ -186,4 +186,34 @@ describe('batch store finalTodoList', () => {
     expect(final[0].isSemiFinished).toBe(true)
     expect(final[1].recipe.id).toBe(10)
   })
+
+  it('markSelfCraftDone persists done state for semi-finished items', () => {
+    setActivePinia(createPinia())
+    const store = useBatchStore()
+
+    const interRecipe = { id: 5, itemId: 50, name: 'Lumber', icon: '', job: 'CRP' }
+
+    store.results = {
+      serverGroups: [], crystals: [],
+      selfCraftCandidates: [{
+        itemId: 50, name: 'Lumber', icon: '', amount: 10,
+        recipe: interRecipe as any, job: 'CRP',
+        buyCost: 10000, craftCost: 6000, savings: 4000, savingsRatio: 0.4,
+        actions: ['muscle_memory'], hqAmounts: [],
+        rawMaterials: [], hqRequired: false, depth: 1,
+      }],
+      todoList: [],
+      exceptions: [], buyFinishedItems: [], grandTotal: 0,
+      crossWorldCache: new Map(),
+    }
+
+    store.toggleSelfCraft(50)
+    expect(store.finalTodoList[0].done).toBe(false)
+
+    store.markSelfCraftDone(50, true)
+    expect(store.finalTodoList[0].done).toBe(true)
+
+    store.markSelfCraftDone(50, false)
+    expect(store.finalTodoList[0].done).toBe(false)
+  })
 })

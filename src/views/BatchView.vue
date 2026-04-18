@@ -154,16 +154,32 @@ function handleAddRecipe(recipe: import('@/stores/recipe').Recipe) {
 }
 
 function handleTodoDone(index: number, done: boolean) {
-  if (batchStore.results) {
-    batchStore.results.todoList[index].done = done
+  if (!batchStore.results) return
+  const item = batchStore.finalTodoList[index]
+  if (!item) return
+  if (item.isSemiFinished) {
+    batchStore.markSelfCraftDone(item.recipe.itemId, done)
+    return
   }
+  const semiCount = batchStore.finalTodoList.filter(i => i.isSemiFinished).length
+  const adjusted = index - semiCount
+  const target = batchStore.results.todoList[adjusted]
+  if (target) target.done = done
 }
 
 function handleTodoReorder(fromIndex: number, toIndex: number) {
   if (!batchStore.results) return
+  const semiCount = batchStore.finalTodoList.filter(i => i.isSemiFinished).length
+  // Disallow reordering that touches the semi-finished prefix — semi-finished
+  // items are ordered by dependency depth and must stay before the regular todos.
+  if (fromIndex < semiCount || toIndex < semiCount) return
   const list = batchStore.results.todoList
-  const [item] = list.splice(fromIndex, 1)
-  list.splice(toIndex, 0, item)
+  const adjustedFrom = fromIndex - semiCount
+  const adjustedTo = toIndex - semiCount
+  if (adjustedFrom < 0 || adjustedFrom >= list.length) return
+  if (adjustedTo < 0 || adjustedTo >= list.length) return
+  const [item] = list.splice(adjustedFrom, 1)
+  list.splice(adjustedTo, 0, item)
 }
 </script>
 
