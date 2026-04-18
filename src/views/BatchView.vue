@@ -225,15 +225,22 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
 
       <!-- Section 1: 準備清單 -->
       <section ref="sectionPrepare" class="batch-section" :class="{ 'batch-section--collapsed': isSectionCollapsed(0) }">
-        <div class="section-header" :class="{ 'section-header--clickable': currentStep > 0 }" @click="currentStep > 0 ? toggleSection(0) : undefined">
-          <span class="section-step" :class="{ 'section-step--active': currentStep === 0, 'section-step--done': currentStep > 0 }">
+        <component
+          :is="currentStep > 0 ? 'button' : 'div'"
+          type="button"
+          class="section-header"
+          :class="{ 'section-header--clickable': currentStep > 0 }"
+          :aria-expanded="currentStep > 0 ? !isSectionCollapsed(0) : undefined"
+          @click="currentStep > 0 ? toggleSection(0) : undefined"
+        >
+          <span class="section-step" :class="{ 'section-step--active': currentStep === 0, 'section-step--done': currentStep > 0 }" aria-hidden="true">
             <template v-if="currentStep > 0">✓</template>
             <template v-else>1</template>
           </span>
           <h3 class="section-title">準備清單</h3>
           <span class="section-desc">{{ currentStep > 0 ? `${batchStore.targets.length} 個配方` : '加入要製作的配方並設定計算參數' }}</span>
           <span v-if="currentStep > 0" class="section-toggle">{{ isSectionCollapsed(0) ? '展開' : '收起' }}</span>
-        </div>
+        </component>
         <div v-if="!isSectionCollapsed(0)" class="prepare-grid">
           <div class="prepare-main">
             <BatchList @open-search="sidebarOpen = true" />
@@ -258,7 +265,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
       <!-- Section 2: 計算進度 -->
       <section v-if="batchStore.isRunning" ref="sectionProgress" class="batch-section">
         <div class="section-header">
-          <span class="section-step section-step--active">2</span>
+          <span class="section-step section-step--active" aria-hidden="true">2</span>
           <h3 class="section-title">計算最佳化</h3>
           <span class="section-desc">正在求解最佳製作方案與查價</span>
         </div>
@@ -267,8 +274,15 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
 
       <!-- Section 3: 採購材料 -->
       <section v-if="batchStore.results" ref="sectionShopping" class="batch-section" :class="{ 'batch-section--collapsed': isSectionCollapsed(2) }">
-        <div class="section-header" :class="{ 'section-header--clickable': currentStep > 2 }" @click="currentStep > 2 ? toggleSection(2) : undefined">
-          <span class="section-step" :class="{ 'section-step--active': currentStep === 2, 'section-step--done': currentStep > 2 }">
+        <component
+          :is="currentStep > 2 ? 'button' : 'div'"
+          type="button"
+          class="section-header"
+          :class="{ 'section-header--clickable': currentStep > 2 }"
+          :aria-expanded="currentStep > 2 ? !isSectionCollapsed(2) : undefined"
+          @click="currentStep > 2 ? toggleSection(2) : undefined"
+        >
+          <span class="section-step" :class="{ 'section-step--active': currentStep === 2, 'section-step--done': currentStep > 2 }" aria-hidden="true">
             <template v-if="currentStep > 2">✓</template>
             <template v-else>3</template>
           </span>
@@ -278,22 +292,21 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
             <el-text size="small" type="info" class="section-hint">點擊素材行可複製品名</el-text>
           </template>
           <span v-if="currentStep > 2" class="section-toggle">{{ isSectionCollapsed(2) ? '展開' : '收起' }}</span>
-        </div>
+        </component>
 
         <template v-if="!isSectionCollapsed(2)">
-          <el-card
+          <div
             v-if="batchStore.results.exceptions.length > 0"
-            shadow="never"
-            class="batch-card"
+            class="exception-block"
+            role="region"
+            aria-label="例外提示"
           >
-            <template #header>
-              <span class="card-title">
-                例外提示
-                <el-badge :value="batchStore.results.exceptions.length" :max="99" type="danger" />
-              </span>
-            </template>
+            <div class="exception-header">
+              <span class="exception-title">例外提示</span>
+              <el-badge :value="batchStore.results.exceptions.length" :max="99" type="danger" />
+            </div>
             <ExceptionList :exceptions="batchStore.results.exceptions" />
-          </el-card>
+          </div>
 
           <ShoppingList
             :crystals="batchStore.results.crystals"
@@ -309,7 +322,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
       <!-- Section 4: 製作待辦 -->
       <section v-if="batchStore.results" ref="sectionTodo" class="batch-section">
         <div class="section-header">
-          <span class="section-step" :class="{ 'section-step--active': currentStep === 3 }">4</span>
+          <span class="section-step" :class="{ 'section-step--active': currentStep === 3 }" aria-hidden="true">4</span>
           <h3 class="section-title">開始製作</h3>
           <span class="section-desc">依相依順序逐一完成製作</span>
         </div>
@@ -347,29 +360,28 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
             :recommendation="batchStore.results.buffRecommendation"
           />
 
-          <el-card
+          <div
             v-if="batchStore.results && batchStore.results.exceptions.length > 0"
-            shadow="never"
-            class="batch-card"
+            class="exception-block"
+            role="region"
+            aria-label="例外提示"
           >
-            <template #header>
-              <span class="card-title">
-                例外提示
-                <el-badge :value="batchStore.results.exceptions.length" :max="99" type="danger" />
-              </span>
-            </template>
+            <div class="exception-header">
+              <span class="exception-title">例外提示</span>
+              <el-badge :value="batchStore.results.exceptions.length" :max="99" type="danger" />
+            </div>
             <ExceptionList :exceptions="batchStore.results.exceptions" />
-          </el-card>
+          </div>
 
-          <el-card v-if="batchStore.results" shadow="never" class="batch-card">
-            <template #header>
-              <span class="card-title">製作待辦</span>
-            </template>
+          <div v-if="batchStore.results" class="classic-todo-block">
+            <div class="classic-todo-header">
+              <span class="classic-todo-title">製作待辦</span>
+            </div>
             <TodoList
               :items="batchStore.finalTodoList"
               @update:done="handleTodoDone"
             />
-          </el-card>
+          </div>
         </div>
 
         <div class="classic-right classic-right--empty" v-if="!batchStore.results">
@@ -380,22 +392,18 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
           />
         </div>
         <div v-if="batchStore.results" class="classic-right">
-          <el-card shadow="never">
-            <template #header>
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span class="card-title">採購清單</span>
-                <el-text size="small" type="info">點擊素材行可複製品名</el-text>
-              </div>
-            </template>
-            <ShoppingList
-              :crystals="batchStore.results.crystals"
-              :server-groups="batchStore.results.serverGroups"
-              :self-craft-candidates="batchStore.results.selfCraftCandidates"
-              :buy-finished-items="batchStore.results.buyFinishedItems"
-              :grand-total="batchStore.results.grandTotal"
-              :cross-world-cache="batchStore.results.crossWorldCache"
-            />
-          </el-card>
+          <div class="classic-shopping-header">
+            <span class="classic-shopping-title">採購清單</span>
+            <el-text size="small" type="info">點擊素材行可複製品名</el-text>
+          </div>
+          <ShoppingList
+            :crystals="batchStore.results.crystals"
+            :server-groups="batchStore.results.serverGroups"
+            :self-craft-candidates="batchStore.results.selfCraftCandidates"
+            :buy-finished-items="batchStore.results.buyFinishedItems"
+            :grand-total="batchStore.results.grandTotal"
+            :cross-world-cache="batchStore.results.crossWorldCache"
+          />
         </div>
       </div>
     </template>
@@ -430,6 +438,14 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
   align-items: center;
   gap: 12px;
   margin-bottom: 16px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  min-height: 44px;
 }
 
 .section-step {
@@ -448,9 +464,9 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
 }
 
 .section-step--active {
-  background: #e9c176;
+  background: var(--accent-gold);
   color: var(--el-bg-color);
-  border-color: #e9c176;
+  border-color: var(--accent-gold);
 }
 
 .section-title {
@@ -479,6 +495,11 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
 
 .section-header--clickable:hover {
   background: var(--el-fill-color-light);
+}
+
+.section-header--clickable:focus-visible {
+  outline: 2px solid var(--page-accent, var(--accent-gold));
+  outline-offset: 2px;
 }
 
 .batch-section--collapsed {
@@ -511,6 +532,52 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
 
 .batch-card {
   margin-bottom: 16px;
+}
+
+/* Exception block — flat, no nested card */
+.exception-block {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--el-color-danger-light-5, rgba(245, 108, 108, 0.25));
+  border-left: 3px solid var(--el-color-danger, #F56C6C);
+  border-radius: 6px;
+  background: rgba(245, 108, 108, 0.06);
+}
+
+.exception-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.exception-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+/* Classic layout sub-headers — also flat, no el-card */
+.classic-todo-block,
+.classic-right {
+  margin-bottom: 16px;
+}
+
+.classic-todo-header,
+.classic-shopping-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--el-border-color-light);
+}
+
+.classic-todo-title,
+.classic-shopping-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
 }
 
 /* Prepare section: single column by default */

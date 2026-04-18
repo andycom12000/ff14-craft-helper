@@ -104,6 +104,7 @@ async function selectItem(item: { id: number; itemId: number; name: string; icon
 
           <CrossWorldPriceDetail
             :data="worldPrices"
+            :compact="false"
             show-listing-count
             show-avg-price
             border

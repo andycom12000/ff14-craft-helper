@@ -137,6 +137,22 @@ watch(() => route.path, () => {
   --app-gather: #10B981;
   --app-gather-dim: rgba(16, 185, 129, 0.12);
 
+  /* Semantic accents — shared across features */
+  --accent-gold: #E9C176;
+  --accent-gold-dim: rgba(233, 193, 118, 0.14);
+  --buff-info: #A0CFFF;
+  --buff-info-bg: rgba(64, 158, 255, 0.08);
+  --buff-info-border: rgba(64, 158, 255, 0.2);
+
+  /* FFXIV crystal element palette */
+  --element-fire: #F87171;
+  --element-ice: #A78BFA;
+  --element-wind: #34D399;
+  --element-earth: #F472B6;
+  --element-lightning: #FBBF24;
+  --element-water: #60A5FA;
+  --element-default: #94A3B8;
+
   /* Page accent — overridden per view */
   --page-accent: var(--app-accent-light);
   --page-accent-dim: var(--app-accent-glow);

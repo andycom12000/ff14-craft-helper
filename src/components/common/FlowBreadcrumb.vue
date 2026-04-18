@@ -49,10 +49,10 @@ function handleClick(i: number, step: FlowStep) {
         }"
         @click="handleClick(i, step)"
       >
-        <span class="flow-icon">{{ i < currentIndex ? '✓' : step.icon }}</span>
+        <span class="flow-icon" aria-hidden="true">{{ i < currentIndex ? '✓' : step.icon }}</span>
         <span class="flow-label">{{ step.label }}</span>
       </button>
-      <span v-if="i < steps.length - 1" class="flow-arrow">›</span>
+      <span v-if="i < steps.length - 1" class="flow-arrow" aria-hidden="true">›</span>
     </template>
   </nav>
 </template>

@@ -41,7 +41,7 @@ async function copyName(name: string) {
 
 <template>
   <div class="buff-recommendation">
-    <span class="buff-icon">💡</span>
+    <span class="buff-icon" aria-hidden="true">💡</span>
     <div class="buff-body">
       <div class="buff-title">{{ hasEnabledRecipes ? '食物推薦' : '省錢小提示' }}</div>
 
@@ -56,24 +56,36 @@ async function copyName(name: string) {
       </div>
 
       <div class="buff-items">
-        <div v-if="recommendation.food" class="buff-item" @click="copyName(recommendation.food.buff.name)">
+        <button
+          v-if="recommendation.food"
+          type="button"
+          class="buff-item"
+          :aria-label="`複製食物名稱：${buffName(recommendation.food)}`"
+          @click="copyName(recommendation.food.buff.name)"
+        >
           <span class="buff-item-label">食物</span>
           <span class="buff-item-name">{{ buffName(recommendation.food) }}</span>
           <span v-if="recommendation.foodPrice?.server" class="buff-item-server">{{ recommendation.foodPrice.server }}</span>
           <span v-if="recommendation.foodPrice" class="buff-item-price">{{ formatGil(recommendation.foodPrice.price) }} Gil</span>
-          <span class="buff-item-copy" title="複製名稱">
+          <span class="buff-item-copy" aria-hidden="true">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           </span>
-        </div>
-        <div v-if="recommendation.medicine" class="buff-item" @click="copyName(recommendation.medicine.buff.name)">
+        </button>
+        <button
+          v-if="recommendation.medicine"
+          type="button"
+          class="buff-item"
+          :aria-label="`複製藥水名稱：${buffName(recommendation.medicine)}`"
+          @click="copyName(recommendation.medicine.buff.name)"
+        >
           <span class="buff-item-label">藥水</span>
           <span class="buff-item-name">{{ buffName(recommendation.medicine) }}</span>
           <span v-if="recommendation.medicinePrice?.server" class="buff-item-server">{{ recommendation.medicinePrice.server }}</span>
           <span v-if="recommendation.medicinePrice" class="buff-item-price">{{ formatGil(recommendation.medicinePrice.price) }} Gil</span>
-          <span class="buff-item-copy" title="複製名稱">
+          <span class="buff-item-copy" aria-hidden="true">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           </span>
-        </div>
+        </button>
       </div>
 
       <div v-if="hasEnabledRecipes" class="buff-enabled-list">
@@ -97,8 +109,8 @@ async function copyName(name: string) {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  background: rgba(64, 158, 255, 0.08);
-  border: 1px solid rgba(64, 158, 255, 0.2);
+  background: var(--buff-info-bg);
+  border: 1px solid var(--buff-info-border);
   border-radius: 8px;
   padding: 14px 18px;
   margin-bottom: 20px;
@@ -118,7 +130,7 @@ async function copyName(name: string) {
 .buff-title {
   font-size: 14px;
   font-weight: 600;
-  color: #a0cfff;
+  color: var(--buff-info);
   margin-bottom: 4px;
 }
 
@@ -128,7 +140,7 @@ async function copyName(name: string) {
 }
 
 .buff-name {
-  color: #e9c176;
+  color: var(--accent-gold);
 }
 
 .buff-items {
@@ -142,54 +154,67 @@ async function copyName(name: string) {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px;
+  width: 100%;
+  padding: 8px 10px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--el-fill-color-lighter);
+  border: 1px solid var(--el-border-color-light);
   cursor: pointer;
   transition: background 0.2s ease, border-color 0.2s ease;
   font-size: 13px;
+  font-family: inherit;
+  color: inherit;
+  text-align: left;
+  min-height: 36px;
 }
 
 .buff-item:hover {
-  background: var(--app-accent-glow, rgba(124, 58, 237, 0.2));
-  border-color: var(--app-accent, #7C3AED);
+  background: var(--app-accent-glow);
+  border-color: var(--app-accent);
+}
+
+.buff-item:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
 }
 
 .buff-item-label {
-  color: var(--app-text-muted, #94A3B8);
+  color: var(--el-text-color-secondary);
   font-size: 12px;
   min-width: 28px;
 }
 
 .buff-item-name {
-  color: #e9c176;
+  color: var(--accent-gold);
   font-weight: 500;
 }
 
 .buff-item-server {
   font-size: 11px;
-  color: var(--app-accent-light, #A78BFA);
-  background: rgba(124, 58, 237, 0.15);
+  color: var(--app-accent-light);
+  background: var(--app-accent-glow);
   padding: 1px 6px;
   border-radius: 4px;
   white-space: nowrap;
 }
 
 .buff-item-price {
-  color: var(--el-text-color-secondary);
+  color: var(--el-text-color-regular);
   font-size: 12px;
   margin-left: auto;
 }
 
 .buff-item-copy {
-  color: var(--app-text-muted, #94A3B8);
+  color: var(--el-text-color-placeholder);
   opacity: 0;
   transition: opacity 0.15s ease;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
 }
 
-.buff-item:hover .buff-item-copy {
+.buff-item:hover .buff-item-copy,
+.buff-item:focus-visible .buff-item-copy {
   opacity: 1;
 }
 
@@ -203,12 +228,12 @@ async function copyName(name: string) {
 }
 
 .buff-savings {
-  color: var(--app-success, #67c23a);
+  color: var(--app-success);
 }
 
 .buff-enabled-list {
   font-size: 13px;
-  color: var(--app-success, #67c23a);
+  color: var(--app-success);
   margin-top: 6px;
 }
 

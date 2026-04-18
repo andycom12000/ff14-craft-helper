@@ -57,18 +57,18 @@ watch(() => props.crossWorldCache, (cache) => {
 }, { immediate: true })
 
 // Crystal itemIds 2-19, repeating every 6: fire, ice, wind, earth, lightning, water
-const crystalColorsByElement = [
-  '#F87171', // fire
-  '#A78BFA', // ice
-  '#34D399', // wind
-  '#F472B6', // earth
-  '#FBBF24', // lightning
-  '#60A5FA', // water
+const crystalColorTokens = [
+  'var(--element-fire)',
+  'var(--element-ice)',
+  'var(--element-wind)',
+  'var(--element-earth)',
+  'var(--element-lightning)',
+  'var(--element-water)',
 ]
 
 function getCrystalColor(itemId: number): string {
-  if (itemId < 2 || itemId > 19) return '#94A3B8'
-  return crystalColorsByElement[(itemId - 2) % 6]
+  if (itemId < 2 || itemId > 19) return 'var(--element-default)'
+  return crystalColorTokens[(itemId - 2) % 6]
 }
 
 function handleExpand(row: MaterialWithPrice, expandedRows: MaterialWithPrice[]) {
@@ -79,19 +79,23 @@ function handleExpand(row: MaterialWithPrice, expandedRows: MaterialWithPrice[])
 
 const flashRowKey = ref<string | null>(null)
 
-function copyName(row: MaterialWithPrice, _col: unknown, event: Event) {
-  // Don't copy when clicking the expand arrow
-  const target = event.target as HTMLElement
-  if (target.closest('.el-table__expand-icon')) return
+function doCopy(row: MaterialWithPrice) {
   navigator.clipboard.writeText(row.name)
   ElMessage({ message: `已複製「${row.name}」`, type: 'success', duration: 1500 })
-
-  // Flash feedback
   const key = `${row.itemId}-${row.type}`
   flashRowKey.value = key
   nextTick(() => {
     setTimeout(() => { flashRowKey.value = null }, 300)
   })
+}
+
+function copyName(row: MaterialWithPrice, _col: unknown, event: Event) {
+  // Don't copy when clicking the expand arrow or the explicit copy button
+  const target = event.target as HTMLElement
+  if (target.closest('.el-table__expand-icon')) return
+  if (target.closest('.copy-btn')) return
+  if (target.closest('.el-checkbox')) return
+  doCopy(row)
 }
 
 function rowClassName({ row }: { row: MaterialWithPrice }) {
@@ -147,11 +151,12 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
             />
           </template>
         </el-table-column>
-        <el-table-column label="" width="40" align="center">
+        <el-table-column label="" width="44" align="center">
           <template #default="{ row }">
             <div @click.stop>
               <el-checkbox
                 :model-value="batchStore.isShoppingChecked(row.itemId, row.type, row.isFinishedProduct)"
+                :aria-label="`標記已採購：${row.name}`"
                 @change="() => batchStore.toggleShoppingItem(row.itemId, row.type, row.isFinishedProduct)"
               />
             </div>
@@ -159,12 +164,22 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
         </el-table-column>
         <el-table-column label="" width="36">
           <template #default="{ row }">
-            <img v-if="row.icon" :src="row.icon" :alt="row.name" class="material-icon" />
+            <img v-if="row.icon" :src="row.icon" alt="" aria-hidden="true" loading="lazy" decoding="async" class="material-icon" />
           </template>
         </el-table-column>
         <el-table-column label="素材" min-width="120">
           <template #default="{ row }">
-            <span>{{ row.name }}</span>
+            <span class="material-name-wrap">
+              <span class="material-name">{{ row.name }}</span>
+              <button
+                type="button"
+                class="copy-btn"
+                :aria-label="`複製品名：${row.name}`"
+                @click.stop="doCopy(row)"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </span>
             <template v-if="row.isFinishedProduct">
               <el-tag size="small" type="success" class="finished-badge">直購成品</el-tag>
               <div v-if="row.craftCostComparison" class="craft-compare-hint">
@@ -313,6 +328,50 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
   font-size: 11px;
   color: var(--el-text-color-secondary);
   margin-top: 2px;
+}
+
+.material-name-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--el-text-color-placeholder);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+}
+
+.material-name-wrap:hover .copy-btn,
+.clickable-rows :deep(.el-table__row):hover .copy-btn,
+.copy-btn:focus-visible {
+  opacity: 1;
+}
+
+.copy-btn:hover {
+  background: var(--el-fill-color);
+  color: var(--el-text-color-primary);
+}
+
+.copy-btn:focus-visible {
+  outline: 2px solid var(--page-accent, var(--accent-gold));
+  outline-offset: 1px;
+}
+
+@media (max-width: 768px) {
+  .copy-btn {
+    opacity: 1;
+  }
 }
 
 @container (min-width: 900px) {
