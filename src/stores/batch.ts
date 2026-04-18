@@ -101,6 +101,7 @@ export const useBatchStore = defineStore('batch', () => {
   const progress = ref(defaultProgress())
   const results = ref<BatchResults | null>(null)
   const checkedShoppingKeys = ref(new Set<string>())
+  const selectedSelfCraftIds = ref<Set<number>>(new Set())
 
   const foodId = ref<number | null>(null)
   const foodIsHq = ref(true)
@@ -172,6 +173,25 @@ export const useBatchStore = defineStore('batch', () => {
   function clearResults() {
     results.value = null
     checkedShoppingKeys.value = new Set()
+    selectedSelfCraftIds.value = new Set()
+  }
+
+  function toggleSelfCraft(itemId: number) {
+    const next = new Set(selectedSelfCraftIds.value)
+    if (next.has(itemId)) next.delete(itemId)
+    else next.add(itemId)
+    selectedSelfCraftIds.value = next
+  }
+
+  function selectAllSelfCraft() {
+    if (!results.value) return
+    selectedSelfCraftIds.value = new Set(
+      results.value.selfCraftCandidates.map(c => c.itemId),
+    )
+  }
+
+  function clearSelfCraftSelection() {
+    selectedSelfCraftIds.value = new Set()
   }
 
   function cancel() {
@@ -185,6 +205,7 @@ export const useBatchStore = defineStore('batch', () => {
     isRunning.value = false
     progress.value = defaultProgress()
     checkedShoppingKeys.value = new Set()
+    selectedSelfCraftIds.value = new Set()
     foodId.value = null
     foodIsHq.value = true
     medicineId.value = null
@@ -215,5 +236,9 @@ export const useBatchStore = defineStore('batch', () => {
     resetAll,
     toggleShoppingItem,
     isShoppingChecked,
+    selectedSelfCraftIds,
+    toggleSelfCraft,
+    selectAllSelfCraft,
+    clearSelfCraftSelection,
   }
 })

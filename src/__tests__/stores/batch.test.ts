@@ -68,3 +68,44 @@ describe('useBatchStore', () => {
     expect(store.progress).toEqual({ current: 0, total: 0, currentName: '', phase: 'idle', solverPercent: 0 })
   })
 })
+
+describe('batch store self-craft selection', () => {
+  it('starts with empty selection', () => {
+    setActivePinia(createPinia())
+    const store = useBatchStore()
+    expect(store.selectedSelfCraftIds.size).toBe(0)
+  })
+
+  it('toggleSelfCraft adds then removes id', () => {
+    setActivePinia(createPinia())
+    const store = useBatchStore()
+    store.toggleSelfCraft(123)
+    expect(store.selectedSelfCraftIds.has(123)).toBe(true)
+    store.toggleSelfCraft(123)
+    expect(store.selectedSelfCraftIds.has(123)).toBe(false)
+  })
+
+  it('selectAllSelfCraft selects every candidate id', () => {
+    setActivePinia(createPinia())
+    const store = useBatchStore()
+    store.results = {
+      serverGroups: [], crystals: [], todoList: [], exceptions: [],
+      buyFinishedItems: [], grandTotal: 0,
+      crossWorldCache: new Map(),
+      selfCraftCandidates: [
+        { itemId: 1 }, { itemId: 2 }, { itemId: 3 },
+      ] as any,
+    }
+    store.selectAllSelfCraft()
+    expect(store.selectedSelfCraftIds.size).toBe(3)
+  })
+
+  it('clearSelfCraftSelection empties the set', () => {
+    setActivePinia(createPinia())
+    const store = useBatchStore()
+    store.toggleSelfCraft(1)
+    store.toggleSelfCraft(2)
+    store.clearSelfCraftSelection()
+    expect(store.selectedSelfCraftIds.size).toBe(0)
+  })
+})
