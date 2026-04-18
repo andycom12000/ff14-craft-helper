@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { filterCandidatesByThreshold, filterCandidatesByLevel } from '@/services/self-craft-candidates'
+import { filterCandidatesByThreshold, filterCandidatesByLevel, walkTreeForCandidates } from '@/services/self-craft-candidates'
 import type { CostDecision } from '@/services/bom-calculator'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
+import type { MaterialNode } from '@/stores/bom'
 
 describe('filterCandidatesByThreshold', () => {
   it('keeps decisions with savingsRatio >= 0.05 and recommendation=craft', () => {
@@ -41,5 +42,44 @@ describe('filterCandidatesByLevel', () => {
     }
     const filtered = filterCandidatesByLevel(candidates, getGearset)
     expect(filtered.map(c => c.itemId)).toEqual([1]) // CRP 90 ≥ 80 ✓, BSM 80 < 90 ✗, CRP 90 < 100 ✗
+  })
+})
+
+describe('walkTreeForCandidates', () => {
+  it('emits craftable intermediate nodes with depth', () => {
+    const tree: MaterialNode[] = [
+      {
+        itemId: 100, name: 'Product', icon: '', amount: 1, recipeId: 10,
+        children: [
+          {
+            itemId: 50, name: 'Lumber', icon: '', amount: 10, recipeId: 5,
+            children: [
+              { itemId: 1, name: 'Log', icon: '', amount: 20 },
+            ],
+          },
+          { itemId: 2, name: 'Leaf', icon: '', amount: 5 }, // raw, no children
+        ],
+      },
+    ]
+    const nodes = walkTreeForCandidates(tree)
+    expect(nodes.map(n => n.itemId)).toEqual([50]) // only intermediates
+    expect(nodes[0].depth).toBe(1) // 1 layer below batch root
+  })
+
+  it('skips collapsed nodes', () => {
+    const tree: MaterialNode[] = [
+      {
+        itemId: 100, name: 'P', icon: '', amount: 1, recipeId: 10,
+        children: [
+          {
+            itemId: 50, name: 'Intermediate', icon: '', amount: 1, recipeId: 5,
+            collapsed: true,
+            children: [{ itemId: 1, name: 'Raw', icon: '', amount: 1 }],
+          },
+        ],
+      },
+    ]
+    const nodes = walkTreeForCandidates(tree)
+    expect(nodes).toHaveLength(0)
   })
 })
