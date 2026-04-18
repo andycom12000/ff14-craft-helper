@@ -150,6 +150,59 @@ describe('batch store finalShoppingItems', () => {
     expect(final.find(i => i.itemId === 60)).toBeDefined()
   })
 
+  it('merges duplicate rawMaterials across multiple selected candidates', () => {
+    setActivePinia(createPinia())
+    const store = useBatchStore()
+
+    store.results = {
+      serverGroups: [{
+        server: 'Local', subtotal: 0,
+        items: [
+          { itemId: 100, name: 'Flower', icon: '', amount: 3, type: 'nq', unitPrice: 50, server: 'Local' },
+        ],
+      }],
+      crystals: [],
+      selfCraftCandidates: [
+        {
+          itemId: 50, name: 'Potion', icon: '', amount: 1,
+          recipe: { job: 'ALC' } as any, job: 'ALC',
+          buyCost: 0, craftCost: 0, savings: 0, savingsRatio: 0,
+          actions: [], hqAmounts: [],
+          rawMaterials: [
+            { itemId: 100, name: 'Flower', icon: '', amount: 2, type: 'nq', unitPrice: 50, server: 'Local' },
+            { itemId: 200, name: 'Water', icon: '', amount: 4, type: 'nq', unitPrice: 10, server: 'Local' },
+          ],
+          hqRequired: false, depth: 1,
+        },
+        {
+          itemId: 51, name: 'Leather', icon: '', amount: 1,
+          recipe: { job: 'LTW' } as any, job: 'LTW',
+          buyCost: 0, craftCost: 0, savings: 0, savingsRatio: 0,
+          actions: [], hqAmounts: [],
+          rawMaterials: [
+            { itemId: 100, name: 'Flower', icon: '', amount: 2, type: 'nq', unitPrice: 50, server: 'Local' },
+            { itemId: 200, name: 'Water', icon: '', amount: 4, type: 'nq', unitPrice: 10, server: 'Local' },
+          ],
+          hqRequired: false, depth: 1,
+        },
+      ],
+      todoList: [],
+      exceptions: [], buyFinishedItems: [], grandTotal: 0,
+      crossWorldCache: new Map(),
+    }
+
+    store.toggleSelfCraft(50)
+    store.toggleSelfCraft(51)
+    const final = store.finalShoppingItems
+
+    // Flower: 3 (serverGroups) + 2 + 2 (two candidates) = 7 — one row
+    // Water: 4 + 4 (two candidates) = 8 — one row
+    expect(final.filter(i => i.itemId === 100)).toHaveLength(1)
+    expect(final.find(i => i.itemId === 100)?.amount).toBe(7)
+    expect(final.filter(i => i.itemId === 200)).toHaveLength(1)
+    expect(final.find(i => i.itemId === 200)?.amount).toBe(8)
+  })
+
   it('routes crystals from selected candidates into finalCrystals, not finalShoppingItems', () => {
     setActivePinia(createPinia())
     const store = useBatchStore()

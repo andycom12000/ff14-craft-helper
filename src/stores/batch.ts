@@ -183,10 +183,21 @@ export const useBatchStore = defineStore('batch', () => {
     if (!results.value) return [] as ShoppingItem[]
     const selected = selectedSelfCraftIds.value
 
-    const kept: ShoppingItem[] = []
+    // Aggregate by (itemId, type, server) so the same material needed by
+    // multiple selected candidates (or by candidates + remaining targets)
+    // shows as one row with a summed amount.
+    const merged = new Map<string, ShoppingItem>()
+    const key = (i: ShoppingItem) => `${i.itemId}|${i.type}|${i.server ?? ''}`
+    const push = (item: ShoppingItem) => {
+      const k = key(item)
+      const existing = merged.get(k)
+      if (existing) existing.amount += item.amount
+      else merged.set(k, { ...item })
+    }
+
     for (const g of results.value.serverGroups) {
       for (const item of g.items) {
-        if (!selected.has(item.itemId)) kept.push(item)
+        if (!selected.has(item.itemId)) push(item)
       }
     }
 
@@ -195,10 +206,10 @@ export const useBatchStore = defineStore('batch', () => {
       if (!selected.has(c.itemId)) continue
       for (const raw of c.rawMaterials) {
         if (isCrystal(raw.itemId)) continue
-        kept.push(raw)
+        push(raw)
       }
     }
-    return kept
+    return Array.from(merged.values())
   })
 
   const finalCrystals = computed<CrystalSummary[]>(() => {
