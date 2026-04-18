@@ -111,8 +111,6 @@ interface ProduceArgs {
 
 export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<SelfCraftCandidate[]> {
   const { recipesToCraft, priceMap, getGearset, maxDepth, buffs, optimizeRecipe, onProgress, isCancelled } = args
-  // Referenced to satisfy noUnusedLocals in skeleton; fully consumed in Task 12.
-  void buffs; void optimizeRecipe; void onProgress
 
   if (recipesToCraft.length === 0) return []
 
@@ -176,5 +174,51 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
   if (isCancelled()) return []
 
   // Step 7: solver validation (Task 12)
-  return []
+  // Build a map of parent HQ requirements: itemId → whether any parent requires HQ of this material
+  const hqRequiredMap = new Map<number, boolean>()
+  for (const r of recipesToCraft) {
+    for (let i = 0; i < r.materials.length; i++) {
+      if ((r.hqAmounts[i] ?? 0) > 0) hqRequiredMap.set(r.materials[i].itemId, true)
+    }
+  }
+
+  const candidates: SelfCraftCandidate[] = []
+  for (let i = 0; i < withRecipes.length; i++) {
+    if (isCancelled()) return candidates
+    const { decision, node, recipe, job } = withRecipes[i]
+    onProgress({ current: i + 1, total: withRecipes.length, name: recipe.name })
+
+    const gs = getGearset(job)!
+    const hqRequired = hqRequiredMap.get(decision.itemId) === true
+
+    let optResult: RecipeOptimizeResult
+    try {
+      optResult = await optimizeRecipe(recipe, gs, undefined, buffs)
+    } catch (err) {
+      console.warn(`[self-craft] solver failed for ${recipe.name}:`, err)
+      continue
+    }
+
+    if (hqRequired && !optResult.isDoubleMax) continue
+
+    candidates.push({
+      itemId: decision.itemId,
+      name: decision.name,
+      icon: decision.icon,
+      amount: decision.amount,
+      recipe,
+      job,
+      buyCost: decision.buyCost,
+      craftCost: decision.craftCost,
+      savings: decision.buyCost - decision.craftCost,
+      savingsRatio: decision.savingsRatio,
+      actions: optResult.actions,
+      hqAmounts: optResult.hqAmounts,
+      rawMaterials: computeRawMaterials(node.childNodes),
+      hqRequired,
+      depth: node.depth,
+    })
+  }
+
+  return candidates
 }

@@ -183,4 +183,69 @@ describe('produceSelfCraftCandidates', () => {
     })
     expect(result).toEqual([])
   })
+
+  it('returns a candidate when all filters pass and solver achieves required quality', async () => {
+    vi.mocked(buildMaterialTree).mockResolvedValue([{
+      itemId: 100, name: 'Root', icon: '', amount: 1, recipeId: 10,
+      children: [{
+        itemId: 50, name: 'Inter', icon: '', amount: 10, recipeId: 5,
+        children: [{ itemId: 1, name: 'Raw', icon: '', amount: 20 }],
+      }],
+    }])
+    vi.mocked(computeOptimalCosts).mockReturnValue({
+      totalCost: 0,
+      decisions: [{
+        itemId: 50, name: 'Inter', icon: '', amount: 10,
+        buyCost: 10000, craftCost: 6000, optimalCost: 6000,
+        savingsRatio: 0.4, recommendation: 'craft',
+      }],
+    })
+    vi.mocked(findRecipesByItemName).mockResolvedValue([{ recipeId: 5, job: 'CRP' }])
+    const mockRecipe = {
+      id: 5, itemId: 50, name: 'Inter', icon: '', job: 'CRP',
+      level: 80, stars: 0, canHq: true, materialQualityFactor: 50,
+      ingredients: [{ itemId: 1, name: 'Raw', icon: '', amount: 2, canHq: false, level: 1 }],
+      recipeLevelTable: {
+        classJobLevel: 80, stars: 0, difficulty: 1000, quality: 2000, durability: 70,
+        suggestedCraftsmanship: 0, progressDivider: 100, qualityDivider: 100,
+        progressModifier: 100, qualityModifier: 100,
+      },
+    }
+    vi.mocked(getRecipe).mockResolvedValue(mockRecipe as any)
+    const mockOptimizeRecipe = vi.fn().mockResolvedValue({
+      recipe: mockRecipe,
+      quantity: 1,
+      actions: ['muscle_memory', 'groundwork'],
+      hqAmounts: [],
+      initialQuality: 0,
+      isDoubleMax: true,
+      materials: [{ itemId: 1, name: 'Raw', icon: '', amount: 2 }],
+      qualityDeficit: 0,
+    })
+
+    const parentResult = {
+      recipe: { id: 10, itemId: 100, name: 'Root', icon: '', job: 'CRP', level: 90 } as any,
+      quantity: 1, actions: [], hqAmounts: [2, 0], initialQuality: 0,
+      isDoubleMax: false,
+      materials: [{ itemId: 50, name: 'Inter', icon: '', amount: 10 }],
+      qualityDeficit: 0,
+    }
+    const result = await produceSelfCraftCandidates({
+      recipesToCraft: [parentResult as any],
+      priceMap: new Map(),
+      getGearset: () => ({ level: 90, craftsmanship: 4000, control: 3800, cp: 600 }),
+      maxDepth: 2,
+      buffs: undefined,
+      optimizeRecipe: mockOptimizeRecipe as any,
+      onProgress: () => {},
+      isCancelled: () => false,
+    })
+
+    expect(result).toHaveLength(1)
+    expect(result[0].itemId).toBe(50)
+    expect(result[0].actions).toEqual(['muscle_memory', 'groundwork'])
+    expect(result[0].hqRequired).toBe(true) // parent hqAmounts[0] = 2 > 0
+    expect(result[0].rawMaterials).toEqual([{ itemId: 1, name: 'Raw', icon: '', amount: 20 }])
+    expect(result[0].savings).toBe(4000) // 10000 - 6000
+  })
 })
