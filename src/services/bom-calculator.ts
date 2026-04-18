@@ -12,6 +12,7 @@ const recipeByItemCache = new Map<number, { recipeId: number; job: string } | nu
 const RAW_ITEM_ID_THRESHOLD = 20
 
 const DEFAULT_RECURSION_DEPTH = 10
+/** Minimum fractional savings (buyCost → craftCost) for a node to qualify as a self-craft candidate. */
 export const SELF_CRAFT_SAVINGS_THRESHOLD = 0.05
 
 /**

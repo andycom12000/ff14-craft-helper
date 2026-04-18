@@ -278,13 +278,14 @@ describe('computeOptimalCosts', () => {
   })
 })
 
-describe('buildMaterialTree maxDepth', () => {
-  it('respects maxDepth parameter and stops expansion at limit', async () => {
-    // Mock xivapi via module replacement is heavy — instead we assert the
-    // exported constant and function signature by importing the module.
+describe('buildMaterialTree signature and exports', () => {
+  it('exports buildMaterialTree as a function', async () => {
     const mod = await import('@/services/bom-calculator')
     expect(typeof mod.buildMaterialTree).toBe('function')
-    // buildMaterialTree should accept (targets, maxDepth?: number)
-    expect(mod.buildMaterialTree.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('exports SELF_CRAFT_SAVINGS_THRESHOLD at 0.05', async () => {
+    const mod = await import('@/services/bom-calculator')
+    expect(mod.SELF_CRAFT_SAVINGS_THRESHOLD).toBe(0.05)
   })
 })
