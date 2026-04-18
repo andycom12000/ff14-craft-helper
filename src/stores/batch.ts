@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import type { Recipe } from '@/stores/recipe'
-import type { MaterialWithPrice as ShoppingItem, ServerGroup, CrystalSummary } from '@/services/shopping-list'
+import type { MaterialWithPrice as ShoppingItem, ServerGroup, CrystalSummary, MaterialBase } from '@/services/shopping-list'
 import type { WorldPriceSummary } from '@/api/universalis'
 import type { FoodBuff } from '@/engine/food-medicine'
 
@@ -39,6 +39,24 @@ export interface BuyFinishedDecision {
   buyServer?: string
 }
 
+export interface SelfCraftCandidate {
+  itemId: number
+  name: string
+  icon: string
+  amount: number
+  recipe: Recipe
+  job: string
+  buyCost: number
+  craftCost: number
+  savings: number
+  savingsRatio: number
+  actions: string[]
+  hqAmounts: number[]
+  rawMaterials: MaterialBase[]
+  hqRequired: boolean
+  depth: number
+}
+
 export interface BuffPriceInfo {
   price: number
   server?: string
@@ -59,7 +77,7 @@ export interface BuffRecommendation {
 export interface BatchResults {
   serverGroups: ServerGroup[]
   crystals: CrystalSummary[]
-  selfCraftItems: ShoppingItem[]
+  selfCraftCandidates: SelfCraftCandidate[]
   todoList: TodoItem[]
   exceptions: BatchException[]
   buyFinishedItems: BuyFinishedDecision[]
@@ -96,7 +114,6 @@ export const useBatchStore = defineStore('batch', () => {
     for (const g of results.value.serverGroups) {
       for (const item of g.items) keys.add(shoppingKey(item.itemId, item.type, item.isFinishedProduct))
     }
-    for (const item of results.value.selfCraftItems) keys.add(shoppingKey(item.itemId, item.type))
     return keys.size
   })
 
