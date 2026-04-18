@@ -201,6 +201,30 @@ export const useBatchStore = defineStore('batch', () => {
     return kept
   })
 
+  const finalTodoList = computed<TodoItem[]>(() => {
+    if (!results.value) return []
+    const selected = selectedSelfCraftIds.value
+    const semiFinished: TodoItem[] = []
+    for (const c of results.value.selfCraftCandidates) {
+      if (!selected.has(c.itemId)) continue
+      semiFinished.push({
+        recipe: c.recipe,
+        quantity: c.amount,
+        actions: c.actions,
+        hqAmounts: c.hqAmounts,
+        isSemiFinished: true,
+        done: false,
+      })
+    }
+    // Sort semi-finished by depth descending so deeper dependencies come first
+    semiFinished.sort((a, b) => {
+      const da = results.value!.selfCraftCandidates.find(c => c.itemId === a.recipe.itemId)?.depth ?? 0
+      const db = results.value!.selfCraftCandidates.find(c => c.itemId === b.recipe.itemId)?.depth ?? 0
+      return db - da
+    })
+    return [...semiFinished, ...results.value.todoList]
+  })
+
   function toggleSelfCraft(itemId: number) {
     const next = new Set(selectedSelfCraftIds.value)
     if (next.has(itemId)) next.delete(itemId)
@@ -263,6 +287,7 @@ export const useBatchStore = defineStore('batch', () => {
     isShoppingChecked,
     selectedSelfCraftIds,
     finalShoppingItems,
+    finalTodoList,
     toggleSelfCraft,
     selectAllSelfCraft,
     clearSelfCraftSelection,

@@ -150,3 +150,40 @@ describe('batch store finalShoppingItems', () => {
     expect(final.find(i => i.itemId === 60)).toBeDefined()
   })
 })
+
+describe('batch store finalTodoList', () => {
+  it('prepends semi-finished todos from selected candidates', () => {
+    setActivePinia(createPinia())
+    const store = useBatchStore()
+
+    const parentRecipe = { id: 10, itemId: 100, name: 'Chair', icon: '', job: 'CRP' }
+    const interRecipe = { id: 5, itemId: 50, name: 'Lumber', icon: '', job: 'CRP' }
+
+    store.results = {
+      serverGroups: [], crystals: [],
+      selfCraftCandidates: [{
+        itemId: 50, name: 'Lumber', icon: '', amount: 10,
+        recipe: interRecipe as any, job: 'CRP',
+        buyCost: 10000, craftCost: 6000, savings: 4000, savingsRatio: 0.4,
+        actions: ['muscle_memory'], hqAmounts: [],
+        rawMaterials: [], hqRequired: false, depth: 1,
+      }],
+      todoList: [{
+        recipe: parentRecipe as any, quantity: 1, actions: ['careful_synthesis'],
+        hqAmounts: [], isSemiFinished: false, done: false,
+      }],
+      exceptions: [], buyFinishedItems: [], grandTotal: 0,
+      crossWorldCache: new Map(),
+    }
+
+    // Nothing selected: only the parent
+    expect(store.finalTodoList).toHaveLength(1)
+
+    store.toggleSelfCraft(50)
+    const final = store.finalTodoList
+    expect(final).toHaveLength(2)
+    expect(final[0].recipe.id).toBe(5) // semi-finished first
+    expect(final[0].isSemiFinished).toBe(true)
+    expect(final[1].recipe.id).toBe(10)
+  })
+})
