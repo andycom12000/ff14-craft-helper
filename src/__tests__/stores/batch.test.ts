@@ -109,3 +109,44 @@ describe('batch store self-craft selection', () => {
     expect(store.selectedSelfCraftIds.size).toBe(0)
   })
 })
+
+describe('batch store finalShoppingItems', () => {
+  it('removes selected candidate itemIds from serverGroups and adds rawMaterials', () => {
+    setActivePinia(createPinia())
+    const store = useBatchStore()
+
+    store.results = {
+      serverGroups: [{
+        server: 'Local',
+        subtotal: 15000,
+        items: [
+          { itemId: 50, name: 'Lumber', icon: '', amount: 10, type: 'nq', unitPrice: 1000, server: 'Local' },
+          { itemId: 60, name: 'Other', icon: '', amount: 5, type: 'nq', unitPrice: 1000, server: 'Local' },
+        ],
+      }],
+      crystals: [],
+      selfCraftCandidates: [{
+        itemId: 50, name: 'Lumber', icon: '', amount: 10,
+        recipe: { job: 'CRP' } as any, job: 'CRP',
+        buyCost: 10000, craftCost: 6000, savings: 4000, savingsRatio: 0.4,
+        actions: [], hqAmounts: [],
+        rawMaterials: [{ itemId: 1, name: 'Log', icon: '', amount: 20 }],
+        hqRequired: false, depth: 1,
+      }],
+      todoList: [],
+      exceptions: [], buyFinishedItems: [], grandTotal: 0,
+      crossWorldCache: new Map(),
+    }
+
+    // Nothing selected: no change
+    let final = store.finalShoppingItems
+    expect(final.length).toBe(2)
+
+    store.toggleSelfCraft(50)
+    final = store.finalShoppingItems
+    // Lumber removed, Log raw added, Other kept
+    expect(final.find(i => i.itemId === 50)).toBeUndefined()
+    expect(final.find(i => i.itemId === 1)).toMatchObject({ amount: 20, type: 'nq' })
+    expect(final.find(i => i.itemId === 60)).toBeDefined()
+  })
+})

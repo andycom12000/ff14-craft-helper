@@ -176,6 +176,31 @@ export const useBatchStore = defineStore('batch', () => {
     selectedSelfCraftIds.value = new Set()
   }
 
+  const finalShoppingItems = computed(() => {
+    if (!results.value) return [] as ShoppingItem[]
+    const selected = selectedSelfCraftIds.value
+    const removeIds = new Set(selected)
+
+    const kept: ShoppingItem[] = []
+    for (const g of results.value.serverGroups) {
+      for (const item of g.items) {
+        if (!removeIds.has(item.itemId)) kept.push(item)
+      }
+    }
+
+    // Append rawMaterials from selected candidates as NQ shopping items.
+    for (const c of results.value.selfCraftCandidates) {
+      if (!selected.has(c.itemId)) continue
+      for (const raw of c.rawMaterials) {
+        kept.push({
+          itemId: raw.itemId, name: raw.name, icon: raw.icon, amount: raw.amount,
+          type: 'nq', unitPrice: 0,
+        })
+      }
+    }
+    return kept
+  })
+
   function toggleSelfCraft(itemId: number) {
     const next = new Set(selectedSelfCraftIds.value)
     if (next.has(itemId)) next.delete(itemId)
@@ -237,6 +262,7 @@ export const useBatchStore = defineStore('batch', () => {
     toggleShoppingItem,
     isShoppingChecked,
     selectedSelfCraftIds,
+    finalShoppingItems,
     toggleSelfCraft,
     selectAllSelfCraft,
     clearSelfCraftSelection,
