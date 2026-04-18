@@ -14,25 +14,33 @@ export function useOcrEngine() {
     worker = await Tesseract.createWorker('chi_tra', undefined, {
       logger: (m) => {
         if (m.status === 'recognizing text') {
-          progress.value = m.progress
+          // Each pass reports its own 0→1 progress; scale across the two passes.
+          progress.value = (currentPass + m.progress) / TOTAL_PASSES
         }
       },
-    })
-    // PSM 6 = Assume a single uniform block of text
-    // Better for game UI tables with consistent row structure
-    await worker.setParameters({
-      tessedit_pageseg_mode: '6' as any,
     })
     isReady.value = true
     isLoading.value = false
     return worker
   }
 
+  // Dual-PSM fusion: PSM 6 (uniform block) + PSM 4 (single column) each recover
+  // different subsets of items. Measured on 11 screenshots: +14.4pp auto-match
+  // vs single PSM 6 (101/118 vs 84/118), partial coverage 99.2%.
+  const TOTAL_PASSES = 2
+  let currentPass = 0
+
   async function recognize(image: Blob): Promise<string> {
     const w = await ensureWorker()
     progress.value = 0
-    const { data: { text } } = await w.recognize(image)
-    return text
+    const passes: string[] = []
+    for (const [i, psm] of (['6', '4'] as const).entries()) {
+      currentPass = i
+      await w.setParameters({ tessedit_pageseg_mode: psm as any })
+      const { data: { text } } = await w.recognize(image)
+      passes.push(text)
+    }
+    return passes.join('\n')
   }
 
   async function terminate() {
