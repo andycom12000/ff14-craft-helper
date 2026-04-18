@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { formatMacros } from '@/services/macro-formatter'
 import { getJobName } from '@/utils/jobs'
 import { ElMessage } from 'element-plus'
@@ -16,6 +16,7 @@ const expandedMacro = ref<number | null>(null)
 const showDoneItems = ref(false)
 const dragIndex = ref<number | null>(null)
 const dropTargetIndex = ref<number | null>(null)
+const flashNameIndex = ref<number | null>(null)
 
 function onDragStart(index: number, event: DragEvent) {
   dragIndex.value = index
@@ -86,8 +87,14 @@ async function copyMacro(text: string) {
   copyText(text, '巨集')
 }
 
-async function copyRecipeName(name: string) {
+async function copyRecipeName(name: string, index?: number) {
   copyText(name, `「${name}」`)
+  if (index !== undefined) {
+    flashNameIndex.value = index
+    nextTick(() => {
+      setTimeout(() => { flashNameIndex.value = null }, 300)
+    })
+  }
 }
 
 function toggleDone(index: number) {
@@ -127,14 +134,22 @@ function resetAll() {
             <el-checkbox :model-value="item.done" @update:model-value="() => toggleDone(index)" />
             <span class="todo-num">{{ index + 1 }}</span>
             <div class="todo-info">
-              <div class="todo-name">
+              <div class="todo-name" :class="{ 'name-flash': flashNameIndex === index }">
                 <img
                   v-if="item.recipe.icon"
                   :src="item.recipe.icon"
                   :alt="item.recipe.name"
                   class="todo-icon"
                 />
-                {{ item.recipe.name }}
+                <span
+                  class="todo-name-text"
+                  role="button"
+                  tabindex="0"
+                  :aria-label="`複製品名：${item.recipe.name}`"
+                  @click.stop="copyRecipeName(item.recipe.name, index)"
+                  @keydown.enter.stop.prevent="copyRecipeName(item.recipe.name, index)"
+                  @keydown.space.stop.prevent="copyRecipeName(item.recipe.name, index)"
+                >{{ item.recipe.name }}</span>
               </div>
               <div class="todo-meta">
                 x{{ item.quantity }} |
@@ -171,20 +186,29 @@ function resetAll() {
         <el-checkbox :model-value="item.done" @update:model-value="() => toggleDone(index)" />
         <span class="todo-num">{{ index + 1 }}</span>
         <div class="todo-info">
-          <div class="todo-name">
+          <div class="todo-name" :class="{ 'name-flash': flashNameIndex === index }">
             <img
               v-if="item.recipe.icon"
               :src="item.recipe.icon"
               :alt="item.recipe.name"
               class="todo-icon"
             />
-            {{ item.recipe.name }}
+            <span
+              class="todo-name-text"
+              role="button"
+              tabindex="0"
+              :aria-label="`複製品名：${item.recipe.name}`"
+              @click.stop="copyRecipeName(item.recipe.name, index)"
+              @keydown.enter.stop.prevent="copyRecipeName(item.recipe.name, index)"
+              @keydown.space.stop.prevent="copyRecipeName(item.recipe.name, index)"
+            >{{ item.recipe.name }}</span>
             <el-button
               :icon="DocumentCopy"
               size="small"
               text
               class="copy-name-btn"
-              @click.stop="copyRecipeName(item.recipe.name)"
+              :aria-label="`複製品名：${item.recipe.name}`"
+              @click.stop="copyRecipeName(item.recipe.name, index)"
             />
           </div>
           <div class="todo-meta">
@@ -333,8 +357,13 @@ function resetAll() {
   opacity: 0.55;
 }
 
-.todo-item--done .todo-name {
+.todo-item--done .todo-name-text {
   text-decoration: line-through;
+}
+
+.todo-item--done .todo-name-text:hover {
+  text-decoration: line-through underline;
+  text-decoration-style: dotted;
 }
 
 .todo-row {
@@ -363,6 +392,30 @@ function resetAll() {
   display: flex;
   align-items: center;
   gap: 4px;
+  border-radius: 4px;
+  padding: 2px 4px;
+  margin-left: -4px;
+  transition: background-color 0.3s;
+}
+
+.todo-name-text {
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.todo-name-text:hover {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+.todo-name-text:focus-visible {
+  outline: 2px solid var(--app-accent, #7C3AED);
+  outline-offset: 2px;
+}
+
+.todo-name.name-flash {
+  background-color: var(--app-accent-glow);
 }
 
 .todo-icon {
