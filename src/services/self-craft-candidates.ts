@@ -188,7 +188,8 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
     const { decision, node, recipe, job } = withRecipes[i]
     onProgress({ current: i + 1, total: withRecipes.length, name: recipe.name })
 
-    const gs = getGearset(job)!
+    const gs = getGearset(job)
+    if (!gs) continue
     const hqRequired = hqRequiredMap.get(decision.itemId) === true
 
     let optResult: RecipeOptimizeResult
@@ -199,6 +200,12 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
       continue
     }
 
+    // optimizeRecipe does NOT throw when progress is unreachable; it returns whatever
+    // the solver found. Signals: isDoubleMax=true means both progress and quality are
+    // maxed; !isDoubleMax with hqAmounts.length===0 is batch-optimizer's "unachievable"
+    // signal (no HQ combination closes the quality gap). Mirror that here so crafts the
+    // solver could not complete aren't offered as self-craft candidates.
+    if (!optResult.isDoubleMax && optResult.hqAmounts.length === 0) continue
     if (hqRequired && !optResult.isDoubleMax) continue
 
     candidates.push({
