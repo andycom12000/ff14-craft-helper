@@ -3,20 +3,38 @@ import { ref, watch, triggerRef, computed, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { CrystalSummary, ServerGroup, MaterialWithPrice } from '@/services/shopping-list'
 import type { WorldPriceSummary } from '@/api/universalis'
-import type { BuyFinishedDecision } from '@/stores/batch'
+import type { BuyFinishedDecision, SelfCraftCandidate } from '@/stores/batch'
 import { useBatchStore } from '@/stores/batch'
 import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
 import CrossWorldPriceDetail from '@/components/common/CrossWorldPriceDetail.vue'
+import SelfCraftSuggestions from './SelfCraftSuggestions.vue'
 import { formatGil } from '@/utils/format'
 
 const props = defineProps<{
   crystals: CrystalSummary[]
   serverGroups: ServerGroup[]
-  selfCraftItems: MaterialWithPrice[]
+  selfCraftCandidates: SelfCraftCandidate[]
   buyFinishedItems: BuyFinishedDecision[]
   grandTotal: number
   crossWorldCache?: Map<number, WorldPriceSummary[]>
 }>()
+
+const batchStore = useBatchStore()
+const { crossWorldData, crossWorldLoading, fetchCrossWorldData } = useCrossWorldPricing()
+
+const effectiveServerGroups = computed<ServerGroup[]>(() => {
+  const items = batchStore.finalShoppingItems
+  if (items.length === 0) return props.serverGroups
+  const map = new Map<string, ServerGroup>()
+  for (const it of items) {
+    const server = it.server ?? '本伺服器'
+    if (!map.has(server)) map.set(server, { server, items: [], subtotal: 0 })
+    const g = map.get(server)!
+    g.items.push(it)
+    g.subtotal += it.unitPrice * it.amount
+  }
+  return [...map.values()]
+})
 
 const buyFinishedSavings = computed(() => {
   if (!props.buyFinishedItems.length) return null
@@ -24,9 +42,6 @@ const buyFinishedSavings = computed(() => {
     (sum, bf) => sum + (bf.craftCost - bf.buyPrice) * bf.quantity, 0)
   return { count: props.buyFinishedItems.length, totalSaved }
 })
-
-const batchStore = useBatchStore()
-const { crossWorldData, crossWorldLoading, fetchCrossWorldData } = useCrossWorldPricing()
 
 // Seed composable cache with pre-fetched data from batch optimizer
 watch(() => props.crossWorldCache, (cache) => {
@@ -89,6 +104,8 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
 
 <template>
   <div class="shopping-list" style="container-type: inline-size;">
+    <SelfCraftSuggestions :candidates="selfCraftCandidates" />
+
     <!-- Crystals -->
     <div v-if="crystals.length > 0" class="crystal-section">
       <el-text size="small" type="info" tag="div" class="section-label">水晶（不計入費用）</el-text>
@@ -112,7 +129,7 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
 
     <!-- Server groups -->
     <div class="server-grid">
-    <div v-for="group in serverGroups" :key="group.server" class="server-group">
+    <div v-for="group in effectiveServerGroups" :key="group.server" class="server-group">
       <div class="server-header">
         <div class="server-info">
           <el-tag type="primary" size="small">{{ group.server }}</el-tag>
@@ -175,34 +192,6 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
       </el-table>
     </div>
 
-    <!-- Self-craft -->
-    <div v-if="selfCraftItems.length > 0" class="server-group">
-      <div class="server-header">
-        <div class="server-info">
-          <el-tag type="success" size="small">需自行製作</el-tag>
-          <el-text size="small" type="info">{{ selfCraftItems.length }} 項素材</el-text>
-        </div>
-      </div>
-      <el-table :data="selfCraftItems" size="small" class="material-table clickable-rows" :row-class-name="rowClassName" @row-click="copyName">
-        <el-table-column label="" width="40" align="center">
-          <template #default="{ row }">
-            <div @click.stop>
-              <el-checkbox
-                :model-value="batchStore.isShoppingChecked(row.itemId, row.type, row.isFinishedProduct)"
-                @change="() => batchStore.toggleShoppingItem(row.itemId, row.type, row.isFinishedProduct)"
-              />
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="" width="36">
-          <template #default="{ row }">
-            <img v-if="row.icon" :src="row.icon" :alt="row.name" class="material-icon" />
-          </template>
-        </el-table-column>
-        <el-table-column label="素材" prop="name" />
-        <el-table-column label="數量" prop="amount" width="60" />
-      </el-table>
-    </div>
     </div>
 
     <!-- Shopping progress -->

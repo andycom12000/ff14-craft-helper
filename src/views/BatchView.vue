@@ -282,7 +282,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
           <ShoppingList
             :crystals="batchStore.results.crystals"
             :server-groups="batchStore.results.serverGroups"
-            :self-craft-items="batchStore.results.selfCraftItems"
+            :self-craft-candidates="batchStore.results.selfCraftCandidates"
             :buy-finished-items="batchStore.results.buyFinishedItems"
             :grand-total="batchStore.results.grandTotal"
             :cross-world-cache="batchStore.results.crossWorldCache"
@@ -374,7 +374,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
             <ShoppingList
               :crystals="batchStore.results.crystals"
               :server-groups="batchStore.results.serverGroups"
-              :self-craft-items="batchStore.results.selfCraftItems"
+              :self-craft-candidates="batchStore.results.selfCraftCandidates"
               :buy-finished-items="batchStore.results.buyFinishedItems"
               :grand-total="batchStore.results.grandTotal"
               :cross-world-cache="batchStore.results.crossWorldCache"
