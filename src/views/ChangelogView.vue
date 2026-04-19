@@ -1,5 +1,16 @@
 <script setup lang="ts">
-const changelog = [
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+
+type Tag = 'MAJOR' | 'MINOR' | 'PATCH'
+
+interface Entry {
+  version: string
+  date: string // YYYY-MM-DD
+  codename?: string
+  highlights: string[]
+}
+
+const changelog: Entry[] = [
   {
     version: 'v1.9.2',
     date: '2026-04-18',
@@ -20,6 +31,7 @@ const changelog = [
   {
     version: 'v1.9.0',
     date: '2026-04-18',
+    codename: 'Eorzean Codex',
     highlights: [
       '批量製作新增「自製建議」：系統自動評估哪些中間素材自製比購買划算，可勾選採用並自動更新購物清單與製作順序',
       '批量製作：半成品待辦會自動依相依順序排在正式配方之前，完成狀態獨立追蹤',
@@ -29,46 +41,25 @@ const changelog = [
       '截圖匯入效能優化：2x 上採樣 + 雙 PSM 融合，文字辨識更穩',
     ],
   },
+  { version: 'v1.8.11', date: '2026-04-14', highlights: ['製作模擬 tab 頂部新增批量製作提示橫幅，點擊可直接跳轉至批量製作頁面'] },
+  { version: 'v1.8.10', date: '2026-04-13', highlights: ['關閉配方搜尋對話框時自動清除搜尋結果，重新開啟不再殘留上次搜尋'] },
+  { version: 'v1.8.9', date: '2026-04-13', highlights: ['修正求解器：工匠等級高於配方等級時，進展/品質基礎值計算錯誤，導致產生的巨集在遊戲中提早完成製作'] },
   {
-    version: 'v1.8.11',
-    date: '2026-04-14',
-    highlights: [
-      '製作模擬 tab 頂部新增批量製作提示橫幅，點擊可直接跳轉至批量製作頁面',
-    ],
-  },
-  {
-    version: 'v1.8.10',
-    date: '2026-04-13',
-    highlights: [
-      '關閉配方搜尋對話框時自動清除搜尋結果，重新開啟不再殘留上次搜尋',
-    ],
-  },
-  {
-    version: 'v1.8.9',
-    date: '2026-04-13',
-    highlights: [
-      '修正求解器：工匠等級高於配方等級時，進展/品質基礎值計算錯誤，導致產生的巨集在遊戲中提早完成製作',
-    ],
-  },
-  {
-    version: 'v1.8.8',
-    date: '2026-04-05',
+    version: 'v1.8.8', date: '2026-04-05',
     highlights: [
       '配裝管理頁面重新設計：改為單欄列表佈局，8 個職業一頁可見，由上往下快速迭代',
       '配裝管理：每個輸入欄位加入 aria-label 提升無障礙體驗',
     ],
   },
   {
-    version: 'v1.8.7',
-    date: '2026-04-04',
+    version: 'v1.8.7', date: '2026-04-04',
     highlights: [
       '修正批量製作：職業等級不足或無法雙滿的配方改為購買時，採購清單現在會正確顯示該成品',
       '修正批量製作：直購成品（非半成品）時，現在會正確查詢 HQ 價格並標示為 HQ',
     ],
   },
   {
-    version: 'v1.8.6',
-    date: '2026-04-04',
+    version: 'v1.8.6', date: '2026-04-04',
     highlights: [
       '首頁新增「進行中」區塊：顯示批量製作待處理配方數、採集追蹤素材數，快速跳轉',
       '首頁新手指南改為可收合，狀態持久化，回訪使用者不再被佔用空間',
@@ -80,16 +71,14 @@ const changelog = [
     ],
   },
   {
-    version: 'v1.8.5',
-    date: '2026-03-25',
+    version: 'v1.8.5', date: '2026-03-25',
     highlights: [
       '批量製作製作清單（第一步）：新增拖曳排序功能，可在計算前自由調整配方順序',
       '批量製作準備清單（第四步）：新增拖曳排序功能，可自由調整製作順序',
     ],
   },
   {
-    version: 'v1.8.4',
-    date: '2026-03-24',
+    version: 'v1.8.4', date: '2026-03-24',
     highlights: [
       '批量製作食藥推薦：新增點擊複製名稱功能，方便在遊戲內搜尋',
       '批量製作食藥推薦：顯示最低價所在的伺服器名稱',
@@ -97,16 +86,14 @@ const changelog = [
     ],
   },
   {
-    version: 'v1.8.3',
-    date: '2026-03-24',
+    version: 'v1.8.3', date: '2026-03-24',
     highlights: [
       '設定頁新增「關於」區塊：顯示 App 資訊（版本號、技術棧、求解器）與作者資訊',
       'App 版本號改為從 git tag 動態注入，確保與實際發布版本一致',
     ],
   },
   {
-    version: 'v1.8.2',
-    date: '2026-03-24',
+    version: 'v1.8.2', date: '2026-03-24',
     highlights: [
       '配方搜尋內嵌化：製作模擬、材料清單、批量製作頁面均可直接搜尋配方，不再需要跳轉至獨立的配方選擇頁面',
       '統一配方搜尋元件（RecipeSearchSidebar），取代各頁面獨立的搜尋實作',
@@ -114,8 +101,7 @@ const changelog = [
     ],
   },
   {
-    version: 'v1.8.1',
-    date: '2026-03-23',
+    version: 'v1.8.1', date: '2026-03-23',
     highlights: [
       '修正小地圖座標標記：使用正確的 FF14 座標轉換公式，紅旗圖示精準標示採集位置',
       '修正拖曳小地圖會收合卡片的問題',
@@ -127,8 +113,7 @@ const changelog = [
     ],
   },
   {
-    version: 'v1.8.0',
-    date: '2026-03-23',
+    version: 'v1.8.0', date: '2026-03-23',
     highlights: [
       '新增「採集計時器」頁面：追蹤限時採集點（未知/傳說/刻限/隱藏），即時倒數、到點鬧鐘提醒',
       '全域 ET/LT 時鐘：側邊欄底部即時顯示艾歐澤亞時間與本地時間',
@@ -143,8 +128,7 @@ const changelog = [
     ],
   },
   {
-    version: 'v1.7.14',
-    date: '2026-03-22',
+    version: 'v1.7.14', date: '2026-03-22',
     highlights: [
       '修正食物推薦未涵蓋「品質因子為 0」的配方（如藥水類）：這類配方 HQ 素材無法提升品質，之前被歸類為「無法達成雙滿」後直接跳過，食物推薦看不到它們',
       '現在會自動評估食物/藥水 buff 是否能讓這些配方達成 HQ 品質，並顯示「食物推薦」卡片與可製作的配方清單',
@@ -152,8 +136,7 @@ const changelog = [
     ],
   },
   {
-    version: 'v1.7.13',
-    date: '2026-03-21',
+    version: 'v1.7.13', date: '2026-03-21',
     highlights: [
       '新增食物/藥水推薦功能：批量製作未選食藥時，自動評估食藥組合是否能取代 HQ 材料以節省成本',
       '推薦演算法使用模擬預篩 + solver 驗證，智慧過濾無效組合，僅在有效果且省錢時顯示「省錢小提示」卡片',
@@ -162,8 +145,7 @@ const changelog = [
     ],
   },
   {
-    version: 'v1.7.12',
-    date: '2026-03-21',
+    version: 'v1.7.12', date: '2026-03-21',
     highlights: [
       '修正食物/藥水資料全部錯誤的嚴重 bug：作業/加工精度搞反、百分比和上限值不正確，導致求解器產出在遊戲中無法完成的巨集',
       '移除非製作食物（懸掛番茄沙拉、蔬菜湯）——這些是戰鬥食物，不應出現在製作模擬器中',
@@ -173,8 +155,7 @@ const changelog = [
     ],
   },
   {
-    version: 'v1.7.11',
-    date: '2026-03-20',
+    version: 'v1.7.11', date: '2026-03-20',
     highlights: [
       '批量製作流程：已完成的步驟區塊（準備清單、採購材料）自動折疊，顯示 ✓ 與摘要，點擊可展開',
       '批量待辦清單：已完成的製作項目收進折疊區塊，保持視野清爽',
@@ -183,8 +164,7 @@ const changelog = [
     ],
   },
   {
-    version: 'v1.7.8',
-    date: '2026-03-19',
+    version: 'v1.7.8', date: '2026-03-19',
     highlights: [
       'OCR 前處理新增飽和度過濾：移除彩色物品圖示干擾，提升辨識精度',
       '修正模糊配對偏好較短候選的問題，同長度物品不再被錯誤跳過',
@@ -193,8 +173,7 @@ const changelog = [
     ],
   },
   {
-    version: 'v1.7.7',
-    date: '2026-03-19',
+    version: 'v1.7.7', date: '2026-03-19',
     highlights: [
       '修正 OCR 無法辨識含 HQ 圖示的籌備任務截圖：改用結構化分段解析取代脆弱的 0/60 正則',
       '新增純物品列表截圖支援：無 section header 或數量欄的截圖也能正確辨識',
@@ -202,8 +181,7 @@ const changelog = [
     ],
   },
   {
-    version: 'v1.7.6',
-    date: '2026-03-18',
+    version: 'v1.7.6', date: '2026-03-18',
     highlights: [
       '新增 OCR 截圖匯入：在批量清單貼上軍需品截圖，自動辨識物品名稱並配對配方',
       '批量待辦清單顯示 HQ 素材提示：標示每個配方需要的 HQ 材料及數量',
@@ -212,8 +190,7 @@ const changelog = [
     ],
   },
   {
-    version: 'v1.7.5',
-    date: '2026-03-17',
+    version: 'v1.7.5', date: '2026-03-17',
     highlights: [
       '批量製作清單右上角新增「全部清除」按鈕，一鍵重置所有配方與計算結果',
       '全部清除加入二次確認彈窗，防止誤觸',
@@ -223,8 +200,7 @@ const changelog = [
     ],
   },
   {
-    version: 'v1.7.4',
-    date: '2026-03-17',
+    version: 'v1.7.4', date: '2026-03-17',
     highlights: [
       '批量製作新增「直購成品 vs 自製」自動比價：直購較便宜時自動放入採購清單',
       '直購成品在採購清單中標記「直購成品」徽章，並顯示自製成本與節省金額',
@@ -233,8 +209,7 @@ const changelog = [
     ],
   },
   {
-    version: 'v1.7.3',
-    date: '2026-03-16',
+    version: 'v1.7.3', date: '2026-03-16',
     highlights: [
       '材料樹狀圖合併至製作價格樹：節點可直接切換製作/購買、加入模擬佇列',
       '水晶統整至卡片 header，不再佔據樹狀分支',
@@ -243,16 +218,14 @@ const changelog = [
     ],
   },
   {
-    version: 'v1.7.2',
-    date: '2026-03-16',
+    version: 'v1.7.2', date: '2026-03-16',
     highlights: [
       '新增 deploy-verify agent：推送 tag 後自動監控部署並截圖驗證 production',
       '新增 PostToolUse hook：偵測 tag push 後自動觸發部署驗證流程',
     ],
   },
   {
-    version: 'v1.7.1',
-    date: '2026-03-16',
+    version: 'v1.7.1', date: '2026-03-16',
     highlights: [
       '全站 UI/UX 改善：統一設計規範與視覺一致性',
       '採購清單：購買合計強調框、伺服器群組標頭美化、複製閃爍回饋',
@@ -265,8 +238,7 @@ const changelog = [
     ],
   },
   {
-    version: 'v1.7.0',
-    date: '2026-03-16',
+    version: 'v1.7.0', date: '2026-03-16',
     highlights: [
       '採購清單材料可展開查看跨服價格比較',
       '點擊素材行複製品名',
@@ -276,8 +248,7 @@ const changelog = [
     ],
   },
   {
-    version: 'v1.6.0',
-    date: '2026-03-16',
+    version: 'v1.6.0', date: '2026-03-16',
     highlights: [
       '批量製作功能：多配方一次計算最佳採購清單',
       '跨服採購：自動找出各素材最便宜的伺服器',
@@ -289,8 +260,7 @@ const changelog = [
     ],
   },
   {
-    version: 'v1.5.0',
-    date: '2026-03-15',
+    version: 'v1.5.0', date: '2026-03-15',
     highlights: [
       '統一使用 raphael-rs WASM 模擬引擎',
       '移除舊版 TypeScript 模擬函式',
@@ -298,8 +268,7 @@ const changelog = [
     ],
   },
   {
-    version: 'v1.4.0',
-    date: '2026-03-08',
+    version: 'v1.4.0', date: '2026-03-08',
     highlights: [
       '材料清單加入製作價格樹（買 vs 自製比較）',
       '最優成本計算：自動判斷每個半成品該買還是該做',
@@ -307,16 +276,11 @@ const changelog = [
     ],
   },
   {
-    version: 'v1.3.0',
-    date: '2026-03-08',
-    highlights: [
-      '求解結果跨分頁保持',
-      '材料清單整合 solver 結果',
-    ],
+    version: 'v1.3.0', date: '2026-03-08',
+    highlights: ['求解結果跨分頁保持', '材料清單整合 solver 結果'],
   },
   {
-    version: 'v1.2.0',
-    date: '2026-03-08',
+    version: 'v1.2.0', date: '2026-03-08',
     highlights: [
       '整合 raphael-rs WASM 最佳求解器',
       'HQ 材料最佳化推薦',
@@ -324,24 +288,16 @@ const changelog = [
     ],
   },
   {
-    version: 'v1.1.0',
-    date: '2026-03-07',
-    highlights: [
-      '改進 solver 策略（WasteNotII + PreparatoryTouch）',
-      '材料清單分列 NQ/HQ 最低價',
-    ],
+    version: 'v1.1.0', date: '2026-03-07',
+    highlights: ['改進 solver 策略（WasteNotII + PreparatoryTouch）', '材料清單分列 NQ/HQ 最低價'],
   },
   {
-    version: 'v1.0.0',
-    date: '2026-03-07',
-    highlights: [
-      '手機 RWD 響應式 layout',
-      '每個配方獨立模擬器狀態',
-    ],
+    version: 'v1.0.0', date: '2026-03-07',
+    codename: 'First Voyage',
+    highlights: ['手機 RWD 響應式 layout', '每個配方獨立模擬器狀態'],
   },
   {
-    version: 'v0.7.0',
-    date: '2026-03-06',
+    version: 'v0.7.0', date: '2026-03-06',
     highlights: [
       '模擬器完整分頁：初始品質、食物/藥水、技能開關、專家水晶',
       '進度 / 品質條移至分頁上方',
@@ -349,8 +305,8 @@ const changelog = [
     ],
   },
   {
-    version: 'v0.1.0',
-    date: '2026-03-06',
+    version: 'v0.1.0', date: '2026-03-06',
+    codename: 'Genesis',
     highlights: [
       '初版上線：配裝管理、配方搜尋、製作模擬、材料清單、市場查價',
       '遞迴子配方展開',
@@ -359,55 +315,475 @@ const changelog = [
     ],
   },
 ]
+
+function tagOf(version: string): Tag {
+  const v = version.replace(/^v/, '').split('.').map((n) => parseInt(n, 10))
+  const [, minor, patch] = v
+  if (patch > 0) return 'PATCH'
+  if (minor > 0) return 'MINOR'
+  return 'MAJOR'
+}
+
+const MONTHS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+interface Group {
+  ym: string
+  year: string
+  mon: string
+  num: string
+  entries: Entry[]
+}
+
+const groups = computed<Group[]>(() => {
+  const by = new Map<string, Entry[]>()
+  for (const e of changelog) {
+    const ym = e.date.slice(0, 7)
+    if (!by.has(ym)) by.set(ym, [])
+    by.get(ym)!.push(e)
+  }
+  return Array.from(by.entries()).map(([ym, entries]) => {
+    const [year, num] = ym.split('-')
+    return { ym, year, num, mon: MONTHS_EN[parseInt(num, 10) - 1], entries }
+  })
+})
+
+const active = ref('')
+const sectionRefs = ref<Record<string, HTMLElement | null>>({})
+
+function setSectionRef(ym: string, el: Element | null) {
+  sectionRefs.value[ym] = el as HTMLElement | null
+}
+
+let observer: IntersectionObserver | null = null
+
+onMounted(async () => {
+  await nextTick()
+  active.value = groups.value[0]?.ym ?? ''
+  const root = document.querySelector('.app-main') as HTMLElement | null
+  observer = new IntersectionObserver(
+    (entries) => {
+      const visible = entries
+        .filter((e) => e.isIntersecting)
+        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]
+      if (visible) {
+        const ym = (visible.target as HTMLElement).dataset.ym
+        if (ym) active.value = ym
+      }
+    },
+    { root, rootMargin: '-20% 0px -60% 0px' },
+  )
+  for (const el of Object.values(sectionRefs.value)) {
+    if (el) observer.observe(el)
+  }
+})
+
+onBeforeUnmount(() => {
+  observer?.disconnect()
+  observer = null
+})
+
+function scrollTo(ym: string) {
+  const el = sectionRefs.value[ym]
+  const parent = document.querySelector('.app-main') as HTMLElement | null
+  if (!el || !parent) return
+  const top = el.getBoundingClientRect().top - parent.getBoundingClientRect().top + parent.scrollTop - 24
+  parent.scrollTo({ top, behavior: 'smooth' })
+}
+
+function formatDateDots(iso: string) {
+  return iso.replace(/-/g, ' · ')
+}
 </script>
 
 <template>
   <div class="changelog-view">
-    <h2>更新日誌</h2>
-    <p class="view-desc">看看最近更新了什麼。</p>
+    <!-- PageHead -->
+    <header class="page-head">
+      <div class="eyebrow">VIII · 更新日誌</div>
+      <h1 class="page-title">更新日誌</h1>
+      <p class="page-subtitle">每次版本的細節變更。</p>
+    </header>
 
-    <el-timeline>
-      <el-timeline-item
-        v-for="entry in changelog"
-        :key="entry.version"
-        :timestamp="`${entry.version}  —  ${entry.date}`"
-        placement="top"
-        :type="entry.version === changelog[0].version ? 'primary' : ''"
-        :hollow="entry.version !== changelog[0].version"
-      >
-        <ul class="changelog-list">
-          <li v-for="(item, i) in entry.highlights" :key="i">{{ item }}</li>
-        </ul>
-      </el-timeline-item>
-    </el-timeline>
+    <div class="layout">
+      <!-- Left timeline rail -->
+      <nav class="rail" aria-label="Timeline navigation">
+        <div class="rail-header">Timeline</div>
+        <div class="rail-list">
+          <span class="rail-line" aria-hidden="true" />
+          <button
+            v-for="g in groups"
+            :key="g.ym"
+            type="button"
+            class="rail-item"
+            :class="{ 'rail-item--active': active === g.ym }"
+            @click="scrollTo(g.ym)"
+          >
+            <span class="rail-node" aria-hidden="true" />
+            <span class="rail-mon">{{ g.mon }}</span>
+            <span class="rail-meta">
+              {{ g.year }} · {{ g.entries.length }} release{{ g.entries.length > 1 ? 's' : '' }}
+            </span>
+          </button>
+        </div>
+      </nav>
+
+      <!-- Right content column -->
+      <div class="content">
+        <section
+          v-for="g in groups"
+          :key="g.ym"
+          :ref="(el) => setSectionRef(g.ym, el as Element | null)"
+          :data-ym="g.ym"
+          class="month-section"
+        >
+          <div class="month-header">
+            <div class="month-mon">{{ g.mon }}</div>
+            <div class="month-ym">{{ g.year }} · {{ g.num }}</div>
+            <div class="month-spacer" />
+            <div class="month-count">
+              {{ g.entries.length }} RELEASE{{ g.entries.length > 1 ? 'S' : '' }}
+            </div>
+          </div>
+
+          <div class="entries">
+            <article
+              v-for="e in g.entries"
+              :key="e.version"
+              class="panel"
+            >
+              <header class="panel-header">
+                <div class="panel-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M6 4h11a2 2 0 012 2v12a2 2 0 01-2 2H8a2 2 0 01-2-2V4z" />
+                    <path d="M6 4a2 2 0 00-2 2v2h2M9 9h6M9 13h6M9 17h3" />
+                  </svg>
+                </div>
+                <div class="panel-heading">
+                  <div class="panel-title">
+                    {{ e.version }}<template v-if="e.codename"> · {{ e.codename }}</template>
+                  </div>
+                  <div class="panel-subtitle">{{ formatDateDots(e.date) }}</div>
+                </div>
+                <span class="panel-spacer" />
+                <span class="tag" :class="`tag--${tagOf(e.version).toLowerCase()}`">
+                  {{ tagOf(e.version) }}
+                </span>
+              </header>
+              <ul
+                class="panel-body"
+                :class="{ 'panel-body--accent': tagOf(e.version) !== 'PATCH' }"
+              >
+                <li v-for="(item, i) in e.highlights" :key="i">{{ item }}</li>
+              </ul>
+            </article>
+          </div>
+        </section>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
+/* Eorzean Codex palette — scoped to this view */
 .changelog-view {
-  padding: 28px 32px;
-  max-width: 720px;
+  --parch-50: #f6efe0;
+  --parch-100: #ede2c9;
+  --ink-900: #10151f;
+  --fg-muted: #8a92a6;
+  --fg-faint: #5b6478;
+  --gold: oklch(0.78 0.12 82);
+  --gold-soft: oklch(0.78 0.12 82 / .18);
+  --gold-line: oklch(0.78 0.12 82 / .38);
+  --lapis: oklch(0.78 0.1 210);
+  --line: rgba(236, 220, 180, .08);
+  --line-strong: rgba(236, 220, 180, .16);
+
+  --display: 'Cormorant Garamond', 'Noto Serif TC', serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 40px 40px 80px;
+  color: var(--parch-50);
 }
 
-.changelog-list {
+/* -------- PageHead -------- */
+.page-head {
+  margin-bottom: 28px;
+}
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .3em;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.page-title {
+  font-family: var(--display);
+  font-size: 44px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
   margin: 0;
-  padding-left: 20px;
-  line-height: 1.8;
-  color: var(--el-text-color-regular);
+  color: var(--parch-50);
+  line-height: 1.05;
+}
+.page-subtitle {
+  margin: 10px 0 0;
+  color: var(--fg-muted);
   font-size: 14px;
+  max-width: 640px;
 }
 
-/* Make hollow timeline dots more visible on dark bg */
-:deep(.el-timeline-item__node--normal) {
-  border-color: rgba(148, 163, 184, 0.4);
-}
-:deep(.el-timeline-item__tail) {
-  border-color: rgba(148, 163, 184, 0.15);
+/* -------- Layout -------- */
+.layout {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 28px;
+  align-items: flex-start;
 }
 
-@media (max-width: 768px) {
+/* -------- Rail -------- */
+.rail {
+  position: sticky;
+  top: 24px;
+  align-self: flex-start;
+}
+.rail-header {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .3em;
+  color: var(--fg-faint);
+  text-transform: uppercase;
+  padding-left: 4px;
+  margin-bottom: 16px;
+}
+.rail-list {
+  position: relative;
+  padding-left: 22px;
+}
+.rail-line {
+  position: absolute;
+  left: 7px;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    var(--line-strong) 8%,
+    var(--line-strong) 92%,
+    transparent
+  );
+}
+.rail-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 10px 8px 10px 0;
+  position: relative;
+  color: var(--fg-muted);
+  transition: color .2s;
+  font: inherit;
+}
+.rail-node {
+  position: absolute;
+  left: -19px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-900);
+  border: 1px solid var(--line-strong);
+  transition: all .2s;
+}
+.rail-mon {
+  display: block;
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 17px;
+  letter-spacing: -.01em;
+  line-height: 1;
+  color: var(--fg-muted);
+  transition: all .2s;
+}
+.rail-meta {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .2em;
+  margin-top: 4px;
+  color: var(--fg-faint);
+  transition: color .2s;
+}
+.rail-item--active .rail-node {
+  width: 12px;
+  height: 12px;
+  background: var(--gold);
+  border-color: var(--gold-line);
+  box-shadow: 0 0 10px oklch(0.78 0.13 82 / .5);
+}
+.rail-item--active .rail-mon {
+  color: var(--parch-50);
+  font-size: 20px;
+}
+.rail-item--active .rail-meta {
+  color: var(--gold);
+}
+
+/* -------- Content -------- */
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+  min-width: 0;
+}
+
+.month-section {
+  scroll-margin-top: 24px;
+}
+
+.month-header {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.month-mon {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 28px;
+  letter-spacing: -.02em;
+  color: var(--parch-50);
+}
+.month-ym {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-faint);
+  letter-spacing: .2em;
+}
+.month-spacer {
+  flex: 1;
+}
+.month-count {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--fg-faint);
+  letter-spacing: .15em;
+}
+
+.entries {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* -------- Panel -------- */
+.panel {
+  background: linear-gradient(180deg, rgba(24, 32, 46, .9), rgba(18, 24, 36, .9));
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .03),
+    0 20px 40px -30px rgba(0, 0, 0, .6);
+}
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.panel-spacer {
+  flex: 1;
+}
+.panel-icon {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--gold-soft);
+  color: var(--gold);
+  border: 1px solid var(--gold-line);
+  flex-shrink: 0;
+}
+.panel-heading {
+  min-width: 0;
+}
+.panel-title {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 18px;
+  line-height: 1.1;
+  letter-spacing: .01em;
+  color: var(--parch-50);
+}
+.panel-subtitle {
+  font-size: 12px;
+  color: var(--fg-faint);
+  margin-top: 2px;
+  font-family: var(--mono);
+  letter-spacing: .08em;
+}
+
+/* -------- Tag chip -------- */
+.tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .2em;
+  padding: 3px 8px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  opacity: .85;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.tag--major { color: var(--gold); }
+.tag--minor { color: var(--lapis); }
+.tag--patch { color: var(--fg-faint); }
+
+/* -------- Panel body -------- */
+.panel-body {
+  list-style: disc;
+  margin: 0;
+  padding: 16px 24px 18px 40px;
+  color: var(--fg-muted);
+  line-height: 1.9;
+  font-size: 13.5px;
+}
+.panel-body--accent {
+  color: var(--parch-100);
+}
+.panel-body li::marker {
+  color: var(--gold);
+}
+
+/* -------- Responsive -------- */
+@media (max-width: 900px) {
   .changelog-view {
-    padding: 60px 16px 16px;
+    padding: 72px 20px 40px;
+  }
+  .layout {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .rail {
+    position: static;
+    display: none;
+  }
+  .page-title {
+    font-size: 34px;
+  }
+  .panel-body {
+    padding: 14px 20px 16px 36px;
   }
 }
 </style>
