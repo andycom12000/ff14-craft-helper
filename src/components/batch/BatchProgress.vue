@@ -27,7 +27,7 @@ const percentage = computed(() => {
     return Math.round(start + (completedPortion + currentPortion) * (end - start))
   }
 
-  if (p.phase === 'evaluating-buffs' && p.total > 0) {
+  if ((p.phase === 'pricing' || p.phase === 'evaluating-buffs') && p.total > 0) {
     return Math.round(start + (p.current / p.total) * (end - start))
   }
 
@@ -40,7 +40,9 @@ const statusText = computed(() => {
     case 'solving':
       return `正在求解：${p.currentName}`
     case 'pricing':
-      return '正在查詢市場價格...'
+      return p.total > 0 && p.current < p.total
+        ? `正在查詢市場價格 (${p.current}/${p.total})...`
+        : '正在查詢市場價格...'
     case 'evaluating-buffs':
       return p.total > 0
         ? `正在評估食藥組合 (${p.current}/${p.total})...`

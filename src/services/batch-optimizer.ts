@@ -210,7 +210,9 @@ export async function runBatchOptimization(
     for (const id of getBuffItemIds()) allMaterialIds.add(id)
   }
 
-  const priceMap = await getAggregatedPrices(priceSource, [...allMaterialIds])
+  const priceMap = await getAggregatedPrices(priceSource, [...allMaterialIds], (done, total) => {
+    onProgress({ current: done, total, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
+  })
 
   // === Phase 4.5: Compare craft cost vs buy price per recipe ===
   const recipesToCraft: RecipeOptimizeResult[] = []

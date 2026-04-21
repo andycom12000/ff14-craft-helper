@@ -143,6 +143,7 @@ async function startOptimization() {
     batchStore.results = results
   } catch (err) {
     console.error('[BatchView] Optimization failed:', err)
+    ElMessage.error(`最佳化計算失敗：${err instanceof Error ? err.message : String(err)}`)
   } finally {
     batchStore.isRunning = false
   }

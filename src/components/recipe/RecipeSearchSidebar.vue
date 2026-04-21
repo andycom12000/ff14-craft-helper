@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from 'vue'
+import { ref, computed, watch, onUnmounted, nextTick } from 'vue'
+import type { InputInstance } from 'element-plus'
 import { Search, Close } from '@element-plus/icons-vue'
 import { searchRecipes, getRecipe, type RecipeSearchResult } from '@/api/xivapi'
 import type { Recipe } from '@/stores/recipe'
 
 const CRAFT_JOBS = ['木工', '鍛造', '甲冑', '金工', '皮革', '裁縫', '鍊金', '烹調'] as const
 
-defineProps<{ modelValue: boolean; context?: string }>()
+const props = defineProps<{ modelValue: boolean; context?: string }>()
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   'add': [recipe: Recipe]
@@ -19,6 +20,11 @@ const addingIds = ref(new Set<number>())
 const selectedJob = ref('')
 const levelMin = ref<number | undefined>(undefined)
 const levelMax = ref<number | undefined>(undefined)
+const searchInputRef = ref<InputInstance>()
+
+watch(() => props.modelValue, (open) => {
+  if (open) nextTick(() => searchInputRef.value?.focus())
+})
 
 const filteredResults = computed(() => {
   let list = allResults.value
@@ -89,6 +95,7 @@ function close() {
 
           <div class="dialog-search">
             <el-input
+              ref="searchInputRef"
               v-model="query"
               placeholder="搜尋配方名稱..."
               clearable

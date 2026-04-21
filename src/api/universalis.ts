@@ -1,4 +1,5 @@
 const BASE_URL = 'https://universalis.app/api/v2'
+const REQUEST_TIMEOUT_MS = 20000
 
 export interface MarketListing {
   pricePerUnit: number
@@ -33,11 +34,22 @@ export interface World {
 }
 
 async function fetchUniversalis<T>(path: string): Promise<T> {
-  const response = await fetch(`${BASE_URL}/${path}`)
-  if (!response.ok) {
-    throw new Error(`Universalis request failed: ${response.status} ${response.statusText}`)
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  try {
+    const response = await fetch(`${BASE_URL}/${path}`, { signal: controller.signal })
+    if (!response.ok) {
+      throw new Error(`Universalis request failed: ${response.status} ${response.statusText}`)
+    }
+    return await response.json()
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error(`Universalis 查詢逾時 (${REQUEST_TIMEOUT_MS / 1000}s)`)
+    }
+    throw err
+  } finally {
+    clearTimeout(timer)
   }
-  return response.json()
 }
 
 export function getMarketData(
@@ -49,7 +61,8 @@ export function getMarketData(
 
 export async function getAggregatedPrices(
   server: string,
-  itemIds: number[]
+  itemIds: number[],
+  onProgress?: (done: number, total: number) => void,
 ): Promise<Map<number, MarketData>> {
   const result = new Map<number, MarketData>()
 
@@ -59,25 +72,25 @@ export async function getAggregatedPrices(
     chunks.push(itemIds.slice(i, i + 100))
   }
 
-  // Fetch all chunks in parallel
-  const chunkResults = await Promise.all(chunks.map(async (chunk) => {
+  onProgress?.(0, chunks.length)
+
+  let completed = 0
+  await Promise.all(chunks.map(async (chunk) => {
     const ids = chunk.join(',')
     const data = await fetchUniversalis<MarketData | { items: Record<string, MarketData> }>(
       `${encodeURIComponent(server)}/${ids}`,
     )
-    return { chunk, data }
-  }))
-
-  for (const { chunk, data } of chunkResults) {
     if (chunk.length === 1) {
       result.set(chunk[0], data as MarketData)
     } else {
-      const items = (data as { items: Record<string, MarketData> }).items
+      const items = (data as { items: Record<string, MarketData> }).items ?? {}
       for (const [id, marketData] of Object.entries(items)) {
         result.set(Number(id), marketData)
       }
     }
-  }
+    completed += 1
+    onProgress?.(completed, chunks.length)
+  }))
 
   return result
 }

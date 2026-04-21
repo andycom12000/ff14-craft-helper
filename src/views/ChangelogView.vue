@@ -12,6 +12,14 @@ interface Entry {
 
 const changelog: Entry[] = [
   {
+    version: 'v1.9.3',
+    date: '2026-04-21',
+    highlights: [
+      '搜尋配方視窗開啟時自動聚焦輸入框，打開即可直接輸入關鍵字',
+      '批量製作查價步驟新增逾時保護（20 秒）與分批進度顯示，關閉跨服時不再疑似卡死；失敗時以 toast 明確告知原因',
+    ],
+  },
+  {
     version: 'v1.9.2',
     date: '2026-04-18',
     highlights: [
