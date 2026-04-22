@@ -385,4 +385,89 @@ describe('produceSelfCraftCandidates', () => {
     // And did NOT re-fetch item 50 (already in priceMap)
     expect(missingIds).not.toContain(50)
   })
+
+  it('aggregates rawMaterials across every tree occurrence of the same intermediate', async () => {
+    // Regression: when the same intermediate (e.g. 鐵雲母磨刀石) appears under multiple
+    // batch targets, walkTreeForCandidates emits one TreeNodeInfo per occurrence but
+    // produceSelfCraftCandidates previously kept only the last one's childNodes. That
+    // under-counted raw material demand on the shopping list (showed 4 鐵雲母 instead of 16).
+    // decision.amount from computeOptimalCosts is correctly aggregated, so raw materials
+    // must scale with total demand, not just the last tree branch.
+    vi.mocked(buildMaterialTree).mockResolvedValue([
+      // Target A: 1 weapon, needs 1 whetstone → 4 ore in tree
+      {
+        itemId: 200, name: 'Weapon A', icon: '', amount: 1, recipeId: 20,
+        children: [{
+          itemId: 50, name: 'Whetstone', icon: '', amount: 1, recipeId: 5,
+          children: [{ itemId: 1, name: 'Ore', icon: '', amount: 4 }],
+        }],
+      },
+      // Target B: 3 weapons, needs 1 whetstone each → 12 ore under this branch
+      {
+        itemId: 201, name: 'Weapon B', icon: '', amount: 3, recipeId: 21,
+        children: [{
+          itemId: 50, name: 'Whetstone', icon: '', amount: 3, recipeId: 5,
+          children: [{ itemId: 1, name: 'Ore', icon: '', amount: 12 }],
+        }],
+      },
+    ])
+    // Total: 4 whetstones, 16 ore
+    vi.mocked(computeOptimalCosts).mockReturnValue({
+      totalCost: 0,
+      decisions: [{
+        itemId: 50, name: 'Whetstone', icon: '', amount: 4, // aggregated across both branches
+        buyCost: 4000, craftCost: 2000, optimalCost: 2000,
+        savingsRatio: 0.5, recommendation: 'craft',
+      }],
+    })
+    vi.mocked(findRecipesByItemName).mockResolvedValue([{ recipeId: 5, job: 'CRP' }])
+    const whetstoneRecipe = {
+      id: 5, itemId: 50, name: 'Whetstone', icon: '', job: 'CRP',
+      level: 80, stars: 0, canHq: true, materialQualityFactor: 50,
+      ingredients: [{ itemId: 1, name: 'Ore', icon: '', amount: 4, canHq: false, level: 1 }],
+      recipeLevelTable: {
+        classJobLevel: 80, stars: 0, difficulty: 1000, quality: 2000, durability: 70,
+        suggestedCraftsmanship: 0, progressDivider: 100, qualityDivider: 100,
+        progressModifier: 100, qualityModifier: 100,
+      },
+    }
+    vi.mocked(getRecipe).mockResolvedValue(whetstoneRecipe as any)
+    const mockOptimizeRecipe = vi.fn().mockResolvedValue({
+      recipe: whetstoneRecipe, quantity: 1, actions: [], hqAmounts: [],
+      initialQuality: 0, isDoubleMax: true,
+      materials: [{ itemId: 1, name: 'Ore', icon: '', amount: 4 }], qualityDeficit: 0,
+    })
+
+    const result = await produceSelfCraftCandidates({
+      recipesToCraft: [
+        {
+          recipe: { id: 20, itemId: 200, name: 'Weapon A', icon: '', job: 'CRP', level: 90 } as any,
+          quantity: 1, actions: [], hqAmounts: [], initialQuality: 0,
+          isDoubleMax: true, materials: [], qualityDeficit: 0,
+        },
+        {
+          recipe: { id: 21, itemId: 201, name: 'Weapon B', icon: '', job: 'CRP', level: 90 } as any,
+          quantity: 3, actions: [], hqAmounts: [], initialQuality: 0,
+          isDoubleMax: true, materials: [], qualityDeficit: 0,
+        },
+      ],
+      priceMap: new Map(),
+      priceSource: 'Chocobo',
+      crossServer: false,
+      server: 'Chocobo',
+      getGearset: () => ({ level: 100, craftsmanship: 4000, control: 3800, cp: 600 }),
+      maxDepth: 2,
+      buffs: undefined,
+      optimizeRecipe: mockOptimizeRecipe as any,
+      onProgress: () => {},
+      isCancelled: () => false,
+    })
+
+    expect(result).toHaveLength(1)
+    expect(result[0].itemId).toBe(50)
+    expect(result[0].amount).toBe(4) // 1 + 3 whetstones
+    // Ore must be summed across both branches: 4 + 12 = 16
+    expect(result[0].rawMaterials).toHaveLength(1)
+    expect(result[0].rawMaterials[0]).toMatchObject({ itemId: 1, amount: 16 })
+  })
 })

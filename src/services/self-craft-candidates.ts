@@ -194,10 +194,31 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
     .filter(d => !rootItemIds.has(d.itemId))
   if (viableDecisions.length === 0) return []
 
-  // Step 6: for each viable decision, find matching tree node for childNodes + recipeId
+  // Step 6: for each viable decision, find matching tree node for childNodes + recipeId.
+  // When an intermediate appears under multiple batch targets (e.g. 鐵雲母磨刀石 needed
+  // by several weapons), walkTreeForCandidates emits one entry per occurrence. Merge
+  // them by itemId so childNodes.amount sums across all branches — otherwise the shopping
+  // list under-counts raw materials when the user self-crafts the intermediate.
   const treeNodes = walkTreeForCandidates(tree)
   const nodeByItem = new Map<number, typeof treeNodes[number]>()
-  for (const n of treeNodes) nodeByItem.set(n.itemId, n)
+  for (const n of treeNodes) {
+    const existing = nodeByItem.get(n.itemId)
+    if (!existing) {
+      nodeByItem.set(n.itemId, { ...n, childNodes: n.childNodes.map(c => ({ ...c })) })
+      continue
+    }
+    const childByItem = new Map<number, MaterialNode>()
+    for (const c of existing.childNodes) childByItem.set(c.itemId, c)
+    for (const c of n.childNodes) {
+      const ec = childByItem.get(c.itemId)
+      if (ec) ec.amount += c.amount
+      else {
+        const copy = { ...c }
+        existing.childNodes.push(copy)
+        childByItem.set(c.itemId, copy)
+      }
+    }
+  }
 
   // Step 7: attach recipe data + filter by level
   const withRecipes: Array<{
