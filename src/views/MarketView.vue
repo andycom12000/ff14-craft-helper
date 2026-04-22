@@ -5,6 +5,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { getMarketDataByDC, aggregateByWorld } from '@/api/universalis'
 import CrossWorldPriceDetail from '@/components/common/CrossWorldPriceDetail.vue'
 import AppEmptyState from '@/components/common/AppEmptyState.vue'
+import ItemName from '@/components/common/ItemName.vue'
 import { formatGil, formatTimeAgo } from '@/utils/format'
 import type { MarketListing, WorldPriceSummary } from '@/api/universalis'
 
@@ -76,7 +77,7 @@ async function selectItem(item: { id: number; itemId: number; name: string; icon
         @click="selectItem(item)"
       >
         <img v-if="item.icon" :src="item.icon" class="result-icon" />
-        <span>{{ item.name }}</span>
+        <span><ItemName :item-id="item.itemId" :fallback="item.name" /></span>
       </div>
     </el-card>
 
@@ -91,7 +92,7 @@ async function selectItem(item: { id: number; itemId: number; name: string; icon
     <template v-if="selectedItem">
       <div class="selected-item">
         <img v-if="selectedItem.icon" :src="selectedItem.icon" style="width: 32px; height: 32px" />
-        <h3 style="margin: 0">{{ selectedItem.name }}</h3>
+        <h3 style="margin: 0"><ItemName :item-id="selectedItem.itemId" :fallback="selectedItem.name" /></h3>
       </div>
 
       <el-skeleton v-if="loadingMarket" :rows="4" animated style="margin-top: 16px" />

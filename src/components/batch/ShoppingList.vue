@@ -7,6 +7,7 @@ import type { BuyFinishedDecision, SelfCraftCandidate } from '@/stores/batch'
 import { useBatchStore } from '@/stores/batch'
 import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
 import CrossWorldPriceDetail from '@/components/common/CrossWorldPriceDetail.vue'
+import ItemName from '@/components/common/ItemName.vue'
 import SelfCraftSuggestions from './SelfCraftSuggestions.vue'
 import { formatGil } from '@/utils/format'
 
@@ -118,7 +119,7 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
       <div class="crystal-tags">
         <el-tag v-for="c in crystals" :key="c.itemId" type="info" effect="plain" round size="small">
           <span class="crystal-dot" :style="{ background: getCrystalColor(c.itemId) }" />
-          {{ c.name }} x{{ c.amount }}
+          <ItemName :item-id="c.itemId" :fallback="c.name" /> x{{ c.amount }}
         </el-tag>
       </div>
       <el-divider />
@@ -172,7 +173,9 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
         <el-table-column label="素材" min-width="120">
           <template #default="{ row }">
             <span class="material-name-wrap">
-              <span class="material-name">{{ row.name }}</span>
+              <span class="material-name">
+                <ItemName :item-id="row.itemId" :fallback="row.name" />
+              </span>
               <button
                 type="button"
                 class="copy-btn"

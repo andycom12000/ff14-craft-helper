@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { useRecipeStore } from '@/stores/recipe'
 import { calculateInitialQuality } from '@/engine/quality'
+import ItemName from '@/components/common/ItemName.vue'
 
 const emit = defineEmits<{
   'update:initialQuality': [value: number]
@@ -99,7 +100,9 @@ function decrementHq(index: number) {
         >
           <div class="ingredient-info">
             <img :src="ing.icon" :alt="ing.name" crossorigin="anonymous" class="ingredient-icon" />
-            <span class="ingredient-name">{{ ing.name }}</span>
+            <span class="ingredient-name">
+              <ItemName :item-id="ing.itemId" :fallback="ing.name" />
+            </span>
           </div>
           <div class="ingredient-controls">
             <template v-if="ing.canHq">

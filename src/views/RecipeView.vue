@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import RecipeSearch from '@/components/recipe/RecipeSearch.vue'
@@ -8,15 +8,23 @@ import { getRecipe } from '@/api/xivapi'
 import { useRecipeStore } from '@/stores/recipe'
 import { useBomStore } from '@/stores/bom'
 import { useBatchStore } from '@/stores/batch'
+import { useLocaleStore } from '@/stores/locale'
+import { loadingState } from '@/services/local-data-source'
 import type { Recipe } from '@/stores/recipe'
 
 const router = useRouter()
 const recipeStore = useRecipeStore()
 const bomStore = useBomStore()
 const batchStore = useBatchStore()
+const localeStore = useLocaleStore()
 
 const selectedRecipe = ref<Recipe | null>(null)
 const detailLoading = ref(false)
+
+const isLoadingData = computed(() => {
+  const s = loadingState[localeStore.current]
+  return s.recipes || s.items || s.rlt
+})
 
 async function handleSelect(id: number) {
   detailLoading.value = true
@@ -64,7 +72,7 @@ function handleAddToBom() {
     <h2>配方搜尋</h2>
     <p class="view-desc">搜尋並選擇配方，查看詳情後可加入模擬器或材料清單。</p>
 
-    <el-row :gutter="20" class="recipe-content">
+    <el-row :gutter="20" class="recipe-content" v-loading="isLoadingData">
       <el-col :span="10" :xs="24">
         <el-card shadow="never" class="recipe-card">
           <template #header>

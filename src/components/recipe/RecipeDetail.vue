@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Recipe } from '@/stores/recipe'
 import { starsDisplay } from '@/utils/format'
+import ItemName from '@/components/common/ItemName.vue'
 
 defineProps<{
   recipe: Recipe | null
@@ -21,7 +22,7 @@ const emit = defineEmits<{
       <div class="recipe-header">
         <img :src="recipe.icon" :alt="recipe.name" crossorigin="anonymous" class="recipe-icon" />
         <div class="recipe-title">
-          <h3>{{ recipe.name }}</h3>
+          <h3><ItemName :item-id="recipe.itemId" :fallback="recipe.name" /></h3>
           <el-tag size="small" type="info">{{ recipe.job }}</el-tag>
           <el-tag size="small" style="margin-left: 6px">
             Lv.{{ recipe.level }}
@@ -58,7 +59,11 @@ const emit = defineEmits<{
             <img :src="row.icon" :alt="row.name" crossorigin="anonymous" style="width: 28px; height: 28px" />
           </template>
         </el-table-column>
-        <el-table-column prop="name" label="名稱" />
+        <el-table-column label="名稱">
+          <template #default="{ row }">
+            <ItemName :item-id="row.itemId" :fallback="row.name" />
+          </template>
+        </el-table-column>
         <el-table-column prop="amount" label="數量" width="80" align="center" />
       </el-table>
 

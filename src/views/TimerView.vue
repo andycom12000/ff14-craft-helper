@@ -3,6 +3,8 @@ import { ref, computed, onMounted, onUnmounted, reactive, watch } from 'vue'
 import { AlarmClock } from '@element-plus/icons-vue'
 import { useTimerStore } from '@/stores/timer'
 import { useSettingsStore } from '@/stores/settings'
+import { useLocaleStore } from '@/stores/locale'
+import { loadingState } from '@/services/local-data-source'
 import type { GatheringNode } from '@/api/garland'
 import { fetchAllTimedNodes } from '@/api/garland'
 import { getEorzeaTime, getNextSpawn, formatCountdown } from '@/services/eorzea-clock'
@@ -28,6 +30,12 @@ import AppEmptyState from '@/components/common/AppEmptyState.vue'
 // ---------------------------------------------------------------------------
 const store = useTimerStore()
 const settings = useSettingsStore()
+const localeStore = useLocaleStore()
+
+const isLoadingData = computed(() => {
+  const s = loadingState[localeStore.current]
+  return s.recipes || s.items || s.rlt
+})
 
 // ---------------------------------------------------------------------------
 // Responsive breakpoints
@@ -255,7 +263,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="timer-view">
+  <div class="timer-view" v-loading="isLoadingData">
     <!-- Top bar -->
     <div class="timer-header">
       <h2 class="timer-title">

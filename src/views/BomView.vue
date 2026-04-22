@@ -10,6 +10,8 @@ import BomCraftTree from '@/components/bom/BomCraftTree.vue'
 import { useBomStore } from '@/stores/bom'
 import { useRecipeStore } from '@/stores/recipe'
 import { useSettingsStore } from '@/stores/settings'
+import { useLocaleStore } from '@/stores/locale'
+import { loadingState } from '@/services/local-data-source'
 import { buildMaterialTree, flattenMaterialTree } from '@/services/bom-calculator'
 import { getAggregatedPrices } from '@/api/universalis'
 import { getRecipe } from '@/api/xivapi'
@@ -18,6 +20,12 @@ import type { MaterialNode } from '@/stores/bom'
 const bomStore = useBomStore()
 const recipeStore = useRecipeStore()
 const settingsStore = useSettingsStore()
+const localeStore = useLocaleStore()
+
+const isLoadingData = computed(() => {
+  const s = loadingState[localeStore.current]
+  return s.recipes || s.items || s.rlt
+})
 
 const searchSidebarOpen = ref(false)
 const activeTab = ref('tree')
@@ -125,7 +133,7 @@ function handleRefreshPrices() {
 </script>
 
 <template>
-  <div class="bom-view" :class="{ 'full-width': activeTab === 'tree' && calculated && !calculating }">
+  <div class="bom-view" :class="{ 'full-width': activeTab === 'tree' && calculated && !calculating }" v-loading="isLoadingData">
     <FlowBreadcrumb :steps="[
       { label: '材料清單', path: '/bom', icon: '📜' },
     ]" />

@@ -26,6 +26,7 @@ import CraftRecommendation from '@/components/simulator/CraftRecommendation.vue'
 import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
 import AppEmptyState from '@/components/common/AppEmptyState.vue'
 import FlowBreadcrumb from '@/components/common/FlowBreadcrumb.vue'
+import ItemName from '@/components/common/ItemName.vue'
 
 const router = useRouter()
 const recipeStore = useRecipeStore()
@@ -285,7 +286,7 @@ async function handleSelfCraft(itemId: number) {
           @click="recipeStore.setRecipe(queueRecipe)"
         >
           <img :src="queueRecipe.icon" class="queue-icon" />
-          <span>{{ queueRecipe.name }}</span>
+          <span><ItemName :item-id="queueRecipe.itemId" :fallback="queueRecipe.name" /></span>
           <el-tag size="small" type="info">{{ queueRecipe.job }}</el-tag>
           <el-button
             size="small"
@@ -330,7 +331,7 @@ async function handleSelfCraft(itemId: number) {
           class="info-desc"
         >
         <el-descriptions-item label="配方">
-          {{ recipe.name }} (Lv.{{ recipe.level }}<template v-if="recipe.stars > 0"> {{ '\u2605'.repeat(recipe.stars) }}</template>)
+          <ItemName :item-id="recipe.itemId" :fallback="recipe.name" /> (Lv.{{ recipe.level }}<template v-if="recipe.stars > 0"> {{ '\u2605'.repeat(recipe.stars) }}</template>)
         </el-descriptions-item>
         <el-descriptions-item label="職業 / 等級">
           {{ JOB_NAMES[gearset.job] ?? gearset.job }} Lv.{{ gearset.level }}

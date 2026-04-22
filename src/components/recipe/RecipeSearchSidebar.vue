@@ -4,6 +4,7 @@ import type { InputInstance } from 'element-plus'
 import { Search, Close } from '@element-plus/icons-vue'
 import { searchRecipes, getRecipe, type RecipeSearchResult } from '@/api/xivapi'
 import type { Recipe } from '@/stores/recipe'
+import ItemName from '@/components/common/ItemName.vue'
 
 const CRAFT_JOBS = ['木工', '鍛造', '甲冑', '金工', '皮革', '裁縫', '鍊金', '烹調'] as const
 
@@ -58,7 +59,7 @@ watch(query, (value) => {
     } finally {
       loading.value = false
     }
-  }, 500)
+  }, 200)
 })
 
 onUnmounted(() => { if (debounceTimer) clearTimeout(debounceTimer) })
@@ -114,25 +115,34 @@ function close() {
           </div>
 
           <div class="dialog-results" v-loading="loading">
-            <div
-              v-for="row in filteredResults"
-              :key="row.id"
-              class="search-result-row"
-            >
-              <img v-if="row.icon" :src="row.icon" :alt="row.name" class="result-icon" />
-              <div class="result-info">
-                <div class="result-name">{{ row.name }}</div>
-                <div class="result-meta">Lv.{{ row.level }} · {{ row.job }}</div>
+            <el-skeleton
+              v-if="loading && allResults.length === 0"
+              :rows="5"
+              animated
+            />
+            <template v-else>
+              <div
+                v-for="row in filteredResults"
+                :key="row.id"
+                class="search-result-row"
+              >
+                <img v-if="row.icon" :src="row.icon" :alt="row.name" class="result-icon" />
+                <div class="result-info">
+                  <div class="result-name">
+                    <ItemName :item-id="row.itemId" :fallback="row.name" />
+                  </div>
+                  <div class="result-meta">Lv.{{ row.level }} · {{ row.job }}</div>
+                </div>
+                <el-button
+                  size="small"
+                  type="primary"
+                  :loading="addingIds.has(row.id)"
+                  @click="addRecipe(row)"
+                >+</el-button>
               </div>
-              <el-button
-                size="small"
-                type="primary"
-                :loading="addingIds.has(row.id)"
-                @click="addRecipe(row)"
-              >+</el-button>
-            </div>
-            <el-empty v-if="!loading && filteredResults.length === 0 && query.trim()" description="沒有找到配方" />
-            <el-empty v-if="!loading && !query.trim()" description="輸入關鍵字搜尋配方" />
+              <el-empty v-if="!loading && filteredResults.length === 0 && query.trim()" description="沒有找到配方" />
+              <el-empty v-if="!loading && !query.trim()" description="輸入關鍵字搜尋配方" />
+            </template>
           </div>
         </div>
       </div>
