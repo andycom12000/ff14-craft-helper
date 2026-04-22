@@ -52,7 +52,7 @@ const workflows = [
 ]
 
 const tools = [
-  { icon: '🪙', title: '市場查價', path: '/market', color: 'var(--app-market)' },
+  { icon: '🪙', title: '市場查價', path: '/market', color: 'var(--app-market)', disabled: true, badge: '開發中' },
   { icon: '🌿', title: '採集計時器', path: '/timer', color: 'var(--app-gather)' },
 ]
 </script>
@@ -94,11 +94,14 @@ const tools = [
         v-for="tool in tools"
         :key="tool.path"
         class="tool-card"
-        @click="router.push(tool.path)"
+        :class="{ disabled: tool.disabled }"
+        :disabled="tool.disabled"
+        @click="!tool.disabled && router.push(tool.path)"
       >
         <span class="tool-icon" :style="{ background: `color-mix(in srgb, ${tool.color} 15%, transparent)` }">{{ tool.icon }}</span>
         <span class="tool-title">{{ tool.title }}</span>
-        <span class="wf-arrow">→</span>
+        <span v-if="tool.badge" class="tool-badge">{{ tool.badge }}</span>
+        <span v-else class="wf-arrow">→</span>
       </button>
     </div>
 
@@ -283,6 +286,28 @@ const tools = [
 }
 
 .tool-title { font-weight: 600; font-size: 14px; flex: 1; }
+
+.tool-card.disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.tool-card.disabled:hover {
+  border-color: var(--app-border);
+  box-shadow: none;
+}
+
+.tool-badge {
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--app-text-muted);
+  background: var(--el-fill-color-lighter);
+  border: 1px solid var(--app-border);
+  border-radius: 999px;
+  letter-spacing: 0.5px;
+}
 
 /* Section Spacing Rhythm */
 .section-gap-sm { margin-top: 24px; }

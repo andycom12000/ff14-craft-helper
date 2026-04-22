@@ -18,8 +18,8 @@ Plan multi-recipe production runs with shopping list generation, cross-server pr
 ### Gathering Timer
 Track timed gathering nodes with Eorzean time countdown, alarm notifications, interactive minimap, and market price integration.
 
-### Market Price Check
-Compare item prices across servers within a data center, showing the cheapest listings.
+### Market Price Check &nbsp;🚧 _Under development_
+A standalone cross-server price lookup page is currently disabled while being reworked. Market price comparison is still available inside the BOM and Batch Crafting views.
 
 ### Gearset Management
 Configure crafting stats (level, craftsmanship, control, CP) for all crafting jobs.
@@ -65,7 +65,10 @@ WASM output goes to `public/solver-wasm/` (not `src/`) to avoid Vite's module tr
 
 ```
 src/
-├── views/          # Page components
+├── App.vue         # Root component (sidebar layout)
+├── main.ts         # App entry
+├── router/         # vue-router routes
+├── views/          # Page components (one per route)
 ├── components/     # Reusable UI components
 ├── stores/         # Pinia state management
 ├── api/            # External API integrations
@@ -73,10 +76,13 @@ src/
 ├── solver/         # WASM solver integration (Web Worker)
 ├── engine/         # Craft simulation engine
 ├── composables/    # Vue composables
-└── utils/          # Utilities and constants
+├── utils/          # Utilities and constants
+├── assets/         # Static assets (images, icons)
+└── __tests__/      # Vitest test suites
 
 raphael-wasm-wrapper/   # Rust WASM wrapper for raphael-rs
 public/solver-wasm/     # Compiled WASM files
+public/data/            # Game data JSON (items, recipes, recipe-level tables)
 ```
 
 ## Supported Languages
@@ -122,4 +128,14 @@ This is a non-commercial fan project. Not affiliated with or endorsed by Square 
 
 ## License
 
-MIT
+This project is licensed under the [MIT License](LICENSE) — © 2026 Andy Liu.
+
+### Third-Party Notices
+
+This project incorporates the following open-source software. Their licenses apply to their respective code:
+
+- **[Raphael-rs](https://github.com/KonaeAkira/raphael-rs)** by Konae Akira — Apache License 2.0.
+  The crafting rotation solver is built on `raphael-sim` and `raphael-solver`; see `raphael-wasm-wrapper/Cargo.toml`. Redistributions must retain Raphael-rs's copyright notice under the Apache 2.0 terms.
+- Other npm and Cargo dependencies retain their original licenses; see `package.json` and `raphael-wasm-wrapper/Cargo.toml`.
+
+The MIT license covers only the source code authored in this repository. It does **not** grant any rights over Final Fantasy XIV game data, assets, or trademarks — see the Copyright section above.

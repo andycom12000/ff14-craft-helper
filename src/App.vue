@@ -76,17 +76,18 @@ watch(() => route.path, () => {
           <el-icon><Cpu /></el-icon>
           <span>製作模擬</span>
         </el-menu-item>
-        <el-menu-item index="/bom">
-          <el-icon><List /></el-icon>
-          <span>材料清單</span>
-        </el-menu-item>
         <el-menu-item index="/batch">
           <el-icon><Operation /></el-icon>
           <span>批量製作</span>
         </el-menu-item>
-        <el-menu-item index="/market">
+        <el-menu-item index="/bom">
+          <el-icon><List /></el-icon>
+          <span>材料清單</span>
+        </el-menu-item>
+        <el-menu-item index="/market" disabled>
           <el-icon><TrendCharts /></el-icon>
           <span>市場查價</span>
+          <span class="menu-badge">開發中</span>
         </el-menu-item>
         <el-menu-item index="/timer">
           <el-icon><AlarmClock /></el-icon>
@@ -504,6 +505,19 @@ html, body {
 .menu-divider {
   margin: 8px 16px;
   border-color: var(--app-border);
+}
+
+.menu-badge {
+  margin-left: auto;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--app-text-muted);
+  background: var(--el-fill-color-lighter);
+  border: 1px solid var(--app-border);
+  border-radius: 999px;
+  letter-spacing: 0.5px;
 }
 
 .app-main {
