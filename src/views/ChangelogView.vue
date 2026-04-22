@@ -12,6 +12,13 @@ interface Entry {
 
 const changelog: Entry[] = [
   {
+    version: 'v1.9.5',
+    date: '2026-04-23',
+    highlights: [
+      '內部維護：CI / GitHub Actions 升級至 Node 22 與最新版 action，為 Node 20 runtime 下架做準備，無使用者可見變更',
+    ],
+  },
+  {
     version: 'v1.9.4',
     date: '2026-04-23',
     highlights: [
