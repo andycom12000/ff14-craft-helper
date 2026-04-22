@@ -6,9 +6,13 @@ import { useLocaleStore } from '@/stores/locale'
 import { getItemSync } from '@/services/local-data-source'
 import type { ItemRecord, Locale } from '@/services/local-data-source.types'
 
-vi.mock('@/services/local-data-source', () => ({
-  getItemSync: vi.fn(),
-}))
+vi.mock('@/services/local-data-source', async () => {
+  const { ref } = await import('vue')
+  return {
+    getItemSync: vi.fn(),
+    itemsCacheVersion: ref(0),
+  }
+})
 
 const getItemSyncMock = getItemSync as unknown as ReturnType<typeof vi.fn>
 

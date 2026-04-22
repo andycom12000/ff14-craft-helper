@@ -157,7 +157,7 @@ export async function getRecipe(id: number): Promise<Recipe> {
 // Re-export getItem for callers that need raw item lookup via this module.
 export { getItem }
 
-export const XIVAPI_SHEET_BASE = 'https://xivapi-v2.xivcdn.com/api'
+export const XIVAPI_SHEET_BASE = 'https://beta.xivapi.com/api'
 
 export async function fetchSheetFields<T>(
   sheet: string, rows: number[], fields: string,

@@ -1,4 +1,4 @@
-import { reactive } from 'vue'
+import { reactive, ref } from 'vue'
 import { CRAFT_TYPE_TO_JOB } from '@/utils/jobs'
 import type {
   Locale,
@@ -49,6 +49,13 @@ export async function setLocale(locale: Locale): Promise<void> {
   } catch {
     // ignore
   }
+  // Kick off the items fetch for the new locale so downstream sync getters
+  // (getItemSync / useItemName) see real names instead of falling back to
+  // whichever locale was active when the record was cached.
+  void loadItems(locale).catch(() => {
+    // swallow — loadItems already nukes its promise cache on reject; the
+    // next read will retry. Failing here silently keeps setLocale non-throwing.
+  })
   for (const cb of localeListeners) {
     try {
       cb(locale)
@@ -75,6 +82,12 @@ export const loadingState: Record<Locale, { recipes: boolean; items: boolean; rl
     ja: { recipes: false, items: false, rlt: false },
   })
 
+// Reactive signal bumped every time an items map is (re)populated for any
+// locale. `useItemName` reads this so its computed re-runs when a newly
+// fetched locale's cache becomes available — `getItemSync` is not reactive
+// on its own.
+export const itemsCacheVersion = ref(0)
+
 function setGlobalFlag(key: 'recipes' | 'rlt', value: boolean): void {
   for (const loc of LOCALES) {
     loadingState[loc][key] = value
@@ -89,6 +102,16 @@ let manifestPromise: Promise<Manifest> | null = null
 const itemsPromises = new Map<Locale, Promise<Map<number, ItemRecord>>>()
 const itemsCache = new Map<Locale, Map<number, ItemRecord>>()
 
+// Vite base path (e.g. '/ff14-craft-helper/' for GH Pages, '/' for plain host).
+// Fallback to '/' for non-Vite contexts (node tests stub globalThis.fetch anyway).
+const BASE_URL: string =
+  (typeof import.meta !== 'undefined' && (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL) || '/'
+
+function dataUrl(path: string): string {
+  const trimmed = path.startsWith('/') ? path.slice(1) : path
+  return BASE_URL.endsWith('/') ? BASE_URL + trimmed : BASE_URL + '/' + trimmed
+}
+
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url)
   if (!res.ok) {
@@ -102,7 +125,7 @@ export async function loadRecipes(): Promise<RecipeRecord[]> {
   setGlobalFlag('recipes', true)
   recipesPromise = (async () => {
     try {
-      const data = await fetchJson<RecipeRecord[]>('/data/recipes.json')
+      const data = await fetchJson<RecipeRecord[]>(dataUrl('/data/recipes.json'))
       return data
     } finally {
       setGlobalFlag('recipes', false)
@@ -130,7 +153,7 @@ export async function loadRlt(): Promise<Map<number, RltRecord>> {
   setGlobalFlag('rlt', true)
   rltPromise = (async () => {
     try {
-      const data = await fetchJson<RltFile>('/data/rlt.json')
+      const data = await fetchJson<RltFile>(dataUrl('/data/rlt.json'))
       if (data.schemaVersion !== 1) {
         throw new Error(`rlt.json: unsupported schemaVersion ${(data as { schemaVersion?: number }).schemaVersion}`)
       }
@@ -163,7 +186,7 @@ export async function loadItems(locale?: Locale): Promise<Map<number, ItemRecord
   loadingState[loc].items = true
   const promise = (async () => {
     try {
-      const data = await fetchJson<ItemsFile>(`/data/items/${loc}.json`)
+      const data = await fetchJson<ItemsFile>(dataUrl(`/data/items/${loc}.json`))
       if (data.schemaVersion !== 1) {
         throw new Error(`items/${loc}.json: unsupported schemaVersion ${(data as { schemaVersion?: number }).schemaVersion}`)
       }
@@ -178,6 +201,7 @@ export async function loadItems(locale?: Locale): Promise<Map<number, ItemRecord
         })
       }
       itemsCache.set(loc, map)
+      itemsCacheVersion.value++
       return map
     } finally {
       loadingState[loc].items = false
@@ -194,7 +218,7 @@ export async function loadItems(locale?: Locale): Promise<Map<number, ItemRecord
 export async function loadManifest(): Promise<Manifest> {
   if (manifestPromise) return manifestPromise
   manifestPromise = (async () => {
-    const data = await fetchJson<Manifest>('/data/manifest.json')
+    const data = await fetchJson<Manifest>(dataUrl('/data/manifest.json'))
     if (data.schemaVersion !== 1) {
       throw new Error(`manifest.json: unsupported schemaVersion ${(data as { schemaVersion?: number }).schemaVersion}`)
     }

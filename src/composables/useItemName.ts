@@ -1,6 +1,6 @@
 import { computed, toValue, type ComputedRef, type MaybeRefOrGetter } from 'vue'
 import { useLocaleStore } from '@/stores/locale'
-import { getItemSync } from '@/services/local-data-source'
+import { getItemSync, itemsCacheVersion } from '@/services/local-data-source'
 
 /**
  * Reactive item name lookup. Returns a computed ref that tracks both the
@@ -12,9 +12,12 @@ import { getItemSync } from '@/services/local-data-source'
 export function useItemName(itemId: MaybeRefOrGetter<number>): ComputedRef<string> {
   const localeStore = useLocaleStore()
   return computed(() => {
-    // Read locale first so the computed tracks it as a dependency and
-    // recomputes whenever the active locale changes.
+    // Track both locale AND items cache version — getItemSync reads from a
+    // plain Map that isn't reactive on its own, so we need an explicit signal
+    // to re-run when a locale's items file finishes loading.
     const locale = localeStore.current
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    itemsCacheVersion.value
     const id = toValue(itemId)
     const item = getItemSync(id, locale)
     return item?.name ?? `#${id}`
