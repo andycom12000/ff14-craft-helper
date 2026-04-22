@@ -189,6 +189,10 @@ function upsert(
 export function getCraftingOrder(
   tree: MaterialNode[],
 ): { itemId: number; name: string; amount: number }[] {
+  // @deprecated name on the returned entries is no longer the source of truth for rendering.
+  // Components should resolve the current-locale name via useItemName(itemId).
+  // This field is kept only as a fallback/debug hint and may be stale after locale change.
+  // Kept non-optional pending I-3 consumer migration.
   const order: { itemId: number; name: string; amount: number }[] = []
   const visited = new Set<number>()
 
@@ -222,6 +226,12 @@ async function fetchRecipeCached(recipeId: number) {
 
 export interface CostDecision {
   itemId: number
+  /**
+   * @deprecated name is no longer the source of truth for rendering.
+   * Components should resolve the current-locale name via useItemName(itemId).
+   * This field is kept only as a fallback/debug hint and may be stale after locale change.
+   * Kept non-optional pending I-3 consumer migration.
+   */
   name: string
   icon: string
   amount: number

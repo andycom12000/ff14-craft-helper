@@ -42,6 +42,12 @@ export interface BuyFinishedDecision {
 
 export interface SelfCraftCandidate {
   itemId: number
+  /**
+   * @deprecated name is no longer the source of truth for rendering.
+   * Components should resolve the current-locale name via useItemName(itemId).
+   * This field is kept only as a fallback/debug hint and may be stale after locale change.
+   * Kept non-optional pending I-3 consumer migration.
+   */
   name: string
   icon: string
   amount: number
@@ -70,6 +76,12 @@ export interface BuffRecommendation {
   foodPrice?: BuffPriceInfo
   medicinePrice?: BuffPriceInfo
   hqMaterialSavings: number
+  /**
+   * @deprecated name on affected/enabled recipe entries is no longer the source of truth for rendering.
+   * Components should resolve the current-locale name via useItemName(recipeItemId).
+   * These fields are kept only as a fallback/debug hint and may be stale after locale change.
+   * Kept non-optional pending I-3 consumer migration.
+   */
   affectedRecipes: Array<{ id: number; name: string }>
   /** Recipes that were quality-unachievable without buffs but become craftable with them */
   enabledRecipes: Array<{ id: number; name: string }>

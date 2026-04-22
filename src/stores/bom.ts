@@ -7,6 +7,14 @@ import { flattenMaterialTree } from '@/services/bom-calculator'
 export interface BomTarget {
   itemId: number
   recipeId: number
+  /**
+   * @deprecated name is no longer the source of truth for rendering.
+   * Components should resolve the current-locale name via useItemName(itemId).
+   * This field is kept only as a fallback/debug hint and may be stale after locale change.
+   * The TypeScript type is still `string` (not optional) to avoid a cascade of
+   * type errors in consumers that will be migrated in I-3; once consumers are
+   * updated, this field can be dropped entirely.
+   */
   name: string
   icon: string
   quantity: number
@@ -14,6 +22,12 @@ export interface BomTarget {
 
 export interface MaterialNode {
   itemId: number
+  /**
+   * @deprecated name is no longer the source of truth for rendering.
+   * Components should resolve the current-locale name via useItemName(itemId).
+   * This field is kept only as a fallback/debug hint and may be stale after locale change.
+   * Kept non-optional to avoid breaking consumers pending I-3 migration.
+   */
   name: string
   icon: string
   amount: number
@@ -24,6 +38,12 @@ export interface MaterialNode {
 
 export interface FlatMaterial {
   itemId: number
+  /**
+   * @deprecated name is no longer the source of truth for rendering.
+   * Components should resolve the current-locale name via useItemName(itemId).
+   * This field is kept only as a fallback/debug hint and may be stale after locale change.
+   * Kept non-optional to avoid breaking consumers pending I-3 migration.
+   */
   name: string
   icon: string
   totalAmount: number
