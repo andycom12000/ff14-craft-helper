@@ -12,6 +12,15 @@ interface Entry {
 
 const changelog: Entry[] = [
   {
+    version: 'v1.9.4',
+    date: '2026-04-23',
+    highlights: [
+      '市場查價分頁暫時停用並標示「開發中」，功能整修中；跨伺服器比價仍可透過材料清單與批量製作頁面使用',
+      '側邊欄順序調整：批量製作移至材料清單之前，更貼近主要製作流程',
+      '新增 MIT License 與第三方授權聲明（Raphael-rs 求解器為 Apache 2.0）',
+    ],
+  },
+  {
     version: 'v1.9.3',
     date: '2026-04-21',
     highlights: [
