@@ -1,0 +1,41 @@
+[
+  {
+    "id": 1001,
+    "itemResult": 5057,
+    "amountResult": 1,
+    "craftType": 1,
+    "rlv": 20,
+    "canHq": true,
+    "materialQualityFactor": 75,
+    "difficultyFactor": 100,
+    "qualityFactor": 100,
+    "durabilityFactor": 100,
+    "ingredients": [[5106, 3], [5107, 1], [2, 1], [3, 1]]
+  },
+  {
+    "id": 1002,
+    "itemResult": 12538,
+    "amountResult": 1,
+    "craftType": 1,
+    "rlv": 58,
+    "canHq": true,
+    "materialQualityFactor": 75,
+    "difficultyFactor": 100,
+    "qualityFactor": 100,
+    "durabilityFactor": 100,
+    "ingredients": [[5057, 1], [12537, 2], [7, 1], [10, 1]]
+  },
+  {
+    "id": 1003,
+    "itemResult": 5106,
+    "amountResult": 3,
+    "craftType": 0,
+    "rlv": 15,
+    "canHq": false,
+    "materialQualityFactor": 75,
+    "difficultyFactor": 80,
+    "qualityFactor": 80,
+    "durabilityFactor": 100,
+    "ingredients": [[5107, 2], [2, 1], [4, 1]]
+  }
+]

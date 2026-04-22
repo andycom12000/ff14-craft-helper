@@ -6,6 +6,7 @@ import 'element-plus/dist/index.css'
 import 'element-plus/theme-chalk/dark/css-vars.css'
 import App from './App.vue'
 import router from './router'
+import { useLocaleStore } from '@/stores/locale'
 
 const app = createApp(App)
 
@@ -15,5 +16,9 @@ pinia.use(piniaPluginPersistedstate)
 app.use(pinia)
 app.use(router)
 app.use(ElementPlus)
+
+// Eagerly initialize the locale store so `current` is populated from
+// localStorage before any component renders.
+useLocaleStore()
 
 app.mount('#app')

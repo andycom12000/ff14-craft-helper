@@ -5,6 +5,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { getDataCenters, getWorlds } from '@/api/universalis'
 import type { DataCenter, World } from '@/api/universalis'
 import avatarUrl from '@/assets/avatar.gif'
+import LocaleSwitcher from '@/components/LocaleSwitcher.vue'
 
 const settingsStore = useSettingsStore()
 
@@ -161,6 +162,18 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
       </el-card>
 
 
+      <el-card shadow="never" class="locale-card">
+        <template #header>
+          <span class="card-title">語言</span>
+        </template>
+
+        <el-form label-width="120px" label-position="left">
+          <el-form-item label="遊戲資料語言">
+            <LocaleSwitcher />
+          </el-form-item>
+        </el-form>
+      </el-card>
+
       <el-card shadow="never" class="about-card">
         <template #header>
           <span class="card-title">關於</span>
@@ -223,6 +236,10 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
 }
 
 .price-card {
+  margin-top: 20px;
+}
+
+.locale-card {
   margin-top: 20px;
 }
 

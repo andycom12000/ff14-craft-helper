@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "rlt": [
+    { "rlv": 15, "classJobLevel": 15, "difficulty": 74, "quality": 657, "durability": 60, "suggestedCraftsmanship": 84, "progressDivider": 50, "qualityDivider": 30, "progressModifier": 100, "qualityModifier": 100, "conditionsFlag": 15 },
+    { "rlv": 20, "classJobLevel": 20, "difficulty": 150, "quality": 1132, "durability": 60, "suggestedCraftsmanship": 117, "progressDivider": 50, "qualityDivider": 30, "progressModifier": 100, "qualityModifier": 100, "conditionsFlag": 15 },
+    { "rlv": 58, "classJobLevel": 58, "difficulty": 1116, "quality": 4950, "durability": 70, "suggestedCraftsmanship": 1500, "progressDivider": 120, "qualityDivider": 90, "progressModifier": 100, "qualityModifier": 100, "conditionsFlag": 15 }
+  ]
+}
