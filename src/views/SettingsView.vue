@@ -12,6 +12,7 @@ const settingsStore = useSettingsStore()
 const dataCenters = ref<DataCenter[]>([])
 const worlds = ref<World[]>([])
 const loading = ref(false)
+const loadError = ref(false)
 
 interface RegionGroup {
   region: string
@@ -19,8 +20,24 @@ interface RegionGroup {
 }
 const regionGroups = ref<RegionGroup[]>([])
 
-onMounted(async () => {
+function buildFallbackGroups() {
+  // When Universalis is unreachable, preserve the user's previously-saved
+  // selection so they can still navigate the rest of the Settings page. The
+  // dropdowns will show only the stored value until a retry succeeds.
+  const region = settingsStore.region
+  const dc = settingsStore.dataCenter
+  const world = settingsStore.server
+  if (!region && !dc && !world) return
+  const worldDetails: World[] = world ? [{ id: -1, name: world }] : []
+  regionGroups.value = [{
+    region: region || 'Other',
+    dataCenters: [{ name: dc || '', region: region || 'Other', worlds: [-1], worldDetails }],
+  }]
+}
+
+async function loadServers(opts: { notify: boolean } = { notify: false }) {
   loading.value = true
+  loadError.value = false
   try {
     const [dcList, worldList] = await Promise.all([
       getDataCenters(),
@@ -42,12 +59,17 @@ onMounted(async () => {
       region,
       dataCenters: dcs,
     }))
+    if (opts.notify) ElMessage.success('伺服器清單已重新載入')
   } catch {
-    ElMessage.error('無法載入伺服器清單')
+    loadError.value = true
+    if (regionGroups.value.length === 0) buildFallbackGroups()
+    ElMessage.error('無法載入伺服器清單（點選「重試」再試一次）')
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(() => { loadServers() })
 
 const selectedRegion = ref(settingsStore.region)
 const selectedDC = ref(settingsStore.dataCenter)
@@ -106,7 +128,18 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
     <template v-else>
       <el-card shadow="never">
         <template #header>
-          <span class="card-title">伺服器設定</span>
+          <div class="card-header-row">
+            <span class="card-title">伺服器設定</span>
+            <el-button
+              v-if="loadError"
+              size="small"
+              type="primary"
+              plain
+              @click="loadServers({ notify: true })"
+            >
+              重試載入清單
+            </el-button>
+          </div>
         </template>
 
         <el-form label-width="120px" label-position="left">
@@ -282,6 +315,13 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   gap: 8px;
   font-size: 13px;
   line-height: 1.6;
+}
+
+.card-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .about-tech-label {
