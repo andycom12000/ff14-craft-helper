@@ -29,7 +29,8 @@ Configure crafting stats (level, craftsmanship, control, CP) for all crafting jo
 - **Frontend:** Vue 3 + TypeScript + Pinia + Element Plus
 - **Build:** Vite 6
 - **Solver:** [Raphael-rs](https://github.com/KonaeAkira/raphael-rs) WASM (multi-threaded via wasm-bindgen-rayon)
-- **APIs:** [XIVAPI](https://beta.xivapi.com) (recipes), [Universalis](https://universalis.app) (market prices), [Garland Tools](https://garlandtools.org) (gathering nodes)
+- **APIs:** [XIVAPI](https://beta.xivapi.com) (icons), [Universalis](https://universalis.app) (market prices), [Garland Tools](https://garlandtools.org) (gathering nodes)
+- **Game Data:** Build-time ETL from public datamining repositories (see below)
 - **OCR:** Tesseract.js
 - **Deploy:** GitHub Pages (CI/CD via GitHub Actions)
 
@@ -77,6 +78,47 @@ src/
 raphael-wasm-wrapper/   # Rust WASM wrapper for raphael-rs
 public/solver-wasm/     # Compiled WASM files
 ```
+
+## Supported Languages
+
+Recipe and item names are available in four languages:
+
+- 繁體中文（zh-TW） — default
+- 简体中文（zh-CN）
+- English（en）
+- 日本語（ja）
+
+The UI itself stays in 繁體中文 for now. Language preference is remembered in `localStorage`. Switch languages in Settings. When a new game patch hasn't reached a given client yet, missing item names fall back to 繁體中文.
+
+## Data Sources
+
+Game data (items, recipes, recipe-level tables) is extracted at build time from public community datamining repositories:
+
+- [**harukaxxxx/ffxiv-datamining-tw**](https://github.com/harukaxxxx/ffxiv-datamining-tw) — 繁體中文 client dump
+- [**thewakingsands/ffxiv-datamining-cn**](https://github.com/thewakingsands/ffxiv-datamining-cn) — 简体中文 client dump
+- [**xivapi/ffxiv-datamining**](https://github.com/xivapi/ffxiv-datamining) — English / Japanese client dump, recipe structures
+
+The extracted JSON lives in `public/data/` and is committed to this repo so normal builds don't need to clone gigabyte-scale datamining repos.
+
+Huge thanks to these maintainers — this project would not exist without them.
+
+## Data Update
+
+The `update-game-data` GitHub Actions workflow regenerates `public/data/` every Sunday (UTC 02:00) and on manual dispatch (useful right after a patch day). When the data diff is non-empty, the workflow runs tests and a production build against the new data, then opens a pull request for review.
+
+To regenerate locally:
+
+```bash
+npm run build-game-data
+```
+
+This clones the three datamining repos into `.data-cache/` (not committed) and writes `public/data/*.json`.
+
+## Copyright
+
+*Final Fantasy XIV* © SQUARE ENIX CO., LTD. All rights reserved.
+
+This is a non-commercial fan project. Not affiliated with or endorsed by Square Enix. No game assets (textures, audio, models) are redistributed — only publicly available structured data necessary for gameplay-assist features.
 
 ## License
 

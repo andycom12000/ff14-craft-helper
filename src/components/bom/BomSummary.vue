@@ -6,6 +6,7 @@ import { getPrice } from '@/stores/bom'
 import { computeOptimalCosts, type CostDecision } from '@/services/bom-calculator'
 import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
 import CrossWorldPriceDetail from '@/components/common/CrossWorldPriceDetail.vue'
+import ItemName from '@/components/common/ItemName.vue'
 import { formatGil } from '@/utils/format'
 
 const props = defineProps<{
@@ -146,7 +147,11 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
             <img :src="row.icon" :alt="row.name" crossorigin="anonymous" style="width: 24px; height: 24px" />
           </template>
         </el-table-column>
-        <el-table-column prop="name" label="名稱" />
+        <el-table-column label="名稱">
+          <template #default="{ row }">
+            <ItemName :item-id="row.itemId" :fallback="row.name" />
+          </template>
+        </el-table-column>
         <el-table-column label="需求數量" width="100" align="center">
           <template #default="{ row }">
             {{ row.totalAmount }}
@@ -190,7 +195,11 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
               <img :src="row.icon" :alt="row.name" crossorigin="anonymous" style="width: 24px; height: 24px" />
             </template>
           </el-table-column>
-          <el-table-column prop="name" label="名稱" />
+          <el-table-column label="名稱">
+            <template #default="{ row }">
+              <ItemName :item-id="row.itemId" :fallback="row.name" />
+            </template>
+          </el-table-column>
           <el-table-column label="需求數量" width="100" align="center">
             <template #default="{ row }">
               {{ row.totalAmount }}
@@ -252,7 +261,7 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
             <span>
               <template v-for="(m, i) in targetMaterials" :key="m.itemId">
                 <template v-if="i > 0">、</template>
-                {{ m.name }}
+                <ItemName :item-id="m.itemId" :fallback="m.name" />
                 <template v-if="m.totalAmount > 1"> ×{{ m.totalAmount }}</template>
               </template>
               = <strong>{{ formatGil(targetBuyPrice) }}</strong> Gil

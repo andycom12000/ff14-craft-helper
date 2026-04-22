@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useBatchStore } from '@/stores/batch'
 import type { SelfCraftCandidate } from '@/stores/batch'
 import { formatGil } from '@/utils/format'
+import ItemName from '@/components/common/ItemName.vue'
 
 const props = defineProps<{ candidates: SelfCraftCandidate[] }>()
 const batch = useBatchStore()
@@ -64,9 +65,9 @@ function toggleAll() {
           <img v-if="row.icon" :src="row.icon" alt="" aria-hidden="true" loading="lazy" decoding="async" class="row-icon" />
         </template>
       </el-table-column>
-      <el-table-column label="素材" prop="name">
+      <el-table-column label="素材">
         <template #default="{ row }">
-          {{ row.name }}
+          <ItemName :item-id="row.itemId" :fallback="row.name" />
           <el-tag v-if="row.hqRequired" size="small" type="warning" style="margin-left: 4px">需 HQ</el-tag>
         </template>
       </el-table-column>

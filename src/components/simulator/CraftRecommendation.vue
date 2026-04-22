@@ -10,6 +10,7 @@ import { findOptimalHqCombinations, type HqRecommendation } from '@/services/hq-
 import type { FlatMaterial, PriceInfo, MaterialNode } from '@/stores/bom'
 import type { BomTarget } from '@/stores/bom'
 import BomSummary from '@/components/bom/BomSummary.vue'
+import ItemName from '@/components/common/ItemName.vue'
 import { formatGil } from '@/utils/format'
 import { simulateCraft, waitForWasm } from '@/solver/worker'
 import { craftParamsToSolverConfig } from '@/solver/config'
@@ -259,7 +260,7 @@ async function loadHqRecommendations() {
           <el-text type="info" size="small">以下素材無 HQ 市場價格，可能需自行製作：</el-text>
           <div class="self-craft-btns">
             <el-button v-for="ing in missingPriceIngredients" :key="ing.itemId" size="small" @click="emit('self-craft', ing.itemId)">
-              自行製作「{{ ing.name }}」
+              自行製作「<ItemName :item-id="ing.itemId" :fallback="ing.name" />」
             </el-button>
           </div>
         </div>

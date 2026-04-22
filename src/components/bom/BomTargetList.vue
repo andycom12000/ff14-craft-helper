@@ -3,6 +3,7 @@ import { useBomStore } from '@/stores/bom'
 import { ElMessage } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import AppEmptyState from '@/components/common/AppEmptyState.vue'
+import ItemName from '@/components/common/ItemName.vue'
 
 const bomStore = useBomStore()
 
@@ -61,7 +62,11 @@ function handleClearAll() {
           <img :src="row.icon" :alt="row.name" crossorigin="anonymous" style="width: 28px; height: 28px" />
         </template>
       </el-table-column>
-      <el-table-column prop="name" label="品項名稱" />
+      <el-table-column label="品項名稱">
+        <template #default="{ row }">
+          <ItemName :item-id="row.itemId" :fallback="row.name" />
+        </template>
+      </el-table-column>
       <el-table-column label="數量" width="140" align="center">
         <template #default="{ row }">
           <el-input-number

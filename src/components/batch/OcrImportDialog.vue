@@ -10,6 +10,7 @@ import type { Recipe } from '@/stores/recipe'
 import { useBatchStore } from '@/stores/batch'
 import { getJobName } from '@/utils/jobs'
 import { Picture } from '@element-plus/icons-vue'
+import ItemName from '@/components/common/ItemName.vue'
 
 interface OcrMatchItem {
   ocrText: string
@@ -380,7 +381,7 @@ onUnmounted(() => {
             <template #default="{ row }">
               <span>{{ row.ocrText }}</span>
               <span v-if="row.selectedRecipe && row.selectedRecipe.name !== row.ocrText" class="matched-name">
-                → {{ row.selectedRecipe.name }}
+                → <ItemName :item-id="row.selectedRecipe.itemId" :fallback="row.selectedRecipe.name" />
               </span>
             </template>
           </el-table-column>

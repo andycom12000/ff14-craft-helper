@@ -1,5 +1,6 @@
 const BASE_URL = 'https://universalis.app/api/v2'
 const REQUEST_TIMEOUT_MS = 20000
+const QUICK_REQUEST_TIMEOUT_MS = 8000
 
 export interface MarketListing {
   pricePerUnit: number
@@ -33,9 +34,9 @@ export interface World {
   name: string
 }
 
-async function fetchUniversalis<T>(path: string): Promise<T> {
+async function fetchUniversalis<T>(path: string, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
     const response = await fetch(`${BASE_URL}/${path}`, { signal: controller.signal })
     if (!response.ok) {
@@ -44,7 +45,7 @@ async function fetchUniversalis<T>(path: string): Promise<T> {
     return await response.json()
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new Error(`Universalis 查詢逾時 (${REQUEST_TIMEOUT_MS / 1000}s)`)
+      throw new Error(`Universalis 查詢逾時 (${timeoutMs / 1000}s)`)
     }
     throw err
   } finally {
@@ -96,11 +97,11 @@ export async function getAggregatedPrices(
 }
 
 export function getDataCenters(): Promise<DataCenter[]> {
-  return fetchUniversalis('data-centers')
+  return fetchUniversalis('data-centers', QUICK_REQUEST_TIMEOUT_MS)
 }
 
 export function getWorlds(): Promise<World[]> {
-  return fetchUniversalis('worlds')
+  return fetchUniversalis('worlds', QUICK_REQUEST_TIMEOUT_MS)
 }
 
 export interface WorldPriceSummary {

@@ -5,6 +5,7 @@ import { getPrice } from '@/stores/bom'
 import { useSettingsStore } from '@/stores/settings'
 import { computeOptimalCosts } from '@/services/bom-calculator'
 import { formatGil } from '@/utils/format'
+import ItemName from '@/components/common/ItemName.vue'
 
 const props = defineProps<{
   tree: MaterialNode[]
@@ -153,7 +154,7 @@ const rootSummary = computed(() => {
             type="info" effect="plain" round size="small"
           >
             <span class="crystal-dot" :style="{ background: getCrystalColor(c.itemId) }" />
-            {{ c.name }} ×{{ c.amount }}
+            <ItemName :item-id="c.itemId" :fallback="c.name" /> ×{{ c.amount }}
           </el-tag>
         </div>
       </div>
@@ -174,7 +175,9 @@ const rootSummary = computed(() => {
               <span v-if="root.amount > 1" class="qty-badge">{{ root.amount }}</span>
             </div>
             <div class="node-info">
-              <span class="node-name">{{ root.name }}</span>
+              <span class="node-name">
+                <ItemName :item-id="root.itemId" :fallback="root.name" />
+              </span>
               <span class="node-price">
                 {{ formatGil(getUnitPrice(root.itemId)) }} × {{ root.amount }}
                 = {{ formatGil(getUnitPrice(root.itemId) * root.amount) }} Gil
@@ -250,7 +253,9 @@ const rootSummary = computed(() => {
                   <span v-if="child.amount > 1" class="qty-badge">{{ child.amount }}</span>
                 </div>
                 <div class="node-info">
-                  <span class="node-name" :class="{ 'name-collapsed': child.collapsed }">{{ child.name }}</span>
+                  <span class="node-name" :class="{ 'name-collapsed': child.collapsed }">
+                    <ItemName :item-id="child.itemId" :fallback="child.name" />
+                  </span>
                   <span class="node-price">
                     {{ formatGil(getUnitPrice(child.itemId)) }} × {{ child.amount }}
                     = {{ formatGil(getUnitPrice(child.itemId) * child.amount) }} Gil
@@ -312,7 +317,9 @@ const rootSummary = computed(() => {
                       <span v-if="grandchild.amount > 1" class="qty-badge">{{ grandchild.amount }}</span>
                     </div>
                     <div class="node-info">
-                      <span class="node-name" :class="{ 'name-collapsed': grandchild.collapsed }">{{ grandchild.name }}</span>
+                      <span class="node-name" :class="{ 'name-collapsed': grandchild.collapsed }">
+                        <ItemName :item-id="grandchild.itemId" :fallback="grandchild.name" />
+                      </span>
                       <span class="node-price">
                         {{ formatGil(getUnitPrice(grandchild.itemId)) }} × {{ grandchild.amount }}
                         = {{ formatGil(getUnitPrice(grandchild.itemId) * grandchild.amount) }} Gil
@@ -350,7 +357,9 @@ const rootSummary = computed(() => {
                           <span v-if="leaf.amount > 1" class="qty-badge">{{ leaf.amount }}</span>
                         </div>
                         <div class="node-info">
-                          <span class="node-name">{{ leaf.name }}</span>
+                          <span class="node-name">
+                            <ItemName :item-id="leaf.itemId" :fallback="leaf.name" />
+                          </span>
                           <span class="node-price">
                             {{ formatGil(getUnitPrice(leaf.itemId)) }} × {{ leaf.amount }}
                             = {{ formatGil(getUnitPrice(leaf.itemId) * leaf.amount) }} Gil

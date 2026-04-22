@@ -3,6 +3,7 @@ import type { BatchTarget } from '@/stores/batch'
 import { getJobName } from '@/utils/jobs'
 import { starsDisplay } from '@/utils/format'
 import { Delete } from '@element-plus/icons-vue'
+import ItemName from '@/components/common/ItemName.vue'
 
 defineProps<{ target: BatchTarget }>()
 const emit = defineEmits<{
@@ -21,7 +22,9 @@ const emit = defineEmits<{
     />
     <div class="recipe-card-icon recipe-card-icon--empty" v-else />
     <div class="recipe-card-info">
-      <div class="recipe-card-name">{{ target.recipe.name }}</div>
+      <div class="recipe-card-name">
+        <ItemName :item-id="target.recipe.itemId" :fallback="target.recipe.name" />
+      </div>
       <div class="recipe-card-meta">
         Lv.{{ target.recipe.recipeLevelTable.classJobLevel }}
         {{ starsDisplay(target.recipe.stars) }}

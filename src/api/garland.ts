@@ -1,4 +1,5 @@
 import { XIVAPI_SHEET_BASE, fetchSheetFields } from '@/api/xivapi'
+import { getItem, getLocale } from '@/services/local-data-source'
 import { sToT } from '@/utils/s2t'
 
 const GARLAND_BROWSE = 'https://garlandtools.org/db/doc/browse/en/2/node.json'
@@ -80,7 +81,9 @@ export async function resolveNodeDetails(nodes: GatheringNode[]): Promise<Gather
       results.forEach((v, k) => detailMap.set(k, v))
     }
 
-    // Collect all item IDs for name resolution
+    // Resolve item names from the local data source (honoring active locale,
+    // falling back to zh-TW inside getItem).
+    const locale = getLocale()
     const allItemIds = new Set<number>()
     for (const detail of detailMap.values()) {
       if (detail.items) {
@@ -90,31 +93,16 @@ export async function resolveNodeDetails(nodes: GatheringNode[]): Promise<Gather
       }
     }
 
-    // Fetch item names from tnze zh-TW API (Traditional Chinese)
-    // and zone names from XIVAPI chs + simplified-to-traditional conversion
-    const TNZE_BASE = 'https://tnze.yyyy.games/api/datasource/zh-TW'
     const itemNames = new Map<number, string>()
-    const itemBatch = [...allItemIds]
-    const ITEM_BATCH_SIZE = 30
-    for (let i = 0; i < itemBatch.length; i += ITEM_BATCH_SIZE) {
-      const batch = itemBatch.slice(i, i + ITEM_BATCH_SIZE)
-      const results = await Promise.allSettled(
-        batch.map(async (id) => {
-          const resp = await fetch(`${TNZE_BASE}/item_info?item_id=${id}`)
-          if (!resp.ok) return null
-          const data = await resp.json()
-          return { id, name: data.name as string }
-        }),
-      )
-      for (const r of results) {
-        if (r.status === 'fulfilled' && r.value) {
-          itemNames.set(r.value.id, r.value.name)
-        }
-      }
-    }
+    await Promise.all(
+      [...allItemIds].map(async (id) => {
+        const info = await getItem(id, locale)
+        if (info) itemNames.set(id, info.name)
+      }),
+    )
 
-    // Fetch zone names + mapId from XIVAPI
-    // Garland zoneid = PlaceName ID (NOT TerritoryType ID)
+    // Zone names + map assets still come from XIVAPI.
+    // Garland zoneid = PlaceName ID (NOT TerritoryType ID).
     const zoneIds = new Set<number>()
     for (const detail of detailMap.values()) {
       if (detail.zoneid) zoneIds.add(detail.zoneid)

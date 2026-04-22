@@ -5,12 +5,14 @@ import { useSettingsStore } from '@/stores/settings'
 import { getDataCenters, getWorlds } from '@/api/universalis'
 import type { DataCenter, World } from '@/api/universalis'
 import avatarUrl from '@/assets/avatar.gif'
+import LocaleSwitcher from '@/components/LocaleSwitcher.vue'
 
 const settingsStore = useSettingsStore()
 
 const dataCenters = ref<DataCenter[]>([])
 const worlds = ref<World[]>([])
 const loading = ref(false)
+const loadError = ref(false)
 
 interface RegionGroup {
   region: string
@@ -18,8 +20,24 @@ interface RegionGroup {
 }
 const regionGroups = ref<RegionGroup[]>([])
 
-onMounted(async () => {
+function buildFallbackGroups() {
+  // When Universalis is unreachable, preserve the user's previously-saved
+  // selection so they can still navigate the rest of the Settings page. The
+  // dropdowns will show only the stored value until a retry succeeds.
+  const region = settingsStore.region
+  const dc = settingsStore.dataCenter
+  const world = settingsStore.server
+  if (!region && !dc && !world) return
+  const worldDetails: World[] = world ? [{ id: -1, name: world }] : []
+  regionGroups.value = [{
+    region: region || 'Other',
+    dataCenters: [{ name: dc || '', region: region || 'Other', worlds: [-1], worldDetails }],
+  }]
+}
+
+async function loadServers(notify = false) {
   loading.value = true
+  loadError.value = false
   try {
     const [dcList, worldList] = await Promise.all([
       getDataCenters(),
@@ -41,12 +59,17 @@ onMounted(async () => {
       region,
       dataCenters: dcs,
     }))
+    if (notify) ElMessage.success('伺服器清單已重新載入')
   } catch {
-    ElMessage.error('無法載入伺服器清單')
+    loadError.value = true
+    if (regionGroups.value.length === 0) buildFallbackGroups()
+    ElMessage.error('無法載入伺服器清單（點選「重試」再試一次）')
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(() => { loadServers() })
 
 const selectedRegion = ref(settingsStore.region)
 const selectedDC = ref(settingsStore.dataCenter)
@@ -100,120 +123,140 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
     <h2>設定</h2>
     <p class="view-desc">選擇你的伺服器，調整價格顯示方式。</p>
 
-    <el-skeleton v-if="loading" :rows="6" animated />
-
-    <template v-else>
-      <el-card shadow="never">
-        <template #header>
+    <el-card shadow="never">
+      <template #header>
+        <div class="card-header-row">
           <span class="card-title">伺服器設定</span>
-        </template>
-
-        <el-form label-width="120px" label-position="left">
-          <el-form-item label="地區">
-            <el-select v-model="selectedRegion" placeholder="選擇地區">
-              <el-option
-                v-for="group in regionGroups"
-                :key="group.region"
-                :label="group.region"
-                :value="group.region"
-              />
-            </el-select>
-          </el-form-item>
-
-          <el-form-item label="資料中心">
-            <el-select v-model="selectedDC" placeholder="選擇資料中心">
-              <el-option
-                v-for="dc in availableDCs"
-                :key="dc.name"
-                :label="dc.name"
-                :value="dc.name"
-              />
-            </el-select>
-          </el-form-item>
-
-          <el-form-item label="伺服器">
-            <el-select v-model="selectedServer" placeholder="選擇伺服器">
-              <el-option
-                v-for="world in availableWorlds"
-                :key="world.id"
-                :label="world.name"
-                :value="world.name"
-              />
-            </el-select>
-          </el-form-item>
-        </el-form>
-      </el-card>
-
-      <el-card shadow="never" class="price-card">
-        <template #header>
-          <span class="card-title">價格偏好</span>
-        </template>
-
-        <el-form label-width="120px" label-position="left">
-          <el-form-item label="價格顯示">
-            <el-radio-group v-model="selectedPriceMode">
-              <el-radio value="nq">NQ 最低價</el-radio>
-              <el-radio value="hq">HQ 最低價</el-radio>
-              <el-radio value="minOf">NQ / HQ 取較低者</el-radio>
-            </el-radio-group>
-          </el-form-item>
-        </el-form>
-      </el-card>
-
-
-      <el-card shadow="never" class="about-card">
-        <template #header>
-          <span class="card-title">關於</span>
-        </template>
-
-        <div class="about-app">
-          <div class="about-app-header">
-            <span class="about-app-name">FF14 Craft Helper</span>
-            <el-tag size="small" effect="dark" round>{{ appVersion }}</el-tag>
-          </div>
-          <div class="about-tech">
-            <div class="about-tech-row">
-              <span class="about-tech-label">求解器</span>
-              <a
-                href="https://github.com/KonaeAkira/raphael-rs"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="about-tech-link"
-              >Raphael-rs</a>
-              <span class="about-tech-value"> (WASM 多執行緒)</span>
-            </div>
-            <div class="about-tech-row">
-              <span class="about-tech-label">技術架構</span>
-              <span class="about-tech-value">Vue 3 + Pinia + Element Plus + Vite + TypeScript</span>
-            </div>
-          </div>
-          <a
-            href="https://github.com/andycom12000/ff14-craft-helper"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="about-link-item"
+          <el-button
+            v-if="loadError && !loading"
+            size="small"
+            type="primary"
+            plain
+            @click="loadServers(true)"
           >
-            <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M2 2.5A2.5 2.5 0 014.5 0h8.75a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75h-2.5a.75.75 0 010-1.5h1.75v-2h-8a1 1 0 00-.714 1.7.75.75 0 01-1.072 1.05A2.495 2.495 0 012 11.5zm10.5-1h-8a1 1 0 00-1 1v6.708A2.486 2.486 0 014.5 9h8zM5 12.25v3.25a.25.25 0 00.4.2l1.45-1.087a.25.25 0 01.3 0L8.6 15.7a.25.25 0 00.4-.2v-3.25a.25.25 0 00-.25-.25h-3.5a.25.25 0 00-.25.25z"/></svg>
-            <span>原始碼</span>
-          </a>
+            重試載入清單
+          </el-button>
         </div>
+      </template>
 
-        <el-divider />
+      <el-skeleton v-if="loading" :rows="3" animated />
 
-        <div class="about-author">
-          <img :src="avatarUrl" alt="Author avatar" class="about-avatar" />
-          <div class="about-author-info">
-            <span class="about-author-label">作者</span>
+      <el-form v-else label-width="120px" label-position="left">
+        <el-form-item label="地區">
+          <el-select v-model="selectedRegion" placeholder="選擇地區">
+            <el-option
+              v-for="group in regionGroups"
+              :key="group.region"
+              :label="group.region"
+              :value="group.region"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="資料中心">
+          <el-select v-model="selectedDC" placeholder="選擇資料中心">
+            <el-option
+              v-for="dc in availableDCs"
+              :key="dc.name"
+              :label="dc.name"
+              :value="dc.name"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="伺服器">
+          <el-select v-model="selectedServer" placeholder="選擇伺服器">
+            <el-option
+              v-for="world in availableWorlds"
+              :key="world.id"
+              :label="world.name"
+              :value="world.name"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+    </el-card>
+
+    <el-card shadow="never" class="price-card">
+      <template #header>
+        <span class="card-title">價格偏好</span>
+      </template>
+
+      <el-form label-width="120px" label-position="left">
+        <el-form-item label="價格顯示">
+          <el-radio-group v-model="selectedPriceMode">
+            <el-radio value="nq">NQ 最低價</el-radio>
+            <el-radio value="hq">HQ 最低價</el-radio>
+            <el-radio value="minOf">NQ / HQ 取較低者</el-radio>
+          </el-radio-group>
+        </el-form-item>
+      </el-form>
+    </el-card>
+
+    <el-card shadow="never" class="locale-card">
+      <template #header>
+        <span class="card-title">語言</span>
+      </template>
+
+      <el-form label-width="120px" label-position="left">
+        <el-form-item label="遊戲資料語言">
+          <LocaleSwitcher />
+        </el-form-item>
+      </el-form>
+    </el-card>
+
+    <el-card shadow="never" class="about-card">
+      <template #header>
+        <span class="card-title">關於</span>
+      </template>
+
+      <div class="about-app">
+        <div class="about-app-header">
+          <span class="about-app-name">FF14 Craft Helper</span>
+          <el-tag size="small" effect="dark" round>{{ appVersion }}</el-tag>
+        </div>
+        <div class="about-tech">
+          <div class="about-tech-row">
+            <span class="about-tech-label">求解器</span>
             <a
-              href="https://github.com/andycom12000"
+              href="https://github.com/KonaeAkira/raphael-rs"
               target="_blank"
               rel="noopener noreferrer"
-              class="about-author-name"
-            >andycom12000</a>
+              class="about-tech-link"
+            >Raphael-rs</a>
+            <span class="about-tech-value"> (WASM 多執行緒)</span>
+          </div>
+          <div class="about-tech-row">
+            <span class="about-tech-label">技術架構</span>
+            <span class="about-tech-value">Vue 3 + Pinia + Element Plus + Vite + TypeScript</span>
           </div>
         </div>
-      </el-card>
-    </template>
+        <a
+          href="https://github.com/andycom12000/ff14-craft-helper"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="about-link-item"
+        >
+          <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M2 2.5A2.5 2.5 0 014.5 0h8.75a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75h-2.5a.75.75 0 010-1.5h1.75v-2h-8a1 1 0 00-.714 1.7.75.75 0 01-1.072 1.05A2.495 2.495 0 012 11.5zm10.5-1h-8a1 1 0 00-1 1v6.708A2.486 2.486 0 014.5 9h8zM5 12.25v3.25a.25.25 0 00.4.2l1.45-1.087a.25.25 0 01.3 0L8.6 15.7a.25.25 0 00.4-.2v-3.25a.25.25 0 00-.25-.25h-3.5a.25.25 0 00-.25.25z"/></svg>
+          <span>原始碼</span>
+        </a>
+      </div>
+
+      <el-divider />
+
+      <div class="about-author">
+        <img :src="avatarUrl" alt="Author avatar" class="about-avatar" />
+        <div class="about-author-info">
+          <span class="about-author-label">作者</span>
+          <a
+            href="https://github.com/andycom12000"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="about-author-name"
+          >andycom12000</a>
+        </div>
+      </div>
+    </el-card>
   </div>
 </template>
 
@@ -223,6 +266,10 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
 }
 
 .price-card {
+  margin-top: 20px;
+}
+
+.locale-card {
   margin-top: 20px;
 }
 
@@ -265,6 +312,13 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   gap: 8px;
   font-size: 13px;
   line-height: 1.6;
+}
+
+.card-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .about-tech-label {

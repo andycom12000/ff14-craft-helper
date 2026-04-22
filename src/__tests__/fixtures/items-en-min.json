@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "items": [
+    [5057, "Iron Ingot", 20, 1, 21204],
+    [5106, "Iron Sand", 20, 1, 20405],
+    [5107, "Limestone", 5, 1, 20415],
+    [2, "Fire Shard", 1, 0, 20001],
+    [3, "Wind Shard", 1, 0, 20003],
+    [12537, "Pure Iron Sand", 50, 1, 20410],
+    [12538, "Deepsteel Ingot", 58, 1, 21250],
+    [7, "Ice Crystal", 1, 0, 20008],
+    [4, "Lightning Shard", 1, 0, 20004],
+    [10, "Wind Crystal", 1, 0, 20009]
+  ]
+}

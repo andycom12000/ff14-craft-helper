@@ -1,8 +1,31 @@
 import type { Recipe, Ingredient, RecipeLevelTable } from '@/stores/recipe'
+import {
+  getLocale,
+  loadItems,
+  loadRecipes,
+  getRlt,
+  getItem,
+  searchRecipesByName,
+} from '@/services/local-data-source'
+import { getIconUrl } from '@/utils/icon-url'
+import { CRAFT_TYPE_TO_JOB } from '@/utils/jobs'
 
-const API_BASE = 'https://tnze.yyyy.games/api/datasource/zh-TW'
-const ICON_API = 'https://xivapi-v2.xivcdn.com/api'
-const ICON_ASSET = 'https://beta.xivapi.com/api/1/asset'
+// Chinese short-form job names (matching what the legacy tnze API returned).
+// Components filter on these strings, so we must preserve them in searchRecipes output.
+const JOB_ABBR_TO_ZH: Record<string, string> = {
+  CRP: '木工',
+  BSM: '鍛造',
+  ARM: '甲冑',
+  GSM: '金工',
+  LTW: '皮革',
+  WVR: '裁縫',
+  ALC: '鍊金',
+  CUL: '烹調',
+}
+
+function jobZh(abbr: string): string {
+  return JOB_ABBR_TO_ZH[abbr] ?? abbr
+}
 
 export interface RecipeSearchResult {
   id: number
@@ -13,87 +36,28 @@ export interface RecipeSearchResult {
   job: string
 }
 
-interface RecipeTableEntry {
-  id: number
-  rlv: number
-  item_id: number
-  item_name: string
-  job: string
-  can_hq: boolean
-  material_quality_factor: number
-}
-
-interface RecipeTableResponse {
-  data: RecipeTableEntry[]
-  p: number
-}
-
-interface RecipeLevelResponse {
-  id: number
-  class_job_level: number
-  suggested_craftsmanship: number
-  difficulty: number
-  quality: number
-  durability: number
-  progress_divider: number
-  quality_divider: number
-  progress_modifier: number
-  quality_modifier: number
-  conditions_flag: number
-}
-
-interface ItemInfoResponse {
-  id: number
-  name: string
-  level: number
-  can_be_hq: number
-}
-
-async function fetchIcons(itemIds: number[]): Promise<Map<number, string>> {
-  const map = new Map<number, string>()
-  if (itemIds.length === 0) return map
-
-  try {
-    const url = `${ICON_API}/sheet/Item?rows=${itemIds.join(',')}&fields=Icon`
-    const resp = await fetch(url)
-    if (!resp.ok) return map
-
-    const data = await resp.json()
-    for (const row of data.rows) {
-      const path = row.fields?.Icon?.path_hr1 ?? row.fields?.Icon?.path
-      if (path) {
-        map.set(row.row_id, `${ICON_ASSET}/${path}?format=png`)
-      }
-    }
-  } catch {
-    // Icons are non-critical; return what we have
-  }
-  return map
-}
-
 export async function searchRecipes(
   query: string,
 ): Promise<RecipeSearchResult[]> {
   try {
-    const url = `${API_BASE}/recipe_table?page_id=0&search_name=${encodeURIComponent('%' + query + '%')}`
-    const response = await fetch(url)
-    if (!response.ok) {
-      throw new Error(`API search failed: ${response.status} ${response.statusText}`)
-    }
+    const results = await searchRecipesByName(query, getLocale())
 
-    const data: RecipeTableResponse = await response.json()
+    // Need iconId for each result — batch-load items map and look up.
+    const items = await loadItems(getLocale())
+    const fallbackItems = await loadItems('zh-TW')
 
-    const itemIds = data.data.map((r) => r.item_id)
-    const icons = await fetchIcons(itemIds)
-
-    return data.data.map((item) => ({
-      id: item.id,
-      itemId: item.item_id,
-      name: item.item_name,
-      icon: icons.get(item.item_id) ?? '',
-      level: item.rlv,
-      job: item.job,
-    }))
+    return results.map((r) => {
+      const item = items.get(r.itemId) ?? fallbackItems.get(r.itemId)
+      const iconId = item?.iconId ?? 0
+      return {
+        id: r.id,
+        itemId: r.itemId,
+        name: r.name,
+        icon: iconId ? getIconUrl(iconId) : '',
+        level: r.rlv,
+        job: jobZh(r.job),
+      }
+    })
   } catch (error) {
     console.error('[API] searchRecipes error:', error)
     throw error
@@ -101,123 +65,99 @@ export async function searchRecipes(
 }
 
 /**
- * Find recipes that produce a specific item by exact name match.
- * Returns empty array if the item is not craftable.
+ * Find recipes that produce a specific item.
+ * The itemName parameter is retained for backward compatibility with existing
+ * callers but is no longer used — the local data source can look up directly
+ * by itemId.
  */
 export async function findRecipesByItemName(
-  itemName: string,
+  _itemName: string,
   itemId: number,
 ): Promise<{ recipeId: number; job: string }[]> {
   try {
-    const url = `${API_BASE}/recipe_table?page_id=0&search_name=${encodeURIComponent(itemName)}`
-    const response = await fetch(url)
-    if (!response.ok) return []
-
-    const data: RecipeTableResponse = await response.json()
-    // Filter by exact item_id match to avoid partial name matches
-    return data.data
-      .filter((r) => r.item_id === itemId)
-      .map((r) => ({ recipeId: r.id, job: r.job }))
+    const recipes = await loadRecipes()
+    return recipes
+      .filter((r) => r.itemResult === itemId)
+      .map((r) => ({
+        recipeId: r.id,
+        job: jobZh(CRAFT_TYPE_TO_JOB[r.craftType] ?? 'CRP'),
+      }))
   } catch {
     return []
   }
 }
 
 export async function getRecipe(id: number): Promise<Recipe> {
-  try {
-    // Fetch recipe info and ingredients in parallel
-    const [recipeResp, ingredientsResp] = await Promise.all([
-      fetch(`${API_BASE}/recipe_info?recipe_id=${id}`),
-      fetch(`${API_BASE}/recipes_ingredientions?recipe_id=${id}`),
-    ])
+  const recipes = await loadRecipes()
+  const recipe = recipes.find((r) => r.id === id)
+  if (!recipe) {
+    throw new Error(`Recipe ${id} not found in local data`)
+  }
 
-    if (!recipeResp.ok) throw new Error(`API recipe_info failed: ${recipeResp.status}`)
-    if (!ingredientsResp.ok) throw new Error(`API ingredients failed: ${ingredientsResp.status}`)
+  const rlt = await getRlt(recipe.rlv)
+  if (!rlt) {
+    throw new Error(`Recipe level table ${recipe.rlv} not found`)
+  }
 
-    const recipeData = await recipeResp.json() as {
-      id: number
-      rlv: number
-      item_id: number
-      item_name: string
-      job: string
-      can_hq: boolean
-      material_quality_factor: number
-      difficulty_factor: number
-      quality_factor: number
-      durability_factor: number
-    }
+  const locale = getLocale()
+  const items = await loadItems(locale)
+  const fallbackItems = locale === 'zh-TW' ? items : await loadItems('zh-TW')
 
-    const rawIngredients: [number, number][] = await ingredientsResp.json()
+  const lookupItem = (itemId: number) =>
+    items.get(itemId) ?? fallbackItems.get(itemId)
 
-    // Fetch recipe level table and ingredient item info in parallel
-    const ingredientIds = rawIngredients.filter(([, amt]) => amt > 0).map(([itemId]) => itemId)
+  const resultItem = lookupItem(recipe.itemResult)
+  const resultName = resultItem?.name ?? `Item #${recipe.itemResult}`
+  const resultIcon = resultItem?.iconId ? getIconUrl(resultItem.iconId) : ''
 
-    const [rltResp, ...itemResponses] = await Promise.all([
-      fetch(`${API_BASE}/recipe_level_table?rlv=${recipeData.rlv}`),
-      ...ingredientIds.map((itemId) =>
-        fetch(`${API_BASE}/item_info?item_id=${itemId}`),
-      ),
-    ])
-
-    if (!rltResp.ok) throw new Error(`API recipe_level_table failed: ${rltResp.status}`)
-
-    const rlt: RecipeLevelResponse = await rltResp.json()
-
-    const itemInfos = await Promise.all(
-      itemResponses.map(async (resp) => {
-        if (!resp.ok) return null
-        return (await resp.json()) as ItemInfoResponse
-      }),
-    )
-
-    // Fetch icons for recipe item + all ingredients
-    const allItemIds = [recipeData.item_id, ...ingredientIds]
-    const icons = await fetchIcons(allItemIds)
-
-    const ingredients: Ingredient[] = rawIngredients
-      .filter(([, amt]) => amt > 0)
-      .map(([itemId, amount], i) => ({
+  const ingredients: Ingredient[] = recipe.ingredients
+    .filter(([, amount]) => amount > 0)
+    .map(([itemId, amount]) => {
+      const info = lookupItem(itemId)
+      return {
         itemId,
-        name: itemInfos[i]?.name ?? `Item #${itemId}`,
-        icon: icons.get(itemId) ?? '',
+        name: info?.name ?? `Item #${itemId}`,
+        icon: info?.iconId ? getIconUrl(info.iconId) : '',
         amount,
-        canHq: !!(itemInfos[i]?.can_be_hq),
-        level: itemInfos[i]?.level ?? 0,
-      }))
+        canHq: info?.canBeHq ?? false,
+        level: info?.level ?? 0,
+      }
+    })
 
-    const recipeLevelTable: RecipeLevelTable = {
-      classJobLevel: rlt.class_job_level,
-      stars: 0,
-      difficulty: Math.floor(rlt.difficulty * recipeData.difficulty_factor / 100),
-      quality: Math.floor(rlt.quality * recipeData.quality_factor / 100),
-      durability: Math.floor(rlt.durability * recipeData.durability_factor / 100),
-      suggestedCraftsmanship: rlt.suggested_craftsmanship,
-      progressDivider: rlt.progress_divider,
-      qualityDivider: rlt.quality_divider,
-      progressModifier: rlt.progress_modifier,
-      qualityModifier: rlt.quality_modifier,
-    }
+  const recipeLevelTable: RecipeLevelTable = {
+    classJobLevel: rlt.classJobLevel,
+    stars: 0,
+    difficulty: Math.floor(rlt.difficulty * recipe.difficultyFactor / 100),
+    quality: Math.floor(rlt.quality * recipe.qualityFactor / 100),
+    durability: Math.floor(rlt.durability * recipe.durabilityFactor / 100),
+    suggestedCraftsmanship: rlt.suggestedCraftsmanship,
+    progressDivider: rlt.progressDivider,
+    qualityDivider: rlt.qualityDivider,
+    progressModifier: rlt.progressModifier,
+    qualityModifier: rlt.qualityModifier,
+  }
 
-    return {
-      id: recipeData.id,
-      itemId: recipeData.item_id,
-      name: recipeData.item_name,
-      icon: icons.get(recipeData.item_id) ?? '',
-      job: recipeData.job,
-      level: rlt.class_job_level,
-      stars: 0,
-      canHq: recipeData.can_hq,
-      materialQualityFactor: recipeData.material_quality_factor,
-      ingredients,
-      recipeLevelTable,
-    }
-  } catch (error) {
-    console.error('[API] getRecipe error:', error)
-    throw error
+  const jobAbbr = CRAFT_TYPE_TO_JOB[recipe.craftType] ?? 'CRP'
+
+  return {
+    id: recipe.id,
+    itemId: recipe.itemResult,
+    name: resultName,
+    icon: resultIcon,
+    job: jobZh(jobAbbr),
+    level: rlt.classJobLevel,
+    stars: 0,
+    canHq: recipe.canHq,
+    materialQualityFactor: recipe.materialQualityFactor,
+    ingredients,
+    recipeLevelTable,
   }
 }
 
-export const XIVAPI_SHEET_BASE = 'https://xivapi-v2.xivcdn.com/api'
+// Re-export getItem for callers that need raw item lookup via this module.
+export { getItem }
+
+export const XIVAPI_SHEET_BASE = 'https://beta.xivapi.com/api'
 
 export async function fetchSheetFields<T>(
   sheet: string, rows: number[], fields: string,

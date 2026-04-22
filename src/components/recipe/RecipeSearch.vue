@@ -2,6 +2,7 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { Search } from '@element-plus/icons-vue'
 import { searchRecipes, type RecipeSearchResult } from '@/api/xivapi'
+import ItemName from '@/components/common/ItemName.vue'
 
 const CRAFT_JOBS = ['木工', '鍛造', '甲冑', '金工', '皮革', '裁縫', '鍊金', '烹調'] as const
 
@@ -52,7 +53,7 @@ watch(query, (value) => {
     } finally {
       loading.value = false
     }
-  }, 500)
+  }, 200)
 })
 
 onUnmounted(() => { if (debounceTimer) clearTimeout(debounceTimer) })
@@ -82,7 +83,14 @@ function handleRowClick(row: RecipeSearchResult) {
       <el-input-number v-model="levelMax" :min="1" :max="999" placeholder="最高" size="small" class="filter-level" />
     </div>
 
+    <el-skeleton
+      v-if="loading && allResults.length === 0"
+      :rows="5"
+      animated
+      style="margin-top: 12px"
+    />
     <el-table
+      v-else
       v-loading="loading"
       :data="filteredResults"
       style="width: 100%; margin-top: 12px"
@@ -96,7 +104,11 @@ function handleRowClick(row: RecipeSearchResult) {
           <img :src="row.icon" :alt="row.name" crossorigin="anonymous" style="width: 32px; height: 32px" />
         </template>
       </el-table-column>
-      <el-table-column prop="name" label="名稱" />
+      <el-table-column label="名稱">
+        <template #default="{ row }">
+          <ItemName :item-id="row.itemId" :fallback="row.name" />
+        </template>
+      </el-table-column>
       <el-table-column prop="level" label="配方等級" width="100" align="center" />
       <el-table-column prop="job" label="職業" width="80" align="center" />
     </el-table>

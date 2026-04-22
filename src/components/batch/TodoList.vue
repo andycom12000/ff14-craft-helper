@@ -5,6 +5,7 @@ import { getJobName } from '@/utils/jobs'
 import { ElMessage } from 'element-plus'
 import { DocumentCopy, ArrowRight } from '@element-plus/icons-vue'
 import type { TodoItem } from '@/stores/batch'
+import ItemName from '@/components/common/ItemName.vue'
 
 const props = defineProps<{ items: TodoItem[] }>()
 const emit = defineEmits<{
@@ -149,7 +150,7 @@ function resetAll() {
                   @click.stop="copyRecipeName(item.recipe.name, index)"
                   @keydown.enter.stop.prevent="copyRecipeName(item.recipe.name, index)"
                   @keydown.space.stop.prevent="copyRecipeName(item.recipe.name, index)"
-                >{{ item.recipe.name }}</span>
+                ><ItemName :item-id="item.recipe.itemId" :fallback="item.recipe.name" /></span>
               </div>
               <div class="todo-meta">
                 x{{ item.quantity }} |
@@ -201,7 +202,7 @@ function resetAll() {
               @click.stop="copyRecipeName(item.recipe.name, index)"
               @keydown.enter.stop.prevent="copyRecipeName(item.recipe.name, index)"
               @keydown.space.stop.prevent="copyRecipeName(item.recipe.name, index)"
-            >{{ item.recipe.name }}</span>
+            ><ItemName :item-id="item.recipe.itemId" :fallback="item.recipe.name" /></span>
             <el-button
               :icon="DocumentCopy"
               size="small"
@@ -220,7 +221,7 @@ function resetAll() {
             <el-tag size="small" type="warning">HQ</el-tag>
             <template v-for="(ing, ii) in item.recipe.ingredients" :key="ii">
               <span v-if="item.hqAmounts[ii] > 0" class="hq-ingredient">
-                {{ ing.name }} x{{ item.hqAmounts[ii] }}
+                <ItemName :item-id="ing.itemId" :fallback="ing.name" /> x{{ item.hqAmounts[ii] }}
               </span>
             </template>
           </div>

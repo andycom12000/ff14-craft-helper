@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "buildTime": "2026-04-22T00:00:00.000Z",
+  "locales": ["zh-TW", "zh-CN", "en", "ja"],
+  "defaultLocale": "zh-TW",
+  "sources": {
+    "zh-TW": { "repo": "harukaxxxx/ffxiv-datamining-tw", "commit": "fixture0000000000000000000000000000000000" },
+    "zh-CN": { "repo": "thewakingsands/ffxiv-datamining-cn", "commit": "fixture0000000000000000000000000000000000" },
+    "en": { "repo": "xivapi/ffxiv-datamining", "commit": "fixture0000000000000000000000000000000000" },
+    "ja": { "repo": "xivapi/ffxiv-datamining", "commit": "fixture0000000000000000000000000000000000" }
+  }
+}
