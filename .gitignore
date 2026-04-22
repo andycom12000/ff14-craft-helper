@@ -3,6 +3,7 @@ node_modules/
 
 # Build
 dist/
+*.tsbuildinfo
 
 # IDE
 .vscode/
@@ -32,3 +33,10 @@ raphael-wasm-wrapper/target/
 
 # ETL data cache (game data build script)
 .data-cache/
+
+# Scratch screenshots at repo root (verification/testing artifacts from Claude runs)
+/*.png
+
+# Scratch comparison / brainstorm dirs
+tmp-compare/
+.superpowers/
