@@ -29,3 +29,16 @@ export const JOB_ABBR: Record<string, string> = Object.fromEntries([
 export function getJobName(abbr: string): string {
   return JOB_NAMES[abbr] ?? abbr
 }
+
+// FFXIV CraftType sheet: 0..7 → DoH job abbreviation
+// keep in sync with scripts/build-game-data.mjs CRAFT_TYPE_TO_JOB
+export const CRAFT_TYPE_TO_JOB: Record<number, keyof typeof JOB_NAMES> = {
+  0: 'CRP',
+  1: 'BSM',
+  2: 'ARM',
+  3: 'GSM',
+  4: 'LTW',
+  5: 'WVR',
+  6: 'ALC',
+  7: 'CUL',
+}

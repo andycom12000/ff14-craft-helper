@@ -29,3 +29,6 @@ npm-debug.log*
 
 # Rust
 raphael-wasm-wrapper/target/
+
+# ETL data cache (game data build script)
+.data-cache/
