@@ -12,6 +12,21 @@ interface Entry {
 
 const changelog: Entry[] = [
   {
+    version: 'v2.0.0',
+    date: '2026-04-23',
+    codename: 'Offline Codex',
+    highlights: [
+      '【架構重大更新】遊戲資料（配方、道具、素材名稱、RLT）全面改為 repo 內建 JSON，不再向 XIVAPI / Garland Tools 等外部服務即時查詢',
+      '【多語言支援】配方與道具名稱首次支援四語言切換：繁體中文（預設）、簡體中文、English、日本語；可於設定頁即時切換，localStorage 記住偏好；UI 介面暫仍以繁中呈現',
+      '繁體中文資料原先透過 tnze.yyyy.games 私人後端取得，現改為以公開的 harukaxxxx/ffxiv-datamining-tw datamining 儲存庫為來源，授權來源清楚、穩定度與可追溯性大幅提升；其餘語言則取自 thewakingsands/ffxiv-datamining-cn（簡中）與 xivapi/ffxiv-datamining（英／日）',
+      '【全球伺服器支援】遊戲資料改為語言中立的結構後，Universalis 所涵蓋的全部資料中心與伺服器皆可使用：不論 Mana／Materia（JP）、Aether／Primal／Crystal／Dynamis（NA）、Chaos／Light（EU）、Meteor／Elemental（OCE／JP）皆可於設定頁選取並查詢跨服價格',
+      '首次載入與搜尋配方的等待大幅縮短；XIVAPI / yyyy.games 任一服務異常時 app 仍可正常使用；背景資料即使離線亦可瀏覽',
+      '資料版本由 public/data/manifest.json 固定，所有使用者看到一致的遊戲資料；每週由自動化 workflow 掃描上游 datamining 源並開 PR 更新，審查後再合併上線',
+      '市場價格（Universalis）與伺服器清單仍維持 API 即時查詢，不受此變更影響',
+      '註：此架構變更的程式碼已於 v1.9.4 隨批量製作修正一同上線；本版本為該里程碑的正式公告',
+    ],
+  },
+  {
     version: 'v1.9.5',
     date: '2026-04-23',
     highlights: [
