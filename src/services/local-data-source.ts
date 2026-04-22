@@ -49,13 +49,8 @@ export async function setLocale(locale: Locale): Promise<void> {
   } catch {
     // ignore
   }
-  // Kick off the items fetch for the new locale so downstream sync getters
-  // (getItemSync / useItemName) see real names instead of falling back to
-  // whichever locale was active when the record was cached.
-  void loadItems(locale).catch(() => {
-    // swallow — loadItems already nukes its promise cache on reject; the
-    // next read will retry. Failing here silently keeps setLocale non-throwing.
-  })
+  // preload items for new locale; getItemSync is non-reactive
+  void loadItems(locale).catch(() => {})
   for (const cb of localeListeners) {
     try {
       cb(locale)
@@ -82,10 +77,7 @@ export const loadingState: Record<Locale, { recipes: boolean; items: boolean; rl
     ja: { recipes: false, items: false, rlt: false },
   })
 
-// Reactive signal bumped every time an items map is (re)populated for any
-// locale. `useItemName` reads this so its computed re-runs when a newly
-// fetched locale's cache becomes available — `getItemSync` is not reactive
-// on its own.
+// bumped on items map (re)population; subscribe in useItemName
 export const itemsCacheVersion = ref(0)
 
 function setGlobalFlag(key: 'recipes' | 'rlt', value: boolean): void {

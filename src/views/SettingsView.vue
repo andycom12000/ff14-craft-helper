@@ -35,7 +35,7 @@ function buildFallbackGroups() {
   }]
 }
 
-async function loadServers(opts: { notify: boolean } = { notify: false }) {
+async function loadServers(notify = false) {
   loading.value = true
   loadError.value = false
   try {
@@ -59,7 +59,7 @@ async function loadServers(opts: { notify: boolean } = { notify: false }) {
       region,
       dataCenters: dcs,
     }))
-    if (opts.notify) ElMessage.success('伺服器清單已重新載入')
+    if (notify) ElMessage.success('伺服器清單已重新載入')
   } catch {
     loadError.value = true
     if (regionGroups.value.length === 0) buildFallbackGroups()
@@ -132,7 +132,7 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
             size="small"
             type="primary"
             plain
-            @click="loadServers({ notify: true })"
+            @click="loadServers(true)"
           >
             重試載入清單
           </el-button>
@@ -178,86 +178,85 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
     </el-card>
 
     <el-card shadow="never" class="price-card">
-        <template #header>
-          <span class="card-title">價格偏好</span>
-        </template>
+      <template #header>
+        <span class="card-title">價格偏好</span>
+      </template>
 
-        <el-form label-width="120px" label-position="left">
-          <el-form-item label="價格顯示">
-            <el-radio-group v-model="selectedPriceMode">
-              <el-radio value="nq">NQ 最低價</el-radio>
-              <el-radio value="hq">HQ 最低價</el-radio>
-              <el-radio value="minOf">NQ / HQ 取較低者</el-radio>
-            </el-radio-group>
-          </el-form-item>
-        </el-form>
-      </el-card>
+      <el-form label-width="120px" label-position="left">
+        <el-form-item label="價格顯示">
+          <el-radio-group v-model="selectedPriceMode">
+            <el-radio value="nq">NQ 最低價</el-radio>
+            <el-radio value="hq">HQ 最低價</el-radio>
+            <el-radio value="minOf">NQ / HQ 取較低者</el-radio>
+          </el-radio-group>
+        </el-form-item>
+      </el-form>
+    </el-card>
 
+    <el-card shadow="never" class="locale-card">
+      <template #header>
+        <span class="card-title">語言</span>
+      </template>
 
-      <el-card shadow="never" class="locale-card">
-        <template #header>
-          <span class="card-title">語言</span>
-        </template>
+      <el-form label-width="120px" label-position="left">
+        <el-form-item label="遊戲資料語言">
+          <LocaleSwitcher />
+        </el-form-item>
+      </el-form>
+    </el-card>
 
-        <el-form label-width="120px" label-position="left">
-          <el-form-item label="遊戲資料語言">
-            <LocaleSwitcher />
-          </el-form-item>
-        </el-form>
-      </el-card>
+    <el-card shadow="never" class="about-card">
+      <template #header>
+        <span class="card-title">關於</span>
+      </template>
 
-      <el-card shadow="never" class="about-card">
-        <template #header>
-          <span class="card-title">關於</span>
-        </template>
-
-        <div class="about-app">
-          <div class="about-app-header">
-            <span class="about-app-name">FF14 Craft Helper</span>
-            <el-tag size="small" effect="dark" round>{{ appVersion }}</el-tag>
-          </div>
-          <div class="about-tech">
-            <div class="about-tech-row">
-              <span class="about-tech-label">求解器</span>
-              <a
-                href="https://github.com/KonaeAkira/raphael-rs"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="about-tech-link"
-              >Raphael-rs</a>
-              <span class="about-tech-value"> (WASM 多執行緒)</span>
-            </div>
-            <div class="about-tech-row">
-              <span class="about-tech-label">技術架構</span>
-              <span class="about-tech-value">Vue 3 + Pinia + Element Plus + Vite + TypeScript</span>
-            </div>
-          </div>
-          <a
-            href="https://github.com/andycom12000/ff14-craft-helper"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="about-link-item"
-          >
-            <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M2 2.5A2.5 2.5 0 014.5 0h8.75a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75h-2.5a.75.75 0 010-1.5h1.75v-2h-8a1 1 0 00-.714 1.7.75.75 0 01-1.072 1.05A2.495 2.495 0 012 11.5zm10.5-1h-8a1 1 0 00-1 1v6.708A2.486 2.486 0 014.5 9h8zM5 12.25v3.25a.25.25 0 00.4.2l1.45-1.087a.25.25 0 01.3 0L8.6 15.7a.25.25 0 00.4-.2v-3.25a.25.25 0 00-.25-.25h-3.5a.25.25 0 00-.25.25z"/></svg>
-            <span>原始碼</span>
-          </a>
+      <div class="about-app">
+        <div class="about-app-header">
+          <span class="about-app-name">FF14 Craft Helper</span>
+          <el-tag size="small" effect="dark" round>{{ appVersion }}</el-tag>
         </div>
-
-        <el-divider />
-
-        <div class="about-author">
-          <img :src="avatarUrl" alt="Author avatar" class="about-avatar" />
-          <div class="about-author-info">
-            <span class="about-author-label">作者</span>
+        <div class="about-tech">
+          <div class="about-tech-row">
+            <span class="about-tech-label">求解器</span>
             <a
-              href="https://github.com/andycom12000"
+              href="https://github.com/KonaeAkira/raphael-rs"
               target="_blank"
               rel="noopener noreferrer"
-              class="about-author-name"
-            >andycom12000</a>
+              class="about-tech-link"
+            >Raphael-rs</a>
+            <span class="about-tech-value"> (WASM 多執行緒)</span>
+          </div>
+          <div class="about-tech-row">
+            <span class="about-tech-label">技術架構</span>
+            <span class="about-tech-value">Vue 3 + Pinia + Element Plus + Vite + TypeScript</span>
           </div>
         </div>
-      </el-card>
+        <a
+          href="https://github.com/andycom12000/ff14-craft-helper"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="about-link-item"
+        >
+          <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M2 2.5A2.5 2.5 0 014.5 0h8.75a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75h-2.5a.75.75 0 010-1.5h1.75v-2h-8a1 1 0 00-.714 1.7.75.75 0 01-1.072 1.05A2.495 2.495 0 012 11.5zm10.5-1h-8a1 1 0 00-1 1v6.708A2.486 2.486 0 014.5 9h8zM5 12.25v3.25a.25.25 0 00.4.2l1.45-1.087a.25.25 0 01.3 0L8.6 15.7a.25.25 0 00.4-.2v-3.25a.25.25 0 00-.25-.25h-3.5a.25.25 0 00-.25.25z"/></svg>
+          <span>原始碼</span>
+        </a>
+      </div>
+
+      <el-divider />
+
+      <div class="about-author">
+        <img :src="avatarUrl" alt="Author avatar" class="about-avatar" />
+        <div class="about-author-info">
+          <span class="about-author-label">作者</span>
+          <a
+            href="https://github.com/andycom12000"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="about-author-name"
+          >andycom12000</a>
+        </div>
+      </div>
+    </el-card>
   </div>
 </template>
 
