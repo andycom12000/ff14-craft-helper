@@ -123,62 +123,61 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
     <h2>設定</h2>
     <p class="view-desc">選擇你的伺服器，調整價格顯示方式。</p>
 
-    <el-skeleton v-if="loading" :rows="6" animated />
+    <el-card shadow="never">
+      <template #header>
+        <div class="card-header-row">
+          <span class="card-title">伺服器設定</span>
+          <el-button
+            v-if="loadError && !loading"
+            size="small"
+            type="primary"
+            plain
+            @click="loadServers({ notify: true })"
+          >
+            重試載入清單
+          </el-button>
+        </div>
+      </template>
 
-    <template v-else>
-      <el-card shadow="never">
-        <template #header>
-          <div class="card-header-row">
-            <span class="card-title">伺服器設定</span>
-            <el-button
-              v-if="loadError"
-              size="small"
-              type="primary"
-              plain
-              @click="loadServers({ notify: true })"
-            >
-              重試載入清單
-            </el-button>
-          </div>
-        </template>
+      <el-skeleton v-if="loading" :rows="3" animated />
 
-        <el-form label-width="120px" label-position="left">
-          <el-form-item label="地區">
-            <el-select v-model="selectedRegion" placeholder="選擇地區">
-              <el-option
-                v-for="group in regionGroups"
-                :key="group.region"
-                :label="group.region"
-                :value="group.region"
-              />
-            </el-select>
-          </el-form-item>
+      <el-form v-else label-width="120px" label-position="left">
+        <el-form-item label="地區">
+          <el-select v-model="selectedRegion" placeholder="選擇地區">
+            <el-option
+              v-for="group in regionGroups"
+              :key="group.region"
+              :label="group.region"
+              :value="group.region"
+            />
+          </el-select>
+        </el-form-item>
 
-          <el-form-item label="資料中心">
-            <el-select v-model="selectedDC" placeholder="選擇資料中心">
-              <el-option
-                v-for="dc in availableDCs"
-                :key="dc.name"
-                :label="dc.name"
-                :value="dc.name"
-              />
-            </el-select>
-          </el-form-item>
+        <el-form-item label="資料中心">
+          <el-select v-model="selectedDC" placeholder="選擇資料中心">
+            <el-option
+              v-for="dc in availableDCs"
+              :key="dc.name"
+              :label="dc.name"
+              :value="dc.name"
+            />
+          </el-select>
+        </el-form-item>
 
-          <el-form-item label="伺服器">
-            <el-select v-model="selectedServer" placeholder="選擇伺服器">
-              <el-option
-                v-for="world in availableWorlds"
-                :key="world.id"
-                :label="world.name"
-                :value="world.name"
-              />
-            </el-select>
-          </el-form-item>
-        </el-form>
-      </el-card>
+        <el-form-item label="伺服器">
+          <el-select v-model="selectedServer" placeholder="選擇伺服器">
+            <el-option
+              v-for="world in availableWorlds"
+              :key="world.id"
+              :label="world.name"
+              :value="world.name"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+    </el-card>
 
-      <el-card shadow="never" class="price-card">
+    <el-card shadow="never" class="price-card">
         <template #header>
           <span class="card-title">價格偏好</span>
         </template>
@@ -259,7 +258,6 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
           </div>
         </div>
       </el-card>
-    </template>
   </div>
 </template>
 
