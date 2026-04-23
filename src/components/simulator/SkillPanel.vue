@@ -10,11 +10,13 @@ import {
   type SkillDefinition,
   type SupportedLocale,
 } from '@/engine/skills'
+import type { Job } from '@/engine/skill-icons-by-job'
 import { useLocaleStore } from '@/stores/locale'
 
 const props = defineProps<{
   level: number
   craftState: CraftState | null
+  job?: Job | null
 }>()
 
 const emit = defineEmits<{
@@ -92,9 +94,9 @@ function tooltipContent(skill: SkillDefinition): string {
               :title="skillDisplayName(skill)"
               @click="handleClick(skill.id)"
             >
-              <template v-if="getSkillIconUrl(skill)">
+              <template v-if="getSkillIconUrl(skill, props.job ?? null)">
                 <img
-                  :src="getSkillIconUrl(skill)!"
+                  :src="getSkillIconUrl(skill, props.job ?? null)!"
                   :alt="skillDisplayName(skill)"
                   class="skill-icon"
                   loading="lazy"

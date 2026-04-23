@@ -1,4 +1,5 @@
 import { getIconUrl } from '@/utils/icon-url'
+import { getPerJobIconId, type Job } from './skill-icons-by-job'
 
 export type SkillCategory = 'progress' | 'quality' | 'buff' | 'repair' | 'other'
 
@@ -84,10 +85,13 @@ export function getSkillNameByLocale(id: string, locale: SupportedLocale): strin
   }
 }
 
-export function getSkillIconUrl(idOrSkill: string | SkillDefinition): string | null {
+export function getSkillIconUrl(idOrSkill: string | SkillDefinition, job?: Job | null): string | null {
   const skill = typeof idOrSkill === 'string' ? SKILL_MAP.get(idOrSkill) : idOrSkill
-  if (!skill || !skill.iconId) return null
-  return getIconUrl(skill.iconId)
+  if (!skill) return null
+  const perJob = job ? getPerJobIconId(skill.id, job) : null
+  const iconId = perJob ?? skill.iconId
+  if (!iconId) return null
+  return getIconUrl(iconId)
 }
 
 export function getSkillsByLevel(level: number): SkillDefinition[] {

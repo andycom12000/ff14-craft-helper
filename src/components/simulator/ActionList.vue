@@ -6,11 +6,13 @@ import {
   getSkillNameByLocale,
   type SupportedLocale,
 } from '@/engine/skills'
+import type { Job } from '@/engine/skill-icons-by-job'
 import { useLocaleStore } from '@/stores/locale'
 
-defineProps<{
+const props = defineProps<{
   actions: string[]
   results: StepResult[]
+  job?: Job | null
 }>()
 
 const emit = defineEmits<{
@@ -31,7 +33,7 @@ function displayName(id: string): string {
 }
 
 function iconUrl(id: string): string | null {
-  return getSkillIconUrl(id)
+  return getSkillIconUrl(id, props.job ?? null)
 }
 
 function getStepTooltip(index: number, results: StepResult[], actionId: string): string {

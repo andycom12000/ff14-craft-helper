@@ -15,6 +15,7 @@ import { getRecipe, findRecipesByItemName } from '@/api/xivapi'
 import { simulateCraftDetail, waitForWasm } from '@/solver/worker'
 import { craftParamsToSolverConfig } from '@/solver/config'
 import type { WasmEffects, StepDetail } from '@/solver/raphael'
+import type { Job } from '@/engine/skill-icons-by-job'
 import StatusBar from '@/components/simulator/StatusBar.vue'
 import BuffDisplay from '@/components/simulator/BuffDisplay.vue'
 import ActionList from '@/components/simulator/ActionList.vue'
@@ -419,6 +420,7 @@ async function handleSelfCraft(itemId: number) {
                 <ActionList
                   :actions="simStore.actions"
                   :results="simStore.simulationResults"
+                  :job="(recipe?.job as Job | undefined) ?? null"
                   @remove="handleRemoveAction"
                   @clear="handleClearActions"
                 />
@@ -435,6 +437,7 @@ async function handleSelfCraft(itemId: number) {
                 <SkillPanel
                   :level="gearset.level"
                   :craft-state="currentState"
+                  :job="(recipe?.job as Job | undefined) ?? null"
                   @use-skill="handleUseSkill"
                 />
               </el-card>
