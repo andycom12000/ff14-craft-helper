@@ -37,6 +37,19 @@ export const useGearsetsStore = defineStore('gearsets', () => {
     }
   }
 
+  function updateAllGearsets(patch: Partial<GearsetStats>) {
+    const defined: Partial<GearsetStats> = {}
+    for (const [key, value] of Object.entries(patch) as [keyof GearsetStats, GearsetStats[keyof GearsetStats] | undefined][]) {
+      if (value !== undefined) {
+        ;(defined as Record<string, unknown>)[key] = value
+      }
+    }
+    if (Object.keys(defined).length === 0) return
+    for (const job of Object.keys(gearsets.value)) {
+      gearsets.value[job] = { ...gearsets.value[job], ...defined }
+    }
+  }
+
   // Migrate from old array format and ensure all jobs exist
   function ensureAllJobs() {
     if (Array.isArray(gearsets.value)) {
@@ -63,7 +76,7 @@ export const useGearsetsStore = defineStore('gearsets', () => {
     }
   }
 
-  return { gearsets, getGearsetForJob, updateGearset, ensureAllJobs }
+  return { gearsets, getGearsetForJob, updateGearset, updateAllGearsets, ensureAllJobs }
 }, {
   persist: {
     afterHydrate(ctx) {

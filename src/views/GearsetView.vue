@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useGearsetsStore } from '@/stores/gearsets'
+import { computed, ref } from 'vue'
+import { ElMessage } from 'element-plus'
+import { useGearsetsStore, type GearsetStats } from '@/stores/gearsets'
 import FlowBreadcrumb from '@/components/common/FlowBreadcrumb.vue'
 import { JOB_NAMES } from '@/utils/jobs'
 
@@ -16,6 +17,47 @@ const JOB_ICONS: Record<string, string> = {
 const tableData = computed(() =>
   jobs.map(job => ({ job, ...store.gearsets[job] }))
 )
+
+// Bulk-edit panel state
+const bulkOpen = ref(false)
+const bulkLevel = ref<number | undefined>(undefined)
+const bulkCraftsmanship = ref<number | undefined>(undefined)
+const bulkControl = ref<number | undefined>(undefined)
+const bulkCp = ref<number | undefined>(undefined)
+
+const bulkHasAnyValue = computed(() =>
+  bulkLevel.value !== undefined
+  || bulkCraftsmanship.value !== undefined
+  || bulkControl.value !== undefined
+  || bulkCp.value !== undefined,
+)
+
+function toggleBulk() {
+  bulkOpen.value = !bulkOpen.value
+}
+
+function applyBulk() {
+  const patch: Partial<GearsetStats> = {}
+  if (bulkLevel.value !== undefined) patch.level = bulkLevel.value
+  if (bulkCraftsmanship.value !== undefined) patch.craftsmanship = bulkCraftsmanship.value
+  if (bulkControl.value !== undefined) patch.control = bulkControl.value
+  if (bulkCp.value !== undefined) patch.cp = bulkCp.value
+
+  if (Object.keys(patch).length === 0) {
+    ElMessage.warning('請至少填一個欄位')
+    return
+  }
+
+  store.updateAllGearsets(patch)
+  ElMessage.success('8 職全部更新完成')
+
+  // Clear inputs and collapse
+  bulkLevel.value = undefined
+  bulkCraftsmanship.value = undefined
+  bulkControl.value = undefined
+  bulkCp.value = undefined
+  bulkOpen.value = false
+}
 </script>
 
 <template>
@@ -26,6 +68,88 @@ const tableData = computed(() =>
     ]" />
     <h2>配裝管理</h2>
     <p class="view-desc">填好裝備數值，模擬器就能幫你算出最佳手法。</p>
+
+    <!-- Collapsible bulk-edit panel -->
+    <div class="bulk-panel" :class="{ 'bulk-panel--open': bulkOpen }">
+      <button
+        type="button"
+        class="bulk-trigger"
+        :aria-expanded="bulkOpen"
+        aria-controls="bulk-body"
+        @click="toggleBulk"
+      >
+        <span class="bulk-trigger-icon" aria-hidden="true">⚙</span>
+        <span>批次調整</span>
+        <span class="bulk-trigger-chevron" :class="{ 'is-open': bulkOpen }" aria-hidden="true">▾</span>
+      </button>
+
+      <Transition name="bulk-collapse">
+        <div v-if="bulkOpen" id="bulk-body" class="bulk-body-wrap">
+          <div class="bulk-body">
+            <p class="bulk-hint">只填想覆寫的欄位，留空的欄位不會動到。</p>
+            <div class="bulk-fields">
+              <div class="bulk-field">
+                <label>Lv</label>
+                <el-input-number
+                  v-model="bulkLevel"
+                  :min="1" :max="100" size="small"
+                  placeholder="—"
+                  :controls="false"
+                  aria-label="批次 等級"
+                />
+              </div>
+              <div class="bulk-field">
+                <label>作業</label>
+                <el-input-number
+                  v-model="bulkCraftsmanship"
+                  :min="0" :max="9999" size="small"
+                  placeholder="—"
+                  :controls="false"
+                  aria-label="批次 作業精度"
+                />
+              </div>
+              <div class="bulk-field">
+                <label>加工</label>
+                <el-input-number
+                  v-model="bulkControl"
+                  :min="0" :max="9999" size="small"
+                  placeholder="—"
+                  :controls="false"
+                  aria-label="批次 加工精度"
+                />
+              </div>
+              <div class="bulk-field">
+                <label>CP</label>
+                <el-input-number
+                  v-model="bulkCp"
+                  :min="0" :max="9999" size="small"
+                  placeholder="—"
+                  :controls="false"
+                  aria-label="批次 CP"
+                />
+              </div>
+              <el-popconfirm
+                title="這會蓋過全部 8 職現有的數值，確定嗎？"
+                confirm-button-text="確定"
+                cancel-button-text="取消"
+                width="240"
+                @confirm="applyBulk"
+              >
+                <template #reference>
+                  <el-button
+                    type="primary"
+                    size="small"
+                    :disabled="!bulkHasAnyValue"
+                  >
+                    套用全部
+                  </el-button>
+                </template>
+              </el-popconfirm>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </div>
 
     <div class="job-list">
       <div v-for="row in tableData" :key="row.job" class="job-row">
@@ -81,6 +205,120 @@ const tableData = computed(() =>
   --page-accent: var(--app-craft);
   --page-accent-dim: var(--app-craft-dim);
   max-width: 960px;
+}
+
+/* Bulk-edit collapsible panel */
+.bulk-panel {
+  margin: 12px 0 16px;
+  background: var(--app-surface, #161822);
+  border: 1px solid var(--app-border, rgba(148, 163, 184, 0.12));
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.2s var(--ease-out-quart, ease-out);
+}
+
+.bulk-panel--open {
+  border-color: rgba(124, 58, 237, 0.32);
+}
+
+.bulk-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: 0;
+  color: var(--app-text, #E2E8F0);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.15s var(--ease-out-quart, ease-out);
+}
+
+.bulk-trigger:hover {
+  background: rgba(124, 58, 237, 0.06);
+}
+
+.bulk-trigger:focus-visible {
+  outline: 2px solid rgba(124, 58, 237, 0.6);
+  outline-offset: -2px;
+}
+
+.bulk-trigger-icon {
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0.85;
+}
+
+.bulk-trigger-chevron {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--app-text-muted, #94A3B8);
+  transition: transform 0.2s var(--ease-out-quart, ease-out);
+}
+
+.bulk-trigger-chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.bulk-body-wrap {
+  border-top: 1px solid var(--app-border, rgba(148, 163, 184, 0.12));
+}
+
+.bulk-body {
+  padding: 12px 14px 14px;
+}
+
+.bulk-hint {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--app-text-muted, #94A3B8);
+}
+
+.bulk-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.bulk-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.bulk-field label {
+  font-size: 12px;
+  color: var(--app-text-muted, #94A3B8);
+  white-space: nowrap;
+}
+
+.bulk-field .el-input-number {
+  width: 110px;
+}
+
+/* Grid-rows based collapse animation (performant, no height jank) */
+.bulk-collapse-enter-active,
+.bulk-collapse-leave-active {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.22s var(--ease-out-quart, ease-out);
+}
+
+.bulk-collapse-enter-from,
+.bulk-collapse-leave-to {
+  grid-template-rows: 0fr;
+}
+
+.bulk-collapse-enter-active > *,
+.bulk-collapse-leave-active > * {
+  overflow: hidden;
+  min-height: 0;
 }
 
 .job-list {
@@ -172,6 +410,15 @@ const tableData = computed(() =>
 
   .job-field .el-input-number {
     max-width: none;
+  }
+
+  .bulk-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .bulk-field .el-input-number {
+    width: 100%;
   }
 }
 </style>
