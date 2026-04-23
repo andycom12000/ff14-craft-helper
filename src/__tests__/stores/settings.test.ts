@@ -7,12 +7,12 @@ describe('useSettingsStore', () => {
     setActivePinia(createPinia())
   })
 
-  it('has correct TW server defaults', () => {
+  it('defaults server/dataCenter/region to empty strings (for onboarding gate)', () => {
     const store = useSettingsStore()
 
-    expect(store.server).toBe('巴哈姆特')
-    expect(store.dataCenter).toBe('陸行鳥')
-    expect(store.region).toBe('繁中服')
+    expect(store.server).toBe('')
+    expect(store.dataCenter).toBe('')
+    expect(store.region).toBe('')
   })
 
   it('defaults priceDisplayMode to minOf', () => {

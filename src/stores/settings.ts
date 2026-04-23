@@ -6,9 +6,12 @@ import type { Locale } from '@/services/local-data-source.types'
 export type PriceDisplayMode = 'nq' | 'hq' | 'minOf'
 
 export const useSettingsStore = defineStore('settings', () => {
-  const server = ref('巴哈姆特')
-  const dataCenter = ref('陸行鳥')
-  const region = ref('繁中服')
+  // Server defaults are intentionally empty so the onboarding panel
+  // (DashboardView guard: !region && !dataCenter && !server) can trigger
+  // on first use. Returning users have these restored from persisted state.
+  const server = ref('')
+  const dataCenter = ref('')
+  const region = ref('')
   const priceDisplayMode = ref<PriceDisplayMode>('minOf')
   const crossServer = ref(false)
   const recursivePricing = ref(true)
