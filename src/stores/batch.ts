@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import type { Recipe } from '@/stores/recipe'
-import type { MaterialWithPrice as ShoppingItem, ServerGroup, CrystalSummary } from '@/services/shopping-list'
+import type { MaterialWithPrice as ShoppingItem, ServerGroup, CrystalSummary, QuickBuyMaterial } from '@/services/shopping-list'
 import { isCrystal } from '@/services/shopping-list'
 import type { WorldPriceSummary } from '@/api/universalis'
 import type { FoodBuff } from '@/engine/food-medicine'
@@ -97,6 +97,12 @@ export interface BatchResults {
   grandTotal: number
   crossWorldCache: Map<number, WorldPriceSummary[]>
   buffRecommendation?: BuffRecommendation
+  /**
+   * Populated only in quick-buy mode. Each entry stores both NQ and HQ
+   * pre-priced variants so the ShoppingList view can toggle quality
+   * without re-running the pipeline.
+   */
+  quickBuyMaterials?: QuickBuyMaterial[]
 }
 
 const defaultProgress = () => ({
@@ -218,6 +224,23 @@ export const useBatchStore = defineStore('batch', () => {
       else merged.set(k, { ...item })
     }
 
+    // Quick-buy mode: project quickBuyMaterials through current quality overrides.
+    // Materials without market data at the effective quality are skipped so
+    // the row count matches what the pricing pipeline actually found.
+    if (results.value.quickBuyMaterials) {
+      for (const m of results.value.quickBuyMaterials) {
+        const wantHq = !!m.canHq && (qualityOverrides.value[m.itemId] ?? bulkQualityMode.value) === 'hq'
+        const priced = wantHq ? m.hq : m.nq
+        if (!priced) continue
+        push({
+          itemId: m.itemId, name: m.name, icon: m.icon, amount: m.amount,
+          type: wantHq ? 'hq' : 'nq',
+          unitPrice: priced.unitPrice, server: priced.server,
+        })
+      }
+      return Array.from(merged.values())
+    }
+
     for (const g of results.value.serverGroups) {
       for (const item of g.items) {
         if (!selected.has(item.itemId)) push(item)
@@ -233,6 +256,19 @@ export const useBatchStore = defineStore('batch', () => {
       }
     }
     return Array.from(merged.values())
+  })
+
+  // In quick-buy mode serverGroups/grandTotal are computed view-side from
+  // finalShoppingItems so the user can toggle NQ/HQ without re-running.
+  // Macro mode falls through to the pre-computed results.grandTotal.
+  const effectiveGrandTotal = computed(() => {
+    if (!results.value) return 0
+    if (results.value.quickBuyMaterials) {
+      return finalShoppingItems.value.reduce(
+        (sum, it) => sum + it.unitPrice * it.amount, 0,
+      )
+    }
+    return results.value.grandTotal
   })
 
   const finalCrystals = computed<CrystalSummary[]>(() => {
@@ -377,6 +413,7 @@ export const useBatchStore = defineStore('batch', () => {
     doneSelfCraftIds,
     finalShoppingItems,
     finalCrystals,
+    effectiveGrandTotal,
     finalTodoList,
     toggleSelfCraft,
     selectAllSelfCraft,

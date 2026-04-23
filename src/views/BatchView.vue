@@ -87,7 +87,7 @@ const singleServerTotal = computed(() => {
 
 const savingPercent = computed(() => {
   const single = singleServerTotal.value
-  const gt = batchStore.results?.grandTotal ?? 0
+  const gt = batchStore.effectiveGrandTotal
   if (!single || single === 0 || gt === 0) return null
   return Math.round((1 - gt / single) * 100)
 })
@@ -218,7 +218,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
 
       <CostSummaryPanel
         v-if="batchStore.results"
-        :grand-total="batchStore.results.grandTotal"
+        :grand-total="batchStore.effectiveGrandTotal"
         :saving-percent="savingPercent"
         :single-server-total="singleServerTotal"
         :server="settings.server"
@@ -319,7 +319,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
             :server-groups="batchStore.results.serverGroups"
             :self-craft-candidates="batchStore.results.selfCraftCandidates"
             :buy-finished-items="batchStore.results.buyFinishedItems"
-            :grand-total="batchStore.results.grandTotal"
+            :grand-total="batchStore.effectiveGrandTotal"
             :cross-world-cache="batchStore.results.crossWorldCache"
           />
         </template>
@@ -407,7 +407,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
             :server-groups="batchStore.results.serverGroups"
             :self-craft-candidates="batchStore.results.selfCraftCandidates"
             :buy-finished-items="batchStore.results.buyFinishedItems"
-            :grand-total="batchStore.results.grandTotal"
+            :grand-total="batchStore.effectiveGrandTotal"
             :cross-world-cache="batchStore.results.crossWorldCache"
           />
         </div>

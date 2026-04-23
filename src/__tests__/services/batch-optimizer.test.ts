@@ -175,6 +175,59 @@ describe('runBatchOptimization', () => {
     expect(result.todoList[0].recipe.itemId).toBe(mockRecipe.itemId)
   })
 
+  it('quick-buy mode emits quickBuyMaterials with both nq and hq pricings', async () => {
+    const { getAggregatedPrices } = await import('@/api/universalis')
+    vi.mocked(getAggregatedPrices).mockResolvedValue(new Map([
+      [200, { minPriceNQ: 1000, minPriceHQ: 2500, listings: [] } as any],
+      [201, { minPriceNQ: 500, minPriceHQ: 0, listings: [] } as any],
+    ]))
+
+    const result = await runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 2 }],
+      () => mockGearset,
+      { ...defaultSettings, calcMode: 'quick-buy' },
+      () => {}, () => false,
+    )
+
+    expect(result.quickBuyMaterials).toBeDefined()
+    expect(result.quickBuyMaterials).toHaveLength(2)
+
+    const mat200 = result.quickBuyMaterials!.find(m => m.itemId === 200)!
+    expect(mat200.amount).toBe(6) // 3 per recipe × 2 recipes
+    expect(mat200.canHq).toBe(true)
+    expect(mat200.nq).toEqual({ unitPrice: 1000, server: 'Chocobo' })
+    expect(mat200.hq).toEqual({ unitPrice: 2500, server: 'Chocobo' })
+
+    const mat201 = result.quickBuyMaterials!.find(m => m.itemId === 201)!
+    expect(mat201.canHq).toBe(false)
+    expect(mat201.hq).toBeNull() // canHq=false → no HQ pricing
+    expect(mat201.nq).toEqual({ unitPrice: 500, server: 'Chocobo' })
+
+    // Legacy serverGroups / grandTotal are empty in quick-buy; view computes them.
+    expect(result.serverGroups).toEqual([])
+    expect(result.grandTotal).toBe(0)
+  })
+
+  it('quick-buy returns hq=null when listings lack HQ data', async () => {
+    const { getAggregatedPrices } = await import('@/api/universalis')
+    vi.mocked(getAggregatedPrices).mockResolvedValue(new Map([
+      [200, { minPriceNQ: 1000, minPriceHQ: 0, listings: [] } as any],
+      [201, { minPriceNQ: 500, minPriceHQ: 0, listings: [] } as any],
+    ]))
+
+    const result = await runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 1 }],
+      () => mockGearset,
+      { ...defaultSettings, calcMode: 'quick-buy' },
+      () => {}, () => false,
+    )
+
+    const mat200 = result.quickBuyMaterials!.find(m => m.itemId === 200)!
+    expect(mat200.canHq).toBe(true) // recipe says canHq
+    expect(mat200.hq).toBeNull()    // but market data has no HQ price
+    expect(mat200.nq).not.toBeNull()
+  })
+
   it('respects cancellation', async () => {
     let cancelled = false
     vi.mocked(solveCraft).mockResolvedValue({ actions: ['groundwork'], progress: 3500, quality: 7200, steps: 1 })

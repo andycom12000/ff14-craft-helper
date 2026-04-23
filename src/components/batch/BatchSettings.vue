@@ -23,30 +23,6 @@ const batch = useBatchStore()
         </el-text>
       </div>
 
-      <!-- Quality pills: quick-buy only (progressive disclosure) -->
-      <Transition name="slide-fade">
-        <div v-if="batch.calcMode === 'quick-buy'" class="quality-row">
-          <span class="settings-text">素材品質：</span>
-          <div class="quality-chip" role="tablist" aria-label="素材品質">
-            <button
-              type="button"
-              class="quality-pill"
-              :class="{ 'quality-pill--active': batch.bulkQualityMode === 'nq' }"
-              :aria-selected="batch.bulkQualityMode === 'nq'"
-              @click="batch.setBulkQuality('nq')"
-            >全 NQ</button>
-            <button
-              type="button"
-              class="quality-pill quality-pill--hq"
-              :class="{ 'quality-pill--active': batch.bulkQualityMode === 'hq' }"
-              :aria-selected="batch.bulkQualityMode === 'hq'"
-              @click="batch.setBulkQuality('hq')"
-            >全 HQ</button>
-          </div>
-          <el-text size="small" type="info">可於素材列單獨調整</el-text>
-        </div>
-      </Transition>
-
       <!-- Original settings row -->
       <div class="settings-row">
         <div class="settings-item">
@@ -137,52 +113,6 @@ const batch = useBatchStore()
   font-size: 12.5px;
 }
 
-.quality-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  padding: 6px 10px;
-  border-radius: 6px;
-  background: var(--el-fill-color-lighter);
-}
-
-.quality-chip {
-  display: inline-flex;
-  gap: 2px;
-  padding: 2px;
-  border-radius: 999px;
-  background: var(--el-fill-color);
-  border: 1px solid var(--el-border-color-lighter);
-}
-
-.quality-pill {
-  appearance: none;
-  border: none;
-  background: transparent;
-  padding: 4px 12px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--el-text-color-secondary);
-  cursor: pointer;
-  transition: background-color 0.15s, color 0.15s;
-}
-
-.quality-pill:hover:not(.quality-pill--active) {
-  color: var(--el-text-color-primary);
-}
-
-.quality-pill--active {
-  background: var(--el-color-info-light-8, var(--el-fill-color-dark));
-  color: var(--el-text-color-primary);
-}
-
-.quality-pill--hq.quality-pill--active {
-  background: color-mix(in oklch, var(--accent-gold) 22%, transparent);
-  color: var(--accent-gold);
-}
-
 .settings-row {
   display: flex;
   align-items: center;
@@ -243,24 +173,6 @@ const batch = useBatchStore()
   cursor: help;
 }
 
-.slide-fade-enter-active,
-.slide-fade-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease, max-height 0.2s ease;
-  overflow: hidden;
-}
-
-.slide-fade-enter-from,
-.slide-fade-leave-to {
-  opacity: 0;
-  transform: translateY(-4px);
-  max-height: 0;
-}
-
-.slide-fade-enter-to,
-.slide-fade-leave-from {
-  opacity: 1;
-  max-height: 60px;
-}
 
 @media (max-width: 768px) {
   .settings-row :deep(.el-divider--vertical) {

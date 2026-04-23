@@ -27,6 +27,27 @@ export interface ServerGroup {
   subtotal: number
 }
 
+/**
+ * Pre-priced material for the quick-buy flow — stores NQ and HQ unit-prices
+ * plus their respective best servers, so the view layer can toggle quality
+ * without re-querying Universalis. `null` on either side means "no market
+ * data at that quality" (or HQ is not applicable when `canHq === false`).
+ */
+export interface QuickBuyMaterialPricing {
+  unitPrice: number
+  server: string
+}
+
+export interface QuickBuyMaterial {
+  itemId: number
+  name: string
+  icon: string
+  amount: number
+  canHq: boolean
+  nq: QuickBuyMaterialPricing | null
+  hq: QuickBuyMaterialPricing | null
+}
+
 export const CRYSTAL_THRESHOLD = 20
 
 export function isCrystal(itemId: number): boolean {

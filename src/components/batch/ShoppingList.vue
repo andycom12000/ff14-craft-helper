@@ -149,6 +149,29 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
       </el-alert>
     </div>
 
+    <!-- Global NQ/HQ toggle (quick-buy mode only). Lives here, next to the
+         results, so the user can swap quality without re-running. -->
+    <div v-if="batchStore.calcMode === 'quick-buy'" class="global-quality-row">
+      <span class="section-label">全域品質：</span>
+      <div class="quality-chip" role="tablist" aria-label="全域品質切換">
+        <button
+          type="button"
+          class="quality-pill"
+          :class="{ 'quality-pill--active': batchStore.bulkQualityMode === 'nq' }"
+          :aria-selected="batchStore.bulkQualityMode === 'nq'"
+          @click="batchStore.setBulkQuality('nq')"
+        >全 NQ</button>
+        <button
+          type="button"
+          class="quality-pill quality-pill--hq"
+          :class="{ 'quality-pill--active': batchStore.bulkQualityMode === 'hq' }"
+          :aria-selected="batchStore.bulkQualityMode === 'hq'"
+          @click="batchStore.setBulkQuality('hq')"
+        >全 HQ</button>
+      </div>
+      <el-text size="small" type="info">展開素材可單獨調整</el-text>
+    </div>
+
     <!-- Server groups -->
     <div class="server-grid">
     <div v-for="group in effectiveServerGroups" :key="group.server" class="server-group">
@@ -287,6 +310,53 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
 
 .section-label {
   margin-bottom: 8px;
+}
+
+.global-quality-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  border-radius: 6px;
+  background: var(--el-fill-color-lighter);
+}
+
+.quality-chip {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--el-fill-color);
+  border: 1px solid var(--el-border-color-lighter);
+}
+
+.quality-pill {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--el-text-color-secondary);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.quality-pill:hover:not(.quality-pill--active) {
+  color: var(--el-text-color-primary);
+}
+
+.quality-pill--active {
+  background: var(--el-color-info-light-8, var(--el-fill-color-dark));
+  color: var(--el-text-color-primary);
+}
+
+.quality-pill--hq.quality-pill--active {
+  background: color-mix(in oklch, var(--accent-gold) 22%, transparent);
+  color: var(--accent-gold);
 }
 
 .crystal-tags {
