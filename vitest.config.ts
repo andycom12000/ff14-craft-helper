@@ -11,6 +11,6 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     setupFiles: ['src/__tests__/setup.ts'],
-    exclude: ['**/node_modules/**', '**/dist/**', '**/.worktrees/**', 'scripts/**'],
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.worktrees/**', '**/.claude/worktrees/**', 'scripts/**'],
   },
 })
