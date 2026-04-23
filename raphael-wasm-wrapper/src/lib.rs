@@ -153,6 +153,29 @@ struct SimulateConfig {
     base_quality: u16,
     job_level: u8,
     actions: Vec<String>,
+    /// Per-step condition override. When provided and index < actions.len(),
+    /// that step is simulated under the given condition; otherwise Normal.
+    /// Accepts case-insensitive "Normal" / "Good" / "Excellent" / "Poor";
+    /// unknown values fall back to Normal.
+    #[serde(default)]
+    conditions: Option<Vec<String>>,
+}
+
+fn parse_condition(name: &str) -> Condition {
+    match name.to_ascii_lowercase().as_str() {
+        "good" => Condition::Good,
+        "excellent" => Condition::Excellent,
+        "poor" => Condition::Poor,
+        _ => Condition::Normal,
+    }
+}
+
+fn condition_for_step(conditions: &Option<Vec<String>>, step: usize) -> Condition {
+    conditions
+        .as_ref()
+        .and_then(|c| c.get(step))
+        .map(|s| parse_condition(s))
+        .unwrap_or(Condition::Normal)
 }
 
 #[derive(Serialize)]
@@ -252,13 +275,14 @@ pub fn simulate(config_js: JsValue) -> Result<JsValue, JsValue> {
     let mut state = SimulationState::new(&settings);
     let mut steps_used = 0;
 
-    for action_name in &config.actions {
+    for (i, action_name) in config.actions.iter().enumerate() {
         if state.is_final(&settings) {
             break;
         }
         let action = parse_action(action_name)
             .map_err(|e| JsValue::from_str(&e))?;
-        match state.use_action(action, Condition::Normal, &settings) {
+        let condition = condition_for_step(&config.conditions, i);
+        match state.use_action(action, condition, &settings) {
             Ok(new_state) => {
                 state = new_state;
                 steps_used += 1;
@@ -298,13 +322,14 @@ pub fn simulate_detail(config_js: JsValue) -> Result<JsValue, JsValue> {
     let mut state = SimulationState::new(&settings);
     let mut steps: Vec<StepDetail> = Vec::new();
 
-    for action_name in &config.actions {
+    for (i, action_name) in config.actions.iter().enumerate() {
         if state.is_final(&settings) {
             break;
         }
         let action = parse_action(action_name)
             .map_err(|e| JsValue::from_str(&e))?;
-        let success = match state.use_action(action, Condition::Normal, &settings) {
+        let condition = condition_for_step(&config.conditions, i);
+        let success = match state.use_action(action, condition, &settings) {
             Ok(new_state) => {
                 state = new_state;
                 true

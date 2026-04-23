@@ -134,6 +134,7 @@ export function solveCraft(
 export function simulateCraft(
   config: SolverConfig,
   actions: string[],
+  conditions?: string[],
 ): Promise<SimulateResult> {
   const w = getWorker()
   const requestId = nextRequestId++
@@ -141,7 +142,13 @@ export function simulateCraft(
   return new Promise<SimulateResult>((resolve, reject) => {
     pendingRequests.set(requestId, { resolve, reject })
     // Spread to strip Vue reactive proxies
-    w.postMessage({ type: 'simulate', config: { ...config }, actions: [...actions], requestId })
+    w.postMessage({
+      type: 'simulate',
+      config: { ...config },
+      actions: [...actions],
+      conditions: conditions ? [...conditions] : undefined,
+      requestId,
+    })
   })
 }
 
@@ -151,6 +158,7 @@ export function simulateCraft(
 export function simulateCraftDetail(
   config: SolverConfig,
   actions: string[],
+  conditions?: string[],
 ): Promise<SimulateDetailResult> {
   const w = getWorker()
   const requestId = nextRequestId++
@@ -158,7 +166,13 @@ export function simulateCraftDetail(
   return new Promise<SimulateDetailResult>((resolve, reject) => {
     pendingRequests.set(requestId, { resolve, reject })
     // Spread to strip Vue reactive proxies
-    w.postMessage({ type: 'simulate-detail', config: { ...config }, actions: [...actions], requestId })
+    w.postMessage({
+      type: 'simulate-detail',
+      config: { ...config },
+      actions: [...actions],
+      conditions: conditions ? [...conditions] : undefined,
+      requestId,
+    })
   })
 }
 

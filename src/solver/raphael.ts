@@ -102,6 +102,12 @@ export interface SimulateConfig {
   base_quality: number
   job_level: number
   actions: string[]
+  /**
+   * Per-step condition override. `conditions[i]` applies to `actions[i]`.
+   * Accepts "Normal" / "Good" / "Excellent" / "Poor" (case-insensitive).
+   * Indices past the end and unknown strings silently fall back to Normal.
+   */
+  conditions?: string[]
 }
 
 export interface SolverResponse {

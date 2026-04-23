@@ -121,7 +121,7 @@ function configToWasmSettings(config: SolverConfig) {
 
 /* ---------- Simulate config conversion ---------- */
 
-function buildSimulateConfig(config: SolverConfig, actions: string[]): SimulateConfig {
+function buildSimulateConfig(config: SolverConfig, actions: string[], conditions?: string[]): SimulateConfig {
   // Match raphael-rs get_game_settings: modifiers only apply when crafter level <= recipe level
   let base_progress = config.craftsmanship * 10 / config.progress_divider + 2
   let base_quality = config.control * 10 / config.quality_divider + 35
@@ -144,13 +144,14 @@ function buildSimulateConfig(config: SolverConfig, actions: string[]): SimulateC
     base_quality,
     job_level: config.crafter_level,
     actions: raphaelActions,
+    ...(conditions && conditions.length > 0 ? { conditions } : {}),
   }
 }
 
 /* ---------- Message handler ---------- */
 
 self.onmessage = async (e: MessageEvent) => {
-  const { type, config, actions, requestId } = e.data
+  const { type, config, actions, conditions, requestId } = e.data
 
   if (!wasmReady) {
     const errorResponse: SolverResponse = {
@@ -206,7 +207,7 @@ self.onmessage = async (e: MessageEvent) => {
     }
   } else if (type === 'simulate') {
     try {
-      const simConfig = buildSimulateConfig(config, actions)
+      const simConfig = buildSimulateConfig(config, actions, conditions)
       const result = wasmSimulate!(simConfig)
       self.postMessage({ type: 'simulate-result', simulateResult: result, requestId })
     } catch (err) {
@@ -215,7 +216,7 @@ self.onmessage = async (e: MessageEvent) => {
     }
   } else if (type === 'simulate-detail') {
     try {
-      const simConfig = buildSimulateConfig(config, actions)
+      const simConfig = buildSimulateConfig(config, actions, conditions)
       const result = wasmSimulateDetail!(simConfig)
       self.postMessage({ type: 'simulate-detail-result', simulateDetailResult: result, requestId })
     } catch (err) {

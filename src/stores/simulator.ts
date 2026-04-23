@@ -11,6 +11,13 @@ interface RecipeSimState {
 export type SimulatorMode = 'solver' | 'manual'
 export type ManualCondition = Extract<CraftCondition, 'Normal' | 'Good' | 'Excellent' | 'Poor'>
 
+// History snapshot captures actions + per-step conditions together so undo/redo
+// restores both in lockstep.
+interface ManualSnapshot {
+  actions: string[]
+  conditions: string[]
+}
+
 export const useSimulatorStore = defineStore('simulator', () => {
   const actions = ref<string[]>([])
   const simulationResults = ref<StepResult[]>([])
@@ -19,8 +26,10 @@ export const useSimulatorStore = defineStore('simulator', () => {
 
   // --- Manual simulation mode ---
   const mode = ref<SimulatorMode>('solver')
-  const history = ref<string[][]>([])
-  const future = ref<string[][]>([])
+  // Per-step conditions; index i applies to actions[i]. Only grows in manual mode.
+  const conditions = ref<string[]>([])
+  const history = ref<ManualSnapshot[]>([])
+  const future = ref<ManualSnapshot[]>([])
   const currentCondition = ref<ManualCondition>('Normal')
 
   // Per-recipe storage: saves/restores state when switching recipes
@@ -102,41 +111,54 @@ export const useSimulatorStore = defineStore('simulator', () => {
     // starts fresh. The live simulate watcher will re-run automatically when
     // actions change.
     actions.value = []
+    conditions.value = []
     simulationResults.value = []
     history.value = []
     future.value = []
   }
 
+  function snapshot(): ManualSnapshot {
+    return { actions: [...actions.value], conditions: [...conditions.value] }
+  }
+
+  function restore(snap: ManualSnapshot) {
+    actions.value = [...snap.actions]
+    conditions.value = [...snap.conditions]
+  }
+
   function pushAction(skillId: string) {
     // Save prior snapshot to history; clear redo stack (new branch).
-    history.value.push([...actions.value])
+    history.value.push(snapshot())
     future.value = []
     actions.value.push(skillId)
+    conditions.value.push(currentCondition.value)
   }
 
   function undo() {
     const prev = history.value.pop()
     if (prev === undefined) return
-    future.value.push([...actions.value])
-    actions.value = prev
+    future.value.push(snapshot())
+    restore(prev)
   }
 
   function redo() {
     const next = future.value.pop()
     if (next === undefined) return
-    history.value.push([...actions.value])
-    actions.value = next
+    history.value.push(snapshot())
+    restore(next)
   }
 
   function resetManual() {
     history.value = []
     future.value = []
     actions.value = []
+    conditions.value = []
     simulationResults.value = []
   }
 
   return {
     actions,
+    conditions,
     simulationResults,
     solverRunning,
     solverResult,
