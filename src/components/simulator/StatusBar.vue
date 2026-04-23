@@ -1,29 +1,28 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { CraftState } from '@/engine/simulator'
+import { percentOf } from '@/utils/format'
 
 const props = defineProps<{
   craftState: CraftState | null
 }>()
 
-const progressPct = computed(() => {
-  if (!props.craftState) return 0
-  return Math.round((props.craftState.progress / props.craftState.maxProgress) * 100)
-})
+interface BarSpec {
+  label: string
+  color: string
+  current: number
+  max: number
+}
 
-const qualityPct = computed(() => {
-  if (!props.craftState || props.craftState.maxQuality === 0) return 0
-  return Math.round((props.craftState.quality / props.craftState.maxQuality) * 100)
-})
-
-const durabilityPct = computed(() => {
-  if (!props.craftState || props.craftState.maxDurability === 0) return 0
-  return Math.round((props.craftState.durability / props.craftState.maxDurability) * 100)
-})
-
-const cpPct = computed(() => {
-  if (!props.craftState || props.craftState.maxCp === 0) return 0
-  return Math.round((props.craftState.cp / props.craftState.maxCp) * 100)
+const bars = computed<BarSpec[]>(() => {
+  const s = props.craftState
+  if (!s) return []
+  return [
+    { label: '進展', color: 'var(--app-accent)', current: s.progress, max: s.maxProgress },
+    { label: '品質', color: 'var(--app-success)', current: s.quality, max: s.maxQuality },
+    { label: '耐久', color: 'var(--el-color-warning)', current: s.durability, max: s.maxDurability },
+    { label: 'CP', color: 'var(--el-color-info)', current: s.cp, max: s.maxCp },
+  ]
 })
 
 const completionText = computed(() => {
@@ -49,50 +48,16 @@ const completionType = computed(() => {
         <el-text size="small" type="info">步數: {{ craftState.step }}</el-text>
       </div>
 
-      <div class="bar-row">
-        <span class="bar-label">進展</span>
+      <div v-for="bar in bars" :key="bar.label" class="bar-row">
+        <span class="bar-label">{{ bar.label }}</span>
         <el-progress
-          :percentage="progressPct"
+          :percentage="percentOf(bar.current, bar.max)"
           :stroke-width="18"
-          color="var(--app-accent)"
+          :color="bar.color"
           :text-inside="true"
-          :format="() => `${craftState!.progress} / ${craftState!.maxProgress}`"
+          :format="() => `${bar.current} / ${bar.max}`"
         />
       </div>
-
-      <div class="bar-row">
-        <span class="bar-label">品質</span>
-        <el-progress
-          :percentage="qualityPct"
-          :stroke-width="18"
-          color="var(--app-success)"
-          :text-inside="true"
-          :format="() => `${craftState!.quality} / ${craftState!.maxQuality}`"
-        />
-      </div>
-
-      <div class="bar-row">
-        <span class="bar-label">耐久</span>
-        <el-progress
-          :percentage="durabilityPct"
-          :stroke-width="18"
-          color="var(--el-color-warning)"
-          :text-inside="true"
-          :format="() => `${craftState!.durability} / ${craftState!.maxDurability}`"
-        />
-      </div>
-
-      <div class="bar-row">
-        <span class="bar-label">CP</span>
-        <el-progress
-          :percentage="cpPct"
-          :stroke-width="18"
-          color="var(--el-color-info)"
-          :text-inside="true"
-          :format="() => `${craftState!.cp} / ${craftState!.maxCp}`"
-        />
-      </div>
-
     </template>
   </div>
 </template>

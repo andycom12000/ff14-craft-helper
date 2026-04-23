@@ -25,7 +25,3 @@ export function getPerJobIconId(skillId: string, job: Job | null | undefined): n
   if (!job) return null
   return ICONS_BY_JOB[skillId]?.[job] ?? null
 }
-
-export function isPerJobSkill(skillId: string): boolean {
-  return skillId in ICONS_BY_JOB
-}

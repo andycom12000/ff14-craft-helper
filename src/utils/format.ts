@@ -3,6 +3,16 @@ export function starsDisplay(stars: number): string {
 }
 
 /**
+ * Integer percentage of `value` against `max`. Returns 0 when `max` is
+ * 0 or either side is missing \u2014 avoids divide-by-zero without the
+ * callsite having to guard.
+ */
+export function percentOf(value: number | null | undefined, max: number | null | undefined): number {
+  if (!max || value == null) return 0
+  return Math.round((value / max) * 100)
+}
+
+/**
  * Format a Gil amount for display. `null`/`undefined` represent "price unknown"
  * (no market listings, no fallback), distinct from a real price of 0 Gil.
  */

@@ -15,8 +15,10 @@ import { getRecipe, findRecipesByItemName } from '@/api/xivapi'
 import { simulateCraftDetail, waitForWasm } from '@/solver/worker'
 import { craftParamsToSolverConfig } from '@/solver/config'
 import type { WasmEffects, StepDetail } from '@/solver/raphael'
-import type { Job } from '@/engine/skill-icons-by-job'
+import { JOB_ORDER, type Job } from '@/engine/skill-icons-by-job'
 import { JOB_ABBR } from '@/utils/jobs'
+
+const VALID_JOBS = new Set<string>(JOB_ORDER)
 import StatusBar from '@/components/simulator/StatusBar.vue'
 import BuffDisplay from '@/components/simulator/BuffDisplay.vue'
 import ActionList from '@/components/simulator/ActionList.vue'
@@ -60,14 +62,14 @@ const gearset = computed(() => {
 
 const canSimulate = computed(() => !!recipe.value && !!gearset.value)
 
-// recipe.job is stored as the Chinese short-form ('木工', '烹調', ...).
-// The skill-icon-by-job map keys on the 3-letter abbr ('CRP', 'CUL', ...),
-// so translate here before threading into SkillPanel / ActionList.
+// recipe.job is persisted as the Chinese short-form ('木工', '烹調', ...);
+// ICONS_BY_JOB keys on the 3-letter abbr, so map here and drop unknown values
+// to null rather than type-lying a bogus string into the Job union.
 const recipeJobAbbr = computed<Job | null>(() => {
   const j = recipe.value?.job
   if (!j) return null
   const abbr = JOB_ABBR[j] ?? j
-  return (abbr as Job) ?? null
+  return VALID_JOBS.has(abbr) ? (abbr as Job) : null
 })
 
 function onInitialQualityUpdate(val: number) {

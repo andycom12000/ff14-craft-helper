@@ -137,7 +137,6 @@ export const useSimulatorStore = defineStore('simulator', () => {
   function pushAction(skillId: string) {
     pushToHistory(snapshot())
     future.value = []
-    // Reassign rather than mutate so watchers that compare by identity fire.
     actions.value = [...actions.value, skillId]
     conditions.value = [...conditions.value, currentCondition.value]
   }
