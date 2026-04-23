@@ -2,7 +2,8 @@ export function starsDisplay(stars: number): string {
   return stars > 0 ? '\u2605'.repeat(stars) : ''
 }
 
-export function formatGil(value: number): string {
+export function formatGil(value: number | null | undefined): string {
+  if (value == null) return '—'
   return value.toLocaleString()
 }
 
