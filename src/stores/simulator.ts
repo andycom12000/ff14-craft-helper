@@ -83,11 +83,11 @@ export const useSimulatorStore = defineStore('simulator', () => {
   }
 
   function addAction(action: string) {
-    actions.value.push(action)
+    actions.value = [...actions.value, action]
   }
 
   function removeAction(index: number) {
-    actions.value.splice(index, 1)
+    actions.value = actions.value.filter((_, i) => i !== index)
   }
 
   function clearActions() {
@@ -137,8 +137,9 @@ export const useSimulatorStore = defineStore('simulator', () => {
   function pushAction(skillId: string) {
     pushToHistory(snapshot())
     future.value = []
-    actions.value.push(skillId)
-    conditions.value.push(currentCondition.value)
+    // Reassign rather than mutate so watchers that compare by identity fire.
+    actions.value = [...actions.value, skillId]
+    conditions.value = [...conditions.value, currentCondition.value]
   }
 
   function undo() {
