@@ -133,7 +133,7 @@ function handleRefreshPrices() {
 </script>
 
 <template>
-  <div class="bom-view" :class="{ 'full-width': activeTab === 'tree' && calculated && !calculating }" v-loading="isLoadingData">
+  <div class="bom-view" :class="{ 'full-width': calculated && !calculating }" v-loading="isLoadingData">
     <FlowBreadcrumb :steps="[
       { label: '購物清單', path: '/bom', icon: '📜' },
     ]" />

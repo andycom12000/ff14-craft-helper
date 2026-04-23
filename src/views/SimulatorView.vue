@@ -16,6 +16,7 @@ import { simulateCraftDetail, waitForWasm } from '@/solver/worker'
 import { craftParamsToSolverConfig } from '@/solver/config'
 import type { WasmEffects, StepDetail } from '@/solver/raphael'
 import type { Job } from '@/engine/skill-icons-by-job'
+import { JOB_ABBR } from '@/utils/jobs'
 import StatusBar from '@/components/simulator/StatusBar.vue'
 import BuffDisplay from '@/components/simulator/BuffDisplay.vue'
 import ActionList from '@/components/simulator/ActionList.vue'
@@ -58,6 +59,16 @@ const gearset = computed(() => {
 })
 
 const canSimulate = computed(() => !!recipe.value && !!gearset.value)
+
+// recipe.job is stored as the Chinese short-form ('木工', '烹調', ...).
+// The skill-icon-by-job map keys on the 3-letter abbr ('CRP', 'CUL', ...),
+// so translate here before threading into SkillPanel / ActionList.
+const recipeJobAbbr = computed<Job | null>(() => {
+  const j = recipe.value?.job
+  if (!j) return null
+  const abbr = JOB_ABBR[j] ?? j
+  return (abbr as Job) ?? null
+})
 
 function onInitialQualityUpdate(val: number) {
   initialQuality.value = val
@@ -420,7 +431,7 @@ async function handleSelfCraft(itemId: number) {
                 <ActionList
                   :actions="simStore.actions"
                   :results="simStore.simulationResults"
-                  :job="(recipe?.job as Job | undefined) ?? null"
+                  :job="recipeJobAbbr"
                   @remove="handleRemoveAction"
                   @clear="handleClearActions"
                 />
@@ -437,7 +448,7 @@ async function handleSelfCraft(itemId: number) {
                 <SkillPanel
                   :level="gearset.level"
                   :craft-state="currentState"
-                  :job="(recipe?.job as Job | undefined) ?? null"
+                  :job="recipeJobAbbr"
                   @use-skill="handleUseSkill"
                 />
               </el-card>

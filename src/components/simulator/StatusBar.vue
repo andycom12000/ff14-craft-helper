@@ -16,6 +16,16 @@ const qualityPct = computed(() => {
   return Math.round((props.craftState.quality / props.craftState.maxQuality) * 100)
 })
 
+const durabilityPct = computed(() => {
+  if (!props.craftState || props.craftState.maxDurability === 0) return 0
+  return Math.round((props.craftState.durability / props.craftState.maxDurability) * 100)
+})
+
+const cpPct = computed(() => {
+  if (!props.craftState || props.craftState.maxCp === 0) return 0
+  return Math.round((props.craftState.cp / props.craftState.maxCp) * 100)
+})
+
 const completionText = computed(() => {
   if (!props.craftState) return ''
   if (!props.craftState.isComplete) return '製作中'
@@ -58,6 +68,28 @@ const completionType = computed(() => {
           color="var(--app-success)"
           :text-inside="true"
           :format="() => `${craftState!.quality} / ${craftState!.maxQuality}`"
+        />
+      </div>
+
+      <div class="bar-row">
+        <span class="bar-label">耐久</span>
+        <el-progress
+          :percentage="durabilityPct"
+          :stroke-width="18"
+          color="var(--el-color-warning)"
+          :text-inside="true"
+          :format="() => `${craftState!.durability} / ${craftState!.maxDurability}`"
+        />
+      </div>
+
+      <div class="bar-row">
+        <span class="bar-label">CP</span>
+        <el-progress
+          :percentage="cpPct"
+          :stroke-width="18"
+          color="var(--el-color-info)"
+          :text-inside="true"
+          :format="() => `${craftState!.cp} / ${craftState!.maxCp}`"
         />
       </div>
 
