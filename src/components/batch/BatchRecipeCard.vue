@@ -56,7 +56,7 @@ const emit = defineEmits<{
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 12px 20px 12px 16px;
   border-radius: 8px;
   background: var(--el-fill-color-darker);
   transition: background-color 0.15s;

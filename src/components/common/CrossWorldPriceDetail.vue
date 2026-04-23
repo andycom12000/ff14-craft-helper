@@ -4,8 +4,10 @@ import { computed } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
 import { formatGil, formatTimeAgo } from '@/utils/format'
 
+export type WorldPriceRow = WorldPriceSummary & { isRecommended?: boolean }
+
 const props = withDefaults(defineProps<{
-  data: WorldPriceSummary[] | undefined
+  data: WorldPriceRow[] | undefined
   loading?: boolean
   showListingCount?: boolean
   showAvgPrice?: boolean
@@ -23,6 +25,15 @@ const useTable = computed(() => !props.compact || props.showAvgPrice)
 
 function isHome(world: string) {
   return world === settingsStore.server
+}
+
+function isRecommendedRow(row: WorldPriceRow, idx: number): boolean {
+  // If any row is explicitly marked, trust the data. Otherwise fall back to
+  // the legacy "first row with an NQ price" heuristic for callers that
+  // haven't migrated yet (e.g. MarketView, BOM summary).
+  const hasExplicit = props.data?.some(r => r.isRecommended === true) ?? false
+  if (hasExplicit) return row.isRecommended === true
+  return idx === 0 && row.minPriceNQ > 0
 }
 </script>
 
@@ -44,7 +55,7 @@ function isHome(world: string) {
     </el-table-column>
     <el-table-column label="NQ 最低" width="100" align="right">
       <template #default="{ row: world, $index }">
-        <span :style="{ color: $index === 0 && world.minPriceNQ > 0 ? 'var(--app-success)' : '' }">
+        <span :style="{ color: isRecommendedRow(world, $index) ? 'var(--app-success)' : '' }">
           {{ world.minPriceNQ > 0 ? formatGil(world.minPriceNQ) : '-' }}
         </span>
       </template>
@@ -78,7 +89,7 @@ function isHome(world: string) {
       v-for="(world, idx) in data"
       :key="world.worldName"
       class="cwp-row"
-      :class="{ 'cwp-row--home': isHome(world.worldName), 'cwp-row--best': idx === 0 && world.minPriceNQ > 0 }"
+      :class="{ 'cwp-row--home': isHome(world.worldName), 'cwp-row--best': isRecommendedRow(world, idx) }"
     >
       <span class="cwp-world">
         {{ world.worldName }}
