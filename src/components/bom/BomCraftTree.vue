@@ -8,7 +8,7 @@ import { computeOptimalCosts } from '@/services/bom-calculator'
 import { formatGil } from '@/utils/format'
 import { LIST_CONTAINER_MIN_WIDTH } from '@/utils/layout'
 import ItemName from '@/components/common/ItemName.vue'
-import GilDisplay from '@/components/common/GilDisplay.vue'
+import BomMaterialRow from '@/components/bom/BomMaterialRow.vue'
 
 const props = defineProps<{
   tree: MaterialNode[]
@@ -229,30 +229,19 @@ const allChecked = computed(() => {
     <div class="tree-scroll-container">
       <div v-for="root in tree" :key="root.itemId" class="tree-root">
         <!-- Root node card -->
-        <div class="tree-node-card root-node" :class="{ 'row-checked': isNodeChecked(root) && isShoppingRow(root) }">
-          <div class="node-content">
-            <div class="node-icon-wrapper">
-              <img :src="root.icon" :alt="root.name" crossorigin="anonymous" class="node-icon" />
-              <span v-if="root.amount > 1" class="qty-badge">{{ root.amount }}</span>
-            </div>
-            <div class="node-info">
-              <div class="node-price-row">
-                <span class="node-price-left">
-                  <ItemName :item-id="root.itemId" :fallback="root.name" />
-                </span>
-                <span class="node-price-right">
-                  <GilDisplay :value="getUnitPrice(root.itemId)" /> × {{ root.amount }}
-                  = <GilDisplay :value="lineTotal(root.itemId, root.amount)" /> Gil
-                </span>
-              </div>
-            </div>
-          </div>
-          <div v-if="root.recipeId" class="node-actions">
+        <BomMaterialRow
+          :node="root"
+          card-variant="root"
+          :unit-price="getUnitPrice(root.itemId)"
+          :line-total="lineTotal(root.itemId, root.amount)"
+          :row-checked="isShoppingRow(root) && isNodeChecked(root)"
+        >
+          <template v-if="root.recipeId" #actions>
             <el-button type="primary" size="small" text @click="emit('simulate-recipe', root.recipeId!)">
               加入模擬佇列
             </el-button>
-          </div>
-        </div>
+          </template>
+        </BomMaterialRow>
 
         <div
           v-if="rootSummary"
@@ -303,32 +292,15 @@ const allChecked = computed(() => {
               </div>
             </div>
 
-            <div
-              class="tree-node-card"
-              :class="[
-                child.recipeId ? 'intermediate-node' : 'raw-node',
-                { 'node-collapsed-card': child.collapsed },
-                { 'row-checked': isShoppingRow(child) && isNodeChecked(child) },
-              ]"
+            <BomMaterialRow
+              :node="child"
+              :card-variant="child.recipeId ? 'intermediate' : 'raw'"
+              :unit-price="getUnitPrice(child.itemId)"
+              :line-total="lineTotal(child.itemId, child.amount)"
+              :collapsed="child.collapsed"
+              :row-checked="isShoppingRow(child) && isNodeChecked(child)"
             >
-              <div class="node-content">
-                <div class="node-icon-wrapper">
-                  <img :src="child.icon" :alt="child.name" crossorigin="anonymous" class="node-icon" />
-                  <span v-if="child.amount > 1" class="qty-badge">{{ child.amount }}</span>
-                </div>
-                <div class="node-info">
-                  <div class="node-price-row">
-                    <span class="node-price-left" :class="{ 'name-collapsed': child.collapsed }">
-                      <ItemName :item-id="child.itemId" :fallback="child.name" />
-                    </span>
-                    <span class="node-price-right">
-                      <GilDisplay :value="getUnitPrice(child.itemId)" /> × {{ child.amount }}
-                      = <GilDisplay :value="lineTotal(child.itemId, child.amount)" /> Gil
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div class="node-actions">
+              <template #actions>
                 <el-button
                   v-if="child.recipeId"
                   :type="child.collapsed ? 'success' : 'warning'"
@@ -354,8 +326,8 @@ const allChecked = computed(() => {
                 >
                   {{ isNodeChecked(child) ? '✓ 已採購' : '加入已採購' }}
                 </button>
-              </div>
-            </div>
+              </template>
+            </BomMaterialRow>
 
             <!-- Level 2 children (non-crystal only) -->
             <div
@@ -386,32 +358,15 @@ const allChecked = computed(() => {
                   </div>
                 </div>
 
-                <div
-                  class="tree-node-card"
-                  :class="[
-                    grandchild.recipeId ? 'intermediate-node' : 'raw-node',
-                    { 'node-collapsed-card': grandchild.collapsed },
-                    { 'row-checked': isShoppingRow(grandchild) && isNodeChecked(grandchild) },
-                  ]"
+                <BomMaterialRow
+                  :node="grandchild"
+                  :card-variant="grandchild.recipeId ? 'intermediate' : 'raw'"
+                  :unit-price="getUnitPrice(grandchild.itemId)"
+                  :line-total="lineTotal(grandchild.itemId, grandchild.amount)"
+                  :collapsed="grandchild.collapsed"
+                  :row-checked="isShoppingRow(grandchild) && isNodeChecked(grandchild)"
                 >
-                  <div class="node-content">
-                    <div class="node-icon-wrapper">
-                      <img :src="grandchild.icon" :alt="grandchild.name" crossorigin="anonymous" class="node-icon" />
-                      <span v-if="grandchild.amount > 1" class="qty-badge">{{ grandchild.amount }}</span>
-                    </div>
-                    <div class="node-info">
-                      <div class="node-price-row">
-                        <span class="node-price-left" :class="{ 'name-collapsed': grandchild.collapsed }">
-                          <ItemName :item-id="grandchild.itemId" :fallback="grandchild.name" />
-                        </span>
-                        <span class="node-price-right">
-                          <GilDisplay :value="getUnitPrice(grandchild.itemId)" /> × {{ grandchild.amount }}
-                          = <GilDisplay :value="lineTotal(grandchild.itemId, grandchild.amount)" /> Gil
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="node-actions">
+                  <template #actions>
                     <el-button
                       v-if="grandchild.recipeId"
                       :type="grandchild.collapsed ? 'success' : 'warning'"
@@ -437,8 +392,8 @@ const allChecked = computed(() => {
                     >
                       {{ isNodeChecked(grandchild) ? '✓ 已採購' : '加入已採購' }}
                     </button>
-                  </div>
-                </div>
+                  </template>
+                </BomMaterialRow>
 
                 <!-- Level 3 children (non-crystal only) -->
                 <div
@@ -450,28 +405,14 @@ const allChecked = computed(() => {
                     :key="leaf.itemId"
                     class="tree-branch"
                   >
-                    <div
-                      class="tree-node-card raw-node"
-                      :class="{ 'row-checked': isShoppingRow(leaf) && isNodeChecked(leaf) }"
+                    <BomMaterialRow
+                      :node="leaf"
+                      card-variant="raw"
+                      :unit-price="getUnitPrice(leaf.itemId)"
+                      :line-total="lineTotal(leaf.itemId, leaf.amount)"
+                      :row-checked="isShoppingRow(leaf) && isNodeChecked(leaf)"
                     >
-                      <div class="node-content">
-                        <div class="node-icon-wrapper">
-                          <img :src="leaf.icon" :alt="leaf.name" crossorigin="anonymous" class="node-icon" />
-                          <span v-if="leaf.amount > 1" class="qty-badge">{{ leaf.amount }}</span>
-                        </div>
-                        <div class="node-info">
-                          <div class="node-price-row">
-                            <span class="node-price-left">
-                              <ItemName :item-id="leaf.itemId" :fallback="leaf.name" />
-                            </span>
-                            <span class="node-price-right">
-                              <GilDisplay :value="getUnitPrice(leaf.itemId)" /> × {{ leaf.amount }}
-                              = <GilDisplay :value="lineTotal(leaf.itemId, leaf.amount)" /> Gil
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div v-if="isShoppingRow(leaf)" class="node-actions">
+                      <template v-if="isShoppingRow(leaf)" #actions>
                         <button
                           type="button"
                           class="shopping-toggle"
@@ -481,8 +422,8 @@ const allChecked = computed(() => {
                         >
                           {{ isNodeChecked(leaf) ? '✓ 已採購' : '加入已採購' }}
                         </button>
-                      </div>
-                    </div>
+                      </template>
+                    </BomMaterialRow>
                   </div>
                 </div>
               </div>
