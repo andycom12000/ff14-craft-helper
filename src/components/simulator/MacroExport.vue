@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useSimulatorStore } from '@/stores/simulator'
+import { useLocaleStore } from '@/stores/locale'
 import { formatMacros } from '@/services/macro-formatter'
 import { ElMessage } from 'element-plus'
 
 const simStore = useSimulatorStore()
+const localeStore = useLocaleStore()
 
 const waitTime = ref(3)
 const includeEcho = ref(true)
@@ -13,6 +15,7 @@ const macros = computed(() =>
   formatMacros(simStore.actions, {
     waitTime: waitTime.value,
     includeEcho: includeEcho.value,
+    locale: localeStore.current,
   })
 )
 

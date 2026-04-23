@@ -2,10 +2,9 @@
 import { ref, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useSettingsStore } from '@/stores/settings'
-import { getDataCenters, getWorlds } from '@/api/universalis'
+import { getDataCenters, getWorlds, refreshWorldsFromApi } from '@/api/universalis'
 import type { DataCenter, World } from '@/api/universalis'
 import avatarUrl from '@/assets/avatar.gif'
-import LocaleSwitcher from '@/components/LocaleSwitcher.vue'
 
 const settingsStore = useSettingsStore()
 
@@ -71,6 +70,19 @@ async function loadServers(notify = false) {
 
 onMounted(() => { loadServers() })
 
+const refreshingFromApi = ref(false)
+async function refreshFromLiveApi() {
+  refreshingFromApi.value = true
+  try {
+    await refreshWorldsFromApi()
+    await loadServers(true)
+  } catch {
+    ElMessage.error('從 API 更新伺服器清單失敗，請稍後再試')
+  } finally {
+    refreshingFromApi.value = false
+  }
+}
+
 const selectedRegion = ref(settingsStore.region)
 const selectedDC = ref(settingsStore.dataCenter)
 const selectedServer = ref(settingsStore.server)
@@ -127,15 +139,25 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
       <template #header>
         <div class="card-header-row">
           <span class="card-title">伺服器設定</span>
-          <el-button
-            v-if="loadError && !loading"
-            size="small"
-            type="primary"
-            plain
-            @click="loadServers(true)"
-          >
-            重試載入清單
-          </el-button>
+          <div class="card-header-actions">
+            <el-button
+              size="small"
+              plain
+              :loading="refreshingFromApi"
+              @click="refreshFromLiveApi"
+            >
+              從 API 更新伺服器清單
+            </el-button>
+            <el-button
+              v-if="loadError && !loading"
+              size="small"
+              type="primary"
+              plain
+              @click="loadServers(true)"
+            >
+              重試載入清單
+            </el-button>
+          </div>
         </div>
       </template>
 
@@ -193,18 +215,6 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
       </el-form>
     </el-card>
 
-    <el-card shadow="never" class="locale-card">
-      <template #header>
-        <span class="card-title">語言</span>
-      </template>
-
-      <el-form label-width="120px" label-position="left">
-        <el-form-item label="遊戲資料語言">
-          <LocaleSwitcher />
-        </el-form-item>
-      </el-form>
-    </el-card>
-
     <el-card shadow="never" class="about-card">
       <template #header>
         <span class="card-title">關於</span>
@@ -253,10 +263,21 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
             target="_blank"
             rel="noopener noreferrer"
             class="about-author-name"
-          >andycom12000</a>
+          >菸齡 (andycom12000)</a>
         </div>
       </div>
     </el-card>
+
+    <section class="thanks">
+      <h3 class="thanks-title">特別感謝</h3>
+      <p class="thanks-desc">社群朋友的回饋、測試與點子，讓這個工具變得更好。</p>
+      <ul class="thanks-list">
+        <li>BE4R</li>
+        <li>哎低</li>
+        <li>永恆詩歌</li>
+        <li>o12ld</li>
+      </ul>
+    </section>
   </div>
 </template>
 
@@ -269,8 +290,56 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   margin-top: 20px;
 }
 
-.locale-card {
-  margin-top: 20px;
+.card-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.thanks {
+  margin-top: 28px;
+  padding: 0 4px;
+}
+
+.thanks-title {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--app-text-muted);
+  text-transform: uppercase;
+}
+
+.thanks-desc {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--app-text-muted);
+}
+
+.thanks-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+}
+
+.thanks-list li {
+  font-size: 14px;
+  color: var(--app-text);
+  position: relative;
+  padding-left: 14px;
+}
+
+.thanks-list li::before {
+  content: '·';
+  position: absolute;
+  left: 0;
+  color: var(--app-accent-light);
+  font-weight: 700;
 }
 
 .save-row {

@@ -15,10 +15,10 @@ describe('useSettingsStore', () => {
     expect(store.region).toBe('繁中服')
   })
 
-  it('defaults priceDisplayMode to nq', () => {
+  it('defaults priceDisplayMode to minOf', () => {
     const store = useSettingsStore()
 
-    expect(store.priceDisplayMode).toBe('nq')
+    expect(store.priceDisplayMode).toBe('minOf')
   })
 
   it('has default batch settings', () => {

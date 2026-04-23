@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick } from 'vue'
 import { formatMacros } from '@/services/macro-formatter'
+import { useLocaleStore } from '@/stores/locale'
 import { getJobName } from '@/utils/jobs'
 import { ElMessage } from 'element-plus'
 import { DocumentCopy, ArrowRight } from '@element-plus/icons-vue'
@@ -63,9 +64,12 @@ const doneItems = computed(() =>
   props.items.map((item, index) => ({ item, index })).filter(({ item }) => item.done),
 )
 
-const macroCache = computed(() =>
-  new Map(props.items.map((item, i) => [i, formatMacros(item.actions)])),
-)
+const localeStore = useLocaleStore()
+const macroCache = computed(() => {
+  // Track locale so macro text refreshes when the sidebar language switches.
+  const locale = localeStore.current
+  return new Map(props.items.map((item, i) => [i, formatMacros(item.actions, { locale })]))
+})
 
 function toggleMacro(index: number) {
   expandedMacro.value = expandedMacro.value === index ? null : index
