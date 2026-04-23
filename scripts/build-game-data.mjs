@@ -23,6 +23,60 @@ const CACHE_DIR = path.join(ROOT, '.data-cache')
 const OUT_TMP = path.join(CACHE_DIR, 'out')
 const OUT_FINAL = path.join(ROOT, 'public', 'data')
 
+const UNIVERSALIS_API = 'https://universalis.app/api/v2'
+
+/**
+ * Normalize raw Universalis /worlds and /data-centers responses into a bundle.
+ *
+ * Output shape mirrors the live API so consumers can swap static ↔ live with
+ * no code changes:
+ *   worlds:       [{id, name}]
+ *   dataCenters:  [{name, region, worlds: number[]}]  // world ids
+ *
+ * Only known worlds (present in /worlds) survive; DCs are stripped of orphan
+ * ids. Sort order is deterministic for stable git diffs.
+ *
+ * Pure function — no network access. Exported for unit testing.
+ */
+export function normalizeWorldsBundle(worlds, dcs, fetchedAt = new Date().toISOString()) {
+  const knownIds = new Set(worlds.map((w) => w.id))
+
+  const sortedWorlds = [...worlds]
+    .map((w) => ({ id: w.id, name: w.name }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  const dataCenters = dcs
+    .map((dc) => ({
+      name: dc.name,
+      region: dc.region,
+      worlds: (dc.worlds || []).filter((id) => knownIds.has(id)),
+    }))
+    .sort((a, b) => {
+      if (a.region !== b.region) return a.region.localeCompare(b.region)
+      return a.name.localeCompare(b.name)
+    })
+
+  return { schemaVersion: 1, fetchedAt, worlds: sortedWorlds, dataCenters }
+}
+
+/**
+ * Fetch and normalize Universalis worlds + data-centers into a single bundle.
+ *
+ * Failure policy: network errors do NOT abort the whole build. If worlds are
+ * unreachable, we log a warning and the existing worlds.json (if any) is kept.
+ */
+export async function fetchUniversalisWorlds() {
+  const [worldsRes, dcRes] = await Promise.all([
+    fetch(`${UNIVERSALIS_API}/worlds`),
+    fetch(`${UNIVERSALIS_API}/data-centers`),
+  ])
+  if (!worldsRes.ok) throw new Error(`worlds HTTP ${worldsRes.status}`)
+  if (!dcRes.ok) throw new Error(`data-centers HTTP ${dcRes.status}`)
+  const worlds = await worldsRes.json()
+  const dcs = await dcRes.json()
+  return normalizeWorldsBundle(worlds, dcs)
+}
+
 // ---------------------------------------------------------------------------
 // CSV parser
 // ---------------------------------------------------------------------------
@@ -572,6 +626,22 @@ async function main() {
     const src = path.join(OUT_TMP, from)
     const dst = path.join(OUT_FINAL, to)
     await fs.copyFile(src, dst)
+  }
+
+  // 5b. Universalis worlds snapshot. Failure is non-fatal — existing
+  //     worlds.json (if any) stays in place; consumer falls back to live API.
+  try {
+    log(verbose, 'Fetching Universalis worlds + data-centers...')
+    const worldsBundle = await fetchUniversalisWorlds()
+    await fs.writeFile(
+      path.join(OUT_FINAL, 'worlds.json'),
+      JSON.stringify(worldsBundle, null, 2),
+    )
+    const dcCount = worldsBundle.dataCenters.length
+    const worldCount = worldsBundle.worlds.length
+    console.log(`  worlds.json: ${dcCount} DCs, ${worldCount} worlds`)
+  } catch (err) {
+    console.warn(`[warn] skipped worlds.json: ${err.message}`)
   }
 
   // 6. Final report.

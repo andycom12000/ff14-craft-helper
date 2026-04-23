@@ -2,7 +2,12 @@ export function starsDisplay(stars: number): string {
   return stars > 0 ? '\u2605'.repeat(stars) : ''
 }
 
-export function formatGil(value: number): string {
+/**
+ * Format a Gil amount for display. `null`/`undefined` represent "price unknown"
+ * (no market listings, no fallback), distinct from a real price of 0 Gil.
+ */
+export function formatGil(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '—'
   return value.toLocaleString()
 }
 
