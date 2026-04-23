@@ -152,8 +152,6 @@ async function runSimulation() {
   const version = ++simulationVersion
   const params = craftParams.value
   const actions = [...simStore.actions]
-  // In manual mode, pass the per-step condition array so each step simulates
-  // under the condition the user had selected when they queued it.
   const conditions = simStore.mode === 'manual' && simStore.conditions.length > 0
     ? [...simStore.conditions]
     : undefined
@@ -176,7 +174,10 @@ async function runSimulation() {
   }
 }
 
-watch([craftParams, () => simStore.actions, () => simStore.conditions], runSimulation, { immediate: true })
+// conditions are mutated in lockstep with actions (pushAction, undo, redo,
+// resetManual) so watching actions alone is sufficient — adding conditions
+// here would double-fire on every snapshot restore.
+watch([craftParams, () => simStore.actions], runSimulation, { immediate: true })
 
 function handleAddFromSearch(recipe: import('@/stores/recipe').Recipe) {
   recipeStore.addToQueue(recipe)
@@ -204,12 +205,6 @@ function handleClearActions() {
   simStore.clearActions()
 }
 
-// --- Manual mode wiring ---
-// `simStore.currentCondition` captures the condition the user has selected
-// right now; `pushAction()` records it into `simStore.conditions[i]` when the
-// skill is queued. The simulate call forwards that array to the WASM solver
-// so each step's progress/quality calculation reflects the historical
-// condition (Normal / Good / Excellent / Poor).
 const modeOptions = [
   { label: '自動求解', value: 'solver' },
   { label: '手動操作', value: 'manual' },

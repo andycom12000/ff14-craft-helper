@@ -11,12 +11,13 @@ interface RecipeSimState {
 export type SimulatorMode = 'solver' | 'manual'
 export type ManualCondition = Extract<CraftCondition, 'Normal' | 'Good' | 'Excellent' | 'Poor'>
 
-// History snapshot captures actions + per-step conditions together so undo/redo
-// restores both in lockstep.
 interface ManualSnapshot {
   actions: string[]
-  conditions: string[]
+  conditions: ManualCondition[]
 }
+
+// Cap the undo/redo stack so long manual sessions don't grow unbounded.
+const MANUAL_HISTORY_LIMIT = 200
 
 export const useSimulatorStore = defineStore('simulator', () => {
   const actions = ref<string[]>([])
@@ -26,8 +27,7 @@ export const useSimulatorStore = defineStore('simulator', () => {
 
   // --- Manual simulation mode ---
   const mode = ref<SimulatorMode>('solver')
-  // Per-step conditions; index i applies to actions[i]. Only grows in manual mode.
-  const conditions = ref<string[]>([])
+  const conditions = ref<ManualCondition[]>([])
   const history = ref<ManualSnapshot[]>([])
   const future = ref<ManualSnapshot[]>([])
   const currentCondition = ref<ManualCondition>('Normal')
@@ -104,17 +104,18 @@ export const useSimulatorStore = defineStore('simulator', () => {
 
   // --- Manual mode actions ---
 
-  function setMode(next: SimulatorMode) {
-    if (mode.value === next) return
-    mode.value = next
-    // Switching modes resets the working actions + undo stacks so the user
-    // starts fresh. The live simulate watcher will re-run automatically when
-    // actions change.
+  function clearManualState() {
     actions.value = []
     conditions.value = []
     simulationResults.value = []
     history.value = []
     future.value = []
+  }
+
+  function setMode(next: SimulatorMode) {
+    if (mode.value === next) return
+    mode.value = next
+    clearManualState()
   }
 
   function snapshot(): ManualSnapshot {
@@ -126,9 +127,15 @@ export const useSimulatorStore = defineStore('simulator', () => {
     conditions.value = [...snap.conditions]
   }
 
+  function pushToHistory(snap: ManualSnapshot) {
+    history.value.push(snap)
+    if (history.value.length > MANUAL_HISTORY_LIMIT) {
+      history.value.splice(0, history.value.length - MANUAL_HISTORY_LIMIT)
+    }
+  }
+
   function pushAction(skillId: string) {
-    // Save prior snapshot to history; clear redo stack (new branch).
-    history.value.push(snapshot())
+    pushToHistory(snapshot())
     future.value = []
     actions.value.push(skillId)
     conditions.value.push(currentCondition.value)
@@ -144,16 +151,12 @@ export const useSimulatorStore = defineStore('simulator', () => {
   function redo() {
     const next = future.value.pop()
     if (next === undefined) return
-    history.value.push(snapshot())
+    pushToHistory(snapshot())
     restore(next)
   }
 
   function resetManual() {
-    history.value = []
-    future.value = []
-    actions.value = []
-    conditions.value = []
-    simulationResults.value = []
+    clearManualState()
   }
 
   return {

@@ -2,10 +2,9 @@ import { getIconUrl } from '@/utils/icon-url'
 
 export type SkillCategory = 'progress' | 'quality' | 'buff' | 'repair' | 'other'
 
-// iconId values sourced from datamining CraftAction.csv + Action.csv (2026-04-23).
-// iconId=0 still signals "no icon for this skill"; consumers should fall back
-// to text. Focused Synthesis / Focused Touch were removed from the live game
-// and only live on here for legacy solver compatibility.
+// Focused Synthesis and Focused Touch were removed from the live game post-
+// Endwalker; they keep iconId=0 (fall back to text) and only remain in SKILLS
+// for solver compatibility with older macro data.
 export interface SkillDefinition {
   id: string
   nameEn: string

@@ -162,20 +162,21 @@ struct SimulateConfig {
 }
 
 fn parse_condition(name: &str) -> Condition {
-    match name.to_ascii_lowercase().as_str() {
-        "good" => Condition::Good,
-        "excellent" => Condition::Excellent,
-        "poor" => Condition::Poor,
-        _ => Condition::Normal,
+    if name.eq_ignore_ascii_case("good") {
+        Condition::Good
+    } else if name.eq_ignore_ascii_case("excellent") {
+        Condition::Excellent
+    } else if name.eq_ignore_ascii_case("poor") {
+        Condition::Poor
+    } else {
+        Condition::Normal
     }
 }
 
-fn condition_for_step(conditions: &Option<Vec<String>>, step: usize) -> Condition {
-    conditions
-        .as_ref()
-        .and_then(|c| c.get(step))
-        .map(|s| parse_condition(s))
-        .unwrap_or(Condition::Normal)
+fn parse_conditions(raw: &Option<Vec<String>>) -> Vec<Condition> {
+    raw.as_ref()
+        .map(|v| v.iter().map(|s| parse_condition(s)).collect())
+        .unwrap_or_default()
 }
 
 #[derive(Serialize)]
@@ -274,6 +275,7 @@ pub fn simulate(config_js: JsValue) -> Result<JsValue, JsValue> {
     let settings = build_sim_settings(&config);
     let mut state = SimulationState::new(&settings);
     let mut steps_used = 0;
+    let conditions = parse_conditions(&config.conditions);
 
     for (i, action_name) in config.actions.iter().enumerate() {
         if state.is_final(&settings) {
@@ -281,7 +283,7 @@ pub fn simulate(config_js: JsValue) -> Result<JsValue, JsValue> {
         }
         let action = parse_action(action_name)
             .map_err(|e| JsValue::from_str(&e))?;
-        let condition = condition_for_step(&config.conditions, i);
+        let condition = conditions.get(i).copied().unwrap_or(Condition::Normal);
         match state.use_action(action, condition, &settings) {
             Ok(new_state) => {
                 state = new_state;
@@ -321,6 +323,7 @@ pub fn simulate_detail(config_js: JsValue) -> Result<JsValue, JsValue> {
     let settings = build_sim_settings(&config);
     let mut state = SimulationState::new(&settings);
     let mut steps: Vec<StepDetail> = Vec::new();
+    let conditions = parse_conditions(&config.conditions);
 
     for (i, action_name) in config.actions.iter().enumerate() {
         if state.is_final(&settings) {
@@ -328,7 +331,7 @@ pub fn simulate_detail(config_js: JsValue) -> Result<JsValue, JsValue> {
         }
         let action = parse_action(action_name)
             .map_err(|e| JsValue::from_str(&e))?;
-        let condition = condition_for_step(&config.conditions, i);
+        let condition = conditions.get(i).copied().unwrap_or(Condition::Normal);
         let success = match state.use_action(action, condition, &settings) {
             Ok(new_state) => {
                 state = new_state;
