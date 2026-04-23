@@ -4,12 +4,34 @@ import { useRouter } from 'vue-router'
 import { useGearsetsStore } from '@/stores/gearsets'
 import { useBatchStore } from '@/stores/batch'
 import { useTimerStore } from '@/stores/timer'
+import { useSettingsStore } from '@/stores/settings'
 import { JOB_NAMES } from '@/utils/jobs'
+import WelcomeSetup from '@/components/onboarding/WelcomeSetup.vue'
 
 const router = useRouter()
 const gearsets = useGearsetsStore()
 const batchStore = useBatchStore()
 const timerStore = useTimerStore()
+const settingsStore = useSettingsStore()
+
+function readOnboardingComplete(): boolean {
+  try {
+    return localStorage.getItem('onboardingComplete') === '1'
+  } catch {
+    return false
+  }
+}
+
+const showOnboarding = ref(
+  !readOnboardingComplete()
+  && !settingsStore.region
+  && !settingsStore.dataCenter
+  && !settingsStore.server,
+)
+
+function onboardingDone() {
+  showOnboarding.value = false
+}
 
 const guideCollapsed = ref(localStorage.getItem('ff14-guide-collapsed') === 'true')
 
@@ -58,7 +80,8 @@ const tools = [
 </script>
 
 <template>
-  <div class="view-container dashboard">
+  <WelcomeSetup v-if="showOnboarding" @done="onboardingDone" />
+  <div v-else class="view-container dashboard">
     <!-- Welcome -->
     <div class="welcome">
       <h2>歡迎回來，冒險者</h2>

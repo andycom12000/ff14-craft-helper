@@ -14,6 +14,7 @@ import {
   HomeFilled,
 } from '@element-plus/icons-vue'
 import EorzeaClock from '@/components/EorzeaClock.vue'
+import LocalePillGroup from '@/components/LocalePillGroup.vue'
 import CommandPalette from '@/components/CommandPalette.vue'
 
 const route = useRoute()
@@ -103,7 +104,10 @@ watch(() => route.path, () => {
           <span>設定</span>
         </el-menu-item>
       </el-menu>
-      <EorzeaClock />
+      <div class="sidebar-footer">
+        <LocalePillGroup />
+        <EorzeaClock />
+      </div>
     </el-aside>
     <el-main class="app-main">
       <button class="mobile-menu-btn" @click="sidebarOpen = true">
@@ -505,6 +509,16 @@ html, body {
 .menu-divider {
   margin: 8px 16px;
   border-color: var(--app-border);
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-footer :deep(.eorzea-clock) {
+  margin-top: 0;
 }
 
 .menu-badge {
