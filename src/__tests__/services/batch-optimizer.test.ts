@@ -128,6 +128,53 @@ describe('runBatchOptimization', () => {
     expect(result.exceptions[0].buyPrice).toBe(15000) // HQ price for canHq recipe
   })
 
+  it('downgrades recipe to buy-finished when buying is cheaper than crafting', async () => {
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory', 'groundwork'], progress: 3500, quality: 7200, steps: 2 })
+    vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
+    // Materials are free (priceMap empty) → craft cost = 0; finished product has a listed buy price.
+    const { getAggregatedPrices } = await import('@/api/universalis')
+    // craftCostPerUnit = 3*1000 + 2*500 = 4000 (only NQ since hqAmounts=[] for doubleMax);
+    // finished product HQ = 1000 → buy < craft → downgrade.
+    vi.mocked(getAggregatedPrices).mockResolvedValue(new Map([
+      [mockRecipe.itemId, { minPriceNQ: 0, minPriceHQ: 1000, listings: [] } as any],
+      [200, { minPriceNQ: 1000, minPriceHQ: 0, listings: [] } as any],
+      [201, { minPriceNQ: 500, minPriceHQ: 0, listings: [] } as any],
+    ]))
+
+    const result = await runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 1 }],
+      () => mockGearset,
+      defaultSettings,
+      () => {}, () => false,
+    )
+    expect(result.buyFinishedItems).toHaveLength(1)
+    expect(result.buyFinishedItems[0].recipe.itemId).toBe(mockRecipe.itemId)
+    expect(result.todoList).toHaveLength(0)
+  })
+
+  it('selfMakeOverrides forces craft even when buying would be cheaper', async () => {
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory', 'groundwork'], progress: 3500, quality: 7200, steps: 2 })
+    vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
+    const { getAggregatedPrices } = await import('@/api/universalis')
+    // craftCostPerUnit = 3*1000 + 2*500 = 4000 (only NQ since hqAmounts=[] for doubleMax);
+    // finished product HQ = 1000 → buy < craft → downgrade.
+    vi.mocked(getAggregatedPrices).mockResolvedValue(new Map([
+      [mockRecipe.itemId, { minPriceNQ: 0, minPriceHQ: 1000, listings: [] } as any],
+      [200, { minPriceNQ: 1000, minPriceHQ: 0, listings: [] } as any],
+      [201, { minPriceNQ: 500, minPriceHQ: 0, listings: [] } as any],
+    ]))
+
+    const result = await runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 1 }],
+      () => mockGearset,
+      { ...defaultSettings, selfMakeOverrides: { [mockRecipe.itemId]: true } },
+      () => {}, () => false,
+    )
+    expect(result.buyFinishedItems).toHaveLength(0)
+    expect(result.todoList).toHaveLength(1)
+    expect(result.todoList[0].recipe.itemId).toBe(mockRecipe.itemId)
+  })
+
   it('respects cancellation', async () => {
     let cancelled = false
     vi.mocked(solveCraft).mockResolvedValue({ actions: ['groundwork'], progress: 3500, quality: 7200, steps: 1 })

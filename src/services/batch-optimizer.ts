@@ -106,10 +106,10 @@ export async function runBatchOptimization(
     /** Bulk quality mode used as default in quick-buy. Defaults to 'nq'. */
     bulkQualityMode?: 'nq' | 'hq'
     /**
-     * Per-material self-make override. When true for an itemId, treat that material
-     * as self-make regardless of the optimizer's buy-vs-craft decision. Currently
-     * informational — consumed by UI; optimizer behavior is preserved until a
-     * follow-up wave wires re-expansion.
+     * Per-material self-make override. When true for a finished product's itemId,
+     * force that recipe to be crafted even if buying would be cheaper. Takes effect
+     * only in macro mode on recipes the user could otherwise craft — exceptions
+     * (level-insufficient, quality-unachievable) still fall through to buy.
      */
     selfMakeOverrides?: Record<number, boolean>
   },
@@ -240,6 +240,7 @@ export async function runBatchOptimization(
   // === Phase 4.5: Compare craft cost vs buy price per recipe ===
   const recipesToCraft: RecipeOptimizeResult[] = []
   const buyFinishedItems: BuyFinishedDecision[] = []
+  const selfMakeOverrides = settings.selfMakeOverrides ?? {}
 
   for (const r of recipeResults) {
     // Calculate per-unit craft cost from materials
@@ -272,7 +273,10 @@ export async function runBatchOptimization(
       buyServer = settings.server
     }
 
-    if (buyPrice > 0 && buyPrice <= craftCostPerUnit) {
+    // User-forced self-make: keep crafting regardless of price.
+    if (selfMakeOverrides[r.recipe.itemId]) {
+      recipesToCraft.push(r)
+    } else if (buyPrice > 0 && buyPrice <= craftCostPerUnit) {
       buyFinishedItems.push({
         recipe: r.recipe,
         quantity: r.quantity,
