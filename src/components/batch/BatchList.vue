@@ -51,7 +51,7 @@ function onDragEnd() {
   <el-card shadow="never">
     <template #header>
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <span class="card-title">製作清單</span>
+        <span class="card-title">購物清單</span>
         <div style="display: flex; align-items: center; gap: 12px;">
           <el-button type="primary" text size="small" :icon="Search" @click="emit('open-search')">
             搜尋配方

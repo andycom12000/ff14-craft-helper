@@ -7,7 +7,7 @@ export function starsDisplay(stars: number): string {
  * (no market listings, no fallback), distinct from a real price of 0 Gil.
  */
 export function formatGil(value: number | null | undefined): string {
-  if (value === null || value === undefined) return '—'
+  if (value == null) return '—'
   return value.toLocaleString()
 }
 
