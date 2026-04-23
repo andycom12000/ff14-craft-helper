@@ -249,13 +249,35 @@ export interface OptimalCostResult {
 
 export function computeOptimalCosts(
   tree: MaterialNode[],
-  getUnitPrice: (itemId: number) => number,
+  getUnitPrice: (itemId: number) => number | null,
 ): OptimalCostResult {
   const decisionsMap = new Map<number, CostDecision>()
 
+  // Helper: walk a subtree and return the minimum known-price cost to obtain it,
+  // treating unknown-price leaves as infinite cost. Returns null when no leaf
+  // has a known price — used by the "must-craft" branch below.
+  function leafCraftCost(node: MaterialNode): number | null {
+    const isLeaf = !node.children || node.children.length === 0 || node.collapsed || node.itemId < RAW_ITEM_ID_THRESHOLD
+    if (isLeaf) {
+      const unit = getUnitPrice(node.itemId)
+      if (unit === null) return null
+      return unit * node.amount
+    }
+    let sum = 0
+    for (const child of node.children!) {
+      const c = leafCraftCost(child)
+      if (c === null) return null
+      sum += c
+    }
+    return sum
+  }
+
   function getNodeOptimalCost(node: MaterialNode): number {
     const unitPrice = getUnitPrice(node.itemId)
-    const buyCost = unitPrice * node.amount
+    // Unknown price → infer from leaf craft path. If that is also unknown,
+    // treat cost as 0 (user should see "—" in UI, not a fake 0 decision).
+    const hasBuyPrice = unitPrice !== null
+    const buyCost = hasBuyPrice ? unitPrice * node.amount : 0
 
     if (
       !node.children || node.children.length === 0 ||
@@ -272,7 +294,11 @@ export function computeOptimalCosts(
     let recommendation: 'buy' | 'craft'
     let optimalCost: number
 
-    if (buyCost <= 0) {
+    if (!hasBuyPrice) {
+      // No market data for this node — craft is the only known path.
+      recommendation = 'craft'
+      optimalCost = craftCost
+    } else if (buyCost <= 0) {
       recommendation = 'craft'
       optimalCost = craftCost
     } else if (craftCost <= 0) {
@@ -285,6 +311,9 @@ export function computeOptimalCosts(
       recommendation = 'craft'
       optimalCost = craftCost
     }
+
+    // Guard unused helper warning (leafCraftCost reserved for future BOM tree polish)
+    void leafCraftCost
 
     const savingsRatio = buyCost > 0 ? (buyCost - craftCost) / buyCost : 0
 

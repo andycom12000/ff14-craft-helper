@@ -96,12 +96,60 @@ export async function getAggregatedPrices(
   return result
 }
 
-export function getDataCenters(): Promise<DataCenter[]> {
-  return fetchUniversalis('data-centers', QUICK_REQUEST_TIMEOUT_MS)
+interface WorldsBundle {
+  schemaVersion: number
+  fetchedAt: string
+  worlds: World[]
+  dataCenters: DataCenter[]
 }
 
-export function getWorlds(): Promise<World[]> {
-  return fetchUniversalis('worlds', QUICK_REQUEST_TIMEOUT_MS)
+// In-memory cache for the static worlds.json bundle. Loaded once per page.
+let worldsBundleCache: WorldsBundle | null = null
+
+async function loadWorldsBundle(): Promise<WorldsBundle> {
+  if (worldsBundleCache) return worldsBundleCache
+  const res = await fetch('/data/worlds.json', { cache: 'force-cache' })
+  if (!res.ok) throw new Error(`worlds.json HTTP ${res.status}`)
+  const bundle = (await res.json()) as WorldsBundle
+  worldsBundleCache = bundle
+  return bundle
+}
+
+export async function getDataCenters(): Promise<DataCenter[]> {
+  try {
+    const bundle = await loadWorldsBundle()
+    return bundle.dataCenters
+  } catch {
+    return fetchUniversalis('data-centers', QUICK_REQUEST_TIMEOUT_MS)
+  }
+}
+
+export async function getWorlds(): Promise<World[]> {
+  try {
+    const bundle = await loadWorldsBundle()
+    return bundle.worlds
+  } catch {
+    return fetchUniversalis('worlds', QUICK_REQUEST_TIMEOUT_MS)
+  }
+}
+
+/**
+ * Force-refresh worlds/dataCenters by bypassing the static bundle.
+ * Used by the settings page "update servers from API" button.
+ */
+export async function refreshWorldsFromApi(): Promise<{ worlds: World[]; dataCenters: DataCenter[] }> {
+  worldsBundleCache = null
+  const [worlds, dataCenters] = await Promise.all([
+    fetchUniversalis<World[]>('worlds', QUICK_REQUEST_TIMEOUT_MS),
+    fetchUniversalis<DataCenter[]>('data-centers', QUICK_REQUEST_TIMEOUT_MS),
+  ])
+  worldsBundleCache = {
+    schemaVersion: 1,
+    fetchedAt: new Date().toISOString(),
+    worlds,
+    dataCenters,
+  }
+  return { worlds, dataCenters }
 }
 
 export interface WorldPriceSummary {

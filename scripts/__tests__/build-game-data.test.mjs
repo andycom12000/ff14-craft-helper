@@ -4,7 +4,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseCsv } from '../build-game-data.mjs'
+import { parseCsv, normalizeWorldsBundle } from '../build-game-data.mjs'
 
 test('parseCsv: SaintCoinach rawexd format uses header row 1 (names)', () => {
   // Mimic harukaxxxx/ffxiv-datamining-tw rawexd shape.
@@ -54,4 +54,37 @@ test('parseCsv: handles quoted commas in values', () => {
   const { rows } = parseCsv(csv, 'oxidizer')
   assert.equal(rows.length, 1)
   assert.equal(rows[0].Name, 'Hello, World')
+})
+
+test('normalizeWorldsBundle: mirrors live API shape with worlds and dataCenters', () => {
+  const worlds = [
+    { id: 34, name: 'Brynhildr' },
+    { id: 40, name: 'Zalera' },
+    { id: 49, name: 'Adamantoise' },
+  ]
+  const dcs = [
+    { name: 'Primal', region: 'North-America', worlds: [34] },
+    { name: 'Aether', region: 'North-America', worlds: [49, 40] },
+  ]
+  const bundle = normalizeWorldsBundle(worlds, dcs, '2026-04-23T00:00:00.000Z')
+  assert.equal(bundle.schemaVersion, 1)
+  assert.equal(bundle.fetchedAt, '2026-04-23T00:00:00.000Z')
+  // worlds sorted by name
+  assert.deepEqual(bundle.worlds, [
+    { id: 49, name: 'Adamantoise' },
+    { id: 34, name: 'Brynhildr' },
+    { id: 40, name: 'Zalera' },
+  ])
+  // DCs sorted by name within region; worlds remain as ids
+  assert.equal(bundle.dataCenters[0].name, 'Aether')
+  assert.equal(bundle.dataCenters[1].name, 'Primal')
+  assert.deepEqual(bundle.dataCenters[0].worlds, [49, 40])
+  assert.deepEqual(bundle.dataCenters[1].worlds, [34])
+})
+
+test('normalizeWorldsBundle: drops unknown world ids from DCs silently', () => {
+  const worlds = [{ id: 1, name: 'Foo' }]
+  const dcs = [{ name: 'Test', region: 'Europe', worlds: [1, 999] }]
+  const bundle = normalizeWorldsBundle(worlds, dcs, '2026-01-01T00:00:00.000Z')
+  assert.deepEqual(bundle.dataCenters[0].worlds, [1])
 })

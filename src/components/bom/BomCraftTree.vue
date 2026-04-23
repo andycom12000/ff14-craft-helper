@@ -73,10 +73,20 @@ function getCrystalColor(itemId: number): string {
   return crystalColorsByElement[(itemId - 2) % 6]
 }
 
-function getUnitPrice(itemId: number): number {
+function getUnitPrice(itemId: number): number | null {
   const info = props.prices.get(itemId)
-  if (!info) return 0
+  if (!info) return null
   return getPrice(info, settings.priceDisplayMode)
+}
+
+function unitPriceOrZero(itemId: number): number {
+  const p = getUnitPrice(itemId)
+  return p ?? 0
+}
+
+function lineTotal(itemId: number, amount: number): number | null {
+  const p = getUnitPrice(itemId)
+  return p === null ? null : p * amount
 }
 
 const optimalResult = computed(() =>
@@ -109,11 +119,11 @@ function getNodeDisplayInfo(node: MaterialNode): NodeDisplayInfo | null {
       saving: Math.abs(decision.buyCost - decision.craftCost),
     }
   }
-  // Fallback: compute inline
-  const unitPrice = getUnitPrice(node.itemId)
+  // Fallback: compute inline (unknown unit prices treated as 0 for comparison)
+  const unitPrice = unitPriceOrZero(node.itemId)
   const buyCost = unitPrice * node.amount
   const craftCost = node.children.reduce(
-    (sum, child) => sum + getUnitPrice(child.itemId) * child.amount,
+    (sum, child) => sum + unitPriceOrZero(child.itemId) * child.amount,
     0,
   )
   const recommendation = buyCost > 0 && buyCost <= craftCost ? 'buy' : 'craft'
@@ -132,7 +142,7 @@ const rootSummary = computed(() => {
   if (!root.children || root.children.length === 0) return null
 
   const optimalCraft = optimalResult.value.totalCost
-  const unitPrice = getUnitPrice(root.itemId)
+  const unitPrice = unitPriceOrZero(root.itemId)
   const buyDirect = unitPrice * root.amount
 
   const recommendation = buyDirect > 0 && buyDirect <= optimalCraft ? 'buy' : 'craft'
@@ -180,7 +190,7 @@ const rootSummary = computed(() => {
               </span>
               <span class="node-price">
                 {{ formatGil(getUnitPrice(root.itemId)) }} × {{ root.amount }}
-                = {{ formatGil(getUnitPrice(root.itemId) * root.amount) }} Gil
+                = {{ formatGil(lineTotal(root.itemId, root.amount)) }} Gil
               </span>
             </div>
           </div>
@@ -258,7 +268,7 @@ const rootSummary = computed(() => {
                   </span>
                   <span class="node-price">
                     {{ formatGil(getUnitPrice(child.itemId)) }} × {{ child.amount }}
-                    = {{ formatGil(getUnitPrice(child.itemId) * child.amount) }} Gil
+                    = {{ formatGil(lineTotal(child.itemId, child.amount)) }} Gil
                   </span>
                 </div>
               </div>
@@ -322,7 +332,7 @@ const rootSummary = computed(() => {
                       </span>
                       <span class="node-price">
                         {{ formatGil(getUnitPrice(grandchild.itemId)) }} × {{ grandchild.amount }}
-                        = {{ formatGil(getUnitPrice(grandchild.itemId) * grandchild.amount) }} Gil
+                        = {{ formatGil(lineTotal(grandchild.itemId, grandchild.amount)) }} Gil
                       </span>
                     </div>
                   </div>
@@ -362,7 +372,7 @@ const rootSummary = computed(() => {
                           </span>
                           <span class="node-price">
                             {{ formatGil(getUnitPrice(leaf.itemId)) }} × {{ leaf.amount }}
-                            = {{ formatGil(getUnitPrice(leaf.itemId) * leaf.amount) }} Gil
+                            = {{ formatGil(lineTotal(leaf.itemId, leaf.amount)) }} Gil
                           </span>
                         </div>
                       </div>
