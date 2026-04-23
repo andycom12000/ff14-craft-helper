@@ -6,7 +6,7 @@ import type { WorldPriceSummary } from '@/api/universalis'
 import type { BuyFinishedDecision, SelfCraftCandidate } from '@/stores/batch'
 import { useBatchStore } from '@/stores/batch'
 import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
-import CrossWorldPriceDetail from '@/components/common/CrossWorldPriceDetail.vue'
+import CrossWorldPriceDetail, { type WorldPriceRow } from '@/components/common/CrossWorldPriceDetail.vue'
 import ItemName from '@/components/common/ItemName.vue'
 import SelfCraftSuggestions from './SelfCraftSuggestions.vue'
 import { formatGil } from '@/utils/format'
@@ -80,6 +80,21 @@ function handleExpand(row: MaterialWithPrice, expandedRows: MaterialWithPrice[])
   fetchCrossWorldData(row.itemId, row.name)
 }
 
+/**
+ * Tag the server recommended by the optimizer (row.server) as `isRecommended`.
+ * This surfaces in CrossWorldPriceDetail as the green-highlighted row.
+ */
+function effectiveQuality(row: MaterialWithPrice): 'nq' | 'hq' {
+  return batchStore.qualityOverrides[row.itemId] ?? batchStore.bulkQualityMode
+}
+
+function recommendedRowsFor(row: MaterialWithPrice): WorldPriceRow[] | undefined {
+  const worlds = crossWorldData.value.get(row.itemId)
+  if (!worlds) return undefined
+  if (!row.server) return worlds
+  return worlds.map(w => ({ ...w, isRecommended: w.worldName === row.server }))
+}
+
 const flashRowKey = ref<string | null>(null)
 
 function doCopy(row: MaterialWithPrice) {
@@ -147,8 +162,36 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
       <el-table :data="group.items" size="small" class="material-table clickable-rows" :row-class-name="rowClassName" @expand-change="handleExpand" @row-click="copyName">
         <el-table-column type="expand">
           <template #default="{ row }">
+            <div class="expanded-controls">
+              <!-- Quality toggle: quick-buy only -->
+              <div v-if="batchStore.calcMode === 'quick-buy' && !row.isFinishedProduct" class="quality-toggle" role="tablist" aria-label="切換品質">
+                <button
+                  type="button"
+                  class="quality-toggle-pill"
+                  :class="{ 'quality-toggle-pill--active': effectiveQuality(row) === 'nq' }"
+                  @click.stop="batchStore.setQualityOverride(row.itemId, 'nq')"
+                >NQ</button>
+                <button
+                  type="button"
+                  class="quality-toggle-pill quality-toggle-pill--hq"
+                  :class="{ 'quality-toggle-pill--active': effectiveQuality(row) === 'hq' }"
+                  @click.stop="batchStore.setQualityOverride(row.itemId, 'hq')"
+                >HQ</button>
+              </div>
+
+              <!-- Self-make toggle: only when optimizer downgraded this finished product to buy -->
+              <div v-if="row.isFinishedProduct" class="self-make-toggle" @click.stop>
+                <el-switch
+                  :model-value="!!batchStore.selfMakeOverrides[row.itemId]"
+                  size="small"
+                  inline-prompt
+                  @change="batchStore.toggleSelfMake(row.itemId)"
+                />
+                <span class="settings-text">改為自製</span>
+              </div>
+            </div>
             <CrossWorldPriceDetail
-              :data="crossWorldData.get(row.itemId)"
+              :data="recommendedRowsFor(row)"
               :loading="crossWorldLoading.has(row.itemId)"
               show-listing-count
             />
@@ -344,6 +387,61 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.expanded-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.quality-toggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--el-fill-color);
+  border: 1px solid var(--el-border-color-lighter);
+}
+
+.quality-toggle-pill {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--el-text-color-secondary);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.quality-toggle-pill:hover:not(.quality-toggle-pill--active) {
+  color: var(--el-text-color-primary);
+}
+
+.quality-toggle-pill--active {
+  background: var(--el-fill-color-dark);
+  color: var(--el-text-color-primary);
+}
+
+.quality-toggle-pill--hq.quality-toggle-pill--active {
+  background: color-mix(in oklch, var(--accent-gold) 22%, transparent);
+  color: var(--accent-gold);
+}
+
+.self-make-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-text {
+  font-size: 12.5px;
+  color: var(--el-text-color-regular);
 }
 
 .copy-btn {

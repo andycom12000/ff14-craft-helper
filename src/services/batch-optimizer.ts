@@ -97,6 +97,21 @@ export async function runBatchOptimization(
     foodIsHq?: boolean
     medicineId?: number | null
     medicineIsHq?: boolean
+    /** When false, skip food/medicine auto-recommendation even if no buff is selected. Defaults to true. */
+    autoEvaluateBuffs?: boolean
+    /** Calculation mode. 'quick-buy' skips the solver and just builds a flat shopping list. Defaults to 'macro'. */
+    calcMode?: 'macro' | 'quick-buy'
+    /** Per-material quality override. Maps itemId → 'nq' | 'hq'. Used in quick-buy mode. */
+    qualityOverrides?: Record<number, 'nq' | 'hq'>
+    /** Bulk quality mode used as default in quick-buy. Defaults to 'nq'. */
+    bulkQualityMode?: 'nq' | 'hq'
+    /**
+     * Per-material self-make override. When true for an itemId, treat that material
+     * as self-make regardless of the optimizer's buy-vs-craft decision. Currently
+     * informational — consumed by UI; optimizer behavior is preserved until a
+     * follow-up wave wires re-expansion.
+     */
+    selfMakeOverrides?: Record<number, boolean>
   },
   onProgress: (info: {
     current: number
@@ -114,6 +129,12 @@ export async function runBatchOptimization(
   const foodBuff = resolveBuff(COMMON_FOODS, settings.foodId ?? null, settings.foodIsHq ?? true)
   const medicineBuff = resolveBuff(COMMON_MEDICINES, settings.medicineId ?? null, settings.medicineIsHq ?? true)
   const buffs = (foodBuff || medicineBuff) ? { food: foodBuff, medicine: medicineBuff } : undefined
+
+  // Quick-buy mode: skip solver + HQ optimizer and build a flat material shopping list
+  // directly from recipe ingredients and the user-selected quality rules.
+  if ((settings.calcMode ?? 'macro') === 'quick-buy') {
+    return runQuickBuy(targets, settings, onProgress, isCancelled)
+  }
 
   await waitForWasm()
 
@@ -204,8 +225,10 @@ export async function runBatchOptimization(
   for (const id of finishedProductIds) allMaterialIds.add(id)
   const priceSource = settings.crossServer ? settings.dataCenter : settings.server
 
-  // Add food/medicine item IDs for buff recommendation (only when user hasn't selected any)
-  const noBuffSelected = !settings.foodId && !settings.medicineId
+  // Add food/medicine item IDs for buff recommendation (only when user hasn't selected any
+  // and auto-evaluation is enabled)
+  const autoEvaluateBuffs = settings.autoEvaluateBuffs ?? true
+  const noBuffSelected = !settings.foodId && !settings.medicineId && autoEvaluateBuffs
   if (noBuffSelected) {
     for (const id of getBuffItemIds()) allMaterialIds.add(id)
   }
@@ -441,4 +464,112 @@ export async function runBatchOptimization(
   }))
 
   return { serverGroups, crystals, selfCraftCandidates, todoList, exceptions, buyFinishedItems, grandTotal, crossWorldCache, buffRecommendation }
+}
+
+/**
+ * Quick-buy pipeline: skip the solver entirely and build a flat shopping list
+ * from recipe ingredients. Respects per-material quality overrides
+ * (qualityOverrides) falling back to bulkQualityMode.
+ */
+async function runQuickBuy(
+  targets: BatchTarget[],
+  settings: Parameters<typeof runBatchOptimization>[2],
+  onProgress: Parameters<typeof runBatchOptimization>[3],
+  isCancelled: () => boolean,
+): Promise<BatchResults> {
+  const bulk = settings.bulkQualityMode ?? 'nq'
+  const overrides = settings.qualityOverrides ?? {}
+
+  onProgress({ current: 0, total: 0, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
+
+  // Collect materials (itemId → amount, type)
+  interface QBMat { itemId: number; name: string; icon: string; amount: number; matType: 'nq' | 'hq'; canHq: boolean }
+  const matMap = new Map<string, QBMat>()
+  const allIds = new Set<number>()
+  for (const t of targets) {
+    for (const ing of t.recipe.ingredients) {
+      allIds.add(ing.itemId)
+      const type: 'nq' | 'hq' = overrides[ing.itemId] ?? (ing.canHq ? bulk : 'nq')
+      const effective: 'nq' | 'hq' = ing.canHq ? type : 'nq'
+      const key = `${ing.itemId}-${effective}`
+      const existing = matMap.get(key)
+      const amount = ing.amount * t.quantity
+      if (existing) existing.amount += amount
+      else matMap.set(key, {
+        itemId: ing.itemId, name: ing.name, icon: ing.icon,
+        amount, matType: effective, canHq: !!ing.canHq,
+      })
+    }
+  }
+
+  if (isCancelled()) {
+    return {
+      serverGroups: [], crystals: [], selfCraftCandidates: [],
+      todoList: [], exceptions: [], buyFinishedItems: [],
+      grandTotal: 0, crossWorldCache: markRaw(new Map()),
+    }
+  }
+
+  const priceSource = settings.crossServer ? settings.dataCenter : settings.server
+  const priceMap = await getAggregatedPrices(priceSource, [...allIds], (done, total) => {
+    onProgress({ current: done, total, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
+  })
+
+  onProgress({ current: 0, total: 0, name: '整理材料清單', phase: 'aggregating', solverPercent: 0 })
+
+  const aggregated = Array.from(matMap.values())
+  const { crystals, nonCrystals } = separateCrystals(aggregated)
+
+  const pricedMaterials: MaterialWithPrice[] = nonCrystals.map(m => {
+    const md = priceMap.get(m.itemId)
+    const isHq = m.matType === 'hq'
+    let bestServer = settings.server
+    let unitPrice = 0
+
+    if (settings.crossServer && md?.listings?.length) {
+      const r = findCheapestServerPurchase(md.listings, m.amount, isHq, settings.server)
+      if (r.bestCost < Infinity) {
+        unitPrice = Math.round(r.bestCost / m.amount)
+        bestServer = r.bestServer
+      } else {
+        unitPrice = isHq ? (md.minPriceHQ ?? 0) : (md.minPriceNQ ?? 0)
+      }
+    } else if (md?.listings?.length) {
+      const purchase = calculateBestPurchase(md.listings, m.amount, isHq)
+      unitPrice = purchase.fulfilled
+        ? purchase.effectiveUnitPrice
+        : (isHq ? (md.minPriceHQ ?? 0) : (md.minPriceNQ ?? 0))
+    } else {
+      unitPrice = isHq ? (md?.minPriceHQ ?? 0) : (md?.minPriceNQ ?? 0)
+    }
+
+    return {
+      itemId: m.itemId, name: m.name, icon: m.icon, amount: m.amount,
+      type: isHq ? 'hq' as const : 'nq' as const,
+      unitPrice, server: bestServer,
+    }
+  })
+
+  const serverGroups = groupByServer(pricedMaterials)
+  const grandTotal = serverGroups.reduce((sum, g) => sum + g.subtotal, 0)
+
+  const crossWorldCache = markRaw(new Map<number, WorldPriceSummary[]>())
+  if (settings.crossServer) {
+    for (const [id, md] of priceMap) {
+      if (md.listings?.length) crossWorldCache.set(id, aggregateByWorld(md.listings))
+    }
+  }
+
+  onProgress({ current: 1, total: 1, name: '', phase: 'done', solverPercent: 0 })
+
+  return {
+    serverGroups,
+    crystals,
+    selfCraftCandidates: [],
+    todoList: [],
+    exceptions: [],
+    buyFinishedItems: [],
+    grandTotal,
+    crossWorldCache,
+  }
 }

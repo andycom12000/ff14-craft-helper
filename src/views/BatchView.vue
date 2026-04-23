@@ -128,6 +128,11 @@ async function startOptimization() {
         foodIsHq: batchStore.foodIsHq,
         medicineId: batchStore.medicineId,
         medicineIsHq: batchStore.medicineIsHq,
+        autoEvaluateBuffs: batchStore.autoEvaluateBuffs,
+        calcMode: batchStore.calcMode,
+        bulkQualityMode: batchStore.bulkQualityMode,
+        qualityOverrides: batchStore.qualityOverrides,
+        selfMakeOverrides: batchStore.selfMakeOverrides,
       },
       (info) => {
         batchStore.progress = {

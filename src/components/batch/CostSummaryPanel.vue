@@ -27,9 +27,6 @@ defineProps<{
 
 <style scoped>
 .cost-summary {
-  position: sticky;
-  top: 64px;
-  z-index: 20;
   display: flex;
   align-items: stretch;
   background: var(--el-fill-color-darker);
@@ -96,7 +93,6 @@ defineProps<{
 
 @media (max-width: 768px) {
   .cost-summary {
-    top: 56px;
     padding: 10px 14px;
   }
 }

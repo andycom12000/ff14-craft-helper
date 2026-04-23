@@ -122,6 +122,17 @@ export const useBatchStore = defineStore('batch', () => {
   const medicineId = ref<number | null>(null)
   const medicineIsHq = ref(true)
 
+  // Calculation mode: macro (solver + HQ optimization) vs quick-buy (flat shopping list)
+  const calcMode = ref<'macro' | 'quick-buy'>('macro')
+  // Per-material overrides to force self-make regardless of optimizer decision
+  const selfMakeOverrides = ref<Record<number, boolean>>({})
+  // Bulk quality toggle used in quick-buy mode
+  const bulkQualityMode = ref<'nq' | 'hq'>('nq')
+  // Per-material quality overrides (overrides bulkQualityMode)
+  const qualityOverrides = ref<Record<number, 'nq' | 'hq'>>({})
+  // Whether to automatically evaluate food/medicine recommendations
+  const autoEvaluateBuffs = ref(true)
+
   /** Total number of shopping items (server groups + self-craft) */
   const shoppingItemCount = computed(() => {
     if (!results.value) return 0
@@ -292,6 +303,28 @@ export const useBatchStore = defineStore('batch', () => {
     doneSelfCraftIds.value = next
   }
 
+  function setCalcMode(mode: 'macro' | 'quick-buy') {
+    calcMode.value = mode
+  }
+
+  function toggleSelfMake(itemId: number) {
+    const next = { ...selfMakeOverrides.value }
+    next[itemId] = !next[itemId]
+    if (!next[itemId]) delete next[itemId]
+    selfMakeOverrides.value = next
+  }
+
+  function setBulkQuality(mode: 'nq' | 'hq') {
+    bulkQualityMode.value = mode
+    qualityOverrides.value = {}
+  }
+
+  function setQualityOverride(itemId: number, mode: 'nq' | 'hq') {
+    const next = { ...qualityOverrides.value }
+    next[itemId] = mode
+    qualityOverrides.value = next
+  }
+
   function cancel() {
     isCancelled.value = true
   }
@@ -322,6 +355,11 @@ export const useBatchStore = defineStore('batch', () => {
     foodIsHq,
     medicineId,
     medicineIsHq,
+    calcMode,
+    selfMakeOverrides,
+    bulkQualityMode,
+    qualityOverrides,
+    autoEvaluateBuffs,
     shoppingItemCount,
     shoppingCheckedCount,
     allShoppingDone,
@@ -344,5 +382,19 @@ export const useBatchStore = defineStore('batch', () => {
     selectAllSelfCraft,
     clearSelfCraftSelection,
     markSelfCraftDone,
+    setCalcMode,
+    toggleSelfMake,
+    setBulkQuality,
+    setQualityOverride,
   }
+}, {
+  persist: {
+    pick: [
+      'calcMode',
+      'selfMakeOverrides',
+      'bulkQualityMode',
+      'qualityOverrides',
+      'autoEvaluateBuffs',
+    ],
+  },
 })
