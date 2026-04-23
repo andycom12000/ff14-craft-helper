@@ -1,6 +1,12 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { StepResult } from '@/engine/simulator'
-import { getSkillName } from '@/engine/skills'
+import {
+  getSkillIconUrl,
+  getSkillNameByLocale,
+  type SupportedLocale,
+} from '@/engine/skills'
+import { useLocaleStore } from '@/stores/locale'
 
 defineProps<{
   actions: string[]
@@ -12,9 +18,25 @@ const emit = defineEmits<{
   clear: []
 }>()
 
+const localeStore = useLocaleStore()
 
-function getStepTooltip(index: number, results: StepResult[]): string {
-  if (index >= results.length) return '尚未模擬'
+const currentLocale = computed<SupportedLocale>(() => {
+  const raw = localeStore.current
+  if (raw === 'en' || raw === 'ja' || raw === 'zh-TW' || raw === 'zh-CN') return raw
+  return 'zh-TW'
+})
+
+function displayName(id: string): string {
+  return getSkillNameByLocale(id, currentLocale.value)
+}
+
+function iconUrl(id: string): string | null {
+  return getSkillIconUrl(id)
+}
+
+function getStepTooltip(index: number, results: StepResult[], actionId: string): string {
+  const name = displayName(actionId)
+  if (index >= results.length) return `${name}\n尚未模擬`
   const result = results[index]
   const prev = index > 0 ? results[index - 1].state : null
   const progressDelta = prev
@@ -35,7 +57,16 @@ function getStepTooltip(index: number, results: StepResult[]): string {
   if (qualityDelta !== 0) parts.push(`品質 ${qualityDelta > 0 ? '+' : ''}${qualityDelta}`)
   if (duraDelta !== 0) parts.push(`耐久 ${duraDelta > 0 ? '+' : ''}${duraDelta}`)
   if (cpDelta !== 0) parts.push(`CP ${cpDelta > 0 ? '+' : ''}${cpDelta}`)
-  return parts.length > 0 ? parts.join(' / ') : '無變化'
+  // TODO: if successProbability lands on StepDetail, surface it here as a %.
+  const delta = parts.length > 0 ? parts.join(' / ') : '無變化'
+  return `${name}\n${delta}`
+}
+
+function tagTone(index: number, results: StepResult[]): '' | 'success' | 'danger' {
+  if (index >= results.length) return ''
+  const s = results[index].state
+  if (!s.isComplete) return ''
+  return s.isSuccess ? 'success' : 'danger'
 }
 </script>
 
@@ -62,20 +93,26 @@ function getStepTooltip(index: number, results: StepResult[]): string {
       <el-tooltip
         v-for="(action, idx) in actions"
         :key="idx"
-        :content="getStepTooltip(idx, results)"
+        :content="getStepTooltip(idx, results, action)"
         placement="top"
+        :show-after="150"
       >
         <el-tag
           closable
           size="default"
-          :type="idx < results.length && results[idx].state.isComplete
-            ? (results[idx].state.isSuccess ? 'success' : 'danger')
-            : ''"
-          @close="emit('remove', idx)"
+          :type="tagTone(idx, results)"
           class="action-tag"
+          @close="emit('remove', idx)"
         >
           <span class="action-index">{{ idx + 1 }}.</span>
-          {{ getSkillName(action) }}
+          <img
+            v-if="iconUrl(action)"
+            :src="iconUrl(action)!"
+            :alt="displayName(action)"
+            class="action-icon"
+            loading="lazy"
+          />
+          <span class="action-label">{{ displayName(action) }}</span>
         </el-tag>
       </el-tooltip>
     </div>
@@ -107,11 +144,30 @@ function getStepTooltip(index: number, results: StepResult[]): string {
 
 .action-tag {
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.action-tag :deep(.el-tag__content) {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .action-index {
   font-size: 11px;
   color: var(--el-text-color-secondary);
-  margin-right: 2px;
+}
+
+.action-icon {
+  width: 18px;
+  height: 18px;
+  image-rendering: pixelated;
+  border-radius: 3px;
+}
+
+.action-label {
+  font-size: 12px;
 }
 </style>

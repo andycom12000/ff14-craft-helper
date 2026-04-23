@@ -23,6 +23,9 @@ import SolverPanel from '@/components/simulator/SolverPanel.vue'
 import InitialQuality from '@/components/simulator/InitialQuality.vue'
 import FoodMedicine from '@/components/simulator/FoodMedicine.vue'
 import CraftRecommendation from '@/components/simulator/CraftRecommendation.vue'
+import SkillPanel from '@/components/simulator/SkillPanel.vue'
+import ConditionChips from '@/components/simulator/ConditionChips.vue'
+import ManualControls from '@/components/simulator/ManualControls.vue'
 import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
 import AppEmptyState from '@/components/common/AppEmptyState.vue'
 import FlowBreadcrumb from '@/components/common/FlowBreadcrumb.vue'
@@ -194,6 +197,20 @@ function handleRemoveAction(index: number) {
 
 function handleClearActions() {
   simStore.clearActions()
+}
+
+// --- Manual mode wiring ---
+// TODO: wire currentCondition into simulateCraftDetail once solver supports it.
+// Today `simulateCraftDetail()` does not accept a per-step condition, so the
+// chip selection is purely advisory — it reflects intent but the underlying
+// WASM simulation still runs with Normal conditions.
+const modeOptions = [
+  { label: '自動求解', value: 'solver' },
+  { label: '手動操作', value: 'manual' },
+]
+
+function handleUseSkill(skillId: string) {
+  simStore.pushAction(skillId)
 }
 
 // --- Craft Recommendation integration ---
@@ -376,6 +393,22 @@ async function handleSelfCraft(itemId: number) {
           一次要製作很多配方嗎？來回模擬複製貼上很累嗎？試試<span class="batch-tip-link">批量製作</span>吧！
         </router-link>
         <template v-if="canSimulate">
+          <div class="mode-switch-row">
+            <el-segmented
+              :model-value="simStore.mode"
+              :options="modeOptions"
+              size="default"
+              @change="(v: string) => simStore.setMode(v as 'solver' | 'manual')"
+            />
+            <div v-if="simStore.mode === 'manual'" class="manual-toolbar">
+              <ConditionChips
+                :model-value="simStore.currentCondition"
+                @change="(c) => (simStore.currentCondition = c)"
+              />
+              <ManualControls />
+            </div>
+          </div>
+
           <div class="sim-layout">
             <div class="sim-left">
               <el-card shadow="never" class="sim-section">
@@ -390,9 +423,29 @@ async function handleSelfCraft(itemId: number) {
                 />
               </el-card>
 
-              <SolverPanel :craft-params="craftParams" @solve-complete="onSolveComplete" />
+              <el-card
+                v-if="simStore.mode === 'manual' && gearset"
+                shadow="never"
+                class="sim-section"
+              >
+                <template #header>
+                  <span class="card-title">技能面板</span>
+                </template>
+                <SkillPanel
+                  :level="gearset.level"
+                  :craft-state="currentState"
+                  @use-skill="handleUseSkill"
+                />
+              </el-card>
+
+              <SolverPanel
+                v-if="simStore.mode === 'solver'"
+                :craft-params="craftParams"
+                @solve-complete="onSolveComplete"
+              />
 
               <CraftRecommendation
+                v-if="simStore.mode === 'solver'"
                 :craft-params="craftParams"
                 :recipe="recipe"
                 :solver-result="solverResult"
@@ -462,6 +515,22 @@ async function handleSelfCraft(itemId: number) {
 
 .main-tabs {
   margin-top: 12px;
+}
+
+.mode-switch-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.manual-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
 }
 
 .sim-layout {
