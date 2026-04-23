@@ -10,9 +10,6 @@ import CrossWorldPriceDetail, { type WorldPriceRow } from '@/components/common/C
 import ItemName from '@/components/common/ItemName.vue'
 import SelfCraftSuggestions from './SelfCraftSuggestions.vue'
 import { formatGil } from '@/utils/format'
-import { LIST_CONTAINER_MIN_WIDTH } from '@/utils/layout'
-
-const listContainerStyle = { '--list-container-min-width': `${LIST_CONTAINER_MIN_WIDTH}px` } as Record<string, string>
 
 const props = defineProps<{
   crystals: CrystalSummary[]
@@ -128,7 +125,7 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
 </script>
 
 <template>
-  <div class="shopping-list" :style="listContainerStyle">
+  <div class="shopping-list">
     <SelfCraftSuggestions :candidates="selfCraftCandidates" />
 
     <!-- Crystals -->
@@ -286,7 +283,6 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
 <style scoped>
 .shopping-list {
   container-type: inline-size;
-  min-width: var(--list-container-min-width, 960px);
 }
 
 .section-label {

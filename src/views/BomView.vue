@@ -47,7 +47,7 @@ async function handleCalculate() {
     const tree = await buildMaterialTree(bomStore.targets)
     bomStore.materialTree = tree
 
-    loadingMessage.value = '正在整理材料清單...'
+    loadingMessage.value = '正在整理購物清單...'
     const flat = flattenMaterialTree(tree)
     bomStore.flatMaterials = flat
 
@@ -135,9 +135,9 @@ function handleRefreshPrices() {
 <template>
   <div class="bom-view" :class="{ 'full-width': activeTab === 'tree' && calculated && !calculating }" v-loading="isLoadingData">
     <FlowBreadcrumb :steps="[
-      { label: '材料清單', path: '/bom', icon: '📜' },
+      { label: '購物清單', path: '/bom', icon: '📜' },
     ]" />
-    <h2>材料清單</h2>
+    <h2>購物清單</h2>
     <p class="view-desc">想做什麼就加進來，幫你算好所有材料和花費。</p>
 
     <BomTargetList @calculate="handleCalculate" @open-search="searchSidebarOpen = true" />
@@ -173,7 +173,7 @@ function handleRefreshPrices() {
         </el-tabs>
       </div>
     </template>
-    <RecipeSearchSidebar v-model="searchSidebarOpen" context="加入材料清單" @add="handleAddFromSearch" />
+    <RecipeSearchSidebar v-model="searchSidebarOpen" context="加入購物清單" @add="handleAddFromSearch" />
   </div>
 </template>
 

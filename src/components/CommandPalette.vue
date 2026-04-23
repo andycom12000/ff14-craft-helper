@@ -19,7 +19,7 @@ const commands: Command[] = [
   { label: '首頁', path: '/', icon: '🏠', keywords: '首頁 home dashboard' },
   { label: '配裝管理', path: '/gearset', icon: '🛠️', keywords: '配裝 裝備 gearset gear' },
   { label: '製作模擬', path: '/simulator', icon: '⚗️', keywords: '模擬 製作 simulator craft' },
-  { label: '材料清單', path: '/bom', icon: '📜', keywords: '材料 清單 bom material' },
+  { label: '購物清單', path: '/bom', icon: '📜', keywords: '購物 採購 材料 清單 bom shopping material' },
   { label: '批量製作', path: '/batch', icon: '📋', keywords: '批量 batch plan' },
   { label: '市場查價', path: '/market', icon: '🪙', keywords: '市場 查價 market price' },
   { label: '採集計時器', path: '/timer', icon: '🌿', keywords: '採集 計時 timer gather' },

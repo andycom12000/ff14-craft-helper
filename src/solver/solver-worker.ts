@@ -75,8 +75,6 @@ const ACTION_MAP: Record<string, string> = {
   'HastyTouch': 'HastyTouch',
   'DaringTouch': 'DaringTouch',
   'FinalAppraisal': 'FinalAppraisal',
-  'FocusedSynthesis': 'FocusedSynthesis',
-  'FocusedTouch': 'FocusedTouch',
 }
 
 // Reverse map: our skill IDs -> raphael-rs action names

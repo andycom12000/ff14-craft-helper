@@ -138,15 +138,12 @@ onUnmounted(() => {
       </el-tooltip>
       <el-checkbox v-model="useManipulation">
         {{ getSkillName('Manipulation') }}
-        <el-tag v-if="useManipulation" type="warning" size="small" style="margin-left: 4px">專家</el-tag>
       </el-checkbox>
       <el-checkbox v-model="useHeartAndSoul">
         {{ getSkillName('HeartAndSoul') }}
-        <el-tag v-if="useHeartAndSoul" type="warning" size="small" style="margin-left: 4px">專家</el-tag>
       </el-checkbox>
       <el-checkbox v-model="useQuickInnovation">
         {{ getSkillName('QuickInnovation') }}
-        <el-tag v-if="useQuickInnovation" type="warning" size="small" style="margin-left: 4px">專家</el-tag>
       </el-checkbox>
     </div>
 

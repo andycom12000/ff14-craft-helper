@@ -62,7 +62,7 @@ function handleAddToBom() {
       icon: selectedRecipe.value.icon,
       quantity: 1,
     })
-    ElMessage.success(`已將「${selectedRecipe.value.name}」加入材料清單。`)
+    ElMessage.success(`已將「${selectedRecipe.value.name}」加入購物清單。`)
   }
 }
 </script>
@@ -70,7 +70,7 @@ function handleAddToBom() {
 <template>
   <div class="view-container">
     <h2>配方搜尋</h2>
-    <p class="view-desc">搜尋並選擇配方，查看詳情後可加入模擬器或材料清單。</p>
+    <p class="view-desc">搜尋並選擇配方，查看詳情後可加入模擬器或購物清單。</p>
 
     <el-row :gutter="20" class="recipe-content" v-loading="isLoadingData">
       <el-col :span="10" :xs="24">

@@ -50,7 +50,7 @@ function handleClearAll() {
     <AppEmptyState
       v-if="bomStore.targets.length === 0"
       icon="📜"
-      title="建立你的材料清單"
+      title="建立你的購物清單"
       description="加入想製作的道具，自動計算所需素材和市場價格"
     >
       <el-button type="primary" :icon="Search" @click="emit('open-search')">搜尋配方</el-button>

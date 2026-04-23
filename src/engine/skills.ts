@@ -2,9 +2,6 @@ import { getIconUrl } from '@/utils/icon-url'
 
 export type SkillCategory = 'progress' | 'quality' | 'buff' | 'repair' | 'other'
 
-// Focused Synthesis and Focused Touch were removed from the live game post-
-// Endwalker; they keep iconId=0 (fall back to text) and only remain in SKILLS
-// for solver compatibility with older macro data.
 export interface SkillDefinition {
   id: string
   nameEn: string
@@ -27,7 +24,6 @@ export const SKILLS: SkillDefinition[] = [
   { id: 'IntensiveSynthesis', nameEn: 'Intensive Synthesis', nameZh: '集中製作', nameJa: '集中作業', category: 'progress', level: 78, cp: 6, durability: 10, description: '400% 效率（高品質限定）', iconId: 1514 },
   { id: 'PrudentSynthesis', nameEn: 'Prudent Synthesis', nameZh: '儉約製作', nameJa: '倹約作業', category: 'progress', level: 88, cp: 18, durability: 5, description: '180% 效率，5 耐久', iconId: 1520 },
   { id: 'MuscleMemory', nameEn: 'Muscle Memory', nameZh: '堅信', nameJa: '確信', category: 'progress', level: 54, cp: 6, durability: 10, description: '300% 效率（首步限定）', iconId: 1994 },
-  { id: 'FocusedSynthesis', nameEn: 'Focused Synthesis', nameZh: '注視製作', nameJa: '注視作業', category: 'progress', level: 67, cp: 5, durability: 10, description: '200% 效率（觀察後 100%）', iconId: 0 },
   { id: 'DelicateSynthesis', nameEn: 'Delicate Synthesis', nameZh: '精密製作', nameJa: '精密作業', category: 'progress', level: 76, cp: 32, durability: 10, description: '150% 進展 + 100% 品質（Lv.94 前為 100% 進展）', iconId: 1503 },
 
   // Quality
@@ -38,7 +34,6 @@ export const SKILLS: SkillDefinition[] = [
   { id: 'PrudentTouch', nameEn: 'Prudent Touch', nameZh: '儉約加工', nameJa: '倹約加工', category: 'quality', level: 66, cp: 25, durability: 5, description: '100% 效率，5 耐久', iconId: 1535 },
   { id: 'PreparatoryTouch', nameEn: 'Preparatory Touch', nameZh: '坯料加工', nameJa: '下地加工', category: 'quality', level: 71, cp: 40, durability: 20, description: '200% 效率，IQ+2', iconId: 1507 },
   { id: 'HastyTouch', nameEn: 'Hasty Touch', nameZh: '倉促', nameJa: 'ヘイスティタッチ', category: 'quality', level: 9, cp: 0, durability: 10, description: '100% 效率 (60% 成功率)', iconId: 1989 },
-  { id: 'FocusedTouch', nameEn: 'Focused Touch', nameZh: '注視加工', nameJa: '注視加工', category: 'quality', level: 68, cp: 18, durability: 10, description: '150% 效率（觀察後 100%）', iconId: 0 },
   { id: 'TrainedFinesse', nameEn: 'Trained Finesse', nameZh: '工匠的神技', nameJa: '匠の神業', category: 'quality', level: 90, cp: 32, durability: 0, description: '100% 效率，0 耐久（IQ=10）', iconId: 1997 },
   { id: 'ByregotsBlessing', nameEn: 'Byregot\'s Blessing', nameZh: '比爾格的祝福', nameJa: 'ビエルゴの祝福', category: 'quality', level: 50, cp: 24, durability: 10, description: '100% + IQ*20% 效率', iconId: 1975 },
   { id: 'Reflect', nameEn: 'Reflect', nameZh: '閒靜', nameJa: '静心', category: 'quality', level: 69, cp: 6, durability: 10, description: '300% 效率（首步限定），IQ+2', iconId: 1982 },

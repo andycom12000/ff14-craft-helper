@@ -250,7 +250,7 @@ function handleAddToBom() {
     icon: recipe.value.icon,
     quantity: 1,
   })
-  ElMessage.success(`已將「${recipe.value.name}」加入材料清單`)
+  ElMessage.success(`已將「${recipe.value.name}」加入購物清單`)
 }
 
 async function handleSelfCraft(itemId: number) {
@@ -376,7 +376,7 @@ async function handleSelfCraft(itemId: number) {
           {{ recipe.recipeLevelTable.difficulty }} / {{ recipe.recipeLevelTable.quality }} / {{ recipe.recipeLevelTable.durability }}
         </el-descriptions-item>
         </el-descriptions>
-        <el-button size="small" @click="handleAddToBom()">加入材料清單</el-button>
+        <el-button size="small" @click="handleAddToBom()">加入購物清單</el-button>
       </div>
     </div>
 

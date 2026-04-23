@@ -13,10 +13,10 @@ export const useSettingsStore = defineStore('settings', () => {
   const dataCenter = ref('')
   const region = ref('')
   const priceDisplayMode = ref<PriceDisplayMode>('minOf')
-  const crossServer = ref(false)
+  const crossServer = ref(true)
   const recursivePricing = ref(true)
   const maxRecursionDepth = ref(2)
-  const exceptionStrategy = ref<'skip' | 'buy'>('skip')
+  const exceptionStrategy = ref<'skip' | 'buy'>('buy')
   const batchLayout = ref<'stepper' | 'classic'>('stepper')
 
   // Language is the single source of truth of the locale store. We expose

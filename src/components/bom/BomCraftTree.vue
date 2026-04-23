@@ -6,7 +6,6 @@ import { useSettingsStore } from '@/stores/settings'
 import { useBatchStore } from '@/stores/batch'
 import { computeOptimalCosts } from '@/services/bom-calculator'
 import { formatGil } from '@/utils/format'
-import { LIST_CONTAINER_MIN_WIDTH } from '@/utils/layout'
 import ItemName from '@/components/common/ItemName.vue'
 import BomMaterialRow from '@/components/bom/BomMaterialRow.vue'
 
@@ -22,8 +21,6 @@ const emit = defineEmits<{
 
 const settings = useSettingsStore()
 const batchStore = useBatchStore()
-
-const listContainerStyle = { '--list-container-min-width': `${LIST_CONTAINER_MIN_WIDTH}px` } as Record<string, string>
 
 const CRYSTAL_THRESHOLD = 20
 const SHOPPING_TYPE = 'nq'
@@ -205,7 +202,7 @@ const allChecked = computed(() => {
 </script>
 
 <template>
-  <el-card shadow="never" class="craft-tree-card" :style="listContainerStyle">
+  <el-card shadow="never" class="craft-tree-card">
     <template #header>
       <div class="card-header">
         <span class="card-title">製作價格樹</span>
@@ -463,7 +460,6 @@ const allChecked = computed(() => {
 .tree-scroll-container {
   overflow-x: auto;
   padding: 16px 0;
-  min-width: var(--list-container-min-width, 960px);
 }
 
 .tree-root {

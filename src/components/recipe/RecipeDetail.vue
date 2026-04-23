@@ -72,7 +72,7 @@ const emit = defineEmits<{
           在模擬器中使用
         </el-button>
         <el-button @click="emit('add-to-bom')">
-          加入材料清單
+          加入購物清單
         </el-button>
         <el-button type="warning" @click="emit('add-to-batch')">
           加入批量
