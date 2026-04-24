@@ -56,7 +56,7 @@ const emit = defineEmits<{
       <el-table :data="recipe.ingredients" border style="width: 100%">
         <el-table-column label="圖示" width="60" align="center">
           <template #default="{ row }">
-            <img :src="row.icon" :alt="row.name" crossorigin="anonymous" style="width: 28px; height: 28px" />
+            <img :src="row.icon" :alt="row.name" crossorigin="anonymous" loading="lazy" decoding="async" style="width: 28px; height: 28px" />
           </template>
         </el-table-column>
         <el-table-column label="名稱">
@@ -103,7 +103,7 @@ const emit = defineEmits<{
 }
 
 .stars {
-  color: #e6a23c;
+  color: var(--accent-gold);
   margin-left: 4px;
 }
 

@@ -22,10 +22,39 @@ const selectedJob = ref('')
 const levelMin = ref<number | undefined>(undefined)
 const levelMax = ref<number | undefined>(undefined)
 const searchInputRef = ref<InputInstance>()
+const panelRef = ref<HTMLElement>()
 
 watch(() => props.modelValue, (open) => {
   if (open) nextTick(() => searchInputRef.value?.focus())
+  if (typeof document !== 'undefined') {
+    document.body.style.overflow = open ? 'hidden' : ''
+  }
 })
+
+function onDialogKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') {
+    close()
+    return
+  }
+  if (e.key !== 'Tab') return
+  const root = panelRef.value
+  if (!root) return
+  const focusable = Array.from(
+    root.querySelectorAll<HTMLElement>(
+      'input, button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter(el => !el.hasAttribute('disabled') && el.offsetParent !== null)
+  if (focusable.length === 0) return
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault()
+    last.focus()
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault()
+    first.focus()
+  }
+}
 
 const filteredResults = computed(() => {
   let list = allResults.value
@@ -87,11 +116,17 @@ function close() {
 <template>
   <Teleport to="body">
     <Transition name="dialog">
-      <div v-if="modelValue" class="dialog-overlay" @click.self="close" @keydown.esc="close">
-        <div class="dialog-panel">
+      <div v-if="modelValue" class="dialog-overlay" @click.self="close" @keydown="onDialogKeydown">
+        <div
+          ref="panelRef"
+          class="dialog-panel"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="recipe-search-title"
+        >
           <div class="dialog-header">
-            <h3 class="dialog-title">搜尋配方{{ context ? ` — ${context}` : '' }}</h3>
-            <el-button :icon="Close" text @click="close" />
+            <h3 id="recipe-search-title" class="dialog-title">搜尋配方{{ context ? ` — ${context}` : '' }}</h3>
+            <el-button :icon="Close" text aria-label="關閉搜尋視窗" @click="close" />
           </div>
 
           <div class="dialog-search">
@@ -99,18 +134,19 @@ function close() {
               ref="searchInputRef"
               v-model="query"
               placeholder="搜尋配方名稱..."
+              aria-label="配方名稱搜尋"
               clearable
               :prefix-icon="Search"
               size="large"
             />
             <div class="dialog-filters">
-              <el-select v-model="selectedJob" placeholder="職業" clearable size="small" style="width: 100px;">
+              <el-select v-model="selectedJob" placeholder="職業" aria-label="篩選職業" clearable size="small" class="filter-job">
                 <el-option v-for="job in CRAFT_JOBS" :key="job" :label="job" :value="job" />
               </el-select>
               <span class="filter-label">Lv.</span>
-              <el-input-number v-model="levelMin" :min="1" :max="999" placeholder="最低" size="small" style="width: 100px;" />
-              <span class="filter-sep">–</span>
-              <el-input-number v-model="levelMax" :min="1" :max="999" placeholder="最高" size="small" style="width: 100px;" />
+              <el-input-number v-model="levelMin" :min="1" :max="999" placeholder="最低" aria-label="最低等級" size="small" class="filter-level" />
+              <span class="filter-sep" aria-hidden="true">–</span>
+              <el-input-number v-model="levelMax" :min="1" :max="999" placeholder="最高" aria-label="最高等級" size="small" class="filter-level" />
             </div>
           </div>
 
@@ -126,7 +162,7 @@ function close() {
                 :key="row.id"
                 class="search-result-row"
               >
-                <img v-if="row.icon" :src="row.icon" :alt="row.name" class="result-icon" />
+                <img v-if="row.icon" :src="row.icon" :alt="row.name" loading="lazy" decoding="async" class="result-icon" />
                 <div class="result-info">
                   <div class="result-name">
                     <ItemName :item-id="row.itemId" :fallback="row.name" />
@@ -165,6 +201,7 @@ function close() {
   width: 480px;
   max-width: calc(100vw - 32px);
   max-height: 72vh;
+  max-height: 72dvh;
   background: var(--el-bg-color);
   display: flex;
   flex-direction: column;
@@ -193,9 +230,16 @@ function close() {
 
 .dialog-filters {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   margin-top: 10px;
+}
+
+.dialog-filters :deep(.el-select),
+.dialog-filters :deep(.el-input-number) {
+  flex: 1 1 120px;
+  min-width: 0;
 }
 
 .filter-label {
@@ -273,6 +317,7 @@ function close() {
 @media (max-width: 520px) {
   .dialog-panel {
     max-height: 85vh;
+    max-height: 85dvh;
   }
 }
 </style>
