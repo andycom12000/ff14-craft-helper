@@ -171,6 +171,28 @@ export async function loadRlt(): Promise<Map<number, RltRecord>> {
   return rltPromise
 }
 
+type ItemOverridesFile = {
+  schemaVersion: 1
+  overrides: Record<string, string>
+}
+
+// zh-TW datamining upstream (harukaxxxx/ffxiv-datamining-tw) sometimes ships
+// names that don't match the actual TW client (e.g. 「打底褲」 where the game
+// says 「下身」). Loaded alongside zh-TW items and applied as a name patch.
+async function loadZhTwOverrides(): Promise<Map<number, string>> {
+  try {
+    const data = await fetchJson<ItemOverridesFile>(dataUrl('/data/items/zh-TW-overrides.json'))
+    if (data.schemaVersion !== 1) return new Map()
+    const map = new Map<number, string>()
+    for (const [key, name] of Object.entries(data.overrides)) {
+      map.set(Number(key), name)
+    }
+    return map
+  } catch {
+    return new Map()
+  }
+}
+
 export async function loadItems(locale?: Locale): Promise<Map<number, ItemRecord>> {
   const loc = locale ?? getLocale()
   const cached = itemsPromises.get(loc)
@@ -178,7 +200,10 @@ export async function loadItems(locale?: Locale): Promise<Map<number, ItemRecord
   loadingState[loc].items = true
   const promise = (async () => {
     try {
-      const data = await fetchJson<ItemsFile>(dataUrl(`/data/items/${loc}.json`))
+      const [data, overrides] = await Promise.all([
+        fetchJson<ItemsFile>(dataUrl(`/data/items/${loc}.json`)),
+        loc === 'zh-TW' ? loadZhTwOverrides() : Promise.resolve(new Map<number, string>()),
+      ])
       if (data.schemaVersion !== 1) {
         throw new Error(`items/${loc}.json: unsupported schemaVersion ${(data as { schemaVersion?: number }).schemaVersion}`)
       }
@@ -186,7 +211,7 @@ export async function loadItems(locale?: Locale): Promise<Map<number, ItemRecord
       for (const tuple of data.items as ItemTuple[]) {
         const [id, name, level, canBeHq, iconId] = tuple
         map.set(id, {
-          name,
+          name: overrides.get(id) ?? name,
           level,
           canBeHq: canBeHq === 1,
           iconId,
