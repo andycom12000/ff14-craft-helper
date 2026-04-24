@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { FlatMaterial, PriceInfo, MaterialNode } from '@/stores/bom'
 import { useSettingsStore } from '@/stores/settings'
 import { getPrice } from '@/stores/bom'
@@ -16,6 +16,22 @@ import { formatGil } from '@/utils/format'
 // Use v-if so el-table never creates those columns in the first place.
 const isNarrow = useMediaQuery('(max-width: 720px)')
 const isVeryNarrow = useMediaQuery('(max-width: 480px)')
+const isMobile = useMediaQuery('(max-width: 640px)')
+
+// Mobile card layout: tap a row to expand cross-world price details in place.
+const expandedIds = ref(new Set<number>())
+function toggleExpand(row: FlatMaterial) {
+  if (expandedIds.value.has(row.itemId)) {
+    expandedIds.value.delete(row.itemId)
+  } else {
+    expandedIds.value.add(row.itemId)
+    fetchCrossWorldData(row.itemId, row.name)
+  }
+  expandedIds.value = new Set(expandedIds.value)
+}
+function isExpanded(itemId: number): boolean {
+  return expandedIds.value.has(itemId)
+}
 
 const props = defineProps<{
   materials: FlatMaterial[]
@@ -141,7 +157,56 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
     <template v-else>
       <!-- Raw materials section -->
       <h4 class="section-title">原始素材（需採集 / 購買）</h4>
-      <el-table :data="rawMaterials" border style="width: 100%" size="small" @expand-change="handleExpand">
+
+      <!-- Mobile: card list with tap-to-expand (el-table's fixed colgroup
+           left empty cells on the right when columns were hidden). -->
+      <ul v-if="isMobile" class="mat-cards" role="list">
+        <li
+          v-for="row in rawMaterials"
+          :key="row.itemId"
+          class="mat-card"
+          :class="{ 'is-expanded': isExpanded(row.itemId) }"
+        >
+          <button
+            type="button"
+            class="mat-card__row"
+            :aria-expanded="isExpanded(row.itemId)"
+            @click="toggleExpand(row)"
+          >
+            <img
+              :src="row.icon"
+              :alt="row.name"
+              crossorigin="anonymous"
+              loading="lazy"
+              decoding="async"
+              class="mat-card__icon"
+            />
+            <div class="mat-card__body">
+              <div class="mat-card__line1">
+                <ItemName :item-id="row.itemId" :fallback="row.name" />
+                <span class="mat-card__qty">×{{ row.totalAmount }}</span>
+              </div>
+              <div class="mat-card__line2">
+                <span class="mat-card__unit">
+                  單價 {{ getUnitPrice(row.itemId) > 0 ? formatGil(getUnitPrice(row.itemId)) : '-' }}
+                </span>
+                <strong class="mat-card__sub">
+                  {{ formatGil(getTotalPrice(row.itemId, row.totalAmount)) }}
+                </strong>
+              </div>
+            </div>
+            <span class="mat-card__chev" :class="{ 'is-open': isExpanded(row.itemId) }" aria-hidden="true">▾</span>
+          </button>
+          <div v-if="isExpanded(row.itemId)" class="mat-card__expand">
+            <CrossWorldPriceDetail
+              :data="crossWorldData.get(row.itemId)"
+              :loading="crossWorldLoading.has(row.itemId)"
+            />
+          </div>
+        </li>
+      </ul>
+
+      <el-table v-else :data="rawMaterials" border style="width: 100%" size="small" @expand-change="handleExpand">
         <el-table-column type="expand" :width="isNarrow ? 34 : 48">
           <template #default="{ row }">
             <CrossWorldPriceDetail
@@ -189,7 +254,62 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
       <!-- Craftable intermediates section -->
       <template v-if="craftableMaterials.length > 0">
         <h4 class="section-title">半成品（可製作）</h4>
-        <el-table :data="craftableMaterials" border style="width: 100%" size="small" @expand-change="handleExpand">
+
+        <ul v-if="isMobile" class="mat-cards" role="list">
+          <li
+            v-for="row in craftableMaterials"
+            :key="row.itemId"
+            class="mat-card"
+            :class="{ 'is-expanded': isExpanded(row.itemId) }"
+          >
+            <button
+              type="button"
+              class="mat-card__row"
+              :aria-expanded="isExpanded(row.itemId)"
+              @click="toggleExpand(row)"
+            >
+              <img
+                :src="row.icon"
+                :alt="row.name"
+                crossorigin="anonymous"
+                loading="lazy"
+                decoding="async"
+                class="mat-card__icon"
+              />
+              <div class="mat-card__body">
+                <div class="mat-card__line1">
+                  <ItemName :item-id="row.itemId" :fallback="row.name" />
+                  <span class="mat-card__qty">×{{ row.totalAmount }}</span>
+                  <el-tag
+                    v-if="decisionsMap.get(row.itemId)"
+                    :type="decisionsMap.get(row.itemId)!.recommendation === 'craft' ? 'success' : 'warning'"
+                    size="small"
+                    class="mat-card__tag"
+                  >
+                    {{ decisionsMap.get(row.itemId)!.recommendation === 'craft' ? '自製較省' : '直購較省' }}
+                  </el-tag>
+                </div>
+                <div class="mat-card__line2">
+                  <span class="mat-card__unit">
+                    直購 {{ formatGil(getTotalPrice(row.itemId, row.totalAmount)) }}
+                  </span>
+                  <span v-if="decisionsMap.get(row.itemId)" class="mat-card__unit">
+                    · 自製 {{ formatGil(decisionsMap.get(row.itemId)!.craftCost) }}
+                  </span>
+                </div>
+              </div>
+              <span class="mat-card__chev" :class="{ 'is-open': isExpanded(row.itemId) }" aria-hidden="true">▾</span>
+            </button>
+            <div v-if="isExpanded(row.itemId)" class="mat-card__expand">
+              <CrossWorldPriceDetail
+                :data="crossWorldData.get(row.itemId)"
+                :loading="crossWorldLoading.has(row.itemId)"
+              />
+            </div>
+          </li>
+        </ul>
+
+        <el-table v-else :data="craftableMaterials" border style="width: 100%" size="small" @expand-change="handleExpand">
           <el-table-column type="expand" :width="isNarrow ? 34 : 48">
             <template #default="{ row }">
               <CrossWorldPriceDetail
@@ -369,5 +489,129 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
   :deep(.el-table__body) {
     font-size: 12px;
   }
+}
+
+/* Mobile: strip the wrapping el-card chrome so the card list reads
+ * as part of the parent flat section instead of a card-in-card. */
+@media (max-width: 640px) {
+  :deep(.el-card) {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+  }
+  :deep(.el-card__header) {
+    padding: 0 0 10px;
+    border-bottom: 0;
+  }
+  :deep(.el-card__body) {
+    padding: 0;
+  }
+}
+
+/* --- Mobile card layout (replaces el-table under 640px) --- */
+.mat-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--app-border, var(--el-border-color-lighter));
+}
+
+.mat-card {
+  border-bottom: 1px solid var(--app-border, var(--el-border-color-lighter));
+}
+
+.mat-card__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 4px;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mat-card__row:hover {
+  background: color-mix(in srgb, var(--app-accent, var(--el-color-primary)) 5%, transparent);
+}
+
+.mat-card__icon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.mat-card__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mat-card__line1 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--app-text, var(--el-text-color-primary));
+}
+
+.mat-card__line1 > :first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.mat-card__qty {
+  font-size: 12px;
+  color: var(--app-text-muted, var(--el-text-color-secondary));
+  flex-shrink: 0;
+}
+
+.mat-card__tag {
+  flex-shrink: 0;
+}
+
+.mat-card__line2 {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--app-text-muted, var(--el-text-color-secondary));
+}
+
+.mat-card__unit {
+  min-width: 0;
+}
+
+.mat-card__sub {
+  margin-left: auto;
+  color: var(--accent-gold, var(--el-color-warning));
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.mat-card__chev {
+  flex-shrink: 0;
+  color: var(--app-text-muted, var(--el-text-color-secondary));
+  font-size: 12px;
+  transition: transform 0.18s var(--ease-out-quart, ease-out);
+}
+
+.mat-card__chev.is-open {
+  transform: rotate(180deg);
+  color: var(--app-accent, var(--el-color-primary));
+}
+
+.mat-card__expand {
+  padding: 0 4px 12px;
 }
 </style>

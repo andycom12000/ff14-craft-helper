@@ -230,7 +230,7 @@ async function loadHqRecommendations() {
 
         <el-empty v-if="recommendations.length === 0" description="無法透過 HQ 素材達成品質需求" :image-size="60" />
 
-        <el-table v-else :data="recommendations" border size="small" style="width: 100%">
+        <el-table v-else :data="recommendations" border size="small" style="width: 100%" class="hq-rec-table">
           <!-- One column per canHq ingredient -->
           <el-table-column v-for="ing in canHqIngredients" :key="ing.index" :label="ing.name" align="center" min-width="80">
             <template #default="{ row }">
@@ -270,27 +270,40 @@ async function loadHqRecommendations() {
 </template>
 
 <style scoped>
-/* Mobile: HQ ingredient recommendations table has dynamic per-ingredient
- * columns + 成本 + 操作. Shrink paddings/columns and hide 操作 under 480px
- * so the table stops forcing horizontal scroll on phones. */
+/* Mobile: tighten the HQ-recommendation table only — the rule used
+ * to target \`:deep(.el-table)\` globally, which leaked into the nested
+ * BomSummary tables and hid their 小計 column (leaving empty colgroup
+ * cells on the right). Scope to .hq-rec-table to keep BomSummary intact. */
 @media (max-width: 640px) {
-  :deep(.el-table .el-table__cell),
-  :deep(.el-table .el-table__header th) {
+  :deep(.hq-rec-table .el-table__cell),
+  :deep(.hq-rec-table .el-table__header th) {
     padding-left: 4px;
     padding-right: 4px;
     font-size: 12px;
   }
 }
 
-@media (max-width: 480px) {
-  :deep(.el-table .el-table__cell:last-child),
-  :deep(.el-table .el-table__header th:last-child) {
-    display: none;
-  }
-}
-
 .rec-card {
   margin-top: 12px;
+}
+
+/* Mobile: drop the wrapper el-card chrome so BomSummary's own mobile
+ * card layout reads as part of the flat SimulatorView section instead
+ * of a card-inside-card-inside-accordion stack. */
+@media (max-width: 640px) {
+  .rec-card {
+    margin-top: 0;
+  }
+  :deep(.rec-card.el-card),
+  :deep(.rec-card .el-card__header),
+  :deep(.rec-card .el-card__body) {
+    background: transparent;
+    border: 0;
+    padding: 0;
+  }
+  :deep(.rec-card .el-card__header) {
+    margin-bottom: 10px;
+  }
 }
 
 .card-header {
