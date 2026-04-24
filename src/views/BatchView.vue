@@ -14,7 +14,6 @@ import TodoList from '@/components/batch/TodoList.vue'
 import ExceptionList from '@/components/batch/ExceptionList.vue'
 import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
 import BuffRecommendationCard from '@/components/batch/BuffRecommendationCard.vue'
-import AppEmptyState from '@/components/common/AppEmptyState.vue'
 import FlowBreadcrumb from '@/components/common/FlowBreadcrumb.vue'
 
 const batchStore = useBatchStore()
@@ -22,10 +21,6 @@ const settings = useSettingsStore()
 const gearsets = useGearsetsStore()
 
 const sidebarOpen = ref(false)
-const isClassic = computed(() => settings.batchLayout === 'classic')
-function toggleLayout() {
-  settings.batchLayout = isClassic.value ? 'stepper' : 'classic'
-}
 
 // Section refs for scroll navigation
 const sectionPrepare = ref<HTMLElement>()
@@ -190,9 +185,15 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
 </script>
 
 <template>
-  <div class="view-container batch-view" :class="{ 'batch-view--classic': isClassic }">
+  <div class="view-container batch-view">
+    <div class="batch-title-row">
+      <div class="batch-title-block">
+        <h2>批量製作</h2>
+        <p class="view-desc">一次搞定多個配方，自動幫你規劃採購和製作順序。</p>
+      </div>
+    </div>
+
     <FlowBreadcrumb
-      v-if="!isClassic"
       :steps="[
         { label: '準備清單', icon: '📋' },
         { label: '計算最佳化', icon: '⚙️' },
@@ -202,151 +203,44 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
       :active-step="currentStep"
       @navigate="navigateToStep"
     />
-    <div class="batch-title-row">
-      <div>
-        <h2>批量製作</h2>
-        <p class="view-desc">一次搞定多個配方，自動幫你規劃採購和製作順序。</p>
-      </div>
-      <el-button text size="small" @click="toggleLayout">
-        {{ isClassic ? '切換新版介面' : '切換經典介面' }}
-      </el-button>
-    </div>
 
-    <!-- ==================== New stepper layout ==================== -->
-    <template v-if="!isClassic">
-      <!-- Flow breadcrumb replaces BatchStepper -->
+    <CostSummaryPanel
+      v-if="batchStore.results"
+      :grand-total="batchStore.effectiveGrandTotal"
+      :saving-percent="savingPercent"
+      :single-server-total="singleServerTotal"
+      :server="settings.server"
+    />
 
-      <CostSummaryPanel
-        v-if="batchStore.results"
-        :grand-total="batchStore.effectiveGrandTotal"
-        :saving-percent="savingPercent"
-        :single-server-total="singleServerTotal"
-        :server="settings.server"
-      />
+    <BuffRecommendationCard
+      v-if="batchStore.results?.buffRecommendation"
+      :recommendation="batchStore.results.buffRecommendation"
+    />
 
-      <BuffRecommendationCard
-        v-if="batchStore.results?.buffRecommendation"
-        :recommendation="batchStore.results.buffRecommendation"
-      />
-
-      <!-- Section 1: 準備清單 -->
-      <section ref="sectionPrepare" class="batch-section" :class="{ 'batch-section--collapsed': isSectionCollapsed(0) }">
-        <component
-          :is="currentStep > 0 ? 'button' : 'div'"
-          type="button"
-          class="section-header"
-          :class="{ 'section-header--clickable': currentStep > 0 }"
-          :aria-expanded="currentStep > 0 ? !isSectionCollapsed(0) : undefined"
-          @click="currentStep > 0 ? toggleSection(0) : undefined"
-        >
-          <span class="section-step" :class="{ 'section-step--active': currentStep === 0, 'section-step--done': currentStep > 0 }" aria-hidden="true">
-            <template v-if="currentStep > 0">✓</template>
-            <template v-else>1</template>
-          </span>
-          <h3 class="section-title">準備清單</h3>
-          <span class="section-desc">{{ currentStep > 0 ? `${batchStore.targets.length} 個配方` : '加入要製作的配方並設定計算參數' }}</span>
-          <span v-if="currentStep > 0" class="section-toggle">{{ isSectionCollapsed(0) ? '展開' : '收起' }}</span>
-        </component>
-        <div v-if="!isSectionCollapsed(0)" class="prepare-grid">
-          <div class="prepare-main">
-            <BatchList @open-search="sidebarOpen = true" />
-          </div>
-          <div class="prepare-side">
-            <BatchSettings />
-            <div class="batch-action">
-              <el-button
-                type="primary"
-                size="large"
-                :loading="batchStore.isRunning"
-                :disabled="batchStore.targets.length === 0 || batchStore.isRunning"
-                @click="startOptimization"
-              >
-                {{ batchStore.isRunning ? '計算中...' : '▶ 開始最佳化計算' }}
-              </el-button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Section 2: 計算進度 -->
-      <section v-if="batchStore.isRunning" ref="sectionProgress" class="batch-section">
-        <div class="section-header">
-          <span class="section-step section-step--active" aria-hidden="true">2</span>
-          <h3 class="section-title">計算最佳化</h3>
-          <span class="section-desc">正在求解最佳製作方案與查價</span>
-        </div>
-        <BatchProgress />
-      </section>
-
-      <!-- Section 3: 採購材料 -->
-      <section v-if="batchStore.results" ref="sectionShopping" class="batch-section" :class="{ 'batch-section--collapsed': isSectionCollapsed(2) }">
-        <component
-          :is="currentStep > 2 ? 'button' : 'div'"
-          type="button"
-          class="section-header"
-          :class="{ 'section-header--clickable': currentStep > 2 }"
-          :aria-expanded="currentStep > 2 ? !isSectionCollapsed(2) : undefined"
-          @click="currentStep > 2 ? toggleSection(2) : undefined"
-        >
-          <span class="section-step" :class="{ 'section-step--active': currentStep === 2, 'section-step--done': currentStep > 2 }" aria-hidden="true">
-            <template v-if="currentStep > 2">✓</template>
-            <template v-else>3</template>
-          </span>
-          <h3 class="section-title">採購材料</h3>
-          <span class="section-desc">{{ currentStep > 2 ? `${batchStore.shoppingCheckedCount} 項已採購` : '按伺服器分組購買所需素材' }}</span>
-          <template v-if="currentStep <= 2">
-            <el-text size="small" type="info" class="section-hint">點擊素材行可複製品名</el-text>
-          </template>
-          <span v-if="currentStep > 2" class="section-toggle">{{ isSectionCollapsed(2) ? '展開' : '收起' }}</span>
-        </component>
-
-        <template v-if="!isSectionCollapsed(2)">
-          <div
-            v-if="batchStore.results.exceptions.length > 0"
-            class="exception-block"
-            role="region"
-            aria-label="例外提示"
-          >
-            <div class="exception-header">
-              <span class="exception-title">例外提示</span>
-              <el-badge :value="batchStore.results.exceptions.length" :max="99" type="danger" />
-            </div>
-            <ExceptionList :exceptions="batchStore.results.exceptions" />
-          </div>
-
-          <ShoppingList
-            :crystals="batchStore.finalCrystals"
-            :server-groups="batchStore.results.serverGroups"
-            :self-craft-candidates="batchStore.results.selfCraftCandidates"
-            :buy-finished-items="batchStore.results.buyFinishedItems"
-            :grand-total="batchStore.effectiveGrandTotal"
-            :cross-world-cache="batchStore.results.crossWorldCache"
-          />
-        </template>
-      </section>
-
-      <!-- Section 4: 製作待辦 -->
-      <section v-if="batchStore.results" ref="sectionTodo" class="batch-section">
-        <div class="section-header">
-          <span class="section-step" :class="{ 'section-step--active': currentStep === 3 }" aria-hidden="true">4</span>
-          <h3 class="section-title">開始製作</h3>
-          <span class="section-desc">依相依順序逐一完成製作</span>
-        </div>
-        <TodoList
-          :items="batchStore.finalTodoList"
-          @update:done="handleTodoDone"
-          @reorder="handleTodoReorder"
-        />
-      </section>
-    </template>
-
-    <!-- ==================== Classic two-column layout ==================== -->
-    <template v-else>
-      <div class="classic-layout">
-        <div class="classic-left">
+    <!-- Section 1: 準備清單 -->
+    <section ref="sectionPrepare" class="batch-section" :class="{ 'batch-section--collapsed': isSectionCollapsed(0) }">
+      <component
+        :is="currentStep > 0 ? 'button' : 'div'"
+        type="button"
+        class="section-header"
+        :class="{ 'section-header--clickable': currentStep > 0 }"
+        :aria-expanded="currentStep > 0 ? !isSectionCollapsed(0) : undefined"
+        @click="currentStep > 0 ? toggleSection(0) : undefined"
+      >
+        <span class="section-step" :class="{ 'section-step--active': currentStep === 0, 'section-step--done': currentStep > 0 }" aria-hidden="true">
+          <template v-if="currentStep > 0">✓</template>
+          <template v-else>1</template>
+        </span>
+        <h3 class="section-title">準備清單</h3>
+        <span class="section-desc">{{ currentStep > 0 ? `${batchStore.targets.length} 個配方` : '加入要製作的配方並設定計算參數' }}</span>
+        <span v-if="currentStep > 0" class="section-toggle">{{ isSectionCollapsed(0) ? '展開' : '收起' }}</span>
+      </component>
+      <div v-if="!isSectionCollapsed(0)" class="prepare-grid">
+        <div class="prepare-main">
           <BatchList @open-search="sidebarOpen = true" />
+        </div>
+        <div class="prepare-side">
           <BatchSettings />
-
           <div class="batch-action">
             <el-button
               type="primary"
@@ -358,61 +252,80 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
               {{ batchStore.isRunning ? '計算中...' : '▶ 開始最佳化計算' }}
             </el-button>
           </div>
-
-          <BatchProgress />
-
-          <BuffRecommendationCard
-            v-if="batchStore.results?.buffRecommendation"
-            :recommendation="batchStore.results.buffRecommendation"
-          />
-
-          <div
-            v-if="batchStore.results && batchStore.results.exceptions.length > 0"
-            class="exception-block"
-            role="region"
-            aria-label="例外提示"
-          >
-            <div class="exception-header">
-              <span class="exception-title">例外提示</span>
-              <el-badge :value="batchStore.results.exceptions.length" :max="99" type="danger" />
-            </div>
-            <ExceptionList :exceptions="batchStore.results.exceptions" />
-          </div>
-
-          <div v-if="batchStore.results" class="classic-todo-block">
-            <div class="classic-todo-header">
-              <span class="classic-todo-title">製作待辦</span>
-            </div>
-            <TodoList
-              :items="batchStore.finalTodoList"
-              @update:done="handleTodoDone"
-            />
-          </div>
-        </div>
-
-        <div class="classic-right classic-right--empty" v-if="!batchStore.results">
-          <AppEmptyState
-            icon="🛒"
-            title="採購清單"
-            description="完成計算後，最佳採購方案會出現在這裡"
-          />
-        </div>
-        <div v-if="batchStore.results" class="classic-right">
-          <div class="classic-shopping-header">
-            <span class="classic-shopping-title">採購清單</span>
-            <el-text size="small" type="info">點擊素材行可複製品名</el-text>
-          </div>
-          <ShoppingList
-            :crystals="batchStore.finalCrystals"
-            :server-groups="batchStore.results.serverGroups"
-            :self-craft-candidates="batchStore.results.selfCraftCandidates"
-            :buy-finished-items="batchStore.results.buyFinishedItems"
-            :grand-total="batchStore.effectiveGrandTotal"
-            :cross-world-cache="batchStore.results.crossWorldCache"
-          />
         </div>
       </div>
-    </template>
+    </section>
+
+    <!-- Section 2: 計算進度 -->
+    <section v-if="batchStore.isRunning" ref="sectionProgress" class="batch-section">
+      <div class="section-header">
+        <span class="section-step section-step--active" aria-hidden="true">2</span>
+        <h3 class="section-title">計算最佳化</h3>
+        <span class="section-desc">正在求解最佳製作方案與查價</span>
+      </div>
+      <BatchProgress />
+    </section>
+
+    <!-- Section 3: 採購材料 -->
+    <section v-if="batchStore.results" ref="sectionShopping" class="batch-section" :class="{ 'batch-section--collapsed': isSectionCollapsed(2) }">
+      <component
+        :is="currentStep > 2 ? 'button' : 'div'"
+        type="button"
+        class="section-header"
+        :class="{ 'section-header--clickable': currentStep > 2 }"
+        :aria-expanded="currentStep > 2 ? !isSectionCollapsed(2) : undefined"
+        @click="currentStep > 2 ? toggleSection(2) : undefined"
+      >
+        <span class="section-step" :class="{ 'section-step--active': currentStep === 2, 'section-step--done': currentStep > 2 }" aria-hidden="true">
+          <template v-if="currentStep > 2">✓</template>
+          <template v-else>3</template>
+        </span>
+        <h3 class="section-title">採購材料</h3>
+        <span class="section-desc">{{ currentStep > 2 ? `${batchStore.shoppingCheckedCount} 項已採購` : '按伺服器分組購買所需素材' }}</span>
+        <template v-if="currentStep <= 2">
+          <el-text size="small" type="info" class="section-hint">點擊素材行可複製品名</el-text>
+        </template>
+        <span v-if="currentStep > 2" class="section-toggle">{{ isSectionCollapsed(2) ? '展開' : '收起' }}</span>
+      </component>
+
+      <template v-if="!isSectionCollapsed(2)">
+        <div
+          v-if="batchStore.results.exceptions.length > 0"
+          class="exception-block"
+          role="region"
+          aria-label="例外提示"
+        >
+          <div class="exception-header">
+            <span class="exception-title">例外提示</span>
+            <el-badge :value="batchStore.results.exceptions.length" :max="99" type="danger" />
+          </div>
+          <ExceptionList :exceptions="batchStore.results.exceptions" />
+        </div>
+
+        <ShoppingList
+          :crystals="batchStore.finalCrystals"
+          :server-groups="batchStore.results.serverGroups"
+          :self-craft-candidates="batchStore.results.selfCraftCandidates"
+          :buy-finished-items="batchStore.results.buyFinishedItems"
+          :grand-total="batchStore.effectiveGrandTotal"
+          :cross-world-cache="batchStore.results.crossWorldCache"
+        />
+      </template>
+    </section>
+
+    <!-- Section 4: 製作待辦 -->
+    <section v-if="batchStore.results" ref="sectionTodo" class="batch-section">
+      <div class="section-header">
+        <span class="section-step" :class="{ 'section-step--active': currentStep === 3 }" aria-hidden="true">4</span>
+        <h3 class="section-title">開始製作</h3>
+        <span class="section-desc">依相依順序逐一完成製作</span>
+      </div>
+      <TodoList
+        :items="batchStore.finalTodoList"
+        @update:done="handleTodoDone"
+        @reorder="handleTodoReorder"
+      />
+    </section>
 
     <!-- Search Sidebar (shared) -->
     <RecipeSearchSidebar v-model="sidebarOpen" context="加入批量清單" @add="handleAddRecipe" />
@@ -609,33 +522,11 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
   color: var(--el-text-color-primary);
 }
 
-/* Classic layout sub-headers — also flat, no el-card */
-.classic-todo-block,
-.classic-right {
-  margin-bottom: 16px;
-}
-
-.classic-todo-header,
-.classic-shopping-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--el-border-color-light);
-}
-
-.classic-todo-title,
-.classic-shopping-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-}
-
 /* Prepare section: single column by default */
 .prepare-grid {
   display: flex;
   flex-direction: column;
+  gap: 20px;
 }
 
 .prepare-main {
@@ -643,72 +534,13 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
   min-width: 0;
 }
 
-.prepare-side :deep(.settings-card) {
-  margin-top: 16px;
-}
-
-/* Title row with layout toggle */
+/* Title row */
 .batch-title-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  margin-bottom: 12px;
 }
 
-.batch-title-row h2 {
+.batch-title-block h2 {
   margin-bottom: 0;
-}
-
-/* ===== Classic two-column layout ===== */
-.batch-view--classic {
-  max-width: none !important;
-}
-
-.classic-layout {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-}
-
-.classic-left {
-  flex: 0 0 auto;
-  width: 740px;
-  min-width: 0;
-}
-
-.classic-right {
-  flex: 1;
-  min-width: 0;
-  position: sticky;
-  top: 16px;
-}
-
-.classic-right--empty {
-  display: none;
-}
-
-@media (min-width: 1601px) {
-  .classic-right--empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: 1;
-    min-height: 300px;
-  }
-}
-
-@media (max-width: 1600px) {
-  .classic-layout {
-    flex-direction: column;
-  }
-
-  .classic-left {
-    width: 100%;
-  }
-
-  .classic-right {
-    position: static;
-    width: 100%;
-  }
 }
 
 @media (max-width: 768px) {
@@ -718,6 +550,38 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
 
   .batch-section {
     scroll-margin-top: 80px;
+  }
+}
+
+/* mobile: flatten nested el-card — section-header owns the title */
+@media (max-width: 640px) {
+  .batch-section :deep(.el-card),
+  .batch-section :deep(.el-card.is-never-shadow) {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+    overflow: visible;
+  }
+
+  .batch-section :deep(.el-card__header) {
+    padding: 0 0 8px;
+    border-bottom: 1px dashed var(--el-border-color-lighter);
+    margin-bottom: 12px;
+  }
+
+  .batch-section :deep(.el-card__body) {
+    padding: 0;
+  }
+
+  .prepare-grid {
+    gap: 16px;
+  }
+
+  .prepare-side :deep(.settings-card) {
+    margin-top: 0;
+    padding-top: 16px;
+    border-top: 1px solid var(--el-border-color-lighter);
   }
 }
 
