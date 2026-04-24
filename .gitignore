@@ -26,7 +26,15 @@ npm-debug.log*
 
 # Claude Code
 .claude/settings.local.json
+.claude/worktrees/
 .worktrees/
+
+# unplugin-auto-import / unplugin-vue-components generated types
+auto-imports.d.ts
+components.d.ts
+
+# Local verification screenshots
+docs/promo-screenshots/
 
 # Rust
 raphael-wasm-wrapper/target/
