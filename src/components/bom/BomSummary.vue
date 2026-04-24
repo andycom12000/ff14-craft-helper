@@ -5,9 +5,17 @@ import { useSettingsStore } from '@/stores/settings'
 import { getPrice } from '@/stores/bom'
 import { computeOptimalCosts, type CostDecision } from '@/services/bom-calculator'
 import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
+import { useMediaQuery } from '@/composables/useMediaQuery'
 import CrossWorldPriceDetail from '@/components/common/CrossWorldPriceDetail.vue'
 import ItemName from '@/components/common/ItemName.vue'
 import { formatGil } from '@/utils/format'
+
+// Drop low-priority columns on narrow viewports. Element Plus builds a
+// fixed-width <colgroup> per table; `display:none` on a <td> leaves the
+// matching <col> sized, so the header overflows while the body is clipped.
+// Use v-if so el-table never creates those columns in the first place.
+const isNarrow = useMediaQuery('(max-width: 720px)')
+const isVeryNarrow = useMediaQuery('(max-width: 480px)')
 
 const props = defineProps<{
   materials: FlatMaterial[]
@@ -134,7 +142,7 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
       <!-- Raw materials section -->
       <h4 class="section-title">原始素材（需採集 / 購買）</h4>
       <el-table :data="rawMaterials" border style="width: 100%" size="small" @expand-change="handleExpand">
-        <el-table-column type="expand">
+        <el-table-column type="expand" :width="isNarrow ? 34 : 48">
           <template #default="{ row }">
             <CrossWorldPriceDetail
               :data="crossWorldData.get(row.itemId)"
@@ -142,9 +150,9 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
             />
           </template>
         </el-table-column>
-        <el-table-column label="圖示" width="50" align="center">
+        <el-table-column :label="isNarrow ? '' : '圖示'" :width="isNarrow ? 34 : 50" align="center">
           <template #default="{ row }">
-            <img :src="row.icon" :alt="row.name" crossorigin="anonymous" style="width: 24px; height: 24px" />
+            <img :src="row.icon" :alt="row.name" crossorigin="anonymous" loading="lazy" decoding="async" :style="isNarrow ? 'width: 22px; height: 22px' : 'width: 24px; height: 24px'" />
           </template>
         </el-table-column>
         <el-table-column label="名稱">
@@ -152,22 +160,22 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
             <ItemName :item-id="row.itemId" :fallback="row.name" />
           </template>
         </el-table-column>
-        <el-table-column label="需求數量" width="100" align="center">
+        <el-table-column :label="isNarrow ? '數量' : '需求數量'" :width="isNarrow ? 48 : 100" align="center">
           <template #default="{ row }">
             {{ row.totalAmount }}
           </template>
         </el-table-column>
-        <el-table-column label="NQ 最低" width="110" align="right">
+        <el-table-column v-if="!isVeryNarrow" label="NQ 最低" width="110" align="right">
           <template #default="{ row }">
             {{ getNqPrice(row.itemId) > 0 ? formatGil(getNqPrice(row.itemId)) : '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="HQ 最低" width="110" align="right">
+        <el-table-column v-if="!isNarrow" label="HQ 最低" width="110" align="right">
           <template #default="{ row }">
             <span class="hq-price">{{ getHqPrice(row.itemId) > 0 ? formatGil(getHqPrice(row.itemId)) : '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="小計" width="120" align="right">
+        <el-table-column :label="isNarrow ? '價格' : '小計'" :width="isNarrow ? 70 : 120" align="right">
           <template #default="{ row }">
             {{ formatGil(getTotalPrice(row.itemId, row.totalAmount)) }}
           </template>
@@ -182,7 +190,7 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
       <template v-if="craftableMaterials.length > 0">
         <h4 class="section-title">半成品（可製作）</h4>
         <el-table :data="craftableMaterials" border style="width: 100%" size="small" @expand-change="handleExpand">
-          <el-table-column type="expand">
+          <el-table-column type="expand" :width="isNarrow ? 34 : 48">
             <template #default="{ row }">
               <CrossWorldPriceDetail
                 :data="crossWorldData.get(row.itemId)"
@@ -190,9 +198,9 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
               />
             </template>
           </el-table-column>
-          <el-table-column label="圖示" width="50" align="center">
+          <el-table-column :label="isNarrow ? '' : '圖示'" :width="isNarrow ? 34 : 50" align="center">
             <template #default="{ row }">
-              <img :src="row.icon" :alt="row.name" crossorigin="anonymous" style="width: 24px; height: 24px" />
+              <img :src="row.icon" :alt="row.name" crossorigin="anonymous" loading="lazy" decoding="async" :style="isNarrow ? 'width: 22px; height: 22px' : 'width: 24px; height: 24px'" />
             </template>
           </el-table-column>
           <el-table-column label="名稱">
@@ -200,27 +208,27 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
               <ItemName :item-id="row.itemId" :fallback="row.name" />
             </template>
           </el-table-column>
-          <el-table-column label="需求數量" width="100" align="center">
+          <el-table-column :label="isNarrow ? '數量' : '需求數量'" :width="isNarrow ? 48 : 100" align="center">
             <template #default="{ row }">
               {{ row.totalAmount }}
             </template>
           </el-table-column>
-          <el-table-column label="NQ 最低" width="110" align="right">
+          <el-table-column v-if="!isVeryNarrow" label="NQ 最低" width="110" align="right">
             <template #default="{ row }">
               {{ getNqPrice(row.itemId) > 0 ? formatGil(getNqPrice(row.itemId)) : '-' }}
             </template>
           </el-table-column>
-          <el-table-column label="HQ 最低" width="110" align="right">
+          <el-table-column v-if="!isNarrow" label="HQ 最低" width="110" align="right">
             <template #default="{ row }">
               <span class="hq-price">{{ getHqPrice(row.itemId) > 0 ? formatGil(getHqPrice(row.itemId)) : '-' }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="直購成本" width="120" align="right">
+          <el-table-column v-if="!isNarrow" label="直購成本" width="120" align="right">
             <template #default="{ row }">
               {{ formatGil(getTotalPrice(row.itemId, row.totalAmount)) }}
             </template>
           </el-table-column>
-          <el-table-column label="材料成本" width="120" align="right">
+          <el-table-column :label="isNarrow ? '材料' : '材料成本'" :width="isNarrow ? 70 : 120" align="right">
             <template #default="{ row }">
               <template v-if="decisionsMap.get(row.itemId)">
                 {{ formatGil(decisionsMap.get(row.itemId)!.craftCost) }}
@@ -228,7 +236,7 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
               <template v-else>-</template>
             </template>
           </el-table-column>
-          <el-table-column label="建議" width="120" align="center">
+          <el-table-column v-if="!isVeryNarrow" label="建議" :width="isNarrow ? 70 : 120" align="center">
             <template #default="{ row }">
               <template v-if="decisionsMap.get(row.itemId)">
                 <el-tag
@@ -289,6 +297,8 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 
@@ -306,7 +316,7 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
 }
 
 .hq-price {
-  color: #e6a23c;
+  color: var(--accent-gold);
 }
 
 .buy-compare {
@@ -320,12 +330,44 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
   font-size: 14px;
   color: var(--el-text-color-regular);
+}
+
+.buy-compare-row > * {
+  min-width: 0;
+  word-break: break-word;
 }
 
 .buy-compare-verdict {
   margin-top: 8px;
   text-align: right;
+}
+
+/* Mobile: tighten cell padding and font only — columns are gated via v-if in
+ * the template (not CSS). Hiding columns via `display:none` on <td> left the
+ * <colgroup>'s fixed-width <col> sized, which made the header overflow the
+ * body and pushed most columns off-screen. */
+@media (max-width: 720px) {
+  :deep(.el-table .cell) {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  :deep(.el-table__body) {
+    font-size: 12.5px;
+  }
+
+  :deep(.el-table__header th) {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  :deep(.el-table__body) {
+    font-size: 12px;
+  }
 }
 </style>

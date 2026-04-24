@@ -56,10 +56,10 @@ function handleClearAll() {
       <el-button type="primary" :icon="Search" @click="emit('open-search')">搜尋配方</el-button>
     </AppEmptyState>
 
-    <el-table v-else :data="bomStore.targets" border style="width: 100%">
+    <el-table v-else :data="bomStore.targets" border style="width: 100%" class="targets-table">
       <el-table-column label="圖示" width="60" align="center">
         <template #default="{ row }">
-          <img :src="row.icon" :alt="row.name" crossorigin="anonymous" style="width: 28px; height: 28px" />
+          <img :src="row.icon" :alt="row.name" crossorigin="anonymous" loading="lazy" decoding="async" style="width: 28px; height: 28px" />
         </template>
       </el-table-column>
       <el-table-column label="品項名稱">
@@ -92,6 +92,37 @@ function handleClearAll() {
       </el-table-column>
     </el-table>
 
+    <!-- Mobile: stack rows as cards -->
+    <ul v-if="bomStore.targets.length > 0" class="targets-mobile-list">
+      <li v-for="row in bomStore.targets" :key="row.recipeId" class="target-card">
+        <div class="target-card-head">
+          <img :src="row.icon" :alt="row.name" crossorigin="anonymous" loading="lazy" decoding="async" class="target-card-icon" />
+          <div class="target-card-name">
+            <ItemName :item-id="row.itemId" :fallback="row.name" />
+          </div>
+        </div>
+        <div class="target-card-actions">
+          <el-input-number
+            :model-value="row.quantity"
+            :min="1"
+            :max="999"
+            size="small"
+            aria-label="數量"
+            @change="(val: number | undefined) => handleQuantityChange(row.recipeId, val)"
+          />
+          <el-button
+            type="danger"
+            size="small"
+            text
+            :aria-label="`移除 ${row.name}`"
+            @click="bomStore.removeTarget(row.recipeId)"
+          >
+            移除
+          </el-button>
+        </div>
+      </li>
+    </ul>
+
     <div v-if="bomStore.targets.length > 0" class="calculate-row">
       <el-button type="success" @click="emit('calculate')">
         計算材料需求
@@ -105,15 +136,82 @@ function handleClearAll() {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .card-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .calculate-row {
   margin-top: 16px;
   text-align: center;
+}
+
+.targets-mobile-list {
+  display: none;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.target-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-surface);
+}
+
+.target-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.target-card-icon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.target-card-name {
+  font-size: 14px;
+  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.target-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Default: table visible, mobile list hidden */
+.targets-table {
+  display: table;
+}
+.targets-mobile-list {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .targets-table {
+    display: none;
+  }
+  .targets-mobile-list {
+    display: flex;
+  }
 }
 </style>

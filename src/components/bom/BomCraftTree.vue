@@ -475,6 +475,7 @@ const allChecked = computed(() => {
 
 .tree-scroll-container {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 16px 0;
 }
 
@@ -484,6 +485,15 @@ const allChecked = computed(() => {
   align-items: center;
   min-width: fit-content;
   padding: 0 var(--bom-tree-indent);
+}
+
+/* Visual separator between sibling recipes on desktop. Deep material branches
+ * of the first recipe otherwise butt right up against the second recipe's
+ * root card and read as one run-on tree. */
+.tree-root + .tree-root {
+  margin-top: 40px;
+  padding-top: 28px;
+  border-top: 1px dashed var(--el-border-color-lighter);
 }
 
 /* ---- Node cards ---- */
@@ -540,12 +550,13 @@ const allChecked = computed(() => {
   top: -6px;
   right: -6px;
   background: var(--el-color-success);
-  color: #fff;
-  font-size: 11px;
+  color: var(--app-text);
+  font-size: 12px;
   font-weight: 700;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -586,6 +597,15 @@ const allChecked = computed(() => {
   flex-shrink: 0;
 }
 
+@media (max-width: 640px) {
+  .node-price-right {
+    white-space: normal;
+    flex-shrink: 1;
+    text-align: right;
+    word-break: break-word;
+  }
+}
+
 .name-collapsed {
   text-decoration: line-through;
 }
@@ -608,7 +628,8 @@ const allChecked = computed(() => {
   background: transparent;
   color: var(--el-text-color-secondary);
   border-radius: 999px;
-  padding: 3px 10px;
+  padding: 6px 12px;
+  min-height: 32px;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -619,15 +640,15 @@ const allChecked = computed(() => {
 }
 
 .shopping-toggle:hover {
-  border-color: var(--app-success, #4ade80);
-  color: var(--app-success, #4ade80);
-  background: rgba(74, 222, 128, 0.08);
+  border-color: var(--app-success);
+  color: var(--app-success);
+  background: color-mix(in srgb, var(--app-success) 8%, transparent);
 }
 
 .shopping-toggle.is-checked {
-  border-color: var(--app-success, #4ade80);
-  background: rgba(74, 222, 128, 0.15);
-  color: var(--app-success, #4ade80);
+  border-color: var(--app-success);
+  background: color-mix(in srgb, var(--app-success) 15%, transparent);
+  color: var(--app-success);
   font-weight: 600;
 }
 
@@ -638,8 +659,19 @@ const allChecked = computed(() => {
 
 @media (pointer: coarse) {
   .shopping-toggle {
-    padding: 8px 14px;
-    min-height: 36px;
+    padding: 10px 16px;
+    min-height: 44px;
+    font-size: 13px;
+  }
+}
+
+/* Viewport-based fallback for touch devices that don't report `pointer: coarse`
+ * (e.g. iPad with trackpad, Windows tablets). Ensures 44px touch target on
+ * narrow viewports regardless of pointer reporting. */
+@media (max-width: 640px) {
+  .shopping-toggle {
+    padding: 10px 16px;
+    min-height: 44px;
     font-size: 13px;
   }
 }
@@ -673,12 +705,12 @@ const allChecked = computed(() => {
 }
 
 .decision-craft {
-  background: rgba(103, 194, 58, 0.06);
+  background: color-mix(in srgb, var(--el-color-success) 6%, transparent);
   color: var(--el-color-success);
 }
 
 .decision-buy {
-  background: rgba(230, 162, 60, 0.06);
+  background: color-mix(in srgb, var(--el-color-warning) 6%, transparent);
   color: var(--el-color-warning);
 }
 
@@ -689,18 +721,18 @@ const allChecked = computed(() => {
 
 .summary-box.decision-craft {
   border-color: var(--el-color-success);
-  background: rgba(103, 194, 58, 0.1);
+  background: color-mix(in srgb, var(--el-color-success) 10%, transparent);
   color: inherit;
 }
 
 .summary-box.decision-buy {
   border-color: var(--el-color-warning);
-  background: rgba(230, 162, 60, 0.1);
+  background: color-mix(in srgb, var(--el-color-warning) 10%, transparent);
   color: inherit;
 }
 
 .decision-subtitle {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--el-text-color-secondary);
   margin-bottom: 4px;
 }
@@ -708,11 +740,14 @@ const allChecked = computed(() => {
 .decision-main {
   font-size: 13px;
   margin-bottom: 2px;
+  word-break: break-word;
+  line-height: 1.5;
 }
 
 .decision-result {
   font-size: 13px;
   font-weight: 700;
+  word-break: break-word;
 }
 
 .node-decision {
@@ -796,6 +831,15 @@ const allChecked = computed(() => {
     padding: 0;
   }
 
+  /* Strong chapter separator between recipes on mobile. Multiple border-left
+   * guide lines from a deep first-recipe tree otherwise continue right into
+   * the next recipe's root card and read as a single unbroken indent tower. */
+  .tree-root + .tree-root {
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 3px double var(--page-accent, var(--accent-gold));
+  }
+
   .tree-children {
     flex-direction: column;
     align-items: stretch;
@@ -803,6 +847,12 @@ const allChecked = computed(() => {
     padding: 8px 0 0 14px;
     border-left: 2px solid var(--connector-color);
     margin-left: 12px;
+  }
+
+  /* Reduce indent depth so deeply nested nodes retain usable card width */
+  .tree-children.depth-2 {
+    padding-left: 10px;
+    margin-left: 8px;
   }
 
   .tree-children::before,
@@ -823,16 +873,30 @@ const allChecked = computed(() => {
   }
 }
 
+@media (max-width: 640px) {
+  .tree-node-card {
+    padding: 8px 10px;
+  }
+
+  .node-actions :deep(.el-button) {
+    min-height: 36px;
+  }
+
+  .node-actions :deep(.el-button.el-button--small) {
+    min-height: 36px;
+  }
+}
+
 /* ---- All-done inline message ---- */
 .all-done-message {
   margin: 16px auto 4px;
   padding: 10px 16px;
   text-align: center;
-  color: var(--app-success, #4ade80);
+  color: var(--app-success);
   font-size: 14px;
   font-weight: 500;
-  background: rgba(74, 222, 128, 0.08);
-  border: 1px dashed rgba(74, 222, 128, 0.35);
+  background: color-mix(in srgb, var(--app-success) 8%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--app-success) 35%, transparent);
   border-radius: 8px;
   max-width: 420px;
 }
