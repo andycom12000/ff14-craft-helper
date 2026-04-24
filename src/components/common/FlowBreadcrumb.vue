@@ -118,8 +118,8 @@ function handleClick(i: number, step: FlowStep) {
     width: auto;
   }
   .flow-step {
-    padding: 6px 10px;
-    min-height: 32px;
+    padding: 10px 12px;
+    min-height: 44px;
   }
 }
 </style>

@@ -279,6 +279,12 @@ const tools = [
   gap: 10px;
 }
 
+@media (max-width: 480px) {
+  .tools-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .tool-card {
   display: flex;
   align-items: center;
@@ -403,7 +409,7 @@ const tools = [
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 3px;
 }
 
 .status-label {
