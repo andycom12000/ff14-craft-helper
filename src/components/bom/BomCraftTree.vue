@@ -475,9 +475,6 @@ const allChecked = computed(() => {
 
 .tree-scroll-container {
   padding: 16px 0;
-  /* Fallback — recipes with >6 children + deep subtrees (e.g. 奶油雞肉寬面)
-   * naturally exceed any reasonable max-width. Horizontal scroll is accepted
-   * UX for tree diagrams. */
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -489,18 +486,13 @@ const allChecked = computed(() => {
   padding: 0 var(--bom-tree-indent);
 }
 
-/* Visual separator between sibling recipes on desktop. Deep material branches
- * of the first recipe otherwise butt right up against the second recipe's
- * root card and read as one run-on tree. */
+/* Multi-target: dashed separator prevents branches reading as one continuous tree. */
 .tree-root + .tree-root {
   margin-top: 40px;
   padding-top: 28px;
   border-top: 1px dashed var(--el-border-color-lighter);
 }
 
-/* ---- Node cards ----
- * Compact card: 110px wide, icon + qty + name + one-line price. Actions are
- * stacked below. Matches the card-per-branch sizing used by FFXIV_Market. */
 .tree-node-card {
   border: 2px solid var(--el-border-color-lighter);
   border-radius: 8px;
@@ -532,97 +524,8 @@ const allChecked = computed(() => {
   opacity: 0.7;
 }
 
-/* Stacked compact card content — icon centered on top, name below, price below. */
-.node-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.node-icon-wrapper {
-  position: relative;
-  flex-shrink: 0;
-}
-
-.node-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 4px;
-}
-
-.qty-badge {
-  position: absolute;
-  top: -4px;
-  right: -8px;
-  background: var(--el-color-success);
-  color: var(--app-text);
-  font-size: 11px;
-  font-weight: 700;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 4px;
-  border-radius: 9px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-}
-
-.node-info {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  min-width: 0;
-  width: 100%;
-}
-
-.node-price-row {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  width: 100%;
-  min-width: 0;
-}
-
-.node-price-left {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-  text-align: center;
-  line-height: 1.3;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-  width: 100%;
-}
-
-.node-price-right {
-  font-size: 10.5px;
-  color: var(--el-text-color-secondary);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  text-align: center;
-}
-
-.name-collapsed {
-  text-decoration: line-through;
-}
-
 .node-collapsed-card {
   opacity: 0.5;
-}
-
-.node-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 6px;
-  flex-wrap: wrap;
 }
 
 /* ---- ShoppingToggle ---- */
@@ -803,9 +706,6 @@ const allChecked = computed(() => {
   display: none;
 }
 
-/* Branch flexes its width to match the wider of (card, subtree). This is how
- * deeper subtrees get horizontal space without forcing the card itself to
- * widen. */
 .tree-branch {
   display: flex;
   flex-direction: column;

@@ -6,13 +6,13 @@ import type { WorldPriceSummary } from '@/api/universalis'
 import type { BuyFinishedDecision, SelfCraftCandidate } from '@/stores/batch'
 import { useBatchStore } from '@/stores/batch'
 import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
-import { useMediaQuery } from '@/composables/useMediaQuery'
+import { useIsMobile } from '@/composables/useMediaQuery'
 import CrossWorldPriceDetail, { type WorldPriceRow } from '@/components/common/CrossWorldPriceDetail.vue'
 import ItemName from '@/components/common/ItemName.vue'
 import SelfCraftSuggestions from './SelfCraftSuggestions.vue'
 import { formatGil } from '@/utils/format'
 
-const isMobile = useMediaQuery('(max-width: 640px)')
+const isMobile = useIsMobile()
 const mobileExpanded = reactive(new Set<string>())
 
 const props = defineProps<{
@@ -534,13 +534,6 @@ function isRowChecked(row: MaterialWithPrice): boolean {
   gap: 8px;
 }
 
-.server-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-  letter-spacing: 0.01em;
-}
-
 .server-subtotal {
   color: var(--accent-gold);
   font-size: 13px;
@@ -555,6 +548,13 @@ function isRowChecked(row: MaterialWithPrice): boolean {
     padding: 10px 0 8px;
     margin-bottom: 0;
     border-bottom: 1px solid var(--el-border-color-lighter);
+  }
+
+  .server-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--el-text-color-primary);
+    letter-spacing: 0.01em;
   }
 
   .server-group {

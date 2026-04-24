@@ -2,13 +2,13 @@
 import { computed } from 'vue'
 import { useBatchStore } from '@/stores/batch'
 import type { SelfCraftCandidate } from '@/stores/batch'
-import { useMediaQuery } from '@/composables/useMediaQuery'
+import { useIsMobile } from '@/composables/useMediaQuery'
 import { formatGil } from '@/utils/format'
 import ItemName from '@/components/common/ItemName.vue'
 
 const props = defineProps<{ candidates: SelfCraftCandidate[] }>()
 const batch = useBatchStore()
-const isMobile = useMediaQuery('(max-width: 640px)')
+const isMobile = useIsMobile()
 
 const selectedSavings = computed(() => {
   let total = 0

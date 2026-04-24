@@ -121,8 +121,7 @@ function isRecommendedRow(row: WorldPriceRow, idx: number): boolean {
   margin: 4px 0 0;
   padding: 0;
   display: grid;
-  /* One shared grid — all rows align across columns via subgrid.
-   * Cols: world | NQ price | HQ price | listings | updated */
+  /* Subgrid keeps columns aligned across rows regardless of value width. */
   grid-template-columns:
     minmax(80px, 1fr)
     minmax(72px, max-content)
@@ -173,7 +172,8 @@ function isRecommendedRow(row: WorldPriceRow, idx: number): boolean {
 }
 
 .cwp-prices {
-  /* Flatten into .cwp-row grid so NQ/HQ cells share tracks across rows */
+  /* `display: contents` so NQ/HQ are direct grid items of .cwp-row —
+   * required for cross-row column alignment to work. */
   display: contents;
   font-variant-numeric: tabular-nums;
 }
@@ -220,9 +220,6 @@ function isRecommendedRow(row: WorldPriceRow, idx: number): boolean {
 
 @container (max-width: 480px) {
   .cwp-list {
-    /* Mobile: 4 tracks shared across rows via subgrid.
-     * col 1,2 hold NQ / HQ price on row 2 (shared widths → cross-row alignment).
-     * World spans col 1–3 on row 1; updated time pinned to col 4. */
     grid-template-columns:
       minmax(72px, max-content)
       minmax(72px, max-content)

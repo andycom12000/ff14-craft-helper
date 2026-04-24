@@ -5,7 +5,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { getPrice } from '@/stores/bom'
 import { computeOptimalCosts, type CostDecision } from '@/services/bom-calculator'
 import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
-import { useMediaQuery } from '@/composables/useMediaQuery'
+import { useMediaQuery, useIsMobile } from '@/composables/useMediaQuery'
 import CrossWorldPriceDetail from '@/components/common/CrossWorldPriceDetail.vue'
 import ItemName from '@/components/common/ItemName.vue'
 import { formatGil } from '@/utils/format'
@@ -15,7 +15,7 @@ import { formatGil } from '@/utils/format'
 // Gate columns with v-if instead so el-table never creates them.
 const isNarrow = useMediaQuery('(max-width: 720px)')
 const isVeryNarrow = useMediaQuery('(max-width: 480px)')
-const isMobile = useMediaQuery('(max-width: 640px)')
+const isMobile = useIsMobile()
 
 const expandedIds = shallowRef(new Set<number>())
 function toggleExpand(row: FlatMaterial) {

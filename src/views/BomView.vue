@@ -10,7 +10,7 @@ import { useBomStore } from '@/stores/bom'
 import { useRecipeStore } from '@/stores/recipe'
 import { useSettingsStore } from '@/stores/settings'
 import { useLocaleStore } from '@/stores/locale'
-import { useMediaQuery } from '@/composables/useMediaQuery'
+import { useIsMobile } from '@/composables/useMediaQuery'
 import { loadingState } from '@/services/local-data-source'
 import { buildMaterialTree, flattenMaterialTree } from '@/services/bom-calculator'
 import { getAggregatedPrices } from '@/api/universalis'
@@ -21,7 +21,7 @@ const bomStore = useBomStore()
 const recipeStore = useRecipeStore()
 const settingsStore = useSettingsStore()
 const localeStore = useLocaleStore()
-const isMobile = useMediaQuery('(max-width: 640px)')
+const isMobile = useIsMobile()
 
 const isLoadingData = computed(() => {
   const s = loadingState[localeStore.current]
@@ -185,10 +185,6 @@ function handleRefreshPrices() {
 <style scoped>
 .bom-view { --page-accent: var(--app-craft); --page-accent-dim: var(--app-craft-dim); }
 
-/* Cap content at a comfortable reading width — BOM shows a single recipe tree
- * plus fixed-column tables, there's no extra content to unlock at wider
- * viewports. Wider would force large left-right eye movement across empty
- * space. BatchView's wider breakpoints are driven by multi-server columns. */
 .bom-view {
   max-width: 1200px;
 }

@@ -2,7 +2,7 @@
 import { computed, ref, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useGearsetsStore, type GearsetStats } from '@/stores/gearsets'
-import { useMediaQuery } from '@/composables/useMediaQuery'
+import { useIsMobile } from '@/composables/useMediaQuery'
 import { JOB_NAMES } from '@/utils/jobs'
 
 const store = useGearsetsStore()
@@ -14,7 +14,7 @@ const JOB_ICONS: Record<string, string> = {
   LTW: '🧶', WVR: '🪡', ALC: '⚗️', CUL: '🍳',
 }
 
-const isMobile = useMediaQuery('(max-width: 640px)')
+const isMobile = useIsMobile()
 
 const tableData = computed(() =>
   jobs.map(job => ({ job, ...store.gearsets[job] }))

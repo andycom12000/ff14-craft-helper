@@ -5,7 +5,7 @@ import { ElMessage } from 'element-plus'
 import { useRecipeStore } from '@/stores/recipe'
 import { useGearsetsStore } from '@/stores/gearsets'
 import { useBomStore } from '@/stores/bom'
-import { useMediaQuery } from '@/composables/useMediaQuery'
+import { useMediaQuery, useIsMobile } from '@/composables/useMediaQuery'
 import { JOB_NAMES } from '@/utils/jobs'
 import { useSimulatorStore, type SimulatorMode } from '@/stores/simulator'
 import { createInitialState, type CraftParams, type CraftState, type StepResult } from '@/engine/simulator'
@@ -44,7 +44,7 @@ const simStore = useSimulatorStore()
 const recipe = computed(() => recipeStore.currentRecipe)
 const searchSidebarOpen = ref(false)
 
-const isMobile = useMediaQuery('(max-width: 640px)')
+const isMobile = useIsMobile()
 const setupOpen = ref(false)
 const macroOpen = ref(false)
 const queueSheetOpen = ref(false)
