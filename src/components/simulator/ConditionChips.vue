@@ -93,8 +93,8 @@ function select(c: ManualCondition) {
 
 @media (pointer: coarse) {
   .chip {
-    padding: 8px 14px;
-    min-height: 36px;
+    padding: 10px 14px;
+    min-height: 44px;
   }
 }
 

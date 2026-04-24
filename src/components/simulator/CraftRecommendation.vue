@@ -270,6 +270,25 @@ async function loadHqRecommendations() {
 </template>
 
 <style scoped>
+/* Mobile: HQ ingredient recommendations table has dynamic per-ingredient
+ * columns + 成本 + 操作. Shrink paddings/columns and hide 操作 under 480px
+ * so the table stops forcing horizontal scroll on phones. */
+@media (max-width: 640px) {
+  :deep(.el-table .el-table__cell),
+  :deep(.el-table .el-table__header th) {
+    padding-left: 4px;
+    padding-right: 4px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  :deep(.el-table .el-table__cell:last-child),
+  :deep(.el-table .el-table__header th:last-child) {
+    display: none;
+  }
+}
+
 .rec-card {
   margin-top: 12px;
 }
@@ -281,7 +300,7 @@ async function loadHqRecommendations() {
 }
 
 .hq-amount {
-  color: #e6a23c;
+  color: var(--accent-gold);
   font-weight: 600;
 }
 

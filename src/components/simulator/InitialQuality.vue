@@ -99,7 +99,7 @@ function decrementHq(index: number) {
           :class="{ disabled: !ing.canHq }"
         >
           <div class="ingredient-info">
-            <img :src="ing.icon" :alt="ing.name" crossorigin="anonymous" class="ingredient-icon" />
+            <img :src="ing.icon" :alt="ing.name" crossorigin="anonymous" loading="lazy" decoding="async" class="ingredient-icon" />
             <span class="ingredient-name">
               <ItemName :item-id="ing.itemId" :fallback="ing.name" />
             </span>
@@ -219,5 +219,34 @@ function decrementHq(index: number) {
 .info-text {
   margin-top: 12px;
   text-align: right;
+}
+
+@media (max-width: 480px) {
+  .ingredient-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .ingredient-controls {
+    width: 100%;
+  }
+
+  .hq-btn {
+    min-width: 0;
+    flex: 1;
+    font-size: 13px;
+    padding: 8px 10px;
+  }
+
+  .nq-only-btn {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .ingredient-controls :deep(.el-button-group) {
+    display: flex;
+    width: 100%;
+  }
 }
 </style>

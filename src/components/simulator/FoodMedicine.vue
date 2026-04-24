@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRecipeStore } from '@/stores/recipe'
 import { useGearsetsStore } from '@/stores/gearsets'
 import {
@@ -98,6 +98,20 @@ function statDiff(base: number, enhanced: number): string {
   if (diff === 0) return ''
   return `(+${diff})`
 }
+
+// Responsive column count for the stats descriptions table
+const viewportWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024)
+const statsDescColumns = computed(() =>
+  viewportWidth.value < 480 ? 1 : viewportWidth.value < 768 ? 2 : 3,
+)
+let widthListener: (() => void) | null = null
+onMounted(() => {
+  widthListener = () => { viewportWidth.value = window.innerWidth }
+  window.addEventListener('resize', widthListener)
+})
+onUnmounted(() => {
+  if (widthListener) window.removeEventListener('resize', widthListener)
+})
 </script>
 
 <template>
@@ -115,7 +129,7 @@ function statDiff(base: number, enhanced: number): string {
     <!-- Base stats display -->
     <div class="stats-section">
       <h4>基礎能力值</h4>
-      <el-descriptions :column="3" border size="small">
+      <el-descriptions :column="statsDescColumns" border size="small">
         <el-descriptions-item label="作業精度">
           {{ baseStats.craftsmanship }}
         </el-descriptions-item>
@@ -263,7 +277,7 @@ function statDiff(base: number, enhanced: number): string {
     <!-- Enhanced stats result -->
     <div class="stats-section enhanced">
       <h4>最終能力值</h4>
-      <el-descriptions :column="3" border size="small">
+      <el-descriptions :column="statsDescColumns" border size="small">
         <el-descriptions-item label="作業精度">
           <span class="enhanced-value">{{ enhancedStats.craftsmanship }}</span>
           <span class="stat-diff" v-if="statDiff(baseStats.craftsmanship, enhancedStats.craftsmanship)">
@@ -302,6 +316,14 @@ function statDiff(base: number, enhanced: number): string {
   display: flex;
   align-items: center;
   margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 480px) {
+  .buff-header :deep(.el-switch) {
+    margin-left: 0 !important;
+  }
 }
 
 .buff-preview {
@@ -315,15 +337,22 @@ function statDiff(base: number, enhanced: number): string {
   display: flex;
   flex-direction: column;
   padding: 2px 0;
+  min-width: 0;
 }
 
 .option-name {
   font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .option-bonus {
   font-size: 11px;
   color: var(--el-text-color-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .enhanced .enhanced-value {

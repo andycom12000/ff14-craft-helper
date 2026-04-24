@@ -97,7 +97,8 @@ function tagTone(index: number, results: StepResult[]): '' | 'success' | 'danger
         :key="idx"
         :content="getStepTooltip(idx, results, action)"
         placement="top"
-        :show-after="150"
+        trigger="click"
+        :show-after="0"
       >
         <el-tag
           closable
@@ -158,18 +159,38 @@ function tagTone(index: number, results: StepResult[]): '' | 'success' | 'danger
 }
 
 .action-index {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--el-text-color-secondary);
 }
 
 .action-icon {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   image-rendering: pixelated;
   border-radius: 3px;
 }
 
 .action-label {
   font-size: 12px;
+}
+
+/* Mobile: enlarge tag touch targets to hit 36-44px and give breathing room */
+@media (max-width: 640px) {
+  .action-tag :deep(.el-tag__content),
+  .action-tag {
+    min-height: 36px;
+    padding: 4px 10px;
+  }
+  .action-tag :deep(.el-tag__close) {
+    font-size: 16px;
+    margin-left: 6px;
+  }
+  .action-icon {
+    width: 22px;
+    height: 22px;
+  }
+  .action-label {
+    font-size: 13px;
+  }
 }
 </style>

@@ -90,7 +90,8 @@ function tooltipContent(skill: SkillDefinition): string {
               class="skill-btn"
               :class="{ 'is-disabled': isDisabled(skill.id) }"
               :disabled="isDisabled(skill.id)"
-              :aria-label="skillDisplayName(skill)"
+              :aria-label="`${skillDisplayName(skill)}｜${skill.cp} CP｜${skill.description}`"
+              :title="`${skill.description} (${skill.cp} CP)`"
               @click="handleClick(skill.id)"
             >
               <template v-if="getSkillIconUrl(skill, props.job ?? null)">
@@ -136,7 +137,7 @@ function tooltipContent(skill: SkillDefinition): string {
   align-items: center;
   justify-content: center;
   gap: 2px;
-  min-width: 72px;
+  min-width: 84px;
   padding: 8px 10px;
   border: 1px solid var(--el-border-color);
   border-radius: 10px;
@@ -151,10 +152,17 @@ function tooltipContent(skill: SkillDefinition): string {
   line-height: 1.3;
 }
 
-.skill-btn:hover:not(.is-disabled) {
-  transform: translateY(-1px);
+@media (hover: hover) {
+  .skill-btn:hover:not(.is-disabled) {
+    transform: translateY(-1px);
+    border-color: var(--app-accent, var(--el-color-primary));
+    box-shadow: 0 2px 10px var(--app-accent-glow, rgba(99, 102, 241, 0.15));
+  }
+}
+
+.skill-btn:active:not(.is-disabled) {
+  transform: scale(0.97);
   border-color: var(--app-accent, var(--el-color-primary));
-  box-shadow: 0 2px 10px var(--app-accent-glow, rgba(99, 102, 241, 0.15));
 }
 
 .skill-btn:focus-visible {
@@ -186,7 +194,21 @@ function tooltipContent(skill: SkillDefinition): string {
 }
 
 .skill-cp {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+
+/* Mobile: tighten tabs padding so 5 categories fit cleanly within 390px */
+@media (max-width: 480px) {
+  .skill-panel :deep(.el-tabs--border-card .el-tabs__item) {
+    padding: 0 10px;
+    font-size: 13px;
+  }
+  .skill-panel :deep(.el-tabs--border-card > .el-tabs__content) {
+    padding: 10px;
+  }
+  .skill-btn {
+    min-width: 96px;
+  }
 }
 </style>

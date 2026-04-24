@@ -234,6 +234,32 @@ onUnmounted(() => {
   margin-right: 4px;
 }
 
+/* On narrow phones, el-tooltip wrappers break flex-wrap with long checkbox
+ * labels. Force the label to take a full line and each checkbox wrapper to
+ * claim the full width so they stack vertically. */
+@media (max-width: 640px) {
+  .skill-toggles {
+    gap: 8px;
+    padding: 0;
+    background: transparent;
+    border-radius: 0;
+    margin-bottom: 12px;
+  }
+
+  .toggle-label {
+    flex-basis: 100%;
+    margin-right: 0;
+  }
+
+  .skill-toggles > :deep(*:not(.toggle-label)) {
+    flex-basis: 100%;
+  }
+
+  .solver-actions :deep(.el-button) {
+    flex: 1;
+  }
+}
+
 .solver-actions {
   display: flex;
   gap: 8px;

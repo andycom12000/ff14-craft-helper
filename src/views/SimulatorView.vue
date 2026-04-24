@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useRecipeStore } from '@/stores/recipe'
 import { useGearsetsStore } from '@/stores/gearsets'
 import { useBomStore } from '@/stores/bom'
+import { useMediaQuery } from '@/composables/useMediaQuery'
 import { JOB_NAMES } from '@/utils/jobs'
 import { useSimulatorStore } from '@/stores/simulator'
 import { createInitialState, type CraftParams, type CraftState, type StepResult } from '@/engine/simulator'
@@ -32,7 +33,6 @@ import ConditionChips from '@/components/simulator/ConditionChips.vue'
 import ManualControls from '@/components/simulator/ManualControls.vue'
 import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
 import AppEmptyState from '@/components/common/AppEmptyState.vue'
-import FlowBreadcrumb from '@/components/common/FlowBreadcrumb.vue'
 import ItemName from '@/components/common/ItemName.vue'
 
 const router = useRouter()
@@ -43,6 +43,23 @@ const simStore = useSimulatorStore()
 
 const recipe = computed(() => recipeStore.currentRecipe)
 const searchSidebarOpen = ref(false)
+
+const isMobile = useMediaQuery('(max-width: 640px)')
+const setupOpen = ref(false)
+const macroOpen = ref(false)
+const queueSheetOpen = ref(false)
+
+// Responsive columns for the recipe-info descriptions table
+const viewportWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024)
+const infoDescColumns = computed(() => viewportWidth.value < 480 ? 1 : 2)
+let widthListener: (() => void) | null = null
+onMounted(() => {
+  widthListener = () => { viewportWidth.value = window.innerWidth }
+  window.addEventListener('resize', widthListener)
+})
+onUnmounted(() => {
+  if (widthListener) window.removeEventListener('resize', widthListener)
+})
 
 const initialQuality = ref(0)
 const enhancedStats = ref<EnhancedStats | null>(null)
@@ -61,6 +78,23 @@ const gearset = computed(() => {
 })
 
 const canSimulate = computed(() => !!recipe.value && !!gearset.value)
+
+const foodMedicineSummary = computed(() => enhancedStats.value ? '已設定' : '未設定')
+const jobFullName = computed(() => {
+  const j = recipe.value?.job
+  if (!j) return ''
+  return JOB_NAMES[j] ?? JOB_NAMES[JOB_ABBR[j] ?? j] ?? j
+})
+
+function openSearchFromSheet() {
+  queueSheetOpen.value = false
+  searchSidebarOpen.value = true
+}
+
+function pickQueueRecipe(r: import('@/stores/recipe').Recipe) {
+  recipeStore.setRecipe(r)
+  queueSheetOpen.value = false
+}
 
 // recipe.job is persisted as the Chinese short-form ('木工', '烹調', ...);
 // ICONS_BY_JOB keys on the 3-letter abbr, so map here and drop unknown values
@@ -290,11 +324,8 @@ async function handleSelfCraft(itemId: number) {
 </script>
 
 <template>
-  <div class="view-container">
-    <FlowBreadcrumb :steps="[
-      { label: '配裝', path: '/gearset', icon: '🛠️' },
-      { label: '模擬', path: '/simulator', icon: '⚗️' },
-    ]" />
+  <div class="view-container" :class="{ 'is-mobile': isMobile }">
+    <template v-if="!isMobile">
     <h2>製作模擬</h2>
     <p class="view-desc">試試不同手法，找到你的最佳製作流程。</p>
 
@@ -315,9 +346,15 @@ async function handleSelfCraft(itemId: number) {
           :key="queueRecipe.id"
           class="queue-item"
           :class="{ active: recipe?.id === queueRecipe.id }"
+          role="button"
+          tabindex="0"
+          :aria-pressed="recipe?.id === queueRecipe.id"
+          :aria-label="`選擇配方：${queueRecipe.name}`"
           @click="recipeStore.setRecipe(queueRecipe)"
+          @keydown.enter.prevent="recipeStore.setRecipe(queueRecipe)"
+          @keydown.space.prevent="recipeStore.setRecipe(queueRecipe)"
         >
-          <img :src="queueRecipe.icon" class="queue-icon" />
+          <img :src="queueRecipe.icon" alt="" aria-hidden="true" loading="lazy" decoding="async" class="queue-icon" />
           <span><ItemName :item-id="queueRecipe.itemId" :fallback="queueRecipe.name" /></span>
           <el-tag size="small" type="info">{{ queueRecipe.job }}</el-tag>
           <el-button
@@ -357,7 +394,7 @@ async function handleSelfCraft(itemId: number) {
 
       <div v-if="recipe && gearset" class="info-header-row">
         <el-descriptions
-          :column="2"
+          :column="infoDescColumns"
           border
           size="small"
           class="info-desc"
@@ -499,6 +536,238 @@ async function handleSelfCraft(itemId: number) {
       </el-tab-pane>
     </el-tabs>
 
+    </template>
+
+    <!-- ============ Mobile layout ============ -->
+    <template v-else>
+      <AppEmptyState
+        v-if="!recipe"
+        icon="⚗️"
+        title="還沒有配方"
+        description="搜尋你想製作的道具，開始模擬最佳技能序列吧！"
+      >
+        <el-button type="primary" @click="searchSidebarOpen = true">搜尋配方</el-button>
+      </AppEmptyState>
+
+      <template v-else>
+        <!-- Current recipe strip -->
+        <section class="m-recipe-strip">
+          <img :src="recipe.icon" alt="" class="m-rs-icon" loading="lazy" />
+          <div class="m-rs-body">
+            <div class="m-rs-title-row">
+              <h3 class="m-rs-name">
+                <ItemName :item-id="recipe.itemId" :fallback="recipe.name" />
+              </h3>
+              <button class="m-rs-switch" @click="queueSheetOpen = true">
+                切換 <span class="m-chev">▾</span>
+              </button>
+            </div>
+            <p class="m-rs-meta">
+              Lv{{ recipe.level }}<span v-if="recipe.stars > 0" class="m-rs-stars">{{ '★'.repeat(recipe.stars) }}</span>
+              <span class="m-rs-dot">·</span>{{ jobFullName }}
+              <span v-if="gearset">
+                <span class="m-rs-dot">·</span>難度 {{ recipe.recipeLevelTable.difficulty.toLocaleString() }}
+              </span>
+            </p>
+            <p v-if="gearset && effectiveStats" class="m-rs-stats">
+              作{{ effectiveStats.craftsmanship }}
+              <span class="m-rs-dot">·</span>加{{ effectiveStats.control }}
+              <span class="m-rs-dot">·</span>CP{{ effectiveStats.cp }}
+              <span class="m-rs-dot">·</span>品質 {{ recipe.recipeLevelTable.quality.toLocaleString() }}
+              <span class="m-rs-dot">·</span>耐久 {{ recipe.recipeLevelTable.durability }}
+            </p>
+          </div>
+        </section>
+
+        <el-alert
+          v-if="gearset && gearset.craftsmanship === 0 && gearset.control === 0"
+          title="尚未設定該職業的裝備數值"
+          type="warning"
+          :closable="false"
+          show-icon
+          class="m-alert"
+        >
+          <el-link type="primary" @click="router.push('/gearset')">前往裝備頁面設定配裝</el-link>
+        </el-alert>
+
+        <!-- Setup accordion: initial quality + food/medicine -->
+        <button
+          type="button"
+          class="m-setup-row"
+          :class="{ 'is-open': setupOpen }"
+          :aria-expanded="setupOpen"
+          @click="setupOpen = !setupOpen"
+        >
+          <span class="m-setup-summary">
+            初期品質 <b>{{ initialQuality.toLocaleString() }}</b>
+            <span class="m-rs-dot">·</span>
+            食藥 <span :class="{ muted: !enhancedStats }">{{ foodMedicineSummary }}</span>
+          </span>
+          <span class="m-chev" :class="{ 'is-open': setupOpen }">▾</span>
+        </button>
+        <div v-if="setupOpen" class="m-setup-body">
+          <div class="m-setup-group">
+            <h4 class="m-setup-group-title">初期品質</h4>
+            <InitialQuality @update:initial-quality="onInitialQualityUpdate" />
+          </div>
+          <div class="m-setup-group">
+            <h4 class="m-setup-group-title">食藥</h4>
+            <FoodMedicine @update:enhanced-stats="onEnhancedStatsUpdate" />
+          </div>
+        </div>
+
+        <!-- Sticky mode segmented -->
+        <div v-if="canSimulate" class="m-mode-wrap">
+          <el-segmented
+            :model-value="simStore.mode"
+            :options="modeOptions"
+            size="default"
+            class="m-mode-seg"
+            @change="(v: string) => simStore.setMode(v as 'solver' | 'manual')"
+          />
+        </div>
+
+        <!-- Manual toolbar -->
+        <div v-if="canSimulate && simStore.mode === 'manual'" class="m-manual-row">
+          <ConditionChips
+            :model-value="simStore.currentCondition"
+            @change="(c) => (simStore.currentCondition = c)"
+          />
+          <ManualControls />
+        </div>
+
+        <!-- Status bars + buffs -->
+        <section v-if="canSimulate" class="m-status">
+          <StatusBar :craft-state="currentState" />
+          <BuffDisplay :buffs="currentState?.buffs ?? new Map()" />
+        </section>
+
+        <!-- Action sequence -->
+        <section v-if="canSimulate" class="m-flat">
+          <div class="m-flat-head">
+            <h3 class="m-flat-title">
+              技能序列
+              <span v-if="simStore.actions.length" class="m-count">{{ simStore.actions.length }}</span>
+            </h3>
+            <button
+              v-if="simStore.actions.length"
+              class="m-text-btn"
+              @click="handleClearActions"
+            >清空</button>
+          </div>
+          <ActionList
+            :actions="simStore.actions"
+            :results="simStore.simulationResults"
+            :job="recipeJobAbbr"
+            @remove="handleRemoveAction"
+            @clear="handleClearActions"
+          />
+        </section>
+
+        <!-- Skill panel (manual) -->
+        <section v-if="canSimulate && simStore.mode === 'manual' && gearset" class="m-flat">
+          <h3 class="m-flat-title">技能面板</h3>
+          <SkillPanel
+            :level="gearset.level"
+            :craft-state="currentState"
+            :job="recipeJobAbbr"
+            @use-skill="handleUseSkill"
+          />
+        </section>
+
+        <!-- Solver / recommendation (solver mode) -->
+        <section v-if="canSimulate && simStore.mode === 'solver'" class="m-flat">
+          <h3 class="m-flat-title">自動求解</h3>
+          <SolverPanel
+            :craft-params="craftParams"
+            @solve-complete="onSolveComplete"
+          />
+        </section>
+
+        <section v-if="canSimulate && simStore.mode === 'solver'" class="m-flat">
+          <h3 class="m-flat-title">最佳手法</h3>
+          <CraftRecommendation
+            :craft-params="craftParams"
+            :recipe="recipe"
+            :solver-result="solverResult"
+            @apply-hq="handleApplyHq"
+            @self-craft="handleSelfCraft"
+          />
+        </section>
+
+        <!-- Macro (collapsed) -->
+        <section v-if="canSimulate" class="m-flat">
+          <button
+            type="button"
+            class="m-flat-head is-collapsible"
+            :aria-expanded="macroOpen"
+            @click="macroOpen = !macroOpen"
+          >
+            <h3 class="m-flat-title">遊戲巨集</h3>
+            <span class="m-chev" :class="{ 'is-open': macroOpen }">▾</span>
+          </button>
+          <div v-if="macroOpen" class="m-macro-body">
+            <MacroExport />
+          </div>
+        </section>
+      </template>
+
+      <!-- Queue bottom sheet -->
+      <el-drawer
+        v-model="queueSheetOpen"
+        direction="btt"
+        size="auto"
+        :with-header="false"
+        :append-to-body="true"
+        class="m-queue-sheet"
+      >
+        <div class="m-sheet">
+          <div class="m-sheet-handle" aria-hidden="true" />
+          <h3 class="m-sheet-title">模擬佇列</h3>
+
+          <ul v-if="recipeStore.simulationQueue.length > 0" class="m-q-list" role="list">
+            <li
+              v-for="qr in recipeStore.simulationQueue"
+              :key="qr.id"
+              class="m-q-item"
+              :class="{ 'is-active': recipe?.id === qr.id }"
+              role="button"
+              tabindex="0"
+              @click="pickQueueRecipe(qr)"
+              @keydown.enter.prevent="pickQueueRecipe(qr)"
+              @keydown.space.prevent="pickQueueRecipe(qr)"
+            >
+              <img :src="qr.icon" alt="" class="m-q-icon" loading="lazy" />
+              <span class="m-q-name">
+                <ItemName :item-id="qr.itemId" :fallback="qr.name" />
+              </span>
+              <span class="m-q-job">{{ qr.job }}</span>
+              <button
+                class="m-q-remove"
+                aria-label="移除配方"
+                @click.stop="handleRemoveFromQueue(qr.id)"
+              >✕</button>
+            </li>
+          </ul>
+          <p v-else class="m-q-empty">佇列是空的，搜尋配方加進來吧。</p>
+
+          <div class="m-sheet-actions">
+            <button class="m-sheet-primary" @click="openSearchFromSheet">搜尋配方</button>
+            <button
+              v-if="recipe"
+              class="m-sheet-secondary"
+              @click="handleAddToBom"
+            >加入購物清單</button>
+            <button
+              v-if="recipeStore.simulationQueue.length > 0"
+              class="m-sheet-secondary m-sheet-danger"
+              @click="handleClearQueue"
+            >清空佇列</button>
+          </div>
+        </div>
+      </el-drawer>
+    </template>
+
     <RecipeSearchSidebar v-model="searchSidebarOpen" context="加入模擬佇列" @add="handleAddFromSearch" />
   </div>
 </template>
@@ -595,6 +864,28 @@ async function handleSelfCraft(itemId: number) {
   .sim-right {
     width: 100%;
     position: static;
+    max-height: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .mode-switch-row {
+    gap: 8px;
+  }
+
+  .manual-toolbar {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .info-header-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .sim-layout {
+    gap: 12px;
   }
 }
 
@@ -612,12 +903,15 @@ async function handleSelfCraft(itemId: number) {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .queue-actions {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .queue-items {
@@ -645,13 +939,32 @@ async function handleSelfCraft(itemId: number) {
   border: 1px solid var(--el-border-color-dark);
 }
 
+.queue-item:focus-visible {
+  outline: 2px solid var(--app-accent-light);
+  outline-offset: 2px;
+}
+
 .queue-icon {
   width: 24px;
   height: 24px;
+  flex-shrink: 0;
+}
+
+.queue-item > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-item :deep(.el-tag) {
+  flex-shrink: 0;
 }
 
 .queue-remove {
   margin-left: auto;
+  flex-shrink: 0;
 }
 
 .batch-tip {
@@ -682,4 +995,399 @@ async function handleSelfCraft(itemId: number) {
   color: var(--el-color-primary);
   font-weight: 600;
 }
+
+/* ============================================================
+   Mobile branch — flat sections, no el-card wrappers
+   ============================================================ */
+
+.view-container.is-mobile {
+  padding: 0 16px 80px;
+}
+
+.m-chev {
+  display: inline-block;
+  transition: transform 0.18s var(--ease-out-quart, ease-out);
+  color: var(--app-text-muted);
+  font-size: 12px;
+}
+.m-chev.is-open {
+  transform: rotate(180deg);
+  color: var(--app-craft);
+}
+.muted { color: var(--app-text-muted); }
+.m-rs-dot { color: var(--app-text-muted); opacity: 0.5; margin: 0 5px; }
+
+/* --- Recipe strip --- */
+.m-recipe-strip {
+  display: flex;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.m-rs-icon {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  object-fit: contain;
+  background: color-mix(in srgb, var(--app-craft) 12%, transparent);
+  padding: 4px;
+}
+
+.m-rs-body { flex: 1; min-width: 0; }
+
+.m-rs-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.m-rs-name {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.m-rs-stars {
+  color: var(--app-craft);
+  letter-spacing: 1px;
+  margin-left: 4px;
+  font-size: 11px;
+}
+
+.m-rs-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--app-border);
+  border-radius: 999px;
+  color: var(--app-text-muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.m-rs-meta,
+.m-rs-stats {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: var(--app-text-muted);
+  font-family: 'Fira Code', ui-monospace, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.m-alert {
+  margin: 10px 0;
+}
+
+/* --- Setup accordion --- */
+.m-setup-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 2px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--app-border);
+  color: var(--app-text);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.m-setup-summary {
+  font-size: 13px;
+  color: var(--app-text-muted);
+}
+.m-setup-summary b { color: var(--app-text); font-weight: 600; }
+
+.m-setup-body {
+  padding: 8px 2px 16px;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.m-setup-group + .m-setup-group {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--app-border);
+}
+
+.m-setup-group-title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* --- Sticky mode segmented --- */
+.m-mode-wrap {
+  position: sticky;
+  top: 52px; /* mobile app bar height */
+  z-index: 10;
+  padding: 10px 0;
+  margin: 0 -16px;
+  padding-left: 16px;
+  padding-right: 16px;
+  background: color-mix(in srgb, var(--app-bg) 88%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.m-mode-seg {
+  width: 100%;
+}
+
+.m-mode-seg :deep(.el-segmented) {
+  width: 100%;
+}
+
+.m-mode-seg :deep(.el-segmented__group) {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.m-manual-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--app-border);
+}
+
+/* --- Status section (flat, no card) --- */
+.m-status {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.m-status :deep(.status-bar) {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+/* --- Flat sections --- */
+.m-flat {
+  padding: 16px 0 14px;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.m-flat:last-child {
+  border-bottom: 0;
+}
+
+.m-flat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  width: 100%;
+}
+
+.m-flat-head.is-collapsible {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  color: inherit;
+  margin-bottom: 0;
+}
+
+.m-flat-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--app-text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.m-count {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  background: color-mix(in srgb, var(--app-text) 8%, transparent);
+  color: var(--app-text);
+  border-radius: 999px;
+  font-size: 10px;
+  letter-spacing: 0;
+  font-weight: 500;
+  text-transform: none;
+}
+
+.m-text-btn {
+  background: transparent;
+  border: 0;
+  color: var(--app-text-muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.m-macro-body { padding-top: 12px; }
+
+/* Strip inner card borders from child components so they visually belong
+ * to the flat section rather than becoming yet another boxed container. */
+.view-container.is-mobile :deep(.el-card) {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.view-container.is-mobile :deep(.el-card__header),
+.view-container.is-mobile :deep(.el-card__body) {
+  padding: 0;
+  border: 0;
+}
+
+/* --- Queue bottom sheet --- */
+:global(.m-queue-sheet.el-drawer) {
+  border-radius: 20px 20px 0 0;
+  background: var(--app-surface) !important;
+  border-top: 1px solid var(--app-border);
+}
+:global(.m-queue-sheet .el-drawer__body) {
+  padding: 0 !important;
+}
+
+.m-sheet {
+  padding: 8px 20px calc(24px + env(safe-area-inset-bottom));
+  color: var(--app-text);
+}
+
+.m-sheet-handle {
+  width: 36px;
+  height: 4px;
+  background: var(--app-border);
+  border-radius: 999px;
+  margin: 0 auto 14px;
+}
+
+.m-sheet-title {
+  margin: 0 0 14px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.m-q-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 16px;
+  border-top: 1px solid var(--app-border);
+}
+
+.m-q-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 2px;
+  border-bottom: 1px solid var(--app-border);
+  cursor: pointer;
+}
+
+.m-q-item.is-active {
+  background: color-mix(in srgb, var(--app-craft) 8%, transparent);
+  margin: 0 -20px;
+  padding-left: 22px;
+  padding-right: 22px;
+}
+
+.m-q-item:focus-visible {
+  outline: 2px solid var(--app-accent-light);
+  outline-offset: -2px;
+}
+
+.m-q-icon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 6px;
+}
+
+.m-q-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 14px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.m-q-job {
+  font-size: 11px;
+  color: var(--app-text-muted);
+}
+
+.m-q-remove {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  color: var(--app-text-muted);
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.m-q-remove:hover {
+  background: color-mix(in srgb, var(--app-text) 6%, transparent);
+}
+
+.m-q-empty {
+  padding: 24px 0;
+  text-align: center;
+  color: var(--app-text-muted);
+  font-size: 13px;
+}
+
+.m-sheet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.m-sheet-primary {
+  flex: 1;
+  min-width: 140px;
+  padding: 12px;
+  background: var(--app-accent);
+  border: 0;
+  border-radius: 10px;
+  color: white;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.m-sheet-secondary {
+  flex: 1;
+  min-width: 140px;
+  padding: 12px;
+  background: transparent;
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  color: var(--app-text);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.m-sheet-danger { color: #F87171; border-color: rgba(248, 113, 113, 0.3); }
 </style>

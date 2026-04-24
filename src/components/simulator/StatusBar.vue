@@ -50,13 +50,16 @@ const completionType = computed(() => {
 
       <div v-for="bar in bars" :key="bar.label" class="bar-row">
         <span class="bar-label">{{ bar.label }}</span>
-        <el-progress
-          :percentage="percentOf(bar.current, bar.max)"
-          :stroke-width="18"
-          :color="bar.color"
-          :text-inside="true"
-          :format="() => `${bar.current} / ${bar.max}`"
-        />
+        <div class="bar-track">
+          <el-progress
+            :percentage="percentOf(bar.current, bar.max)"
+            :stroke-width="14"
+            :color="bar.color"
+            :show-text="false"
+            :aria-label="`${bar.label} ${bar.current} / ${bar.max}`"
+          />
+        </div>
+        <span class="bar-value">{{ bar.current }} / {{ bar.max }}</span>
       </div>
     </template>
   </div>
@@ -80,21 +83,44 @@ const completionType = computed(() => {
 }
 
 .bar-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
   align-items: center;
   margin-bottom: 8px;
-  gap: 12px;
+  gap: 10px;
 }
 
 .bar-label {
-  width: 40px;
-  flex-shrink: 0;
   font-size: 13px;
   font-weight: 500;
   text-align: right;
 }
 
-.bar-row .el-progress {
-  flex: 1;
+.bar-track {
+  min-width: 0;
+}
+
+.bar-value {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--app-text-muted);
+  white-space: nowrap;
+  text-align: right;
+  min-width: 60px;
+}
+
+/* On narrow phones, stack the numeric readout below the bar so long values
+ * (e.g. 8838 / 8500) are never squeezed. */
+@media (max-width: 480px) {
+  .bar-row {
+    grid-template-columns: 40px 1fr;
+    row-gap: 2px;
+  }
+
+  .bar-value {
+    grid-column: 2 / 3;
+    text-align: left;
+    min-width: 0;
+  }
 }
 </style>
