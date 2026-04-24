@@ -60,15 +60,27 @@ function onRemoveClick(event: Event) {
   event.stopPropagation()
   emit('remove')
 }
+
+function onCardKeydown(event: KeyboardEvent) {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    emit('toggle-map')
+  }
+}
 </script>
 
 <template>
   <div
     class="node-card"
     :class="[statusClass, { 'alarm-off': !alarmEnabled }]"
+    role="button"
+    tabindex="0"
+    :aria-label="`${node.itemName}｜${statusLabel}｜${countdown}｜點擊展開地圖`"
+    @click="$emit('toggle-map')"
+    @keydown="onCardKeydown"
   >
     <!-- Card header: status dot + label, countdown, alarm switch, remove -->
-    <div class="card-header" @click="$emit('toggle-map')" style="cursor:pointer">
+    <div class="card-header">
       <div class="header-left">
         <span class="status-dot" />
         <span class="status-label">{{ statusLabel }}</span>
@@ -83,12 +95,12 @@ function onRemoveClick(event: Event) {
           :aria-label="alarmEnabled ? '關閉提醒' : '開啟提醒'"
           @click="onAlarmClick"
         />
-        <button class="remove-btn" title="移除追蹤" @click="onRemoveClick">&#x2715;</button>
+        <button class="remove-btn" aria-label="移除追蹤" title="移除追蹤" @click="onRemoveClick">&#x2715;</button>
       </div>
     </div>
 
     <!-- Card body: info on left, price on right -->
-    <div class="card-body" @click="$emit('toggle-map')" style="cursor:pointer">
+    <div class="card-body">
       <div class="card-info">
         <div class="item-name">
           {{ node.itemName }}
@@ -129,8 +141,8 @@ function onRemoveClick(event: Event) {
 }
 
 .node-card.status-active {
-  --status-color: #4ADE80;
-  --status-glow: rgba(74, 222, 128, 0.18);
+  --status-color: var(--app-success);
+  --status-glow: var(--app-success-tint-strong);
 }
 
 .node-card.status-upcoming {
@@ -151,6 +163,7 @@ function onRemoveClick(event: Event) {
   border: 1px solid color-mix(in srgb, var(--status-color) 30%, transparent);
   border-radius: 10px;
   padding: 12px 14px;
+  cursor: pointer;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
   box-shadow:
     0 2px 8px rgba(0, 0, 0, 0.3),
@@ -162,6 +175,11 @@ function onRemoveClick(event: Event) {
   box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.35),
     0 0 12px var(--status-glow);
+}
+
+.node-card:focus-visible {
+  outline: 2px solid var(--status-color);
+  outline-offset: 2px;
 }
 
 /* Dimmed when alarm is off for this item */
@@ -255,11 +273,12 @@ function onRemoveClick(event: Event) {
 }
 
 .countdown {
-  font-family: 'Fira Code', 'Consolas', monospace;
+  font-family: inherit;
   font-size: 22px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   color: var(--app-text);
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
 }
 
 .alarm-switch {
@@ -292,7 +311,7 @@ function onRemoveClick(event: Event) {
 }
 
 .item-stars {
-  color: #FBBF24;
+  color: var(--element-lightning);
   font-size: 12px;
   margin-left: 4px;
 }
@@ -321,13 +340,12 @@ function onRemoveClick(event: Event) {
 }
 
 .location {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--app-text-muted);
   margin-top: 3px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  opacity: 0.75;
 }
 
 /* Right: price */
@@ -339,22 +357,24 @@ function onRemoveClick(event: Event) {
 }
 
 .price-value {
-  font-family: 'Fira Code', 'Consolas', monospace;
+  font-family: inherit;
   font-size: 14px;
   font-weight: 700;
-  color: #FBBF24;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-gold);
 }
 
 .price-unit {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--app-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .price-loading {
-  font-family: 'Fira Code', 'Consolas', monospace;
+  font-family: inherit;
   font-size: 14px;
+  font-variant-numeric: tabular-nums;
   color: var(--app-text-muted);
   opacity: 0.5;
 }

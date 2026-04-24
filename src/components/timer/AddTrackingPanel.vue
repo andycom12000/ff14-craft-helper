@@ -274,8 +274,8 @@ function toggleExpand(key: string) {
 }
 
 .tab-btn.active {
-  color: #4ADE80;
-  border-bottom-color: #4ADE80;
+  color: var(--app-success);
+  border-bottom-color: var(--app-success);
 }
 
 .tab-btn:hover:not(.active) {
@@ -388,10 +388,10 @@ function toggleExpand(key: string) {
 .add-btn {
   flex-shrink: 0;
   padding: 3px 10px;
-  background: rgba(74, 222, 128, 0.15);
-  border: 1px solid rgba(74, 222, 128, 0.4);
+  background: color-mix(in srgb, var(--app-success) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--app-success) 40%, transparent);
   border-radius: 4px;
-  color: #4ADE80;
+  color: var(--app-success);
   font-size: 12px;
   cursor: pointer;
   white-space: nowrap;
@@ -462,7 +462,7 @@ function toggleExpand(key: string) {
 
 .accordion-arrow {
   display: inline-block;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--app-text-muted, #94A3B8);
   transition: transform 0.15s;
   flex-shrink: 0;

@@ -6,7 +6,6 @@ const props = withDefaults(defineProps<{
   node: GatheringNode
   interactive?: boolean
   nearbyNodes?: GatheringNode[]
-  statusColor: string
 }>(), {
   nearbyNodes: () => [],
 })
@@ -289,7 +288,7 @@ const coordsLabel = computed(() => {
   width: 100%;
   height: 260px;
   overflow: hidden;
-  background: #0a0e1a;
+  background: var(--app-bg);
   border-radius: 6px;
   cursor: grab;
   user-select: none;
@@ -345,9 +344,8 @@ const coordsLabel = computed(() => {
   z-index: 10;
   font-size: 11px;
   font-weight: 600;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(2px);
+  color: var(--app-text);
+  background: rgba(15, 16, 25, 0.82);
   padding: 2px 6px;
   border-radius: 4px;
   pointer-events: none;
@@ -383,7 +381,7 @@ const coordsLabel = computed(() => {
   background: rgba(0, 0, 0, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 4px;
-  color: #fff;
+  color: var(--app-text);
   font-size: 16px;
   line-height: 1;
   cursor: pointer;
@@ -423,7 +421,7 @@ const coordsLabel = computed(() => {
   height: 200px;
   overflow: hidden;
   border-radius: 6px;
-  background: #0a0e1a;
+  background: var(--app-bg);
 }
 
 .minimap-static-img {

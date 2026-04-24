@@ -290,7 +290,7 @@ function setVolume(val: number) {
   background: rgba(74, 222, 128, 0.12);
   border: 1px solid rgba(74, 222, 128, 0.35);
   border-radius: 4px;
-  color: #4ADE80;
+  color: var(--app-success);
   font-size: 12px;
   cursor: pointer;
   display: flex;
@@ -323,7 +323,7 @@ function setVolume(val: number) {
 
 .custom-loaded {
   font-size: 11px;
-  color: #4ADE80;
+  color: var(--app-success);
   font-weight: 400;
 }
 

@@ -125,7 +125,6 @@ interface TrackedNodeState {
   countdown: string
   isActive: boolean
   realSecondsUntil: number
-  statusColor: string
 }
 
 const trackedNodeStates = ref<TrackedNodeState[]>([])
@@ -143,22 +142,12 @@ function tick() {
     const spawn = getNextSpawn(node, et)
     const countdown = spawn.isActive ? 'ACTIVE' : formatCountdown(spawn.realSecondsUntil)
 
-    // Determine status color
-    let statusColor = '#94A3B8' // later
-    if (spawn.isActive) {
-      statusColor = '#4ADE80' // active green
-    } else {
-      const minutes = spawn.realSecondsUntil / 60
-      if (minutes < 30) statusColor = '#60A5FA' // upcoming blue
-    }
-
     states.push({
       node,
       tracked,
       countdown,
       isActive: spawn.isActive,
       realSecondsUntil: spawn.realSecondsUntil,
-      statusColor,
     })
 
     // --- Alarm check ---
@@ -364,7 +353,6 @@ onUnmounted(() => {
               :node="item.node"
               :interactive="isDesktop"
               :nearbyNodes="getNearbyNodes(item.node)"
-              :statusColor="item.statusColor"
             />
           </NodeCard>
         </template>
@@ -391,6 +379,7 @@ onUnmounted(() => {
       :size="drawerSize"
       direction="rtl"
       title="追蹤管理"
+      destroy-on-close
     >
       <AddTrackingPanel />
       <div class="drawer-divider" />
@@ -497,9 +486,9 @@ onUnmounted(() => {
 }
 
 .chip.active {
-  background: rgba(16, 185, 129, 0.18);
-  border-color: rgba(16, 185, 129, 0.5);
-  color: #10B981;
+  background: color-mix(in srgb, var(--app-gather) 18%, transparent);
+  border-color: color-mix(in srgb, var(--app-gather) 50%, transparent);
+  color: var(--app-gather);
   font-weight: 600;
 }
 
@@ -517,10 +506,10 @@ onUnmounted(() => {
   gap: 8px;
   padding: 10px 14px;
   margin-bottom: 16px;
-  background: rgba(251, 191, 36, 0.08);
-  border: 1px solid rgba(251, 191, 36, 0.3);
+  background: color-mix(in srgb, var(--element-lightning) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--element-lightning) 30%, transparent);
   border-radius: 8px;
-  color: #FBBF24;
+  color: var(--element-lightning);
   font-size: 13px;
   font-weight: 500;
 }
@@ -618,21 +607,21 @@ onUnmounted(() => {
 /* ------------------------------------------------------------------ */
 .fab {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  right: calc(24px + env(safe-area-inset-right, 0px));
   width: 52px;
   height: 52px;
   border-radius: 50%;
   border: none;
-  background: linear-gradient(135deg, #8B5CF6, #7C3AED);
-  color: #fff;
+  background: var(--app-accent);
+  color: var(--app-text);
   font-size: 28px;
   font-weight: 300;
   line-height: 1;
   cursor: pointer;
   box-shadow:
-    0 4px 16px rgba(124, 58, 237, 0.35),
-    0 2px 6px rgba(0, 0, 0, 0.3);
+    0 4px 14px rgba(124, 58, 237, 0.22),
+    0 2px 4px rgba(0, 0, 0, 0.28);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -641,10 +630,10 @@ onUnmounted(() => {
 }
 
 .fab:hover {
-  transform: scale(1.08);
+  transform: scale(1.05);
   box-shadow:
-    0 6px 24px rgba(124, 58, 237, 0.45),
-    0 3px 8px rgba(0, 0, 0, 0.35);
+    0 6px 20px rgba(124, 58, 237, 0.3),
+    0 3px 6px rgba(0, 0, 0, 0.32);
 }
 
 .fab:active {
@@ -688,24 +677,24 @@ onUnmounted(() => {
   }
 
   .chip {
-    padding: 6px 12px;
+    padding: 10px 12px;
     font-size: 12px;
-    min-height: 32px;
+    min-height: 44px;
     display: inline-flex;
     align-items: center;
   }
 
   .chip-sm {
-    padding: 5px 10px;
+    padding: 8px 10px;
     font-size: 11px;
-    min-height: 32px;
+    min-height: 40px;
     display: inline-flex;
     align-items: center;
   }
 
   .fab {
-    bottom: 16px;
-    right: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    right: calc(16px + env(safe-area-inset-right, 0px));
     width: 48px;
     height: 48px;
     font-size: 24px;

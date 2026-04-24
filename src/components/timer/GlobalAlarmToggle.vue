@@ -43,7 +43,7 @@ const label = computed(() =>
 }
 
 .bell-icon {
-  color: #4ADE80;
+  color: var(--app-success);
   flex-shrink: 0;
   transition: color 0.2s;
 }
@@ -55,7 +55,7 @@ const label = computed(() =>
 .alarm-label {
   font-size: 13px;
   font-weight: 500;
-  color: #4ADE80;
+  color: var(--app-success);
   white-space: nowrap;
   transition: color 0.2s;
 }
