@@ -198,12 +198,9 @@ function tooltipContent(skill: SkillDefinition): string {
   color: var(--el-text-color-secondary);
 }
 
-/* Mobile: Element Plus border-card tabs ship with asymmetric padding
- * (first tab gets extra left pad, last gets extra right pad, and the
- * active tab gets extra padding on the side neighbouring the prev
- * tab) which makes labels like 品質 look shifted right instead of
- * centered. Force symmetric padding on every state and distribute
- * the five tabs with equal flex weight so they stay aligned. */
+/* Element Plus border-card adds asymmetric padding (first/last/active
+ * tabs get extra side padding). Override with flex:1 + padding:0 so
+ * labels stay centered. */
 @media (max-width: 640px) {
   .skill-panel :deep(.el-tabs--border-card > .el-tabs__header) {
     display: flex;
@@ -224,8 +221,6 @@ function tooltipContent(skill: SkillDefinition): string {
     padding: 10px;
   }
 
-  /* Grid of skill tiles — equal column widths so ragged button widths
-   * and long names (e.g. 工匠的神速技巧) can't overflow the row. */
   .skill-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);

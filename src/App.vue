@@ -46,7 +46,6 @@ watch(() => route.path, () => {
   sidebarOpen.value = false
 })
 
-// Lock body scroll when mobile drawer is open
 watch(sidebarOpen, (open) => {
   if (typeof document === 'undefined') return
   document.body.style.overflow = open ? 'hidden' : ''

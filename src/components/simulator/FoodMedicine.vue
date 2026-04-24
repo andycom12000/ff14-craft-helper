@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRecipeStore } from '@/stores/recipe'
 import { useGearsetsStore } from '@/stores/gearsets'
+import { useMediaQuery } from '@/composables/useMediaQuery'
 import {
   COMMON_FOODS,
   COMMON_MEDICINES,
@@ -99,19 +100,11 @@ function statDiff(base: number, enhanced: number): string {
   return `(+${diff})`
 }
 
-// Responsive column count for the stats descriptions table
-const viewportWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024)
+const isVeryNarrow = useMediaQuery('(max-width: 479px)')
+const isNarrow = useMediaQuery('(max-width: 767px)')
 const statsDescColumns = computed(() =>
-  viewportWidth.value < 480 ? 1 : viewportWidth.value < 768 ? 2 : 3,
+  isVeryNarrow.value ? 1 : isNarrow.value ? 2 : 3,
 )
-let widthListener: (() => void) | null = null
-onMounted(() => {
-  widthListener = () => { viewportWidth.value = window.innerWidth }
-  window.addEventListener('resize', widthListener)
-})
-onUnmounted(() => {
-  if (widthListener) window.removeEventListener('resize', widthListener)
-})
 </script>
 
 <template>
@@ -326,9 +319,6 @@ onUnmounted(() => {
   }
 }
 
-/* Mobile: collapse the desktop table-style stats into a compact
- * base→enhanced row so 基礎/最終 能力值 read as an inline summary
- * instead of two bordered el-descriptions tables. */
 @media (max-width: 640px) {
   .food-medicine {
     max-width: none;

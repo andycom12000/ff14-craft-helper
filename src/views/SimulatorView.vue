@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useRecipeStore } from '@/stores/recipe'
@@ -7,7 +7,7 @@ import { useGearsetsStore } from '@/stores/gearsets'
 import { useBomStore } from '@/stores/bom'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import { JOB_NAMES } from '@/utils/jobs'
-import { useSimulatorStore } from '@/stores/simulator'
+import { useSimulatorStore, type SimulatorMode } from '@/stores/simulator'
 import { createInitialState, type CraftParams, type CraftState, type StepResult } from '@/engine/simulator'
 import type { BuffType } from '@/engine/buffs'
 import type { EnhancedStats } from '@/engine/food-medicine'
@@ -49,17 +49,8 @@ const setupOpen = ref(false)
 const macroOpen = ref(false)
 const queueSheetOpen = ref(false)
 
-// Responsive columns for the recipe-info descriptions table
-const viewportWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024)
-const infoDescColumns = computed(() => viewportWidth.value < 480 ? 1 : 2)
-let widthListener: (() => void) | null = null
-onMounted(() => {
-  widthListener = () => { viewportWidth.value = window.innerWidth }
-  window.addEventListener('resize', widthListener)
-})
-onUnmounted(() => {
-  if (widthListener) window.removeEventListener('resize', widthListener)
-})
+const isVeryNarrow = useMediaQuery('(max-width: 479px)')
+const infoDescColumns = computed(() => (isVeryNarrow.value ? 1 : 2))
 
 const initialQuality = ref(0)
 const enhancedStats = ref<EnhancedStats | null>(null)
@@ -450,7 +441,7 @@ async function handleSelfCraft(itemId: number) {
               :model-value="simStore.mode"
               :options="modeOptions"
               size="default"
-              @change="(v: string) => simStore.setMode(v as 'solver' | 'manual')"
+              @change="(v: string) => simStore.setMode(v as SimulatorMode)"
             />
             <div v-if="simStore.mode === 'manual'" class="manual-toolbar">
               <ConditionChips
@@ -623,7 +614,7 @@ async function handleSelfCraft(itemId: number) {
             :options="modeOptions"
             size="default"
             class="m-mode-seg"
-            @change="(v: string) => simStore.setMode(v as 'solver' | 'manual')"
+            @change="(v: string) => simStore.setMode(v as SimulatorMode)"
           />
         </div>
 
@@ -659,6 +650,7 @@ async function handleSelfCraft(itemId: number) {
             :actions="simStore.actions"
             :results="simStore.simulationResults"
             :job="recipeJobAbbr"
+            :show-header="false"
             @remove="handleRemoveAction"
             @clear="handleClearActions"
           />

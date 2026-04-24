@@ -270,10 +270,6 @@ async function loadHqRecommendations() {
 </template>
 
 <style scoped>
-/* Mobile: tighten the HQ-recommendation table only — the rule used
- * to target \`:deep(.el-table)\` globally, which leaked into the nested
- * BomSummary tables and hid their 小計 column (leaving empty colgroup
- * cells on the right). Scope to .hq-rec-table to keep BomSummary intact. */
 @media (max-width: 640px) {
   :deep(.hq-rec-table .el-table__cell),
   :deep(.hq-rec-table .el-table__header th) {
@@ -287,9 +283,6 @@ async function loadHqRecommendations() {
   margin-top: 12px;
 }
 
-/* Mobile: drop the wrapper el-card chrome so BomSummary's own mobile
- * card layout reads as part of the flat SimulatorView section instead
- * of a card-inside-card-inside-accordion stack. */
 @media (max-width: 640px) {
   .rec-card {
     margin-top: 0;

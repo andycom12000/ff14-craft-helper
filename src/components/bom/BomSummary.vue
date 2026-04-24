@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, shallowRef, triggerRef, watch } from 'vue'
 import type { FlatMaterial, PriceInfo, MaterialNode } from '@/stores/bom'
 import { useSettingsStore } from '@/stores/settings'
 import { getPrice } from '@/stores/bom'
@@ -10,16 +10,14 @@ import CrossWorldPriceDetail from '@/components/common/CrossWorldPriceDetail.vue
 import ItemName from '@/components/common/ItemName.vue'
 import { formatGil } from '@/utils/format'
 
-// Drop low-priority columns on narrow viewports. Element Plus builds a
-// fixed-width <colgroup> per table; `display:none` on a <td> leaves the
-// matching <col> sized, so the header overflows while the body is clipped.
-// Use v-if so el-table never creates those columns in the first place.
+// el-table builds a fixed-width <colgroup> per table — hiding cells via
+// display:none leaves the matching <col> sized and overflows the header.
+// Gate columns with v-if instead so el-table never creates them.
 const isNarrow = useMediaQuery('(max-width: 720px)')
 const isVeryNarrow = useMediaQuery('(max-width: 480px)')
 const isMobile = useMediaQuery('(max-width: 640px)')
 
-// Mobile card layout: tap a row to expand cross-world price details in place.
-const expandedIds = ref(new Set<number>())
+const expandedIds = shallowRef(new Set<number>())
 function toggleExpand(row: FlatMaterial) {
   if (expandedIds.value.has(row.itemId)) {
     expandedIds.value.delete(row.itemId)
@@ -27,7 +25,7 @@ function toggleExpand(row: FlatMaterial) {
     expandedIds.value.add(row.itemId)
     fetchCrossWorldData(row.itemId, row.name)
   }
-  expandedIds.value = new Set(expandedIds.value)
+  triggerRef(expandedIds)
 }
 function isExpanded(itemId: number): boolean {
   return expandedIds.value.has(itemId)
@@ -39,6 +37,11 @@ const props = defineProps<{
   targetItemIds?: number[]
   materialTree?: MaterialNode[]
 }>()
+
+watch(() => props.materials, () => {
+  expandedIds.value.clear()
+  triggerRef(expandedIds)
+})
 
 const emit = defineEmits<{
   'refresh-prices': []
@@ -158,8 +161,6 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
       <!-- Raw materials section -->
       <h4 class="section-title">原始素材（需採集 / 購買）</h4>
 
-      <!-- Mobile: card list with tap-to-expand (el-table's fixed colgroup
-           left empty cells on the right when columns were hidden). -->
       <ul v-if="isMobile" class="mat-cards" role="list">
         <li
           v-for="row in rawMaterials"
@@ -466,10 +467,6 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
   text-align: right;
 }
 
-/* Mobile: tighten cell padding and font only — columns are gated via v-if in
- * the template (not CSS). Hiding columns via `display:none` on <td> left the
- * <colgroup>'s fixed-width <col> sized, which made the header overflow the
- * body and pushed most columns off-screen. */
 @media (max-width: 720px) {
   :deep(.el-table .cell) {
     padding-left: 6px;
@@ -491,8 +488,6 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
   }
 }
 
-/* Mobile: strip the wrapping el-card chrome so the card list reads
- * as part of the parent flat section instead of a card-in-card. */
 @media (max-width: 640px) {
   :deep(.el-card) {
     background: transparent;

@@ -9,11 +9,12 @@ import {
 import type { Job } from '@/engine/skill-icons-by-job'
 import { useLocaleStore } from '@/stores/locale'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   actions: string[]
   results: StepResult[]
   job?: Job | null
-}>()
+  showHeader?: boolean
+}>(), { showHeader: true })
 
 const emit = defineEmits<{
   remove: [index: number]
@@ -74,7 +75,7 @@ function tagTone(index: number, results: StepResult[]): '' | 'success' | 'danger
 
 <template>
   <div class="action-list">
-    <div class="action-header">
+    <div v-if="showHeader" class="action-header">
       <el-text size="small" tag="b">技能序列 ({{ actions.length }} 步)</el-text>
       <el-button
         v-if="actions.length > 0"
@@ -174,14 +175,7 @@ function tagTone(index: number, results: StepResult[]): '' | 'success' | 'danger
   font-size: 12px;
 }
 
-/* Mobile: 2-column equal-width grid so tags align instead of flex-wrap
- * creating ragged rows of varying widths. Drop the internal header —
- * the SimulatorView wrapper already shows the section heading + clear
- * button, so keeping this one means "技能序列" appears twice. */
 @media (max-width: 640px) {
-  .action-header {
-    display: none;
-  }
   .action-list {
     padding: 0;
   }

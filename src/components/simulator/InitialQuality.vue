@@ -221,11 +221,6 @@ function decrementHq(index: number) {
   text-align: right;
 }
 
-/* Mobile: keep rows inline (name left, NQ/HQ right) so the list
- * reads as a tight ledger instead of stacked cards with big dead
- * button rows. Flatten the per-row background — the SimulatorView
- * accordion already provides grouping, and card-in-card noise was
- * the biggest visual issue. */
 @media (max-width: 640px) {
   .initial-quality {
     max-width: none;
