@@ -133,7 +133,6 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
 <template>
   <div class="settings-view">
     <h2>設定</h2>
-    <p class="view-desc">選擇你的伺服器，調整價格顯示方式。</p>
 
     <el-card shadow="never">
       <template #header>
@@ -402,11 +401,15 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
 
 .about-tech-link {
   color: var(--app-accent-light);
-  text-decoration: none;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(167, 139, 250, 0.5);
 }
 
 .about-tech-link:hover {
-  text-decoration: underline;
+  text-decoration-style: solid;
+  text-decoration-color: currentColor;
 }
 
 .about-link-item {

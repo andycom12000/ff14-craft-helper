@@ -133,6 +133,14 @@ watch(() => route.path, () => {
   --app-accent-light: #A78BFA;
   --app-accent-glow: rgba(124, 58, 237, 0.15);
   --app-success: #4ade80;
+  --app-success-tint: rgba(74, 222, 128, 0.1);
+  --app-success-tint-strong: rgba(74, 222, 128, 0.18);
+  --app-success-border: rgba(74, 222, 128, 0.35);
+
+  /* Craft condition colors (good/normal/poor orbs) */
+  --state-normal: #9ca3af;
+  --state-good: #f59e0b;
+  --state-poor: #f43f5e;
 
   /* Functional area colors */
   --app-craft: #F59E0B;

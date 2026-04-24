@@ -32,7 +32,7 @@ defineProps<{
   >
     <div class="node-content">
       <div class="node-icon-wrapper">
-        <img :src="node.icon" :alt="node.name" crossorigin="anonymous" class="node-icon" />
+        <img :src="node.icon" :alt="node.name" crossorigin="anonymous" loading="lazy" decoding="async" class="node-icon" />
         <span v-if="node.amount > 1" class="qty-badge">{{ node.amount }}</span>
       </div>
       <div class="node-info">

@@ -88,4 +88,12 @@ function pick(mode: Mode) {
   outline: 2px solid var(--accent-gold, var(--el-color-primary));
   outline-offset: 2px;
 }
+
+@media (pointer: coarse) {
+  .mode-pill {
+    padding: 10px 18px;
+    min-height: 40px;
+    font-size: 14px;
+  }
+}
 </style>

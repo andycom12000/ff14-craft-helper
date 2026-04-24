@@ -51,25 +51,24 @@ function onSelect(locale: Locale) {
   appearance: none;
   background: transparent;
   border: none;
-  padding: 4px 8px;
+  padding: 6px 10px;
+  min-height: 28px;
   font-size: 12px;
   font-family: inherit;
   color: var(--app-text-muted);
-  opacity: 0.55;
   font-weight: 500;
   letter-spacing: 0.3px;
   cursor: pointer;
   border-radius: 6px;
-  transition: opacity 0.15s var(--ease-out-quart), color 0.15s var(--ease-out-quart), background-color 0.15s var(--ease-out-quart);
+  transition: color 0.15s var(--ease-out-quart), background-color 0.15s var(--ease-out-quart);
 }
 
 .pill:hover {
-  opacity: 1;
   color: var(--app-text);
+  background: var(--app-surface-hover);
 }
 
 .pill.active {
-  opacity: 1;
   color: var(--app-accent-light);
   font-weight: 700;
   background: var(--app-accent-glow);
@@ -78,5 +77,13 @@ function onSelect(locale: Locale) {
 .pill:focus-visible {
   outline: 2px solid var(--app-accent-light);
   outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  .pill {
+    padding: 10px 14px;
+    min-height: 40px;
+    font-size: 13px;
+  }
 }
 </style>

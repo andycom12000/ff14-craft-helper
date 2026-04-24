@@ -91,7 +91,6 @@ function tooltipContent(skill: SkillDefinition): string {
               :class="{ 'is-disabled': isDisabled(skill.id) }"
               :disabled="isDisabled(skill.id)"
               :aria-label="skillDisplayName(skill)"
-              :title="skillDisplayName(skill)"
               @click="handleClick(skill.id)"
             >
               <template v-if="getSkillIconUrl(skill, props.job ?? null)">

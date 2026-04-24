@@ -18,10 +18,10 @@ interface ChipDef {
 }
 
 const chips: ChipDef[] = [
-  { id: 'Normal', label: '普通', kind: 'solid', color: '#9ca3af' },
-  { id: 'Good', label: '高品質', kind: 'solid', color: '#f59e0b' },
+  { id: 'Normal', label: '普通', kind: 'solid', color: 'var(--state-normal)' },
+  { id: 'Good', label: '高品質', kind: 'solid', color: 'var(--state-good)' },
   { id: 'Excellent', label: '最高品質', kind: 'rainbow' },
-  { id: 'Poor', label: '低品質', kind: 'solid', color: '#f43f5e' },
+  { id: 'Poor', label: '低品質', kind: 'solid', color: 'var(--state-poor)' },
 ]
 
 function select(c: ManualCondition) {
@@ -66,30 +66,36 @@ function select(c: ManualCondition) {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 12px;
+  padding: 6px 12px;
+  min-height: 30px;
   border-radius: 999px;
   border: 1px solid transparent;
   background: transparent;
-  color: var(--el-text-color-secondary);
+  color: var(--el-text-color-regular);
   font-size: 12px;
   cursor: pointer;
-  opacity: 0.6;
   transition:
-    opacity 120ms ease,
     border-color 120ms ease,
     background-color 120ms ease,
     color 120ms ease;
 }
 
 .chip:hover {
-  opacity: 0.9;
+  color: var(--el-text-color-primary);
+  background: var(--el-fill-color);
 }
 
 .chip.active {
-  opacity: 1;
   border-color: var(--app-accent, var(--el-color-primary));
   background: var(--app-accent-glow, rgba(99, 102, 241, 0.12));
   color: var(--el-text-color-primary);
+}
+
+@media (pointer: coarse) {
+  .chip {
+    padding: 8px 14px;
+    min-height: 36px;
+  }
 }
 
 .chip:focus-visible {

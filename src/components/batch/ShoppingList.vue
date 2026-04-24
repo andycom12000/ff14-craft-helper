@@ -122,6 +122,10 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
   if (batchStore.isShoppingChecked(row.itemId, row.type, row.isFinishedProduct)) classes.push('row-checked')
   return classes.join(' ')
 }
+
+function rowAriaLabel(row: MaterialWithPrice): string {
+  return `${row.name} — 點一下整列複製品名`
+}
 </script>
 
 <template>
@@ -238,7 +242,7 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
         </el-table-column>
         <el-table-column label="素材" min-width="120">
           <template #default="{ row }">
-            <span class="material-name-wrap">
+            <span class="material-name-wrap" :title="rowAriaLabel(row)">
               <span class="material-name">
                 <ItemName :item-id="row.itemId" :fallback="row.name" />
               </span>
@@ -553,6 +557,32 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
 @media (max-width: 768px) {
   .copy-btn {
     opacity: 1;
+  }
+}
+
+@media (pointer: coarse) {
+  .copy-btn {
+    width: 36px;
+    height: 36px;
+    opacity: 1;
+  }
+}
+
+.quality-pill,
+.quality-toggle-pill {
+  min-height: 28px;
+}
+
+@media (pointer: coarse) {
+  .quality-pill {
+    padding: 8px 16px;
+    min-height: 36px;
+    font-size: 13px;
+  }
+  .quality-toggle-pill {
+    padding: 7px 14px;
+    min-height: 32px;
+    font-size: 12.5px;
   }
 }
 

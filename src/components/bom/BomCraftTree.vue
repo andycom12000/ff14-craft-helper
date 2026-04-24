@@ -63,17 +63,17 @@ const allCrystals = computed(() => {
   return Array.from(map.values()).sort((a, b) => a.itemId - b.itemId)
 })
 
-const crystalColorsByElement = [
-  '#F87171', // fire
-  '#A78BFA', // ice
-  '#34D399', // wind
-  '#F472B6', // earth
-  '#FBBF24', // lightning
-  '#60A5FA', // water
+const crystalColorTokens = [
+  'var(--element-fire)',
+  'var(--element-ice)',
+  'var(--element-wind)',
+  'var(--element-earth)',
+  'var(--element-lightning)',
+  'var(--element-water)',
 ]
 
 function getCrystalColor(itemId: number): string {
-  return crystalColorsByElement[(itemId - 2) % 6]
+  return crystalColorTokens[(itemId - 2) % 6]
 }
 
 /**
@@ -119,31 +119,47 @@ interface NodeDisplayInfo {
   saving: number
 }
 
-function getNodeDisplayInfo(node: MaterialNode): NodeDisplayInfo | null {
-  if (!node.children || node.children.length === 0 || !node.recipeId || node.collapsed) return null
-  const decision = decisionsMap.value.get(node.itemId)
-  if (decision) {
-    return {
-      buyCost: decision.buyCost,
-      craftCost: decision.craftCost,
-      recommendation: decision.recommendation,
-      saving: Math.abs(decision.buyCost - decision.craftCost),
+// Build a node-id → display-info map up-front so the template can do cheap
+// lookups instead of recomputing the same comparison 4–8 times per node per
+// re-render (was triggering on every price tick for deep trees).
+const displayInfoMap = computed(() => {
+  const map = new Map<number, NodeDisplayInfo>()
+  function walk(nodes: MaterialNode[]) {
+    for (const node of nodes) {
+      if (node.children && node.children.length > 0 && node.recipeId && !node.collapsed) {
+        const decision = decisionsMap.value.get(node.itemId)
+        if (decision) {
+          map.set(node.itemId, {
+            buyCost: decision.buyCost,
+            craftCost: decision.craftCost,
+            recommendation: decision.recommendation,
+            saving: Math.abs(decision.buyCost - decision.craftCost),
+          })
+        } else {
+          const unitPrice = unitPriceOrZero(node.itemId)
+          const buyCost = unitPrice * node.amount
+          const craftCost = node.children.reduce(
+            (sum, child) => sum + unitPriceOrZero(child.itemId) * child.amount,
+            0,
+          )
+          const recommendation = buyCost > 0 && buyCost <= craftCost ? 'buy' : 'craft'
+          map.set(node.itemId, {
+            buyCost,
+            craftCost,
+            recommendation,
+            saving: Math.abs(buyCost - craftCost),
+          })
+        }
+      }
+      if (node.children) walk(node.children)
     }
   }
-  // Fallback: compute inline (unknown unit prices treated as 0 for comparison)
-  const unitPrice = unitPriceOrZero(node.itemId)
-  const buyCost = unitPrice * node.amount
-  const craftCost = node.children.reduce(
-    (sum, child) => sum + unitPriceOrZero(child.itemId) * child.amount,
-    0,
-  )
-  const recommendation = buyCost > 0 && buyCost <= craftCost ? 'buy' : 'craft'
-  return {
-    buyCost,
-    craftCost,
-    recommendation,
-    saving: Math.abs(buyCost - craftCost),
-  }
+  walk(props.tree)
+  return map
+})
+
+function getNodeDisplayInfo(node: MaterialNode): NodeDisplayInfo | null {
+  return displayInfoMap.value.get(node.itemId) ?? null
 }
 
 const rootSummary = computed(() => {
@@ -620,6 +636,14 @@ const allChecked = computed(() => {
   outline-offset: 2px;
 }
 
+@media (pointer: coarse) {
+  .shopping-toggle {
+    padding: 8px 14px;
+    min-height: 36px;
+    font-size: 13px;
+  }
+}
+
 /* ---- Crystal tags in header ---- */
 .crystal-tags {
   display: flex;
@@ -637,9 +661,10 @@ const allChecked = computed(() => {
   vertical-align: middle;
 }
 
-/* ---- Decision boxes ---- */
+/* ---- Decision boxes ----
+ * Per-node decisions are demoted to a flat tinted strip so they don't compete
+ * with the actual material card. The root summary keeps the bordered emphasis. */
 .decision-box {
-  border: 2px solid;
   border-radius: 8px;
   padding: 8px 14px;
   margin: 12px 0;
@@ -648,17 +673,30 @@ const allChecked = computed(() => {
 }
 
 .decision-craft {
-  border-color: var(--el-color-success);
-  background: rgba(103, 194, 58, 0.08);
+  background: rgba(103, 194, 58, 0.06);
+  color: var(--el-color-success);
 }
 
 .decision-buy {
-  border-color: var(--el-color-warning);
-  background: rgba(230, 162, 60, 0.08);
+  background: rgba(230, 162, 60, 0.06);
+  color: var(--el-color-warning);
 }
 
 .summary-box {
+  border: 2px solid;
   padding: 12px 20px;
+}
+
+.summary-box.decision-craft {
+  border-color: var(--el-color-success);
+  background: rgba(103, 194, 58, 0.1);
+  color: inherit;
+}
+
+.summary-box.decision-buy {
+  border-color: var(--el-color-warning);
+  background: rgba(230, 162, 60, 0.1);
+  color: inherit;
 }
 
 .decision-subtitle {
@@ -741,6 +779,48 @@ const allChecked = computed(() => {
   width: 2px;
   height: 14px;
   background: var(--connector-color);
+}
+
+/* Mobile: collapse the horizontal tree into a vertical indent-list. The
+ * connector lines are abandoned in favour of left-border guides — the
+ * horizontal tree stops being usable below ~720px because each card needs
+ * 240px+ width and cards quickly overflow the viewport. */
+@media (max-width: 720px) {
+  .tree-scroll-container {
+    overflow-x: visible;
+    padding: 12px 0;
+  }
+
+  .tree-root {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .tree-children {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 8px 0 0 14px;
+    border-left: 2px solid var(--connector-color);
+    margin-left: 12px;
+  }
+
+  .tree-children::before,
+  .tree-children::after,
+  .tree-branch::before {
+    display: none;
+  }
+
+  .tree-branch {
+    align-items: stretch;
+    padding-top: 0;
+  }
+
+  .tree-node-card,
+  .decision-box {
+    max-width: none;
+    min-width: 0;
+  }
 }
 
 /* ---- All-done inline message ---- */

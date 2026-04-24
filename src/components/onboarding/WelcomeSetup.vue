@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { ElButton } from 'element-plus'
+import { ElButton, ElSelect, ElOption } from 'element-plus'
 import { useSettingsStore } from '@/stores/settings'
 import { useLocaleStore } from '@/stores/locale'
 import { getDataCenters, getWorlds } from '@/api/universalis'
@@ -165,39 +165,39 @@ const stepSub = computed(() =>
           <button class="inline-link" type="button" @click="loadServers">再試一次</button>
         </div>
         <div v-else class="server-fields">
-          <label class="field">
+          <div class="field">
             <span class="field-label">地區</span>
-            <select v-model="selectedRegion" class="field-input">
-              <option value="" disabled>選擇地區</option>
-              <option
+            <el-select v-model="selectedRegion" placeholder="選擇地區" size="large" class="field-input">
+              <el-option
                 v-for="group in regionGroups"
                 :key="group.region"
+                :label="group.region"
                 :value="group.region"
-              >{{ group.region }}</option>
-            </select>
-          </label>
-          <label class="field">
+              />
+            </el-select>
+          </div>
+          <div class="field">
             <span class="field-label">資料中心</span>
-            <select v-model="selectedDC" class="field-input" :disabled="!selectedRegion">
-              <option value="" disabled>選擇資料中心</option>
-              <option
+            <el-select v-model="selectedDC" placeholder="選擇資料中心" size="large" class="field-input" :disabled="!selectedRegion">
+              <el-option
                 v-for="dc in availableDCs"
                 :key="dc.name"
+                :label="dc.name"
                 :value="dc.name"
-              >{{ dc.name }}</option>
-            </select>
-          </label>
-          <label class="field">
+              />
+            </el-select>
+          </div>
+          <div class="field">
             <span class="field-label">伺服器</span>
-            <select v-model="selectedServer" class="field-input" :disabled="!selectedDC">
-              <option value="" disabled>選擇伺服器</option>
-              <option
+            <el-select v-model="selectedServer" placeholder="選擇伺服器" size="large" class="field-input" :disabled="!selectedDC">
+              <el-option
                 v-for="world in availableWorlds"
                 :key="world.id"
+                :label="world.name"
                 :value="world.name"
-              >{{ world.name }}</option>
-            </select>
-          </label>
+              />
+            </el-select>
+          </div>
         </div>
       </div>
     </section>
@@ -241,8 +241,6 @@ const stepSub = computed(() =>
 .badge {
   align-self: flex-start;
   font-size: 11px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
   color: var(--app-accent-light);
   background: var(--app-accent-glow);
   padding: 4px 10px;
@@ -344,25 +342,7 @@ const stepSub = computed(() =>
 }
 
 .field-input {
-  height: 38px;
-  padding: 0 12px;
-  border-radius: 8px;
-  border: 1px solid var(--app-border);
-  background: var(--el-fill-color-lighter);
-  color: var(--app-text);
-  font-size: 14px;
-  font-family: inherit;
-}
-
-.field-input:focus {
-  outline: none;
-  border-color: var(--app-accent-light);
-  box-shadow: 0 0 0 2px var(--app-accent-glow);
-}
-
-.field-input:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  width: 100%;
 }
 
 .loading-note,

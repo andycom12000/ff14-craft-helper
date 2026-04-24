@@ -89,8 +89,9 @@ function applyBulk() {
             <p class="bulk-hint">只填想覆寫的欄位，留空的欄位不會動到。</p>
             <div class="bulk-fields">
               <div class="bulk-field">
-                <label>Lv</label>
+                <label for="bulk-level">Lv</label>
                 <el-input-number
+                  id="bulk-level"
                   v-model="bulkLevel"
                   :min="1" :max="100" size="small"
                   placeholder="—"
@@ -99,8 +100,9 @@ function applyBulk() {
                 />
               </div>
               <div class="bulk-field">
-                <label>作業</label>
+                <label for="bulk-craftsmanship">作業</label>
                 <el-input-number
+                  id="bulk-craftsmanship"
                   v-model="bulkCraftsmanship"
                   :min="0" :max="9999" size="small"
                   placeholder="—"
@@ -109,8 +111,9 @@ function applyBulk() {
                 />
               </div>
               <div class="bulk-field">
-                <label>加工</label>
+                <label for="bulk-control">加工</label>
                 <el-input-number
+                  id="bulk-control"
                   v-model="bulkControl"
                   :min="0" :max="9999" size="small"
                   placeholder="—"
@@ -119,8 +122,9 @@ function applyBulk() {
                 />
               </div>
               <div class="bulk-field">
-                <label>CP</label>
+                <label for="bulk-cp">CP</label>
                 <el-input-number
+                  id="bulk-cp"
                   v-model="bulkCp"
                   :min="0" :max="9999" size="small"
                   placeholder="—"
@@ -159,8 +163,9 @@ function applyBulk() {
         </div>
         <div class="job-fields">
           <div class="job-field">
-            <label>Lv</label>
+            <label :for="`gearset-${row.job}-level`">Lv</label>
             <el-input-number
+              :id="`gearset-${row.job}-level`"
               :model-value="row.level"
               @update:model-value="(v: number) => store.updateGearset(row.job, { level: v })"
               :min="1" :max="100" size="small"
@@ -168,8 +173,9 @@ function applyBulk() {
             />
           </div>
           <div class="job-field">
-            <label>作業</label>
+            <label :for="`gearset-${row.job}-craftsmanship`">作業</label>
             <el-input-number
+              :id="`gearset-${row.job}-craftsmanship`"
               :model-value="row.craftsmanship"
               @update:model-value="(v: number) => store.updateGearset(row.job, { craftsmanship: v })"
               :min="0" :max="9999" size="small"
@@ -177,8 +183,9 @@ function applyBulk() {
             />
           </div>
           <div class="job-field">
-            <label>加工</label>
+            <label :for="`gearset-${row.job}-control`">加工</label>
             <el-input-number
+              :id="`gearset-${row.job}-control`"
               :model-value="row.control"
               @update:model-value="(v: number) => store.updateGearset(row.job, { control: v })"
               :min="0" :max="9999" size="small"
@@ -186,8 +193,9 @@ function applyBulk() {
             />
           </div>
           <div class="job-field">
-            <label>CP</label>
+            <label :for="`gearset-${row.job}-cp`">CP</label>
             <el-input-number
+              :id="`gearset-${row.job}-cp`"
               :model-value="row.cp"
               @update:model-value="(v: number) => store.updateGearset(row.job, { cp: v })"
               :min="0" :max="9999" size="small"
@@ -243,8 +251,8 @@ function applyBulk() {
 }
 
 .bulk-trigger:focus-visible {
-  outline: 2px solid rgba(124, 58, 237, 0.6);
-  outline-offset: -2px;
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--app-accent, rgba(124, 58, 237, 0.6));
 }
 
 .bulk-trigger-icon {

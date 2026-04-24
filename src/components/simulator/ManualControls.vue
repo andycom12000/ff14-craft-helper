@@ -110,4 +110,12 @@ onBeforeUnmount(() => {
   border-color: var(--el-color-danger);
   color: var(--el-color-danger);
 }
+
+@media (pointer: coarse) {
+  .mc-btn {
+    padding: 10px 18px;
+    min-height: 40px;
+    font-size: 13px;
+  }
+}
 </style>
