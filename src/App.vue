@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   Setting,
@@ -19,6 +19,8 @@ import CommandPalette from '@/components/CommandPalette.vue'
 
 const route = useRoute()
 const sidebarOpen = ref(false)
+
+const pageTitle = computed(() => (route.meta?.title as string) ?? 'FF14 Craft Helper')
 
 const PAGE_ACCENTS: Record<string, { color: string; dim: string }> = {
   '/gearset': { color: 'var(--app-craft)', dim: 'var(--app-craft-dim)' },
@@ -42,6 +44,16 @@ const sidebarActiveStyle = computed(() => {
 
 watch(() => route.path, () => {
   sidebarOpen.value = false
+})
+
+// Lock body scroll when mobile drawer is open
+watch(sidebarOpen, (open) => {
+  if (typeof document === 'undefined') return
+  document.body.style.overflow = open ? 'hidden' : ''
+})
+
+onUnmounted(() => {
+  if (typeof document !== 'undefined') document.body.style.overflow = ''
 })
 </script>
 
@@ -110,10 +122,13 @@ watch(() => route.path, () => {
       </div>
     </el-aside>
     <el-main class="app-main">
-      <button class="mobile-menu-btn" @click="sidebarOpen = true">
-        <el-icon :size="22"><Operation /></el-icon>
-      </button>
-      <div class="mobile-clock"><EorzeaClock /></div>
+      <header class="mobile-app-bar">
+        <button class="bar-menu" aria-label="開啟選單" @click="sidebarOpen = true">
+          <el-icon :size="22"><Operation /></el-icon>
+        </button>
+        <h1 class="bar-title">{{ pageTitle }}</h1>
+        <div id="mobile-bar-actions" class="bar-actions" />
+      </header>
       <router-view />
     </el-main>
     <CommandPalette />
@@ -179,6 +194,11 @@ watch(() => route.path, () => {
   --space-md: 16px;
   --space-lg: 24px;
   --space-xl: 32px;
+
+  /* Touch & responsive tokens (breakpoints: sm=640, md=768, lg=1024, xl=1440) */
+  --touch-target-min: 44px;
+  --section-padding-mobile: 12px;
+  --section-padding-desktop: 24px;
 }
 
 html {
@@ -325,7 +345,7 @@ html, body {
 .settings-view h2 {
   margin-top: 0;
   margin-bottom: 8px;
-  font-size: 22px;
+  font-size: clamp(18px, 4.5vw, 22px);
   font-weight: 700;
   letter-spacing: 0.5px;
   color: var(--app-text);
@@ -345,22 +365,73 @@ html, body {
   .bom-view,
   .market-view,
   .settings-view {
-    padding: 60px 16px 16px;
+    padding: 16px 16px 16px;
   }
 
-  /* Larger touch targets for input-number +/- buttons */
+  /* Mobile app bar shows the page title already — hide the in-view h2
+   * to avoid duplicate titles. View-specific subtitles/hints remain. */
+  .view-container > h2,
+  .bom-view > h2,
+  .market-view > h2,
+  .settings-view > h2 {
+    display: none;
+  }
+
+  @media (max-width: 640px) {
+    .view-container,
+    .bom-view,
+    .market-view,
+    .settings-view {
+      padding: 12px 12px 12px;
+    }
+  }
+
+  /* Larger touch targets for input-number +/- buttons (WCAG 2.5.5: 44x44px).
+   * Also grow the input body so its height matches the controls — otherwise
+   * the +/- buttons visually float above a shorter input field. */
   .el-input-number .el-input-number__decrease,
   .el-input-number .el-input-number__increase {
-    min-width: 36px;
-    min-height: 36px;
+    min-width: 44px;
+    min-height: 44px;
     font-size: 16px;
   }
 
-  /* Larger touch targets for primary buttons */
+  .el-input-number.el-input-number--small {
+    line-height: 42px;
+    width: auto;
+  }
+
+  .el-input-number.el-input-number--small .el-input__wrapper {
+    min-height: 44px;
+    padding-left: 48px;
+    padding-right: 48px;
+  }
+
+  .el-input-number.el-input-number--small .el-input__inner {
+    height: 42px;
+    line-height: 42px;
+  }
+
+  /* Prevent iOS Safari from auto-zooming text inputs (requires ≥16px) */
+  .el-input__inner,
+  .el-textarea__inner,
+  input[type="text"],
+  input[type="search"],
+  input[type="number"],
+  textarea {
+    font-size: 16px;
+  }
+
+  /* Larger touch targets for primary buttons (WCAG 2.5.5) */
   .el-button {
-    min-height: 40px;
+    min-height: 44px;
     padding-left: 16px;
     padding-right: 16px;
+  }
+
+  /* Small-size buttons still need a reasonable target on touch */
+  .el-button--small {
+    min-height: 36px;
   }
 }
 
@@ -393,9 +464,19 @@ html, body {
   font-size: 13px;
   line-height: 1.6;
   white-space: pre;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   cursor: pointer;
   user-select: none;
   transition: background-color 0.15s;
+}
+
+@media (max-width: 480px) {
+  .code-block {
+    font-size: 12px;
+    padding: 10px;
+    line-height: 1.5;
+  }
 }
 
 .code-block:hover {
@@ -551,11 +632,7 @@ html, body {
   display: none;
 }
 
-.mobile-menu-btn {
-  display: none;
-}
-
-.mobile-clock {
+.mobile-app-bar {
   display: none;
 }
 
@@ -591,46 +668,90 @@ html, body {
     align-items: center;
     justify-content: center;
     position: absolute;
-    right: 12px;
+    right: 8px;
     top: 50%;
     transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
     background: none;
     border: none;
     color: var(--app-text-muted);
     cursor: pointer;
-    padding: 4px;
+    padding: 0;
+    border-radius: 8px;
+  }
+
+  .sidebar-close-btn:focus-visible {
+    outline: 2px solid var(--app-accent-light);
+    outline-offset: -2px;
   }
 
   .app-logo {
     position: relative;
   }
 
-  .mobile-menu-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: fixed;
-    top: 12px;
-    left: 12px;
-    z-index: 100;
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    border: 1px solid var(--app-border);
-    background: var(--app-surface);
-    color: var(--app-text);
-    cursor: pointer;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  /* On mobile, strip el-main's default padding so the sticky bar can be full-width.
+   * view-container / bom-view / etc. provide their own inner padding. */
+  .app-main {
+    padding: 0;
   }
 
-  .mobile-clock {
-    display: block;
-    position: fixed;
-    top: 14px;
-    right: 12px;
+  .mobile-app-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    top: 0;
     z-index: 100;
-    font-size: 11px;
-    color: var(--app-text-muted);
+    height: 52px;
+    padding: 0 12px;
+    background: color-mix(in srgb, var(--app-bg) 82%, transparent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--app-border);
+  }
+
+  .bar-menu {
+    width: 40px;
+    height: 40px;
+    border: 0;
+    background: transparent;
+    color: var(--app-text);
+    border-radius: 10px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background-color 0.15s var(--ease-out-quart);
+  }
+
+  .bar-menu:hover {
+    background: color-mix(in srgb, var(--app-text) 6%, transparent);
+  }
+
+  .bar-menu:focus-visible {
+    outline: 2px solid var(--app-accent-light);
+    outline-offset: -2px;
+  }
+
+  .bar-title {
+    flex: 1;
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--app-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .bar-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
   }
 }
 </style>

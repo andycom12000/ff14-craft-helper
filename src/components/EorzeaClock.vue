@@ -52,9 +52,11 @@ onUnmounted(() => clearInterval(intervalId))
   letter-spacing: 1px;
 }
 .clock-value {
-  font-family: 'Consolas', 'Fira Code', monospace;
+  font-family: inherit;
   font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: var(--app-text);
-  letter-spacing: 2px;
+  letter-spacing: 1px;
 }
 </style>
