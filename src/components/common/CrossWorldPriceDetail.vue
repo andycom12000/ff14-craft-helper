@@ -121,14 +121,23 @@ function isRecommendedRow(row: WorldPriceRow, idx: number): boolean {
   margin: 4px 0 0;
   padding: 0;
   display: grid;
-  gap: 2px;
+  /* One shared grid — all rows align across columns via subgrid.
+   * Cols: world | NQ price | HQ price | listings | updated */
+  grid-template-columns:
+    minmax(80px, 1fr)
+    minmax(72px, max-content)
+    minmax(72px, max-content)
+    max-content
+    max-content;
+  column-gap: 12px;
+  row-gap: 2px;
 }
 
 .cwp-row {
   display: grid;
-  grid-template-columns: minmax(80px, 1fr) auto auto auto;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
   align-items: center;
-  gap: 12px;
   padding: 6px 10px;
   border-radius: 5px;
   font-size: 12.5px;
@@ -164,8 +173,8 @@ function isRecommendedRow(row: WorldPriceRow, idx: number): boolean {
 }
 
 .cwp-prices {
-  display: inline-flex;
-  gap: 14px;
+  /* Flatten into .cwp-row grid so NQ/HQ cells share tracks across rows */
+  display: contents;
   font-variant-numeric: tabular-nums;
 }
 
@@ -210,21 +219,43 @@ function isRecommendedRow(row: WorldPriceRow, idx: number): boolean {
 }
 
 @container (max-width: 480px) {
-  .cwp-row {
-    grid-template-columns: 1fr auto;
-    grid-template-rows: auto auto;
-    gap: 4px 10px;
+  .cwp-list {
+    /* Mobile: 4 tracks shared across rows via subgrid.
+     * col 1,2 hold NQ / HQ price on row 2 (shared widths → cross-row alignment).
+     * World spans col 1–3 on row 1; updated time pinned to col 4. */
+    grid-template-columns:
+      minmax(72px, max-content)
+      minmax(72px, max-content)
+      minmax(0, 1fr)
+      max-content;
+    row-gap: 2px;
   }
 
-  .cwp-prices {
-    grid-column: 1 / -1;
-    gap: 16px;
+  .cwp-row {
+    grid-template-rows: auto auto;
+    row-gap: 2px;
+    column-gap: 12px;
+  }
+
+  .cwp-world {
+    grid-row: 1;
+    grid-column: 1 / 4;
   }
 
   .cwp-updated {
-    grid-column: 2;
     grid-row: 1;
+    grid-column: 4;
     justify-self: end;
+  }
+
+  .cwp-prices > .cwp-price:nth-child(1) {
+    grid-row: 2;
+    grid-column: 1;
+  }
+
+  .cwp-prices > .cwp-price:nth-child(2) {
+    grid-row: 2;
+    grid-column: 2;
   }
 
   .cwp-listings {

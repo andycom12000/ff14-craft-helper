@@ -458,7 +458,7 @@ const allChecked = computed(() => {
 <style scoped>
 .craft-tree-card {
   --connector-color: var(--el-color-success-light-5);
-  --bom-tree-indent: 24px;
+  --bom-tree-indent: 10px;
 }
 
 .card-header {
@@ -474,16 +474,18 @@ const allChecked = computed(() => {
 }
 
 .tree-scroll-container {
+  padding: 16px 0;
+  /* Fallback — recipes with >6 children + deep subtrees (e.g. 奶油雞肉寬面)
+   * naturally exceed any reasonable max-width. Horizontal scroll is accepted
+   * UX for tree diagrams. */
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 16px 0;
 }
 
 .tree-root {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: fit-content;
   padding: 0 var(--bom-tree-indent);
 }
 
@@ -496,14 +498,16 @@ const allChecked = computed(() => {
   border-top: 1px dashed var(--el-border-color-lighter);
 }
 
-/* ---- Node cards ---- */
+/* ---- Node cards ----
+ * Compact card: 110px wide, icon + qty + name + one-line price. Actions are
+ * stacked below. Matches the card-per-branch sizing used by FFXIV_Market. */
 .tree-node-card {
   border: 2px solid var(--el-border-color-lighter);
   border-radius: 8px;
-  padding: 10px 14px;
+  padding: 6px 6px;
   background: var(--el-bg-color);
-  min-width: 240px;
-  max-width: 360px;
+  flex: 0 0 auto;
+  width: 104px;
   transition: opacity 0.2s var(--ease-out-quart, ease);
 }
 
@@ -528,10 +532,12 @@ const allChecked = computed(() => {
   opacity: 0.7;
 }
 
+/* Stacked compact card content — icon centered on top, name below, price below. */
 .node-content {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 4px;
 }
 
 .node-icon-wrapper {
@@ -540,23 +546,23 @@ const allChecked = computed(() => {
 }
 
 .node-icon {
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border-radius: 4px;
 }
 
 .qty-badge {
   position: absolute;
-  top: -6px;
-  right: -6px;
+  top: -4px;
+  right: -8px;
   background: var(--el-color-success);
   color: var(--app-text);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 5px;
-  border-radius: 10px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -566,44 +572,41 @@ const allChecked = computed(() => {
 .node-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 1px;
   min-width: 0;
-  flex: 1;
+  width: 100%;
 }
 
 .node-price-row {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 2px;
   width: 100%;
-  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .node-price-left {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
-  white-space: nowrap;
+  color: var(--el-text-color-primary);
+  text-align: center;
+  line-height: 1.3;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
   min-width: 0;
-  flex: 1 1 auto;
+  width: 100%;
 }
 
 .node-price-right {
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--el-text-color-secondary);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  flex-shrink: 0;
-}
-
-@media (max-width: 640px) {
-  .node-price-right {
-    white-space: normal;
-    flex-shrink: 1;
-    text-align: right;
-    word-break: break-word;
-  }
+  text-align: center;
 }
 
 .name-collapsed {
@@ -763,11 +766,13 @@ const allChecked = computed(() => {
   font-size: 12px;
 }
 
-/* ---- Tree connectors ---- */
+/* ---- Horizontal tree connectors ---- */
 .tree-children {
   display: flex;
+  flex-wrap: nowrap;
   justify-content: center;
-  gap: 16px;
+  align-items: flex-start;
+  gap: 12px;
   position: relative;
   padding-top: 28px;
   padding-left: var(--bom-tree-indent);
@@ -798,12 +803,16 @@ const allChecked = computed(() => {
   display: none;
 }
 
+/* Branch flexes its width to match the wider of (card, subtree). This is how
+ * deeper subtrees get horizontal space without forcing the card itself to
+ * widen. */
 .tree-branch {
   display: flex;
   flex-direction: column;
   align-items: center;
   position: relative;
   padding-top: 14px;
+  flex: 0 0 auto;
 }
 
 .tree-branch::before {
@@ -816,76 +825,6 @@ const allChecked = computed(() => {
   background: var(--connector-color);
 }
 
-/* Mobile: collapse the horizontal tree into a vertical indent-list. The
- * connector lines are abandoned in favour of left-border guides — the
- * horizontal tree stops being usable below ~720px because each card needs
- * 240px+ width and cards quickly overflow the viewport. */
-@media (max-width: 720px) {
-  .tree-scroll-container {
-    overflow-x: visible;
-    padding: 12px 0;
-  }
-
-  .tree-root {
-    align-items: stretch;
-    padding: 0;
-  }
-
-  /* Strong chapter separator between recipes on mobile. Multiple border-left
-   * guide lines from a deep first-recipe tree otherwise continue right into
-   * the next recipe's root card and read as a single unbroken indent tower. */
-  .tree-root + .tree-root {
-    margin-top: 32px;
-    padding-top: 20px;
-    border-top: 3px double var(--page-accent, var(--accent-gold));
-  }
-
-  .tree-children {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-    padding: 8px 0 0 14px;
-    border-left: 2px solid var(--connector-color);
-    margin-left: 12px;
-  }
-
-  /* Reduce indent depth so deeply nested nodes retain usable card width */
-  .tree-children.depth-2 {
-    padding-left: 10px;
-    margin-left: 8px;
-  }
-
-  .tree-children::before,
-  .tree-children::after,
-  .tree-branch::before {
-    display: none;
-  }
-
-  .tree-branch {
-    align-items: stretch;
-    padding-top: 0;
-  }
-
-  .tree-node-card,
-  .decision-box {
-    max-width: none;
-    min-width: 0;
-  }
-}
-
-@media (max-width: 640px) {
-  .tree-node-card {
-    padding: 8px 10px;
-  }
-
-  .node-actions :deep(.el-button) {
-    min-height: 36px;
-  }
-
-  .node-actions :deep(.el-button.el-button--small) {
-    min-height: 36px;
-  }
-}
 
 /* ---- All-done inline message ---- */
 .all-done-message {

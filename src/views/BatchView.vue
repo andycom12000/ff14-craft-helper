@@ -509,6 +509,16 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
   background: rgba(245, 108, 108, 0.06);
 }
 
+@media (max-width: 640px) {
+  .exception-block {
+    background: transparent;
+    border: none;
+    border-left: 3px solid var(--el-color-danger, #F56C6C);
+    border-radius: 0;
+    padding: 4px 0 10px 12px;
+  }
+}
+
 .exception-header {
   display: flex;
   align-items: center;

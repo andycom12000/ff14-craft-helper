@@ -2,11 +2,13 @@
 import { computed } from 'vue'
 import { useBatchStore } from '@/stores/batch'
 import type { SelfCraftCandidate } from '@/stores/batch'
+import { useMediaQuery } from '@/composables/useMediaQuery'
 import { formatGil } from '@/utils/format'
 import ItemName from '@/components/common/ItemName.vue'
 
 const props = defineProps<{ candidates: SelfCraftCandidate[] }>()
 const batch = useBatchStore()
+const isMobile = useMediaQuery('(max-width: 640px)')
 
 const selectedSavings = computed(() => {
   let total = 0
@@ -50,7 +52,48 @@ function toggleAll() {
       </div>
     </header>
 
-    <el-table :data="candidates" size="small" class="suggestions-table">
+    <ul v-if="isMobile" class="suggestions-cards" role="list">
+      <li
+        v-for="row in candidates"
+        :key="row.itemId"
+        class="suggestion-card"
+        :class="{ 'suggestion-card--checked': isChecked(row.itemId) }"
+      >
+        <label class="suggestion-card__check" @click.stop>
+          <el-checkbox
+            :model-value="isChecked(row.itemId)"
+            :aria-label="`改為自製：${row.name}`"
+            @change="() => toggle(row.itemId)"
+          />
+        </label>
+        <img
+          v-if="row.icon"
+          :src="row.icon"
+          alt=""
+          aria-hidden="true"
+          loading="lazy"
+          decoding="async"
+          class="suggestion-card__icon"
+        />
+        <div class="suggestion-card__body">
+          <div class="suggestion-card__line1">
+            <span class="suggestion-card__name">
+              <ItemName :item-id="row.itemId" :fallback="row.name" />
+            </span>
+            <el-tag v-if="row.hqRequired" size="small" type="warning" class="suggestion-card__hq">需 HQ</el-tag>
+          </div>
+          <div class="suggestion-card__line2">
+            <span class="suggestion-card__qty">×{{ row.amount }}</span>
+            <span class="suggestion-card__compare">
+              {{ formatGil(row.buyCost) }} → {{ formatGil(row.craftCost) }}
+            </span>
+          </div>
+        </div>
+        <span class="suggestion-card__savings">−{{ Math.round(row.savingsRatio * 100) }}%</span>
+      </li>
+    </ul>
+
+    <el-table v-else :data="candidates" size="small" class="suggestions-table">
       <el-table-column label="" width="44" align="center">
         <template #default="{ row }">
           <el-checkbox
@@ -154,29 +197,116 @@ function toggleAll() {
 }
 
 @media (max-width: 640px) {
+  .self-craft-block {
+    background: transparent;
+    border: none;
+    border-left: 3px solid var(--accent-gold);
+    border-radius: 0;
+    padding: 4px 0 10px 12px;
+    margin-bottom: 18px;
+  }
+
   .block-header {
     flex-direction: column;
     align-items: stretch;
+    margin-bottom: 4px;
   }
 
   .block-stats {
     justify-content: space-between;
   }
+}
 
-  /* Hide 購買成本 (5th col) and 自製成本 (6th col) on narrow phones so
-   * 素材 / 數量 / 省% stay readable. Users can still see savings ratio and
-   * toggle self-craft without seeing raw gil numbers. */
-  .suggestions-table :deep(.el-table__cell:nth-child(5)),
-  .suggestions-table :deep(.el-table__header th:nth-child(5)),
-  .suggestions-table :deep(.el-table__cell:nth-child(6)),
-  .suggestions-table :deep(.el-table__header th:nth-child(6)) {
-    display: none;
-  }
+.suggestions-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
 
-  .suggestions-table :deep(.el-table__cell) {
-    padding-left: 4px;
-    padding-right: 4px;
-    font-size: 12px;
-  }
+.suggestion-card {
+  display: grid;
+  grid-template-columns: 36px 28px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  transition: opacity 0.15s;
+}
+
+.suggestion-card:last-child {
+  border-bottom: none;
+}
+
+.suggestion-card--checked {
+  background: color-mix(in oklch, var(--accent-gold) 5%, transparent);
+}
+
+.suggestion-card__check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: var(--touch-target-min);
+}
+
+.suggestion-card__icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 3px;
+}
+
+.suggestion-card__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.suggestion-card__line1 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+}
+
+.suggestion-card__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.suggestion-card__hq {
+  flex-shrink: 0;
+}
+
+.suggestion-card__line2 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.suggestion-card__qty {
+  flex-shrink: 0;
+}
+
+.suggestion-card__compare {
+  color: var(--el-text-color-placeholder);
+}
+
+.suggestion-card__savings {
+  color: var(--app-success);
+  font-weight: 700;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+  padding-left: 4px;
 }
 </style>

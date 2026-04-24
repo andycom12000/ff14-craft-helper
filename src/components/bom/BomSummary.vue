@@ -141,7 +141,7 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
       <div class="card-header">
         <span class="card-title">
           材料總覽與價格
-          <el-tag size="small" type="info" style="margin-left: 8px">
+          <el-tag v-if="settingsStore.server" size="small" type="info" style="margin-left: 8px">
             {{ settingsStore.server }}
           </el-tag>
         </span>
@@ -159,7 +159,7 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
 
     <template v-else>
       <!-- Raw materials section -->
-      <h4 class="section-title">原始素材（需採集 / 購買）</h4>
+      <h3 class="section-title">原始素材（需採集 / 購買）</h3>
 
       <ul v-if="isMobile" class="mat-cards" role="list">
         <li
@@ -254,7 +254,7 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
 
       <!-- Craftable intermediates section -->
       <template v-if="craftableMaterials.length > 0">
-        <h4 class="section-title">半成品（可製作）</h4>
+        <h3 class="section-title">半成品（可製作）</h3>
 
         <ul v-if="isMobile" class="mat-cards" role="list">
           <li
@@ -489,14 +489,16 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
 }
 
 @media (max-width: 640px) {
-  :deep(.el-card) {
+  .el-card {
     background: transparent;
     border: 0;
     box-shadow: none;
+    border-radius: 0;
   }
   :deep(.el-card__header) {
     padding: 0 0 10px;
-    border-bottom: 0;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+    margin-bottom: 0;
   }
   :deep(.el-card__body) {
     padding: 0;
@@ -607,6 +609,7 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
 }
 
 .mat-card__expand {
-  padding: 0 4px 12px;
+  padding: 8px 4px 12px;
+  container-type: inline-size;
 }
 </style>

@@ -97,4 +97,23 @@ defineProps<{
     padding: 10px 14px;
   }
 }
+
+@media (max-width: 640px) {
+  .cost-summary {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 10px 0 14px;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+  }
+
+  .cost-accent {
+    margin-right: 10px;
+  }
+
+  .cost-total {
+    font-size: 20px;
+  }
+}
 </style>

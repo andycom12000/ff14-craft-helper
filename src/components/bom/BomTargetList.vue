@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useBomStore } from '@/stores/bom'
 import { ElMessage } from 'element-plus'
-import { Search } from '@element-plus/icons-vue'
+import { Search, Delete } from '@element-plus/icons-vue'
 import AppEmptyState from '@/components/common/AppEmptyState.vue'
 import ItemName from '@/components/common/ItemName.vue'
 
@@ -92,34 +92,30 @@ function handleClearAll() {
       </el-table-column>
     </el-table>
 
-    <!-- Mobile: stack rows as cards -->
+    <!-- Mobile: compact single-line rows -->
     <ul v-if="bomStore.targets.length > 0" class="targets-mobile-list">
-      <li v-for="row in bomStore.targets" :key="row.recipeId" class="target-card">
-        <div class="target-card-head">
-          <img :src="row.icon" :alt="row.name" crossorigin="anonymous" loading="lazy" decoding="async" class="target-card-icon" />
-          <div class="target-card-name">
-            <ItemName :item-id="row.itemId" :fallback="row.name" />
-          </div>
-        </div>
-        <div class="target-card-actions">
-          <el-input-number
-            :model-value="row.quantity"
-            :min="1"
-            :max="999"
-            size="small"
-            aria-label="數量"
-            @change="(val: number | undefined) => handleQuantityChange(row.recipeId, val)"
-          />
-          <el-button
-            type="danger"
-            size="small"
-            text
-            :aria-label="`移除 ${row.name}`"
-            @click="bomStore.removeTarget(row.recipeId)"
-          >
-            移除
-          </el-button>
-        </div>
+      <li v-for="row in bomStore.targets" :key="row.recipeId" class="target-row">
+        <img :src="row.icon" :alt="row.name" crossorigin="anonymous" loading="lazy" decoding="async" class="target-row__icon" />
+        <span class="target-row__name">
+          <ItemName :item-id="row.itemId" :fallback="row.name" />
+        </span>
+        <el-input-number
+          :model-value="row.quantity"
+          :min="1"
+          :max="999"
+          size="small"
+          aria-label="數量"
+          class="target-row__qty"
+          @change="(val: number | undefined) => handleQuantityChange(row.recipeId, val)"
+        />
+        <button
+          type="button"
+          class="target-row__remove"
+          :aria-label="`移除 ${row.name}`"
+          @click="bomStore.removeTarget(row.recipeId)"
+        >
+          <el-icon><Delete /></el-icon>
+        </button>
       </li>
     </ul>
 
@@ -161,46 +157,106 @@ function handleClearAll() {
   gap: 8px;
 }
 
-.target-card {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid var(--app-border);
-  border-radius: 8px;
-  background: var(--app-surface);
-}
-
-.target-card-head {
-  display: flex;
+.target-row {
+  display: grid;
+  grid-template-columns: 32px 1fr auto 44px;
   align-items: center;
-  gap: 10px;
+  column-gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  min-height: var(--touch-target-min, 44px);
 }
 
-.target-card-icon {
+.target-row:last-child {
+  border-bottom: none;
+}
+
+.target-row__icon {
   width: 28px;
   height: 28px;
+  border-radius: 3px;
   flex-shrink: 0;
 }
 
-.target-card-name {
-  font-size: 14px;
+.target-row__name {
+  font-size: 14.5px;
   font-weight: 500;
-  flex: 1;
+  color: var(--el-text-color-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   min-width: 0;
-  word-break: break-word;
 }
 
-.target-card-actions {
-  display: flex;
+.target-row__qty {
+  width: 108px;
+  flex-shrink: 0;
+}
+
+.target-row__qty :deep(.el-input-number__decrease),
+.target-row__qty :deep(.el-input-number__increase) {
+  background: transparent;
+  border-color: transparent;
+  color: var(--el-text-color-placeholder);
+  transition: color 0.15s, background-color 0.15s;
+}
+
+.target-row__qty :deep(.el-input-number__decrease:hover:not(.is-disabled)),
+.target-row__qty :deep(.el-input-number__increase:hover:not(.is-disabled)) {
+  background: var(--el-fill-color-light);
+  color: var(--page-accent, var(--el-color-primary));
+}
+
+.target-row__qty :deep(.el-input-number__decrease.is-disabled),
+.target-row__qty :deep(.el-input-number__increase.is-disabled) {
+  color: var(--el-text-color-disabled);
+}
+
+.target-row__qty :deep(.el-input__wrapper) {
+  box-shadow: none;
+  background: transparent;
+  padding: 0;
+}
+
+.target-row__qty :deep(.el-input__inner) {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--el-text-color-primary);
+}
+
+.target-row__remove {
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: transparent;
+  color: var(--el-text-color-placeholder);
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: center;
+  font-size: 18px;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.target-row__remove:hover {
+  background: color-mix(in srgb, var(--el-color-danger) 12%, transparent);
+  color: var(--el-color-danger);
+}
+
+.target-row__remove:focus-visible {
+  outline: 2px solid var(--page-accent, var(--accent-gold));
+  outline-offset: 2px;
+  color: var(--el-color-danger);
 }
 
 /* Default: table visible, mobile list hidden */
 .targets-table {
   display: table;
+  /* Fixed layout so the flex column actually shrinks to fit container —
+   * auto layout was letting the name column demand an 800px+ natural width
+   * and forcing a horizontal scroll inside the card at 1200–1400px widths. */
+  table-layout: fixed;
 }
 .targets-mobile-list {
   display: none;
@@ -212,6 +268,34 @@ function handleClearAll() {
   }
   .targets-mobile-list {
     display: flex;
+    border-top: 1px solid var(--el-border-color-lighter);
+  }
+
+  .el-card {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+  }
+  :deep(.el-card__header) {
+    padding: 0 0 10px;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+    margin-bottom: 0;
+  }
+  :deep(.el-card__body) {
+    padding: 0;
+  }
+
+  .card-header {
+    gap: 6px;
+  }
+
+  .card-actions {
+    gap: 6px;
+  }
+
+  .calculate-row {
+    margin-top: 14px;
   }
 }
 </style>

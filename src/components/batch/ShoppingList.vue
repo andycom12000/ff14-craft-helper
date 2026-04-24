@@ -176,7 +176,13 @@ function isRowChecked(row: MaterialWithPrice): boolean {
 
     <!-- Buy-finished summary -->
     <div v-if="buyFinishedSavings" class="buy-finished-summary">
-      <el-alert type="success" :closable="false" show-icon>
+      <template v-if="isMobile">
+        <div class="buy-finished-note">
+          <span class="buy-finished-dot" aria-hidden="true" />
+          <span>{{ buyFinishedSavings.count }} 件改直購，省 <strong>{{ formatGil(buyFinishedSavings.totalSaved) }}</strong> Gil</span>
+        </div>
+      </template>
+      <el-alert v-else type="success" :closable="false" show-icon>
         <template #title>
           {{ buyFinishedSavings.count }} 件配方改為直購成品，共省 {{ formatGil(buyFinishedSavings.totalSaved) }} Gil
         </template>
@@ -211,10 +217,11 @@ function isRowChecked(row: MaterialWithPrice): boolean {
     <div v-for="group in effectiveServerGroups" :key="group.server" class="server-group">
       <div class="server-header">
         <div class="server-info">
-          <el-tag type="primary" size="small">{{ group.server }}</el-tag>
-          <el-text size="small" type="info">{{ group.items.length }} 項素材</el-text>
+          <el-tag v-if="!isMobile" type="primary" size="small">{{ group.server }}</el-tag>
+          <span v-else class="server-name">{{ group.server }}</span>
+          <el-text size="small" type="info">{{ group.items.length }} 項</el-text>
         </div>
-        <el-text type="warning" size="small" tag="b">小計：{{ formatGil(group.subtotal) }} Gil</el-text>
+        <span class="server-subtotal">{{ formatGil(group.subtotal) }} Gil</span>
       </div>
       <el-table v-if="!isMobile" :data="group.items" size="small" class="material-table clickable-rows" :row-key="getRowKey" :row-class-name="rowClassName" @expand-change="handleExpand" @row-click="copyName">
         <el-table-column type="expand">
@@ -335,7 +342,9 @@ function isRowChecked(row: MaterialWithPrice): boolean {
             <img v-if="row.icon" :src="row.icon" alt="" aria-hidden="true" loading="lazy" decoding="async" class="material-card__icon" />
             <div class="material-card__body">
               <div class="material-card__line1">
-                <ItemName :item-id="row.itemId" :fallback="row.name" />
+                <span class="material-card__name">
+                  <ItemName :item-id="row.itemId" :fallback="row.name" />
+                </span>
                 <el-tag size="small" :type="row.type === 'hq' ? 'warning' : 'info'" class="material-card__type">
                   {{ row.type.toUpperCase() }}
                 </el-tag>
@@ -433,6 +442,21 @@ function isRowChecked(row: MaterialWithPrice): boolean {
   background: var(--el-fill-color-lighter);
 }
 
+@media (max-width: 640px) {
+  .global-quality-row {
+    background: transparent;
+    padding: 6px 0 10px;
+    margin-bottom: 4px;
+    gap: 8px;
+  }
+
+  .global-quality-row .section-label {
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+    margin-bottom: 0;
+  }
+}
+
 .quality-chip {
   display: inline-flex;
   gap: 2px;
@@ -510,6 +534,34 @@ function isRowChecked(row: MaterialWithPrice): boolean {
   gap: 8px;
 }
 
+.server-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  letter-spacing: 0.01em;
+}
+
+.server-subtotal {
+  color: var(--accent-gold);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .server-header {
+    background: transparent;
+    border-radius: 0;
+    padding: 10px 0 8px;
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+  }
+
+  .server-group {
+    margin-bottom: 18px;
+  }
+}
+
 .material-icon {
   width: 20px;
   height: 20px;
@@ -554,6 +606,30 @@ function isRowChecked(row: MaterialWithPrice): boolean {
 
 .buy-finished-summary {
   margin-bottom: 12px;
+}
+
+.buy-finished-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+  padding: 4px 0 10px;
+}
+
+.buy-finished-note strong {
+  color: var(--app-success, var(--el-color-success));
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.buy-finished-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--app-success, var(--el-color-success));
+  flex-shrink: 0;
 }
 
 .finished-badge {
@@ -728,35 +804,36 @@ function isRowChecked(row: MaterialWithPrice): boolean {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
 }
 
 .material-card {
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 8px;
-  background: var(--el-fill-color-lighter);
-  overflow: hidden;
-  transition: opacity 0.15s, border-color 0.15s;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  background: transparent;
+  transition: background-color 0.15s, opacity 0.15s;
 }
 
-.material-card--checked {
-  opacity: 0.5;
+.material-card:last-child {
+  border-bottom: none;
 }
 
 .material-card--checked .material-card__body {
+  opacity: 0.45;
+}
+
+.material-card--checked .material-card__name {
   text-decoration: line-through;
 }
 
 .material-card--expanded {
-  border-color: var(--page-accent, var(--accent-gold));
+  background: color-mix(in oklch, var(--page-accent, var(--accent-gold)) 6%, transparent);
 }
 
 .material-card__row {
   display: grid;
-  grid-template-columns: var(--touch-target-min) 32px 1fr 28px;
+  grid-template-columns: 36px 30px 1fr 20px;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
+  gap: 10px;
+  padding: 10px 2px;
   cursor: pointer;
   min-height: var(--touch-target-min);
 }
@@ -779,17 +856,26 @@ function isRowChecked(row: MaterialWithPrice): boolean {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .material-card__line1 {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
-  font-size: 13.5px;
+  min-width: 0;
+  font-size: 14px;
   font-weight: 500;
   line-height: 1.3;
+  color: var(--el-text-color-primary);
+}
+
+.material-card__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
 }
 
 .material-card__type {
@@ -799,7 +885,7 @@ function isRowChecked(row: MaterialWithPrice): boolean {
 .material-card__line2 {
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  gap: 8px;
   font-size: 12px;
   color: var(--el-text-color-secondary);
 }
@@ -810,13 +896,21 @@ function isRowChecked(row: MaterialWithPrice): boolean {
 
 .material-card__price {
   font-variant-numeric: tabular-nums;
+  color: var(--el-text-color-placeholder);
+}
+
+.material-card__price::before {
+  content: '·';
+  margin-right: 6px;
+  color: var(--el-text-color-placeholder);
 }
 
 .material-card__subtotal {
   margin-left: auto;
   color: var(--accent-gold);
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 13px;
 }
 
 .material-card__hint {
@@ -836,13 +930,14 @@ function isRowChecked(row: MaterialWithPrice): boolean {
 }
 
 .material-card__detail {
-  padding: 10px 12px 12px;
-  border-top: 1px solid var(--el-border-color-lighter);
-  background: var(--el-bg-color);
+  padding: 4px 2px 14px;
+  border-top: 1px dashed var(--el-border-color-lighter);
+  margin-top: -1px;
 }
 
 .material-card__detail .expanded-controls {
   margin-bottom: 8px;
+  padding-top: 8px;
 }
 
 /* Touch-friendly quality pill sizing inside mobile cards */
