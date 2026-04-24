@@ -121,14 +121,19 @@ function resetAll() {
 
     <!-- Completed items collapsed section -->
     <div v-if="doneItems.length > 0" class="done-collapse">
-      <div class="done-collapse-header" @click="showDoneItems = !showDoneItems">
+      <button
+        type="button"
+        class="done-collapse-header"
+        :aria-expanded="showDoneItems"
+        @click="showDoneItems = !showDoneItems"
+      >
         <el-icon class="done-collapse-arrow" :class="{ 'is-expanded': showDoneItems }">
           <ArrowRight />
         </el-icon>
         <el-text size="small" type="success">
           已完成 {{ doneItems.length }} 項
         </el-text>
-      </div>
+      </button>
       <div v-if="showDoneItems" class="todo-grid">
         <div
           v-for="{ item, index } in doneItems"
@@ -144,6 +149,8 @@ function resetAll() {
                   v-if="item.recipe.icon"
                   :src="item.recipe.icon"
                   :alt="item.recipe.name"
+                  loading="lazy"
+                  decoding="async"
                   class="todo-icon"
                 />
                 <span
@@ -196,6 +203,8 @@ function resetAll() {
               v-if="item.recipe.icon"
               :src="item.recipe.icon"
               :alt="item.recipe.name"
+              loading="lazy"
+              decoding="async"
               class="todo-icon"
             />
             <span
@@ -337,15 +346,26 @@ function resetAll() {
   display: flex;
   align-items: center;
   gap: 6px;
+  width: 100%;
   cursor: pointer;
   padding: 6px 4px;
+  border: none;
   border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   user-select: none;
   transition: background-color 0.15s;
 }
 
 .done-collapse-header:hover {
   background: var(--el-fill-color-light);
+}
+
+.done-collapse-header:focus-visible {
+  outline: 2px solid var(--app-accent-light);
+  outline-offset: 2px;
 }
 
 .done-collapse-arrow {
@@ -477,6 +497,69 @@ function resetAll() {
 .macro-expand {
   margin-top: 8px;
   padding-left: 52px;
+}
+
+@media (max-width: 640px) {
+  .macro-expand {
+    padding: 8px 0 8px 32px;
+    font-size: 12.5px;
+  }
+
+  /* HTML5 drag-and-drop is effectively unusable on iOS/Android browsers;
+   * hide the drag affordance on small screens to reclaim horizontal space
+   * rather than advertising a broken interaction. */
+  .todo-drag-handle {
+    display: none;
+  }
+
+  .todo-item {
+    padding: 10px 0;
+  }
+
+  /* Wrap actions to their own row so name/meta gets full width. */
+  .todo-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .todo-info {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .todo-num {
+    width: 16px;
+    font-size: 11px;
+  }
+
+  .copy-name-btn {
+    opacity: 1;
+    min-width: 32px;
+    min-height: 32px;
+  }
+
+  .todo-actions {
+    order: 3;
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 2px;
+  }
+
+  /* Scoped override of App.vue's global 44px button padding. The actions row
+   * already sits on its own line, so compact 36px buttons are enough and keep
+   * multi-macro labels ("巨集1 巨集2 巨集3 展開") from wrapping awkwardly. */
+  .todo-actions :deep(.el-button) {
+    min-height: 36px;
+    padding: 0 12px;
+    font-size: 12.5px;
+  }
+
+  .todo-actions :deep(.el-button--small) {
+    min-height: 36px;
+    padding: 0 12px;
+  }
 }
 
 .macro-block {

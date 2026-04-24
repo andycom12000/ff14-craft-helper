@@ -452,6 +452,52 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
   border: none;
   padding: 0;
   min-height: 44px;
+  flex-wrap: wrap;
+}
+
+.section-title {
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .batch-section {
+    padding-top: var(--section-padding-mobile, 12px);
+    margin-bottom: 4px;
+  }
+
+  .section-header {
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .section-step {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+    border-width: 1.5px;
+  }
+
+  .section-title {
+    font-size: 16px;
+  }
+
+  .section-desc {
+    flex-basis: 100%;
+    margin-left: 32px;
+  }
+
+  .section-toggle {
+    flex-basis: 100%;
+    margin-left: 32px;
+    padding: 10px 0;
+    font-size: 13px;
+    text-align: left;
+  }
+
+  .section-header--clickable {
+    padding: 6px 8px;
+    margin: 0 -8px 10px;
+  }
 }
 
 .section-step {

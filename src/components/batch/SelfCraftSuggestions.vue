@@ -162,5 +162,21 @@ function toggleAll() {
   .block-stats {
     justify-content: space-between;
   }
+
+  /* Hide 購買成本 (5th col) and 自製成本 (6th col) on narrow phones so
+   * 素材 / 數量 / 省% stay readable. Users can still see savings ratio and
+   * toggle self-craft without seeing raw gil numbers. */
+  .suggestions-table :deep(.el-table__cell:nth-child(5)),
+  .suggestions-table :deep(.el-table__header th:nth-child(5)),
+  .suggestions-table :deep(.el-table__cell:nth-child(6)),
+  .suggestions-table :deep(.el-table__header th:nth-child(6)) {
+    display: none;
+  }
+
+  .suggestions-table :deep(.el-table__cell) {
+    padding-left: 4px;
+    padding-right: 4px;
+    font-size: 12px;
+  }
 }
 </style>

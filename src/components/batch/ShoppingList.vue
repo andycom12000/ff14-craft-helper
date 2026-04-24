@@ -1,15 +1,19 @@
 <script setup lang="ts">
-import { ref, watch, triggerRef, computed, nextTick } from 'vue'
+import { ref, watch, triggerRef, computed, nextTick, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { CrystalSummary, ServerGroup, MaterialWithPrice } from '@/services/shopping-list'
 import type { WorldPriceSummary } from '@/api/universalis'
 import type { BuyFinishedDecision, SelfCraftCandidate } from '@/stores/batch'
 import { useBatchStore } from '@/stores/batch'
 import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
+import { useMediaQuery } from '@/composables/useMediaQuery'
 import CrossWorldPriceDetail, { type WorldPriceRow } from '@/components/common/CrossWorldPriceDetail.vue'
 import ItemName from '@/components/common/ItemName.vue'
 import SelfCraftSuggestions from './SelfCraftSuggestions.vue'
 import { formatGil } from '@/utils/format'
+
+const isMobile = useMediaQuery('(max-width: 640px)')
+const mobileExpanded = reactive(new Set<string>())
 
 const props = defineProps<{
   crystals: CrystalSummary[]
@@ -134,6 +138,24 @@ function getRowKey(row: MaterialWithPrice): string {
   const fp = row.isFinishedProduct ? '|fp' : ''
   return `${row.itemId}|${row.type}${fp}`
 }
+
+function toggleMobileExpand(row: MaterialWithPrice) {
+  const key = getRowKey(row)
+  if (mobileExpanded.has(key)) {
+    mobileExpanded.delete(key)
+  } else {
+    mobileExpanded.add(key)
+    fetchCrossWorldData(row.itemId, row.name)
+  }
+}
+
+function isMobileExpanded(row: MaterialWithPrice): boolean {
+  return mobileExpanded.has(getRowKey(row))
+}
+
+function isRowChecked(row: MaterialWithPrice): boolean {
+  return batchStore.isShoppingChecked(row.itemId, row.type, row.isFinishedProduct)
+}
 </script>
 
 <template>
@@ -194,7 +216,7 @@ function getRowKey(row: MaterialWithPrice): string {
         </div>
         <el-text type="warning" size="small" tag="b">小計：{{ formatGil(group.subtotal) }} Gil</el-text>
       </div>
-      <el-table :data="group.items" size="small" class="material-table clickable-rows" :row-key="getRowKey" :row-class-name="rowClassName" @expand-change="handleExpand" @row-click="copyName">
+      <el-table v-if="!isMobile" :data="group.items" size="small" class="material-table clickable-rows" :row-key="getRowKey" :row-class-name="rowClassName" @expand-change="handleExpand" @row-click="copyName">
         <el-table-column type="expand">
           <template #default="{ row }">
             <div class="expanded-controls">
@@ -293,6 +315,82 @@ function getRowKey(row: MaterialWithPrice): string {
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- Mobile card layout: single-column stack, tap body to expand -->
+      <ul v-else class="material-cards">
+        <li
+          v-for="row in group.items"
+          :key="getRowKey(row)"
+          class="material-card"
+          :class="{ 'material-card--checked': isRowChecked(row), 'material-card--expanded': isMobileExpanded(row) }"
+        >
+          <div class="material-card__row" @click="toggleMobileExpand(row)">
+            <label class="material-card__check" @click.stop>
+              <el-checkbox
+                :model-value="isRowChecked(row)"
+                :aria-label="`標記已採購：${row.name}`"
+                @change="() => batchStore.toggleShoppingItem(row.itemId, row.type, row.isFinishedProduct)"
+              />
+            </label>
+            <img v-if="row.icon" :src="row.icon" alt="" aria-hidden="true" loading="lazy" decoding="async" class="material-card__icon" />
+            <div class="material-card__body">
+              <div class="material-card__line1">
+                <ItemName :item-id="row.itemId" :fallback="row.name" />
+                <el-tag size="small" :type="row.type === 'hq' ? 'warning' : 'info'" class="material-card__type">
+                  {{ row.type.toUpperCase() }}
+                </el-tag>
+                <el-tag v-if="row.isFinishedProduct" size="small" type="success">直購</el-tag>
+              </div>
+              <div class="material-card__line2">
+                <span class="material-card__qty">× {{ row.amount }}</span>
+                <span class="material-card__price">{{ formatGil(row.unitPrice) }}</span>
+                <strong class="material-card__subtotal">{{ formatGil(row.unitPrice * row.amount) }}</strong>
+              </div>
+              <div v-if="row.isFinishedProduct && row.craftCostComparison" class="material-card__hint">
+                <template v-if="Number.isFinite(row.craftCostComparison.craftCost)">
+                  自製需 {{ formatGil(row.craftCostComparison.craftCost) }}，省 {{ formatGil(row.craftCostComparison.craftCost - row.craftCostComparison.buyPrice) }}
+                </template>
+                <template v-else>無法自製</template>
+              </div>
+            </div>
+            <span class="material-card__chev" aria-hidden="true">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </span>
+          </div>
+          <div v-if="isMobileExpanded(row)" class="material-card__detail" @click.stop>
+            <div class="expanded-controls">
+              <div v-if="batchStore.calcMode === 'quick-buy' && !row.isFinishedProduct" class="quality-toggle" role="tablist" aria-label="切換品質">
+                <button
+                  type="button"
+                  class="quality-toggle-pill"
+                  :class="{ 'quality-toggle-pill--active': effectiveQuality(row) === 'nq' }"
+                  @click.stop="batchStore.setQualityOverride(row.itemId, 'nq')"
+                >NQ</button>
+                <button
+                  type="button"
+                  class="quality-toggle-pill quality-toggle-pill--hq"
+                  :class="{ 'quality-toggle-pill--active': effectiveQuality(row) === 'hq' }"
+                  @click.stop="batchStore.setQualityOverride(row.itemId, 'hq')"
+                >HQ</button>
+              </div>
+              <div v-if="row.isFinishedProduct" class="self-make-toggle">
+                <el-switch
+                  :model-value="!!batchStore.selfMakeOverrides[row.itemId]"
+                  size="small"
+                  inline-prompt
+                  @change="batchStore.toggleSelfMake(row.itemId)"
+                />
+                <span class="settings-text">改為自製</span>
+              </div>
+            </div>
+            <CrossWorldPriceDetail
+              :data="recommendedRowsFor(row)"
+              :loading="crossWorldLoading.has(row.itemId)"
+              show-listing-count
+            />
+          </div>
+        </li>
+      </ul>
     </div>
 
     </div>
@@ -464,9 +562,9 @@ function getRowKey(row: MaterialWithPrice): string {
 }
 
 .craft-compare-hint {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--el-text-color-secondary);
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 .material-name-wrap {
@@ -568,6 +666,23 @@ function getRowKey(row: MaterialWithPrice): string {
   }
 }
 
+/* Mobile: reduce table cell padding and tighten column widths for small screens */
+@media (max-width: 640px) {
+  :deep(.material-table .el-table__cell),
+  :deep(.material-table .cell) {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+  :deep(.material-table .el-table__cell) {
+    font-size: 12px;
+  }
+  /* Hide the standalone 小計 column (subtotal is shown via 單價 × 數量) */
+  :deep(.material-table .el-table__cell:last-child),
+  :deep(.material-table .el-table__header th:last-child) {
+    display: none;
+  }
+}
+
 @media (pointer: coarse) {
   .copy-btn {
     width: 36px;
@@ -604,5 +719,136 @@ function getRowKey(row: MaterialWithPrice): string {
   .server-grid {
     columns: 3;
   }
+}
+
+/* ===== Mobile card layout (<= 640px) ===== */
+.material-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.material-card {
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-fill-color-lighter);
+  overflow: hidden;
+  transition: opacity 0.15s, border-color 0.15s;
+}
+
+.material-card--checked {
+  opacity: 0.5;
+}
+
+.material-card--checked .material-card__body {
+  text-decoration: line-through;
+}
+
+.material-card--expanded {
+  border-color: var(--page-accent, var(--accent-gold));
+}
+
+.material-card__row {
+  display: grid;
+  grid-template-columns: var(--touch-target-min) 32px 1fr 28px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  min-height: var(--touch-target-min);
+}
+
+.material-card__check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: var(--touch-target-min);
+}
+
+.material-card__icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 3px;
+}
+
+.material-card__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.material-card__line1 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.material-card__type {
+  flex-shrink: 0;
+}
+
+.material-card__line2 {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.material-card__qty {
+  font-variant-numeric: tabular-nums;
+}
+
+.material-card__price {
+  font-variant-numeric: tabular-nums;
+}
+
+.material-card__subtotal {
+  margin-left: auto;
+  color: var(--accent-gold);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.material-card__hint {
+  font-size: 11.5px;
+  color: var(--el-text-color-secondary);
+  margin-top: 2px;
+}
+
+.material-card__chev {
+  color: var(--el-text-color-placeholder);
+  transition: transform 0.2s var(--ease-out-quart);
+}
+
+.material-card--expanded .material-card__chev {
+  transform: rotate(180deg);
+  color: var(--page-accent, var(--accent-gold));
+}
+
+.material-card__detail {
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--el-border-color-lighter);
+  background: var(--el-bg-color);
+}
+
+.material-card__detail .expanded-controls {
+  margin-bottom: 8px;
+}
+
+/* Touch-friendly quality pill sizing inside mobile cards */
+.material-card__detail .quality-toggle-pill {
+  padding: 10px 16px;
+  min-height: var(--touch-target-min);
+  font-size: 13px;
 }
 </style>

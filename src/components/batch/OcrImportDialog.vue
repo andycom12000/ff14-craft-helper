@@ -26,6 +26,12 @@ const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
 const batchStore = useBatchStore()
 const { isLoading: ocrLoading, progress: ocrProgress, recognize, terminate } = useOcrEngine()
 
+const isMobile = ref(false)
+function updateIsMobile() {
+  isMobile.value = window.innerWidth < 768
+}
+onMounted(updateIsMobile)
+
 const imageBlob = ref<Blob | null>(null)
 const imageUrl = ref('')
 const isRecognizing = ref(false)
@@ -298,10 +304,12 @@ function handleClose() {
 
 onMounted(() => {
   document.addEventListener('paste', handlePaste)
+  window.addEventListener('resize', updateIsMobile)
 })
 
 onUnmounted(() => {
   document.removeEventListener('paste', handlePaste)
+  window.removeEventListener('resize', updateIsMobile)
   if (imageUrl.value) URL.revokeObjectURL(imageUrl.value)
   terminate()
 })
@@ -311,14 +319,27 @@ onUnmounted(() => {
   <el-dialog
     v-model="dialogVisible"
     title="從截圖匯入籌備任務"
-    width="1100px"
+    :width="isMobile ? '100%' : '1100px'"
+    :fullscreen="isMobile"
+    destroy-on-close
     @close="handleClose"
     :close-on-click-modal="false"
   >
     <el-row :gutter="20">
       <!-- Left: Image panel -->
-      <el-col :span="12">
-        <div v-if="!imageUrl" class="drop-zone" @drop="handleDrop" @dragover="handleDragOver" @click="triggerFileSelect">
+      <el-col :span="12" :xs="24">
+        <div
+          v-if="!imageUrl"
+          class="drop-zone"
+          role="button"
+          tabindex="0"
+          aria-label="上傳截圖：點擊選擇檔案、拖放或 Ctrl+V 貼上"
+          @drop="handleDrop"
+          @dragover="handleDragOver"
+          @click="triggerFileSelect"
+          @keydown.enter.prevent="triggerFileSelect"
+          @keydown.space.prevent="triggerFileSelect"
+        >
           <div class="drop-zone-content">
             <el-icon class="drop-zone-icon"><Picture /></el-icon>
             <div class="drop-zone-text">按 Ctrl+V 貼上截圖</div>
@@ -356,12 +377,13 @@ onUnmounted(() => {
       </el-col>
 
       <!-- Right: Results panel -->
-      <el-col :span="12">
+      <el-col :span="12" :xs="24">
         <el-table
           v-if="matchItems.length > 0"
           :data="matchItems"
           size="small"
           max-height="450"
+          class="ocr-match-table"
         >
           <el-table-column width="40">
             <template #default="{ row }">
@@ -373,6 +395,10 @@ onUnmounted(() => {
               <img
                 v-if="row.selectedRecipe?.icon"
                 :src="row.selectedRecipe.icon"
+                alt=""
+                aria-hidden="true"
+                loading="lazy"
+                decoding="async"
                 style="width: 24px; height: 24px; border-radius: 4px;"
               />
             </template>
@@ -459,6 +485,12 @@ onUnmounted(() => {
   border-color: var(--el-color-primary);
 }
 
+.drop-zone:focus-visible {
+  outline: 2px solid var(--app-accent-light);
+  outline-offset: 2px;
+  border-color: var(--el-color-primary);
+}
+
 .drop-zone-icon {
   font-size: 36px;
   margin-bottom: 8px;
@@ -504,5 +536,24 @@ onUnmounted(() => {
   color: var(--el-color-success);
   font-size: 12px;
   margin-left: 4px;
+}
+
+/* Mobile: OCR match table has 5 columns (check/icon/name/status/action).
+ * Fullscreen dialog gives us ~370px usable; hide 狀態 column and let
+ * the action el-select expand to full column width so the dropdown is usable. */
+@media (max-width: 640px) {
+  .ocr-match-table :deep(.el-table__cell:nth-child(4)),
+  .ocr-match-table :deep(.el-table__header th:nth-child(4)) {
+    display: none;
+  }
+
+  .ocr-match-table :deep(.el-table__cell) {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+
+  .ocr-match-table :deep(.el-select) {
+    width: 100%;
+  }
 }
 </style>

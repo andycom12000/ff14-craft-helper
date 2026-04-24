@@ -18,6 +18,8 @@ const emit = defineEmits<{
       v-if="target.recipe.icon"
       :src="target.recipe.icon"
       :alt="target.recipe.name"
+      loading="lazy"
+      decoding="async"
       class="recipe-card-icon"
     />
     <div class="recipe-card-icon recipe-card-icon--empty" v-else />
@@ -38,13 +40,13 @@ const emit = defineEmits<{
         :min="1"
         :max="99"
         size="small"
-        controls-position="right"
       />
       <el-button
         :icon="Delete"
         size="small"
         type="danger"
         text
+        :aria-label="`移除 ${target.recipe.name}`"
         @click="emit('remove', target.recipe.id)"
       />
     </div>
@@ -105,5 +107,71 @@ const emit = defineEmits<{
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .recipe-card {
+    padding: 10px 12px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .recipe-card-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .recipe-card-info {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .recipe-card-name {
+    font-size: 13.5px;
+  }
+
+  .recipe-card-meta {
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 11.5px;
+  }
+
+  /* Quantity + delete wrap to a dedicated row so the name/meta gets full width.
+   * Override the global 44px-target padding on input-number: the +/- buttons
+   * remain tappable via explicit sizing below without stealing 96px of width. */
+  .recipe-card-controls {
+    order: 3;
+    width: 100%;
+    justify-content: flex-end;
+    margin-top: 2px;
+  }
+
+  .recipe-card-controls :deep(.el-input-number.el-input-number--small) {
+    width: 112px;
+    line-height: normal;
+  }
+
+  .recipe-card-controls :deep(.el-input-number--small .el-input__wrapper) {
+    padding-left: 36px;
+    padding-right: 36px;
+    min-height: 36px;
+  }
+
+  .recipe-card-controls :deep(.el-input-number--small .el-input__inner) {
+    height: 34px;
+    line-height: 34px;
+  }
+
+  .recipe-card-controls :deep(.el-input-number--small .el-input-number__decrease),
+  .recipe-card-controls :deep(.el-input-number--small .el-input-number__increase) {
+    min-width: 36px;
+    min-height: 36px;
+  }
+
+  .recipe-card-controls :deep(.el-button) {
+    min-height: 36px;
+    min-width: 36px;
+    padding: 0 10px;
+  }
 }
 </style>

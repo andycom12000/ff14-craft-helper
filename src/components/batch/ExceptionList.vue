@@ -70,6 +70,8 @@ const summary = computed(() => {
   color: var(--el-color-warning);
   font-size: 13px;
   transition: background 0.15s;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .exception-summary:hover {
@@ -127,5 +129,40 @@ const summary = computed(() => {
 
 .exception-price {
   margin-top: 6px;
+}
+
+@media (max-width: 640px) {
+  .exception-summary {
+    padding: 10px 12px;
+    min-height: var(--touch-target-min, 44px);
+    font-size: 13px;
+  }
+
+  .exception-summary-left {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .exception-count {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.35;
+  }
+
+  .exception-toggle {
+    flex-shrink: 0;
+    font-size: 12px;
+    padding: 6px 4px;
+  }
+
+  .exception-item {
+    padding: 10px;
+    margin-bottom: 8px;
+  }
+
+  .exception-title {
+    font-size: 13px;
+    line-height: 1.4;
+  }
 }
 </style>

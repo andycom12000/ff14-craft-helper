@@ -40,22 +40,22 @@ const steps = [
 }
 
 .batch-stepper :deep(.el-step__head.is-finish .el-step__icon) {
-  border-color: #e9c176;
-  color: #e9c176;
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
 }
 
 .batch-stepper :deep(.el-step__title.is-finish) {
-  color: #e9c176;
+  color: var(--accent-gold);
 }
 
 .batch-stepper :deep(.el-step__head.is-process .el-step__icon) {
-  border-color: #e9c176;
-  background: #e9c176;
+  border-color: var(--accent-gold);
+  background: var(--accent-gold);
   color: var(--el-bg-color);
 }
 
 .batch-stepper :deep(.el-step__title.is-process) {
-  color: #e9c176;
+  color: var(--accent-gold);
   font-weight: 600;
 }
 </style>

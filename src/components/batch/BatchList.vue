@@ -50,16 +50,16 @@ function onDragEnd() {
 <template>
   <el-card shadow="never">
     <template #header>
-      <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div class="batch-list-header">
         <span class="card-title">購物清單</span>
-        <div style="display: flex; align-items: center; gap: 12px;">
+        <div class="batch-list-actions">
           <el-button type="primary" text size="small" :icon="Search" @click="emit('open-search')">
             搜尋配方
           </el-button>
           <el-button type="primary" text size="small" @click="showOcrDialog = true">
             從截圖匯入
           </el-button>
-          <el-text type="info" size="small">{{ batchStore.targets.length }} 個配方</el-text>
+          <el-text type="info" size="small" class="batch-list-count">{{ batchStore.targets.length }} 個配方</el-text>
           <el-popconfirm
             v-if="batchStore.targets.length > 0 || batchStore.results"
             title="確定要清除所有配方與計算結果嗎？"
@@ -119,6 +119,36 @@ function onDragEnd() {
 </template>
 
 <style scoped>
+.batch-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.batch-list-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .batch-list-header {
+    gap: 8px;
+  }
+
+  .batch-list-actions {
+    gap: 8px;
+    width: 100%;
+  }
+
+  .batch-list-count {
+    margin-left: auto;
+  }
+}
+
 .recipe-card-list {
   display: flex;
   flex-direction: column;

@@ -84,6 +84,7 @@ defineProps<{
   font-size: 12.5px;
   color: var(--el-text-color-secondary);
   margin-top: 2px;
+  word-break: break-word;
 }
 
 .cost-saving {

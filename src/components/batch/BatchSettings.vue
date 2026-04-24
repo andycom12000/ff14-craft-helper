@@ -32,7 +32,8 @@ const batch = useBatchStore()
             v-if="settings.recursivePricing"
             v-model="settings.maxRecursionDepth"
             :min="1" :max="10" size="small"
-            style="width: 120px;"
+            aria-label="遞迴查價最大深度"
+            class="recursion-depth"
           />
         </div>
         <el-divider direction="vertical" />
@@ -133,6 +134,20 @@ const batch = useBatchStore()
 
 .buff-select {
   width: 160px;
+}
+
+.recursion-depth {
+  width: 120px;
+}
+
+@media (max-width: 640px) {
+  .buff-select {
+    width: 100%;
+  }
+  .recursion-depth {
+    width: 100%;
+    max-width: 120px;
+  }
 }
 
 .buff-section {

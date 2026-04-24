@@ -95,6 +95,9 @@ const showCounter = computed(() => {
   display: flex;
   justify-content: space-between;
   margin-bottom: 8px;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .progress-actions {
