@@ -30,6 +30,9 @@ const changelog: Entry[] = [
       '【伺服器清單轉 static】伺服器／資料中心清單改由每週 CI 預先抓 Universalis 並 commit 到 `public/data/worlds.json`，減少對 Universalis live API 的啟動依賴；設定頁新增「從 API 更新」按鈕，供使用者在新伺服器上線尚未進資料前手動觸發即時更新',
       '【設定頁微調】價格顯示預設從 NQ 改為「NQ／HQ 取低者」；作者名改為「菸齡 (andycom12000)」；新增特別感謝 section 列出 BE4R、哎低、永恆詩歌、o12ld',
       '【0 Gil bug 修正】購物清單樹中，原本查無市場資料的節點會顯示為 0 Gil 並錯誤地被推薦為「購買」，現在會傳遞 null 到 cost 計算鏈路並以 `—` 呈現，優化邏輯改為「未知價格 → 建議自製」',
+      '【批量 per-material NQ/HQ 切換修復】快速購買模式下，點擊單一材料的 NQ/HQ pill 會把整個展開狀態一起丟掉、讓剛點的 toggle 看似沒生效；加上穩定的 row-key 後展開狀態保留，切換只影響當筆',
+      '【zh-TW 名稱修正】datamining 上游有部分防具名稱與台服客戶端不符（例如 41861 顯示為「雪木棉禦敵打底褲」但遊戲內是「雪木棉禦敵下身」）；新增 `zh-TW-overrides.json` 覆寫表，一次修正 80 筆下身類防具（`打底褲` → `下身`），未來可擴充',
+      '【觸控／視覺微調】mobile 斷點下所有 pill / chip / 切換按鈕觸控區加大至 40px；craft condition 與 success 綠相關色彩改用 CSS variable tokens；BOM 節點圖示改為 lazy-load',
     ],
   },
   {
