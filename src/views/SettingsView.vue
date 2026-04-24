@@ -162,7 +162,7 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
 
       <el-skeleton v-if="loading" :rows="3" animated />
 
-      <el-form v-else label-width="120px" label-position="left">
+      <el-form v-else label-width="120px" label-position="left" class="settings-form">
         <el-form-item label="地區">
           <el-select v-model="selectedRegion" placeholder="選擇地區">
             <el-option
@@ -283,6 +283,22 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
 <style scoped>
 .settings-view {
   max-width: 720px;
+}
+
+/* On small phones, the 120px label-width wastes space; let form items stack */
+@media (max-width: 480px) {
+  .settings-form :deep(.el-form-item__label) {
+    width: auto !important;
+    margin-bottom: 4px;
+  }
+  .settings-form :deep(.el-form-item) {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .settings-form :deep(.el-form-item__content) {
+    margin-left: 0 !important;
+  }
 }
 
 .price-card {

@@ -584,7 +584,7 @@ function formatDateDots(iso: string) {
 }
 .page-title {
   font-family: var(--display);
-  font-size: 44px;
+  font-size: clamp(28px, 6vw, 44px);
   font-weight: 500;
   letter-spacing: -0.01em;
   margin: 0;
@@ -688,7 +688,7 @@ function formatDateDots(iso: string) {
   height: 12px;
   background: var(--gold);
   border-color: var(--gold-line);
-  box-shadow: 0 0 10px oklch(0.78 0.13 82 / .5);
+  box-shadow: 0 0 6px oklch(0.78 0.13 82 / .28);
 }
 .rail-item--active .rail-mon {
   color: var(--parch-50);

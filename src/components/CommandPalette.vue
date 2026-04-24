@@ -51,6 +51,8 @@ function select(cmd: Command) {
   open.value = false
 }
 
+const paletteRef = ref<HTMLElement>()
+
 function onKeydown(e: KeyboardEvent) {
   if (e.key === 'ArrowDown') {
     e.preventDefault()
@@ -62,6 +64,23 @@ function onKeydown(e: KeyboardEvent) {
     e.preventDefault()
     if (filtered.value[selectedIndex.value]) {
       select(filtered.value[selectedIndex.value])
+    }
+  } else if (e.key === 'Tab') {
+    // Focus trap: keep tab cycling within the palette
+    const root = paletteRef.value
+    if (!root) return
+    const focusable = root.querySelectorAll<HTMLElement>(
+      'input, button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    )
+    if (focusable.length === 0) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault()
+      first.focus()
     }
   }
 }
@@ -77,21 +96,36 @@ function onGlobalKeydown(e: KeyboardEvent) {
 }
 
 onMounted(() => document.addEventListener('keydown', onGlobalKeydown))
-onUnmounted(() => document.removeEventListener('keydown', onGlobalKeydown))
+onUnmounted(() => {
+  document.removeEventListener('keydown', onGlobalKeydown)
+  document.body.style.overflow = ''
+})
+
+watch(open, (isOpen) => {
+  document.body.style.overflow = isOpen ? 'hidden' : ''
+})
 </script>
 
 <template>
   <Teleport to="body">
     <Transition name="palette">
       <div v-if="open" class="palette-backdrop" @click.self="open = false">
-        <div class="palette" @keydown="onKeydown">
+        <div
+          ref="paletteRef"
+          class="palette"
+          role="dialog"
+          aria-modal="true"
+          aria-label="快速前往頁面"
+          @keydown="onKeydown"
+        >
           <div class="palette-input-row">
-            <span class="palette-search-icon">⌘</span>
+            <span class="palette-search-icon" aria-hidden="true">⌘</span>
             <input
               ref="inputRef"
               v-model="query"
               class="palette-input"
               placeholder="前往頁面…"
+              aria-label="頁面搜尋"
               autocomplete="off"
               spellcheck="false"
             />
@@ -127,6 +161,7 @@ onUnmounted(() => document.removeEventListener('keydown', onGlobalKeydown))
   align-items: flex-start;
   justify-content: center;
   padding-top: 20vh;
+  padding-top: 20dvh;
 }
 
 .palette {
@@ -145,6 +180,11 @@ onUnmounted(() => document.removeEventListener('keydown', onGlobalKeydown))
   gap: 10px;
   padding: 14px 16px;
   border-bottom: 1px solid var(--app-border, rgba(148,163,184,0.12));
+  transition: border-color 0.15s;
+}
+
+.palette-input-row:focus-within {
+  border-bottom-color: var(--app-accent-light, #A78BFA);
 }
 
 .palette-search-icon {
@@ -159,8 +199,14 @@ onUnmounted(() => document.removeEventListener('keydown', onGlobalKeydown))
   border: none;
   outline: none;
   color: var(--app-text, #E2E8F0);
-  font-size: 15px;
+  font-size: 16px;
   font-family: inherit;
+}
+
+.palette-input:focus-visible {
+  outline: 2px solid var(--app-accent-light);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .palette-input::placeholder {
@@ -202,6 +248,22 @@ onUnmounted(() => document.removeEventListener('keydown', onGlobalKeydown))
 
 .palette-item.active {
   background: var(--app-accent-glow, rgba(124, 58, 237, 0.15));
+}
+
+.palette-item:active {
+  background: var(--app-surface-hover, rgba(148, 163, 184, 0.12));
+}
+
+.palette-item:focus-visible {
+  outline: 2px solid var(--app-accent-light, #A78BFA);
+  outline-offset: -2px;
+}
+
+@media (pointer: coarse) {
+  .palette-item {
+    min-height: 44px;
+    padding: 12px 14px;
+  }
 }
 
 .palette-item-icon {

@@ -74,9 +74,14 @@ async function selectItem(item: { id: number; itemId: number; name: string; icon
         v-for="item in searchResults"
         :key="item.id"
         class="search-result-item"
+        role="button"
+        tabindex="0"
+        :aria-label="`查看 ${item.name} 市場資訊`"
         @click="selectItem(item)"
+        @keydown.enter.prevent="selectItem(item)"
+        @keydown.space.prevent="selectItem(item)"
       >
-        <img v-if="item.icon" :src="item.icon" class="result-icon" />
+        <img v-if="item.icon" :src="item.icon" alt="" aria-hidden="true" loading="lazy" decoding="async" class="result-icon" />
         <span><ItemName :item-id="item.itemId" :fallback="item.name" /></span>
       </div>
     </el-card>
@@ -91,7 +96,7 @@ async function selectItem(item: { id: number; itemId: number; name: string; icon
 
     <template v-if="selectedItem">
       <div class="selected-item">
-        <img v-if="selectedItem.icon" :src="selectedItem.icon" style="width: 32px; height: 32px" />
+        <img v-if="selectedItem.icon" :src="selectedItem.icon" alt="" aria-hidden="true" decoding="async" style="width: 32px; height: 32px" />
         <h3 style="margin: 0"><ItemName :item-id="selectedItem.itemId" :fallback="selectedItem.name" /></h3>
       </div>
 
@@ -172,6 +177,11 @@ async function selectItem(item: { id: number; itemId: number; name: string; icon
 
 .search-result-item:hover {
   background-color: var(--app-surface-hover);
+}
+
+.search-result-item:focus-visible {
+  outline: 2px solid var(--app-accent-light);
+  outline-offset: 2px;
 }
 
 .result-icon {
