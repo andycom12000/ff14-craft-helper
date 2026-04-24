@@ -12,6 +12,23 @@ interface Entry {
 
 const changelog: Entry[] = [
   {
+    version: 'v2.2.0',
+    date: '2026-04-25',
+    codename: 'Pocket Artisan',
+    highlights: [
+      '【Mobile UX 大改】所有頁面手機版全面重新設計：固定頂部 app bar（漢堡選單、頁面標題、teleport 工具 slot），內容區 section 扁平化，取代 nested el-card 為 divider list，觸控目標全面 44px+',
+      '【配裝頁手機版】改為 accordion 收合各職業，「批次調整」從桌面版折疊面板改為底部抽屜',
+      '【模擬器手機版】重設計為 flat sections，技能選擇改用 bottom sheet，tabs 置中、長技能名自動換行',
+      '【批量製作手機版】step breadcrumb 改 compact 圖示列、section 改 stepper style + 扁平化，採購材料改 divider list card，伺服器 header 扁平化',
+      '【購物清單（BOM）手機版】製作目標改單行 row（icon + 名稱 + 步進器 + 刪除 icon），材料總覽改 card list 可展開跨伺服器價格；手機版隱藏樹狀 tab 只保留材料總覽',
+      '【樹狀圖 compact 重設計】參考 FFXIV_Market（beherw）的做法，tree 節點縮成 104px card（icon + qty + 名稱 + 小價格），overflow 時橫向捲動作 fallback',
+      '【跨伺服器價格對齊】CrossWorldPriceDetail 改用 CSS Subgrid，NQ / HQ / 更新時間欄位跨 row 對齊，不再受時間字數（剛剛／3 天前）或價格位數影響',
+      '【導覽調整】Dashboard 與購物清單頁移除重複的 FlowBreadcrumb；router 每個路由補 meta.title 讓 app bar 顯示對的標題',
+      '【build 最佳化】element-plus 獨立 manual chunk、`unplugin-auto-import` + `unplugin-vue-components`，減小主 bundle 與樣板 import',
+      '【內部】新增 `useMediaQuery` / `useIsMobile` composable 統一 responsive 斷點，centralize `MOBILE_BREAKPOINT` 常數',
+    ],
+  },
+  {
     version: 'v2.1.0',
     date: '2026-04-23',
     codename: 'Warm Welcome',
