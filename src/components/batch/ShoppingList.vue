@@ -126,6 +126,14 @@ function rowClassName({ row }: { row: MaterialWithPrice }) {
 function rowAriaLabel(row: MaterialWithPrice): string {
   return `${row.name} — 點一下整列複製品名`
 }
+
+// Keying by itemId alone in quick-buy — type mutates on toggle and we need
+// el-table to keep its expand state. Macro can have same itemId at NQ and HQ.
+function getRowKey(row: MaterialWithPrice): string {
+  if (batchStore.calcMode === 'quick-buy') return String(row.itemId)
+  const fp = row.isFinishedProduct ? '|fp' : ''
+  return `${row.itemId}|${row.type}${fp}`
+}
 </script>
 
 <template>
@@ -186,7 +194,7 @@ function rowAriaLabel(row: MaterialWithPrice): string {
         </div>
         <el-text type="warning" size="small" tag="b">小計：{{ formatGil(group.subtotal) }} Gil</el-text>
       </div>
-      <el-table :data="group.items" size="small" class="material-table clickable-rows" :row-class-name="rowClassName" @expand-change="handleExpand" @row-click="copyName">
+      <el-table :data="group.items" size="small" class="material-table clickable-rows" :row-key="getRowKey" :row-class-name="rowClassName" @expand-change="handleExpand" @row-click="copyName">
         <el-table-column type="expand">
           <template #default="{ row }">
             <div class="expanded-controls">
