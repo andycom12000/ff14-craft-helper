@@ -198,17 +198,61 @@ function tooltipContent(skill: SkillDefinition): string {
   color: var(--el-text-color-secondary);
 }
 
-/* Mobile: tighten tabs padding so 5 categories fit cleanly within 390px */
-@media (max-width: 480px) {
+/* Mobile: Element Plus border-card tabs ship with asymmetric padding
+ * (first tab gets extra left pad, last gets extra right pad, and the
+ * active tab gets extra padding on the side neighbouring the prev
+ * tab) which makes labels like 品質 look shifted right instead of
+ * centered. Force symmetric padding on every state and distribute
+ * the five tabs with equal flex weight so they stay aligned. */
+@media (max-width: 640px) {
+  .skill-panel :deep(.el-tabs--border-card > .el-tabs__header) {
+    display: flex;
+  }
+  .skill-panel :deep(.el-tabs--border-card .el-tabs__nav) {
+    display: flex;
+    flex: 1;
+    width: 100%;
+  }
   .skill-panel :deep(.el-tabs--border-card .el-tabs__item) {
-    padding: 0 10px;
+    flex: 1;
+    padding: 0 !important;
     font-size: 13px;
+    text-align: center;
+    justify-content: center;
   }
   .skill-panel :deep(.el-tabs--border-card > .el-tabs__content) {
     padding: 10px;
   }
+
+  /* Grid of skill tiles — equal column widths so ragged button widths
+   * and long names (e.g. 工匠的神速技巧) can't overflow the row. */
+  .skill-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
   .skill-btn {
-    min-width: 96px;
+    min-width: 0;
+    width: 100%;
+    padding: 8px 6px;
+  }
+  .skill-icon {
+    width: 36px;
+    height: 36px;
+  }
+  .skill-name {
+    font-size: 11.5px;
+    line-height: 1.25;
+    text-align: center;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .skill-cp {
+    font-size: 11px;
   }
 }
 </style>
