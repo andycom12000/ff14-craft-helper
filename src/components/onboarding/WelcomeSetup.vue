@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { ElButton, ElSelect, ElOption } from 'element-plus'
 import { useSettingsStore } from '@/stores/settings'
 import { useLocaleStore } from '@/stores/locale'
 import { getDataCenters, getWorlds } from '@/api/universalis'
@@ -375,13 +374,65 @@ const stepSub = computed(() =>
   color: var(--app-text-muted);
 }
 
+/* Mobile: remove the enclosing card entirely — the onboarding IS the page,
+ * not a modal sitting inside one. Content fills the viewport with page-level
+ * padding, language choices flatten to a divider list, footer sticks to bottom
+ * so the primary CTA is always reachable while content scrolls naturally. */
 @media (max-width: 640px) {
   .welcome-setup {
-    margin: 16px;
-    padding: 28px 20px;
+    max-width: none;
+    margin: 0;
+    padding: 60px 16px 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    gap: 24px;
+    min-height: 100%;
   }
+
+  .welcome-header h1 {
+    font-size: 22px;
+  }
+
   .choices {
     grid-template-columns: 1fr;
+    gap: 0;
+    border-top: 1px solid var(--app-border);
+  }
+
+  .choice-card {
+    padding: 16px 4px;
+    border-radius: 0;
+    border: 0;
+    border-bottom: 1px solid var(--app-border);
+    background: transparent;
+    min-height: 56px;
+  }
+
+  .choice-card:hover {
+    border-bottom-color: var(--app-border);
+    background: transparent;
+  }
+
+  .choice-card.active {
+    border-bottom-color: var(--app-accent);
+    background: color-mix(in srgb, var(--app-accent) 8%, transparent);
+  }
+
+  .welcome-footer {
+    position: sticky;
+    bottom: 0;
+    margin: 8px -16px 0;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--app-bg) 90%, transparent);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-top: 1px solid var(--app-border);
+    z-index: 1;
+  }
+
+  .welcome-footer :deep(.el-button--primary) {
+    flex: 1;
   }
 }
 </style>
