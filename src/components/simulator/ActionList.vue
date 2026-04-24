@@ -174,23 +174,46 @@ function tagTone(index: number, results: StepResult[]): '' | 'success' | 'danger
   font-size: 12px;
 }
 
-/* Mobile: enlarge tag touch targets to hit 36-44px and give breathing room */
+/* Mobile: 2-column equal-width grid so tags align instead of flex-wrap
+ * creating ragged rows of varying widths. Drop the internal header —
+ * the SimulatorView wrapper already shows the section heading + clear
+ * button, so keeping this one means "技能序列" appears twice. */
 @media (max-width: 640px) {
-  .action-tag :deep(.el-tag__content),
-  .action-tag {
+  .action-header {
+    display: none;
+  }
+  .action-list {
+    padding: 0;
+  }
+  .action-tags {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .action-tag,
+  .action-tag :deep(.el-tag__content) {
+    width: 100%;
     min-height: 36px;
     padding: 4px 10px;
+    box-sizing: border-box;
+  }
+  .action-tag :deep(.el-tag__content) {
+    justify-content: flex-start;
   }
   .action-tag :deep(.el-tag__close) {
     font-size: 16px;
-    margin-left: 6px;
+    margin-left: auto;
+  }
+  .action-label {
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
   }
   .action-icon {
     width: 22px;
     height: 22px;
-  }
-  .action-label {
-    font-size: 13px;
   }
 }
 </style>

@@ -221,32 +221,79 @@ function decrementHq(index: number) {
   text-align: right;
 }
 
-@media (max-width: 480px) {
+/* Mobile: keep rows inline (name left, NQ/HQ right) so the list
+ * reads as a tight ledger instead of stacked cards with big dead
+ * button rows. Flatten the per-row background — the SimulatorView
+ * accordion already provides grouping, and card-in-card noise was
+ * the biggest visual issue. */
+@media (max-width: 640px) {
+  .initial-quality {
+    max-width: none;
+    padding: 0;
+  }
+
+  .ingredient-header {
+    margin-bottom: 4px;
+  }
+
+  .ingredient-header h4 {
+    font-size: 13px;
+    color: var(--app-text-muted, var(--el-text-color-secondary));
+    font-weight: 600;
+  }
+
+  .ingredient-list {
+    gap: 0;
+    margin-top: 8px;
+  }
+
   .ingredient-row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
+    flex-direction: row;
+    align-items: center;
+    padding: 8px 0;
+    background: transparent;
+    border-radius: 0;
+    border-bottom: 1px solid var(--app-border, var(--el-border-color-lighter));
+    gap: 10px;
+  }
+
+  .ingredient-row:last-child {
+    border-bottom: 0;
+  }
+
+  .ingredient-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ingredient-icon {
+    width: 26px;
+    height: 26px;
+  }
+
+  .ingredient-name {
+    font-size: 13px;
   }
 
   .ingredient-controls {
-    width: 100%;
+    flex-shrink: 0;
   }
 
   .hq-btn {
     min-width: 0;
-    flex: 1;
-    font-size: 13px;
-    padding: 8px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 10px;
+    height: 32px;
   }
 
   .nq-only-btn {
-    min-width: 0;
-    width: 100%;
+    min-width: 72px;
   }
 
-  .ingredient-controls :deep(.el-button-group) {
-    display: flex;
-    width: 100%;
+  .info-text {
+    margin-top: 10px;
+    font-size: 11px;
   }
 }
 </style>

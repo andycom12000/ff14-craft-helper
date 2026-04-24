@@ -326,6 +326,104 @@ onUnmounted(() => {
   }
 }
 
+/* Mobile: collapse the desktop table-style stats into a compact
+ * base→enhanced row so 基礎/最終 能力值 read as an inline summary
+ * instead of two bordered el-descriptions tables. */
+@media (max-width: 640px) {
+  .food-medicine {
+    max-width: none;
+    padding: 0;
+  }
+
+  .food-medicine :deep(.el-divider) {
+    margin: 12px 0;
+  }
+
+  .stats-section h4,
+  .buff-section h4 {
+    font-size: 13px;
+    color: var(--app-text-muted, var(--el-text-color-secondary));
+    font-weight: 600;
+    margin: 0 0 6px;
+  }
+
+  .food-medicine :deep(.el-descriptions) {
+    --el-descriptions-item-bordered-label-background: transparent;
+  }
+
+  .food-medicine :deep(.el-descriptions__body),
+  .food-medicine :deep(.el-descriptions__table) {
+    background: transparent;
+  }
+
+  .food-medicine :deep(.el-descriptions__table) {
+    display: block;
+  }
+
+  .food-medicine :deep(.el-descriptions__table tbody) {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: auto auto;
+    grid-auto-flow: column;
+    gap: 2px 8px;
+  }
+
+  .food-medicine :deep(.el-descriptions__table tr) {
+    display: contents;
+  }
+
+  .food-medicine :deep(.el-descriptions .el-descriptions__cell) {
+    display: block;
+    padding: 6px 10px;
+    border: 1px solid var(--app-border, var(--el-border-color-lighter));
+    background: transparent;
+    min-height: 0;
+    text-align: left;
+  }
+
+  .food-medicine :deep(.el-descriptions__label.is-bordered-label) {
+    background: transparent;
+    border-bottom: 0;
+    border-radius: 8px 8px 0 0;
+    padding-bottom: 2px;
+  }
+
+  .food-medicine :deep(.el-descriptions__content) {
+    border-top: 0;
+    border-radius: 0 0 8px 8px;
+    padding-top: 2px;
+  }
+
+  .food-medicine :deep(.el-descriptions__label) {
+    font-size: 11px;
+    color: var(--app-text-muted, var(--el-text-color-secondary));
+    font-weight: 500;
+  }
+
+  .food-medicine :deep(.el-descriptions__content) {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--app-text, var(--el-text-color-primary));
+  }
+
+  .enhanced :deep(.el-descriptions__content) {
+    color: var(--app-craft, var(--el-color-primary));
+  }
+
+  .stat-diff {
+    font-size: 11px;
+    margin-left: 6px;
+  }
+
+  .buff-header {
+    margin-bottom: 8px;
+  }
+
+  .buff-preview :deep(.el-tag) {
+    font-size: 11px;
+  }
+}
+
 .buff-preview {
   display: flex;
   flex-wrap: wrap;
