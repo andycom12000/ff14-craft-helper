@@ -226,9 +226,11 @@ onUnmounted(() => {
   --el-color-primary-light-9: oklch(0.96 0.06 80);
   --el-color-primary-dark-2: oklch(0.55 0.18 60);
 
-  /* Semantic colors aligned with bakery palette */
+  /* Semantic colors aligned with bakery palette
+   * warning ≠ primary so warning alerts and warning buttons stay
+   * visually distinct from segmented-active and CTA elements. */
   --el-color-success: oklch(0.55 0.16 145);
-  --el-color-warning: oklch(0.65 0.18 65);
+  --el-color-warning: oklch(0.58 0.17 45);
   --el-color-danger: oklch(0.55 0.20 25);
   --el-color-error: oklch(0.55 0.20 25);
   --el-color-info: oklch(0.55 0.04 65);
