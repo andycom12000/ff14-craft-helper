@@ -237,12 +237,15 @@ onUnmounted(() => {
   --el-bg-color-page: var(--app-bg);
   --el-bg-color-overlay: var(--app-surface);
 
-  --el-fill-color: var(--app-surface-hover);
-  --el-fill-color-light: var(--app-surface);
-  --el-fill-color-lighter: oklch(0.96 0.018 85);
-  --el-fill-color-dark: oklch(0.85 0.04 75);
-  --el-fill-color-darker: oklch(0.78 0.05 70);
-  --el-fill-color-blank: var(--app-bg);
+  /* Fill hierarchy — all light, subtle progression
+   * lightest → darkest: blank > lighter > light > (default) > dark > darker
+   * Light-theme tokens stay in oklch(0.90-0.99) range; never go dark gray. */
+  --el-fill-color-blank: oklch(0.99 0.01 90);
+  --el-fill-color-lighter: oklch(0.975 0.014 85);
+  --el-fill-color-light: oklch(0.96 0.018 80);
+  --el-fill-color: oklch(0.94 0.022 78);
+  --el-fill-color-dark: oklch(0.92 0.028 75);
+  --el-fill-color-darker: oklch(0.90 0.032 72);
 
   --el-border-color: oklch(0.65 0.04 65 / 0.35);
   --el-border-color-light: oklch(0.70 0.04 65 / 0.25);
