@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useBatchStore } from '@/stores/batch'
 import { useSettingsStore } from '@/stores/settings'
@@ -88,8 +88,39 @@ const savingPercent = computed(() => {
 
 function navigateToStep(step: number) {
   const sections = [sectionPrepare, sectionShopping, sectionTodo]
-  sections[step]?.value?.scrollIntoView({ behavior: 'smooth' })
+  const target = sections[step]
+  if (!target) return
+  // Ensure the target section is expanded before scrolling so we land on
+  // visible content rather than a collapsed header.
+  if (!expandedSections.value.has(step)) {
+    expandedSections.value = new Set(expandedSections.value).add(step)
+  }
+  nextTick(() => {
+    target.value?.scrollIntoView({ behavior: 'smooth' })
+  })
 }
+
+// Mobile sticky offset: measure FlowBreadcrumb height into a CSS var so
+// scroll-margin-top tracks the real toolbar height (which changes with
+// active label length / pending state).
+const flowBreadcrumbRef = ref<{ $el?: HTMLElement } | HTMLElement>()
+const flowHeight = ref(0)
+let flowResizeObserver: ResizeObserver | null = null
+
+onMounted(() => {
+  const node = flowBreadcrumbRef.value as { $el?: HTMLElement } | HTMLElement | undefined
+  const el = (node && '$el' in node ? node.$el : node) as HTMLElement | undefined
+  if (!el || typeof ResizeObserver === 'undefined') return
+  flowResizeObserver = new ResizeObserver(([entry]) => {
+    if (entry) flowHeight.value = entry.contentRect.height
+  })
+  flowResizeObserver.observe(el)
+})
+
+onBeforeUnmount(() => {
+  flowResizeObserver?.disconnect()
+  flowResizeObserver = null
+})
 
 // Auto-scroll to shopping section when optimization finishes
 watch(() => batchStore.isRunning, (running, wasRunning) => {
@@ -184,7 +215,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
 </script>
 
 <template>
-  <div class="view-container batch-view">
+  <div class="view-container batch-view" :style="{ '--batch-flow-h': `${flowHeight}px` }">
     <div class="batch-title-row">
       <div class="batch-title-block">
         <h2>批量製作</h2>
@@ -193,6 +224,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
     </div>
 
     <FlowBreadcrumb
+      ref="flowBreadcrumbRef"
       class="mobile-sticky-toolbar batch-flow"
       :steps="[
         { label: '準備清單', icon: '📋' },
@@ -344,7 +376,8 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
 }
 
 .batch-section {
-  scroll-margin-top: calc(var(--mobile-app-bar-h, 52px) + 48px);
+  /* Desktop: FlowBreadcrumb is not sticky; small offset is plenty */
+  scroll-margin-top: 24px;
   margin-bottom: 8px;
   padding-top: 24px;
   border-top: 1px solid var(--el-border-color-lighter);
@@ -588,7 +621,9 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
   }
 
   .batch-section {
-    scroll-margin-top: calc(var(--mobile-app-bar-h, 52px) + 80px);
+    /* Mobile: FlowBreadcrumb is sticky under the app bar; offset tracks
+       the measured toolbar height so the section header lands clear of it */
+    scroll-margin-top: calc(var(--mobile-app-bar-h, 52px) + var(--batch-flow-h, 100px) + 8px);
   }
 
   /* Page title is shown in the global app bar; hide the in-view title row */
