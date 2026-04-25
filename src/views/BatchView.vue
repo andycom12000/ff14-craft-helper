@@ -151,6 +151,7 @@ async function startOptimization() {
   batchStore.isRunning = true
   batchStore.isCancelled = false
   batchStore.clearResults()
+  expandedSections.value = new Set()
 
   try {
     const results = await runBatchOptimization(
