@@ -133,7 +133,7 @@ const stepSub = computed(() =>
   <div class="welcome-setup">
     <header class="welcome-header">
       <span class="badge">第 {{ step }} / 2 步</span>
-      <h1>歡迎來到 FF14 Craft Helper</h1>
+      <h1>歡迎來到吐司工坊</h1>
       <p class="lead">第一次來？花 10 秒選好語言跟伺服器，我就能幫你查配方了。</p>
     </header>
 
