@@ -172,7 +172,92 @@ const buffSummary = computed(() => {
       </button>
 
       <div v-if="advancedOpen" class="m-adv-body">
-        <!-- Task 4 會填入 form-rows -->
+        <div class="m-adv-group">
+          <h4 class="m-adv-group-title">遞迴設定</h4>
+          <div class="m-form-row">
+            <span class="m-form-label">遞迴次數</span>
+            <el-input-number
+              v-model="settings.maxRecursionDepth"
+              :min="1"
+              :max="10"
+              size="small"
+              :disabled="!settings.recursivePricing"
+              aria-label="遞迴查價最大深度"
+            />
+          </div>
+        </div>
+
+        <div class="m-adv-group">
+          <h4 class="m-adv-group-title">食藥</h4>
+          <div class="m-form-row">
+            <span class="m-form-label">自動評估食藥</span>
+            <el-switch
+              v-model="batch.autoEvaluateBuffs"
+              size="default"
+              aria-label="自動評估食藥"
+            />
+          </div>
+          <div class="m-form-row">
+            <span class="m-form-label">食物</span>
+            <div class="m-form-control">
+              <el-select
+                v-model="batch.foodId"
+                placeholder="未選擇"
+                clearable
+                size="small"
+                class="m-buff-select"
+              >
+                <el-option
+                  v-for="food in COMMON_FOODS"
+                  :key="food.id"
+                  :label="food.name.replace(' HQ', '')"
+                  :value="food.id"
+                />
+              </el-select>
+              <el-segmented
+                v-model="batch.foodIsHq"
+                :options="[
+                  { label: 'HQ', value: true },
+                  { label: 'NQ', value: false },
+                ]"
+                :disabled="!batch.foodId"
+                size="small"
+                class="m-hq-seg"
+                :class="{ 'is-disabled': !batch.foodId }"
+              />
+            </div>
+          </div>
+          <div class="m-form-row">
+            <span class="m-form-label">藥水</span>
+            <div class="m-form-control">
+              <el-select
+                v-model="batch.medicineId"
+                placeholder="未選擇"
+                clearable
+                size="small"
+                class="m-buff-select"
+              >
+                <el-option
+                  v-for="med in COMMON_MEDICINES"
+                  :key="med.id"
+                  :label="med.name.replace(' HQ', '')"
+                  :value="med.id"
+                />
+              </el-select>
+              <el-segmented
+                v-model="batch.medicineIsHq"
+                :options="[
+                  { label: 'HQ', value: true },
+                  { label: 'NQ', value: false },
+                ]"
+                :disabled="!batch.medicineId"
+                size="small"
+                class="m-hq-seg"
+                :class="{ 'is-disabled': !batch.medicineId }"
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </template>
@@ -395,5 +480,56 @@ const buffSummary = computed(() => {
 .m-adv-body {
   padding: 8px 2px 16px;
   border-bottom: 1px solid var(--app-border);
+}
+
+.m-adv-group + .m-adv-group {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--app-border);
+}
+
+.m-adv-group-title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--app-text);
+}
+
+.m-form-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 0;
+}
+
+.m-form-row + .m-form-row {
+  border-top: 1px solid var(--app-border);
+}
+
+.m-form-label {
+  font-size: 12.5px;
+  color: var(--app-text);
+  flex-shrink: 0;
+}
+
+.m-form-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.m-buff-select {
+  width: 150px;
+}
+
+.m-hq-seg {
+  flex-shrink: 0;
+}
+
+.m-hq-seg.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
 }
 </style>
