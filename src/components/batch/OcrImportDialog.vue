@@ -9,7 +9,7 @@ import type { RecipeSearchResult } from '@/api/xivapi'
 import type { Recipe } from '@/stores/recipe'
 import { useBatchStore } from '@/stores/batch'
 import { getJobName } from '@/utils/jobs'
-import { Picture } from '@element-plus/icons-vue'
+import { Picture, Close } from '@element-plus/icons-vue'
 import ItemName from '@/components/common/ItemName.vue'
 
 interface OcrMatchItem {
@@ -300,6 +300,97 @@ function handleClose() {
   matchItems.value = []
 }
 
+// ====== Mobile drag-to-dismiss on the dialog header ======
+const dragOffset = ref(0)
+const isDragging = ref(false)
+let dragStartY = 0
+let dragPointerId: number | null = null
+let dialogEl: HTMLElement | null = null
+
+function isMobileViewport(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches
+}
+
+function findDialogEl(target: EventTarget | null): HTMLElement | null {
+  let el = target as HTMLElement | null
+  while (el && !el.classList?.contains('ocr-dialog')) el = el.parentElement
+  return el
+}
+
+function findOverlayEl(dialog: HTMLElement | null): HTMLElement | null {
+  let el = dialog as HTMLElement | null
+  while (el && !el.classList?.contains('el-overlay')) el = el.parentElement
+  return el
+}
+
+let overlayEl: HTMLElement | null = null
+
+function applyDragTransform() {
+  if (!dialogEl) return
+  if (dragOffset.value === 0 && !isDragging.value) {
+    dialogEl.style.transform = ''
+    dialogEl.style.transition = ''
+    if (overlayEl) {
+      overlayEl.style.opacity = ''
+      overlayEl.style.transition = ''
+    }
+    return
+  }
+  dialogEl.style.transform = `translateY(${dragOffset.value}px)`
+  dialogEl.style.transition = isDragging.value ? 'none' : 'transform 0.2s var(--ease-out-quart)'
+  if (overlayEl) {
+    const fade = Math.max(0, 1 - dragOffset.value / 400)
+    overlayEl.style.opacity = String(fade)
+    overlayEl.style.transition = isDragging.value ? 'none' : 'opacity 0.2s var(--ease-out-quart)'
+  }
+}
+
+function onGrabPointerDown(e: PointerEvent) {
+  if (!isMobileViewport()) return
+  if (e.pointerType === 'mouse' && e.button !== 0) return
+  dialogEl = findDialogEl(e.currentTarget)
+  if (!dialogEl) return
+  overlayEl = findOverlayEl(dialogEl)
+  dragStartY = e.clientY
+  dragPointerId = e.pointerId
+  isDragging.value = true
+  ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+}
+
+function onGrabPointerMove(e: PointerEvent) {
+  if (!isDragging.value || e.pointerId !== dragPointerId) return
+  dragOffset.value = Math.max(0, e.clientY - dragStartY)
+  applyDragTransform()
+}
+
+function onGrabPointerEnd(e: PointerEvent) {
+  if (!isDragging.value || e.pointerId !== dragPointerId) return
+  const triggered = dragOffset.value > 100
+  isDragging.value = false
+  dragPointerId = null
+  if (triggered) {
+    dragOffset.value = window.innerHeight
+    applyDragTransform()
+    setTimeout(() => {
+      dragOffset.value = 0
+      if (dialogEl) {
+        dialogEl.style.transform = ''
+        dialogEl.style.transition = ''
+      }
+      if (overlayEl) {
+        overlayEl.style.opacity = ''
+        overlayEl.style.transition = ''
+      }
+      dialogEl = null
+      overlayEl = null
+      dialogVisible.value = false
+    }, 180)
+  } else {
+    dragOffset.value = 0
+    applyDragTransform()
+  }
+}
+
 // --- Lifecycle ---
 
 onMounted(() => {
@@ -318,16 +409,39 @@ onUnmounted(() => {
 <template>
   <el-dialog
     v-model="dialogVisible"
-    title="從截圖匯入籌備任務"
     :width="isMobile ? '100%' : '1100px'"
     :fullscreen="isMobile"
     destroy-on-close
+    class="ocr-dialog"
     @close="handleClose"
     :close-on-click-modal="false"
   >
-    <el-row :gutter="20">
+    <template #header>
+      <div
+        v-if="isMobile"
+        class="ocr-grab-area"
+        @pointerdown="onGrabPointerDown"
+        @pointermove="onGrabPointerMove"
+        @pointerup="onGrabPointerEnd"
+        @pointercancel="onGrabPointerEnd"
+      >
+        <span class="ocr-grabber" aria-hidden="true" />
+      </div>
+      <div class="ocr-header-bar">
+        <h3 class="ocr-title">從截圖匯入籌備任務</h3>
+        <button
+          type="button"
+          class="ocr-close-btn"
+          aria-label="關閉視窗"
+          @click="dialogVisible = false"
+        >
+          <el-icon :size="20"><Close /></el-icon>
+        </button>
+      </div>
+    </template>
+    <div class="ocr-body">
       <!-- Left: Image panel -->
-      <el-col :span="12" :xs="24">
+      <div class="ocr-image-col">
         <div
           v-if="!imageUrl"
           class="drop-zone"
@@ -359,7 +473,7 @@ onUnmounted(() => {
           :disabled="!imageBlob || isRecognizing"
           :loading="isRecognizing"
           @click="startRecognize"
-          style="width: 100%; margin-top: 12px;"
+          class="recognize-btn"
         >
           {{ isRecognizing ? '辨識中...' : '開始辨識' }}
         </el-button>
@@ -368,30 +482,21 @@ onUnmounted(() => {
           v-if="isRecognizing"
           :percentage="Math.round(ocrProgress * 100)"
           :stroke-width="4"
-          style="margin-top: 8px;"
+          class="recognize-progress"
         />
 
         <div v-if="ocrLoading" class="loading-hint">
           首次使用需下載語言模型（約 10MB），請稍候...
         </div>
-      </el-col>
+      </div>
 
       <!-- Right: Results panel -->
-      <el-col :span="12" :xs="24">
-        <el-table
-          v-if="matchItems.length > 0"
-          :data="matchItems"
-          size="small"
-          max-height="450"
-          class="ocr-match-table"
-        >
-          <el-table-column width="40">
-            <template #default="{ row }">
-              <el-checkbox v-model="row.checked" :disabled="!row.selectedRecipe" />
-            </template>
-          </el-table-column>
-          <el-table-column width="40">
-            <template #default="{ row }">
+      <div class="ocr-results-col">
+        <!-- Mobile/list-style card view (used on all viewports below the desktop table breakpoint) -->
+        <ul v-if="matchItems.length > 0" class="ocr-match-list">
+          <li v-for="(row, index) in matchItems" :key="index" class="ocr-match-card" :class="`is-${row.status}`">
+            <div class="ocr-match-head">
+              <el-checkbox v-model="row.checked" :disabled="!row.selectedRecipe" class="ocr-match-check" />
               <img
                 v-if="row.selectedRecipe?.icon"
                 :src="row.selectedRecipe.icon"
@@ -399,64 +504,40 @@ onUnmounted(() => {
                 aria-hidden="true"
                 loading="lazy"
                 decoding="async"
-                style="width: 24px; height: 24px; border-radius: 4px;"
+                class="ocr-match-icon"
               />
-            </template>
-          </el-table-column>
-          <el-table-column label="物品名稱">
-            <template #default="{ row }">
-              <span>{{ row.ocrText }}</span>
-              <span v-if="row.selectedRecipe && row.selectedRecipe.name !== row.ocrText" class="matched-name">
-                → <ItemName :item-id="row.selectedRecipe.itemId" :fallback="row.selectedRecipe.name" />
-              </span>
-            </template>
-          </el-table-column>
-          <el-table-column label="狀態" width="100">
-            <template #default="{ row }">
+              <div class="ocr-match-name">
+                <div class="ocr-match-ocr-text">{{ row.ocrText }}</div>
+                <div v-if="row.selectedRecipe && row.selectedRecipe.name !== row.ocrText" class="ocr-match-resolved">
+                  → <ItemName :item-id="row.selectedRecipe.itemId" :fallback="row.selectedRecipe.name" />
+                </div>
+              </div>
               <el-tag v-if="row.status === 'searching'" size="small">搜尋中</el-tag>
               <el-tag v-else-if="row.status === 'matched'" type="success" size="small">已配對</el-tag>
               <el-tag v-else-if="row.status === 'multiple'" type="warning" size="small">請選擇</el-tag>
               <el-tag v-else-if="row.status === 'not-found'" type="danger" size="small">未找到</el-tag>
               <el-tag v-else-if="row.status === 'error'" type="danger" size="small">錯誤</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="160">
-            <template #default="{ row, $index }">
-              <!-- Multiple exact matches: select by job -->
-              <el-select
-                v-if="row.status === 'multiple'"
-                placeholder="選擇配方"
-                size="small"
-                @change="(id: number) => selectRecipe($index, id)"
-              >
-                <el-option
-                  v-for="r in row.searchResults.slice(0, 20)"
-                  :key="r.id"
-                  :label="`${r.name} (${getJobName(r.job)})`"
-                  :value="r.id"
-                />
-              </el-select>
-              <!-- Not found: select from fuzzy results -->
-              <el-select
-                v-else-if="row.status === 'not-found' && row.searchResults.length > 0"
-                placeholder="選擇配方"
-                size="small"
-                @change="(id: number) => selectRecipe($index, id)"
-              >
-                <el-option
-                  v-for="r in row.searchResults.slice(0, 20)"
-                  :key="r.id"
-                  :label="`${r.name} (${getJobName(r.job)})`"
-                  :value="r.id"
-                />
-              </el-select>
-            </template>
-          </el-table-column>
-        </el-table>
+            </div>
+            <el-select
+              v-if="row.status === 'multiple' || (row.status === 'not-found' && row.searchResults.length > 0)"
+              placeholder="選擇配方"
+              size="default"
+              class="ocr-match-select"
+              @change="(id: number) => selectRecipe(index, id)"
+            >
+              <el-option
+                v-for="r in row.searchResults.slice(0, 20)"
+                :key="r.id"
+                :label="`${r.name} (${getJobName(r.job)})`"
+                :value="r.id"
+              />
+            </el-select>
+          </li>
+        </ul>
 
         <el-empty v-else-if="!isRecognizing" description="貼上截圖並點擊「開始辨識」" :image-size="60" />
-      </el-col>
-    </el-row>
+      </div>
+    </div>
 
     <template #footer>
       <el-button @click="dialogVisible = false">取消</el-button>
@@ -468,6 +549,12 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.ocr-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
 .drop-zone {
   border: 2px dashed var(--el-border-color);
   border-radius: 8px;
@@ -525,6 +612,15 @@ onUnmounted(() => {
   right: 4px;
 }
 
+.recognize-btn {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.recognize-progress {
+  margin-top: 8px;
+}
+
 .loading-hint {
   font-size: 12px;
   color: var(--el-text-color-secondary);
@@ -532,28 +628,195 @@ onUnmounted(() => {
   text-align: center;
 }
 
-.matched-name {
-  color: var(--el-color-success);
-  font-size: 12px;
-  margin-left: 4px;
+/* Match cards (used on all viewports) */
+.ocr-match-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 460px;
+  overflow-y: auto;
 }
 
-/* Mobile: OCR match table has 5 columns (check/icon/name/status/action).
- * Fullscreen dialog gives us ~370px usable; hide 狀態 column and let
- * the action el-select expand to full column width so the dropdown is usable. */
+.ocr-match-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--app-border, var(--el-border-color-lighter));
+  border-radius: 10px;
+  background: var(--el-fill-color-lighter);
+}
+
+.ocr-match-card.is-not-found,
+.ocr-match-card.is-error {
+  border-color: color-mix(in srgb, var(--el-color-danger) 30%, transparent);
+}
+
+.ocr-match-card.is-multiple {
+  border-color: color-mix(in srgb, var(--el-color-warning) 30%, transparent);
+}
+
+.ocr-match-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.ocr-match-check {
+  flex-shrink: 0;
+}
+
+.ocr-match-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.ocr-match-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ocr-match-ocr-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ocr-match-resolved {
+  font-size: 12px;
+  color: var(--el-color-success);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ocr-match-select {
+  width: 100%;
+}
+
+/* Default header layout — desktop uses the standard el-dialog title row,
+   so this only matters on mobile where we replaced the header. */
+.ocr-grab-area { display: none; }
+.ocr-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ocr-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+.ocr-close-btn {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  background: transparent;
+  color: var(--el-text-color-secondary);
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.ocr-close-btn:hover {
+  background: var(--el-fill-color);
+  color: var(--el-text-color-primary);
+}
+
 @media (max-width: 640px) {
-  .ocr-match-table :deep(.el-table__cell:nth-child(4)),
-  .ocr-match-table :deep(.el-table__header th:nth-child(4)) {
-    display: none;
+  /* Stack image / results vertically on mobile */
+  .ocr-body {
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 
-  .ocr-match-table :deep(.el-table__cell) {
-    padding-left: 4px;
-    padding-right: 4px;
+  /* Image preview must not steal space from the rest of the dialog */
+  .image-preview img {
+    max-height: 32dvh;
   }
 
-  .ocr-match-table :deep(.el-select) {
-    width: 100%;
+  .drop-zone {
+    min-height: 140px;
+    padding: 24px 16px;
+  }
+
+  /* Match cards take full width — el-table replaced with card list,
+   * so no horizontal-table overflow concerns. */
+  .ocr-match-list {
+    max-height: none;
+  }
+
+  /* Drag handle on mobile.
+   * el-dialog__header has its own padding, but we want a wide invisible
+   * touch target spanning the full header row, with the visible pill
+   * centered absolutely so it never drifts. */
+  .ocr-grab-area {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 24px;
+    margin: 4px 0;
+    touch-action: none;
+    cursor: grab;
+  }
+  .ocr-grab-area:active { cursor: grabbing; }
+  .ocr-grabber {
+    display: block;
+    width: 40px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--el-border-color-dark);
+    opacity: 0.7;
+  }
+
+  .ocr-title { font-size: 16px; }
+}
+</style>
+
+<style>
+/* Reach the teleported el-dialog markup. Our #header slot already provides
+   a close button, so hide the default headerbtn to avoid duplicate Xs. */
+.ocr-dialog .el-dialog__headerbtn { display: none; }
+.ocr-dialog .el-dialog__header { padding-bottom: 8px; margin-right: 0; }
+
+/* Mobile: full-screen dialog should have a sticky footer so its action
+ * buttons remain reachable no matter how tall the body content gets. */
+@media (max-width: 640px) {
+  .ocr-dialog.is-fullscreen .el-dialog__header {
+    padding: 4px 16px 8px;
+    margin-right: 0;
+  }
+  .ocr-dialog.is-fullscreen {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+  }
+  .ocr-dialog.is-fullscreen .el-dialog__body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 8px 16px 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .ocr-dialog.is-fullscreen .el-dialog__footer {
+    flex-shrink: 0;
+    padding: 12px 16px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    border-top: 1px solid var(--app-border, var(--el-border-color-lighter));
+    background: var(--el-bg-color);
   }
 }
 </style>

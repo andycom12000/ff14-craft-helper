@@ -398,6 +398,34 @@ html, body {
     font-size: 16px;
   }
 
+  /* Unified mobile stepper aesthetic — every +/- button across the app
+   * adopts the BomTargetList style: transparent buttons, placeholder color,
+   * accent on hover. Components that want chrome must override locally. */
+  .el-input-number .el-input-number__decrease,
+  .el-input-number .el-input-number__increase {
+    background: transparent;
+    border-color: transparent;
+    color: var(--el-text-color-placeholder);
+    transition: color 0.15s, background-color 0.15s;
+  }
+  .el-input-number .el-input-number__decrease:hover:not(.is-disabled),
+  .el-input-number .el-input-number__increase:hover:not(.is-disabled) {
+    background: var(--el-fill-color-light);
+    color: var(--page-accent, var(--el-color-primary));
+  }
+  .el-input-number .el-input-number__decrease.is-disabled,
+  .el-input-number .el-input-number__increase.is-disabled {
+    color: var(--el-text-color-disabled);
+  }
+  .el-input-number .el-input__wrapper {
+    box-shadow: none;
+    background: transparent;
+  }
+  .el-input-number .el-input__inner {
+    font-weight: 600;
+    color: var(--el-text-color-primary);
+  }
+
   .el-input-number.el-input-number--small {
     line-height: 42px;
     width: auto;

@@ -111,19 +111,92 @@ function close() {
   query.value = ''
   allResults.value = []
 }
+
+// ====== Drag-to-dismiss (mobile only) ======
+const dragOffset = ref(0)
+const isDragging = ref(false)
+const isMobileViewport = () =>
+  typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches
+
+let dragStartY = 0
+let dragPointerId: number | null = null
+
+function onGrabPointerDown(e: PointerEvent) {
+  if (!isMobileViewport()) return
+  if (e.pointerType === 'mouse' && e.button !== 0) return
+  dragStartY = e.clientY
+  dragPointerId = e.pointerId
+  isDragging.value = true
+  ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+}
+
+function onGrabPointerMove(e: PointerEvent) {
+  if (!isDragging.value || e.pointerId !== dragPointerId) return
+  const delta = e.clientY - dragStartY
+  // Only allow downward drag; clamp so card never moves up
+  dragOffset.value = Math.max(0, delta)
+}
+
+function onGrabPointerEnd(e: PointerEvent) {
+  if (!isDragging.value || e.pointerId !== dragPointerId) return
+  const triggered = dragOffset.value > 100
+  isDragging.value = false
+  dragPointerId = null
+  if (triggered) {
+    // Animate the rest of the way out, then close
+    dragOffset.value = window.innerHeight
+    setTimeout(() => {
+      dragOffset.value = 0
+      close()
+    }, 180)
+  } else {
+    dragOffset.value = 0
+  }
+}
+
+const panelStyle = computed(() => {
+  if (dragOffset.value === 0 && !isDragging.value) return undefined
+  return {
+    transform: `translateY(${dragOffset.value}px)`,
+    transition: isDragging.value ? 'none' : 'transform 0.2s var(--ease-out-quart)',
+  }
+})
+
+const overlayStyle = computed(() => {
+  if (dragOffset.value === 0) return undefined
+  // Fade backdrop as user drags down
+  const fade = Math.max(0, 1 - dragOffset.value / 400)
+  return { opacity: fade }
+})
 </script>
 
 <template>
   <Teleport to="body">
     <Transition name="dialog">
-      <div v-if="modelValue" class="dialog-overlay" @click.self="close" @keydown="onDialogKeydown">
+      <div
+        v-if="modelValue"
+        class="dialog-overlay"
+        :style="overlayStyle"
+        @click.self="close"
+        @keydown="onDialogKeydown"
+      >
         <div
           ref="panelRef"
           class="dialog-panel"
+          :style="panelStyle"
           role="dialog"
           aria-modal="true"
           aria-labelledby="recipe-search-title"
         >
+          <div
+            class="dialog-grab-area"
+            @pointerdown="onGrabPointerDown"
+            @pointermove="onGrabPointerMove"
+            @pointerup="onGrabPointerEnd"
+            @pointercancel="onGrabPointerEnd"
+          >
+            <span class="dialog-grabber" aria-hidden="true" />
+          </div>
           <div class="dialog-header">
             <h3 id="recipe-search-title" class="dialog-title">搜尋配方{{ context ? ` — ${context}` : '' }}</h3>
             <el-button :icon="Close" text aria-label="關閉搜尋視窗" @click="close" />
@@ -140,13 +213,60 @@ function close() {
               size="large"
             />
             <div class="dialog-filters">
-              <el-select v-model="selectedJob" placeholder="職業" aria-label="篩選職業" clearable size="small" class="filter-job">
+              <el-select v-model="selectedJob" placeholder="所有職業" aria-label="篩選職業" clearable class="filter-job">
                 <el-option v-for="job in CRAFT_JOBS" :key="job" :label="job" :value="job" />
               </el-select>
-              <span class="filter-label">Lv.</span>
-              <el-input-number v-model="levelMin" :min="1" :max="999" placeholder="最低" aria-label="最低等級" size="small" class="filter-level" />
-              <span class="filter-sep" aria-hidden="true">–</span>
-              <el-input-number v-model="levelMax" :min="1" :max="999" placeholder="最高" aria-label="最高等級" size="small" class="filter-level" />
+              <div class="filter-level-group" role="group" aria-label="等級範圍">
+                <span class="filter-level-prefix" aria-hidden="true">Lv.</span>
+                <label class="filter-stepper-cell">
+                  <span class="filter-stepper-label">最低</span>
+                  <el-input-number
+                    v-model="levelMin"
+                    :min="1"
+                    :max="999"
+                    :controls="true"
+                    controls-position=""
+                    aria-label="最低等級"
+                    class="filter-stepper filter-stepper--min"
+                  />
+                </label>
+                <span class="filter-sep" aria-hidden="true">–</span>
+                <label class="filter-stepper-cell">
+                  <span class="filter-stepper-label">最高</span>
+                  <el-input-number
+                    v-model="levelMax"
+                    :min="1"
+                    :max="999"
+                    :controls="true"
+                    controls-position=""
+                    aria-label="最高等級"
+                    class="filter-stepper filter-stepper--max"
+                  />
+                </label>
+                <input
+                  v-model.number="levelMin"
+                  type="number"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  min="1"
+                  max="999"
+                  placeholder="1"
+                  aria-label="最低等級"
+                  class="m-level-input m-level-input--min"
+                />
+                <span class="m-level-sep" aria-hidden="true">—</span>
+                <input
+                  v-model.number="levelMax"
+                  type="number"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  min="1"
+                  max="999"
+                  placeholder="99"
+                  aria-label="最高等級"
+                  class="m-level-input m-level-input--max"
+                />
+              </div>
             </div>
           </div>
 
@@ -215,6 +335,7 @@ function close() {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   padding: 20px 24px 0;
 }
 
@@ -231,25 +352,88 @@ function close() {
 .dialog-filters {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: stretch;
   gap: 8px;
   margin-top: 10px;
 }
 
-.dialog-filters :deep(.el-select),
-.dialog-filters :deep(.el-input-number) {
-  flex: 1 1 120px;
+.dialog-filters .filter-job {
+  flex: 1 1 140px;
   min-width: 0;
 }
 
-.filter-label {
+.dialog-filters .filter-job :deep(.el-select__wrapper) {
+  min-height: 40px;
+}
+
+/* Desktop: inline single segmented level stepper with Lv. prefix and dash. */
+.filter-level-group {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  padding: 0 10px;
+  background: var(--el-fill-color-lighter);
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  flex: 1 1 200px;
+  min-width: 0;
+  max-width: 100%;
+  height: 40px;
+}
+
+.filter-level-prefix {
+  display: inline-flex;
+  align-items: center;
   font-size: 13px;
+  font-weight: 500;
   color: var(--el-text-color-secondary);
+  flex-shrink: 0;
 }
 
 .filter-sep {
-  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 14px;
   color: var(--el-text-color-secondary);
+  flex-shrink: 0;
+}
+
+.filter-stepper-cell {
+  display: contents;
+}
+
+.filter-stepper-label {
+  display: none;
+}
+
+/* Mobile-only inputs — hidden on desktop, shown via @media block below */
+.m-level-input,
+.m-level-sep {
+  display: none;
+}
+
+.filter-stepper {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto !important;
+  height: 100%;
+}
+
+.filter-stepper :deep(.el-input__wrapper) {
+  background: transparent;
+  box-shadow: none !important;
+  padding: 0;
+}
+
+.filter-stepper :deep(.el-input__inner) {
+  text-align: center;
+  padding: 0 4px;
+  -moz-appearance: textfield;
+}
+.filter-stepper :deep(.el-input__inner::-webkit-outer-spin-button),
+.filter-stepper :deep(.el-input__inner::-webkit-inner-spin-button) {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .dialog-results {
@@ -285,6 +469,11 @@ function close() {
 .result-name {
   font-size: 14px;
   font-weight: 500;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
 }
 
 .result-meta {
@@ -292,7 +481,20 @@ function close() {
   color: var(--el-text-color-secondary);
 }
 
-/* Transition */
+.dialog-grab-area {
+  display: none;
+}
+
+.dialog-grabber {
+  display: block;
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--el-border-color-dark);
+  opacity: 0.7;
+}
+
+/* Transition (desktop: scale fade) */
 .dialog-enter-active,
 .dialog-leave-active {
   transition: opacity 0.25s;
@@ -300,7 +502,7 @@ function close() {
 
 .dialog-enter-active .dialog-panel,
 .dialog-leave-active .dialog-panel {
-  transition: transform 0.25s, opacity 0.25s;
+  transition: transform 0.25s var(--ease-out-quart), opacity 0.25s;
 }
 
 .dialog-enter-from,
@@ -314,10 +516,196 @@ function close() {
   opacity: 0;
 }
 
-@media (max-width: 520px) {
+/* ====== Mobile: full-screen sheet anchored to bottom ====== */
+@media (max-width: 640px) {
+  .dialog-overlay {
+    align-items: stretch;
+    background: rgba(0, 0, 0, 0.5);
+  }
+
   .dialog-panel {
-    max-height: 85vh;
-    max-height: 85dvh;
+    width: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    height: 100dvh;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    /* Grabber + header + sticky search + scrollable list */
+    display: grid;
+    grid-template-rows: auto auto auto 1fr;
+    padding-top: env(safe-area-inset-top, 0px);
+    overflow: hidden;
+  }
+
+  /* Grab handle: large invisible touch target, visible pill in the middle */
+  .dialog-grab-area {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 24px;
+    margin-top: 4px;
+    touch-action: none;
+    cursor: grab;
+  }
+  .dialog-grab-area:active { cursor: grabbing; }
+
+  .dialog-header {
+    padding: 4px 16px 0;
+  }
+
+  .dialog-title {
+    font-size: 16px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dialog-search {
+    padding: 12px 16px;
+    background: var(--app-bg);
+    border-bottom: 1px solid var(--app-border);
+  }
+
+  /* Mobile filter: job select on its own row, then min level + max level
+   * each on their own labelled row. The desktop's segmented card crams two
+   * full +/- inputs into 358px which is impossible once mobile +/- buttons
+   * grow to the WCAG 44×44 touch target. */
+  .dialog-filters {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .dialog-filters .filter-job {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+  .dialog-filters .filter-job :deep(.el-select__wrapper) {
+    min-height: 44px;
+  }
+
+  /* Mobile redesign — match the job select visual class so the two filter
+   * controls feel like siblings: same height, same surface, same border.
+   * Single row: `Lv.` inline prefix · min input · dash · max input. */
+  .filter-level-group {
+    position: relative;
+    flex: 0 0 auto;
+    width: 100%;
+    height: 44px;
+    background: var(--el-fill-color-blank, transparent);
+    border: 1px solid var(--el-border-color);
+    border-radius: 8px;
+    padding: 0 12px;
+    overflow: hidden;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: auto 1fr auto 1fr;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* Inline `Lv.` prefix — sits at the left like a label inside the input. */
+  .filter-level-prefix {
+    position: static;
+    padding: 0 4px 0 0;
+    background: transparent;
+    color: var(--el-text-color-secondary);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    z-index: auto;
+  }
+
+  /* Hide the desktop el-input-number cells AND the desktop dash separator
+   * on mobile — we render native <input type="number"> instead for cleaner
+   * type-to-edit UX. */
+  .filter-stepper-cell,
+  .filter-sep {
+    display: none !important;
+  }
+
+  /* Show + style the mobile numeric inputs */
+  .m-level-sep {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--el-text-color-placeholder);
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  .m-level-input {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    padding: 0 4px;
+    border: 0;
+    background: transparent;
+    color: var(--el-text-color-primary);
+    font-size: 15px;
+    font-weight: 600;
+    text-align: center;
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+  .m-level-input::placeholder {
+    color: var(--el-text-color-placeholder);
+    font-weight: 500;
+  }
+  .m-level-input::-webkit-outer-spin-button,
+  .m-level-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .m-level-input:focus {
+    outline: none;
+  }
+  .m-level-input:focus-visible {
+    outline: 2px solid var(--app-accent-light, var(--el-color-primary));
+    outline-offset: -2px;
+    border-radius: 4px;
+  }
+
+  .dialog-results {
+    padding: 4px 16px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+
+  .search-result-row {
+    gap: 12px;
+    padding: 12px 0;
+  }
+
+  .result-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .result-name {
+    font-size: 15px;
+  }
+
+  /* Bigger touch target for the add button */
+  .search-result-row :deep(.el-button) {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 12px;
+    font-size: 18px;
+    font-weight: 600;
+    border-radius: 10px;
+  }
+
+  /* Slide up from the bottom on mobile */
+  .dialog-enter-from .dialog-panel,
+  .dialog-leave-to .dialog-panel {
+    transform: translateY(100%);
+    opacity: 1;
   }
 }
 </style>

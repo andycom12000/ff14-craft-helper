@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, computed, onMounted, watch } from 'vue'
+import { ElCard, ElMessage } from 'element-plus'
+import 'element-plus/es/components/card/style/css'
 import { useSettingsStore } from '@/stores/settings'
+import { useIsMobile } from '@/composables/useMediaQuery'
 import { getDataCenters, getWorlds, refreshWorldsFromApi } from '@/api/universalis'
 import type { DataCenter, World } from '@/api/universalis'
 import avatarUrl from '@/assets/avatar.gif'
+
+const isMobile = useIsMobile()
+const SectionWrap = computed(() => (isMobile.value ? 'section' : ElCard))
 
 const settingsStore = useSettingsStore()
 
@@ -131,11 +136,12 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
 </script>
 
 <template>
-  <div class="settings-view">
+  <div class="settings-view" :class="{ 'is-mobile': isMobile }">
     <h2>設定</h2>
 
-    <el-card shadow="never">
-      <template #header>
+    <!-- ============ Server settings ============ -->
+    <component :is="SectionWrap" :shadow="isMobile ? null : 'never'" class="settings-section">
+      <template v-if="!isMobile" #header>
         <div class="card-header-row">
           <span class="card-title">伺服器設定</span>
           <div class="card-header-actions">
@@ -160,9 +166,16 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
         </div>
       </template>
 
+      <h3 v-if="isMobile" class="m-section-title">伺服器設定</h3>
+
       <el-skeleton v-if="loading" :rows="3" animated />
 
-      <el-form v-else label-width="120px" label-position="left" class="settings-form">
+      <el-form
+        v-else
+        :label-width="isMobile ? 'auto' : '120px'"
+        :label-position="isMobile ? 'top' : 'left'"
+        class="settings-form"
+      >
         <el-form-item label="地區">
           <el-select v-model="selectedRegion" placeholder="選擇地區">
             <el-option
@@ -196,28 +209,55 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
           </el-select>
         </el-form-item>
       </el-form>
-    </el-card>
 
-    <el-card shadow="never" class="price-card">
-      <template #header>
+      <div v-if="isMobile" class="m-actions">
+        <el-button
+          plain
+          :loading="refreshingFromApi"
+          @click="refreshFromLiveApi"
+        >
+          從 API 更新伺服器清單
+        </el-button>
+        <el-button
+          v-if="loadError && !loading"
+          type="primary"
+          plain
+          @click="loadServers(true)"
+        >
+          重試載入清單
+        </el-button>
+      </div>
+    </component>
+
+    <!-- ============ Price preferences ============ -->
+    <component :is="SectionWrap" :shadow="isMobile ? null : 'never'" class="settings-section price-card">
+      <template v-if="!isMobile" #header>
         <span class="card-title">價格偏好</span>
       </template>
 
-      <el-form label-width="120px" label-position="left">
+      <h3 v-if="isMobile" class="m-section-title">價格偏好</h3>
+
+      <el-form
+        :label-width="isMobile ? 'auto' : '120px'"
+        :label-position="isMobile ? 'top' : 'left'"
+      >
         <el-form-item label="價格顯示">
-          <el-radio-group v-model="selectedPriceMode">
+          <el-radio-group v-model="selectedPriceMode" :class="{ 'm-radio-stack': isMobile }">
             <el-radio value="nq">NQ 最低價</el-radio>
             <el-radio value="hq">HQ 最低價</el-radio>
             <el-radio value="minOf">NQ / HQ 取較低者</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>
-    </el-card>
+    </component>
 
-    <el-card shadow="never" class="about-card">
-      <template #header>
+    <!-- ============ About ============ -->
+    <component :is="SectionWrap" :shadow="isMobile ? null : 'never'" class="settings-section about-card">
+      <template v-if="!isMobile" #header>
         <span class="card-title">關於</span>
       </template>
+
+      <h3 v-if="isMobile" class="m-section-title">關於</h3>
 
       <div class="about-app">
         <div class="about-app-header">
@@ -265,7 +305,7 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
           >菸齡 (andycom12000)</a>
         </div>
       </div>
-    </el-card>
+    </component>
 
     <section class="thanks">
       <h3 class="thanks-title">特別感謝</h3>
@@ -285,20 +325,97 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   max-width: 720px;
 }
 
-/* On small phones, the 120px label-width wastes space; let form items stack */
-@media (max-width: 480px) {
-  .settings-form :deep(.el-form-item__label) {
-    width: auto !important;
-    margin-bottom: 4px;
-  }
-  .settings-form :deep(.el-form-item) {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .settings-form :deep(.el-form-item__content) {
-    margin-left: 0 !important;
-  }
+/* ============ Mobile: flat sections (no nested card chrome) ============ */
+.settings-view.is-mobile .settings-section {
+  margin-top: 8px;
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
+.settings-view.is-mobile .settings-section + .settings-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--app-border);
+}
+
+.m-section-title {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: var(--app-text-muted);
+}
+
+.settings-view.is-mobile .settings-form :deep(.el-form-item) {
+  margin-bottom: 14px;
+}
+
+.settings-view.is-mobile .settings-form :deep(.el-form-item__label) {
+  padding-bottom: 6px;
+  font-size: 13px;
+  color: var(--app-text-muted);
+  line-height: 1.3;
+}
+
+.settings-view.is-mobile :deep(.el-select),
+.settings-view.is-mobile :deep(.el-select__wrapper) {
+  width: 100%;
+}
+
+.m-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.m-actions :deep(.el-button) {
+  width: 100%;
+  margin-left: 0 !important;
+}
+
+.m-radio-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.m-radio-stack :deep(.el-radio) {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  background: var(--app-surface);
+  box-sizing: border-box;
+}
+
+.m-radio-stack :deep(.el-radio__input) {
+  flex-shrink: 0;
+}
+
+.m-radio-stack :deep(.el-radio__label) {
+  flex: 1;
+  min-width: 0;
+  padding-left: 10px;
+  padding-right: 0;
+  font-size: 14px;
+  white-space: normal;
+}
+
+.m-radio-stack :deep(.el-radio.is-checked) {
+  border-color: var(--app-accent-light);
+  background: var(--app-accent-glow);
 }
 
 .price-card {
@@ -392,10 +509,29 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
 
 .about-tech-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 8px;
+  gap: 4px 8px;
   font-size: 13px;
   line-height: 1.6;
+}
+
+.about-tech-row .about-tech-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 480px) {
+  .about-tech-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+  .about-tech-label {
+    min-width: 0;
+  }
 }
 
 .card-header-row {

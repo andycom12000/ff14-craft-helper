@@ -5,6 +5,7 @@ import { useGearsetsStore } from '@/stores/gearsets'
 import { useBatchStore } from '@/stores/batch'
 import { useTimerStore } from '@/stores/timer'
 import { useSettingsStore } from '@/stores/settings'
+import { useIsMobile } from '@/composables/useMediaQuery'
 import { JOB_NAMES } from '@/utils/jobs'
 import WelcomeSetup from '@/components/onboarding/WelcomeSetup.vue'
 
@@ -13,6 +14,7 @@ const gearsets = useGearsetsStore()
 const batchStore = useBatchStore()
 const timerStore = useTimerStore()
 const settingsStore = useSettingsStore()
+const isMobile = useIsMobile()
 
 function readOnboardingComplete(): boolean {
   try {
@@ -81,11 +83,15 @@ const tools = [
 
 <template>
   <WelcomeSetup v-if="showOnboarding" @done="onboardingDone" />
-  <div v-else class="view-container dashboard">
+  <div v-else class="view-container dashboard" :class="{ 'is-mobile': isMobile }">
     <!-- Welcome -->
     <div class="welcome">
       <h2>歡迎回來，冒險者</h2>
-      <p class="view-desc">選一個功能開始，或先設定好你的裝備。<kbd class="shortcut-hint" title="快速跳轉頁面">Ctrl+K</kbd></p>
+      <p class="welcome-greeting" v-if="isMobile">嗨，冒險者 👋</p>
+      <p class="view-desc">
+        <span>選一個功能開始，或先設定好你的裝備。</span>
+        <kbd v-if="!isMobile" class="shortcut-hint" title="快速跳轉頁面">Ctrl+K</kbd>
+      </p>
     </div>
 
     <!-- Workflow Cards -->
@@ -528,5 +534,149 @@ const tools = [
   .quick-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ======== Mobile-native layout ======== */
+.dashboard.is-mobile {
+  padding-top: 4px;
+}
+
+.dashboard.is-mobile .welcome h2 {
+  display: none;
+}
+
+.welcome-greeting {
+  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--app-text);
+  line-height: 1.25;
+}
+
+.dashboard.is-mobile .view-desc {
+  font-size: 14px;
+  margin-bottom: 22px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dashboard.is-mobile .section-header h3 {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: var(--app-text-muted);
+}
+
+.dashboard.is-mobile .section-gap-sm { margin-top: 22px; }
+.dashboard.is-mobile .section-gap-lg { margin-top: 28px; }
+
+/* Workflow cards: bigger, more tactile, full-bleed corners */
+.dashboard.is-mobile .workflow-list {
+  gap: 8px;
+}
+
+.dashboard.is-mobile .workflow-card {
+  padding: 14px;
+  gap: 14px;
+  border-radius: 14px;
+  min-height: 64px;
+}
+
+.dashboard.is-mobile .wf-icon {
+  width: 48px;
+  height: 48px;
+  font-size: 24px;
+  border-radius: 12px;
+}
+
+.dashboard.is-mobile .wf-title { font-size: 15px; }
+.dashboard.is-mobile .wf-desc { font-size: 12.5px; line-height: 1.4; }
+
+/* Tools row: keep 2-col grid but bigger touch targets */
+.dashboard.is-mobile .tools-row {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.dashboard.is-mobile .tool-card {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  min-height: 92px;
+  position: relative;
+}
+
+.dashboard.is-mobile .tool-icon {
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  border-radius: 11px;
+}
+
+.dashboard.is-mobile .tool-card .wf-arrow {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+}
+
+.dashboard.is-mobile .tool-badge {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+}
+
+/* Status row stacks vertically for clearer scan */
+.dashboard.is-mobile .status-row {
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.dashboard.is-mobile .status-card {
+  padding: 14px;
+  border-radius: 14px;
+}
+
+.dashboard.is-mobile .status-icon { font-size: 22px; }
+
+/* Gearset chips: snug and grid-aligned for thumb taps */
+.dashboard.is-mobile .gearset-summary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.dashboard.is-mobile .gs-chip {
+  padding: 10px 12px;
+  border-radius: 10px;
+  min-height: 44px;
+  gap: 8px;
+}
+
+.dashboard.is-mobile .gs-name { flex: 1; font-size: 13px; }
+
+/* Onboarding steps: compact, card-y feel */
+.dashboard.is-mobile .steps {
+  gap: 10px;
+}
+
+.dashboard.is-mobile .step {
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+}
+
+.dashboard.is-mobile .step strong { font-size: 13.5px; }
+.dashboard.is-mobile .step p { font-size: 12.5px; }
+
+/* Inline link in gs-hint sits on its own line for thumb reach */
+.dashboard.is-mobile .gs-hint {
+  font-size: 12.5px;
+  line-height: 1.6;
 }
 </style>
