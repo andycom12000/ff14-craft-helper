@@ -154,6 +154,26 @@ const buffSummary = computed(() => {
           size="small"
         />
       </div>
+
+      <button
+        type="button"
+        class="m-adv-row"
+        :aria-expanded="advancedOpen"
+        @click="advancedOpen = !advancedOpen"
+      >
+        <span class="m-adv-summary">
+          進階設定
+          <span class="m-adv-dot">·</span>
+          遞迴 <b>{{ settings.maxRecursionDepth }}</b> 次
+          <span class="m-adv-dot">·</span>
+          食藥 <span :class="{ muted: buffSummary.muted }">{{ buffSummary.text }}</span>
+        </span>
+        <span class="m-adv-chev" :class="{ 'is-open': advancedOpen }" aria-hidden="true">▾</span>
+      </button>
+
+      <div v-if="advancedOpen" class="m-adv-body">
+        <!-- Task 4 會填入 form-rows -->
+      </div>
     </div>
   </template>
 </template>
@@ -323,5 +343,57 @@ const buffSummary = computed(() => {
   font-size: 11px;
   color: var(--app-text-muted);
   margin-top: 2px;
+}
+
+.m-adv-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 2px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--app-border);
+  color: var(--app-text);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.m-adv-summary {
+  font-size: 13px;
+  color: var(--app-text-muted);
+}
+
+.m-adv-summary b {
+  color: var(--app-text);
+  font-weight: 600;
+}
+
+.m-adv-summary .muted {
+  color: var(--app-text-muted);
+  opacity: 0.7;
+}
+
+.m-adv-dot {
+  color: var(--app-text-muted);
+  opacity: 0.5;
+  margin: 0 5px;
+}
+
+.m-adv-chev {
+  color: var(--app-text-muted);
+  font-size: 12px;
+  transition: transform 0.18s var(--ease-out-quart, ease-out);
+}
+
+.m-adv-chev.is-open {
+  transform: rotate(180deg);
+  color: var(--app-craft);
+}
+
+.m-adv-body {
+  padding: 8px 2px 16px;
+  border-bottom: 1px solid var(--app-border);
 }
 </style>
