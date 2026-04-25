@@ -146,8 +146,8 @@ function onCardKeydown(event: KeyboardEvent) {
 }
 
 .node-card.status-upcoming {
-  --status-color: oklch(0.55 0.18 240);
-  --status-glow: oklch(0.55 0.18 240 / 0.18);
+  --status-color: oklch(0.50 0.13 70);
+  --status-glow: oklch(0.50 0.13 70 / 0.18);
 }
 
 /* ------------------------------------------------------------------ */

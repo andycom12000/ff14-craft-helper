@@ -173,14 +173,14 @@ onUnmounted(() => {
   --app-market-dim: oklch(0.58 0.20 15 / 0.10);
   --app-gather: oklch(0.62 0.17 135);
   --app-gather-dim: oklch(0.62 0.17 135 / 0.10);
-  --app-highlight: oklch(0.55 0.18 245);
+  --app-highlight: oklch(0.50 0.13 70);
 
   /* Semantic accents — shared across features */
   --accent-gold: oklch(0.78 0.13 75);
   --accent-gold-dim: oklch(0.78 0.13 75 / 0.16);
-  --buff-info: oklch(0.55 0.18 245);
-  --buff-info-bg: oklch(0.55 0.18 245 / 0.08);
-  --buff-info-border: oklch(0.55 0.18 245 / 0.20);
+  --buff-info: oklch(0.50 0.13 70);
+  --buff-info-bg: oklch(0.50 0.13 70 / 0.08);
+  --buff-info-border: oklch(0.50 0.13 70 / 0.20);
 
   /* FFXIV crystal element palette (light-tuned) */
   --element-fire: oklch(0.55 0.20 25);
@@ -701,7 +701,12 @@ html, body {
 }
 
 .app-main {
-  background-color: var(--app-bg);
+  background:
+    radial-gradient(
+      ellipse 75% 90% at top center,
+      var(--app-bg) 0%,
+      oklch(0.92 0.028 75) 100%
+    );
   overflow-y: auto;
 }
 

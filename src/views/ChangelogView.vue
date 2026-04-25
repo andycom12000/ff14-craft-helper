@@ -656,18 +656,18 @@ function formatDateDots(iso: string) {
 <style scoped>
 /* Eorzean Codex palette — scoped to this view */
 .changelog-view {
-  --parch-50: #f6efe0;
-  --parch-100: #ede2c9;
-  --ink-900: #10151f;
-  /* Bumped from #8a92a6 / #5b6478 to clear WCAG AA on the panel/page background */
-  --fg-muted: #a4adc2;
-  --fg-faint: #828ba2;
-  --gold: oklch(0.82 0.13 82);
-  --gold-soft: oklch(0.82 0.13 82 / .18);
-  --gold-line: oklch(0.82 0.13 82 / .38);
-  --lapis: oklch(0.82 0.11 210);
-  --line: rgba(236, 220, 180, .08);
-  --line-strong: rgba(236, 220, 180, .18);
+  /* Light theme — Eorzean Codex on parchment table */
+  --parch-50: oklch(0.28 0.04 55);   /* main text on cream — dark warm brown */
+  --parch-100: oklch(0.35 0.04 55);  /* slightly less prominent */
+  --ink-900: oklch(0.20 0.04 55);    /* high-contrast text (on gold/etc) */
+  --fg-muted: oklch(0.50 0.03 60);
+  --fg-faint: oklch(0.62 0.03 60);
+  --gold: oklch(0.65 0.18 65);       /* match new toast gold */
+  --gold-soft: oklch(0.65 0.18 65 / .14);
+  --gold-line: oklch(0.65 0.18 65 / .35);
+  --lapis: oklch(0.50 0.13 70);      /* microbake — replaces blue (per rebrand spec) */
+  --line: oklch(0.55 0.04 65 / .22);
+  --line-strong: oklch(0.55 0.04 65 / .38);
 
   --display: 'Cormorant Garamond', 'Noto Serif TC', serif;
   --mono: 'JetBrains Mono', ui-monospace, monospace;
@@ -892,16 +892,16 @@ function formatDateDots(iso: string) {
 
 /* -------- Panel -------- */
 .panel {
-  background: linear-gradient(180deg, rgba(24, 32, 46, .9), rgba(18, 24, 36, .9));
+  background: linear-gradient(180deg, var(--app-surface), oklch(0.97 0.018 85));
   border: 1px solid var(--line);
   border-radius: 14px;
   overflow: hidden;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, .03),
-    0 20px 40px -30px rgba(0, 0, 0, .6);
+    inset 0 1px 0 oklch(1 0 0 / 0.6),
+    0 4px 18px oklch(0.40 0.05 60 / 0.06);
 }
 .panel--patch {
-  background: linear-gradient(180deg, rgba(20, 26, 38, .7), rgba(16, 22, 33, .7));
+  background: linear-gradient(180deg, oklch(0.97 0.020 85 / 0.55), oklch(0.95 0.025 85 / 0.55));
 }
 .panel-header {
   display: flex;
@@ -989,7 +989,7 @@ function formatDateDots(iso: string) {
 }
 .patch-summary:hover {
   color: var(--parch-100);
-  background: rgba(236, 220, 180, .03);
+  background: oklch(0.40 0.04 60 /.03);
 }
 .patch-summary-text {
   flex: 1;
@@ -1055,7 +1055,7 @@ function formatDateDots(iso: string) {
 }
 .panel--patch .hl-cat {
   color: var(--fg-muted);
-  background: rgba(236, 220, 180, .04);
+  background: oklch(0.40 0.04 60 /.04);
   border-color: var(--line-strong);
 }
 .hl-text {
@@ -1149,7 +1149,7 @@ function formatDateDots(iso: string) {
     gap: 6px;
     padding: 8px 12px;
     min-height: 40px;
-    background: rgba(24, 32, 46, .6);
+    background: var(--app-surface);
     border: 1px solid var(--line-strong);
     border-radius: 999px;
     color: var(--fg-muted);
@@ -1173,21 +1173,21 @@ function formatDateDots(iso: string) {
     font-family: var(--mono);
     font-size: 10px;
     color: var(--fg-faint);
-    background: rgba(236, 220, 180, .06);
+    background: oklch(0.40 0.04 60 /.06);
     border-radius: 999px;
     padding: 1px 7px;
     margin-left: 2px;
   }
   .chip--active {
-    color: var(--ink-900);
+    color: oklch(0.99 0.01 90);
     background: var(--gold);
     border-color: var(--gold);
   }
-  .chip--active .chip-mon { color: var(--ink-900); }
+  .chip--active .chip-mon { color: oklch(0.99 0.01 90); }
   .chip--active .chip-yr,
   .chip--active .chip-count {
-    color: var(--ink-900);
-    background: rgba(16, 21, 31, .12);
+    color: oklch(0.99 0.01 90);
+    background: oklch(0.20 0.04 55 / 0.18);
   }
 
   .month-section {
