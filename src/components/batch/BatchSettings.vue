@@ -113,7 +113,48 @@ const buffSummary = computed(() => {
   </el-card>
   </template>
   <template v-else>
-    <!-- mobile 版面 — Task 2/3/4 會逐步填入 -->
+    <div class="m-settings">
+      <div class="m-mode-row">
+        <ModeChip :model-value="batch.calcMode" @change="batch.setCalcMode" />
+        <p class="m-mode-hint">
+          {{ batch.calcMode === 'macro' ? '會計算巨集與 HQ 需求' : '直接列出採購清單，不跑巨集' }}
+        </p>
+      </div>
+
+      <div class="m-cell">
+        <span class="m-cell-icon" aria-hidden="true">🔄</span>
+        <div class="m-cell-body">
+          <div class="m-cell-title">遞迴查價</div>
+          <div class="m-cell-sub">把素材的素材也納入採購</div>
+        </div>
+        <el-switch v-model="settings.recursivePricing" size="default" />
+      </div>
+
+      <div class="m-cell">
+        <span class="m-cell-icon" aria-hidden="true">🌐</span>
+        <div class="m-cell-body">
+          <div class="m-cell-title">跨服採購</div>
+          <div class="m-cell-sub">{{ settings.dataCenter ? `${settings.dataCenter} 全跨服比價` : '跨資料中心比價，找最便宜的伺服器' }}</div>
+        </div>
+        <el-switch v-model="settings.crossServer" size="default" />
+      </div>
+
+      <div class="m-cell m-cell--last">
+        <span class="m-cell-icon" aria-hidden="true">⚠️</span>
+        <div class="m-cell-body">
+          <div class="m-cell-title">例外策略</div>
+          <div class="m-cell-sub">等級不足/無法雙滿時</div>
+        </div>
+        <el-segmented
+          v-model="settings.exceptionStrategy"
+          :options="[
+            { label: '跳過', value: 'skip' },
+            { label: '購買', value: 'buy' },
+          ]"
+          size="small"
+        />
+      </div>
+    </div>
   </template>
 </template>
 
@@ -222,5 +263,65 @@ const buffSummary = computed(() => {
   .settings-row {
     gap: var(--space-md);
   }
+}
+
+/* === Mobile (≤640px) === */
+.m-settings {
+  display: flex;
+  flex-direction: column;
+}
+
+.m-mode-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 4px 0 14px;
+}
+
+.m-mode-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--app-text-muted);
+}
+
+.m-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.m-cell--last {
+  border-bottom: none;
+}
+
+.m-cell-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--el-fill-color-light);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.m-cell-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.m-cell-title {
+  font-size: 13.5px;
+  color: var(--app-text);
+}
+
+.m-cell-sub {
+  font-size: 11px;
+  color: var(--app-text-muted);
+  margin-top: 2px;
 }
 </style>
