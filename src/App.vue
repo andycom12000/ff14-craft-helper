@@ -141,7 +141,7 @@ onUnmounted(() => {
   /* Surfaces */
   --app-bg: oklch(0.965 0.022 90);
   --app-sidebar: oklch(0.93 0.025 80);
-  --app-surface: oklch(0.99 0.01 90);
+  --app-surface: oklch(0.975 0.018 85);
   --app-surface-2: oklch(0.93 0.04 80);
   --app-surface-hover: oklch(0.94 0.025 85);
   --app-border: oklch(0.65 0.04 65 / 0.30);

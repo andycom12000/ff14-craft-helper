@@ -59,13 +59,23 @@ const emit = defineEmits<{
   align-items: center;
   gap: 12px;
   padding: 12px 20px 12px 16px;
-  border-radius: 8px;
-  background: var(--el-fill-color-darker);
-  transition: background-color 0.15s;
+  border-radius: 10px;
+  background: oklch(0.97 0.022 85);
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 0.6),
+    0 1px 2px oklch(0.40 0.05 60 / 0.05);
+  transition:
+    background-color 0.18s var(--ease-out-quart),
+    box-shadow 0.18s var(--ease-out-quart),
+    transform 0.18s var(--ease-out-quart);
 }
 
 .recipe-card:hover {
-  background: var(--el-fill-color-light);
+  background: oklch(0.96 0.028 82);
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 0.6),
+    0 4px 10px oklch(0.40 0.05 60 / 0.08);
+  transform: translateY(-1px);
 }
 
 .recipe-card-icon {
