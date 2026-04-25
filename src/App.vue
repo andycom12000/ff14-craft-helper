@@ -337,6 +337,40 @@ html, body {
   --el-alert-bg-color: var(--app-surface);
 }
 
+/* EP alerts default to a faint tint that disappears on cream bg.
+ * Give warning/error a stronger fill + visible border + bolder title so
+ * blocking states ("尚未設定 gearset" etc.) actually catch the eye. */
+.el-alert.el-alert--warning {
+  background: oklch(0.58 0.17 45 / 0.12);
+  border: 1px solid oklch(0.58 0.17 45 / 0.40);
+  padding: 12px 16px;
+}
+.el-alert.el-alert--warning .el-alert__title {
+  color: oklch(0.38 0.16 45);
+  font-weight: 700;
+  font-size: 14.5px;
+}
+.el-alert.el-alert--warning .el-alert__description {
+  color: oklch(0.42 0.13 45);
+  margin-top: 4px;
+}
+.el-alert.el-alert--warning .el-alert__icon {
+  color: oklch(0.55 0.17 45);
+  font-size: 18px;
+}
+
+.el-alert.el-alert--error {
+  background: oklch(0.55 0.20 25 / 0.10);
+  border: 1px solid oklch(0.55 0.20 25 / 0.40);
+}
+.el-alert.el-alert--error .el-alert__title {
+  color: oklch(0.40 0.18 25);
+  font-weight: 700;
+}
+.el-alert.el-alert--error .el-alert__icon {
+  color: oklch(0.55 0.20 25);
+}
+
 .el-select__wrapper {
   background-color: var(--el-fill-color-lighter);
 }
