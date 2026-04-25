@@ -22,9 +22,8 @@ const gearsets = useGearsetsStore()
 
 const sidebarOpen = ref(false)
 
-// Section refs for scroll navigation
+// Section refs for scroll navigation (3 navigable steps; calculation panel is transient)
 const sectionPrepare = ref<HTMLElement>()
-const sectionProgress = ref<HTMLElement>()
 const sectionShopping = ref<HTMLElement>()
 const sectionTodo = ref<HTMLElement>()
 
@@ -45,16 +44,16 @@ function toggleSection(sectionStep: number) {
   expandedSections.value = next
 }
 
-// currentStep: 0-3 = active step, 4 = all done (exceeds step count to mark all finished)
+// 3-step flow: 0=prepare, 1=shopping, 2=todo, 3=all done (overflow → all dots ✓).
+// Calculation is a transient state, surfaced via `pending` instead of a step slot.
 const currentStep = computed(() => {
   if (batchStore.results) {
     const allTodoDone = batchStore.results.todoList.length > 0
       && batchStore.results.todoList.every(t => t.done)
-    if (allTodoDone) return 4
-    if (batchStore.allShoppingDone) return 3
-    return 2
+    if (allTodoDone) return 3
+    if (batchStore.allShoppingDone) return 2
+    return 1
   }
-  if (batchStore.isRunning) return 1
   return 0
 })
 
@@ -88,7 +87,7 @@ const savingPercent = computed(() => {
 })
 
 function navigateToStep(step: number) {
-  const sections = [sectionPrepare, sectionProgress, sectionShopping, sectionTodo]
+  const sections = [sectionPrepare, sectionShopping, sectionTodo]
   sections[step]?.value?.scrollIntoView({ behavior: 'smooth' })
 }
 
@@ -197,11 +196,12 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
       class="mobile-sticky-toolbar batch-flow"
       :steps="[
         { label: '準備清單', icon: '📋' },
-        { label: '計算最佳化', icon: '⚙️' },
         { label: '採購材料', icon: '🛒' },
         { label: '開始製作', icon: '🔨' },
       ]"
       :active-step="currentStep"
+      :pending="batchStore.isRunning"
+      pending-label="計算中..."
       @navigate="navigateToStep"
     />
 
@@ -257,39 +257,39 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
       </div>
     </section>
 
-    <!-- Section 2: 計算進度 -->
-    <section v-if="batchStore.isRunning" ref="sectionProgress" class="batch-section">
-      <div class="section-header">
-        <span class="section-step section-step--active" aria-hidden="true">2</span>
+    <!-- Calculation progress: transient panel, not a navigation step -->
+    <section v-if="batchStore.isRunning" class="batch-section batch-section--transient">
+      <div class="section-header section-header--transient">
+        <span class="section-spinner" aria-hidden="true" />
         <h3 class="section-title">計算最佳化</h3>
         <span class="section-desc">正在求解最佳製作方案與查價</span>
       </div>
       <BatchProgress />
     </section>
 
-    <!-- Section 3: 採購材料 -->
-    <section v-if="batchStore.results" ref="sectionShopping" class="batch-section" :class="{ 'batch-section--collapsed': isSectionCollapsed(2) }">
+    <!-- Section 2: 採購材料 -->
+    <section v-if="batchStore.results" ref="sectionShopping" class="batch-section" :class="{ 'batch-section--collapsed': isSectionCollapsed(1) }">
       <component
-        :is="currentStep > 2 ? 'button' : 'div'"
+        :is="currentStep > 1 ? 'button' : 'div'"
         type="button"
         class="section-header"
-        :class="{ 'section-header--clickable': currentStep > 2 }"
-        :aria-expanded="currentStep > 2 ? !isSectionCollapsed(2) : undefined"
-        @click="currentStep > 2 ? toggleSection(2) : undefined"
+        :class="{ 'section-header--clickable': currentStep > 1 }"
+        :aria-expanded="currentStep > 1 ? !isSectionCollapsed(1) : undefined"
+        @click="currentStep > 1 ? toggleSection(1) : undefined"
       >
-        <span class="section-step" :class="{ 'section-step--active': currentStep === 2, 'section-step--done': currentStep > 2 }" aria-hidden="true">
-          <template v-if="currentStep > 2">✓</template>
-          <template v-else>3</template>
+        <span class="section-step" :class="{ 'section-step--active': currentStep === 1, 'section-step--done': currentStep > 1 }" aria-hidden="true">
+          <template v-if="currentStep > 1">✓</template>
+          <template v-else>2</template>
         </span>
         <h3 class="section-title">採購材料</h3>
-        <span class="section-desc">{{ currentStep > 2 ? `${batchStore.shoppingCheckedCount} 項已採購` : '按伺服器分組購買所需素材' }}</span>
-        <template v-if="currentStep <= 2">
+        <span class="section-desc">{{ currentStep > 1 ? `${batchStore.shoppingCheckedCount} 項已採購` : '按伺服器分組購買所需素材' }}</span>
+        <template v-if="currentStep <= 1">
           <el-text size="small" type="info" class="section-hint">點擊素材行可複製品名</el-text>
         </template>
-        <span v-if="currentStep > 2" class="section-toggle">{{ isSectionCollapsed(2) ? '展開' : '收起' }}</span>
+        <span v-if="currentStep > 1" class="section-toggle">{{ isSectionCollapsed(1) ? '展開' : '收起' }}</span>
       </component>
 
-      <template v-if="!isSectionCollapsed(2)">
+      <template v-if="!isSectionCollapsed(1)">
         <div
           v-if="batchStore.results.exceptions.length > 0"
           class="exception-block"
@@ -314,10 +314,13 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
       </template>
     </section>
 
-    <!-- Section 4: 製作待辦 -->
+    <!-- Section 3: 製作待辦 -->
     <section v-if="batchStore.results" ref="sectionTodo" class="batch-section">
       <div class="section-header">
-        <span class="section-step" :class="{ 'section-step--active': currentStep === 3 }" aria-hidden="true">4</span>
+        <span class="section-step" :class="{ 'section-step--active': currentStep === 2, 'section-step--done': currentStep > 2 }" aria-hidden="true">
+          <template v-if="currentStep > 2">✓</template>
+          <template v-else>3</template>
+        </span>
         <h3 class="section-title">開始製作</h3>
         <span class="section-desc">依相依順序逐一完成製作</span>
       </div>
@@ -489,6 +492,31 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
   font-size: 12px;
   color: var(--el-text-color-secondary);
   flex-shrink: 0;
+}
+
+/* Transient calculation panel — visually distinct from numbered nav steps */
+.batch-section--transient {
+  border-top-style: dashed;
+  border-top-color: var(--page-accent-dim, var(--el-border-color));
+}
+
+.section-header--transient {
+  margin-bottom: 12px;
+}
+
+.section-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--page-accent, var(--accent-gold));
+  border-top-color: transparent;
+  animation: section-spin 0.9s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes section-spin {
+  to { transform: rotate(360deg); }
 }
 
 .batch-action {
