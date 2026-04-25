@@ -79,14 +79,27 @@ FFXIV 製作助手
 
 | 角色 | 字體 |
 |---|---|
-| Wordmark「吐司工坊」 | **Noto Serif TC 900**，letter-spacing 1.5–2px |
+| Wordmark「吐司工坊」 | **Noto Serif TC 900**，letter-spacing 1px |
 | 區塊標題 / 大標 | Noto Serif TC 600/700 |
 | 介面正文 | Noto Sans TC 400/500 |
-| 小型副線 / overline | Noto Sans TC 500，全大寫，1.5–2px letter-spacing |
+| 小型副線 / overline | Noto Sans TC 700，全大寫，2px letter-spacing |
 | 引言 / 招呼 / 黑板字 | Cormorant Garamond italic 500/600 |
 | 程式碼 / macro / 數字 | Fira Code 700 |
 
 字體已全數 import 於 `index.html`，不需新增 request。
+
+### Sidebar 字重（鎖定值）
+
+側欄需要扎實質感，避免 light theme 上的字看起來輕飄：
+
+| 元素 | 規格 |
+|---|---|
+| Logo「吐司工坊」 | Noto Serif TC 900, 21px, letter-spacing 1px |
+| 副線「FFXIV 製作助手」 | Noto Sans TC 700, 10px, letter-spacing 2px, color `oklch(0.42 0.05 55)` |
+| 選單項目（未 active） | Noto Sans TC 600, 13.5px, color `oklch(0.38 0.04 55)` |
+| 選單項目（active） | Noto Sans TC 700, color `var(--app-accent)`, bg `var(--app-accent-glow)` |
+| 版本號 | Fira Code 700, 11px, color `oklch(0.45 0.04 60)` |
+| Item dot indicator | 6px, opacity 0.55（active 時 1.0） |
 
 ## Lively Elements
 

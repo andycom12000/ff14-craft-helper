@@ -160,18 +160,18 @@
   .mock-logo-mark {
     font-family: 'Noto Serif TC', serif;
     font-weight: 900;
-    font-size: 19px;
-    letter-spacing: 2px;
+    font-size: 21px;
+    letter-spacing: 1px;
     color: var(--app-text);
     display: block;
   }
   .mock-logo-sub {
-    font-size: 9.5px;
-    letter-spacing: 1.8px;
-    color: var(--app-text-muted);
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: oklch(0.42 0.05 55);
     text-transform: uppercase;
-    margin-top: 4px;
-    font-weight: 500;
+    margin-top: 5px;
+    font-weight: 700;
     display: block;
   }
   .mock-menu {
@@ -183,8 +183,9 @@
   .mock-item {
     padding: 11px 14px;
     border-radius: 10px;
-    font-size: 13px;
-    color: var(--app-text-muted);
+    font-size: 13.5px;
+    font-weight: 600;
+    color: oklch(0.38 0.04 55);
     transition: all 0.18s var(--ease-out-quart);
     cursor: pointer;
     display: flex;
@@ -196,7 +197,7 @@
     height: 6px;
     border-radius: 999px;
     background: currentColor;
-    opacity: 0.4;
+    opacity: 0.55;
   }
   .mock-item:hover {
     color: var(--app-text);
@@ -205,7 +206,7 @@
   .mock-item.active {
     background: var(--app-accent-glow);
     color: var(--app-accent);
-    font-weight: 600;
+    font-weight: 700;
   }
   .mock-item.active .dot {
     background: var(--app-accent);
@@ -217,8 +218,9 @@
     margin-left: 20px;
     margin-bottom: 8px;
     font-family: 'Fira Code', monospace;
-    font-size: 10.5px;
-    color: var(--app-text-muted);
+    font-size: 11px;
+    color: oklch(0.45 0.04 60);
+    font-weight: 700;
     letter-spacing: 0.5px;
   }
 
