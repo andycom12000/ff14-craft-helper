@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useIsMobile } from '@/composables/useMediaQuery'
 
 type Tag = 'MAJOR' | 'MINOR' | 'PATCH'
 
@@ -10,7 +11,22 @@ interface Entry {
   highlights: string[]
 }
 
+interface Highlight {
+  category: string | null
+  text: string
+}
+
 const changelog: Entry[] = [
+  {
+    version: 'v2.2.1',
+    date: '2026-04-25',
+    highlights: [
+      '【批量製作取消修復】先前在 solver 計算中按「取消」沒反應、會一直卡在計算中；現在會立即終止 worker，UI 也會回到未計算狀態並顯示「已取消計算」',
+      '【批量完工流程】TodoList 全部勾完後會出現「🎉 全部完工！要不要開始下一批？」慶祝卡片，內含「✨ 開始新批次」CTA',
+      '【批量再開新一輪】移除原本誤導的「全部重設」（其實只是 uncheck），改為「✨ 開始新批次」：popconfirm 確認後重設整份批次並自動捲回 step 1',
+      '【FlowBreadcrumb 新批次入口】流程列尾端新增「⟳ 新批次」按鈕（僅在已有計算結果時顯示），手機版 sticky toolbar 也可隨時觸發，不需再滑回頁首展開清單',
+    ],
+  },
   {
     version: 'v2.2.0',
     date: '2026-04-25',
@@ -404,7 +420,17 @@ function tagOf(version: string): Tag {
   return 'MAJOR'
 }
 
+const TAG_LABEL: Record<Tag, string> = { MAJOR: '重大', MINOR: '更新', PATCH: '修正' }
+
 const MONTHS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+const HL_PREFIX = /^【([^】]+)】(.*)$/
+
+function parseHighlight(raw: string): Highlight {
+  const m = HL_PREFIX.exec(raw)
+  if (!m) return { category: null, text: raw }
+  return { category: m[1], text: m[2].replace(/^[：:]\s*/, '') }
+}
 
 interface Group {
   ym: string
@@ -427,11 +453,30 @@ const groups = computed<Group[]>(() => {
   })
 })
 
+const isMobile = useIsMobile()
 const active = ref('')
 const sectionRefs = ref<Record<string, HTMLElement | null>>({})
+const rootEl = ref<HTMLElement | null>(null)
+const expanded = ref<Set<string>>(new Set())
 
 function setSectionRef(ym: string, el: Element | null) {
   sectionRefs.value[ym] = el as HTMLElement | null
+}
+
+function isExpanded(version: string, tag: Tag) {
+  return tag !== 'PATCH' || expanded.value.has(version)
+}
+
+function togglePatch(version: string) {
+  const next = new Set(expanded.value)
+  if (next.has(version)) next.delete(version)
+  else next.add(version)
+  expanded.value = next
+}
+
+function scrollContainer(): HTMLElement | null {
+  return rootEl.value?.closest('.app-main') as HTMLElement | null
+    ?? (document.scrollingElement as HTMLElement | null)
 }
 
 let observer: IntersectionObserver | null = null
@@ -439,7 +484,7 @@ let observer: IntersectionObserver | null = null
 onMounted(async () => {
   await nextTick()
   active.value = groups.value[0]?.ym ?? ''
-  const root = document.querySelector('.app-main') as HTMLElement | null
+  const root = scrollContainer()
   observer = new IntersectionObserver(
     (entries) => {
       const visible = entries
@@ -464,9 +509,10 @@ onBeforeUnmount(() => {
 
 function scrollTo(ym: string) {
   const el = sectionRefs.value[ym]
-  const parent = document.querySelector('.app-main') as HTMLElement | null
+  const parent = scrollContainer()
   if (!el || !parent) return
-  const top = el.getBoundingClientRect().top - parent.getBoundingClientRect().top + parent.scrollTop - 24
+  const offset = isMobile.value ? 124 : 24
+  const top = el.getBoundingClientRect().top - parent.getBoundingClientRect().top + parent.scrollTop - offset
   parent.scrollTo({ top, behavior: 'smooth' })
 }
 
@@ -476,7 +522,7 @@ function formatDateDots(iso: string) {
 </script>
 
 <template>
-  <div class="changelog-view">
+  <div ref="rootEl" class="changelog-view">
     <!-- PageHead -->
     <header class="page-head">
       <div class="eyebrow">VIII · 更新日誌</div>
@@ -484,9 +530,25 @@ function formatDateDots(iso: string) {
       <p class="page-subtitle">每次版本的細節變更。</p>
     </header>
 
+    <!-- Mobile sticky month chip strip -->
+    <nav class="chip-rail" aria-label="月份快速跳轉">
+      <button
+        v-for="g in groups"
+        :key="g.ym"
+        type="button"
+        class="chip"
+        :class="{ 'chip--active': active === g.ym }"
+        @click="scrollTo(g.ym)"
+      >
+        <span class="chip-mon">{{ g.mon }}</span>
+        <span class="chip-yr">{{ g.year.slice(2) }}</span>
+        <span class="chip-count">{{ g.entries.length }}</span>
+      </button>
+    </nav>
+
     <div class="layout">
-      <!-- Left timeline rail -->
-      <nav class="rail" aria-label="Timeline navigation">
+      <!-- Left timeline rail (desktop) -->
+      <nav class="rail" aria-label="時間軸導覽">
         <div class="rail-header">Timeline</div>
         <div class="rail-list">
           <span class="rail-line" aria-hidden="true" />
@@ -498,6 +560,7 @@ function formatDateDots(iso: string) {
             :class="{ 'rail-item--active': active === g.ym }"
             @click="scrollTo(g.ym)"
           >
+            <span class="rail-bar" aria-hidden="true" />
             <span class="rail-node" aria-hidden="true" />
             <span class="rail-mon">{{ g.mon }}</span>
             <span class="rail-meta">
@@ -517,7 +580,7 @@ function formatDateDots(iso: string) {
           class="month-section"
         >
           <div class="month-header">
-            <div class="month-mon">{{ g.mon }}</div>
+            <h2 class="month-mon">{{ g.mon }}</h2>
             <div class="month-ym">{{ g.year }} · {{ g.num }}</div>
             <div class="month-spacer" />
             <div class="month-count">
@@ -530,31 +593,58 @@ function formatDateDots(iso: string) {
               v-for="e in g.entries"
               :key="e.version"
               class="panel"
+              :class="[`panel--${tagOf(e.version).toLowerCase()}`, { 'panel--collapsed': !isExpanded(e.version, tagOf(e.version)) }]"
             >
               <header class="panel-header">
-                <div class="panel-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M6 4h11a2 2 0 012 2v12a2 2 0 01-2 2H8a2 2 0 01-2-2V4z" />
-                    <path d="M6 4a2 2 0 00-2 2v2h2M9 9h6M9 13h6M9 17h3" />
-                  </svg>
-                </div>
-                <div class="panel-heading">
-                  <div class="panel-title">
-                    {{ e.version }}<template v-if="e.codename"> · {{ e.codename }}</template>
-                  </div>
-                  <div class="panel-subtitle">{{ formatDateDots(e.date) }}</div>
-                </div>
+                <h3 class="panel-title">
+                  <span class="ver">{{ e.version }}</span>
+                  <span v-if="e.codename" class="codename">{{ e.codename }}</span>
+                </h3>
+                <span class="panel-date">{{ formatDateDots(e.date) }}</span>
                 <span class="panel-spacer" />
                 <span class="tag" :class="`tag--${tagOf(e.version).toLowerCase()}`">
-                  {{ tagOf(e.version) }}
+                  {{ TAG_LABEL[tagOf(e.version)] }}
                 </span>
               </header>
-              <ul
+
+              <!-- PATCH summary (collapsed) -->
+              <button
+                v-if="tagOf(e.version) === 'PATCH' && !isExpanded(e.version, 'PATCH')"
+                type="button"
+                class="patch-summary"
+                @click="togglePatch(e.version)"
+              >
+                <span class="patch-summary-text">{{ parseHighlight(e.highlights[0]).text }}</span>
+                <span v-if="e.highlights.length > 1" class="patch-more">+{{ e.highlights.length - 1 }}</span>
+                <svg class="patch-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
+
+              <!-- Full body -->
+              <div
+                v-else
                 class="panel-body"
                 :class="{ 'panel-body--accent': tagOf(e.version) !== 'PATCH' }"
               >
-                <li v-for="(item, i) in e.highlights" :key="i">{{ item }}</li>
-              </ul>
+                <ul class="hl-list">
+                  <li v-for="(item, i) in e.highlights" :key="i" class="hl-item">
+                    <template v-if="parseHighlight(item).category">
+                      <span class="hl-cat">{{ parseHighlight(item).category }}</span>
+                      <span class="hl-text">{{ parseHighlight(item).text }}</span>
+                    </template>
+                    <template v-else>
+                      <span class="hl-text">{{ item }}</span>
+                    </template>
+                  </li>
+                </ul>
+                <button
+                  v-if="tagOf(e.version) === 'PATCH'"
+                  type="button"
+                  class="patch-collapse"
+                  @click="togglePatch(e.version)"
+                >收合</button>
+              </div>
             </article>
           </div>
         </section>
@@ -569,22 +659,32 @@ function formatDateDots(iso: string) {
   --parch-50: #f6efe0;
   --parch-100: #ede2c9;
   --ink-900: #10151f;
-  --fg-muted: #8a92a6;
-  --fg-faint: #5b6478;
-  --gold: oklch(0.78 0.12 82);
-  --gold-soft: oklch(0.78 0.12 82 / .18);
-  --gold-line: oklch(0.78 0.12 82 / .38);
-  --lapis: oklch(0.78 0.1 210);
+  /* Bumped from #8a92a6 / #5b6478 to clear WCAG AA on the panel/page background */
+  --fg-muted: #a4adc2;
+  --fg-faint: #828ba2;
+  --gold: oklch(0.82 0.13 82);
+  --gold-soft: oklch(0.82 0.13 82 / .18);
+  --gold-line: oklch(0.82 0.13 82 / .38);
+  --lapis: oklch(0.82 0.11 210);
   --line: rgba(236, 220, 180, .08);
-  --line-strong: rgba(236, 220, 180, .16);
+  --line-strong: rgba(236, 220, 180, .18);
 
   --display: 'Cormorant Garamond', 'Noto Serif TC', serif;
   --mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --content-fs: clamp(14px, 0.875rem + 0.2vw, 15.5px);
 
   max-width: 1040px;
   margin: 0 auto;
   padding: 40px 40px 80px;
   color: var(--parch-50);
+}
+
+/* -------- Focus styles (shared) -------- */
+.changelog-view :focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 
 /* -------- PageHead -------- */
@@ -615,6 +715,11 @@ function formatDateDots(iso: string) {
   max-width: 640px;
 }
 
+/* -------- Mobile chip rail (hidden on desktop) -------- */
+.chip-rail {
+  display: none;
+}
+
 /* -------- Layout -------- */
 .layout {
   display: grid;
@@ -623,7 +728,7 @@ function formatDateDots(iso: string) {
   align-items: flex-start;
 }
 
-/* -------- Rail -------- */
+/* -------- Rail (desktop) -------- */
 .rail {
   position: sticky;
   top: 24px;
@@ -663,33 +768,47 @@ function formatDateDots(iso: string) {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 10px 8px 10px 0;
+  padding: 10px 8px 10px 4px;
   position: relative;
   color: var(--fg-muted);
-  transition: color .2s;
+  transition: color .2s ease-out;
   font: inherit;
+  border-radius: 4px;
+}
+.rail-bar {
+  position: absolute;
+  left: -16px;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  background: var(--gold);
+  border-radius: 2px;
+  opacity: 0;
+  transform: scaleY(.4);
+  transform-origin: center;
+  transition: opacity .25s ease-out, transform .25s ease-out;
 }
 .rail-node {
   position: absolute;
   left: -19px;
   top: 50%;
-  transform: translateY(-50%);
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: var(--ink-900);
   border: 1px solid var(--line-strong);
-  transition: all .2s;
+  transform: translateY(-50%) scale(1);
+  transition: background-color .2s ease-out, border-color .2s ease-out, transform .2s ease-out, box-shadow .2s ease-out;
 }
 .rail-mon {
   display: block;
   font-family: var(--display);
   font-weight: 500;
-  font-size: 17px;
+  font-size: 18px;
   letter-spacing: -.01em;
   line-height: 1;
   color: var(--fg-muted);
-  transition: all .2s;
+  transition: color .2s ease-out;
 }
 .rail-meta {
   display: block;
@@ -698,18 +817,23 @@ function formatDateDots(iso: string) {
   letter-spacing: .2em;
   margin-top: 4px;
   color: var(--fg-faint);
-  transition: color .2s;
+  transition: color .2s ease-out;
+}
+.rail-item:hover .rail-mon { color: var(--parch-100); }
+.rail-item:hover .rail-node { border-color: var(--gold-line); }
+
+.rail-item--active .rail-bar {
+  opacity: 1;
+  transform: scaleY(1);
 }
 .rail-item--active .rail-node {
-  width: 12px;
-  height: 12px;
   background: var(--gold);
   border-color: var(--gold-line);
-  box-shadow: 0 0 6px oklch(0.78 0.13 82 / .28);
+  transform: translateY(-50%) scale(1.4);
+  box-shadow: 0 0 8px oklch(0.82 0.13 82 / .35);
 }
 .rail-item--active .rail-mon {
   color: var(--parch-50);
-  font-size: 20px;
 }
 .rail-item--active .rail-meta {
   color: var(--gold);
@@ -741,6 +865,8 @@ function formatDateDots(iso: string) {
   font-size: 28px;
   letter-spacing: -.02em;
   color: var(--parch-50);
+  margin: 0;
+  line-height: 1;
 }
 .month-ym {
   font-family: var(--mono);
@@ -774,55 +900,68 @@ function formatDateDots(iso: string) {
     inset 0 1px 0 rgba(255, 255, 255, .03),
     0 20px 40px -30px rgba(0, 0, 0, .6);
 }
+.panel--patch {
+  background: linear-gradient(180deg, rgba(20, 26, 38, .7), rgba(16, 22, 33, .7));
+}
 .panel-header {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 20px;
+  align-items: baseline;
+  gap: 10px 14px;
+  padding: 14px 18px;
+  flex-wrap: wrap;
+}
+.panel--collapsed .panel-header {
+  border-bottom: none;
+  padding-bottom: 14px;
+}
+.panel:not(.panel--collapsed) .panel-header {
   border-bottom: 1px solid var(--line);
 }
 .panel-spacer {
   flex: 1;
 }
-.panel-icon {
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  border-radius: 8px;
-  background: var(--gold-soft);
-  color: var(--gold);
-  border: 1px solid var(--gold-line);
-  flex-shrink: 0;
-}
-.panel-heading {
-  min-width: 0;
-}
 .panel-title {
   font-family: var(--display);
   font-weight: 500;
-  font-size: 18px;
+  font-size: 19px;
   line-height: 1.1;
   letter-spacing: .01em;
   color: var(--parch-50);
+  margin: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
 }
-.panel-subtitle {
-  font-size: 12px;
+.panel-title .ver { color: var(--parch-50); }
+.panel-title .codename {
+  color: var(--gold);
+  font-style: italic;
+  font-size: 0.92em;
+}
+.panel-title .codename::before {
+  content: '·';
+  margin-right: 6px;
   color: var(--fg-faint);
-  margin-top: 2px;
+  font-style: normal;
+}
+.panel-date {
+  font-size: 11.5px;
+  color: var(--fg-faint);
   font-family: var(--mono);
   letter-spacing: .08em;
+  white-space: nowrap;
 }
 
 /* -------- Tag chip -------- */
 .tag {
   font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: .2em;
-  padding: 3px 8px;
+  font-size: 10.5px;
+  letter-spacing: .25em;
+  padding: 3px 9px;
   border: 1px solid currentColor;
   border-radius: 3px;
-  opacity: .85;
+  opacity: .9;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -830,40 +969,262 @@ function formatDateDots(iso: string) {
 .tag--minor { color: var(--lapis); }
 .tag--patch { color: var(--fg-faint); }
 
-/* -------- Panel body -------- */
-.panel-body {
-  list-style: disc;
-  margin: 0;
-  padding: 16px 24px 18px 40px;
+/* -------- PATCH summary (collapsed) -------- */
+.patch-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-top: 1px dashed var(--line);
+  cursor: pointer;
+  padding: 12px 18px;
   color: var(--fg-muted);
-  line-height: 1.9;
-  font-size: 13.5px;
+  font: inherit;
+  font-size: var(--content-fs);
+  line-height: 1.55;
+  transition: color .15s ease-out, background-color .15s ease-out;
 }
-.panel-body--accent {
+.patch-summary:hover {
   color: var(--parch-100);
+  background: rgba(236, 220, 180, .03);
 }
-.panel-body li::marker {
+.patch-summary-text {
+  flex: 1;
+  min-width: 0;
+}
+.patch-more {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .1em;
+  color: var(--gold);
+  background: var(--gold-soft);
+  border: 1px solid var(--gold-line);
+  border-radius: 999px;
+  padding: 1px 8px;
+  flex-shrink: 0;
+}
+.patch-chevron {
+  flex-shrink: 0;
+  color: var(--fg-faint);
+  transition: transform .2s ease-out;
+}
+.patch-summary:hover .patch-chevron {
   color: var(--gold);
 }
 
-/* -------- Responsive -------- */
+/* -------- Panel body -------- */
+.panel-body {
+  padding: 4px 18px 18px;
+}
+.hl-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.hl-item {
+  display: grid;
+  grid-template-columns: minmax(0, auto) 1fr;
+  gap: 12px;
+  align-items: baseline;
+  color: var(--fg-muted);
+  font-size: var(--content-fs);
+  line-height: 1.7;
+}
+.panel-body--accent .hl-item {
+  color: var(--parch-100);
+}
+.hl-cat {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  color: var(--gold);
+  background: var(--gold-soft);
+  border: 1px solid var(--gold-line);
+  border-radius: 3px;
+  padding: 2px 7px;
+  white-space: nowrap;
+  align-self: start;
+  margin-top: 2px;
+  text-transform: uppercase;
+}
+.panel--patch .hl-cat {
+  color: var(--fg-muted);
+  background: rgba(236, 220, 180, .04);
+  border-color: var(--line-strong);
+}
+.hl-text {
+  min-width: 0;
+}
+/* Items without a category get a subtle gold tick instead */
+.hl-item:not(:has(.hl-cat))::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--gold);
+  margin: 0 6px 0 4px;
+  align-self: center;
+  grid-column: 1;
+}
+.hl-item:not(:has(.hl-cat)) .hl-text {
+  grid-column: 2;
+}
+
+.patch-collapse {
+  margin-top: 12px;
+  background: none;
+  border: 1px solid var(--line-strong);
+  color: var(--fg-faint);
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .15em;
+  transition: color .15s ease-out, border-color .15s ease-out;
+}
+.patch-collapse:hover {
+  color: var(--gold);
+  border-color: var(--gold-line);
+}
+
+/* -------- Reduced motion -------- */
+@media (prefers-reduced-motion: reduce) {
+  .rail-item,
+  .rail-bar,
+  .rail-node,
+  .rail-mon,
+  .rail-meta,
+  .patch-summary,
+  .patch-chevron,
+  .patch-collapse {
+    transition: none !important;
+  }
+}
+
+/* -------- Responsive (mobile) -------- */
 @media (max-width: 900px) {
   .changelog-view {
-    padding: 72px 20px 40px;
+    padding: 16px 16px 48px;
   }
   .layout {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 16px;
   }
   .rail {
-    position: static;
     display: none;
   }
-  .page-title {
-    font-size: 34px;
+
+  /* Sticky horizontal chip strip — sits right below the global mobile app bar */
+  .chip-rail {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    margin: 0 -16px 16px;
+    padding: 8px 16px;
+    position: sticky;
+    top: var(--mobile-app-bar-h, 52px);
+    z-index: 10;
+    background: color-mix(in srgb, var(--app-bg, #10151f) 82%, transparent);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    border-bottom: 1px solid var(--line);
   }
+  .chip-rail::-webkit-scrollbar { display: none; }
+
+  .chip {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 8px 12px;
+    min-height: 40px;
+    background: rgba(24, 32, 46, .6);
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    color: var(--fg-muted);
+    cursor: pointer;
+    font: inherit;
+    transition: color .15s ease-out, border-color .15s ease-out, background-color .15s ease-out;
+  }
+  .chip-mon {
+    font-family: var(--display);
+    font-weight: 500;
+    font-size: 16px;
+    letter-spacing: -.01em;
+  }
+  .chip-yr {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .15em;
+    color: var(--fg-faint);
+  }
+  .chip-count {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--fg-faint);
+    background: rgba(236, 220, 180, .06);
+    border-radius: 999px;
+    padding: 1px 7px;
+    margin-left: 2px;
+  }
+  .chip--active {
+    color: var(--ink-900);
+    background: var(--gold);
+    border-color: var(--gold);
+  }
+  .chip--active .chip-mon { color: var(--ink-900); }
+  .chip--active .chip-yr,
+  .chip--active .chip-count {
+    color: var(--ink-900);
+    background: rgba(16, 21, 31, .12);
+  }
+
+  .month-section {
+    scroll-margin-top: calc(var(--mobile-app-bar-h, 52px) + 64px);
+  }
+
+  .page-title {
+    font-size: 32px;
+  }
+  .page-subtitle {
+    font-size: 13.5px;
+  }
+
+  .panel-header {
+    padding: 12px 14px;
+    gap: 6px 10px;
+  }
+  .panel-title { font-size: 17px; }
   .panel-body {
-    padding: 14px 20px 16px 36px;
+    padding: 4px 14px 16px;
+  }
+  .patch-summary {
+    padding: 10px 14px;
+  }
+
+  /* On mobile: align category chip above text instead of inline grid */
+  .hl-item {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .hl-cat { justify-self: start; }
+  .hl-item:not(:has(.hl-cat))::before {
+    grid-column: 1;
+    margin-left: 0;
+  }
+  .hl-item:not(:has(.hl-cat)) .hl-text {
+    grid-column: 1;
   }
 }
 </style>
