@@ -1,14 +1,35 @@
 <script setup lang="ts">
+import { ref, computed } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
 import { useBatchStore } from '@/stores/batch'
+import { useIsMobile } from '@/composables/useMediaQuery'
 import { COMMON_FOODS, COMMON_MEDICINES } from '@/engine/food-medicine'
 import ModeChip from './ModeChip.vue'
 
 const settings = useSettingsStore()
 const batch = useBatchStore()
+
+const isMobile = useIsMobile()
+
+// Advanced section accordion state (mobile-only, not persisted across mounts)
+const advancedOpen = ref(false)
+
+// 進階設定收合摘要：依目前 foodId / medicineId 決定文字
+const buffSummary = computed(() => {
+  const foodName = batch.foodId
+    ? COMMON_FOODS.find(f => f.id === batch.foodId)?.name.replace(' HQ', '') ?? null
+    : null
+  const medName = batch.medicineId
+    ? COMMON_MEDICINES.find(m => m.id === batch.medicineId)?.name.replace(' HQ', '') ?? null
+    : null
+  if (!foodName && !medName) return { text: '未設定', muted: true }
+  if (foodName && medName) return { text: '已設定', muted: false }
+  return { text: foodName ?? medName ?? '已設定', muted: false }
+})
 </script>
 
 <template>
+  <template v-if="!isMobile">
   <el-card shadow="never" class="settings-card">
     <template #header>
       <span class="card-title">計算設定</span>
@@ -90,6 +111,10 @@ const batch = useBatchStore()
       </div>
     </div>
   </el-card>
+  </template>
+  <template v-else>
+    <!-- mobile 版面 — Task 2/3/4 會逐步填入 -->
+  </template>
 </template>
 
 <style scoped>
