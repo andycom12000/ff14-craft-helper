@@ -1126,15 +1126,19 @@ async function handleSelfCraft(itemId: number) {
 /* --- Sticky mode segmented --- */
 .m-mode-wrap {
   position: sticky;
-  top: 52px; /* mobile app bar height */
+  top: var(--mobile-app-bar-h);
   z-index: 10;
-  padding: 10px 0;
+  padding: 10px 16px;
   margin: 0 -16px;
-  padding-left: 16px;
-  padding-right: 16px;
   background: color-mix(in srgb, var(--app-bg) 88%, transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .m-mode-wrap {
+    background: var(--app-bg);
+  }
 }
 
 .m-mode-seg {

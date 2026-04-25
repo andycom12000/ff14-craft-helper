@@ -198,6 +198,9 @@ onUnmounted(() => {
   --touch-target-min: 44px;
   --section-padding-mobile: 12px;
   --section-padding-desktop: 24px;
+
+  /* Mobile app bar height — used for sticky-toolbar offsets & scroll-margin */
+  --mobile-app-bar-h: 52px;
 }
 
 html {
@@ -431,6 +434,40 @@ html, body {
   /* Small-size buttons still need a reasonable target on touch */
   .el-button--small {
     min-height: 36px;
+  }
+
+  /* Reusable sticky secondary toolbar for mobile views.
+   * Sits right below the global .mobile-app-bar. Views opt-in by adding
+   * this class to their primary header/filter row. The view's horizontal
+   * padding is bled out via negative margin so the toolbar reaches the
+   * screen edge while content keeps its inner padding. */
+  .mobile-sticky-toolbar {
+    position: sticky;
+    top: var(--mobile-app-bar-h);
+    z-index: 10;
+    margin-left: -16px;
+    margin-right: -16px;
+    padding-left: 16px;
+    padding-right: 16px;
+    background: color-mix(in srgb, var(--app-bg) 88%, transparent);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--app-border);
+  }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .mobile-sticky-toolbar {
+      background: var(--app-bg);
+    }
+  }
+
+  @media (max-width: 640px) {
+    .mobile-sticky-toolbar {
+      margin-left: -12px;
+      margin-right: -12px;
+      padding-left: 12px;
+      padding-right: 12px;
+    }
   }
 }
 
@@ -702,12 +739,19 @@ html, body {
     position: sticky;
     top: 0;
     z-index: 100;
-    height: 52px;
+    height: var(--mobile-app-bar-h);
     padding: 0 12px;
     background: color-mix(in srgb, var(--app-bg) 82%, transparent);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--app-border);
+  }
+
+  /* iOS Safari fallback: solid bg if backdrop-filter unsupported */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .mobile-app-bar {
+      background: var(--app-bg);
+    }
   }
 
   .bar-menu {

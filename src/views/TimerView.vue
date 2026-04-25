@@ -254,7 +254,7 @@ onUnmounted(() => {
 <template>
   <div class="timer-view" v-loading="isLoadingData">
     <!-- Top bar -->
-    <div class="timer-header">
+    <div class="timer-header mobile-sticky-toolbar">
       <h2 class="timer-title">
         <el-icon class="title-icon"><AlarmClock /></el-icon>
         採集計時器
@@ -665,6 +665,14 @@ onUnmounted(() => {
   .timer-header {
     flex-direction: column;
     gap: 8px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+  }
+
+  /* Page title is already shown in the global app bar */
+  .timer-title {
+    display: none;
   }
 
   .header-controls {

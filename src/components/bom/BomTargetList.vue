@@ -276,11 +276,23 @@ function handleClearAll() {
     border: none;
     box-shadow: none;
     border-radius: 0;
+    overflow: visible;
   }
   :deep(.el-card__header) {
-    padding: 0 0 10px;
-    border-bottom: 1px solid var(--el-border-color-lighter);
-    margin-bottom: 0;
+    position: sticky;
+    top: var(--mobile-app-bar-h, 52px);
+    z-index: 10;
+    padding: 10px 12px;
+    margin: 0 -12px;
+    border-bottom: 1px solid var(--app-border);
+    background: color-mix(in srgb, var(--app-bg) 88%, transparent);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    :deep(.el-card__header) {
+      background: var(--app-bg);
+    }
   }
   :deep(.el-card__body) {
     padding: 0;

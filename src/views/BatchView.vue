@@ -194,6 +194,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
     </div>
 
     <FlowBreadcrumb
+      class="mobile-sticky-toolbar batch-flow"
       :steps="[
         { label: '準備清單', icon: '📋' },
         { label: '計算最佳化', icon: '⚙️' },
@@ -340,7 +341,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
 }
 
 .batch-section {
-  scroll-margin-top: 100px;
+  scroll-margin-top: calc(var(--mobile-app-bar-h, 52px) + 48px);
   margin-bottom: 8px;
   padding-top: 24px;
   border-top: 1px solid var(--el-border-color-lighter);
@@ -559,7 +560,19 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
   }
 
   .batch-section {
-    scroll-margin-top: 80px;
+    scroll-margin-top: calc(var(--mobile-app-bar-h, 52px) + 80px);
+  }
+
+  /* Page title is shown in the global app bar; hide the in-view title row */
+  .batch-title-row {
+    display: none;
+  }
+
+  /* FlowBreadcrumb gets sticky-toolbar bleed; tighten its vertical padding */
+  .batch-flow {
+    padding-top: 10px;
+    padding-bottom: 10px;
+    margin-bottom: 8px;
   }
 }
 
