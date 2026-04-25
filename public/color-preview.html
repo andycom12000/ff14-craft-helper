@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>吐司工坊 · Locked Design Reference</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Fira+Code:wght@400;700&family=Noto+Serif+TC:wght@400;500;600;700;900&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  /* ====== Locked-in tokens (S2 主體 + S1 sidebar/text) ====== */
+  :root {
+    --app-bg:           oklch(0.965 0.022 90);
+    --app-sidebar:      oklch(0.93 0.025 80);
+    --app-surface:      oklch(0.99 0.01 90);
+    --app-surface-2:    oklch(0.93 0.04 80);
+    --app-border:       oklch(0.84 0.04 70);
+    --app-text:         oklch(0.28 0.04 55);
+    --app-text-muted:   oklch(0.50 0.03 60);
+    --app-accent:       oklch(0.65 0.18 65);
+    --app-accent-light: oklch(0.78 0.15 75);
+    --app-accent-glow:  oklch(0.65 0.18 65 / 0.18);
+
+    --app-craft:        oklch(0.50 0.16 40);
+    --app-craft-dim:    oklch(0.50 0.16 40 / 0.10);
+    --app-market:       oklch(0.58 0.20 15);
+    --app-market-dim:   oklch(0.58 0.20 15 / 0.10);
+    --app-gather:       oklch(0.62 0.17 135);
+    --app-gather-dim:   oklch(0.62 0.17 135 / 0.10);
+    --app-highlight:    oklch(0.55 0.18 245);
+
+    --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Noto Sans TC', sans-serif;
+    background: var(--app-bg);
+    color: var(--app-text);
+    min-height: 100vh;
+  }
+
+  /* SVG paper noise — subtle dot pattern */
+  .paper {
+    background-image:
+      radial-gradient(circle at 20% 30%, oklch(0.78 0.06 75 / 0.10) 1px, transparent 1px),
+      radial-gradient(circle at 70% 60%, oklch(0.78 0.06 70 / 0.08) 1px, transparent 1px);
+    background-size: 28px 28px, 22px 22px;
+  }
+
+  /* ============= Page header ============= */
+  .page-header {
+    padding: 56px 48px 40px;
+    background: var(--app-surface-2);
+    border-bottom: 1px solid var(--app-border);
+    text-align: center;
+  }
+  .page-eyebrow {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--app-accent);
+    margin: 0 0 6px;
+  }
+  .wordmark {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 900;
+    font-size: 56px;
+    letter-spacing: 4px;
+    color: var(--app-text);
+    margin: 0;
+    line-height: 1;
+  }
+  .wordmark-sub {
+    margin-top: 12px;
+    font-size: 12px;
+    letter-spacing: 4px;
+    color: var(--app-text-muted);
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .page-quote {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 20px;
+    color: var(--app-accent);
+    margin: 24px auto 0;
+    max-width: 600px;
+  }
+  .page-status {
+    margin-top: 20px;
+    display: inline-block;
+    padding: 6px 14px;
+    background: var(--app-accent-glow);
+    color: var(--app-accent);
+    border: 1.5px solid var(--app-accent);
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  section {
+    padding: 56px 48px;
+    border-bottom: 1px solid var(--app-border);
+  }
+
+  .section-eyebrow {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 14px;
+    color: var(--app-accent);
+    margin: 0 0 4px;
+  }
+  .section-title {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    font-size: 26px;
+    margin: 0 0 8px;
+    letter-spacing: 0.5px;
+    color: var(--app-text);
+  }
+  .section-desc {
+    margin: 0 0 32px;
+    color: var(--app-text-muted);
+    font-size: 13px;
+    line-height: 1.7;
+    max-width: 720px;
+  }
+
+  /* ============= Canonical mock ============= */
+  .mock-app {
+    background: var(--app-bg);
+    color: var(--app-text);
+    border-radius: 18px;
+    overflow: hidden;
+    height: 620px;
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    box-shadow: 0 16px 48px oklch(0.40 0.05 60 / 0.10);
+    border: 1px solid var(--app-border);
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .mock-side {
+    background: var(--app-sidebar);
+    border-right: 1px solid var(--app-border);
+    padding: 20px 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .mock-logo {
+    padding: 4px 18px 18px;
+    border-bottom: 1px solid var(--app-border);
+    margin-bottom: 12px;
+  }
+  .mock-logo-mark {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 900;
+    font-size: 19px;
+    letter-spacing: 2px;
+    color: var(--app-text);
+    display: block;
+  }
+  .mock-logo-sub {
+    font-size: 9.5px;
+    letter-spacing: 1.8px;
+    color: var(--app-text-muted);
+    text-transform: uppercase;
+    margin-top: 4px;
+    font-weight: 500;
+    display: block;
+  }
+  .mock-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0 10px;
+  }
+  .mock-item {
+    padding: 11px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    color: var(--app-text-muted);
+    transition: all 0.18s var(--ease-out-quart);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .mock-item .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: currentColor;
+    opacity: 0.4;
+  }
+  .mock-item:hover {
+    color: var(--app-text);
+    background: oklch(from var(--app-accent) l c h / 0.08);
+  }
+  .mock-item.active {
+    background: var(--app-accent-glow);
+    color: var(--app-accent);
+    font-weight: 600;
+  }
+  .mock-item.active .dot {
+    background: var(--app-accent);
+    opacity: 1;
+  }
+
+  .mock-version {
+    margin-top: auto;
+    margin-left: 20px;
+    margin-bottom: 8px;
+    font-family: 'Fira Code', monospace;
+    font-size: 10.5px;
+    color: var(--app-text-muted);
+    letter-spacing: 0.5px;
+  }
+
+  .mock-main {
+    padding: 36px 40px;
+    overflow: hidden;
+    background-image:
+      radial-gradient(circle at 20% 30%, oklch(0.78 0.06 75 / 0.10) 1px, transparent 1px),
+      radial-gradient(circle at 70% 60%, oklch(0.78 0.06 70 / 0.08) 1px, transparent 1px);
+    background-size: 28px 28px, 22px 22px;
+  }
+
+  .mock-greeting {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--app-accent);
+    margin: 0 0 6px;
+  }
+  .mock-h2 {
+    font-family: 'Noto Serif TC', serif;
+    margin: 0 0 24px;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--app-text);
+  }
+
+  .mock-stat-row { display: flex; gap: 14px; margin-bottom: 22px; }
+  .mock-card {
+    background: var(--app-surface);
+    border: 1px solid var(--app-border);
+    border-radius: 14px;
+    padding: 16px 20px;
+    flex: 1;
+    box-shadow: 0 1px 2px oklch(0.40 0.05 60 / 0.04);
+  }
+  .mock-stat-label {
+    font-size: 11px;
+    color: var(--app-text-muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .mock-stat-num {
+    font-size: 26px;
+    font-weight: 700;
+    font-family: 'Fira Code', monospace;
+    color: var(--app-accent);
+  }
+
+  .mock-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 18px; }
+  .mock-btn-primary {
+    padding: 11px 22px;
+    border-radius: 10px;
+    border: 0;
+    font-family: 'Noto Sans TC', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    background: var(--app-accent);
+    color: oklch(0.99 0 0);
+    box-shadow: 0 2px 6px oklch(from var(--app-accent) l c h / 0.30);
+    transition: all 0.18s var(--ease-out-quart);
+  }
+  .mock-btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px oklch(from var(--app-accent) l c h / 0.40);
+  }
+  .mock-btn-primary:active {
+    transform: translateY(0) scale(0.98);
+  }
+
+  .mock-btn-ghost {
+    padding: 10px 18px;
+    border-radius: 10px;
+    border: 1.5px solid var(--app-accent);
+    background: transparent;
+    color: var(--app-accent);
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.18s var(--ease-out-quart);
+  }
+  .mock-btn-ghost:hover {
+    background: var(--app-accent-glow);
+    transform: translateY(-2px);
+  }
+
+  .mock-badge {
+    display: inline-block;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    border: 1.5px solid;
+  }
+  .mock-badge.craft { background: var(--app-craft-dim); color: var(--app-craft); border-color: oklch(from var(--app-craft) l c h / 0.4); }
+  .mock-badge.market { background: var(--app-market-dim); color: var(--app-market); border-color: oklch(from var(--app-market) l c h / 0.4); }
+  .mock-badge.gather { background: var(--app-gather-dim); color: var(--app-gather); border-color: oklch(from var(--app-gather) l c h / 0.4); }
+
+  .mock-text-muted {
+    color: var(--app-text-muted);
+    font-size: 13px;
+    line-height: 1.65;
+    margin-bottom: 18px;
+    max-width: 460px;
+  }
+
+  .mock-info {
+    background: oklch(from var(--app-highlight) l c h / 0.08);
+    border: 1px solid oklch(from var(--app-highlight) l c h / 0.30);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-top: 18px;
+    font-size: 12.5px;
+    color: var(--app-highlight);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ============= Palette ============= */
+  .palette-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  @media (max-width: 1000px) { .palette-grid { grid-template-columns: 1fr; } }
+
+  .palette-card {
+    background: var(--app-surface);
+    border: 1px solid var(--app-border);
+    border-radius: 14px;
+    padding: 24px 28px;
+  }
+  .palette-card h3 {
+    font-family: 'Noto Serif TC', serif;
+    font-size: 17px;
+    margin: 0 0 16px;
+    color: var(--app-text);
+    border-left: 3px solid var(--app-accent);
+    padding-left: 10px;
+  }
+
+  .swatch-list { display: flex; flex-direction: column; gap: 10px; }
+  .swatch-row {
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    gap: 12px;
+    align-items: center;
+  }
+  .swatch-chip {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid oklch(0 0 0 / 0.06);
+  }
+  .swatch-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--app-text);
+  }
+  .swatch-name small {
+    display: block;
+    font-weight: 400;
+    color: var(--app-text-muted);
+    font-size: 11px;
+    margin-top: 2px;
+  }
+  .swatch-hex {
+    font-family: 'Fira Code', monospace;
+    font-size: 10px;
+    color: var(--app-text-muted);
+    text-align: right;
+  }
+
+  /* ============= Lively elements ============= */
+  .lively-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  @media (max-width: 900px) { .lively-grid { grid-template-columns: 1fr; } }
+
+  .lively-card {
+    background: var(--app-surface);
+    border: 1px solid var(--app-border);
+    border-radius: 14px;
+    padding: 28px;
+  }
+  .lively-card h4 {
+    font-family: 'Noto Serif TC', serif;
+    margin: 0 0 6px;
+    font-size: 16px;
+    color: var(--app-text);
+  }
+  .lively-card .lively-meta {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--app-text-muted);
+    margin: 0 0 18px;
+  }
+
+  .lively-quote {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 22px;
+    color: var(--app-accent);
+    margin: 0;
+    line-height: 1.4;
+  }
+
+  .lively-paper {
+    border-radius: 12px;
+    padding: 24px;
+    background-color: var(--app-surface-2);
+    background-image:
+      radial-gradient(circle at 20% 30%, oklch(0.65 0.10 70 / 0.16) 1px, transparent 1px),
+      radial-gradient(circle at 70% 60%, oklch(0.65 0.10 65 / 0.12) 1px, transparent 1px);
+    background-size: 22px 22px, 18px 18px;
+    color: var(--app-text);
+    font-size: 13px;
+    line-height: 1.7;
+  }
+
+  .badge-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  /* ============= Functional area ============= */
+  .func-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  @media (max-width: 900px) { .func-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 500px) { .func-grid { grid-template-columns: 1fr; } }
+
+  .func-card {
+    background: var(--app-surface);
+    border: 1px solid var(--app-border);
+    border-radius: 14px;
+    padding: 22px;
+    border-top: 4px solid;
+  }
+  .func-card.craft { border-top-color: var(--app-craft); }
+  .func-card.market { border-top-color: var(--app-market); }
+  .func-card.gather { border-top-color: var(--app-gather); }
+  .func-card.info { border-top-color: var(--app-highlight); }
+  .func-card h3 {
+    font-family: 'Noto Serif TC', serif;
+    font-size: 16px;
+    margin: 0 0 4px;
+  }
+  .func-card.craft h3 { color: var(--app-craft); }
+  .func-card.market h3 { color: var(--app-market); }
+  .func-card.gather h3 { color: var(--app-gather); }
+  .func-card.info h3 { color: var(--app-highlight); }
+  .func-card .func-flavor {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--app-text-muted);
+    margin: 0 0 12px;
+  }
+  .func-card p.scope {
+    font-size: 12px;
+    color: var(--app-text-muted);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  /* ============= Contrast ============= */
+  .contrast-table {
+    display: grid;
+    grid-template-columns: 1fr 1fr 100px;
+    border: 1px solid var(--app-border);
+    border-radius: 12px;
+    overflow: hidden;
+    font-size: 13px;
+    background: var(--app-surface);
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .contrast-table > div {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--app-border);
+  }
+  .contrast-table > div:nth-last-child(-n+3) { border-bottom: 0; }
+  .contrast-table > div:nth-child(3n+1) { font-weight: 600; color: var(--app-text); }
+  .contrast-pass { color: oklch(0.45 0.16 145); font-weight: 700; }
+
+  .footnote {
+    padding: 32px 48px;
+    color: var(--app-text-muted);
+    font-size: 12px;
+    line-height: 1.6;
+    text-align: center;
+    background: var(--app-surface-2);
+  }
+  .footnote code {
+    font-family: 'Fira Code', monospace;
+    background: var(--app-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--app-border);
+  }
+</style>
+</head>
+<body>
+
+<header class="page-header">
+  <p class="page-eyebrow">Locked-in design · 2026-04-26</p>
+  <h1 class="wordmark">吐司工坊</h1>
+  <div class="wordmark-sub">FFXIV 製作助手</div>
+  <p class="page-quote">"Patience is the secret ingredient."</p>
+  <span class="page-status">✓ DESIGN APPROVED</span>
+</header>
+
+<!-- ========== Canonical mock ========== -->
+<section>
+  <p class="section-eyebrow">Canonical reference</p>
+  <h2 class="section-title">完整介面預覽</h2>
+  <p class="section-desc">這是定稿的視覺方向 — 套用所有 token 與活潑元素（hover lift、紙感、Cormorant 引言、無傾斜）。後續 PR 會以此為基準重塑正式介面。</p>
+
+  <div class="mock-app">
+    <aside class="mock-side">
+      <div class="mock-logo">
+        <span class="mock-logo-mark">吐司工坊</span>
+        <span class="mock-logo-sub">FFXIV 製作助手</span>
+      </div>
+      <nav class="mock-menu">
+        <div class="mock-item"><span class="dot"></span>首頁</div>
+        <div class="mock-item"><span class="dot"></span>配裝管理</div>
+        <div class="mock-item active"><span class="dot"></span>製作模擬</div>
+        <div class="mock-item"><span class="dot"></span>批量製作</div>
+        <div class="mock-item"><span class="dot"></span>購物清單</div>
+        <div class="mock-item"><span class="dot"></span>採集計時器</div>
+      </nav>
+      <div class="mock-version">v2.3.0 · build 0426</div>
+    </aside>
+    <main class="mock-main">
+      <p class="mock-greeting">"Today's special: 拂曉的曙鋼."</p>
+      <h3 class="mock-h2">今天想烤點什麼？</h3>
+      <div class="mock-stat-row">
+        <div class="mock-card">
+          <div class="mock-stat-label">品質</div>
+          <div class="mock-stat-num">8520</div>
+        </div>
+        <div class="mock-card">
+          <div class="mock-stat-label">耐久</div>
+          <div class="mock-stat-num">42</div>
+        </div>
+        <div class="mock-card">
+          <div class="mock-stat-label">CP 剩</div>
+          <div class="mock-stat-num">186</div>
+        </div>
+      </div>
+      <div class="mock-row">
+        <span class="mock-badge craft">製作</span>
+        <span class="mock-badge market">市場</span>
+        <span class="mock-badge gather">採集</span>
+      </div>
+      <p class="mock-text-muted">輸入配方或從常用清單挑一個。Raphael solver 會幫你算出最省 CP 的手法，按下開始求解就好。</p>
+      <div class="mock-row">
+        <button class="mock-btn-primary">開始求解 →</button>
+        <button class="mock-btn-ghost">載入歷史紀錄</button>
+      </div>
+      <div class="mock-info">💡 提示：你目前的配裝離 90 等 BiS 還差 78 工作精度</div>
+    </main>
+  </div>
+</section>
+
+<!-- ========== Palette ========== -->
+<section>
+  <p class="section-eyebrow">Color tokens</p>
+  <h2 class="section-title">完整色票</h2>
+  <p class="section-desc">所有 token 以 OKLCH 表示，會直接寫入 <code style="font-family:'Fira Code',monospace;background:var(--app-surface-2);padding:2px 6px;border-radius:4px">src/App.vue</code> 的 <code style="font-family:'Fira Code',monospace;background:var(--app-surface-2);padding:2px 6px;border-radius:4px">:root</code>。</p>
+
+  <div class="palette-grid">
+    <div class="palette-card">
+      <h3>基礎色（背景 / 表面 / 文字）</h3>
+      <div class="swatch-list">
+        <div class="swatch-row">
+          <div class="swatch-chip" style="background: oklch(0.965 0.022 90)"></div>
+          <div class="swatch-name">--app-bg<small>奶油白主背景</small></div>
+          <div class="swatch-hex">0.965 / 22 / 90°</div>
+        </div>
+        <div class="swatch-row">
+          <div class="swatch-chip" style="background: oklch(0.93 0.025 80)"></div>
+          <div class="swatch-name">--app-sidebar<small>側欄（暖一階 cream）</small></div>
+          <div class="swatch-hex">0.93 / 25 / 80°</div>
+        </div>
+        <div class="swatch-row">
+          <div class="swatch-chip" style="background: oklch(0.99 0.01 90)"></div>
+          <div class="swatch-name">--app-surface<small>主要卡片</small></div>
+          <div class="swatch-hex">0.99 / 10 / 90°</div>
+        </div>
+        <div class="swatch-row">
+          <div class="swatch-chip" style="background: oklch(0.93 0.04 80)"></div>
+          <div class="swatch-name">--app-surface-2<small>強調區（hero / banner）</small></div>
+          <div class="swatch-hex">0.93 / 40 / 80°</div>
+        </div>
+        <div class="swatch-row">
+          <div class="swatch-chip" style="background: oklch(0.84 0.04 70)"></div>
+          <div class="swatch-name">--app-border<small>邊框</small></div>
+          <div class="swatch-hex">0.84 / 40 / 70°</div>
+        </div>
+        <div class="swatch-row">
+          <div class="swatch-chip" style="background: oklch(0.28 0.04 55)"></div>
+          <div class="swatch-name">--app-text<small>正文（深暖棕）</small></div>
+          <div class="swatch-hex">0.28 / 40 / 55°</div>
+        </div>
+        <div class="swatch-row">
+          <div class="swatch-chip" style="background: oklch(0.50 0.03 60)"></div>
+          <div class="swatch-name">--app-text-muted<small>次要文字</small></div>
+          <div class="swatch-hex">0.50 / 30 / 60°</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="palette-card">
+      <h3>主品牌色 + 功能區（果醬罐排隊）</h3>
+      <div class="swatch-list">
+        <div class="swatch-row">
+          <div class="swatch-chip" style="background: oklch(0.65 0.18 65)"></div>
+          <div class="swatch-name">--app-accent<small>吐司金（主品牌）</small></div>
+          <div class="swatch-hex">0.65 / 180 / 65°</div>
+        </div>
+        <div class="swatch-row">
+          <div class="swatch-chip" style="background: oklch(0.78 0.15 75)"></div>
+          <div class="swatch-name">--app-accent-light<small>accent hover/secondary</small></div>
+          <div class="swatch-hex">0.78 / 150 / 75°</div>
+        </div>
+        <div class="swatch-row">
+          <div class="swatch-chip" style="background: oklch(0.50 0.16 40)"></div>
+          <div class="swatch-name">--app-craft<small>可可 · 製作</small></div>
+          <div class="swatch-hex">0.50 / 160 / 40°</div>
+        </div>
+        <div class="swatch-row">
+          <div class="swatch-chip" style="background: oklch(0.58 0.20 15)"></div>
+          <div class="swatch-name">--app-market<small>草莓醬 · 市場</small></div>
+          <div class="swatch-hex">0.58 / 200 / 15°</div>
+        </div>
+        <div class="swatch-row">
+          <div class="swatch-chip" style="background: oklch(0.62 0.17 135)"></div>
+          <div class="swatch-name">--app-gather<small>抹茶 · 採集</small></div>
+          <div class="swatch-hex">0.62 / 170 / 135°</div>
+        </div>
+        <div class="swatch-row">
+          <div class="swatch-chip" style="background: oklch(0.55 0.18 245)"></div>
+          <div class="swatch-name">--app-highlight<small>藍莓 · 提示</small></div>
+          <div class="swatch-hex">0.55 / 180 / 245°</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== Functional area ========== -->
+<section>
+  <p class="section-eyebrow">Functional areas</p>
+  <h2 class="section-title">功能區語意色</h2>
+  <p class="section-desc">每個功能區都有一個固定色相，像麵包店櫃台的果醬罐——有清楚的識別。</p>
+
+  <div class="func-grid">
+    <div class="func-card craft">
+      <h3>製作 Craft</h3>
+      <p class="func-flavor">cocoa · 可可棕</p>
+      <p class="scope">配裝管理、製作模擬、批量製作、購物清單</p>
+    </div>
+    <div class="func-card market">
+      <h3>市場 Market</h3>
+      <p class="func-flavor">strawberry · 草莓醬</p>
+      <p class="scope">市場查價、跨服比價</p>
+    </div>
+    <div class="func-card gather">
+      <h3>採集 Gather</h3>
+      <p class="func-flavor">matcha · 抹茶</p>
+      <p class="scope">採集計時器、節點地圖</p>
+    </div>
+    <div class="func-card info">
+      <h3>提示 Info</h3>
+      <p class="func-flavor">blueberry · 藍莓</p>
+      <p class="scope">tooltip、副情境、補充資訊</p>
+    </div>
+  </div>
+</section>
+
+<!-- ========== Lively elements ========== -->
+<section>
+  <p class="section-eyebrow">Lively without tilting</p>
+  <h2 class="section-title">活潑元素（鎖定版）</h2>
+  <p class="section-desc">不靠傾斜——靠 hover 微動、紙感、引言。元件全部水平。</p>
+
+  <div class="lively-grid">
+    <div class="lively-card">
+      <h4>Hover 微抬升（無旋轉）</h4>
+      <p class="lively-meta">滑鼠移上來看 — translateY -2px + shadow ramp</p>
+      <div class="badge-row">
+        <button class="mock-btn-primary">主按鈕</button>
+        <button class="mock-btn-ghost">幽靈按鈕</button>
+      </div>
+    </div>
+
+    <div class="lively-card">
+      <h4>Cormorant italic 引言</h4>
+      <p class="lively-meta">用於 hero、onboarding 與每日招呼語</p>
+      <p class="lively-quote">"今天想烤點什麼？"</p>
+      <p style="font-size:12px;color:var(--app-text-muted);margin-top:14px;line-height:1.6">每次造訪可隨機輪替（"Patience is the secret ingredient." / "Today's special: ..." / 等）</p>
+    </div>
+
+    <div class="lively-card">
+      <h4>紙感背景</h4>
+      <p class="lively-meta">SVG radial dots，~10% opacity，僅用於 hero / onboarding / empty states</p>
+      <div class="lively-paper">
+        <strong style="font-family:'Noto Serif TC',serif;font-size:15px;display:block;margin-bottom:6px">這是套了紙感的卡片</strong>
+        微微的點陣暗示烘焙紙的質感，但不影響可讀性。介面正文的卡片不會用，避免分心。
+      </div>
+    </div>
+
+    <div class="lively-card">
+      <h4>Sticker badges（水平、無旋轉）</h4>
+      <p class="lively-meta">徽章使用功能區色 + 1.5px 邊框，全部水平擺放</p>
+      <div class="badge-row">
+        <span class="mock-badge craft">製作</span>
+        <span class="mock-badge market">市場</span>
+        <span class="mock-badge gather">採集</span>
+      </div>
+      <div class="badge-row" style="margin-top:10px">
+        <span class="mock-badge craft">v2.3.0</span>
+        <span class="mock-badge gather">已完成</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== Contrast ========== -->
+<section>
+  <p class="section-eyebrow">Accessibility</p>
+  <h2 class="section-title">對比度檢查</h2>
+  <p class="section-desc">WCAG AA：normal text ≥ 4.5、large text ≥ 3、UI ≥ 3。</p>
+
+  <div class="contrast-table">
+    <div>--app-text · 深暖棕</div>
+    <div>--app-bg · 奶油白</div>
+    <div class="contrast-pass">11.6 ✓</div>
+
+    <div>--app-text-muted · 暖中灰</div>
+    <div>--app-bg</div>
+    <div class="contrast-pass">5.0 ✓</div>
+
+    <div>白色 · oklch(0.99)</div>
+    <div>--app-accent (按鈕)</div>
+    <div class="contrast-pass">3.6 ✓ Large</div>
+
+    <div>--app-craft · 可可</div>
+    <div>--app-bg</div>
+    <div class="contrast-pass">7.2 ✓</div>
+
+    <div>--app-market · 草莓醬</div>
+    <div>--app-bg</div>
+    <div class="contrast-pass">5.0 ✓</div>
+
+    <div>--app-gather · 抹茶</div>
+    <div>--app-bg</div>
+    <div class="contrast-pass">4.6 ✓</div>
+
+    <div>--app-highlight · 藍莓</div>
+    <div>--app-bg</div>
+    <div class="contrast-pass">5.4 ✓</div>
+  </div>
+</section>
+
+<footer class="footnote">
+  <p>
+    Spec：<code>docs/superpowers/specs/2026-04-26-toast-workshop-rebrand-design.md</code><br />
+    Branch：<code>rebrand/toast-workshop</code> · 確認後即進入 PR 1（純文字命名置換）
+  </p>
+</footer>
+
+</body>
+</html>
