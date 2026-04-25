@@ -112,7 +112,11 @@ onMounted(() => {
   const el = (node && '$el' in node ? node.$el : node) as HTMLElement | undefined
   if (!el || typeof ResizeObserver === 'undefined') return
   flowResizeObserver = new ResizeObserver(([entry]) => {
-    if (entry) flowHeight.value = entry.contentRect.height
+    if (!entry) return
+    // Use border-box height so padding/border are included — that matches
+    // the visual area the sticky toolbar actually covers.
+    const borderBox = entry.borderBoxSize?.[0]
+    flowHeight.value = borderBox ? borderBox.blockSize : entry.target.getBoundingClientRect().height
   })
   flowResizeObserver.observe(el)
 })
