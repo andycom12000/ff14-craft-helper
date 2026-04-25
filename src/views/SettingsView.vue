@@ -261,7 +261,7 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
 
       <div class="about-app">
         <div class="about-app-header">
-          <span class="about-app-name">FF14 Craft Helper</span>
+          <span class="about-app-name">吐司工坊</span>
           <el-tag size="small" effect="dark" round>{{ appVersion }}</el-tag>
         </div>
         <div class="about-tech">

@@ -20,7 +20,7 @@ import CommandPalette from '@/components/CommandPalette.vue'
 const route = useRoute()
 const sidebarOpen = ref(false)
 
-const pageTitle = computed(() => (route.meta?.title as string) ?? 'FF14 Craft Helper')
+const pageTitle = computed(() => (route.meta?.title as string) ?? '吐司工坊')
 
 const PAGE_ACCENTS: Record<string, { color: string; dim: string }> = {
   '/gearset': { color: 'var(--app-craft)', dim: 'var(--app-craft-dim)' },
@@ -65,8 +65,8 @@ onUnmounted(() => {
     />
     <el-aside width="220px" class="app-aside" :class="{ open: sidebarOpen }" :style="sidebarActiveStyle">
       <div class="app-logo">
-        <span class="logo-ff">🔮 FF14</span>
-        <span class="logo-sub">Craft Helper</span>
+        <span class="logo-ff">吐司工坊</span>
+        <span class="logo-sub">FFXIV 製作助手</span>
         <button class="sidebar-close-btn" @click="sidebarOpen = false">
           <el-icon :size="20"><Close /></el-icon>
         </button>
@@ -616,18 +616,18 @@ html, body {
 }
 
 .logo-ff {
-  font-family: 'Fira Code', monospace;
-  font-size: 18px;
-  font-weight: 700;
+  font-family: 'Noto Serif TC', serif;
+  font-size: 19px;
+  font-weight: 900;
   color: var(--app-accent-light);
-  letter-spacing: 2px;
+  letter-spacing: 1px;
 }
 
 .logo-sub {
-  font-size: 11px;
-  font-weight: 500;
+  font-size: 10px;
+  font-weight: 700;
   color: var(--app-text-muted);
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   text-transform: uppercase;
 }
 
