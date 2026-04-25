@@ -5,6 +5,7 @@ import type { MaterialWithPrice as ShoppingItem, ServerGroup, CrystalSummary, Qu
 import { isCrystal } from '@/services/shopping-list'
 import type { WorldPriceSummary } from '@/api/universalis'
 import type { FoodBuff } from '@/engine/food-medicine'
+import { cancelSolve } from '@/solver/worker'
 
 export type { ShoppingItem, ServerGroup, CrystalSummary }
 
@@ -363,10 +364,12 @@ export const useBatchStore = defineStore('batch', () => {
 
   function cancel() {
     isCancelled.value = true
+    cancelSolve()
   }
 
   function resetAll() {
     isCancelled.value = true
+    cancelSolve()
     targets.value = []
     results.value = null
     isRunning.value = false

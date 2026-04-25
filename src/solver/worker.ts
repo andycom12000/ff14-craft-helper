@@ -5,6 +5,8 @@
 
 import type { SolverConfig, SolverResult, SolverResponse, SimulateResult, SimulateDetailResult } from './raphael'
 
+export const SOLVE_CANCELLED = '求解已取消'
+
 let worker: Worker | null = null
 let currentReject: ((reason: Error) => void) | null = null
 let wasmStatus: 'loading' | 'ready' | 'error' = 'loading'
@@ -178,21 +180,25 @@ export function simulateCraftDetail(
 
 /**
  * Cancel any in-progress solve by terminating and recreating the worker.
+ * No-op when nothing is in flight, so callers that optimistically cancel
+ * (e.g. batchStore.resetAll after a finished batch) don't pay an extra
+ * WASM re-init on the next solve.
  */
 export function cancelSolve(): void {
+  if (currentReject === null && pendingRequests.size === 0) return
+
   if (worker) {
     worker.terminate()
     worker = null
   }
   wasmStatus = 'loading'
   wasmErrorMessage = null
-  // Reject all pending requests
   for (const [, pending] of pendingRequests) {
-    pending.reject(new Error('求解已取消'))
+    pending.reject(new Error(SOLVE_CANCELLED))
   }
   pendingRequests.clear()
   if (currentReject) {
-    currentReject(new Error('求解已取消'))
+    currentReject(new Error(SOLVE_CANCELLED))
     currentReject = null
   }
 }

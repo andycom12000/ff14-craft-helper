@@ -7,11 +7,13 @@ import { ElMessage } from 'element-plus'
 import { DocumentCopy, ArrowRight } from '@element-plus/icons-vue'
 import type { TodoItem } from '@/stores/batch'
 import ItemName from '@/components/common/ItemName.vue'
+import ConfirmNewBatch from '@/components/batch/ConfirmNewBatch.vue'
 
 const props = defineProps<{ items: TodoItem[] }>()
 const emit = defineEmits<{
   'update:done': [index: number, done: boolean]
   'reorder': [fromIndex: number, toIndex: number]
+  'request-new-batch': []
 }>()
 
 const expandedMacro = ref<number | null>(null)
@@ -106,10 +108,12 @@ function toggleDone(index: number) {
   emit('update:done', index, !props.items[index].done)
 }
 
-function resetAll() {
-  for (let i = 0; i < props.items.length; i++) {
-    emit('update:done', i, false)
-  }
+const allComplete = computed(() =>
+  props.items.length > 0 && doneCount.value === props.items.length,
+)
+
+function requestNewBatch() {
+  emit('request-new-batch')
 }
 </script>
 
@@ -118,6 +122,19 @@ function resetAll() {
     <el-text size="small" type="info" tag="div" class="todo-desc">
       製作順序（依相依性排列，由底層半成品到頂層成品）
     </el-text>
+
+    <div v-if="allComplete" class="todo-celebration" role="status">
+      <div class="todo-celebration-body">
+        <span class="todo-celebration-icon" aria-hidden="true">🎉</span>
+        <div class="todo-celebration-text">
+          <h4 class="todo-celebration-title">全部完工！</h4>
+          <div class="todo-celebration-sub">辛苦了，要不要開始下一批？</div>
+        </div>
+      </div>
+      <ConfirmNewBatch @confirm="requestNewBatch">
+        <el-button type="primary" size="default" class="new-batch-cta">✨ 開始新批次</el-button>
+      </ConfirmNewBatch>
+    </div>
 
     <!-- Completed items collapsed section -->
     <div v-if="doneItems.length > 0" class="done-collapse">
@@ -282,7 +299,9 @@ function resetAll() {
         <el-text size="small" type="info">
           進度：{{ doneCount }} / {{ items.length }} 完成
         </el-text>
-        <el-button size="small" @click="resetAll">全部重設</el-button>
+        <ConfirmNewBatch @confirm="requestNewBatch">
+          <el-button type="primary" size="small" class="new-batch-cta">✨ 開始新批次</el-button>
+        </ConfirmNewBatch>
       </div>
     </div>
   </div>
@@ -291,6 +310,58 @@ function resetAll() {
 <style scoped>
 .todo-desc {
   margin-bottom: 12px;
+}
+
+.todo-celebration {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  border-radius: 10px;
+  background: color-mix(in oklch, var(--app-success) 10%, var(--app-surface));
+  border: 1px solid color-mix(in oklch, var(--app-success) 40%, transparent);
+  flex-wrap: wrap;
+}
+
+.todo-celebration-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.todo-celebration-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.todo-celebration-title {
+  margin: 0 0 2px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--app-text);
+}
+
+.todo-celebration-sub {
+  font-size: 13px;
+  color: var(--app-text-muted);
+}
+
+@media (max-width: 480px) {
+  .todo-celebration {
+    padding: 12px 14px;
+  }
+  .todo-celebration-icon {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 640px) {
+  :deep(.new-batch-cta) {
+    min-height: var(--touch-target-min, 44px);
+  }
 }
 
 .todo-item {

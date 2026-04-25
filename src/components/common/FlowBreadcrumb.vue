@@ -57,61 +57,68 @@ function handleClick(i: number, step: FlowStep) {
 
 <template>
   <nav class="flow-breadcrumb" aria-label="製作流程">
-    <!-- Desktop: full chips with labels -->
-    <div class="flow-chips">
-      <template v-for="(step, i) in steps" :key="`chip-${i}`">
-        <button
-          class="flow-step"
-          :class="{
-            active: i === currentIndex,
-            done: i < currentIndex,
-            future: i > currentIndex,
-            pending: pending && i === currentIndex,
-          }"
-          @click="handleClick(i, step)"
-        >
-          <span class="flow-icon" aria-hidden="true">
-            <span v-if="pending && i === currentIndex" class="flow-spinner" />
-            <template v-else-if="i < currentIndex">✓</template>
-            <template v-else>{{ step.icon }}</template>
-          </span>
-          <span class="flow-label">{{ step.label }}</span>
-        </button>
-        <span v-if="i < steps.length - 1" class="flow-arrow" aria-hidden="true">›</span>
-      </template>
-    </div>
+    <div class="flow-bar">
+      <div class="flow-main">
+        <!-- Desktop: full chips with labels -->
+        <div class="flow-chips">
+          <template v-for="(step, i) in steps" :key="`chip-${i}`">
+            <button
+              class="flow-step"
+              :class="{
+                active: i === currentIndex,
+                done: i < currentIndex,
+                future: i > currentIndex,
+                pending: pending && i === currentIndex,
+              }"
+              @click="handleClick(i, step)"
+            >
+              <span class="flow-icon" aria-hidden="true">
+                <span v-if="pending && i === currentIndex" class="flow-spinner" />
+                <template v-else-if="i < currentIndex">✓</template>
+                <template v-else>{{ step.icon }}</template>
+              </span>
+              <span class="flow-label">{{ step.label }}</span>
+            </button>
+            <span v-if="i < steps.length - 1" class="flow-arrow" aria-hidden="true">›</span>
+          </template>
+        </div>
 
-    <!-- Mobile: compact progress track with numbered dots + active label -->
-    <div class="flow-track">
-      <div class="flow-track-rail" aria-hidden="true">
-        <div class="flow-track-fill" :style="{ '--progress': progressPercent / 100 }" />
+        <!-- Mobile: compact progress track with numbered dots + active label -->
+        <div class="flow-track">
+          <div class="flow-track-rail" aria-hidden="true">
+            <div class="flow-track-fill" :style="{ '--progress': progressPercent / 100 }" />
+          </div>
+          <div class="flow-track-dots">
+            <button
+              v-for="(step, i) in steps"
+              :key="`dot-${i}`"
+              type="button"
+              class="flow-dot"
+              :class="{
+                'flow-dot--active': i === currentIndex,
+                'flow-dot--done': i < currentIndex,
+                'flow-dot--future': i > currentIndex,
+                'flow-dot--pending': pending && i === currentIndex,
+              }"
+              :aria-label="`${step.label}（步驟 ${i + 1} / ${steps.length}）`"
+              :aria-current="i === currentIndex ? 'step' : undefined"
+              @click="handleClick(i, step)"
+            >
+              <span class="flow-dot-marker" aria-hidden="true">
+                <template v-if="i < currentIndex">✓</template>
+                <template v-else>{{ i + 1 }}</template>
+              </span>
+            </button>
+          </div>
+        </div>
+        <div class="flow-active-label" aria-live="polite">
+          <span class="flow-active-index">{{ Math.min(currentIndex + 1, steps.length) }} / {{ steps.length }}</span>
+          <span class="flow-active-text">{{ activeLabel }}</span>
+        </div>
       </div>
-      <div class="flow-track-dots">
-        <button
-          v-for="(step, i) in steps"
-          :key="`dot-${i}`"
-          type="button"
-          class="flow-dot"
-          :class="{
-            'flow-dot--active': i === currentIndex,
-            'flow-dot--done': i < currentIndex,
-            'flow-dot--future': i > currentIndex,
-            'flow-dot--pending': pending && i === currentIndex,
-          }"
-          :aria-label="`${step.label}（步驟 ${i + 1} / ${steps.length}）`"
-          :aria-current="i === currentIndex ? 'step' : undefined"
-          @click="handleClick(i, step)"
-        >
-          <span class="flow-dot-marker" aria-hidden="true">
-            <template v-if="i < currentIndex">✓</template>
-            <template v-else>{{ i + 1 }}</template>
-          </span>
-        </button>
+      <div v-if="$slots.trailing" class="flow-trailing">
+        <slot name="trailing" />
       </div>
-    </div>
-    <div class="flow-active-label" aria-live="polite">
-      <span class="flow-active-index">{{ Math.min(currentIndex + 1, steps.length) }} / {{ steps.length }}</span>
-      <span class="flow-active-text">{{ activeLabel }}</span>
     </div>
   </nav>
 </template>
@@ -119,6 +126,25 @@ function handleClick(i: number, step: FlowStep) {
 <style scoped>
 .flow-breadcrumb {
   margin-bottom: 20px;
+}
+
+/* Flex row so a parent-supplied `#trailing` slot stays right-aligned
+   alongside the steps on both desktop chips and mobile sticky toolbar. */
+.flow-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.flow-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.flow-trailing {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
 }
 
 /* ===== Desktop chips (default) ===== */

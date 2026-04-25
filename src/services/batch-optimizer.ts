@@ -3,7 +3,7 @@ import type { GearsetStats } from '@/stores/gearsets'
 import type { BatchException, BatchTarget, BatchResults, TodoItem, BuyFinishedDecision, BuffRecommendation, SelfCraftCandidate } from '@/stores/batch'
 import type { MaterialWithPrice, MaterialBase, QuickBuyMaterial, QuickBuyMaterialPricing } from '@/services/shopping-list'
 import { markRaw } from 'vue'
-import { solveCraft, simulateCraft, waitForWasm } from '@/solver/worker'
+import { solveCraft, simulateCraft, waitForWasm, SOLVE_CANCELLED } from '@/solver/worker'
 import { craftParamsToSolverConfig, recipeToCraftParams } from '@/solver/config'
 import { findOptimalHqCombinations } from '@/services/hq-optimizer'
 import { getAggregatedPrices, getMarketData, aggregateByWorld } from '@/api/universalis'
@@ -194,6 +194,7 @@ export async function runBatchOptimization(
       }
       recipeResults.push(result)
     } catch (err) {
+      if (err instanceof Error && err.message === SOLVE_CANCELLED) throw err
       exceptions.push({
         type: 'quality-unachievable', recipe: target.recipe,
         message: '計算失敗', details: `「${target.recipe.name}」計算過程發生錯誤：${err}`,
@@ -201,6 +202,8 @@ export async function runBatchOptimization(
       })
     }
   }
+
+  if (isCancelled()) throw new Error(SOLVE_CANCELLED)
 
   // === Phase 4: Early price query (materials + finished products) ===
   onProgress({ current: 0, total: 0, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })

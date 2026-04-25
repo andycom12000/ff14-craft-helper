@@ -6,6 +6,7 @@ vi.mock('@/solver/worker', () => ({
   solveCraft: vi.fn(),
   simulateCraft: vi.fn(),
   waitForWasm: vi.fn().mockResolvedValue(undefined),
+  SOLVE_CANCELLED: '求解已取消',
 }))
 vi.mock('@/api/universalis', () => ({
   getAggregatedPrices: vi.fn().mockResolvedValue(new Map()),
@@ -27,7 +28,7 @@ vi.mock('@/services/self-craft-candidates', () => ({
 }))
 
 import { optimizeRecipe, runBatchOptimization } from '@/services/batch-optimizer'
-import { solveCraft, simulateCraft } from '@/solver/worker'
+import { solveCraft, simulateCraft, SOLVE_CANCELLED } from '@/solver/worker'
 import { getMarketData } from '@/api/universalis'
 
 const mockRecipe: Recipe = {
@@ -233,15 +234,13 @@ describe('runBatchOptimization', () => {
     vi.mocked(solveCraft).mockResolvedValue({ actions: ['groundwork'], progress: 3500, quality: 7200, steps: 1 })
     vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
 
-    const result = await runBatchOptimization(
+    await expect(runBatchOptimization(
       [{ recipe: mockRecipe, quantity: 1 }, { recipe: { ...mockRecipe, id: 2 }, quantity: 1 }],
       () => mockGearset,
       defaultSettings,
       (info) => { if (info.current >= 1 && info.phase === 'solving' && info.solverPercent === 0) cancelled = true },
       () => cancelled,
-    )
-    // First recipe may complete before cancellation is checked
-    expect(result.todoList.length).toBeLessThanOrEqual(2)
+    )).rejects.toThrow(SOLVE_CANCELLED)
   })
 })
 

@@ -5,6 +5,7 @@ import { useBatchStore } from '@/stores/batch'
 import { useSettingsStore } from '@/stores/settings'
 import { useGearsetsStore } from '@/stores/gearsets'
 import { runBatchOptimization } from '@/services/batch-optimizer'
+import { SOLVE_CANCELLED } from '@/solver/worker'
 import CostSummaryPanel from '@/components/batch/CostSummaryPanel.vue'
 import BatchList from '@/components/batch/BatchList.vue'
 import BatchSettings from '@/components/batch/BatchSettings.vue'
@@ -15,6 +16,7 @@ import ExceptionList from '@/components/batch/ExceptionList.vue'
 import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
 import BuffRecommendationCard from '@/components/batch/BuffRecommendationCard.vue'
 import FlowBreadcrumb from '@/components/common/FlowBreadcrumb.vue'
+import ConfirmNewBatch from '@/components/batch/ConfirmNewBatch.vue'
 
 const batchStore = useBatchStore()
 const settings = useSettingsStore()
@@ -100,6 +102,14 @@ function navigateToStep(step: number) {
   })
 }
 
+function startNewBatch() {
+  batchStore.resetAll()
+  expandedSections.value = new Set()
+  nextTick(() => {
+    sectionPrepare.value?.scrollIntoView({ behavior: 'smooth' })
+  })
+}
+
 // Mobile sticky offset: measure FlowBreadcrumb height into a CSS var so
 // scroll-margin-top tracks the real toolbar height (which changes with
 // active label length / pending state).
@@ -176,8 +186,12 @@ async function startOptimization() {
     )
     batchStore.results = results
   } catch (err) {
-    console.error('[BatchView] Optimization failed:', err)
-    ElMessage.error(`最佳化計算失敗：${err instanceof Error ? err.message : String(err)}`)
+    if (err instanceof Error && err.message === SOLVE_CANCELLED) {
+      ElMessage.info('已取消計算')
+    } else {
+      console.error('[BatchView] Optimization failed:', err)
+      ElMessage.error(`最佳化計算失敗：${err instanceof Error ? err.message : String(err)}`)
+    }
   } finally {
     batchStore.isRunning = false
   }
@@ -239,7 +253,15 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
       :pending="batchStore.isRunning"
       pending-label="計算中..."
       @navigate="navigateToStep"
-    />
+    >
+      <template v-if="batchStore.results" #trailing>
+        <ConfirmNewBatch @confirm="startNewBatch">
+          <el-button text size="small" class="flow-new-batch" aria-label="重設目前批次並開始新一輪">
+            <span aria-hidden="true">⟳</span> 新批次
+          </el-button>
+        </ConfirmNewBatch>
+      </template>
+    </FlowBreadcrumb>
 
     <CostSummaryPanel
       v-if="batchStore.results"
@@ -364,6 +386,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
         :items="batchStore.finalTodoList"
         @update:done="handleTodoDone"
         @reorder="handleTodoReorder"
+        @request-new-batch="startNewBatch"
       />
     </section>
 
@@ -377,6 +400,22 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
 
 .batch-view {
   max-width: 1200px;
+}
+
+/* "⟳ 新批次" trigger sitting in the FlowBreadcrumb trailing slot.
+   Uses :deep so el-button's internal span gets the same compact treatment
+   on the mobile sticky toolbar. */
+:deep(.flow-new-batch) {
+  font-size: 13px;
+  padding-inline: 8px;
+}
+
+@media (max-width: 640px) {
+  :deep(.flow-new-batch) {
+    font-size: 12px;
+    padding-inline: 6px;
+    min-height: var(--touch-target-min, 44px);
+  }
 }
 
 .batch-section {
