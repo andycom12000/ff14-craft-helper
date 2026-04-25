@@ -556,7 +556,7 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   text-decoration: underline;
   text-decoration-style: dotted;
   text-underline-offset: 3px;
-  text-decoration-color: rgba(167, 139, 250, 0.5);
+  text-decoration-color: oklch(0.78 0.15 75 /0.5);
 }
 
 .about-tech-link:hover {

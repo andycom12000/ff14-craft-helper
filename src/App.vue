@@ -136,52 +136,63 @@ onUnmounted(() => {
 
 <style>
 :root {
-  --app-bg: #0F1019;
-  --app-sidebar: #0B0C14;
-  --app-surface: #161822;
-  --app-surface-hover: #1E2030;
-  --app-border: rgba(148, 163, 184, 0.12);
-  --app-text: #E2E8F0;
-  --app-text-muted: #94A3B8;
-  --app-accent: #7C3AED;
-  --app-accent-light: #A78BFA;
-  --app-accent-glow: rgba(124, 58, 237, 0.15);
-  --app-success: #4ade80;
-  --app-success-tint: rgba(74, 222, 128, 0.1);
-  --app-success-tint-strong: rgba(74, 222, 128, 0.18);
-  --app-success-border: rgba(74, 222, 128, 0.35);
+  /* === 吐司工坊 Light Theme — see docs/superpowers/specs/2026-04-26-toast-workshop-rebrand-design.md === */
 
-  /* Craft condition colors (good/normal/poor orbs) */
-  --state-normal: #9ca3af;
-  --state-good: #f59e0b;
-  --state-poor: #f43f5e;
+  /* Surfaces */
+  --app-bg: oklch(0.965 0.022 90);
+  --app-sidebar: oklch(0.93 0.025 80);
+  --app-surface: oklch(0.99 0.01 90);
+  --app-surface-2: oklch(0.93 0.04 80);
+  --app-surface-hover: oklch(0.94 0.025 85);
+  --app-border: oklch(0.65 0.04 65 / 0.30);
 
-  /* Functional area colors */
-  --app-craft: #F59E0B;
-  --app-craft-dim: rgba(245, 158, 11, 0.12);
-  --app-market: #14B8A6;
-  --app-market-dim: rgba(20, 184, 166, 0.12);
-  --app-gather: #10B981;
-  --app-gather-dim: rgba(16, 185, 129, 0.12);
+  /* Text */
+  --app-text: oklch(0.28 0.04 55);
+  --app-text-muted: oklch(0.50 0.03 60);
+
+  /* Brand — 吐司金 */
+  --app-accent: oklch(0.65 0.18 65);
+  --app-accent-light: oklch(0.78 0.15 75);
+  --app-accent-glow: oklch(0.65 0.18 65 / 0.18);
+
+  /* Semantic — success */
+  --app-success: oklch(0.55 0.16 145);
+  --app-success-tint: oklch(0.55 0.16 145 / 0.10);
+  --app-success-tint-strong: oklch(0.55 0.16 145 / 0.18);
+  --app-success-border: oklch(0.55 0.16 145 / 0.35);
+
+  /* Craft condition orbs (good / normal / poor) */
+  --state-normal: oklch(0.55 0.02 65);
+  --state-good: oklch(0.62 0.18 60);
+  --state-poor: oklch(0.55 0.20 15);
+
+  /* Functional areas (果醬罐排隊) */
+  --app-craft: oklch(0.50 0.16 40);
+  --app-craft-dim: oklch(0.50 0.16 40 / 0.10);
+  --app-market: oklch(0.58 0.20 15);
+  --app-market-dim: oklch(0.58 0.20 15 / 0.10);
+  --app-gather: oklch(0.62 0.17 135);
+  --app-gather-dim: oklch(0.62 0.17 135 / 0.10);
+  --app-highlight: oklch(0.55 0.18 245);
 
   /* Semantic accents — shared across features */
-  --accent-gold: #E9C176;
-  --accent-gold-dim: rgba(233, 193, 118, 0.14);
-  --buff-info: #A0CFFF;
-  --buff-info-bg: rgba(64, 158, 255, 0.08);
-  --buff-info-border: rgba(64, 158, 255, 0.2);
+  --accent-gold: oklch(0.78 0.13 75);
+  --accent-gold-dim: oklch(0.78 0.13 75 / 0.16);
+  --buff-info: oklch(0.55 0.18 245);
+  --buff-info-bg: oklch(0.55 0.18 245 / 0.08);
+  --buff-info-border: oklch(0.55 0.18 245 / 0.20);
 
-  /* FFXIV crystal element palette */
-  --element-fire: #F87171;
-  --element-ice: #A78BFA;
-  --element-wind: #34D399;
-  --element-earth: #F472B6;
-  --element-lightning: #FBBF24;
-  --element-water: #60A5FA;
-  --element-default: #94A3B8;
+  /* FFXIV crystal element palette (light-tuned) */
+  --element-fire: oklch(0.55 0.20 25);
+  --element-ice: oklch(0.55 0.18 290);
+  --element-wind: oklch(0.50 0.18 145);
+  --element-earth: oklch(0.55 0.16 340);
+  --element-lightning: oklch(0.62 0.18 80);
+  --element-water: oklch(0.50 0.18 240);
+  --element-default: oklch(0.50 0.03 60);
 
   /* Page accent — overridden per view */
-  --page-accent: var(--app-accent-light);
+  --page-accent: var(--app-accent);
   --page-accent-dim: var(--app-accent-glow);
 
   /* Easing */
@@ -204,13 +215,14 @@ onUnmounted(() => {
 }
 
 html {
-  --el-color-primary: #7C3AED;
-  --el-color-primary-light-3: #9461F5;
-  --el-color-primary-light-5: #A78BFA;
-  --el-color-primary-light-7: #C4B5FD;
-  --el-color-primary-light-8: #DDD6FE;
-  --el-color-primary-light-9: #1E1E42;
-  --el-color-primary-dark-2: #6D28D9;
+  /* Element Plus token override — Light theme + 吐司金 primary */
+  --el-color-primary: oklch(0.65 0.18 65);
+  --el-color-primary-light-3: oklch(0.72 0.16 70);
+  --el-color-primary-light-5: oklch(0.78 0.15 75);
+  --el-color-primary-light-7: oklch(0.85 0.13 75);
+  --el-color-primary-light-8: oklch(0.92 0.10 78);
+  --el-color-primary-light-9: oklch(0.96 0.06 80);
+  --el-color-primary-dark-2: oklch(0.55 0.18 60);
 
   --el-bg-color: var(--app-bg);
   --el-bg-color-page: var(--app-bg);
@@ -218,22 +230,22 @@ html {
 
   --el-fill-color: var(--app-surface-hover);
   --el-fill-color-light: var(--app-surface);
-  --el-fill-color-lighter: #1A1C28;
-  --el-fill-color-dark: #252838;
-  --el-fill-color-darker: #2D3044;
+  --el-fill-color-lighter: oklch(0.96 0.018 85);
+  --el-fill-color-dark: oklch(0.85 0.04 75);
+  --el-fill-color-darker: oklch(0.78 0.05 70);
   --el-fill-color-blank: var(--app-bg);
 
-  --el-border-color: rgba(148, 163, 184, 0.15);
-  --el-border-color-light: rgba(148, 163, 184, 0.10);
-  --el-border-color-lighter: rgba(148, 163, 184, 0.07);
-  --el-border-color-dark: rgba(148, 163, 184, 0.22);
+  --el-border-color: oklch(0.65 0.04 65 / 0.35);
+  --el-border-color-light: oklch(0.70 0.04 65 / 0.25);
+  --el-border-color-lighter: oklch(0.75 0.04 65 / 0.15);
+  --el-border-color-dark: oklch(0.55 0.05 65 / 0.45);
 
-  --el-text-color-primary: #E2E8F0;
-  --el-text-color-regular: #CBD5E1;
-  --el-text-color-secondary: #94A3B8;
-  --el-text-color-placeholder: #64748B;
+  --el-text-color-primary: var(--app-text);
+  --el-text-color-regular: oklch(0.35 0.04 55);
+  --el-text-color-secondary: var(--app-text-muted);
+  --el-text-color-placeholder: oklch(0.65 0.03 60);
 
-  --el-mask-color: rgba(15, 15, 35, 0.8);
+  --el-mask-color: oklch(0.95 0.02 85 / 0.8);
 }
 
 html, body {
@@ -270,7 +282,7 @@ html, body {
 }
 
 .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
-  background-color: rgba(148, 163, 184, 0.04);
+  background-color: oklch(0.50 0.04 60 / 0.05);
 }
 
 .el-descriptions {
@@ -555,7 +567,7 @@ html, body {
 }
 .el-button--primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.18);
+  box-shadow: 0 2px 8px oklch(0.65 0.18 65 / 0.30);
 }
 .el-button--primary:active {
   transform: translateY(0) scale(0.97);
@@ -564,7 +576,7 @@ html, body {
 
 /* Input focus glow */
 .el-input__wrapper:focus-within {
-  box-shadow: 0 0 0 2px var(--page-accent-dim, rgba(124, 58, 237, 0.2)) !important;
+  box-shadow: 0 0 0 2px var(--page-accent-dim, oklch(0.65 0.18 65 / 0.20)) !important;
 }
 
 /* El-card hover lift */
@@ -572,8 +584,8 @@ html, body {
   transition: border-color 0.2s var(--ease-out-quart), box-shadow 0.2s var(--ease-out-quart);
 }
 .el-card[shadow="never"]:hover {
-  border-color: rgba(148, 163, 184, 0.18);
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
+  border-color: oklch(0.65 0.04 65 / 0.40);
+  box-shadow: 0 4px 12px oklch(0.40 0.05 60 / 0.08);
 }
 
 /*
@@ -619,14 +631,14 @@ html, body {
   font-family: 'Noto Serif TC', serif;
   font-size: 19px;
   font-weight: 900;
-  color: var(--app-accent-light);
+  color: var(--app-text);
   letter-spacing: 1px;
 }
 
 .logo-sub {
   font-size: 10px;
   font-weight: 700;
-  color: var(--app-text-muted);
+  color: oklch(0.42 0.05 55);
   letter-spacing: 2px;
   text-transform: uppercase;
 }
@@ -639,7 +651,8 @@ html, body {
 }
 
 .app-menu .el-menu-item {
-  color: var(--app-text-muted);
+  color: oklch(0.38 0.04 55);
+  font-weight: 600;
   margin: 2px 8px;
   border-radius: 8px;
   height: 44px;
@@ -650,13 +663,13 @@ html, body {
 
 .app-menu .el-menu-item:hover {
   color: var(--app-text);
-  background-color: rgba(124, 58, 237, 0.18);
+  background-color: oklch(0.65 0.18 65 / 0.10);
 }
 
 .app-menu .el-menu-item.is-active {
   background: var(--sidebar-active-dim, var(--app-accent-glow));
-  color: var(--sidebar-active-color, var(--app-accent-light));
-  font-weight: 600;
+  color: var(--sidebar-active-color, var(--app-accent));
+  font-weight: 700;
 }
 
 .menu-divider {

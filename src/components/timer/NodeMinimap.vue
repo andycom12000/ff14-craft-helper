@@ -267,7 +267,7 @@ const coordsLabel = computed(() => {
 .minimap-skeleton {
   width: 100%;
   height: 80px;
-  background: rgba(148, 163, 184, 0.08);
+  background: oklch(0.55 0.04 65 /0.08);
   border-radius: 6px;
   display: flex;
   align-items: center;
@@ -331,7 +331,7 @@ const coordsLabel = computed(() => {
   height: 8px;
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  background-color: rgba(148, 163, 184, 0.5);
+  background-color: oklch(0.55 0.04 65 /0.5);
   border: 1px solid rgba(255,255,255,0.3);
   z-index: 1;
 }
@@ -393,7 +393,7 @@ const coordsLabel = computed(() => {
 }
 
 .zoom-btn:hover {
-  background: rgba(74, 222, 128, 0.25);
+  background: oklch(0.55 0.16 145 /0.25);
 }
 
 /* ------------------------------------------------------------------ */

@@ -462,7 +462,7 @@ onUnmounted(() => {
 .filter-separator {
   width: 1px;
   height: 20px;
-  background: rgba(148, 163, 184, 0.2);
+  background: oklch(0.55 0.04 65 /0.2);
   margin: 0 2px;
   flex-shrink: 0;
 }
@@ -470,8 +470,8 @@ onUnmounted(() => {
 .chip {
   padding: 4px 12px;
   border-radius: 14px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  background: rgba(148, 163, 184, 0.06);
+  border: 1px solid oklch(0.55 0.04 65 /0.2);
+  background: oklch(0.55 0.04 65 /0.06);
   color: var(--app-text-muted, #94A3B8);
   font-size: 12px;
   font-weight: 500;
@@ -481,8 +481,8 @@ onUnmounted(() => {
 }
 
 .chip:hover {
-  border-color: rgba(148, 163, 184, 0.35);
-  background: rgba(148, 163, 184, 0.12);
+  border-color: oklch(0.55 0.04 65 /0.35);
+  background: oklch(0.55 0.04 65 /0.12);
 }
 
 .chip.active {
@@ -593,13 +593,13 @@ onUnmounted(() => {
   gap: 16px;
   padding: 12px;
   background: var(--app-surface, #1E293B);
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  border: 1px solid oklch(0.55 0.04 65 /0.1);
   border-radius: 10px;
 }
 
 .side-panel-divider {
   height: 1px;
-  background: rgba(148, 163, 184, 0.1);
+  background: oklch(0.55 0.04 65 /0.1);
 }
 
 /* ------------------------------------------------------------------ */
@@ -620,7 +620,7 @@ onUnmounted(() => {
   line-height: 1;
   cursor: pointer;
   box-shadow:
-    0 4px 14px rgba(124, 58, 237, 0.22),
+    0 4px 14px oklch(0.65 0.18 65 /0.22),
     0 2px 4px rgba(0, 0, 0, 0.28);
   display: flex;
   align-items: center;
@@ -632,7 +632,7 @@ onUnmounted(() => {
 .fab:hover {
   transform: scale(1.05);
   box-shadow:
-    0 6px 20px rgba(124, 58, 237, 0.3),
+    0 6px 20px oklch(0.65 0.18 65 /0.3),
     0 3px 6px rgba(0, 0, 0, 0.32);
 }
 
@@ -645,7 +645,7 @@ onUnmounted(() => {
 /* ------------------------------------------------------------------ */
 .drawer-divider {
   height: 1px;
-  background: rgba(148, 163, 184, 0.1);
+  background: oklch(0.55 0.04 65 /0.1);
   margin: 12px 0;
 }
 

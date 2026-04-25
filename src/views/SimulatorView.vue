@@ -1385,5 +1385,5 @@ async function handleSelfCraft(itemId: number) {
   cursor: pointer;
 }
 
-.m-sheet-danger { color: #F87171; border-color: rgba(248, 113, 113, 0.3); }
+.m-sheet-danger { color: oklch(0.55 0.20 25); border-color: oklch(0.55 0.20 25 / 0.3); }
 </style>

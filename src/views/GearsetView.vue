@@ -426,7 +426,7 @@ function applyBulk() {
 .bulk-panel {
   margin: 12px 0 16px;
   background: var(--app-surface, #161822);
-  border: 1px solid var(--app-border, rgba(148, 163, 184, 0.12));
+  border: 1px solid var(--app-border, oklch(0.55 0.04 65 /0.12));
   border-radius: 8px;
   overflow: hidden;
   transition: border-color 0.2s var(--ease-out-quart, ease-out);
@@ -480,7 +480,7 @@ function applyBulk() {
 }
 
 .bulk-body-wrap {
-  border-top: 1px solid var(--app-border, rgba(148, 163, 184, 0.12));
+  border-top: 1px solid var(--app-border, oklch(0.55 0.04 65 /0.12));
 }
 
 .bulk-body {

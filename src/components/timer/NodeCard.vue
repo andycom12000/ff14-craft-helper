@@ -136,8 +136,8 @@ function onCardKeydown(event: KeyboardEvent) {
 /* Status color tokens                                                  */
 /* ------------------------------------------------------------------ */
 .node-card {
-  --status-color: #94A3B8;
-  --status-glow: rgba(148, 163, 184, 0.15);
+  --status-color: oklch(0.55 0.04 65);
+  --status-glow: oklch(0.55 0.04 65 / 0.15);
 }
 
 .node-card.status-active {
@@ -146,8 +146,8 @@ function onCardKeydown(event: KeyboardEvent) {
 }
 
 .node-card.status-upcoming {
-  --status-color: #60A5FA;
-  --status-glow: rgba(96, 165, 250, 0.18);
+  --status-color: oklch(0.55 0.18 240);
+  --status-glow: oklch(0.55 0.18 240 / 0.18);
 }
 
 /* ------------------------------------------------------------------ */
@@ -196,7 +196,7 @@ function onCardKeydown(event: KeyboardEvent) {
   height: 22px;
   border-radius: 50%;
   border: none;
-  background: rgba(148, 163, 184, 0.15);
+  background: oklch(0.55 0.04 65 /0.15);
   color: var(--app-text-muted);
   font-size: 11px;
   line-height: 1;
@@ -209,8 +209,8 @@ function onCardKeydown(event: KeyboardEvent) {
 }
 
 .remove-btn:hover {
-  background: rgba(239, 68, 68, 0.25);
-  color: #F87171;
+  background: oklch(0.55 0.20 25 / 0.18);
+  color: oklch(0.55 0.20 25);
 }
 
 .node-card:hover .remove-btn {

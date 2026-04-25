@@ -256,7 +256,7 @@ function toggleExpand(key: string) {
 .tab-bar {
   display: flex;
   gap: 0;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+  border-bottom: 1px solid oklch(0.55 0.04 65 /0.15);
   flex-shrink: 0;
 }
 
@@ -308,8 +308,8 @@ function toggleExpand(key: string) {
 .pf-chip {
   padding: 3px 10px;
   border-radius: 14px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  background: rgba(148, 163, 184, 0.06);
+  border: 1px solid oklch(0.55 0.04 65 /0.2);
+  background: oklch(0.55 0.04 65 /0.06);
   color: var(--app-text-muted);
   font-size: 11px;
   font-weight: 500;
@@ -318,13 +318,13 @@ function toggleExpand(key: string) {
   white-space: nowrap;
 }
 .pf-chip:hover {
-  border-color: rgba(148, 163, 184, 0.35);
-  background: rgba(148, 163, 184, 0.12);
+  border-color: oklch(0.55 0.04 65 /0.35);
+  background: oklch(0.55 0.04 65 /0.12);
 }
 .pf-chip.active {
-  background: rgba(16, 185, 129, 0.18);
-  border-color: rgba(16, 185, 129, 0.5);
-  color: #10B981;
+  background: oklch(0.62 0.17 135 /0.18);
+  border-color: oklch(0.62 0.17 135 /0.5);
+  color: oklch(0.62 0.17 135);
   font-weight: 600;
 }
 .pf-sep {
@@ -348,13 +348,13 @@ function toggleExpand(key: string) {
   justify-content: space-between;
   padding: 7px 10px;
   border-radius: 6px;
-  background: rgba(148, 163, 184, 0.04);
+  background: oklch(0.55 0.04 65 /0.04);
   gap: 8px;
   transition: background 0.12s;
 }
 
 .result-row:hover {
-  background: rgba(148, 163, 184, 0.09);
+  background: oklch(0.55 0.04 65 /0.09);
 }
 
 .result-row--indent {
@@ -399,7 +399,7 @@ function toggleExpand(key: string) {
 }
 
 .add-btn:hover {
-  background: rgba(74, 222, 128, 0.28);
+  background: oklch(0.55 0.16 145 /0.28);
 }
 
 .tracked-badge {
@@ -426,7 +426,7 @@ function toggleExpand(key: string) {
   align-items: center;
   gap: 6px;
   padding: 8px 10px;
-  background: rgba(148, 163, 184, 0.06);
+  background: oklch(0.55 0.04 65 /0.06);
   border: none;
   border-radius: 6px;
   color: var(--app-text, #E2E8F0);
@@ -439,7 +439,7 @@ function toggleExpand(key: string) {
 
 .browse-class-header:hover,
 .browse-type-header:hover {
-  background: rgba(148, 163, 184, 0.12);
+  background: oklch(0.55 0.04 65 /0.12);
 }
 
 .browse-type-header {

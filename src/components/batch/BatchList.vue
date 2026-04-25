@@ -171,7 +171,7 @@ function onDragEnd() {
 }
 
 .recipe-card-wrapper--drop-target {
-  border-top: 2px solid var(--app-accent, #7C3AED);
+  border-top: 2px solid var(--app-accent, oklch(0.65 0.18 65));
   padding-top: 6px;
 }
 

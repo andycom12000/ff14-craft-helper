@@ -242,7 +242,7 @@ const tools = [
 }
 
 .workflow-card:hover {
-  border-color: rgba(148, 163, 184, 0.22);
+  border-color: oklch(0.55 0.04 65 /0.22);
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.15);
 }
 
@@ -305,7 +305,7 @@ const tools = [
 }
 
 .tool-card:hover {
-  border-color: rgba(148, 163, 184, 0.22);
+  border-color: oklch(0.55 0.04 65 /0.22);
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.15);
 }
 
@@ -398,7 +398,7 @@ const tools = [
 }
 
 .status-card:hover {
-  border-color: rgba(148, 163, 184, 0.22);
+  border-color: oklch(0.55 0.04 65 /0.22);
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.15);
 }
 
@@ -449,11 +449,11 @@ const tools = [
 }
 
 .gs-chip:hover {
-  border-color: rgba(148, 163, 184, 0.25);
+  border-color: oklch(0.55 0.04 65 /0.25);
 }
 
 .gs-chip.configured {
-  border-color: rgba(245, 158, 11, 0.25);
+  border-color: oklch(0.50 0.16 40 /0.25);
 }
 
 .gs-icon { font-size: 16px; }
@@ -481,8 +481,8 @@ const tools = [
 .shortcut-hint {
   font-size: 11px;
   color: var(--app-text-muted);
-  background: rgba(148, 163, 184, 0.08);
-  border: 1px solid rgba(148, 163, 184, 0.15);
+  background: oklch(0.55 0.04 65 /0.08);
+  border: 1px solid oklch(0.55 0.04 65 /0.15);
   border-radius: 4px;
   padding: 1px 6px;
   margin-left: 8px;

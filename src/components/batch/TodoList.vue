@@ -384,7 +384,7 @@ function requestNewBatch() {
 }
 
 .todo-item--drop-target {
-  border-top: 2px solid var(--app-accent, #7C3AED);
+  border-top: 2px solid var(--app-accent, oklch(0.65 0.18 65));
   padding-top: 10px;
 }
 
@@ -506,7 +506,7 @@ function requestNewBatch() {
 }
 
 .todo-name-text:focus-visible {
-  outline: 2px solid var(--app-accent, #7C3AED);
+  outline: 2px solid var(--app-accent, oklch(0.65 0.18 65));
   outline-offset: 2px;
 }
 
