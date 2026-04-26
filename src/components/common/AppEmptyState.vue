@@ -33,7 +33,7 @@ defineProps<{
   width: 72px;
   height: 72px;
   border-radius: 50%;
-  background: var(--page-accent-dim, rgba(124, 58, 237, 0.12));
+  background: var(--page-accent-dim, oklch(0.65 0.18 65 /0.12));
   display: flex;
   align-items: center;
   justify-content: center;

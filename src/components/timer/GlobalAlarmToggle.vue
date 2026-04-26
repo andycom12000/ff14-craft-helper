@@ -32,14 +32,14 @@ const label = computed(() =>
   gap: 6px;
   padding: 4px 10px;
   border-radius: 6px;
-  background: rgba(74, 222, 128, 0.08);
-  border: 1px solid rgba(74, 222, 128, 0.25);
+  background: oklch(0.55 0.16 145 /0.08);
+  border: 1px solid oklch(0.55 0.16 145 /0.25);
   transition: background 0.2s, border-color 0.2s;
 }
 
 .global-alarm-toggle.alarm-off {
-  background: rgba(148, 163, 184, 0.06);
-  border-color: rgba(148, 163, 184, 0.15);
+  background: oklch(0.55 0.04 65 /0.06);
+  border-color: oklch(0.55 0.04 65 /0.15);
 }
 
 .bell-icon {

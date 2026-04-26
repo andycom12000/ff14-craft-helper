@@ -218,22 +218,20 @@ const allChecked = computed(() => {
 </script>
 
 <template>
-  <el-card shadow="never" class="craft-tree-card">
-    <template #header>
-      <div class="card-header">
-        <span class="card-title">製作價格樹</span>
-        <el-tag type="info" size="small">{{ settings.server }}</el-tag>
-        <div v-if="allCrystals.length > 0" class="crystal-tags">
-          <el-tag
-            v-for="c in allCrystals" :key="c.itemId"
-            type="info" effect="plain" round size="small"
-          >
-            <span class="crystal-dot" :style="{ background: getCrystalColor(c.itemId) }" />
-            <ItemName :item-id="c.itemId" :fallback="c.name" /> ×{{ c.amount }}
-          </el-tag>
-        </div>
+  <section class="craft-tree-card">
+    <header class="card-header">
+      <span class="card-title">製作價格樹</span>
+      <el-tag type="info" size="small">{{ settings.server }}</el-tag>
+      <div v-if="allCrystals.length > 0" class="crystal-tags">
+        <el-tag
+          v-for="c in allCrystals" :key="c.itemId"
+          type="info" effect="plain" round size="small"
+        >
+          <span class="crystal-dot" :style="{ background: getCrystalColor(c.itemId) }" />
+          <ItemName :item-id="c.itemId" :fallback="c.name" /> ×{{ c.amount }}
+        </el-tag>
       </div>
-    </template>
+    </header>
 
     <el-empty v-if="tree.length === 0" description="尚未計算" :image-size="80" />
 
@@ -452,13 +450,15 @@ const allChecked = computed(() => {
       </div>
     </Transition>
     </template>
-  </el-card>
+  </section>
 </template>
 
 <style scoped>
 .craft-tree-card {
   --connector-color: var(--el-color-success-light-5);
   --bom-tree-indent: 10px;
+  /* No outer container chrome — header is typography, the tree itself
+   * carries its own structure */
 }
 
 .card-header {
@@ -466,6 +466,8 @@ const allChecked = computed(() => {
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+  margin-bottom: 12px;
+  padding: 0 4px;
 }
 
 .card-title {

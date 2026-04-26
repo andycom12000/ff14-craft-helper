@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { ElCard, ElMessage } from 'element-plus'
-import 'element-plus/es/components/card/style/css'
+import { ElMessage } from 'element-plus'
 import { useSettingsStore } from '@/stores/settings'
 import { useIsMobile } from '@/composables/useMediaQuery'
 import { getDataCenters, getWorlds, refreshWorldsFromApi } from '@/api/universalis'
@@ -9,7 +8,6 @@ import type { DataCenter, World } from '@/api/universalis'
 import avatarUrl from '@/assets/avatar.gif'
 
 const isMobile = useIsMobile()
-const SectionWrap = computed(() => (isMobile.value ? 'section' : ElCard))
 
 const settingsStore = useSettingsStore()
 
@@ -140,33 +138,29 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
     <h2>設定</h2>
 
     <!-- ============ Server settings ============ -->
-    <component :is="SectionWrap" :shadow="isMobile ? null : 'never'" class="settings-section">
-      <template v-if="!isMobile" #header>
-        <div class="card-header-row">
-          <span class="card-title">伺服器設定</span>
-          <div class="card-header-actions">
-            <el-button
-              size="small"
-              plain
-              :loading="refreshingFromApi"
-              @click="refreshFromLiveApi"
-            >
-              從 API 更新伺服器清單
-            </el-button>
-            <el-button
-              v-if="loadError && !loading"
-              size="small"
-              type="primary"
-              plain
-              @click="loadServers(true)"
-            >
-              重試載入清單
-            </el-button>
-          </div>
+    <section class="settings-section">
+      <header class="section-header">
+        <h3 class="section-title">伺服器設定</h3>
+        <div v-if="!isMobile" class="section-actions">
+          <el-button
+            size="small"
+            plain
+            :loading="refreshingFromApi"
+            @click="refreshFromLiveApi"
+          >
+            從 API 更新伺服器清單
+          </el-button>
+          <el-button
+            v-if="loadError && !loading"
+            size="small"
+            type="primary"
+            plain
+            @click="loadServers(true)"
+          >
+            重試載入清單
+          </el-button>
         </div>
-      </template>
-
-      <h3 v-if="isMobile" class="m-section-title">伺服器設定</h3>
+      </header>
 
       <el-skeleton v-if="loading" :rows="3" animated />
 
@@ -227,15 +221,13 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
           重試載入清單
         </el-button>
       </div>
-    </component>
+    </section>
 
     <!-- ============ Price preferences ============ -->
-    <component :is="SectionWrap" :shadow="isMobile ? null : 'never'" class="settings-section price-card">
-      <template v-if="!isMobile" #header>
-        <span class="card-title">價格偏好</span>
-      </template>
-
-      <h3 v-if="isMobile" class="m-section-title">價格偏好</h3>
+    <section class="settings-section">
+      <header class="section-header">
+        <h3 class="section-title">價格偏好</h3>
+      </header>
 
       <el-form
         :label-width="isMobile ? 'auto' : '120px'"
@@ -249,63 +241,83 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
           </el-radio-group>
         </el-form-item>
       </el-form>
-    </component>
+    </section>
 
     <!-- ============ About ============ -->
-    <component :is="SectionWrap" :shadow="isMobile ? null : 'never'" class="settings-section about-card">
-      <template v-if="!isMobile" #header>
-        <span class="card-title">關於</span>
-      </template>
+    <section class="settings-section">
+      <header class="section-header">
+        <h3 class="section-title">關於</h3>
+      </header>
 
-      <h3 v-if="isMobile" class="m-section-title">關於</h3>
+      <div class="about-profile">
+        <a
+          href="https://github.com/andycom12000"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="作者 GitHub"
+          class="about-avatar-link"
+        >
+          <div class="about-avatar-frame">
+            <img :src="avatarUrl" alt="Author avatar" class="about-avatar" />
+          </div>
+        </a>
+        <div class="about-body">
+          <p class="about-by">crafted by</p>
+          <h4 class="about-author">
+            <a
+              href="https://github.com/andycom12000"
+              target="_blank"
+              rel="noopener noreferrer"
+            >菸齡 (andycom12000)</a>
+          </h4>
+          <p class="about-project">
+            <strong>吐司工坊</strong>
+            FFXIV 製作助手
+            <span class="about-ver">{{ appVersion }}</span>
+          </p>
 
-      <div class="about-app">
-        <div class="about-app-header">
-          <span class="about-app-name">吐司工坊</span>
-          <el-tag size="small" effect="dark" round>{{ appVersion }}</el-tag>
-        </div>
-        <div class="about-tech">
-          <div class="about-tech-row">
-            <span class="about-tech-label">求解器</span>
+          <div class="about-links">
+            <a
+              href="https://github.com/andycom12000/ff14-craft-helper"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="about-link"
+            >
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+              原始碼
+            </a>
+            <a
+              href="https://github.com/andycom12000/ff14-craft-helper/issues"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="about-link"
+            >
+              <span class="about-link-emoji" aria-hidden="true">🐛</span>
+              回報問題
+            </a>
+            <a
+              href="https://www.buymeacoffee.com/andycom12000"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="about-link"
+            >
+              <span class="about-link-emoji" aria-hidden="true">☕</span>
+              Buy me a coffee
+            </a>
+          </div>
+
+          <div class="about-tech">
+            <strong>POWERED BY</strong>
             <a
               href="https://github.com/KonaeAkira/raphael-rs"
               target="_blank"
               rel="noopener noreferrer"
-              class="about-tech-link"
             >Raphael-rs</a>
-            <span class="about-tech-value"> (WASM 多執行緒)</span>
-          </div>
-          <div class="about-tech-row">
-            <span class="about-tech-label">技術架構</span>
-            <span class="about-tech-value">Vue 3 + Pinia + Element Plus + Vite + TypeScript</span>
+            · Vue 3 · Pinia · Element Plus · Vite · TypeScript
           </div>
         </div>
-        <a
-          href="https://github.com/andycom12000/ff14-craft-helper"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="about-link-item"
-        >
-          <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M2 2.5A2.5 2.5 0 014.5 0h8.75a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75h-2.5a.75.75 0 010-1.5h1.75v-2h-8a1 1 0 00-.714 1.7.75.75 0 01-1.072 1.05A2.495 2.495 0 012 11.5zm10.5-1h-8a1 1 0 00-1 1v6.708A2.486 2.486 0 014.5 9h8zM5 12.25v3.25a.25.25 0 00.4.2l1.45-1.087a.25.25 0 01.3 0L8.6 15.7a.25.25 0 00.4-.2v-3.25a.25.25 0 00-.25-.25h-3.5a.25.25 0 00-.25.25z"/></svg>
-          <span>原始碼</span>
-        </a>
       </div>
-
-      <el-divider />
-
-      <div class="about-author">
-        <img :src="avatarUrl" alt="Author avatar" class="about-avatar" />
-        <div class="about-author-info">
-          <span class="about-author-label">作者</span>
-          <a
-            href="https://github.com/andycom12000"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="about-author-name"
-          >菸齡 (andycom12000)</a>
-        </div>
-      </div>
-    </component>
+    </section>
 
     <section class="thanks">
       <h3 class="thanks-title">特別感謝</h3>
@@ -325,26 +337,62 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   max-width: 720px;
 }
 
-/* ============ Mobile: flat sections (no nested card chrome) ============ */
-.settings-view.is-mobile .settings-section {
-  margin-top: 8px;
-  padding: 0;
-  background: transparent;
-  border: none;
+/* ============ Flat sections — typography + dividers, no card chrome ============ */
+.settings-section {
+  /* No bg / border / shadow per section. Vertical spacing + a single
+   * dividing line between sections is enough for hierarchy. */
 }
 
-.settings-view.is-mobile .settings-section + .settings-section {
-  margin-top: 24px;
-  padding-top: 20px;
+.settings-section:first-of-type {
+  margin-top: 20px;
+}
+
+.settings-section + .settings-section {
+  margin-top: 32px;
+  padding-top: 28px;
   border-top: 1px solid var(--app-border);
 }
 
-.m-section-title {
-  margin: 0 0 12px;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.4px;
-  color: var(--app-text-muted);
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.section-title {
+  font-family: 'Noto Serif TC', serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--app-text);
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.section-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+@media (max-width: 640px) {
+  .section-header {
+    margin-bottom: 12px;
+  }
+  .section-title {
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    color: var(--app-text-muted);
+  }
+  .settings-section + .settings-section {
+    margin-top: 24px;
+    padding-top: 20px;
+  }
 }
 
 .settings-view.is-mobile .settings-form :deep(.el-form-item) {
@@ -418,20 +466,18 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   background: var(--app-accent-glow);
 }
 
-.price-card {
-  margin-top: 20px;
-}
-
-.card-header-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
 
 .thanks {
-  margin-top: 28px;
-  padding: 0 4px;
+  margin-top: 32px;
+  padding: 28px 4px 0;
+  border-top: 1px solid var(--app-border);
+}
+
+@media (max-width: 640px) {
+  .thanks {
+    margin-top: 24px;
+    padding-top: 20px;
+  }
 }
 
 .thanks-title {
@@ -479,155 +525,190 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   text-align: right;
 }
 
-.about-card {
-  margin-top: 20px;
-}
-
-.about-app {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.about-app-header {
-  display: flex;
+/* ============ About — author-first profile layout ============ */
+.about-profile {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 20px;
   align-items: center;
-  gap: 10px;
 }
 
-.about-app-name {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--app-text);
-}
-
-.about-tech {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.about-tech-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 8px;
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.about-tech-row .about-tech-value {
-  flex: 1 1 auto;
-  min-width: 0;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-}
-
-@media (max-width: 480px) {
-  .about-tech-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-  }
-  .about-tech-label {
-    min-width: 0;
-  }
-}
-
-.card-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.about-tech-label {
-  color: var(--app-text-muted);
-  min-width: 80px;
-  flex-shrink: 0;
-}
-
-.about-tech-value {
-  color: var(--app-text);
-}
-
-.about-tech-link {
-  color: var(--app-accent-light);
-  text-decoration: underline;
-  text-decoration-style: dotted;
-  text-underline-offset: 3px;
-  text-decoration-color: rgba(167, 139, 250, 0.5);
-}
-
-.about-tech-link:hover {
-  text-decoration-style: solid;
-  text-decoration-color: currentColor;
-}
-
-.about-link-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-radius: 8px;
-  border: 1px solid var(--app-border);
-  background: var(--app-surface-hover);
-  color: var(--app-text);
+.about-avatar-link {
+  display: inline-block;
+  border-radius: 50%;
   text-decoration: none;
-  font-size: 14px;
-  transition: all 0.2s ease;
-  width: fit-content;
 }
 
-.about-link-item:hover {
-  border-color: var(--app-accent);
-  background: var(--app-accent-glow);
-  color: var(--app-accent-light);
+/* Wrapper holds the border + shadow; multiply lives on the image inside
+ * so the border isn't blended away by mix-blend-mode. */
+.about-avatar-frame {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 1px solid var(--app-border);
+  overflow: hidden;
+  box-shadow: 0 2px 8px oklch(0.40 0.05 60 / 0.10);
 }
 
-.about-link-item svg {
-  opacity: 0.7;
-}
-
-.about-link-item:hover svg {
-  opacity: 1;
-}
-
-.about-author {
-  display: flex;
-  align-items: center;
-  gap: 14px;
+.about-avatar-link:focus-visible {
+  outline: 2px solid oklch(0.62 0.12 65);
+  outline-offset: 3px;
 }
 
 .about-avatar {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  border: 2px solid var(--app-accent);
+  display: block;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  background: var(--app-surface-hover);
-  flex-shrink: 0;
+  background: transparent;
+  /* Drop the GIF's white backdrop by multiplying against the page bg */
+  mix-blend-mode: multiply;
+  transition:
+    transform 0.25s var(--ease-out-quart, ease),
+    filter 0.25s var(--ease-out-quart, ease);
 }
 
-.about-author-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+/* Hover linkage — avatar and author name light up together (A + E):
+ * (A) avatar scales 1.06 + saturate 1.2
+ * (E) author-name link picks up muted gold underline
+ * Triggered by hovering EITHER the avatar OR the author name. */
+.about-avatar-link:hover .about-avatar,
+.about-profile:has(.about-author a:hover) .about-avatar {
+  transform: scale(1.06);
+  filter: saturate(1.2);
 }
 
-.about-author-label {
-  font-size: 12px;
-  color: var(--app-text-muted);
+.about-avatar-link:hover ~ .about-body .about-author a {
+  color: oklch(0.62 0.12 65);
+  border-bottom-color: oklch(0.62 0.12 65);
 }
 
-.about-author-name {
+.about-body {
+  min-width: 0;
+}
+
+.about-by {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
   font-size: 15px;
-  font-weight: 500;
-  color: var(--app-accent-light);
-  text-decoration: none;
+  color: oklch(0.62 0.03 60);
+  margin: 0 0 2px;
 }
 
-.about-author-name:hover {
-  text-decoration: underline;
+.about-author {
+  font-family: 'Noto Serif TC', serif;
+  font-weight: 700;
+  font-size: 19px;
+  color: var(--app-text);
+  margin: 0 0 12px;
+  letter-spacing: 0.02em;
+}
+
+.about-author a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid oklch(0.62 0.12 65 / 0.40);
+  padding-bottom: 2px;
+  transition: color 0.18s ease, border-color 0.18s ease;
+}
+
+.about-author a:hover {
+  color: oklch(0.62 0.12 65);
+  border-bottom-color: oklch(0.62 0.12 65);
+}
+
+.about-project {
+  margin: 0 0 14px;
+  font-size: 13.5px;
+  color: var(--app-text-muted);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.about-project strong {
+  color: var(--app-text);
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.about-ver {
+  font-family: 'Fira Code', monospace;
+  font-size: 11px;
+  color: oklch(0.62 0.03 60);
+  background: oklch(0.55 0.04 65 / 0.10);
+  padding: 1px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
+
+.about-links {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.about-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 999px;
+  font-size: 12.5px;
+  color: var(--app-text);
+  text-decoration: none;
+  background: oklch(1 0 0 / 0.4);
+  transition: all 0.18s var(--ease-out-quart, ease);
+}
+
+.about-link:hover {
+  border-color: oklch(0.62 0.12 65);
+  color: oklch(0.62 0.12 65);
+}
+
+.about-link-emoji {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.about-tech {
+  font-size: 11.5px;
+  color: oklch(0.62 0.03 60);
+  line-height: 1.7;
+}
+
+.about-tech strong {
+  color: var(--app-text-muted);
+  font-weight: 600;
+  font-family: 'Fira Code', monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-right: 6px;
+}
+
+.about-tech a {
+  color: oklch(0.62 0.12 65);
+  text-decoration: none;
+  border-bottom: 1px dotted oklch(0.62 0.12 65 / 0.4);
+}
+
+.about-tech a:hover {
+  color: var(--app-accent);
+  border-bottom-color: var(--app-accent);
+}
+
+@media (max-width: 480px) {
+  .about-profile {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .about-avatar-frame {
+    width: 64px;
+    height: 64px;
+  }
 }
 </style>

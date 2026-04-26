@@ -224,7 +224,7 @@ const stepSub = computed(() =>
   margin: 32px auto;
   padding: 40px 36px 32px;
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(124, 58, 237, 0.08) 0%, rgba(124, 58, 237, 0) 60%), var(--app-surface);
+  background: linear-gradient(180deg, oklch(0.65 0.18 65 /0.08) 0%, oklch(0.65 0.18 65 /0) 60%), var(--app-surface);
   border: 1px solid var(--app-border);
   display: flex;
   flex-direction: column;

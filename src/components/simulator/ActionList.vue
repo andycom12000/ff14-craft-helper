@@ -153,6 +153,17 @@ function tagTone(index: number, results: StepResult[]): '' | 'success' | 'danger
   gap: 4px;
 }
 
+/* Default (no tone) — quiet warm tag, doesn't compete with success/danger */
+.action-tag:not(.el-tag--success):not(.el-tag--danger) {
+  --el-tag-bg-color: oklch(0.97 0.018 85);
+  --el-tag-border-color: oklch(0.55 0.04 60 / 0.20);
+  --el-tag-text-color: var(--app-text);
+}
+.action-tag:not(.el-tag--success):not(.el-tag--danger):hover {
+  --el-tag-bg-color: oklch(0.96 0.025 80);
+  --el-tag-border-color: oklch(0.55 0.04 60 / 0.32);
+}
+
 .action-tag :deep(.el-tag__content) {
   display: inline-flex;
   align-items: center;

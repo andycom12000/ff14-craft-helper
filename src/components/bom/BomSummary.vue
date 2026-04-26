@@ -136,20 +136,18 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
 </script>
 
 <template>
-  <el-card shadow="never">
-    <template #header>
-      <div class="card-header">
-        <span class="card-title">
-          材料總覽與價格
-          <el-tag v-if="settingsStore.server" size="small" type="info" style="margin-left: 8px">
-            {{ settingsStore.server }}
-          </el-tag>
-        </span>
-        <el-button size="small" @click="emit('refresh-prices')">
-          重新取得價格
-        </el-button>
-      </div>
-    </template>
+  <section class="bom-summary">
+    <header class="card-header">
+      <span class="card-title">
+        材料總覽與價格
+        <el-tag v-if="settingsStore.server" size="small" type="info" style="margin-left: 8px">
+          {{ settingsStore.server }}
+        </el-tag>
+      </span>
+      <el-button size="small" @click="emit('refresh-prices')">
+        重新取得價格
+      </el-button>
+    </header>
 
     <el-empty
       v-if="materials.length === 0"
@@ -410,16 +408,47 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
         </div>
       </template>
     </template>
-  </el-card>
+  </section>
 </template>
 
 <style scoped>
+.bom-summary {
+  /* Section header + tables; no outer container chrome */
+}
+
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+
+/* Each el-table inside is its own data block — surface + border + radius */
+.bom-summary :deep(.el-table) {
+  --el-table-bg-color: var(--app-surface);
+  --el-table-tr-bg-color: var(--app-surface);
+  --el-table-header-bg-color: oklch(0.955 0.028 80);
+  --el-table-row-hover-bg-color: oklch(0.65 0.18 65 / 0.05);
+  --el-table-border-color: var(--app-border);
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px oklch(0.40 0.05 60 / 0.04);
+}
+
+.section-title {
+  font-family: 'Noto Serif TC', serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--app-text);
+  margin: 20px 0 10px;
+  letter-spacing: 0.02em;
+}
+.section-title:first-of-type {
+  margin-top: 4px;
 }
 
 
@@ -489,19 +518,10 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
 }
 
 @media (max-width: 640px) {
-  .el-card {
-    background: transparent;
-    border: 0;
-    box-shadow: none;
-    border-radius: 0;
-  }
-  :deep(.el-card__header) {
+  .card-header {
     padding: 0 0 10px;
-    border-bottom: 1px solid var(--el-border-color-lighter);
-    margin-bottom: 0;
-  }
-  :deep(.el-card__body) {
-    padding: 0;
+    border-bottom: 1px solid var(--app-border);
+    margin-bottom: 8px;
   }
 }
 

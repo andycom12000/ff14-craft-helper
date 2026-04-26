@@ -521,11 +521,10 @@ function isRowChecked(row: MaterialWithPrice): boolean {
 .server-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: baseline;
   margin-bottom: var(--space-sm);
-  background: var(--el-fill-color-lighter);
-  border-radius: 6px;
-  padding: 8px 12px;
+  padding: 0 4px;
+  /* No bg / border — header is typography; the table below has its own boundary */
 }
 
 .server-info {
@@ -535,7 +534,7 @@ function isRowChecked(row: MaterialWithPrice): boolean {
 }
 
 .server-subtotal {
-  color: var(--accent-gold);
+  color: var(--app-text-muted);
   font-size: 13px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -569,7 +568,16 @@ function isRowChecked(row: MaterialWithPrice): boolean {
 }
 
 .material-table {
-  --el-table-border-color: var(--el-border-color-lighter);
+  /* Table IS the data block — same treatment as suggestions-table */
+  --el-table-bg-color: var(--app-surface);
+  --el-table-tr-bg-color: var(--app-surface);
+  --el-table-header-bg-color: oklch(0.955 0.028 80);
+  --el-table-row-hover-bg-color: oklch(0.65 0.18 65 / 0.05);
+  --el-table-border-color: var(--app-border);
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px oklch(0.40 0.05 60 / 0.04);
 }
 
 .clickable-rows :deep(.el-table__row) {
