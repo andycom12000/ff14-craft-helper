@@ -365,18 +365,25 @@ function requestNewBatch() {
 }
 
 .todo-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  /* Keep strict top-down order for the craft sequence — users read
-   * step 1 → 2 → 3 vertically. Cap width on wide viewports so each
-   * card doesn't stretch into a 1500px band. */
+  /* Column-first ordering — fills col 1 top-down (1,2,3,4) then col 2
+   * (5,6,7,8). CSS multi-column preserves the linear sequence users
+   * read for the craft order. max-width caps card width on wide. */
+  column-count: 1;
+  column-gap: 8px;
   max-width: 840px;
+}
+
+@media (min-width: 900px) {
+  .todo-grid {
+    column-count: 2;
+  }
 }
 
 .todo-item {
   position: relative;
   padding: 12px 16px;
+  margin-bottom: 8px;
+  break-inside: avoid;
   border-radius: 10px;
   background: oklch(0.97 0.022 85);
   border: 1px solid oklch(0.55 0.05 60 / 0.20);

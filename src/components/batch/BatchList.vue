@@ -154,16 +154,16 @@ function onDragEnd() {
 }
 
 .recipe-card-list {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
+  /* Column-first ordering — fills col 1 top-down (1,2,3,4) then col 2
+   * (5,6,7,8). Same layout vocabulary as TodoList. */
+  column-count: 1;
+  column-gap: 8px;
+  max-width: 840px;
 }
 
-/* Wide viewport: 2-col grid so cards aren't 1500px wide bands.
- * Drag-and-drop still works (handlers are index-based, not visual). */
 @media (min-width: 900px) {
   .recipe-card-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-count: 2;
   }
 }
 
@@ -171,6 +171,8 @@ function onDragEnd() {
   display: flex;
   align-items: center;
   gap: 4px;
+  margin-bottom: 8px;
+  break-inside: avoid;
 }
 
 .recipe-card-wrapper :deep(.recipe-card) {
