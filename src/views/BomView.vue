@@ -184,8 +184,10 @@ function handleRefreshPrices() {
 
 <style scoped>
 .bom-view {
+  /* Left-anchored to follow the sidebar — same convention as Dashboard,
+   * BatchView, SettingsView. Right-side empty space is softened by the
+   * .app-main edge gradient, not by centering. */
   max-width: 1200px;
-  margin-inline: auto;
 
   /* Muted palette — matches the SimulatorView progress-bar treatment.
    * Lower chroma versions of brand/semantic colors keep the data-heavy
