@@ -134,11 +134,9 @@ function toggleAll() {
 
 <style scoped>
 .self-craft-block {
-  margin-bottom: 16px;
-  border: 1px solid var(--app-border);
-  border-radius: 10px;
-  padding: 14px 16px;
-  background: transparent;
+  margin-bottom: 20px;
+  /* No outer container chrome — section header is just typography,
+   * the table below carries its own boundary. Avoids nested cards. */
 }
 
 .block-header {
@@ -184,11 +182,17 @@ function toggleAll() {
 }
 
 .suggestions-table {
-  /* Inherit container bg so the table doesn't read as a foreign white block */
-  --el-table-bg-color: transparent;
-  --el-table-tr-bg-color: transparent;
-  --el-table-header-bg-color: transparent;
+  /* Table IS the data block — surface fill, soft border, rounded edge.
+   * No outer container needed (avoids nested-card anti-pattern). */
+  --el-table-bg-color: var(--app-surface);
+  --el-table-tr-bg-color: var(--app-surface);
+  --el-table-header-bg-color: oklch(0.955 0.028 80);
   --el-table-row-hover-bg-color: oklch(0.65 0.18 65 / 0.05);
+  --el-table-border-color: var(--app-border);
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px oklch(0.40 0.05 60 / 0.04);
 }
 
 .row-icon {
@@ -206,18 +210,13 @@ function toggleAll() {
 
 @media (max-width: 640px) {
   .self-craft-block {
-    background: transparent;
-    border: none;
-    border-top: 1px solid var(--app-border);
-    border-radius: 0;
-    padding: 14px 0 10px;
     margin-bottom: 18px;
   }
 
   .block-header {
     flex-direction: column;
     align-items: stretch;
-    margin-bottom: 4px;
+    margin-bottom: 8px;
   }
 
   .block-stats {
