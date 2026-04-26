@@ -365,15 +365,13 @@ function requestNewBatch() {
 }
 
 .todo-grid {
-  display: grid;
-  grid-template-columns: 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
-}
-
-@media (min-width: 900px) {
-  .todo-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  /* Keep strict top-down order for the craft sequence — users read
+   * step 1 → 2 → 3 vertically. Cap width on wide viewports so each
+   * card doesn't stretch into a 1500px band. */
+  max-width: 840px;
 }
 
 .todo-item {
