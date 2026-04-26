@@ -320,3 +320,12 @@ function toggleAll() {
   padding-left: 4px;
 }
 </style>
+
+<!-- Dark mode: hard-coded cream header / faint gold hover wash out on dark.
+     Unscoped because [data-theme="dark"] is on <html> (outside scope). -->
+<style>
+[data-theme="dark"] .suggestions-table {
+  --el-table-header-bg-color: var(--app-surface-2);
+  --el-table-row-hover-bg-color: var(--app-accent-soft);
+}
+</style>

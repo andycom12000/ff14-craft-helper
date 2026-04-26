@@ -307,7 +307,11 @@ function isRowChecked(row: MaterialWithPrice): boolean {
         </el-table-column>
         <el-table-column label="類型" width="55">
           <template #default="{ row }">
-            <el-tag size="small" :type="row.type === 'hq' ? 'warning' : 'info'">
+            <el-tag
+              size="small"
+              :type="row.type === 'hq' ? 'warning' : 'info'"
+              :class="['quality-tag', row.type === 'hq' ? 'quality-tag--hq' : 'quality-tag--nq']"
+            >
               {{ row.type.toUpperCase() }}
             </el-tag>
           </template>
@@ -345,7 +349,11 @@ function isRowChecked(row: MaterialWithPrice): boolean {
                 <span class="material-card__name">
                   <ItemName :item-id="row.itemId" :fallback="row.name" />
                 </span>
-                <el-tag size="small" :type="row.type === 'hq' ? 'warning' : 'info'" class="material-card__type">
+                <el-tag
+                  size="small"
+                  :type="row.type === 'hq' ? 'warning' : 'info'"
+                  :class="['material-card__type', 'quality-tag', row.type === 'hq' ? 'quality-tag--hq' : 'quality-tag--nq']"
+                >
                   {{ row.type.toUpperCase() }}
                 </el-tag>
                 <el-tag v-if="row.isFinishedProduct" size="small" type="success">直購</el-tag>
@@ -484,8 +492,8 @@ function isRowChecked(row: MaterialWithPrice): boolean {
 }
 
 .quality-pill--active {
-  background: var(--el-color-info-light-8, var(--el-fill-color-dark));
-  color: var(--el-text-color-primary);
+  background: color-mix(in oklch, var(--app-craft) 12%, transparent);
+  color: color-mix(in oklch, var(--app-craft) 78%, var(--el-text-color-secondary));
 }
 
 .quality-pill--hq.quality-pill--active {
@@ -578,6 +586,18 @@ function isRowChecked(row: MaterialWithPrice): boolean {
   border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 1px 2px oklch(0.40 0.05 60 / 0.04);
+}
+
+/* HQ / NQ 類型 tag — match the 全HQ / 全NQ button styling */
+.quality-tag.quality-tag--hq.el-tag {
+  background: color-mix(in oklch, var(--accent-gold) 22%, transparent);
+  border-color: color-mix(in oklch, var(--accent-gold) 35%, transparent);
+  color: var(--accent-gold);
+}
+.quality-tag.quality-tag--nq.el-tag {
+  background: color-mix(in oklch, var(--app-craft) 12%, transparent);
+  border-color: color-mix(in oklch, var(--app-craft) 22%, transparent);
+  color: color-mix(in oklch, var(--app-craft) 78%, var(--el-text-color-secondary));
 }
 
 .clickable-rows :deep(.el-table__row) {
@@ -692,8 +712,8 @@ function isRowChecked(row: MaterialWithPrice): boolean {
 }
 
 .quality-toggle-pill--active {
-  background: var(--el-fill-color-dark);
-  color: var(--el-text-color-primary);
+  background: color-mix(in oklch, var(--app-craft) 12%, transparent);
+  color: color-mix(in oklch, var(--app-craft) 78%, var(--el-text-color-secondary));
 }
 
 .quality-toggle-pill--hq.quality-toggle-pill--active {
@@ -953,5 +973,18 @@ function isRowChecked(row: MaterialWithPrice): boolean {
   padding: 10px 16px;
   min-height: var(--touch-target-min);
   font-size: 13px;
+}
+</style>
+
+<!-- Unscoped: dark-mode overrides reach via the [data-theme="dark"] attribute
+     on <html>, which lives outside the component's scope. -->
+<style>
+[data-theme="dark"] .material-table {
+  --el-table-header-bg-color: var(--app-surface-2);
+  --el-table-row-hover-bg-color: var(--app-accent-soft);
+}
+
+[data-theme="dark"] .material-card--expanded {
+  background: oklch(0.27 0.012 60);
 }
 </style>

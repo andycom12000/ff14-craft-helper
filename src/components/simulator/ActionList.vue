@@ -141,8 +141,8 @@ function tagTone(index: number, results: StepResult[]): '' | 'success' | 'danger
 }
 
 .action-tags {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
   gap: 4px;
 }
 
@@ -151,6 +151,22 @@ function tagTone(index: number, results: StepResult[]): '' | 'success' | 'danger
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  width: 100%;
+  min-width: 0;
+  justify-content: flex-start;
+}
+
+.action-tag :deep(.el-tag__content) {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+}
+
+.action-tag .action-label {
+  flex: 1;
+  min-width: 0;
 }
 
 /* Default (no tone) — quiet warm tag, doesn't compete with success/danger */
@@ -173,6 +189,10 @@ function tagTone(index: number, results: StepResult[]): '' | 'success' | 'danger
 .action-index {
   font-size: 12px;
   color: var(--el-text-color-secondary);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  min-width: 22px;
+  text-align: right;
 }
 
 .action-icon {
@@ -220,5 +240,19 @@ function tagTone(index: number, results: StepResult[]): '' | 'success' | 'danger
     width: 22px;
     height: 22px;
   }
+}
+</style>
+
+<!-- Dark mode override — light cream tag bg blows out on dark sidebar/main bg.
+     Unscoped because [data-theme="dark"] sits on <html>, outside scope. -->
+<style>
+[data-theme="dark"] .action-list .action-tag:not(.el-tag--success):not(.el-tag--danger) {
+  --el-tag-bg-color: var(--app-surface-2);
+  --el-tag-border-color: var(--app-border);
+  --el-tag-text-color: var(--app-text);
+}
+[data-theme="dark"] .action-list .action-tag:not(.el-tag--success):not(.el-tag--danger):hover {
+  --el-tag-bg-color: var(--app-surface-hi, oklch(0.28 0.012 60));
+  --el-tag-border-color: var(--app-accent);
 }
 </style>

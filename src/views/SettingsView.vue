@@ -2,6 +2,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useSettingsStore } from '@/stores/settings'
+import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { useIsMobile } from '@/composables/useMediaQuery'
 import { getDataCenters, getWorlds, refreshWorldsFromApi } from '@/api/universalis'
 import type { DataCenter, World } from '@/api/universalis'
@@ -10,6 +11,13 @@ import avatarUrl from '@/assets/avatar.gif'
 const isMobile = useIsMobile()
 
 const settingsStore = useSettingsStore()
+const themeStore = useThemeStore()
+
+const themeOptions: { value: ThemeMode; label: string; hint: string }[] = [
+  { value: 'auto', label: 'Auto', hint: '跟系統' },
+  { value: 'light', label: 'Light', hint: '亮色' },
+  { value: 'dark', label: 'Dark', hint: '暗色' },
+]
 
 const dataCenters = ref<DataCenter[]>([])
 const worlds = ref<World[]>([])
@@ -243,6 +251,37 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
       </el-form>
     </section>
 
+    <!-- ============ Appearance ============ -->
+    <section class="settings-section">
+      <header class="section-header">
+        <h3 class="section-title">外觀</h3>
+      </header>
+
+      <div class="theme-row">
+        <div class="theme-row-text">
+          <p class="theme-row-label">主題</p>
+          <p class="theme-row-hint">
+            Auto 跟隨系統；
+            目前實際顯示：<span class="theme-row-resolved">{{ themeStore.resolved === 'dark' ? '暗色' : '亮色' }}</span>
+          </p>
+        </div>
+        <div class="theme-toggle" role="radiogroup" aria-label="主題">
+          <button
+            v-for="opt in themeOptions"
+            :key="opt.value"
+            type="button"
+            role="radio"
+            :aria-checked="themeStore.mode === opt.value"
+            class="theme-toggle-btn"
+            :class="{ active: themeStore.mode === opt.value }"
+            @click="themeStore.setMode(opt.value)"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
+      </div>
+    </section>
+
     <!-- ============ About ============ -->
     <section class="settings-section">
       <header class="section-header">
@@ -376,6 +415,78 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+/* Theme toggle */
+.theme-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding-top: 4px;
+}
+.theme-row-text {
+  flex: 1;
+  min-width: 0;
+}
+.theme-row-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--app-text);
+  margin: 0 0 4px;
+}
+.theme-row-hint {
+  font-size: 12px;
+  color: var(--app-text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+.theme-row-resolved {
+  color: var(--app-accent);
+  font-weight: 700;
+}
+.theme-toggle {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  background: var(--el-fill-color-blank);
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+.theme-toggle-btn {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--app-text-muted);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 16px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: color 200ms var(--ease-out-quart), background 200ms var(--ease-out-quart);
+  letter-spacing: 0.5px;
+}
+.theme-toggle-btn:hover {
+  color: var(--app-text);
+}
+.theme-toggle-btn.active {
+  background: var(--app-accent);
+  color: var(--app-bg);
+}
+
+.is-mobile .theme-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+.is-mobile .theme-toggle {
+  align-self: stretch;
+  justify-content: space-between;
+}
+.is-mobile .theme-toggle-btn {
+  flex: 1;
 }
 
 @media (max-width: 640px) {
@@ -710,5 +821,33 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
     width: 64px;
     height: 64px;
   }
+}
+</style>
+
+<!-- Dark mode adjustments. Light theme drops the GIF's white backdrop via
+     mix-blend-mode: multiply; on dark surfaces multiply darkens the entire
+     avatar to near-black. Drop the blend, give the frame a soft cream pad so
+     the GIF reads as a photo print on the dark desk. Same idea for the
+     pill links — 40% pure white reads as a bright wash on dark; replace
+     with a warm-tinted low-alpha surface. -->
+<style>
+[data-theme="dark"] .settings-view .about-avatar {
+  mix-blend-mode: normal;
+}
+
+[data-theme="dark"] .settings-view .about-avatar-frame {
+  background: oklch(0.92 0.020 78);
+  border-color: oklch(0.50 0.020 60);
+  box-shadow: 0 2px 10px oklch(0.05 0.02 60 / 0.45);
+}
+
+[data-theme="dark"] .settings-view .about-link {
+  background: oklch(0.55 0.012 60 / 0.10);
+  border-color: var(--app-border);
+}
+[data-theme="dark"] .settings-view .about-link:hover {
+  background: var(--app-accent-soft, oklch(0.74 0.13 68 / 0.12));
+  border-color: var(--app-accent);
+  color: var(--app-accent);
 }
 </style>

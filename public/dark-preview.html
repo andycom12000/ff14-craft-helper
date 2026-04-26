@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>吐司工坊 · Dark Mode Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Fira+Code:wght@400;700&family=Noto+Serif+TC:wght@400;500;600;700;900&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  }
+
+  /* ============================================================
+     Theme A — 打烊時刻（傍晚 7pm，烤箱餘溫，暖黃壁燈）
+     ============================================================ */
+  body.theme-a {
+    --app-bg:           oklch(0.20 0.025 65);
+    --app-sidebar:      oklch(0.17 0.020 60);
+    --app-surface:      oklch(0.24 0.025 70);
+    --app-surface-2:    oklch(0.28 0.040 65);
+    --app-surface-hi:   oklch(0.30 0.030 70);
+    --app-border:       oklch(0.32 0.025 65);
+    --app-border-soft:  oklch(0.28 0.020 65);
+    --app-text:         oklch(0.92 0.020 80);
+    --app-text-muted:   oklch(0.68 0.020 70);
+    --app-text-faint:   oklch(0.50 0.015 65);
+
+    --app-accent:       oklch(0.72 0.14 70);
+    --app-accent-light: oklch(0.80 0.12 75);
+    --app-accent-glow:  oklch(0.72 0.14 70 / 0.18);
+    --app-accent-soft:  oklch(0.72 0.14 70 / 0.10);
+
+    --app-craft:        oklch(0.62 0.12 45);
+    --app-craft-dim:    oklch(0.62 0.12 45 / 0.16);
+    --app-market:       oklch(0.65 0.16 18);
+    --app-market-dim:   oklch(0.65 0.16 18 / 0.16);
+    --app-gather:       oklch(0.68 0.13 135);
+    --app-gather-dim:   oklch(0.68 0.13 135 / 0.16);
+    --app-highlight:    oklch(0.68 0.14 245);
+    --app-highlight-dim:oklch(0.68 0.14 245 / 0.16);
+
+    --quote-flavor:     oklch(0.78 0.04 70);
+    --paper-noise:
+      radial-gradient(circle at 20% 30%, oklch(0.55 0.04 70 / 0.10) 1px, transparent 1px),
+      radial-gradient(circle at 70% 60%, oklch(0.55 0.04 65 / 0.08) 1px, transparent 1px);
+    --paper-noise-size: 28px 28px, 22px 22px;
+    --hero-gradient:    linear-gradient(135deg, oklch(0.28 0.045 60) 0%, oklch(0.22 0.030 70) 100%);
+  }
+
+  /* ============================================================
+     Theme B — 深夜後台 + A sidebar（主體保持 B 的中性暖灰，僅 sidebar 套 A 的暖棕）
+     ============================================================ */
+  body.theme-b {
+    --app-bg:           oklch(0.18 0.008 60);
+    --app-sidebar:      oklch(0.15 0.006 60);
+    --app-surface:      oklch(0.22 0.008 60);
+    --app-surface-2:    oklch(0.25 0.012 60);
+    --app-surface-hi:   oklch(0.28 0.010 60);
+    --app-border:       oklch(0.30 0.010 60);
+    --app-border-soft:  oklch(0.25 0.008 60);
+    --app-text:         oklch(0.94 0.010 80);
+    --app-text-muted:   oklch(0.66 0.010 70);
+    --app-text-faint:   oklch(0.48 0.008 65);
+
+    --app-accent:       oklch(0.74 0.15 68);
+    --app-accent-light: oklch(0.82 0.12 72);
+    --app-accent-glow:  oklch(0.74 0.15 68 / 0.16);
+    --app-accent-soft:  oklch(0.74 0.15 68 / 0.08);
+
+    --app-craft:        oklch(0.70 0.04 60);
+    --app-craft-dim:    oklch(0.70 0.04 60 / 0.18);
+    --app-market:       oklch(0.70 0.05 20);
+    --app-market-dim:   oklch(0.70 0.05 20 / 0.18);
+    --app-gather:       oklch(0.70 0.04 130);
+    --app-gather-dim:   oklch(0.70 0.04 130 / 0.18);
+    --app-highlight:    oklch(0.70 0.05 240);
+    --app-highlight-dim:oklch(0.70 0.05 240 / 0.18);
+
+    --quote-flavor:     oklch(0.74 0.02 70);
+    --paper-noise: none;
+    --paper-noise-size: 0;
+    --hero-gradient:    linear-gradient(135deg, oklch(0.24 0.012 60) 0%, oklch(0.20 0.008 60) 100%);
+  }
+
+  /* B 主題下，sidebar 區段內局部覆寫成 A 的 tokens（cascade 限縮在 .sidebar 內） */
+  body.theme-b .sidebar {
+    --app-sidebar:      oklch(0.17 0.020 60);
+    --app-border-soft:  oklch(0.28 0.020 65);
+    --app-text:         oklch(0.92 0.020 80);
+    --app-text-muted:   oklch(0.68 0.020 70);
+    --app-text-faint:   oklch(0.50 0.015 65);
+    --app-accent:       oklch(0.72 0.14 70);
+    --app-accent-glow:  oklch(0.72 0.14 70 / 0.18);
+    --app-accent-soft:  oklch(0.72 0.14 70 / 0.10);
+  }
+
+  /* B 主題下，hero / recipe-card 底色互換: hero ← A 的 surface, recipe-card ← B 的 hero gradient */
+  body.theme-b .hero {
+    background: oklch(0.24 0.025 70);
+  }
+  body.theme-b .recipe-card {
+    background: linear-gradient(135deg, oklch(0.24 0.012 60) 0%, oklch(0.20 0.008 60) 100%);
+  }
+
+  /* B 主題下，main-pane 底色稍微調亮（位於 B 0.18 與 A 0.20 之間） */
+  body.theme-b .main-pane {
+    background: oklch(0.19 0.012 62);
+  }
+
+  /* ============================================================
+     Theme C — 烤爐口（站在烤箱前，餘燼火光，drenched）
+     ============================================================ */
+  body.theme-c {
+    --app-bg:           oklch(0.22 0.05 60);
+    --app-sidebar:      oklch(0.18 0.05 50);
+    --app-surface:      oklch(0.26 0.05 60);
+    --app-surface-2:    oklch(0.32 0.07 55);
+    --app-surface-hi:   oklch(0.36 0.06 60);
+    --app-border:       oklch(0.36 0.05 60);
+    --app-border-soft:  oklch(0.30 0.04 60);
+    --app-text:         oklch(0.93 0.03 80);
+    --app-text-muted:   oklch(0.70 0.04 70);
+    --app-text-faint:   oklch(0.52 0.03 65);
+
+    --app-accent:       oklch(0.76 0.16 60);
+    --app-accent-light: oklch(0.84 0.13 65);
+    --app-accent-glow:  oklch(0.76 0.16 60 / 0.22);
+    --app-accent-soft:  oklch(0.76 0.16 60 / 0.12);
+
+    --app-craft:        oklch(0.65 0.15 35);
+    --app-craft-dim:    oklch(0.65 0.15 35 / 0.20);
+    --app-market:       oklch(0.66 0.20 20);
+    --app-market-dim:   oklch(0.66 0.20 20 / 0.20);
+    --app-gather:       oklch(0.68 0.16 130);
+    --app-gather-dim:   oklch(0.68 0.16 130 / 0.20);
+    --app-highlight:    oklch(0.70 0.16 250);
+    --app-highlight-dim:oklch(0.70 0.16 250 / 0.20);
+
+    --quote-flavor:     oklch(0.82 0.06 65);
+    --paper-noise:
+      radial-gradient(circle at 25% 35%, oklch(0.55 0.10 50 / 0.14) 1px, transparent 1.2px),
+      radial-gradient(circle at 75% 65%, oklch(0.55 0.10 45 / 0.12) 1px, transparent 1.2px);
+    --paper-noise-size: 32px 32px, 26px 26px;
+    --hero-gradient:    linear-gradient(135deg, oklch(0.36 0.10 55) 0%, oklch(0.26 0.06 60) 100%);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Noto Sans TC', sans-serif;
+    background: var(--app-bg);
+    color: var(--app-text);
+    min-height: 100vh;
+    transition: background 320ms var(--ease-out-quart), color 320ms var(--ease-out-quart);
+  }
+
+  /* ============= Sticky variant switcher ============= */
+  .switcher {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: var(--app-sidebar);
+    border-bottom: 1px solid var(--app-border);
+    padding: 14px 32px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    backdrop-filter: blur(8px);
+  }
+  .switcher-label {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--app-text);
+    letter-spacing: 1px;
+  }
+  .switcher-tabs {
+    display: flex;
+    gap: 6px;
+    background: var(--app-surface);
+    padding: 4px;
+    border-radius: 8px;
+    border: 1px solid var(--app-border-soft);
+  }
+  .tab-btn {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: var(--app-text-muted);
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 18px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 240ms var(--ease-out-quart);
+    letter-spacing: 0.5px;
+  }
+  .tab-btn:hover {
+    color: var(--app-text);
+    background: var(--app-accent-soft);
+  }
+  .tab-btn.active {
+    background: var(--app-accent);
+    color: oklch(0.18 0.02 65);
+    box-shadow: 0 1px 8px var(--app-accent-glow);
+  }
+  .switcher-scene {
+    margin-left: auto;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--quote-flavor);
+  }
+
+  /* ============= Page header ============= */
+  .page-header {
+    padding: 56px 48px 40px;
+    background: var(--app-surface-2);
+    background-image: var(--paper-noise);
+    background-size: var(--paper-noise-size);
+    border-bottom: 1px solid var(--app-border);
+    text-align: center;
+  }
+  .page-eyebrow {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--app-accent);
+    margin: 0 0 6px;
+  }
+  .wordmark {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 900;
+    font-size: 52px;
+    letter-spacing: 3px;
+    color: var(--app-text);
+    margin: 0;
+    line-height: 1;
+  }
+  .wordmark-sub {
+    margin-top: 12px;
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--app-text-muted);
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .page-quote {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 19px;
+    color: var(--quote-flavor);
+    margin: 24px auto 0;
+    max-width: 540px;
+  }
+
+  /* ============= Section frame ============= */
+  section {
+    padding: 56px 48px;
+    border-bottom: 1px solid var(--app-border-soft);
+  }
+  .section-eyebrow {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 14px;
+    color: var(--app-accent);
+    margin: 0 0 4px;
+  }
+  .section-title {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    font-size: 22px;
+    color: var(--app-text);
+    margin: 0 0 28px;
+    letter-spacing: 1px;
+  }
+
+  /* ============= App shell sample ============= */
+  .shell {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 0;
+    border: 1px solid var(--app-border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--app-bg);
+    box-shadow: 0 8px 24px oklch(0 0 0 / 0.20);
+  }
+  .sidebar {
+    background: var(--app-sidebar);
+    padding: 20px 14px;
+    border-right: 1px solid var(--app-border-soft);
+  }
+  .sidebar-logo {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 900;
+    font-size: 19px;
+    letter-spacing: 1px;
+    color: var(--app-text);
+    margin: 0 0 4px;
+    padding: 0 8px;
+  }
+  .sidebar-sub {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--app-text-muted);
+    text-transform: uppercase;
+    font-weight: 700;
+    padding: 0 8px 18px;
+    border-bottom: 1px solid var(--app-border-soft);
+    margin-bottom: 14px;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--app-text-muted);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 200ms var(--ease-out-quart);
+    margin-bottom: 2px;
+  }
+  .nav-item:hover {
+    color: var(--app-text);
+    background: var(--app-accent-soft);
+  }
+  .nav-item.active {
+    color: var(--app-accent);
+    background: var(--app-accent-glow);
+    font-weight: 700;
+  }
+  .nav-icon { font-size: 14px; }
+
+  /* main pane */
+  .main-pane {
+    padding: 28px 32px;
+    background: var(--app-bg);
+  }
+  .greeting {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 18px;
+    color: var(--quote-flavor);
+    margin: 0 0 4px;
+  }
+  .main-title {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    font-size: 28px;
+    color: var(--app-text);
+    margin: 0 0 24px;
+    letter-spacing: 1px;
+  }
+
+  /* hero card */
+  .hero {
+    background: var(--hero-gradient);
+    border: 1px solid var(--app-border);
+    border-radius: 12px;
+    padding: 28px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: var(--paper-noise);
+    background-size: var(--paper-noise-size);
+    pointer-events: none;
+    opacity: 0.5;
+  }
+  .hero-eyebrow {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--app-craft);
+    margin: 0 0 6px;
+    position: relative;
+  }
+  .hero-title {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 800;
+    font-size: 24px;
+    color: var(--app-text);
+    margin: 0 0 14px;
+    position: relative;
+  }
+  .hero-bullets {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 20px;
+    display: grid;
+    gap: 6px;
+    position: relative;
+  }
+  .hero-bullets li {
+    color: var(--app-text-muted);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .hero-bullets li::before {
+    content: '·';
+    color: var(--app-accent);
+    font-weight: 800;
+    margin-right: 8px;
+  }
+
+  /* ============= Buttons row ============= */
+  .button-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+    position: relative;
+  }
+  .btn {
+    appearance: none;
+    border: none;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 200ms var(--ease-out-quart);
+    letter-spacing: 0.5px;
+  }
+  .btn-primary {
+    background: var(--app-accent);
+    color: oklch(0.18 0.02 65);
+  }
+  .btn-primary:hover {
+    background: var(--app-accent-light);
+    transform: translateY(-1px);
+  }
+  .btn-ghost {
+    background: transparent;
+    color: var(--app-text);
+    border: 1px solid var(--app-border);
+  }
+  .btn-ghost:hover {
+    background: var(--app-accent-soft);
+    border-color: var(--app-accent);
+  }
+  .btn-craft {
+    background: var(--app-craft-dim);
+    color: var(--app-craft);
+    border: 1px solid var(--app-craft);
+  }
+
+  /* ============= Recipe cards row ============= */
+  .recipe-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin-top: 24px;
+  }
+  .recipe-card {
+    background: var(--app-surface);
+    border: 1px solid var(--app-border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    box-shadow:
+      0 1px 3px oklch(0 0 0 / 0.18),
+      inset 0 1px 0 oklch(1 0 0 / 0.04);
+    transition: all 200ms var(--ease-out-quart);
+    cursor: pointer;
+  }
+  .recipe-card:hover {
+    transform: translateY(-1px);
+    border-color: var(--app-accent);
+    box-shadow:
+      0 4px 12px oklch(0 0 0 / 0.28),
+      inset 0 1px 0 oklch(1 0 0 / 0.06);
+  }
+  .recipe-job {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--app-craft);
+    background: var(--app-craft-dim);
+    padding: 3px 9px;
+    border-radius: 999px;
+    margin-bottom: 8px;
+  }
+  .recipe-name {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--app-text);
+    margin: 0 0 8px;
+  }
+  .recipe-meta {
+    font-size: 12px;
+    color: var(--app-text-muted);
+    display: flex;
+    gap: 14px;
+  }
+  .recipe-meta .num {
+    font-family: 'Fira Code', monospace;
+    font-weight: 700;
+    color: var(--app-text);
+  }
+
+  /* ============= Status / progress ============= */
+  .status-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-top: 24px;
+  }
+  .status {
+    background: var(--app-surface);
+    border: 1px solid var(--app-border-soft);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .status-label {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--app-text-muted);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .status-value {
+    font-family: 'Fira Code', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--app-text);
+  }
+  .progress {
+    margin-top: 8px;
+    height: 6px;
+    background: var(--app-border-soft);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    border-radius: 999px;
+  }
+  .progress.craft .progress-bar { background: var(--app-craft); width: 72%; }
+  .progress.market .progress-bar { background: var(--app-market); width: 48%; }
+  .progress.gather .progress-bar { background: var(--app-gather); width: 88%; }
+
+  /* ============= Pills row (jam jars) ============= */
+  .pill-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 24px;
+  }
+  .pill {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid;
+  }
+  .pill.craft     { color: var(--app-craft);     background: var(--app-craft-dim);     border-color: var(--app-craft); }
+  .pill.market    { color: var(--app-market);    background: var(--app-market-dim);    border-color: var(--app-market); }
+  .pill.gather    { color: var(--app-gather);    background: var(--app-gather-dim);    border-color: var(--app-gather); }
+  .pill.highlight { color: var(--app-highlight); background: var(--app-highlight-dim); border-color: var(--app-highlight); }
+  .pill.toast     { color: oklch(0.20 0.02 60);  background: var(--app-accent);        border-color: var(--app-accent); }
+
+  /* ============= Tokens table ============= */
+  .tokens {
+    margin-top: 32px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-border-soft);
+    border-radius: 10px;
+    padding: 18px 20px;
+    font-family: 'Fira Code', monospace;
+    font-size: 12px;
+    line-height: 1.9;
+    color: var(--app-text-muted);
+  }
+  .tokens .key { color: var(--app-accent); }
+  .tokens .val { color: var(--app-text); }
+  .tokens .sw {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    vertical-align: -3px;
+    margin-right: 10px;
+    border: 1px solid var(--app-border);
+  }
+
+  /* ============= Footer note ============= */
+  .footnote {
+    padding: 32px 48px 64px;
+    text-align: center;
+    color: var(--app-text-faint);
+    font-size: 12px;
+    line-height: 1.8;
+  }
+  .footnote .quote {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--quote-flavor);
+    margin: 0 0 6px;
+  }
+
+  /* ============= Sample 4: Settings author profile ============= */
+  .author-profile {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 24px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-border-soft);
+    border-radius: 12px;
+    margin-bottom: 24px;
+    transition: all 200ms var(--ease-out-quart);
+  }
+  .author-profile:hover {
+    border-color: var(--app-accent);
+    box-shadow: 0 6px 20px oklch(0 0 0 / 0.25);
+  }
+  .author-profile:hover .author-avatar-wrapper {
+    transform: scale(1.04);
+  }
+  .author-profile:hover .author-name {
+    color: var(--app-accent);
+  }
+  .author-avatar-wrapper {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: oklch(0.85 0.06 75);
+    box-shadow: 0 0 0 2px var(--app-border), inset 0 0 0 1px oklch(0.4 0.04 60 / 0.20);
+    transition: transform 200ms var(--ease-out-quart);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+  }
+  .author-info {
+    flex: 1;
+  }
+  .author-name {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    font-size: 17px;
+    color: var(--app-text);
+    margin: 0 0 4px;
+    transition: color 200ms var(--ease-out-quart);
+  }
+  .author-project {
+    font-size: 12px;
+    color: var(--app-text-muted);
+    margin: 0 0 12px;
+    letter-spacing: 0.5px;
+  }
+  .author-links {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .author-link {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border: 1px solid var(--app-border);
+    border-radius: 999px;
+    color: var(--app-text-muted);
+    background: transparent;
+    cursor: pointer;
+    transition: all 180ms var(--ease-out-quart);
+  }
+  .author-link:hover {
+    color: var(--app-accent);
+    border-color: var(--app-accent);
+  }
+  .settings-list {
+    display: flex;
+    flex-direction: column;
+  }
+  .settings-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--app-border-soft);
+  }
+  .settings-row:last-child { border-bottom: none; }
+  .settings-row-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--app-text);
+  }
+  .settings-row-hint {
+    font-size: 12px;
+    color: var(--app-text-muted);
+    margin-top: 2px;
+  }
+  .settings-control {
+    display: flex;
+    gap: 6px;
+    background: var(--app-surface);
+    padding: 3px;
+    border: 1px solid var(--app-border-soft);
+    border-radius: 8px;
+  }
+  .settings-control button {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: var(--app-text-muted);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .settings-control button.active {
+    background: var(--app-accent);
+    color: oklch(0.18 0.02 65);
+  }
+
+  /* ============= Sample 5: Batch list (column-first multi-card) ============= */
+  .batch-list {
+    column-count: 2;
+    column-gap: 16px;
+  }
+  .batch-card {
+    break-inside: avoid;
+    margin-bottom: 14px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-border-soft);
+    border-radius: 10px;
+    padding: 14px 18px;
+    transition: all 200ms var(--ease-out-quart);
+  }
+  body.theme-b .batch-card {
+    background: linear-gradient(135deg, oklch(0.24 0.012 60) 0%, oklch(0.20 0.008 60) 100%);
+  }
+  .batch-card:hover {
+    transform: translateY(-1px);
+    border-color: var(--app-accent);
+  }
+  .batch-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+  }
+  .batch-card-job {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--app-craft);
+    background: var(--app-craft-dim);
+    padding: 3px 9px;
+    border-radius: 999px;
+  }
+  .batch-card-qty {
+    font-family: 'Fira Code', monospace;
+    font-weight: 700;
+    color: var(--app-text);
+    font-size: 13px;
+  }
+  .batch-card-name {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--app-text);
+    margin: 0 0 8px;
+  }
+  .batch-card-mats {
+    font-size: 11px;
+    color: var(--app-text-muted);
+    line-height: 1.5;
+  }
+
+  /* ============= Sample 6: BOM target list (table) ============= */
+  .bom-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--app-surface);
+    border: 1px solid var(--app-border-soft);
+    border-radius: 10px;
+    overflow: hidden;
+    font-size: 13px;
+  }
+  .bom-table th, .bom-table td {
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--app-border-soft);
+  }
+  .bom-table thead th {
+    background: var(--app-surface-2);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--app-text-muted);
+  }
+  .bom-table tbody tr:last-child td { border-bottom: none; }
+  .bom-table tbody tr:hover td { background: var(--app-accent-soft); }
+  .bom-table .num {
+    font-family: 'Fira Code', monospace;
+    font-weight: 700;
+    color: var(--app-text);
+    text-align: right;
+  }
+  .bom-table .src {
+    font-size: 11px;
+    color: var(--app-text-muted);
+  }
+  .bom-table .price {
+    color: var(--app-accent);
+    font-family: 'Fira Code', monospace;
+    font-weight: 700;
+  }
+
+  /* ============= Sample 7: Simulator banner + action list ============= */
+  .warn-banner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    background: oklch(0.65 0.16 18 / 0.10);
+    border: 1.5px solid oklch(0.65 0.16 18 / 0.50);
+    border-radius: 10px;
+    margin-bottom: 20px;
+  }
+  .warn-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: oklch(0.65 0.16 18 / 0.20);
+    color: var(--app-market);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .warn-body { flex: 1; }
+  .warn-title {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    color: var(--app-text);
+    margin: 0 0 2px;
+    font-size: 14px;
+  }
+  .warn-hint {
+    font-size: 12px;
+    color: var(--app-text-muted);
+    margin: 0;
+  }
+  .warn-cta {
+    background: var(--app-market);
+    color: oklch(0.18 0.02 60);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .action-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 14px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-border-soft);
+    border-radius: 10px;
+  }
+  .action-tag {
+    font-family: 'Fira Code', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: var(--app-craft-dim);
+    color: var(--app-craft);
+    border: 1px solid var(--app-craft);
+  }
+  .action-tag.gather {
+    background: var(--app-gather-dim);
+    color: var(--app-gather);
+    border-color: var(--app-gather);
+  }
+  .action-tag.highlight {
+    background: var(--app-highlight-dim);
+    color: var(--app-highlight);
+    border-color: var(--app-highlight);
+  }
+
+  /* ============= Sample 8: Empty state + Changelog entry ============= */
+  .empty-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 48px 32px;
+    background-image: var(--paper-noise);
+    background-size: var(--paper-noise-size);
+    border: 1px dashed var(--app-border);
+    border-radius: 12px;
+  }
+  .empty-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--app-accent-glow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    margin-bottom: 16px;
+  }
+  .empty-flavor {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 15px;
+    color: var(--quote-flavor);
+    margin: 0 0 6px;
+  }
+  .empty-title {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--app-text);
+    margin: 0 0 6px;
+  }
+  .empty-desc {
+    font-size: 13px;
+    color: var(--app-text-muted);
+    margin: 0 0 18px;
+    max-width: 320px;
+    line-height: 1.6;
+  }
+
+  .changelog-entry {
+    background: var(--app-surface);
+    border: 1px solid var(--app-border-soft);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-top: 18px;
+  }
+  .changelog-version {
+    font-family: 'Fira Code', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--app-accent);
+    margin: 0 0 4px;
+    letter-spacing: 1px;
+  }
+  .changelog-title {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--app-text);
+    margin: 0 0 12px;
+  }
+  .changelog-cat {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--app-accent-soft);
+    color: var(--app-accent);
+    margin-right: 6px;
+  }
+  .changelog-list {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 13px;
+    color: var(--app-text-muted);
+    line-height: 1.7;
+  }
+
+  /* Two-up for sample 8 */
+  .two-up {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+</style>
+</head>
+
+<body class="theme-b">
+
+<!-- ========== Sticky switcher ========== -->
+<div class="switcher">
+  <span class="switcher-label">吐司工坊 · Dark Mode</span>
+  <div class="switcher-tabs">
+    <button class="tab-btn" data-theme="theme-a">A 打烊時刻</button>
+    <button class="tab-btn active" data-theme="theme-b">B 深夜後台 + A sidebar</button>
+    <button class="tab-btn" data-theme="theme-c">C 烤爐口</button>
+  </div>
+  <span class="switcher-scene" id="scene-line">凌晨 2 點 + sidebar 換成 A 的暖棕（主體仍是 B 的中性暖灰）</span>
+</div>
+
+<!-- ========== Page header ========== -->
+<header class="page-header">
+  <p class="page-eyebrow">— Dark Mode Live Demo —</p>
+  <h1 class="wordmark">吐司工坊</h1>
+  <p class="wordmark-sub">FFXIV 製作助手</p>
+  <p class="page-quote" id="hero-quote">"當烤箱熄火，配方還在涼架上等你。"</p>
+</header>
+
+<!-- ========== Sample 1: App shell + dashboard hero ========== -->
+<section>
+  <p class="section-eyebrow">— Sample 1 —</p>
+  <h2 class="section-title">Dashboard 主畫面</h2>
+
+  <div class="shell">
+    <aside class="sidebar">
+        <p class="sidebar-logo">吐司工坊</p>
+        <p class="sidebar-sub">FFXIV 製作助手</p>
+        <div class="nav-item">
+        <span class="nav-icon">🏠</span> 首頁
+        </div>
+        <div class="nav-item">
+        <span class="nav-icon">⚒️</span> 配裝管理
+        </div>
+        <div class="nav-item active">
+        <span class="nav-icon">📋</span> 批量製作
+        </div>
+        <div class="nav-item">
+        <span class="nav-icon">🧪</span> 製作模擬
+        </div>
+        <div class="nav-item">
+        <span class="nav-icon">🛒</span> 購物清單
+        </div>
+        <div class="nav-item">
+        <span class="nav-icon">💰</span> 市場
+        </div>
+        <div class="nav-item">
+        <span class="nav-icon">🌿</span> 採集
+        </div>
+        </aside>
+
+    <main class="main-pane">
+      <p class="greeting" id="main-greeting">今天想烤點什麼？</p>
+      <h2 class="main-title">首頁</h2>
+
+      <div class="hero">
+        <p class="hero-eyebrow">今日主菜</p>
+        <h3 class="hero-title">批量製作</h3>
+        <ul class="hero-bullets">
+          <li>一次規劃多份配方，自動配權與排序</li>
+          <li>跨伺服器市場比價，自製 vs 採購一目了然</li>
+          <li>料理／藥水推薦，OCR 從遊戲截圖匯入</li>
+        </ul>
+        <div class="button-row">
+          <button class="btn btn-primary">開始規劃 →</button>
+          <button class="btn btn-ghost">查看上次結果</button>
+        </div>
+      </div>
+
+      <div class="recipe-grid">
+        <div class="recipe-card">
+          <span class="recipe-job">CRP · LV 100</span>
+          <p class="recipe-name">禁書庫的橡木書架</p>
+          <div class="recipe-meta">
+            <span>需求 <span class="num">×4</span></span>
+            <span>材料 <span class="num">12 種</span></span>
+          </div>
+        </div>
+        <div class="recipe-card">
+          <span class="recipe-job">BSM · LV 100</span>
+          <p class="recipe-name">星屑合金製單手劍</p>
+          <div class="recipe-meta">
+            <span>需求 <span class="num">×2</span></span>
+            <span>材料 <span class="num">8 種</span></span>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</section>
+
+<!-- ========== Sample 2: Status + progress + pills ========== -->
+<section>
+  <p class="section-eyebrow">— Sample 2 —</p>
+  <h2 class="section-title">Simulator 進度條 + 果醬罐標籤</h2>
+
+  <div class="status-row">
+    <div class="status">
+      <p class="status-label">作業進度</p>
+      <p class="status-value">5,184 / 7,200</p>
+      <div class="progress craft"><div class="progress-bar"></div></div>
+    </div>
+    <div class="status">
+      <p class="status-label">市場參考價</p>
+      <p class="status-value">42,800 G</p>
+      <div class="progress market"><div class="progress-bar"></div></div>
+    </div>
+    <div class="status">
+      <p class="status-label">採集冷卻</p>
+      <p class="status-value">07 : 32</p>
+      <div class="progress gather"><div class="progress-bar"></div></div>
+    </div>
+  </div>
+
+  <div class="pill-row">
+    <span class="pill toast">吐司金 · Primary</span>
+    <span class="pill craft">可可 · 製作</span>
+    <span class="pill market">草莓醬 · 市場</span>
+    <span class="pill gather">抹茶 · 採集</span>
+    <span class="pill highlight">藍莓 · 提示</span>
+  </div>
+</section>
+
+<!-- ========== Sample 3: Settings + author profile ========== -->
+<section>
+  <p class="section-eyebrow">— Sample 3 —</p>
+  <h2 class="section-title">Settings · 關於 / 偏好</h2>
+
+  <div class="author-profile">
+    <div class="author-avatar-wrapper">🍞</div>
+    <div class="author-info">
+      <p class="author-name">Andy Liu</p>
+      <p class="author-project">吐司工坊 · FFXIV 製作助手</p>
+      <div class="author-links">
+        <button class="author-link">原始碼</button>
+        <button class="author-link">回報問題</button>
+        <button class="author-link">Buy me a coffee</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-list">
+    <div class="settings-row">
+      <div>
+        <p class="settings-row-label">外觀主題</p>
+        <p class="settings-row-hint">Auto 跟隨系統，Light 為預設品牌</p>
+      </div>
+      <div class="settings-control">
+        <button>Auto</button>
+        <button class="active">Dark</button>
+        <button>Light</button>
+      </div>
+    </div>
+    <div class="settings-row">
+      <div>
+        <p class="settings-row-label">伺服器</p>
+        <p class="settings-row-hint">影響市場比價的預設世界</p>
+      </div>
+      <div class="settings-control">
+        <button class="active">Tonberry</button>
+      </div>
+    </div>
+    <div class="settings-row">
+      <div>
+        <p class="settings-row-label">介面語言</p>
+        <p class="settings-row-hint">recipe 名稱可獨立切換</p>
+      </div>
+      <div class="settings-control">
+        <button class="active">繁體中文</button>
+        <button>简体</button>
+        <button>EN</button>
+        <button>JP</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== Sample 4: Batch list (column-first multi-card) ========== -->
+<section>
+  <p class="section-eyebrow">— Sample 4 —</p>
+  <h2 class="section-title">批量製作 · 多配方規劃</h2>
+
+  <div class="batch-list">
+    <div class="batch-card">
+      <div class="batch-card-head">
+        <span class="batch-card-job">CRP · LV 100</span>
+        <span class="batch-card-qty">×4</span>
+      </div>
+      <p class="batch-card-name">禁書庫的橡木書架</p>
+      <p class="batch-card-mats">橡木材 ×8 · 鐵釘 ×16 · 蜜蠟 ×4 · 亞麻布 ×2</p>
+    </div>
+    <div class="batch-card">
+      <div class="batch-card-head">
+        <span class="batch-card-job">BSM · LV 100</span>
+        <span class="batch-card-qty">×2</span>
+      </div>
+      <p class="batch-card-name">星屑合金製單手劍</p>
+      <p class="batch-card-mats">星屑合金錠 ×6 · 鎢鋼線 ×4 · 皮革包柄 ×2</p>
+    </div>
+    <div class="batch-card">
+      <div class="batch-card-head">
+        <span class="batch-card-job">ALC · LV 100</span>
+        <span class="batch-card-qty">×8</span>
+      </div>
+      <p class="batch-card-name">高等強心藥水</p>
+      <p class="batch-card-mats">月桂草 ×16 · 龍血石 ×8 · 礦泉水 ×8</p>
+    </div>
+    <div class="batch-card">
+      <div class="batch-card-head">
+        <span class="batch-card-job">CUL · LV 100</span>
+        <span class="batch-card-qty">×6</span>
+      </div>
+      <p class="batch-card-name">皇家奶油酥</p>
+      <p class="batch-card-mats">奶油 ×6 · 巴拉米爾蜂蜜 ×3 · 杏仁粉 ×6 · 全麥麵粉 ×6</p>
+    </div>
+    <div class="batch-card">
+      <div class="batch-card-head">
+        <span class="batch-card-job">WVR · LV 100</span>
+        <span class="batch-card-qty">×3</span>
+      </div>
+      <p class="batch-card-name">月光絲綢長袍</p>
+      <p class="batch-card-mats">月光絲綢 ×9 · 銀線 ×6 · 染料 ×3</p>
+    </div>
+    <div class="batch-card">
+      <div class="batch-card-head">
+        <span class="batch-card-job">LTW · LV 100</span>
+        <span class="batch-card-qty">×2</span>
+      </div>
+      <p class="batch-card-name">亞拉戈巨龍皮靴</p>
+      <p class="batch-card-mats">亞拉戈龍皮 ×4 · 鞣製油 ×2 · 鋼釘 ×8</p>
+    </div>
+  </div>
+</section>
+
+<!-- ========== Sample 5: BOM target table ========== -->
+<section>
+  <p class="section-eyebrow">— Sample 5 —</p>
+  <h2 class="section-title">材料清單 · BOM target list</h2>
+
+  <table class="bom-table">
+    <thead>
+      <tr>
+        <th>材料</th>
+        <th>等級</th>
+        <th class="num">數量</th>
+        <th>來源</th>
+        <th class="num">參考價</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>橡木材</td>
+        <td>LV 90</td>
+        <td class="num">32</td>
+        <td class="src">採集 · 薩維奈島</td>
+        <td class="num price">2,400 G</td>
+      </tr>
+      <tr>
+        <td>星屑合金錠</td>
+        <td>LV 100</td>
+        <td class="num">12</td>
+        <td class="src">製作 · BSM</td>
+        <td class="num price">18,200 G</td>
+      </tr>
+      <tr>
+        <td>月桂草</td>
+        <td>LV 85</td>
+        <td class="num">128</td>
+        <td class="src">採集 · 雷克隆德</td>
+        <td class="num price">580 G</td>
+      </tr>
+      <tr>
+        <td>巴拉米爾蜂蜜</td>
+        <td>LV 90</td>
+        <td class="num">18</td>
+        <td class="src">採集 · 烏爾達哈周邊</td>
+        <td class="num price">1,140 G</td>
+      </tr>
+      <tr>
+        <td>月光絲綢</td>
+        <td>LV 100</td>
+        <td class="num">27</td>
+        <td class="src">市場購買</td>
+        <td class="num price">12,800 G</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ========== Sample 6: Simulator banner + action list ========== -->
+<section>
+  <p class="section-eyebrow">— Sample 6 —</p>
+  <h2 class="section-title">製作模擬 · 警示 banner + action list</h2>
+
+  <div class="warn-banner">
+    <div class="warn-icon">⚠</div>
+    <div class="warn-body">
+      <p class="warn-title">尚未設定 CRP 配裝</p>
+      <p class="warn-hint">設定後才能正確計算製作可行性與最佳手法</p>
+    </div>
+    <button class="warn-cta">前往設定 →</button>
+  </div>
+
+  <div class="action-list">
+    <span class="action-tag">確信加工</span>
+    <span class="action-tag">中級加工</span>
+    <span class="action-tag">高速加工</span>
+    <span class="action-tag highlight">內部專注</span>
+    <span class="action-tag">中級加工</span>
+    <span class="action-tag">中級加工</span>
+    <span class="action-tag gather">秘訣</span>
+    <span class="action-tag">確信加工</span>
+    <span class="action-tag">確信作業</span>
+    <span class="action-tag">確信作業</span>
+    <span class="action-tag highlight">最終確認</span>
+  </div>
+</section>
+
+<!-- ========== Sample 7: Empty state + Changelog ========== -->
+<section>
+  <p class="section-eyebrow">— Sample 7 —</p>
+  <h2 class="section-title">Empty state + Changelog</h2>
+
+  <div class="two-up">
+    <div class="empty-card">
+      <div class="empty-icon">🛒</div>
+      <p class="empty-flavor">"還沒擺上麵包的木盤。"</p>
+      <p class="empty-title">購物清單是空的</p>
+      <p class="empty-desc">先到批量製作頁面規劃幾份配方，購物清單會自動生成。</p>
+      <button class="btn btn-primary">前往批量製作 →</button>
+    </div>
+    <div class="changelog-entry">
+      <p class="changelog-version">v2.3.0 · 2026-04-26</p>
+      <p class="changelog-title">吐司工坊 Rebrand</p>
+      <ul class="changelog-list">
+        <li><span class="changelog-cat">Rebrand</span>主品牌正式更名為「吐司工坊」</li>
+        <li><span class="changelog-cat">Theme</span>切換為亮色設計，奶油白主背景 + 多色烘焙語意</li>
+        <li><span class="changelog-cat">UX</span>批量製作提升為主打功能，dashboard 重新編排</li>
+        <li><span class="changelog-cat">Atmosphere</span>新增引言、紙感、author profile</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ========== Sample 8: Tokens reference ========== -->
+<section>
+  <p class="section-eyebrow">— Sample 8 —</p>
+  <h2 class="section-title">Color tokens</h2>
+
+  <div class="tokens" id="tokens">
+    <!-- populated by JS -->
+  </div>
+</section>
+
+<!-- ========== Footnote ========== -->
+<footer class="footnote">
+  <p class="quote" id="footer-quote">"打烊不熄燈，明早接著烤。"</p>
+  <p>三個方向各對應一個 physical scene。挑一個，後續才上 Element Plus override。</p>
+</footer>
+
+<script>
+  const SCENES = {
+    'theme-a': {
+      scene: '傍晚 7 點，烤箱餘溫，麵包在涼架上',
+      quote: '"當烤箱熄火，配方還在涼架上等你。"',
+      footer: '"打烊不熄燈，明早接著烤。"',
+      greeting: '今天想烤點什麼？',
+    },
+    'theme-b': {
+      scene: '凌晨 2 點 + sidebar 換成 A 的暖棕（主體仍是 B 的中性暖灰）',
+      quote: '"夜深了，但 macro 還沒寫完。"',
+      footer: '"安靜地把明天的活備好。"',
+      greeting: '深夜了，要繼續嗎？',
+    },
+    'theme-c': {
+      scene: '站在烤箱前，餘燼還紅，暖光打在臉上',
+      quote: '"火還沒滅，再烤一爐。"',
+      footer: '"看著爐裡的火，心裡的配方就成形了。"',
+      greeting: '爐火正旺，今晚烤什麼？',
+    },
+  };
+
+  const TOKEN_KEYS = [
+    '--app-bg', '--app-sidebar', '--app-surface', '--app-surface-2',
+    '--app-border', '--app-text', '--app-text-muted',
+    '--app-accent', '--app-craft', '--app-market', '--app-gather', '--app-highlight',
+  ];
+
+  function paintTokens() {
+    const styles = getComputedStyle(document.body);
+    const lines = TOKEN_KEYS.map(k => {
+      const v = styles.getPropertyValue(k).trim();
+      return `<div><span class="sw" style="background:${v}"></span><span class="key">${k}</span> : <span class="val">${v}</span></div>`;
+    });
+    document.getElementById('tokens').innerHTML = lines.join('');
+  }
+
+  function applyTheme(name) {
+    document.body.className = name;
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.theme === name);
+    });
+    const s = SCENES[name];
+    document.getElementById('scene-line').textContent = s.scene;
+    document.getElementById('hero-quote').textContent = s.quote;
+    document.getElementById('footer-quote').textContent = s.footer;
+    document.getElementById('main-greeting').textContent = s.greeting;
+    requestAnimationFrame(paintTokens);
+  }
+
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => applyTheme(btn.dataset.theme));
+  });
+
+  paintTokens();
+</script>
+
+</body>
+</html>

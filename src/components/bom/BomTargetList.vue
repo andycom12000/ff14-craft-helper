@@ -60,19 +60,19 @@ function handleClearAll() {
           <img :src="row.icon" :alt="row.name" crossorigin="anonymous" loading="lazy" decoding="async" style="width: 28px; height: 28px" />
         </template>
       </el-table-column>
-      <el-table-column label="品項名稱">
+      <el-table-column label="品項名稱" min-width="180" show-overflow-tooltip>
         <template #default="{ row }">
           <ItemName :item-id="row.itemId" :fallback="row.name" />
         </template>
       </el-table-column>
-      <el-table-column label="數量" width="180" align="center">
+      <el-table-column label="數量" width="140" align="center">
         <template #default="{ row }">
           <el-input-number
             :model-value="row.quantity"
             :min="1"
             :max="999"
             size="small"
-            controls-position="right"
+            class="target-qty"
             @change="(val: number | undefined) => handleQuantityChange(row.recipeId, val)"
           />
         </template>
@@ -158,6 +158,12 @@ function handleClearAll() {
   border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 1px 2px oklch(0.40 0.05 60 / 0.04);
+}
+
+/* Quantity input fills its column — desktop el-input-number defaults to ~150px
+ * which forces the column wider than declared and triggers horizontal scroll. */
+.target-qty {
+  width: 100% !important;
 }
 
 .calculate-row {
@@ -268,13 +274,12 @@ function handleClearAll() {
   color: var(--el-color-danger);
 }
 
-/* Default: table visible, mobile list hidden */
+/* Default: table visible, mobile list hidden. EP's el-table is a div tree,
+ * not a real <table>, so display:table / table-layout:fixed on the wrapper
+ * are inert. Width is governed by EP's column-flex calculation — pinning
+ * width on every column + min-width on the flex one keeps it inside container. */
 .targets-table {
-  display: table;
-  /* Fixed layout so the flex column actually shrinks to fit container —
-   * auto layout was letting the name column demand an 800px+ natural width
-   * and forcing a horizontal scroll inside the card at 1200–1400px widths. */
-  table-layout: fixed;
+  width: 100%;
 }
 .targets-mobile-list {
   display: none;
@@ -314,5 +319,14 @@ function handleClearAll() {
   .calculate-row {
     margin-top: 14px;
   }
+}
+</style>
+
+<!-- Dark mode: hard-coded cream header / faint gold hover wash out on dark.
+     Unscoped because [data-theme="dark"] sits on <html>, outside scope. -->
+<style>
+[data-theme="dark"] .targets-table {
+  --el-table-header-bg-color: var(--app-surface-2);
+  --el-table-row-hover-bg-color: var(--app-accent-soft);
 }
 </style>

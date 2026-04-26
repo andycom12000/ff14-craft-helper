@@ -244,6 +244,10 @@ watch(
   () => { refreshPrices() },
 )
 
+// Sync trackedNodeStates the moment add/remove fires, instead of waiting for
+// the next 1s tick — otherwise the card lingers until the interval catches up.
+watch(() => store.trackedItems.length, () => { tick() })
+
 onUnmounted(() => {
   if (tickInterval) clearInterval(tickInterval)
   if (priceInterval) clearInterval(priceInterval)

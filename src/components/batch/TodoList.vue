@@ -247,13 +247,16 @@ function requestNewBatch() {
             <el-tag size="small" type="primary">{{ getJobName(item.recipe.job) }}</el-tag>
             <span v-if="item.isSemiFinished" class="todo-badge">半成品</span>
           </div>
-          <div v-if="item.hqAmounts.some(a => a > 0)" class="todo-hq-hint">
-            <el-tag size="small" type="warning">HQ</el-tag>
-            <template v-for="(ing, ii) in item.recipe.ingredients" :key="ii">
-              <span v-if="item.hqAmounts[ii] > 0" class="hq-ingredient">
-                <ItemName :item-id="ing.itemId" :fallback="ing.name" /> x{{ item.hqAmounts[ii] }}
-              </span>
+          <div class="todo-hq-hint">
+            <template v-if="item.hqAmounts.some(a => a > 0)">
+              <el-tag size="small" type="warning">HQ</el-tag>
+              <template v-for="(ing, ii) in item.recipe.ingredients" :key="ii">
+                <span v-if="item.hqAmounts[ii] > 0" class="hq-ingredient">
+                  <ItemName :item-id="ing.itemId" :fallback="ing.name" /> x{{ item.hqAmounts[ii] }}
+                </span>
+              </template>
             </template>
+            <span v-else class="todo-hq-hint__none">全 NQ 即可</span>
           </div>
         </div>
         <div class="todo-actions">
@@ -581,10 +584,21 @@ function requestNewBatch() {
 .todo-hq-hint {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   font-size: 12px;
   color: var(--el-color-warning);
   margin-top: 2px;
+  min-height: 22px;
+}
+
+/* "全 NQ 即可" — same row reserved, but the empty state earns its place by
+ * confirming that no HQ prep is needed (signal, not deadspace). */
+.todo-hq-hint__none {
+  font-size: 11px;
+  font-style: italic;
+  color: var(--el-text-color-placeholder);
+  letter-spacing: 0.2px;
 }
 
 .hq-ingredient + .hq-ingredient::before {
@@ -704,5 +718,25 @@ function requestNewBatch() {
   .todo-item {
     break-inside: avoid;
   }
+}
+</style>
+
+<!-- Dark mode overrides for the todo paper-card; same shape as BatchRecipeCard
+     but on a separate class. Unscoped because [data-theme="dark"] sits on
+     <html>, outside the component's scope. -->
+<style>
+[data-theme="dark"] .todo-item {
+  background: linear-gradient(135deg, oklch(0.24 0.012 60) 0%, oklch(0.20 0.008 60) 100%);
+  border-color: var(--app-border);
+  box-shadow:
+    inset 0 1px 0 oklch(0.50 0.04 60 / 0.20),
+    0 2px 6px oklch(0.05 0.02 60 / 0.40);
+}
+[data-theme="dark"] .todo-item:hover {
+  background: linear-gradient(135deg, oklch(0.27 0.014 60) 0%, oklch(0.23 0.010 60) 100%);
+  border-color: var(--app-accent);
+  box-shadow:
+    inset 0 1px 0 oklch(0.50 0.04 60 / 0.24),
+    0 6px 16px oklch(0.05 0.02 60 / 0.50);
 }
 </style>

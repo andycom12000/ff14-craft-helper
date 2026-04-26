@@ -1232,3 +1232,64 @@ function formatDateDots(iso: string) {
   }
 }
 </style>
+
+<!-- Dark mode token swap. Light theme drives an "Eorzean Codex on parchment"
+     metaphor; the same tokens read as a glowing cream stripe on dark surfaces.
+     Rebuild the palette around the dark warm-grey surface: cream → warm text,
+     parchment-cream gradient → flat surface lift, white inset → low-alpha
+     warm tint. Typography and layout stay untouched; only the pigment swaps. -->
+<style>
+[data-theme="dark"] .changelog-view {
+  /* Body text on dark surface — bright warm cream stack */
+  --parch-50: oklch(0.94 0.010 80);
+  --parch-100: oklch(0.86 0.012 78);
+  --ink-900: oklch(0.18 0.020 55);
+  --fg-muted: oklch(0.68 0.012 70);
+  --fg-faint: oklch(0.50 0.010 65);
+
+  /* Toast gold lifted for dark, chroma trimmed to avoid retina burn */
+  --gold: oklch(0.74 0.13 68);
+  --gold-soft: oklch(0.74 0.13 68 / 0.16);
+  --gold-line: oklch(0.74 0.13 68 / 0.36);
+
+  /* Lapis (minor-version accent) — same hue, lifted */
+  --lapis: oklch(0.72 0.10 50);
+
+  /* Lines — warm tint, alpha-on-dark needs higher % to read */
+  --line: oklch(0.50 0.010 60 / 0.34);
+  --line-strong: oklch(0.55 0.012 60 / 0.50);
+
+  /* Neutral tag — subtle warm wash + matching border */
+  --neutral-tag-bg: oklch(0.55 0.012 60 / 0.10);
+  --neutral-tag-border: oklch(0.50 0.012 60 / 0.34);
+}
+
+/* Panel background: drop the parchment gradient, use flat surface with a hair
+ * of vertical fade (0.24 → 0.21) so the panel still has gentle depth without
+ * looking like a screen burn. */
+[data-theme="dark"] .changelog-view .panel {
+  background: linear-gradient(180deg, oklch(0.24 0.010 60), oklch(0.21 0.008 60));
+  box-shadow:
+    inset 0 1px 0 oklch(0.55 0.030 60 / 0.20),
+    0 4px 18px oklch(0.05 0.02 60 / 0.45);
+}
+
+/* Patch panels (older / collapsed entries) — drop a step lower so the eye
+ * reads them as background relative to the active major patch. */
+[data-theme="dark"] .changelog-view .panel--patch {
+  background: linear-gradient(180deg, oklch(0.21 0.008 60), oklch(0.19 0.008 60));
+}
+
+/* Hover wash on collapsed patch summary — light hardcode wash needs to
+ * re-tune for dark, otherwise hover is invisible. */
+[data-theme="dark"] .changelog-view .patch-summary:hover {
+  background: oklch(0.95 0.04 75 / 0.04);
+}
+
+/* Patch panel hl-cat tag — light hardcode (oklch 0.40 ... /.04) gets eaten
+ * by the dark surface; bump to a visible warm tint. */
+[data-theme="dark"] .changelog-view .panel--patch .hl-cat {
+  background: oklch(0.55 0.012 60 / 0.10);
+  border-color: var(--line-strong);
+}
+</style>
