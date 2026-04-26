@@ -366,11 +366,10 @@ function requestNewBatch() {
 
 .todo-grid {
   /* Column-first ordering — fills col 1 top-down (1,2,3,4) then col 2
-   * (5,6,7,8). CSS multi-column preserves the linear sequence users
-   * read for the craft order. max-width caps card width on wide. */
+   * (5,6,7,8). Columns split the parent's full width — no max-width,
+   * so we don't leave a phantom empty column to the right. */
   column-count: 1;
   column-gap: 8px;
-  max-width: 840px;
 }
 
 @media (min-width: 900px) {

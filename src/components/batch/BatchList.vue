@@ -155,10 +155,10 @@ function onDragEnd() {
 
 .recipe-card-list {
   /* Column-first ordering — fills col 1 top-down (1,2,3,4) then col 2
-   * (5,6,7,8). Same layout vocabulary as TodoList. */
+   * (5,6,7,8). No max-width: columns split the parent's full width
+   * (prepare-main on wide layouts, batch-view otherwise). */
   column-count: 1;
   column-gap: 8px;
-  max-width: 840px;
 }
 
 @media (min-width: 900px) {
