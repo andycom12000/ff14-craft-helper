@@ -188,3 +188,23 @@ const emit = defineEmits<{
   }
 }
 </style>
+
+<!-- Dark mode overrides — paper-card cream + white inset highlight don't
+     translate; replace with cool gradient + subtle warm inset. Unscoped
+     because [data-theme="dark"] lives on <html>, outside scope. -->
+<style>
+[data-theme="dark"] .recipe-card {
+  background: linear-gradient(135deg, oklch(0.24 0.012 60) 0%, oklch(0.20 0.008 60) 100%);
+  border-color: var(--app-border);
+  box-shadow:
+    inset 0 1px 0 oklch(0.50 0.04 60 / 0.20),
+    0 2px 6px oklch(0.05 0.02 60 / 0.40);
+}
+[data-theme="dark"] .recipe-card:hover {
+  background: linear-gradient(135deg, oklch(0.27 0.014 60) 0%, oklch(0.23 0.010 60) 100%);
+  border-color: var(--app-accent);
+  box-shadow:
+    inset 0 1px 0 oklch(0.50 0.04 60 / 0.24),
+    0 6px 16px oklch(0.05 0.02 60 / 0.50);
+}
+</style>

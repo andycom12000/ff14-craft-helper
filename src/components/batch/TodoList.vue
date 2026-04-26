@@ -706,3 +706,23 @@ function requestNewBatch() {
   }
 }
 </style>
+
+<!-- Dark mode overrides for the todo paper-card; same shape as BatchRecipeCard
+     but on a separate class. Unscoped because [data-theme="dark"] sits on
+     <html>, outside the component's scope. -->
+<style>
+[data-theme="dark"] .todo-item {
+  background: linear-gradient(135deg, oklch(0.24 0.012 60) 0%, oklch(0.20 0.008 60) 100%);
+  border-color: var(--app-border);
+  box-shadow:
+    inset 0 1px 0 oklch(0.50 0.04 60 / 0.20),
+    0 2px 6px oklch(0.05 0.02 60 / 0.40);
+}
+[data-theme="dark"] .todo-item:hover {
+  background: linear-gradient(135deg, oklch(0.27 0.014 60) 0%, oklch(0.23 0.010 60) 100%);
+  border-color: var(--app-accent);
+  box-shadow:
+    inset 0 1px 0 oklch(0.50 0.04 60 / 0.24),
+    0 6px 16px oklch(0.05 0.02 60 / 0.50);
+}
+</style>

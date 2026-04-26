@@ -408,6 +408,33 @@ onUnmounted(() => {
   --el-color-error: oklch(0.68 0.18 25);
   --el-color-info: oklch(0.70 0.04 65);
 
+  /* Semantic light-N variants — EP doesn't auto-derive from the base; in
+   * dark we invert so light-9 is the deepest tint (closest to bg) and
+   * light-3 the boldest. Used by alert / tag / bg fills. */
+  --el-color-success-light-3: oklch(0.55 0.14 145);
+  --el-color-success-light-5: oklch(0.42 0.10 145);
+  --el-color-success-light-7: oklch(0.32 0.07 145);
+  --el-color-success-light-8: oklch(0.26 0.05 145);
+  --el-color-success-light-9: oklch(0.22 0.04 145);
+
+  --el-color-warning-light-3: oklch(0.60 0.14 50);
+  --el-color-warning-light-5: oklch(0.45 0.10 50);
+  --el-color-warning-light-7: oklch(0.34 0.07 50);
+  --el-color-warning-light-8: oklch(0.27 0.05 50);
+  --el-color-warning-light-9: oklch(0.22 0.04 50);
+
+  --el-color-danger-light-3: oklch(0.55 0.16 25);
+  --el-color-danger-light-5: oklch(0.42 0.12 25);
+  --el-color-danger-light-7: oklch(0.32 0.08 25);
+  --el-color-danger-light-8: oklch(0.26 0.06 25);
+  --el-color-danger-light-9: oklch(0.22 0.04 25);
+
+  --el-color-info-light-3: oklch(0.55 0.04 65);
+  --el-color-info-light-5: oklch(0.42 0.03 65);
+  --el-color-info-light-7: oklch(0.32 0.02 65);
+  --el-color-info-light-8: oklch(0.26 0.012 65);
+  --el-color-info-light-9: oklch(0.22 0.008 65);
+
   /* Fill hierarchy — dark 反向：blank=最亮 surface，darker=最深 */
   --el-fill-color-blank: oklch(0.26 0.012 60);
   --el-fill-color-lighter: oklch(0.24 0.010 60);
