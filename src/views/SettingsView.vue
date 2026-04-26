@@ -548,18 +548,6 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   border: 1px solid var(--app-border);
   overflow: hidden;
   box-shadow: 0 2px 8px oklch(0.40 0.05 60 / 0.10);
-  transition:
-    box-shadow 0.2s var(--ease-out-quart, ease),
-    border-color 0.2s var(--ease-out-quart, ease),
-    transform 0.2s var(--ease-out-quart, ease);
-}
-
-.about-avatar-link:hover .about-avatar-frame {
-  transform: translateY(-1px);
-  border-color: oklch(0.62 0.12 65 / 0.55);
-  box-shadow:
-    0 4px 14px oklch(0.40 0.05 60 / 0.16),
-    0 0 0 3px oklch(0.62 0.12 65 / 0.10);
 }
 
 .about-avatar-link:focus-visible {
@@ -575,6 +563,24 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   background: transparent;
   /* Drop the GIF's white backdrop by multiplying against the page bg */
   mix-blend-mode: multiply;
+  transition:
+    transform 0.25s var(--ease-out-quart, ease),
+    filter 0.25s var(--ease-out-quart, ease);
+}
+
+/* Hover linkage — avatar and author name light up together (A + E):
+ * (A) avatar scales 1.06 + saturate 1.2
+ * (E) author-name link picks up muted gold underline
+ * Triggered by hovering EITHER the avatar OR the author name. */
+.about-avatar-link:hover .about-avatar,
+.about-profile:has(.about-author a:hover) .about-avatar {
+  transform: scale(1.06);
+  filter: saturate(1.2);
+}
+
+.about-avatar-link:hover ~ .about-body .about-author a {
+  color: oklch(0.62 0.12 65);
+  border-bottom-color: oklch(0.62 0.12 65);
 }
 
 .about-body {
