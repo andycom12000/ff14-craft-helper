@@ -115,13 +115,13 @@ onUnmounted(() => {
           <el-icon><Suitcase /></el-icon>
           <span>配裝管理</span>
         </el-menu-item>
-        <el-menu-item index="/simulator">
-          <el-icon><Cpu /></el-icon>
-          <span>製作模擬</span>
-        </el-menu-item>
         <el-menu-item index="/batch">
           <el-icon><Operation /></el-icon>
           <span>批量製作</span>
+        </el-menu-item>
+        <el-menu-item index="/simulator">
+          <el-icon><Cpu /></el-icon>
+          <span>製作模擬</span>
         </el-menu-item>
         <el-menu-item index="/bom">
           <el-icon><List /></el-icon>
