@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useSettingsStore } from '@/stores/settings'
 import { useLocaleStore } from '@/stores/locale'
 import { getDataCenters, getWorlds } from '@/api/universalis'
@@ -7,6 +8,12 @@ import type { DataCenter, World } from '@/api/universalis'
 import type { Locale } from '@/services/local-data-source.types'
 
 const emit = defineEmits<{ done: [] }>()
+const router = useRouter()
+
+const JOB_ICONS: Array<[string, string]> = [
+  ['CRP', '🪓'], ['BSM', '⚒️'], ['ARM', '🛡️'], ['GSM', '💍'],
+  ['LTW', '🧶'], ['WVR', '🪡'], ['ALC', '⚗️'], ['CUL', '🍳'],
+]
 
 interface LanguageOption {
   locale: Locale
@@ -24,7 +31,8 @@ const LANGUAGE_OPTIONS: LanguageOption[] = [
 const settingsStore = useSettingsStore()
 const localeStore = useLocaleStore()
 
-const step = ref<1 | 2>(1)
+const step = ref<1 | 2 | 3>(1)
+const TOTAL_STEPS = 3
 const selectedLocale = ref<Locale>(localeStore.current)
 
 interface RegionGroup {
@@ -92,7 +100,8 @@ watch(selectedDC, () => {
 
 const canGoNext = computed(() => {
   if (step.value === 1) return !!selectedLocale.value
-  return !!selectedRegion.value && !!selectedDC.value && !!selectedServer.value
+  if (step.value === 2) return !!selectedRegion.value && !!selectedDC.value && !!selectedServer.value
+  return true // step 3 always advanceable (skippable)
 })
 
 async function goNext() {
@@ -102,40 +111,61 @@ async function goNext() {
     step.value = 2
     return
   }
-  settingsStore.region = selectedRegion.value
-  settingsStore.dataCenter = selectedDC.value
-  settingsStore.server = selectedServer.value
+  if (step.value === 2) {
+    settingsStore.region = selectedRegion.value
+    settingsStore.dataCenter = selectedDC.value
+    settingsStore.server = selectedServer.value
+    step.value = 3
+    return
+  }
+  // step 3 fall-through: treat as skip
+  finishOnboarding(false)
+}
+
+function finishOnboarding(navigateToGearset: boolean) {
   try {
     localStorage.setItem('onboardingComplete', '1')
   } catch {
     // ignore storage errors (private mode etc.)
   }
   emit('done')
+  if (navigateToGearset) {
+    void router.push('/gearset')
+  }
 }
 
 function goBack() {
-  if (step.value === 2) step.value = 1
+  if (step.value === 3) step.value = 2
+  else if (step.value === 2) step.value = 1
 }
 
 function pickLocale(locale: Locale) {
   selectedLocale.value = locale
 }
 
-const stepHeading = computed(() => (step.value === 1 ? '選個順手的語言' : '挑你玩的伺服器'))
-const stepSub = computed(() =>
-  step.value === 1
-    ? '之後所有道具名、技能、巨集都會照這個顯示。隨時能在左側邊欄切換。'
-    : '選好伺服器我就能幫你查市場價格。預設是繁中服的巴哈姆特，不一樣可以改。',
-)
+const stepHeading = computed(() => {
+  if (step.value === 1) return '選個順手的語言'
+  if (step.value === 2) return '挑你玩的伺服器'
+  return '設定你的職業裝備'
+})
+const stepSub = computed(() => {
+  if (step.value === 1) {
+    return '之後所有道具名、技能、巨集都會照這個顯示。隨時能在左側邊欄切換。'
+  }
+  if (step.value === 2) {
+    return '選好伺服器我就能幫你查市場價格。預設是繁中服的巴哈姆特，不一樣可以改。'
+  }
+  return '配裝數值（作業精度／加工精度／CP）會決定模擬精準度。可以略過此步驟，之後在「配裝管理」隨時補。'
+})
 </script>
 
 <template>
   <div class="welcome-setup">
     <header class="welcome-header">
-      <span class="badge">第 {{ step }} / 2 步</span>
+      <span class="badge">第 {{ step }} / {{ TOTAL_STEPS }} 步</span>
       <p class="welcome-quote">"工坊已準備好，等你開工。"</p>
       <h1>歡迎來到吐司工坊</h1>
-      <p class="lead">第一次來？花 10 秒選好語言跟伺服器，我就能幫你查配方了。</p>
+      <p class="lead">第一次來？花 30 秒設定一下，我就能幫你算配方、查市場、跑模擬。</p>
     </header>
 
     <section class="welcome-body">
@@ -158,7 +188,7 @@ const stepSub = computed(() =>
         </button>
       </div>
 
-      <div v-else class="server-step">
+      <div v-else-if="step === 2" class="server-step">
         <div v-if="loading" class="loading-note">正在載入伺服器清單…</div>
         <div v-else-if="loadError" class="error-note">
           伺服器清單載入失敗，
@@ -200,21 +230,48 @@ const stepSub = computed(() =>
           </div>
         </div>
       </div>
+
+      <div v-else class="gearset-step">
+        <div class="gearset-jobs" aria-hidden="true">
+          <span v-for="[key, icon] in JOB_ICONS" :key="key" class="gearset-job-icon">
+            {{ icon }}
+          </span>
+        </div>
+        <p class="gearset-note">
+          <strong>製作模擬、批量製作、購物清單</strong>都會用到這些數值。
+          現在可以前往「配裝管理」一次設定好，或先<strong>略過</strong>，等真的要用時再回來補。
+        </p>
+      </div>
     </section>
 
     <footer class="welcome-footer">
       <el-button
-        v-if="step === 2"
+        v-if="step > 1"
         text
         class="back-btn"
         @click="goBack"
       >返回</el-button>
+
+      <template v-if="step === 3">
+        <el-button
+          text
+          class="skip-btn"
+          @click="finishOnboarding(false)"
+        >之後再設定</el-button>
+        <el-button
+          type="primary"
+          size="large"
+          @click="finishOnboarding(true)"
+        >前往設定</el-button>
+      </template>
+
       <el-button
+        v-else
         type="primary"
         size="large"
         :disabled="!canGoNext"
         @click="goNext"
-      >{{ step === 1 ? '下一步' : '開始使用' }}</el-button>
+      >下一步</el-button>
     </footer>
   </div>
 </template>
@@ -341,6 +398,49 @@ const stepSub = computed(() =>
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* Step 3 — gearset prompt */
+.gearset-step {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.gearset-jobs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  padding: 8px 0;
+}
+
+.gearset-job-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  background: var(--app-accent-glow);
+  border: 1px solid oklch(0.62 0.12 65 / 0.25);
+}
+
+.gearset-note {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--app-text-muted);
+}
+
+.gearset-note strong {
+  color: var(--app-text);
+  font-weight: 600;
+}
+
+.skip-btn {
+  color: var(--app-text-muted);
 }
 
 .field {
