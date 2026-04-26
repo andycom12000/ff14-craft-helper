@@ -364,28 +364,51 @@ function requestNewBatch() {
   }
 }
 
-.todo-item {
-  padding: 12px 0;
-  border-bottom: 1px solid var(--el-border-color-lighter);
-  transition: background-color 0.15s;
+.todo-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.todo-item:last-of-type {
-  border-bottom: none;
+.todo-item {
+  position: relative;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: oklch(0.97 0.022 85);
+  border: 1px solid oklch(0.55 0.05 60 / 0.20);
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 0.7),
+    0 2px 6px oklch(0.40 0.05 60 / 0.12);
+  transition:
+    background-color 0.18s var(--ease-out-quart),
+    border-color 0.18s var(--ease-out-quart),
+    box-shadow 0.18s var(--ease-out-quart),
+    transform 0.18s var(--ease-out-quart);
 }
 
 .todo-item:hover {
-  background: var(--el-fill-color-light);
-  border-radius: 4px;
+  background: oklch(0.96 0.028 82);
+  border-color: oklch(0.55 0.05 60 / 0.32);
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 0.7),
+    0 6px 16px oklch(0.40 0.05 60 / 0.14);
+  transform: translateY(-1px);
 }
 
 .todo-item--dragging {
   opacity: 0.4;
 }
 
-.todo-item--drop-target {
-  border-top: 2px solid var(--app-accent, oklch(0.65 0.18 65));
-  padding-top: 10px;
+/* Floating gold bar above the drop target — no layout shift */
+.todo-item--drop-target::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 8px;
+  right: 8px;
+  height: 3px;
+  background: var(--app-accent);
+  border-radius: 2px;
 }
 
 .todo-drag-handle {
@@ -584,7 +607,7 @@ function requestNewBatch() {
   }
 
   .todo-item {
-    padding: 10px 0;
+    padding: 12px 14px;
   }
 
   /* Wrap actions to their own row so name/meta gets full width. */
