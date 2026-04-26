@@ -249,50 +249,71 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
         <h3 class="section-title">關於</h3>
       </header>
 
-      <div class="about-app">
-        <div class="about-app-header">
-          <span class="about-app-name">吐司工坊</span>
-          <el-tag size="small" effect="dark" round>{{ appVersion }}</el-tag>
+      <div class="about-hero">
+        <div class="about-eyebrow">FFXIV CRAFT ASSISTANT</div>
+        <h4 class="about-name">
+          吐司工坊
+          <span class="about-ver">{{ appVersion }}</span>
+        </h4>
+        <p class="about-tagline">"今天想烤點什麼？"</p>
+
+        <div class="about-credit">
+          <img :src="avatarUrl" alt="Author avatar" class="about-avatar" />
+          <div class="about-credit-text">
+            <span class="about-credit-by">crafted by</span>
+            <a
+              href="https://github.com/andycom12000"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="about-credit-name"
+            >菸齡 (andycom12000)</a>
+          </div>
         </div>
-        <div class="about-tech">
-          <div class="about-tech-row">
-            <span class="about-tech-label">求解器</span>
+
+        <div class="about-links">
+          <a
+            href="https://github.com/andycom12000/ff14-craft-helper"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="about-link"
+          >
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+            原始碼
+          </a>
+          <a
+            href="https://github.com/andycom12000/ff14-craft-helper/issues"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="about-link"
+          >
+            <span class="about-link-emoji" aria-hidden="true">🐛</span>
+            回報問題
+          </a>
+          <a
+            href="https://www.buymeacoffee.com/andycom12000"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="about-link"
+          >
+            <span class="about-link-emoji" aria-hidden="true">☕</span>
+            Buy me a coffee
+          </a>
+        </div>
+
+        <div class="about-footnote">
+          <div>
+            <strong>求解器</strong>
             <a
               href="https://github.com/KonaeAkira/raphael-rs"
               target="_blank"
               rel="noopener noreferrer"
-              class="about-tech-link"
             >Raphael-rs</a>
-            <span class="about-tech-value"> (WASM 多執行緒)</span>
+            (WASM 多執行緒)
           </div>
-          <div class="about-tech-row">
-            <span class="about-tech-label">技術架構</span>
-            <span class="about-tech-value">Vue 3 + Pinia + Element Plus + Vite + TypeScript</span>
+          <div>
+            <strong>技術架構</strong>
+            Vue 3 + Pinia + Element Plus + Vite + TypeScript
           </div>
-        </div>
-        <a
-          href="https://github.com/andycom12000/ff14-craft-helper"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="about-link-item"
-        >
-          <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M2 2.5A2.5 2.5 0 014.5 0h8.75a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75h-2.5a.75.75 0 010-1.5h1.75v-2h-8a1 1 0 00-.714 1.7.75.75 0 01-1.072 1.05A2.495 2.495 0 012 11.5zm10.5-1h-8a1 1 0 00-1 1v6.708A2.486 2.486 0 014.5 9h8zM5 12.25v3.25a.25.25 0 00.4.2l1.45-1.087a.25.25 0 01.3 0L8.6 15.7a.25.25 0 00.4-.2v-3.25a.25.25 0 00-.25-.25h-3.5a.25.25 0 00-.25.25z"/></svg>
-          <span>原始碼</span>
-        </a>
-      </div>
-
-      <el-divider />
-
-      <div class="about-author">
-        <img :src="avatarUrl" alt="Author avatar" class="about-avatar" />
-        <div class="about-author-info">
-          <span class="about-author-label">作者</span>
-          <a
-            href="https://github.com/andycom12000"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="about-author-name"
-          >菸齡 (andycom12000)</a>
         </div>
       </div>
     </section>
@@ -495,144 +516,179 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   text-align: right;
 }
 
-.about-app {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+/* ============ About — magazine masthead ============ */
+.about-hero {
+  /* No outer chrome — typography + spacing carry the layers:
+   * eyebrow → name → tagline → credit → links → tech footer */
 }
 
-.about-app-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.about-eyebrow {
+  font-family: 'Fira Code', monospace;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  font-size: 10.5px;
+  color: oklch(0.62 0.12 65);
+  margin-bottom: 8px;
 }
 
-.about-app-name {
-  font-size: 18px;
-  font-weight: 600;
+.about-name {
+  font-family: 'Noto Serif TC', serif;
+  font-weight: 900;
+  font-size: 30px;
+  letter-spacing: 1.5px;
   color: var(--app-text);
-}
-
-.about-tech {
+  margin: 0;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.about-tech-row {
-  display: flex;
-  flex-wrap: wrap;
   align-items: baseline;
-  gap: 4px 8px;
-  font-size: 13px;
-  line-height: 1.6;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-.about-tech-row .about-tech-value {
-  flex: 1 1 auto;
-  min-width: 0;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-}
-
-@media (max-width: 480px) {
-  .about-tech-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-  }
-  .about-tech-label {
-    min-width: 0;
-  }
-}
-
-.about-tech-label {
+.about-ver {
+  font-family: 'Fira Code', monospace;
+  font-size: 12px;
+  font-weight: 400;
   color: var(--app-text-muted);
-  min-width: 80px;
-  flex-shrink: 0;
+  letter-spacing: 0.05em;
 }
 
-.about-tech-value {
-  color: var(--app-text);
+.about-tagline {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 17px;
+  color: oklch(0.62 0.12 65);
+  margin: 8px 0 22px;
+  letter-spacing: 0.01em;
 }
 
-.about-tech-link {
-  color: var(--app-accent-light);
-  text-decoration: underline;
-  text-decoration-style: dotted;
-  text-underline-offset: 3px;
-  text-decoration-color: oklch(0.78 0.15 75 /0.5);
-}
-
-.about-tech-link:hover {
-  text-decoration-style: solid;
-  text-decoration-color: currentColor;
-}
-
-.about-link-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-radius: 8px;
-  border: 1px solid var(--app-border);
-  background: var(--app-surface-hover);
-  color: var(--app-text);
-  text-decoration: none;
-  font-size: 14px;
-  transition: all 0.2s ease;
-  width: fit-content;
-}
-
-.about-link-item:hover {
-  border-color: var(--app-accent);
-  background: var(--app-accent-glow);
-  color: var(--app-accent-light);
-}
-
-.about-link-item svg {
-  opacity: 0.7;
-}
-
-.about-link-item:hover svg {
-  opacity: 1;
-}
-
-.about-author {
+.about-credit {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
+  margin-bottom: 22px;
 }
 
 .about-avatar {
-  width: 52px;
-  height: 52px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
-  border: 2px solid var(--app-accent);
+  border: 1px solid var(--app-border);
   object-fit: cover;
-  background: var(--app-surface-hover);
+  background: var(--app-surface);
   flex-shrink: 0;
 }
 
-.about-author-info {
+.about-credit-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  line-height: 1.3;
 }
 
-.about-author-label {
-  font-size: 12px;
-  color: var(--app-text-muted);
+.about-credit-by {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  color: oklch(0.62 0.03 60);
+  font-size: 14px;
 }
 
-.about-author-name {
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--app-accent-light);
+.about-credit-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--app-text);
   text-decoration: none;
+  border-bottom: 1px dotted oklch(0.62 0.12 65 / 0.45);
+  padding-bottom: 1px;
+  align-self: flex-start;
+  transition: color 0.18s ease, border-color 0.18s ease;
 }
 
-.about-author-name:hover {
-  text-decoration: underline;
+.about-credit-name:hover {
+  color: oklch(0.62 0.12 65);
+  border-bottom-color: oklch(0.62 0.12 65);
+}
+
+.about-links {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+}
+
+.about-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: oklch(0.62 0.12 65);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  border-bottom: 1px dotted oklch(0.62 0.12 65 / 0.4);
+  padding-bottom: 1px;
+  transition: color 0.18s ease, border-color 0.18s ease;
+}
+
+.about-link:hover {
+  color: var(--app-accent);
+  border-bottom-color: var(--app-accent);
+}
+
+.about-link-emoji {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.about-footnote {
+  margin-top: 22px;
+  padding-top: 14px;
+  border-top: 1px solid var(--app-border);
+  font-size: 12px;
+  color: oklch(0.62 0.03 60);
+  line-height: 1.7;
+}
+
+.about-footnote > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 6px;
+}
+
+.about-footnote strong {
+  color: var(--app-text-muted);
+  font-weight: 600;
+  font-family: 'Fira Code', monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  min-width: 64px;
+}
+
+.about-footnote a {
+  color: oklch(0.62 0.12 65);
+  text-decoration: none;
+  border-bottom: 1px dotted oklch(0.62 0.12 65 / 0.4);
+}
+
+.about-footnote a:hover {
+  color: var(--app-accent);
+  border-bottom-color: var(--app-accent);
+}
+
+@media (max-width: 480px) {
+  .about-name {
+    font-size: 26px;
+  }
+  .about-tagline {
+    font-size: 16px;
+  }
+  .about-footnote > div {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    margin-bottom: 10px;
+  }
+  .about-footnote strong {
+    min-width: 0;
+  }
 }
 </style>
