@@ -35,20 +35,60 @@ function onboardingDone() {
   showOnboarding.value = false
 }
 
-// Rotating Cormorant italic greeting — picked once per mount.
-// Matches the rebrand spec: "像麵包店黑板上的招呼語，增加生命力".
-const greetings = [
-  '今天想烤點什麼？',
-  '光之戰士，準備好了嗎？',
-  '一爐又一爐，慢慢來不急。',
-  '出爐囉，慢慢挑。',
-  '今天的麵團，發得正好。',
-  '從早餐到副本，都從這裡開始。',
-  '趁熱開工。',
-  '新的一爐，新的一天。',
-  '"Today\'s special: 拂曉的曙鋼"',
-]
-const greeting = greetings[Math.floor(Math.random() * greetings.length)]
+// Rotating Cormorant italic greeting — picked once per mount,
+// scoped to time-of-day so the line tracks when the player is on.
+// Bakery flavor kept light (1-2 per bucket); rest is crafting/FFXIV.
+function getTimeBucket(): 'morning' | 'noon' | 'afternoon' | 'evening' | 'lateNight' {
+  const h = new Date().getHours()
+  if (h >= 5 && h < 11) return 'morning'
+  if (h >= 11 && h < 14) return 'noon'
+  if (h >= 14 && h < 18) return 'afternoon'
+  if (h >= 18 && h < 22) return 'evening'
+  return 'lateNight'
+}
+
+const greetingsByTime: Record<string, string[]> = {
+  morning: [
+    '早安，光之戰士。',
+    '新的一天，先把材料準備好。',
+    '今天想做點什麼？',
+    '趁早開工，晚上才有時間刷副本。',
+    '新的一爐，新的一天。',
+  ],
+  noon: [
+    '趁手感正好，再來幾件。',
+    '中午也是好時段。',
+    '歇個手，再來一輪。',
+    '材料齊了嗎？',
+    '趁熱開工。',
+  ],
+  afternoon: [
+    '差幾件就湊齊一套了。',
+    '下午的進度怎麼樣？',
+    '副本前先把貨備好。',
+    '光之戰士，準備好了嗎？',
+    '今天打算挑戰什麼？',
+  ],
+  evening: [
+    '晚上適合規劃明天的批次。',
+    '工坊還沒打烊，慢慢來。',
+    '今天的成品都收得整齊了嗎？',
+    '夜班的光之戰士，準備好了嗎？',
+    '今天的進度還好嗎？',
+  ],
+  lateNight: [
+    '深夜的手最穩。',
+    '別忘了休息，明天還有副本。',
+    '夜班肝開了？慢慢來。',
+    '一爐又一爐，慢慢來不急。',
+    '夜深人靜，最適合刷手法。',
+  ],
+}
+
+const greeting = (() => {
+  const pool = greetingsByTime[getTimeBucket()]
+  return pool[Math.floor(Math.random() * pool.length)]
+})()
 
 const guideCollapsed = ref(localStorage.getItem('ff14-guide-collapsed') === 'true')
 
