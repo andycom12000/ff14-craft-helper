@@ -250,16 +250,17 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
       </header>
 
       <div class="about-hero">
-        <div class="about-eyebrow">FFXIV CRAFT ASSISTANT</div>
-        <h4 class="about-name">
-          吐司工坊
+        <div class="about-headline">
+          <span class="about-name">吐司工坊</span>
           <span class="about-ver">{{ appVersion }}</span>
-        </h4>
+          <span class="about-divider">·</span>
+          <span class="about-subline">FFXIV 製作助手</span>
+        </div>
         <p class="about-tagline">"今天想烤點什麼？"</p>
 
         <div class="about-credit">
           <img :src="avatarUrl" alt="Author avatar" class="about-avatar" />
-          <div class="about-credit-text">
+          <span class="about-credit-line">
             <span class="about-credit-by">crafted by</span>
             <a
               href="https://github.com/andycom12000"
@@ -267,7 +268,7 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
               rel="noopener noreferrer"
               class="about-credit-name"
             >菸齡 (andycom12000)</a>
-          </div>
+          </span>
         </div>
 
         <div class="about-links">
@@ -516,61 +517,65 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   text-align: right;
 }
 
-/* ============ About — magazine masthead ============ */
+/* ============ About — quieter inline layout, fits Settings rhythm ============ */
 .about-hero {
-  /* No outer chrome — typography + spacing carry the layers:
-   * eyebrow → name → tagline → credit → links → tech footer */
+  /* Same typography vocabulary as Variant A, but scaled to match the
+   * surrounding settings sections instead of overpowering them. */
 }
 
-.about-eyebrow {
-  font-family: 'Fira Code', monospace;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
-  font-size: 10.5px;
-  color: oklch(0.62 0.12 65);
-  margin-bottom: 8px;
+.about-headline {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
 }
 
 .about-name {
   font-family: 'Noto Serif TC', serif;
-  font-weight: 900;
-  font-size: 30px;
-  letter-spacing: 1.5px;
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: 0.5px;
   color: var(--app-text);
-  margin: 0;
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  flex-wrap: wrap;
 }
 
 .about-ver {
   font-family: 'Fira Code', monospace;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 400;
   color: var(--app-text-muted);
   letter-spacing: 0.05em;
 }
 
+.about-divider {
+  color: oklch(0.62 0.03 60);
+  font-size: 13px;
+  margin: 0 -2px;
+}
+
+.about-subline {
+  font-size: 13px;
+  color: var(--app-text-muted);
+}
+
 .about-tagline {
   font-family: 'Cormorant Garamond', serif;
   font-style: italic;
-  font-size: 17px;
+  font-size: 15px;
   color: oklch(0.62 0.12 65);
-  margin: 8px 0 22px;
-  letter-spacing: 0.01em;
+  margin: 0 0 16px;
 }
 
 .about-credit {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 22px;
+  gap: 10px;
+  margin-bottom: 16px;
 }
 
 .about-avatar {
-  width: 38px;
-  height: 38px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   border: 1px solid var(--app-border);
   object-fit: cover;
@@ -578,27 +583,26 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   flex-shrink: 0;
 }
 
-.about-credit-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.3;
+.about-credit-line {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 13.5px;
 }
 
 .about-credit-by {
   font-family: 'Cormorant Garamond', serif;
   font-style: italic;
   color: oklch(0.62 0.03 60);
-  font-size: 14px;
 }
 
 .about-credit-name {
-  font-size: 14px;
   font-weight: 600;
   color: var(--app-text);
   text-decoration: none;
   border-bottom: 1px dotted oklch(0.62 0.12 65 / 0.45);
   padding-bottom: 1px;
-  align-self: flex-start;
   transition: color 0.18s ease, border-color 0.18s ease;
 }
 
@@ -611,7 +615,7 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   display: flex;
   gap: 18px;
   flex-wrap: wrap;
-  margin-bottom: 22px;
+  margin-bottom: 18px;
 }
 
 .about-link {
@@ -638,10 +642,10 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
 }
 
 .about-footnote {
-  margin-top: 22px;
-  padding-top: 14px;
+  margin-top: 18px;
+  padding-top: 12px;
   border-top: 1px solid var(--app-border);
-  font-size: 12px;
+  font-size: 11.5px;
   color: oklch(0.62 0.03 60);
   line-height: 1.7;
 }
@@ -675,12 +679,6 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
 }
 
 @media (max-width: 480px) {
-  .about-name {
-    font-size: 26px;
-  }
-  .about-tagline {
-    font-size: 16px;
-  }
   .about-footnote > div {
     flex-direction: column;
     align-items: flex-start;
