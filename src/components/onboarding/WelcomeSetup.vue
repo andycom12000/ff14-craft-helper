@@ -133,6 +133,7 @@ const stepSub = computed(() =>
   <div class="welcome-setup">
     <header class="welcome-header">
       <span class="badge">第 {{ step }} / 2 步</span>
+      <p class="welcome-quote">"工坊已準備好，等你開工。"</p>
       <h1>歡迎來到吐司工坊</h1>
       <p class="lead">第一次來？花 10 秒選好語言跟伺服器，我就能幫你查配方了。</p>
     </header>
@@ -235,6 +236,11 @@ const stepSub = computed(() =>
   display: flex;
   flex-direction: column;
   gap: 10px;
+  background-image: var(--paper-noise);
+  background-size: var(--paper-noise-size);
+  margin: -16px -16px 0;
+  padding: 16px 16px 4px;
+  border-radius: 12px;
 }
 
 .badge {
@@ -245,6 +251,15 @@ const stepSub = computed(() =>
   padding: 4px 10px;
   border-radius: 999px;
   font-weight: 600;
+}
+
+.welcome-quote {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 16px;
+  color: oklch(0.62 0.12 65);
+  margin: 4px 0 -4px;
+  letter-spacing: 0.01em;
 }
 
 .welcome-header h1 {

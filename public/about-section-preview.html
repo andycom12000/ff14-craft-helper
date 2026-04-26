@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>About Section — 吐司工坊</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Fira+Code:wght@400;700&family=Noto+Serif+TC:wght@400;500;600;700;900&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --app-bg: oklch(0.965 0.022 90);
+    --app-surface: oklch(0.975 0.018 85);
+    --app-surface-2: oklch(0.93 0.04 80);
+    --app-border: oklch(0.65 0.04 65 / 0.30);
+    --app-text: oklch(0.28 0.04 55);
+    --app-text-muted: oklch(0.50 0.03 60);
+    --app-text-faint: oklch(0.62 0.03 60);
+    --app-accent: oklch(0.65 0.18 65);
+    --app-accent-light: oklch(0.78 0.15 75);
+    --gold-muted: oklch(0.62 0.12 65);
+    --ease: cubic-bezier(0.25, 1, 0.5, 1);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Noto Sans TC', sans-serif;
+    background: var(--app-bg);
+    color: var(--app-text);
+    min-height: 100vh;
+  }
+
+  /* === Page header === */
+  .page-header {
+    padding: 48px 40px 32px;
+    background: var(--app-surface-2);
+    border-bottom: 1px solid var(--app-border);
+    text-align: center;
+  }
+  .eyebrow {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: var(--app-accent);
+    margin: 0 0 4px;
+    font-size: 15px;
+  }
+  .page-title {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 900;
+    font-size: 32px;
+    margin: 0 0 8px;
+    letter-spacing: 1.5px;
+  }
+  .page-subtitle {
+    color: var(--app-text-muted);
+    font-size: 14px;
+    line-height: 1.6;
+    max-width: 620px;
+    margin: 0 auto;
+  }
+
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 40px;
+  }
+
+  /* === Demo variant common === */
+  .demo {
+    margin-bottom: 40px;
+  }
+  .demo-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+  .demo-name {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    font-size: 18px;
+    margin: 0;
+  }
+  .demo-tag {
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    background: oklch(0.62 0.12 65 / 0.14);
+    color: var(--gold-muted);
+    border: 1px solid oklch(0.62 0.12 65 / 0.4);
+  }
+  .demo-desc {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: var(--app-text-muted);
+    font-size: 14px;
+    margin: 0 0 16px;
+  }
+  .demo-frame {
+    border: 1px dashed oklch(0.55 0.04 65 / 0.25);
+    border-radius: 12px;
+    padding: 28px;
+  }
+
+  /* Reusable atoms */
+  .links {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .link {
+    color: var(--gold-muted);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    border-bottom: 1px dotted oklch(0.62 0.12 65 / 0.4);
+    padding-bottom: 1px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .link:hover {
+    color: var(--app-accent);
+    border-bottom-color: var(--app-accent);
+  }
+  .ico {
+    display: inline-flex;
+    width: 14px;
+    height: 14px;
+  }
+
+  /* === Variant A — Hero magazine === */
+  .var-a .eyebrow-a {
+    font-family: 'Fira Code', monospace;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    font-size: 10.5px;
+    color: var(--gold-muted);
+    margin-bottom: 8px;
+  }
+  .var-a .name-a {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 900;
+    font-size: 30px;
+    letter-spacing: 1.5px;
+    color: var(--app-text);
+    margin: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .var-a .ver-a {
+    font-family: 'Fira Code', monospace;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--app-text-muted);
+    letter-spacing: 0.05em;
+  }
+  .var-a .tagline-a {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 17px;
+    color: var(--gold-muted);
+    margin: 8px 0 22px;
+    letter-spacing: 0.01em;
+  }
+  .var-a .credit-a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 22px;
+  }
+  .var-a .avatar-a {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 1px solid var(--app-border);
+    background: var(--app-surface);
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .var-a .credit-text-a {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.3;
+  }
+  .var-a .credit-by-a {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: var(--app-text-faint);
+    font-size: 14px;
+  }
+  .var-a .credit-name-a {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--app-text);
+  }
+  .var-a .footnote-a {
+    margin-top: 22px;
+    padding-top: 14px;
+    border-top: 1px solid var(--app-border);
+    font-size: 12px;
+    color: var(--app-text-faint);
+    line-height: 1.6;
+  }
+  .var-a .footnote-a strong {
+    color: var(--app-text-muted);
+    font-weight: 600;
+    margin-right: 6px;
+  }
+
+  /* === Variant B — Author-first profile === */
+  .var-b {
+    display: grid;
+    grid-template-columns: 96px 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+  .var-b .avatar-b {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    border: 1px solid var(--app-border);
+    background: var(--app-surface-2);
+    overflow: hidden;
+  }
+  .var-b .right-b {
+    min-width: 0;
+  }
+  .var-b .by-line-b {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--app-text-muted);
+    margin: 0 0 4px;
+  }
+  .var-b .author-b {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    font-size: 20px;
+    color: var(--app-text);
+    margin: 0 0 14px;
+  }
+  .var-b .author-b a {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px solid oklch(0.62 0.12 65 / 0.4);
+    padding-bottom: 2px;
+  }
+  .var-b .author-b a:hover {
+    border-bottom-color: var(--app-accent);
+  }
+  .var-b .project-b {
+    margin: 0 0 6px;
+    font-size: 14px;
+    color: var(--app-text-muted);
+  }
+  .var-b .project-b strong {
+    color: var(--app-text);
+    font-weight: 700;
+    font-size: 16px;
+    margin-right: 8px;
+  }
+  .var-b .ver-b {
+    font-family: 'Fira Code', monospace;
+    font-size: 11px;
+    color: var(--app-text-faint);
+    background: oklch(0.55 0.04 65 / 0.10);
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-left: 4px;
+  }
+  .var-b .tagline-b {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 14.5px;
+    color: var(--gold-muted);
+    margin: 0 0 18px;
+    line-height: 1.5;
+  }
+  .var-b .links-b {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .var-b .pill-b {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border: 1px solid var(--app-border);
+    border-radius: 999px;
+    font-size: 12.5px;
+    color: var(--app-text);
+    text-decoration: none;
+    background: oklch(1 0 0 / 0.4);
+    transition: all 0.18s var(--ease);
+  }
+  .var-b .pill-b:hover {
+    border-color: var(--gold-muted);
+    color: var(--gold-muted);
+  }
+  .var-b .tech-b {
+    font-size: 11.5px;
+    color: var(--app-text-faint);
+    line-height: 1.7;
+  }
+  .var-b .tech-b strong {
+    color: var(--app-text-muted);
+    font-weight: 600;
+    margin-right: 6px;
+    font-family: 'Fira Code', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* === Variant C — Colophon (book back-page) === */
+  .var-c {
+    text-align: center;
+  }
+  .var-c .colophon-icon-c {
+    margin: 0 auto 14px;
+    width: 36px;
+    height: 36px;
+    color: var(--gold-muted);
+  }
+  .var-c .name-c {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 900;
+    font-size: 32px;
+    margin: 0;
+    letter-spacing: 2px;
+  }
+  .var-c .ver-c {
+    margin: 4px 0 0;
+    font-family: 'Fira Code', monospace;
+    font-size: 12px;
+    color: var(--app-text-faint);
+    letter-spacing: 0.1em;
+  }
+  .var-c .byline-c {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 17px;
+    color: var(--gold-muted);
+    margin: 18px 0 6px;
+  }
+  .var-c .author-line-c {
+    font-size: 13.5px;
+    color: var(--app-text-muted);
+    margin: 0 0 24px;
+  }
+  .var-c .author-line-c a {
+    color: var(--app-text);
+    font-weight: 600;
+    text-decoration: none;
+    border-bottom: 1px solid oklch(0.62 0.12 65 / 0.4);
+  }
+  .var-c .divider-c {
+    margin: 0 auto 22px;
+    width: 60px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--app-border), transparent);
+  }
+  .var-c .specs-c {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 8px 18px;
+    text-align: left;
+    max-width: 420px;
+    margin: 0 auto 22px;
+    font-size: 12.5px;
+  }
+  .var-c .specs-c dt {
+    font-family: 'Fira Code', monospace;
+    font-size: 10.5px;
+    color: var(--app-text-faint);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    align-self: center;
+  }
+  .var-c .specs-c dd {
+    margin: 0;
+    color: var(--app-text);
+    line-height: 1.6;
+  }
+  .var-c .specs-c dd a {
+    color: var(--gold-muted);
+    text-decoration: none;
+    border-bottom: 1px dotted oklch(0.62 0.12 65 / 0.4);
+  }
+
+  /* === Footer === */
+  .footer {
+    padding: 32px 40px 60px;
+    text-align: center;
+    color: var(--app-text-muted);
+    font-size: 12px;
+  }
+
+  @media (max-width: 600px) {
+    .var-b {
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+    .var-b .avatar-b {
+      width: 80px;
+      height: 80px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header class="page-header">
+  <p class="eyebrow">About section · 3 directions</p>
+  <h1 class="page-title">關於區塊重新設計</h1>
+  <p class="page-subtitle">
+    目前混合了「app 識別 / dev 細節 / 作者」三層資訊沒有層級。
+    下面三個方向把這些拆開，typography + spacing 做 hierarchy。
+  </p>
+</header>
+
+<main>
+
+  <!-- Variant A — Hero magazine -->
+  <div class="demo">
+    <div class="demo-header">
+      <h2 class="demo-name">A · Hero（雜誌風）</h2>
+      <span class="demo-tag">推薦</span>
+    </div>
+    <p class="demo-desc">"a magazine masthead — name + tagline above the fold, credits and tech as quiet footers"</p>
+    <div class="demo-frame">
+      <div class="var-a">
+        <div class="eyebrow-a">FFXIV CRAFT ASSISTANT</div>
+        <h3 class="name-a">
+          吐司工坊
+          <span class="ver-a">v2.3.0</span>
+        </h3>
+        <p class="tagline-a">"今天想烤點什麼？"</p>
+
+        <div class="credit-a">
+          <div class="avatar-a">
+            <svg viewBox="0 0 32 32" width="38" height="38" aria-hidden="true">
+              <rect width="32" height="32" fill="oklch(0.93 0.04 80)" />
+              <text x="16" y="22" text-anchor="middle" font-family="Noto Serif TC" font-size="14" font-weight="700" fill="oklch(0.50 0.16 40)">菸</text>
+            </svg>
+          </div>
+          <div class="credit-text-a">
+            <span class="credit-by-a">crafted by</span>
+            <span class="credit-name-a">菸齡 (andycom12000)</span>
+          </div>
+        </div>
+
+        <div class="links">
+          <a href="#" class="link">📦 原始碼</a>
+          <a href="#" class="link">🐛 回報問題</a>
+          <a href="#" class="link">📜 更新日誌</a>
+        </div>
+
+        <div class="footnote-a">
+          <div><strong>求解器</strong>Raphael-rs (WASM 多執行緒)</div>
+          <div><strong>技術架構</strong>Vue 3 + Pinia + Element Plus + Vite + TypeScript</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Variant B — Author-first profile -->
+  <div class="demo">
+    <div class="demo-header">
+      <h2 class="demo-name">B · Author-first（作品集風）</h2>
+      <span class="demo-tag" style="background:oklch(0.55 0.04 60 / 0.14);color:oklch(0.40 0.04 55);border-color:oklch(0.55 0.04 60 / 0.4)">個人感重</span>
+    </div>
+    <p class="demo-desc">"avatar leads — this is a personal project, signed at the front door"</p>
+    <div class="demo-frame">
+      <div class="var-b">
+        <div class="avatar-b">
+          <svg viewBox="0 0 96 96" width="96" height="96" aria-hidden="true">
+            <rect width="96" height="96" fill="oklch(0.93 0.04 80)" />
+            <text x="48" y="62" text-anchor="middle" font-family="Noto Serif TC" font-size="40" font-weight="900" fill="oklch(0.50 0.16 40)">菸</text>
+          </svg>
+        </div>
+        <div class="right-b">
+          <p class="by-line-b">crafted by</p>
+          <h3 class="author-b"><a href="#">菸齡 (andycom12000)</a></h3>
+          <p class="project-b"><strong>吐司工坊</strong>FFXIV 製作助手 <span class="ver-b">v2.3.0</span></p>
+          <p class="tagline-b">"為光之戰士打造的製作工坊。今天想烤點什麼？"</p>
+          <div class="links-b">
+            <a href="#" class="pill-b">📦 原始碼</a>
+            <a href="#" class="pill-b">🐛 回報問題</a>
+            <a href="#" class="pill-b">📜 更新日誌</a>
+          </div>
+          <div class="tech-b">
+            <strong>POWERED BY</strong>Raphael-rs · Vue 3 · Pinia · Element Plus · Vite · TypeScript
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Variant C — Colophon -->
+  <div class="demo">
+    <div class="demo-header">
+      <h2 class="demo-name">C · Colophon（書末頁風）</h2>
+      <span class="demo-tag" style="background:oklch(0.55 0.04 60 / 0.14);color:oklch(0.40 0.04 55);border-color:oklch(0.55 0.04 60 / 0.4)">儀式感重</span>
+    </div>
+    <p class="demo-desc">"like the end of a book — name, byline, tech specs as a tidy definition list"</p>
+    <div class="demo-frame">
+      <div class="var-c">
+        <svg class="colophon-icon-c" viewBox="0 0 32 32" aria-hidden="true">
+          <path d="M6 8 Q16 4 26 8 L26 22 Q16 26 6 22 Z" fill="currentColor" opacity="0.18" />
+          <path d="M6 8 Q16 4 26 8 L26 22 Q16 26 6 22 Z" stroke="currentColor" stroke-width="1.5" fill="none" />
+          <line x1="16" y1="6" x2="16" y2="24" stroke="currentColor" stroke-width="1.2" />
+        </svg>
+        <h3 class="name-c">吐司工坊</h3>
+        <p class="ver-c">v2.3.0 · BUILD 0426</p>
+        <p class="byline-c">"今天想烤點什麼？"</p>
+        <p class="author-line-c">crafted by <a href="#">菸齡 (andycom12000)</a></p>
+
+        <div class="divider-c"></div>
+
+        <dl class="specs-c">
+          <dt>solver</dt>
+          <dd><a href="#">Raphael-rs</a> · WASM 多執行緒</dd>
+          <dt>stack</dt>
+          <dd>Vue 3 · Pinia · Element Plus · Vite · TypeScript</dd>
+          <dt>source</dt>
+          <dd><a href="#">github.com/andycom12000/ff14-craft-helper</a></dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer class="footer">
+  <p>選一個方向（也可以混搭）告訴我，我寫進 SettingsView 的「關於」區。</p>
+</footer>
+
+</body>
+</html>

@@ -276,6 +276,14 @@ const tools = [
 
 .welcome h2 { border-left-color: var(--app-accent-light); }
 
+.welcome {
+  background-image: var(--paper-noise);
+  background-size: var(--paper-noise-size);
+  margin: -8px -16px 8px;
+  padding: 12px 16px 4px;
+  border-radius: 12px;
+}
+
 .welcome-quote {
   font-family: 'Cormorant Garamond', serif;
   font-style: italic;

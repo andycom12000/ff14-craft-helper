@@ -3,6 +3,8 @@ defineProps<{
   icon?: string
   title: string
   description?: string
+  /** Optional Cormorant italic flavor line shown above the title. */
+  flavor?: string
 }>()
 </script>
 
@@ -11,6 +13,7 @@ defineProps<{
     <div class="empty-icon-wrapper">
       <span class="empty-icon">{{ icon || '📦' }}</span>
     </div>
+    <p v-if="flavor" class="empty-flavor">{{ flavor }}</p>
     <p class="empty-title">{{ title }}</p>
     <p v-if="description" class="empty-description">{{ description }}</p>
     <div v-if="$slots.default" class="empty-actions">
@@ -27,6 +30,8 @@ defineProps<{
   justify-content: center;
   padding: 48px 24px;
   text-align: center;
+  background-image: var(--paper-noise);
+  background-size: var(--paper-noise-size);
 }
 
 .empty-icon-wrapper {
@@ -43,6 +48,15 @@ defineProps<{
 .empty-icon {
   font-size: 32px;
   line-height: 1;
+}
+
+.empty-flavor {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 15px;
+  color: oklch(0.62 0.12 65);
+  margin: 0 0 4px;
+  letter-spacing: 0.01em;
 }
 
 .empty-title {

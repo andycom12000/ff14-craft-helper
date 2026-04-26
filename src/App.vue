@@ -229,6 +229,13 @@ onUnmounted(() => {
   /* Easing */
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
 
+  /* Subtle paper-noise background for hero / onboarding / empty regions —
+   * radial dot pattern at low opacity, evokes a faint paper grain. */
+  --paper-noise:
+    radial-gradient(circle at 20% 30%, oklch(0.55 0.10 60 / 0.06) 1px, transparent 1.5px),
+    radial-gradient(circle at 70% 60%, oklch(0.55 0.10 55 / 0.05) 1px, transparent 1.5px);
+  --paper-noise-size: 28px 28px, 22px 22px;
+
   /* Spacing scale */
   --space-xs: 4px;
   --space-sm: 8px;
