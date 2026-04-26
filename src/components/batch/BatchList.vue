@@ -154,9 +154,17 @@ function onDragEnd() {
 }
 
 .recipe-card-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr;
   gap: 8px;
+}
+
+/* Wide viewport: 2-col grid so cards aren't 1500px wide bands.
+ * Drag-and-drop still works (handlers are index-based, not visual). */
+@media (min-width: 900px) {
+  .recipe-card-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .recipe-card-wrapper {

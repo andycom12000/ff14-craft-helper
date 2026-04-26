@@ -136,7 +136,10 @@ function toggleAll() {
 .self-craft-block {
   margin-bottom: 20px;
   /* No outer container chrome — section header is just typography,
-   * the table below carries its own boundary. Avoids nested cards. */
+   * the table below carries its own boundary. Avoids nested cards.
+   * max-width caps the desktop el-table on ultra-wide viewports
+   * (2100px batch-view) so each row doesn't stretch full width. */
+  max-width: 1080px;
 }
 
 .block-header {
