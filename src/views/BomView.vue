@@ -185,6 +185,7 @@ function handleRefreshPrices() {
 <style scoped>
 .bom-view {
   max-width: 1200px;
+  margin-inline: auto;
 
   /* Muted palette — matches the SimulatorView progress-bar treatment.
    * Lower chroma versions of brand/semantic colors keep the data-heavy

@@ -749,11 +749,13 @@ html, body {
 }
 
 .app-main {
+  /* Soft window-light glow — center bright, edges a deeper cream so the
+   * blank canvas around constrained pages doesn't feel harsh. */
   background:
     radial-gradient(
-      ellipse 75% 90% at top center,
+      ellipse 70% 85% at top center,
       var(--app-bg) 0%,
-      oklch(0.92 0.028 75) 100%
+      oklch(0.89 0.035 72) 100%
     );
   overflow-y: auto;
 }
