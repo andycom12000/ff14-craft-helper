@@ -250,7 +250,9 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
       </header>
 
       <div class="about-profile">
-        <img :src="avatarUrl" alt="Author avatar" class="about-avatar" />
+        <div class="about-avatar-frame">
+          <img :src="avatarUrl" alt="Author avatar" class="about-avatar" />
+        </div>
         <div class="about-body">
           <p class="about-by">crafted by</p>
           <h4 class="about-author">
@@ -523,14 +525,23 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   align-items: center;
 }
 
-.about-avatar {
+/* Wrapper holds the border; multiply lives on the image inside so the
+ * border isn't blended away by mix-blend-mode. */
+.about-avatar-frame {
   width: 80px;
   height: 80px;
   border-radius: 50%;
+  border: 1px solid var(--app-border);
+  overflow: hidden;
+}
+
+.about-avatar {
+  display: block;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  /* Drop the GIF's white background by multiplying against the page bg —
-   * white pixels collapse into the cream canvas, foreground stays visible. */
   background: transparent;
+  /* Drop the GIF's white backdrop by multiplying against the page bg */
   mix-blend-mode: multiply;
 }
 
@@ -657,7 +668,7 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
     grid-template-columns: 1fr;
     gap: 14px;
   }
-  .about-avatar {
+  .about-avatar-frame {
     width: 64px;
     height: 64px;
   }
