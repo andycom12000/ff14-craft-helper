@@ -388,6 +388,66 @@ onUnmounted(() => {
   --el-mask-color: oklch(0.95 0.02 85 / 0.8);
 }
 
+:root[data-theme="dark"] {
+  /* Element Plus token override — Dark theme + 吐司金 primary
+   * Mirrors the light EP block above; only values change. */
+
+  /* Primary 階梯：dark 把 light 階梯整體上推 +0.09 lightness、降一點 chroma */
+  --el-color-primary: oklch(0.74 0.15 68);
+  --el-color-primary-light-3: oklch(0.78 0.13 70);
+  --el-color-primary-light-5: oklch(0.62 0.14 65);
+  --el-color-primary-light-7: oklch(0.50 0.13 60);
+  --el-color-primary-light-8: oklch(0.40 0.10 60);
+  --el-color-primary-light-9: oklch(0.30 0.06 60);
+  --el-color-primary-dark-2: oklch(0.85 0.10 75);
+
+  /* Semantic — 提亮 lightness 至 0.65-0.70 維持 dark 上的對比 */
+  --el-color-success: oklch(0.68 0.16 145);
+  --el-color-warning: oklch(0.72 0.16 50);
+  --el-color-danger: oklch(0.68 0.18 25);
+  --el-color-error: oklch(0.68 0.18 25);
+  --el-color-info: oklch(0.70 0.04 65);
+
+  /* Fill hierarchy — dark 反向：blank=最亮 surface，darker=最深 */
+  --el-fill-color-blank: oklch(0.26 0.012 60);
+  --el-fill-color-lighter: oklch(0.24 0.010 60);
+  --el-fill-color-light: oklch(0.22 0.008 60);
+  --el-fill-color: oklch(0.20 0.008 60);
+  --el-fill-color-dark: oklch(0.18 0.008 60);
+  --el-fill-color-darker: oklch(0.16 0.006 60);
+
+  /* Borders — dark 用實色，避免 alpha 邊框在深底上消失 */
+  --el-border-color: oklch(0.34 0.012 60);
+  --el-border-color-light: oklch(0.30 0.010 60);
+  --el-border-color-lighter: oklch(0.26 0.008 60);
+  --el-border-color-dark: oklch(0.40 0.014 60);
+
+  /* Text 階梯 — primary/secondary 已透過 var(--app-text*) cascade，這裡只補 regular / placeholder */
+  --el-text-color-regular: oklch(0.85 0.010 75);
+  --el-text-color-placeholder: oklch(0.50 0.010 65);
+
+  /* Mask — overlay 用深色半透明 */
+  --el-mask-color: oklch(0.10 0.005 60 / 0.7);
+}
+
+/* Dark mode 元件專用調校（會凸顯的對比 / 警示） */
+:root[data-theme="dark"] .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+  background-color: oklch(0.95 0.02 75 / 0.04);
+}
+
+:root[data-theme="dark"] .el-alert.el-alert--warning {
+  background: oklch(0.72 0.16 50 / 0.16);
+  border-color: oklch(0.72 0.16 50 / 0.45);
+}
+:root[data-theme="dark"] .el-alert.el-alert--error {
+  background: oklch(0.68 0.18 25 / 0.16);
+  border-color: oklch(0.68 0.18 25 / 0.45);
+}
+:root[data-theme="dark"] .el-alert.el-alert--success {
+  background: oklch(0.68 0.16 145 / 0.16);
+  border-color: oklch(0.68 0.16 145 / 0.40);
+}
+
 html, body {
   margin: 0;
   padding: 0;
