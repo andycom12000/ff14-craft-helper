@@ -468,8 +468,16 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
 
 
 .thanks {
-  margin-top: 28px;
-  padding: 0 4px;
+  margin-top: 32px;
+  padding: 28px 4px 0;
+  border-top: 1px solid var(--app-border);
+}
+
+@media (max-width: 640px) {
+  .thanks {
+    margin-top: 24px;
+    padding-top: 20px;
+  }
 }
 
 .thanks-title {
