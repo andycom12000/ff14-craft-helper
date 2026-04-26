@@ -517,9 +517,9 @@ const tools = [
   position: relative;
   padding: 56px 52px;
   background:
-    radial-gradient(ellipse 70% 32% at 50% 0%, var(--toast-crust-glow, oklch(0.97 0.04 82 / 0.42)) 0%, transparent 75%),
+    linear-gradient(140deg, oklch(0.50 0.16 40 / 0.06) 0%, oklch(0.50 0.16 40 / 0) 60%),
     var(--app-surface);
-  border: 1px solid var(--toast-crust-soft);
+  border: 1px solid oklch(0.50 0.16 40 / 0.30);
   color: var(--app-text); text-align: left; font: inherit;
   border-radius: 18px;
   overflow: hidden; cursor: pointer;
@@ -531,7 +531,7 @@ const tools = [
 .dw-hero::before {
   content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1;
   border: solid var(--toast-crust);
-  border-width: 3px 1.5px 0 1.5px;
+  border-width: 1.75px 1.75px 0 1.75px;
   border-radius: 18px;
   -webkit-mask: linear-gradient(to bottom,
     black 0% 6%, rgba(0,0,0,0.55) 28%, rgba(0,0,0,0.18) 55%, transparent 80%);
