@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { ElCard, ElMessage } from 'element-plus'
-import 'element-plus/es/components/card/style/css'
+import { ElMessage } from 'element-plus'
 import { useSettingsStore } from '@/stores/settings'
 import { useIsMobile } from '@/composables/useMediaQuery'
 import { getDataCenters, getWorlds, refreshWorldsFromApi } from '@/api/universalis'
@@ -9,7 +8,6 @@ import type { DataCenter, World } from '@/api/universalis'
 import avatarUrl from '@/assets/avatar.gif'
 
 const isMobile = useIsMobile()
-const SectionWrap = computed(() => (isMobile.value ? 'section' : ElCard))
 
 const settingsStore = useSettingsStore()
 
@@ -140,33 +138,29 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
     <h2>設定</h2>
 
     <!-- ============ Server settings ============ -->
-    <component :is="SectionWrap" :shadow="isMobile ? null : 'never'" class="settings-section">
-      <template v-if="!isMobile" #header>
-        <div class="card-header-row">
-          <span class="card-title">伺服器設定</span>
-          <div class="card-header-actions">
-            <el-button
-              size="small"
-              plain
-              :loading="refreshingFromApi"
-              @click="refreshFromLiveApi"
-            >
-              從 API 更新伺服器清單
-            </el-button>
-            <el-button
-              v-if="loadError && !loading"
-              size="small"
-              type="primary"
-              plain
-              @click="loadServers(true)"
-            >
-              重試載入清單
-            </el-button>
-          </div>
+    <section class="settings-section">
+      <header class="section-header">
+        <h3 class="section-title">伺服器設定</h3>
+        <div v-if="!isMobile" class="section-actions">
+          <el-button
+            size="small"
+            plain
+            :loading="refreshingFromApi"
+            @click="refreshFromLiveApi"
+          >
+            從 API 更新伺服器清單
+          </el-button>
+          <el-button
+            v-if="loadError && !loading"
+            size="small"
+            type="primary"
+            plain
+            @click="loadServers(true)"
+          >
+            重試載入清單
+          </el-button>
         </div>
-      </template>
-
-      <h3 v-if="isMobile" class="m-section-title">伺服器設定</h3>
+      </header>
 
       <el-skeleton v-if="loading" :rows="3" animated />
 
@@ -227,15 +221,13 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
           重試載入清單
         </el-button>
       </div>
-    </component>
+    </section>
 
     <!-- ============ Price preferences ============ -->
-    <component :is="SectionWrap" :shadow="isMobile ? null : 'never'" class="settings-section price-card">
-      <template v-if="!isMobile" #header>
-        <span class="card-title">價格偏好</span>
-      </template>
-
-      <h3 v-if="isMobile" class="m-section-title">價格偏好</h3>
+    <section class="settings-section">
+      <header class="section-header">
+        <h3 class="section-title">價格偏好</h3>
+      </header>
 
       <el-form
         :label-width="isMobile ? 'auto' : '120px'"
@@ -249,15 +241,13 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
           </el-radio-group>
         </el-form-item>
       </el-form>
-    </component>
+    </section>
 
     <!-- ============ About ============ -->
-    <component :is="SectionWrap" :shadow="isMobile ? null : 'never'" class="settings-section about-card">
-      <template v-if="!isMobile" #header>
-        <span class="card-title">關於</span>
-      </template>
-
-      <h3 v-if="isMobile" class="m-section-title">關於</h3>
+    <section class="settings-section">
+      <header class="section-header">
+        <h3 class="section-title">關於</h3>
+      </header>
 
       <div class="about-app">
         <div class="about-app-header">
@@ -305,7 +295,7 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
           >菸齡 (andycom12000)</a>
         </div>
       </div>
-    </component>
+    </section>
 
     <section class="thanks">
       <h3 class="thanks-title">特別感謝</h3>
@@ -325,26 +315,58 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   max-width: 720px;
 }
 
-/* ============ Mobile: flat sections (no nested card chrome) ============ */
-.settings-view.is-mobile .settings-section {
-  margin-top: 8px;
-  padding: 0;
-  background: transparent;
-  border: none;
+/* ============ Flat sections — typography + dividers, no card chrome ============ */
+.settings-section {
+  /* No bg / border / shadow per section. Vertical spacing + a single
+   * dividing line between sections is enough for hierarchy. */
 }
 
-.settings-view.is-mobile .settings-section + .settings-section {
-  margin-top: 24px;
-  padding-top: 20px;
+.settings-section + .settings-section {
+  margin-top: 32px;
+  padding-top: 28px;
   border-top: 1px solid var(--app-border);
 }
 
-.m-section-title {
-  margin: 0 0 12px;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.4px;
-  color: var(--app-text-muted);
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.section-title {
+  font-family: 'Noto Serif TC', serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--app-text);
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.section-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+@media (max-width: 640px) {
+  .section-header {
+    margin-bottom: 12px;
+  }
+  .section-title {
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    color: var(--app-text-muted);
+  }
+  .settings-section + .settings-section {
+    margin-top: 24px;
+    padding-top: 20px;
+  }
 }
 
 .settings-view.is-mobile .settings-form :deep(.el-form-item) {
@@ -418,16 +440,6 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   background: var(--app-accent-glow);
 }
 
-.price-card {
-  margin-top: 20px;
-}
-
-.card-header-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
 
 .thanks {
   margin-top: 28px;
@@ -479,10 +491,6 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   text-align: right;
 }
 
-.about-card {
-  margin-top: 20px;
-}
-
 .about-app {
   display: flex;
   flex-direction: column;
@@ -532,13 +540,6 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   .about-tech-label {
     min-width: 0;
   }
-}
-
-.card-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
 }
 
 .about-tech-label {
