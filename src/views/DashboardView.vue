@@ -35,6 +35,17 @@ function onboardingDone() {
   showOnboarding.value = false
 }
 
+// Rotating Cormorant italic greeting — picked once per mount.
+// Matches the rebrand spec: "像麵包店黑板上的招呼語，增加生命力".
+const greetings = [
+  '今天想烤點什麼？',
+  '"Patience is the secret ingredient."',
+  '光之戰士，準備好了嗎？',
+  '"Today\'s special: 拂曉的曙鋼"',
+  '一爐又一爐，慢慢來不急。',
+]
+const greeting = greetings[Math.floor(Math.random() * greetings.length)]
+
 const guideCollapsed = ref(localStorage.getItem('ff14-guide-collapsed') === 'true')
 
 function toggleGuide() {
@@ -86,6 +97,7 @@ const tools = [
   <div v-else class="view-container dashboard" :class="{ 'is-mobile': isMobile }">
     <!-- Welcome -->
     <div class="welcome">
+      <p class="welcome-quote">{{ greeting }}</p>
       <h2>歡迎回來，冒險者</h2>
       <p class="welcome-greeting" v-if="isMobile">嗨，冒險者 👋</p>
       <p class="view-desc">
@@ -219,6 +231,22 @@ const tools = [
 .dashboard { --page-accent: var(--app-accent-light); --page-accent-dim: var(--app-accent-glow); max-width: 960px; }
 
 .welcome h2 { border-left-color: var(--app-accent-light); }
+
+.welcome-quote {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 17px;
+  color: oklch(0.62 0.12 65);
+  margin: 0 0 6px;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+}
+
+@media (max-width: 640px) {
+  .welcome-quote {
+    font-size: 16px;
+  }
+}
 
 /* Workflow Cards */
 .workflow-list {
