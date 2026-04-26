@@ -48,34 +48,32 @@ function onDragEnd() {
 </script>
 
 <template>
-  <el-card shadow="never">
-    <template #header>
-      <div class="batch-list-header">
-        <span class="card-title">購物清單</span>
-        <div class="batch-list-actions">
-          <el-button type="primary" text size="small" :icon="Search" @click="emit('open-search')">
-            搜尋配方
-          </el-button>
-          <el-button type="primary" text size="small" @click="showOcrDialog = true">
-            從截圖匯入
-          </el-button>
-          <el-text type="info" size="small" class="batch-list-count">{{ batchStore.targets.length }} 個配方</el-text>
-          <el-popconfirm
-            v-if="batchStore.targets.length > 0 || batchStore.results"
-            title="確定要清除所有配方與計算結果嗎？"
-            confirm-button-text="確定"
-            cancel-button-text="取消"
-            @confirm="batchStore.resetAll()"
-          >
-            <template #reference>
-              <el-button type="danger" text size="small">
-                全部清除
-              </el-button>
-            </template>
-          </el-popconfirm>
-        </div>
+  <section class="batch-list">
+    <header class="batch-list-header">
+      <span class="card-title">購物清單</span>
+      <div class="batch-list-actions">
+        <el-button type="primary" text size="small" :icon="Search" @click="emit('open-search')">
+          搜尋配方
+        </el-button>
+        <el-button type="primary" text size="small" @click="showOcrDialog = true">
+          從截圖匯入
+        </el-button>
+        <el-text type="info" size="small" class="batch-list-count">{{ batchStore.targets.length }} 個配方</el-text>
+        <el-popconfirm
+          v-if="batchStore.targets.length > 0 || batchStore.results"
+          title="確定要清除所有配方與計算結果嗎？"
+          confirm-button-text="確定"
+          cancel-button-text="取消"
+          @confirm="batchStore.resetAll()"
+        >
+          <template #reference>
+            <el-button type="danger" text size="small">
+              全部清除
+            </el-button>
+          </template>
+        </el-popconfirm>
       </div>
-    </template>
+    </header>
 
     <div v-if="batchStore.targets.length > 0" class="recipe-card-list">
       <div
@@ -115,16 +113,22 @@ function onDragEnd() {
     </AppEmptyState>
 
     <OcrImportDialog v-model="showOcrDialog" />
-  </el-card>
+  </section>
 </template>
 
 <style scoped>
+.batch-list {
+  /* No outer chrome — recipe cards inside carry their own boundary */
+}
+
 .batch-list-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding: 0 4px;
 }
 
 .batch-list-actions {
