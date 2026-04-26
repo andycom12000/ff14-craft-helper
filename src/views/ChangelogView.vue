@@ -656,18 +656,22 @@ function formatDateDots(iso: string) {
 <style scoped>
 /* Eorzean Codex palette — scoped to this view */
 .changelog-view {
-  /* Light theme — Eorzean Codex on parchment table */
+  /* Light theme — Eorzean Codex on parchment table.
+   * Muted palette aligned with SimulatorView progress bars / BomView —
+   * lower chroma keeps the page calm so attention can land on text. */
   --parch-50: oklch(0.28 0.04 55);   /* main text on cream — dark warm brown */
   --parch-100: oklch(0.35 0.04 55);  /* slightly less prominent */
   --ink-900: oklch(0.20 0.04 55);    /* high-contrast text (on gold/etc) */
   --fg-muted: oklch(0.50 0.03 60);
   --fg-faint: oklch(0.62 0.03 60);
-  --gold: oklch(0.65 0.18 65);       /* match new toast gold */
-  --gold-soft: oklch(0.65 0.18 65 / .14);
-  --gold-line: oklch(0.65 0.18 65 / .35);
-  --lapis: oklch(0.50 0.13 70);      /* microbake — replaces blue (per rebrand spec) */
-  --line: oklch(0.55 0.04 65 / .22);
-  --line-strong: oklch(0.55 0.04 65 / .38);
+  --gold: oklch(0.62 0.12 65);       /* muted toast gold (was 0.18 chroma) */
+  --gold-soft: oklch(0.62 0.12 65 / .10);
+  --gold-line: oklch(0.62 0.12 65 / .28);
+  --lapis: oklch(0.55 0.10 50);
+  --line: oklch(0.55 0.04 65 / .18);
+  --line-strong: oklch(0.55 0.04 65 / .32);
+  --neutral-tag-bg: oklch(0.50 0.03 60 / .06);
+  --neutral-tag-border: oklch(0.55 0.04 65 / .22);
 
   --display: 'Cormorant Garamond', 'Noto Serif TC', serif;
   --mono: 'JetBrains Mono', ui-monospace, monospace;
@@ -830,7 +834,7 @@ function formatDateDots(iso: string) {
   background: var(--gold);
   border-color: var(--gold-line);
   transform: translateY(-50%) scale(1.4);
-  box-shadow: 0 0 8px oklch(0.82 0.13 82 / .35);
+  box-shadow: 0 0 8px var(--gold-line);
 }
 .rail-item--active .rail-mon {
   color: var(--parch-50);
@@ -935,7 +939,7 @@ function formatDateDots(iso: string) {
 }
 .panel-title .ver { color: var(--parch-50); }
 .panel-title .codename {
-  color: var(--gold);
+  color: var(--fg-muted);
   font-style: italic;
   font-size: 0.92em;
 }
@@ -999,9 +1003,9 @@ function formatDateDots(iso: string) {
   font-family: var(--mono);
   font-size: 11px;
   letter-spacing: .1em;
-  color: var(--gold);
-  background: var(--gold-soft);
-  border: 1px solid var(--gold-line);
+  color: var(--fg-muted);
+  background: transparent;
+  border: 1px solid var(--line-strong);
   border-radius: 999px;
   padding: 1px 8px;
   flex-shrink: 0;
@@ -1043,9 +1047,9 @@ function formatDateDots(iso: string) {
   font-family: var(--mono);
   font-size: 10.5px;
   letter-spacing: .12em;
-  color: var(--gold);
-  background: var(--gold-soft);
-  border: 1px solid var(--gold-line);
+  color: var(--fg-muted);
+  background: var(--neutral-tag-bg);
+  border: 1px solid var(--neutral-tag-border);
   border-radius: 3px;
   padding: 2px 7px;
   white-space: nowrap;
@@ -1061,14 +1065,14 @@ function formatDateDots(iso: string) {
 .hl-text {
   min-width: 0;
 }
-/* Items without a category get a subtle gold tick instead */
+/* Items without a category get a subtle bullet — muted, not gold */
 .hl-item:not(:has(.hl-cat))::before {
   content: '';
   display: inline-block;
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: var(--gold);
+  background: var(--fg-faint);
   margin: 0 6px 0 4px;
   align-self: center;
   grid-column: 1;
