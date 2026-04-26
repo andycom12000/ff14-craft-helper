@@ -265,7 +265,6 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
             FFXIV 製作助手
             <span class="about-ver">{{ appVersion }}</span>
           </p>
-          <p class="about-tagline">"今天想烤點什麼？"</p>
 
           <div class="about-links">
             <a
@@ -521,7 +520,7 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   display: grid;
   grid-template-columns: 80px 1fr;
   gap: 20px;
-  align-items: start;
+  align-items: center;
 }
 
 .about-avatar {
@@ -568,7 +567,7 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
 }
 
 .about-project {
-  margin: 0 0 4px;
+  margin: 0 0 14px;
   font-size: 13.5px;
   color: var(--app-text-muted);
   display: inline-flex;
@@ -591,15 +590,6 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   padding: 1px 7px;
   border-radius: 4px;
   letter-spacing: 0.05em;
-}
-
-.about-tagline {
-  font-family: 'Cormorant Garamond', serif;
-  font-style: italic;
-  font-size: 14.5px;
-  color: oklch(0.62 0.12 65);
-  margin: 0 0 16px;
-  line-height: 1.5;
 }
 
 .about-links {
