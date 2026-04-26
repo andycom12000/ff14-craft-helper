@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sidebar Tiers — 吐司工坊</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Fira+Code:wght@400;700&family=Noto+Serif+TC:wght@400;500;600;700;900&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --app-bg: oklch(0.965 0.022 90);
+    --app-sidebar: oklch(0.93 0.025 80);
+    --app-surface: oklch(0.975 0.018 85);
+    --app-surface-2: oklch(0.93 0.04 80);
+    --app-border: oklch(0.65 0.04 65 / 0.30);
+    --app-text: oklch(0.28 0.04 55);
+    --app-text-muted: oklch(0.50 0.03 60);
+    --app-accent: oklch(0.65 0.18 65);
+    --app-accent-glow: oklch(0.65 0.18 65 / 0.18);
+    --app-craft: oklch(0.50 0.16 40);
+    --app-craft-dim: oklch(0.50 0.16 40 / 0.10);
+    --ease: cubic-bezier(0.25, 1, 0.5, 1);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Noto Sans TC', sans-serif;
+    background: var(--app-bg);
+    color: var(--app-text);
+    min-height: 100vh;
+  }
+
+  /* Page header */
+  .page-header {
+    padding: 48px 40px 32px;
+    background: var(--app-surface-2);
+    border-bottom: 1px solid var(--app-border);
+    text-align: center;
+  }
+  .eyebrow {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: var(--app-accent);
+    margin: 0 0 4px;
+    font-size: 15px;
+  }
+  .page-title {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 900;
+    font-size: 32px;
+    margin: 0 0 8px;
+    letter-spacing: 1.5px;
+  }
+  .page-subtitle {
+    color: var(--app-text-muted);
+    font-size: 14px;
+    line-height: 1.6;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+
+  main {
+    padding: 40px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+
+  /* Comparison grid */
+  .compare-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+  }
+  @media (max-width: 1100px) {
+    .compare-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 600px) {
+    .compare-grid { grid-template-columns: 1fr; }
+  }
+
+  /* Tier card */
+  .tier {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .tier-header {
+    text-align: center;
+  }
+  .tier-tag {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 999px;
+    font-family: 'Fira Code', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .tier-tag.baseline {
+    background: oklch(0.55 0.04 60 / 0.14);
+    color: var(--app-text-muted);
+    border: 1px solid oklch(0.55 0.04 60 / 0.4);
+  }
+  .tier-tag.recommend {
+    background: var(--app-accent-glow);
+    color: var(--app-accent);
+    border: 1px solid oklch(0.65 0.18 65 / 0.4);
+  }
+  .tier-tag.neutral {
+    background: oklch(0.65 0.18 65 / 0.10);
+    color: oklch(0.55 0.15 65);
+    border: 1px solid oklch(0.65 0.18 65 / 0.30);
+  }
+  .tier-name {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--app-text);
+    margin: 0 0 4px;
+    letter-spacing: 0.5px;
+  }
+  .tier-desc {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: var(--app-text-muted);
+    font-size: 14px;
+    margin: 0;
+    line-height: 1.4;
+  }
+
+  /* Sidebar mock */
+  .sidebar {
+    width: 100%;
+    height: 600px;
+    background: var(--app-sidebar);
+    border: 1px solid var(--app-border);
+    border-radius: 14px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 14px oklch(0.40 0.05 60 / 0.06);
+  }
+
+  .sidebar-logo {
+    height: 72px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--app-border);
+    flex-shrink: 0;
+  }
+  .sidebar-logo svg {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    filter: drop-shadow(0 1px 2px oklch(0.40 0.10 50 / 0.18));
+  }
+  .sidebar-logo .text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .sidebar-logo .name {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 900;
+    font-size: 19px;
+    color: var(--app-text);
+    letter-spacing: 1px;
+    line-height: 1;
+  }
+  .sidebar-logo .sub {
+    font-size: 9.5px;
+    font-weight: 700;
+    color: oklch(0.42 0.05 55);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    line-height: 1.2;
+  }
+
+  .sidebar-menu {
+    flex: 1;
+    padding: 8px 8px 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow-y: auto;
+  }
+
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: oklch(0.38 0.04 55);
+    cursor: pointer;
+    transition: all 0.18s var(--ease);
+    height: 44px;
+    flex-shrink: 0;
+  }
+  .sidebar-item:hover {
+    background: oklch(0.65 0.18 65 / 0.06);
+    color: var(--app-text);
+  }
+  .sidebar-item.active {
+    background: var(--app-accent-glow);
+    color: var(--app-accent);
+    font-weight: 700;
+  }
+  .sidebar-item .icon {
+    font-size: 16px;
+    width: 18px;
+    text-align: center;
+  }
+  .sidebar-item .badge {
+    margin-left: auto;
+    font-size: 10px;
+    padding: 1px 6px;
+    background: oklch(0.55 0.04 60 / 0.20);
+    color: var(--app-text-muted);
+    border-radius: 999px;
+  }
+
+  .sidebar-divider {
+    margin: 6px 12px;
+    border-top: 1px solid var(--app-border);
+    flex-shrink: 0;
+  }
+
+  /* Tier-specific styles */
+
+  /* Tier 2: featured group gap */
+  .tier-2 .group-gap {
+    height: 6px;
+    flex-shrink: 0;
+  }
+
+  /* Tier 3: visual emphasis on featured item */
+  .tier-3 .sidebar-item.featured {
+    background: var(--app-craft-dim);
+    border: 1px solid oklch(0.50 0.16 40 / 0.30);
+    color: var(--app-craft);
+    position: relative;
+  }
+  .tier-3 .sidebar-item.featured::before {
+    content: '';
+    position: absolute;
+    left: -1px; top: 50%;
+    width: 3px; height: 60%;
+    background: var(--app-craft);
+    border-radius: 0 2px 2px 0;
+    transform: translateY(-50%);
+  }
+  .tier-3 .sidebar-item.featured .icon {
+    color: var(--app-craft);
+  }
+  .tier-3 .sidebar-item.featured.active {
+    background: var(--app-craft-dim);
+    border-color: oklch(0.50 0.16 40 / 0.55);
+    color: var(--app-craft);
+  }
+
+  /* Notes below */
+  .tier-notes {
+    font-size: 12px;
+    color: var(--app-text-muted);
+    line-height: 1.6;
+    padding: 12px 4px 0;
+  }
+  .tier-notes p { margin: 0 0 4px; }
+  .tier-notes ul { margin: 0; padding-left: 18px; }
+  .tier-notes .pro { color: oklch(0.45 0.16 145); }
+  .tier-notes .con { color: oklch(0.55 0.18 25); }
+
+  .footer {
+    padding: 32px 40px 60px;
+    text-align: center;
+    color: var(--app-text-muted);
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<header class="page-header">
+  <p class="eyebrow">Navigation hierarchy</p>
+  <h1 class="page-title">Sidebar 排序方案比較</h1>
+  <p class="page-subtitle">
+    Dashboard 已把批量製作擺成 hero。Sidebar 要怎麼回應？三個強度的方案 + 對照組。
+    所有方案都把「批量製作」上移到「首頁」之後。
+  </p>
+</header>
+
+<main>
+  <div class="compare-grid">
+
+    <!-- Baseline -->
+    <div class="tier">
+      <div class="tier-header">
+        <span class="tier-tag baseline">baseline</span>
+        <h2 class="tier-name">目前</h2>
+        <p class="tier-desc">"every nav item equal"</p>
+      </div>
+      <div class="sidebar">
+        <div class="sidebar-logo">
+          <svg viewBox="0 0 64 64" fill="none">
+            <path d="M 12 54 L 12 24 Q 12 8 32 8 Q 52 8 52 24 L 52 54 Q 52 56 50 56 L 14 56 Q 12 56 12 54 Z" fill="url(#g1)" stroke="#824020" stroke-width="2.5" stroke-linejoin="round"/>
+            <path d="M 18 22 Q 32 12 46 22" fill="none" stroke="#FFF" stroke-opacity="0.4" stroke-width="2.2" stroke-linecap="round"/>
+            <line x1="22" y1="34" x2="42" y2="34" stroke="#824020" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round"/>
+            <line x1="22" y1="44" x2="42" y2="44" stroke="#824020" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round"/>
+            <defs><linearGradient id="g1" x1="32" y1="8" x2="32" y2="56" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#D8AF66"/><stop offset="100%" stop-color="#B07A33"/></linearGradient></defs>
+          </svg>
+          <div class="text"><span class="name">吐司工坊</span><span class="sub">FFXIV 製作助手</span></div>
+        </div>
+        <div class="sidebar-menu">
+          <div class="sidebar-item"><span class="icon">🏠</span>首頁</div>
+          <div class="sidebar-item"><span class="icon">👜</span>配裝管理</div>
+          <div class="sidebar-item"><span class="icon">🖥️</span>製作模擬</div>
+          <div class="sidebar-item active"><span class="icon">⚙️</span>批量製作</div>
+          <div class="sidebar-item"><span class="icon">📋</span>購物清單</div>
+          <div class="sidebar-item"><span class="icon">📈</span>市場查價<span class="badge">開發中</span></div>
+          <div class="sidebar-item"><span class="icon">⏰</span>採集計時器</div>
+          <div class="sidebar-divider"></div>
+          <div class="sidebar-item"><span class="icon">📄</span>更新日誌</div>
+          <div class="sidebar-item"><span class="icon">⚙️</span>設定</div>
+        </div>
+      </div>
+      <div class="tier-notes">
+        <p><span class="con">✗</span> 跟 Dashboard hero 矛盾 — hero 強調 batch，sidebar 把它埋在中間</p>
+        <p><span class="pro">✓</span> 不打擾現有使用者習慣</p>
+      </div>
+    </div>
+
+    <!-- Tier 1 -->
+    <div class="tier tier-1">
+      <div class="tier-header">
+        <span class="tier-tag recommend">tier 1 · recommended</span>
+        <h2 class="tier-name">純位置調整</h2>
+        <p class="tier-desc">"position is the only honest signal"</p>
+      </div>
+      <div class="sidebar">
+        <div class="sidebar-logo">
+          <svg viewBox="0 0 64 64" fill="none">
+            <path d="M 12 54 L 12 24 Q 12 8 32 8 Q 52 8 52 24 L 52 54 Q 52 56 50 56 L 14 56 Q 12 56 12 54 Z" fill="url(#g2)" stroke="#824020" stroke-width="2.5" stroke-linejoin="round"/>
+            <path d="M 18 22 Q 32 12 46 22" fill="none" stroke="#FFF" stroke-opacity="0.4" stroke-width="2.2" stroke-linecap="round"/>
+            <line x1="22" y1="34" x2="42" y2="34" stroke="#824020" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round"/>
+            <line x1="22" y1="44" x2="42" y2="44" stroke="#824020" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round"/>
+            <defs><linearGradient id="g2" x1="32" y1="8" x2="32" y2="56" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#D8AF66"/><stop offset="100%" stop-color="#B07A33"/></linearGradient></defs>
+          </svg>
+          <div class="text"><span class="name">吐司工坊</span><span class="sub">FFXIV 製作助手</span></div>
+        </div>
+        <div class="sidebar-menu">
+          <div class="sidebar-item"><span class="icon">🏠</span>首頁</div>
+          <div class="sidebar-item active"><span class="icon">⚙️</span>批量製作</div>
+          <div class="sidebar-item"><span class="icon">🖥️</span>製作模擬</div>
+          <div class="sidebar-item"><span class="icon">📋</span>購物清單</div>
+          <div class="sidebar-item"><span class="icon">👜</span>配裝管理</div>
+          <div class="sidebar-item"><span class="icon">📈</span>市場查價<span class="badge">開發中</span></div>
+          <div class="sidebar-item"><span class="icon">⏰</span>採集計時器</div>
+          <div class="sidebar-divider"></div>
+          <div class="sidebar-item"><span class="icon">📄</span>更新日誌</div>
+          <div class="sidebar-item"><span class="icon">⚙️</span>設定</div>
+        </div>
+      </div>
+      <div class="tier-notes">
+        <p><span class="pro">✓</span> 對齊 Dashboard hero 敘事</p>
+        <p><span class="pro">✓</span> Sidebar 保持極簡，無新元素</p>
+        <p><span class="con">✗</span> 對既有使用者：肌肉記憶要重置一次</p>
+      </div>
+    </div>
+
+    <!-- Tier 2 -->
+    <div class="tier tier-2">
+      <div class="tier-header">
+        <span class="tier-tag neutral">tier 2</span>
+        <h2 class="tier-name">位置 + 微間距</h2>
+        <p class="tier-desc">"a quiet shelf between primary and the rest"</p>
+      </div>
+      <div class="sidebar">
+        <div class="sidebar-logo">
+          <svg viewBox="0 0 64 64" fill="none">
+            <path d="M 12 54 L 12 24 Q 12 8 32 8 Q 52 8 52 24 L 52 54 Q 52 56 50 56 L 14 56 Q 12 56 12 54 Z" fill="url(#g3)" stroke="#824020" stroke-width="2.5" stroke-linejoin="round"/>
+            <path d="M 18 22 Q 32 12 46 22" fill="none" stroke="#FFF" stroke-opacity="0.4" stroke-width="2.2" stroke-linecap="round"/>
+            <line x1="22" y1="34" x2="42" y2="34" stroke="#824020" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round"/>
+            <line x1="22" y1="44" x2="42" y2="44" stroke="#824020" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round"/>
+            <defs><linearGradient id="g3" x1="32" y1="8" x2="32" y2="56" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#D8AF66"/><stop offset="100%" stop-color="#B07A33"/></linearGradient></defs>
+          </svg>
+          <div class="text"><span class="name">吐司工坊</span><span class="sub">FFXIV 製作助手</span></div>
+        </div>
+        <div class="sidebar-menu">
+          <div class="sidebar-item"><span class="icon">🏠</span>首頁</div>
+          <div class="sidebar-item active"><span class="icon">⚙️</span>批量製作</div>
+          <div class="group-gap"></div>
+          <div class="sidebar-item"><span class="icon">🖥️</span>製作模擬</div>
+          <div class="sidebar-item"><span class="icon">📋</span>購物清單</div>
+          <div class="sidebar-item"><span class="icon">👜</span>配裝管理</div>
+          <div class="group-gap"></div>
+          <div class="sidebar-item"><span class="icon">📈</span>市場查價<span class="badge">開發中</span></div>
+          <div class="sidebar-item"><span class="icon">⏰</span>採集計時器</div>
+          <div class="sidebar-divider"></div>
+          <div class="sidebar-item"><span class="icon">📄</span>更新日誌</div>
+          <div class="sidebar-item"><span class="icon">⚙️</span>設定</div>
+        </div>
+      </div>
+      <div class="tier-notes">
+        <p><span class="pro">✓</span> 三個視覺群組：主打 / 製作 / 周邊</p>
+        <p><span class="pro">✓</span> 沒新增顏色或 badge</p>
+        <p><span class="con">✗</span> 多了兩段空白 — 視覺較碎</p>
+      </div>
+    </div>
+
+    <!-- Tier 3 -->
+    <div class="tier tier-3">
+      <div class="tier-header">
+        <span class="tier-tag neutral">tier 3</span>
+        <h2 class="tier-name">位置 + cocoa 強化</h2>
+        <p class="tier-desc">"hard to miss, but feels promo"</p>
+      </div>
+      <div class="sidebar">
+        <div class="sidebar-logo">
+          <svg viewBox="0 0 64 64" fill="none">
+            <path d="M 12 54 L 12 24 Q 12 8 32 8 Q 52 8 52 24 L 52 54 Q 52 56 50 56 L 14 56 Q 12 56 12 54 Z" fill="url(#g4)" stroke="#824020" stroke-width="2.5" stroke-linejoin="round"/>
+            <path d="M 18 22 Q 32 12 46 22" fill="none" stroke="#FFF" stroke-opacity="0.4" stroke-width="2.2" stroke-linecap="round"/>
+            <line x1="22" y1="34" x2="42" y2="34" stroke="#824020" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round"/>
+            <line x1="22" y1="44" x2="42" y2="44" stroke="#824020" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round"/>
+            <defs><linearGradient id="g4" x1="32" y1="8" x2="32" y2="56" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#D8AF66"/><stop offset="100%" stop-color="#B07A33"/></linearGradient></defs>
+          </svg>
+          <div class="text"><span class="name">吐司工坊</span><span class="sub">FFXIV 製作助手</span></div>
+        </div>
+        <div class="sidebar-menu">
+          <div class="sidebar-item"><span class="icon">🏠</span>首頁</div>
+          <div class="sidebar-item featured active"><span class="icon">⚙️</span>批量製作</div>
+          <div class="sidebar-item"><span class="icon">🖥️</span>製作模擬</div>
+          <div class="sidebar-item"><span class="icon">📋</span>購物清單</div>
+          <div class="sidebar-item"><span class="icon">👜</span>配裝管理</div>
+          <div class="sidebar-item"><span class="icon">📈</span>市場查價<span class="badge">開發中</span></div>
+          <div class="sidebar-item"><span class="icon">⏰</span>採集計時器</div>
+          <div class="sidebar-divider"></div>
+          <div class="sidebar-item"><span class="icon">📄</span>更新日誌</div>
+          <div class="sidebar-item"><span class="icon">⚙️</span>設定</div>
+        </div>
+      </div>
+      <div class="tier-notes">
+        <p><span class="pro">✓</span> 一眼可辨識主打</p>
+        <p><span class="con">✗</span> Sidebar 出現「廣告」感</p>
+        <p><span class="con">✗</span> 跟其他 nav item 不一致</p>
+        <p><span class="con">✗</span> Active state 跟 featured 區隔模糊</p>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<footer class="footer">
+  <p>挑一個或反饋哪個方向對。Tier 1 是我推薦的最低成本方案。</p>
+</footer>
+
+</body>
+</html>

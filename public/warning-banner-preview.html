@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Warning Banner — 吐司工坊</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Fira+Code:wght@400;700&family=Noto+Serif+TC:wght@400;500;600;700;900&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --app-bg: oklch(0.965 0.022 90);
+    --app-surface: oklch(0.975 0.018 85);
+    --app-surface-2: oklch(0.93 0.04 80);
+    --app-border: oklch(0.65 0.04 65 / 0.30);
+    --app-text: oklch(0.28 0.04 55);
+    --app-text-muted: oklch(0.50 0.03 60);
+    --app-accent: oklch(0.65 0.18 65);
+    --warning: oklch(0.58 0.17 45);
+    --warning-deep: oklch(0.42 0.16 45);
+    --warning-darker: oklch(0.32 0.14 45);
+    --ease: cubic-bezier(0.25, 1, 0.5, 1);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Noto Sans TC', sans-serif;
+    background: var(--app-bg);
+    color: var(--app-text);
+    min-height: 100vh;
+  }
+
+  /* === Header === */
+  .page-header {
+    padding: 48px 40px 32px;
+    background: var(--app-surface-2);
+    border-bottom: 1px solid var(--app-border);
+    text-align: center;
+  }
+  .eyebrow {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: var(--app-accent);
+    margin: 0 0 4px;
+    font-size: 15px;
+  }
+  .page-title {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 900;
+    font-size: 32px;
+    margin: 0 0 8px;
+    letter-spacing: 1.5px;
+  }
+  .page-subtitle {
+    color: var(--app-text-muted);
+    font-size: 14px;
+    line-height: 1.6;
+    max-width: 620px;
+    margin: 0 auto;
+  }
+
+  /* === Sections === */
+  main {
+    padding: 40px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .demo {
+    margin-bottom: 36px;
+  }
+
+  .demo-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+  .demo-name {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    font-size: 20px;
+    margin: 0;
+  }
+  .demo-tag {
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    background: oklch(0.65 0.18 65 / 0.14);
+    color: oklch(0.55 0.18 60);
+    border: 1px solid oklch(0.65 0.18 65 / 0.4);
+  }
+  .demo-desc {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: var(--app-text-muted);
+    font-size: 14px;
+    margin: 0 0 14px;
+  }
+  .demo-frame {
+    background: var(--app-surface);
+    border-radius: 12px;
+    padding: 24px;
+    border: 1px solid var(--app-border);
+  }
+  .demo-spec {
+    font-family: 'Fira Code', monospace;
+    font-size: 11px;
+    color: var(--app-text-muted);
+    margin-top: 10px;
+    line-height: 1.6;
+  }
+
+  /* ===========================================================
+   * BASELINE — current alert
+   * =========================================================== */
+  .baseline-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: oklch(0.58 0.17 45 / 0.12);
+    border: 1px solid oklch(0.58 0.17 45 / 0.40);
+    border-radius: 6px;
+    padding: 12px 16px;
+  }
+  .baseline-alert .ico {
+    color: oklch(0.55 0.17 45);
+    font-size: 18px;
+    line-height: 1;
+    margin-top: 1px;
+  }
+  .baseline-alert .body { flex: 1; }
+  .baseline-alert .title {
+    color: oklch(0.38 0.16 45);
+    font-weight: 700;
+    font-size: 14.5px;
+    margin-bottom: 4px;
+  }
+  .baseline-alert .link {
+    color: var(--app-accent);
+    font-weight: 600;
+    font-size: 13.5px;
+    text-decoration: none;
+  }
+  .baseline-alert .link:hover { text-decoration: underline; }
+
+  /* ===========================================================
+   * BANNER A — Solid sienna · 強烈醒目
+   * =========================================================== */
+  .banner-a {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--warning);
+    color: oklch(0.99 0.005 90);
+    border-radius: 12px;
+    padding: 16px 22px;
+    box-shadow: 0 4px 16px oklch(0.58 0.17 45 / 0.20);
+  }
+  .banner-a .ico {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: oklch(1 0 0 / 0.20);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+  .banner-a .body { flex: 1; }
+  .banner-a .title {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    font-size: 16px;
+    margin-bottom: 3px;
+  }
+  .banner-a .desc {
+    font-size: 13px;
+    opacity: 0.9;
+  }
+  .banner-a .cta {
+    background: oklch(0.99 0.005 90);
+    color: var(--warning-deep);
+    border: 0;
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    transition: transform 0.18s var(--ease);
+  }
+  .banner-a .cta:hover { transform: translateY(-1px); }
+
+  /* ===========================================================
+   * BANNER B — Split icon panel · 雙區塊
+   * =========================================================== */
+  .banner-b {
+    display: flex;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid oklch(0.58 0.17 45 / 0.40);
+    box-shadow: 0 2px 8px oklch(0.40 0.05 60 / 0.06);
+  }
+  .banner-b .left {
+    background: var(--warning);
+    color: oklch(0.99 0.005 90);
+    padding: 18px 22px;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .banner-b .left .ico { font-size: 26px; }
+  .banner-b .right {
+    flex: 1;
+    background: oklch(0.58 0.17 45 / 0.07);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .banner-b .body { flex: 1; }
+  .banner-b .title {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    color: var(--warning-darker);
+    font-size: 15.5px;
+    margin-bottom: 2px;
+  }
+  .banner-b .desc {
+    color: var(--warning-deep);
+    font-size: 13px;
+    opacity: 0.85;
+  }
+  .banner-b .cta {
+    background: var(--warning);
+    color: oklch(0.99 0.005 90);
+    border: 0;
+    padding: 9px 16px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 12.5px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .banner-b .cta:hover {
+    background: var(--warning-deep);
+  }
+
+  /* ===========================================================
+   * BANNER C — Inline CTA · 寬卡 + 內嵌按鈕
+   * =========================================================== */
+  .banner-c {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: oklch(0.58 0.17 45 / 0.10);
+    border: 1.5px solid oklch(0.58 0.17 45 / 0.50);
+    border-radius: 12px;
+    padding: 18px 22px;
+    box-shadow: 0 4px 14px oklch(0.58 0.17 45 / 0.10);
+  }
+  .banner-c .ico {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: var(--warning);
+    color: oklch(0.99 0.005 90);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+  .banner-c .body { flex: 1; }
+  .banner-c .title {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    color: var(--warning-darker);
+    font-size: 16px;
+    margin-bottom: 3px;
+  }
+  .banner-c .desc {
+    color: var(--warning-deep);
+    font-size: 13.5px;
+  }
+  .banner-c .cta {
+    background: var(--warning);
+    color: oklch(0.99 0.005 90);
+    border: 0;
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.18s var(--ease);
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px oklch(0.58 0.17 45 / 0.30);
+  }
+  .banner-c .cta:hover {
+    background: var(--warning-deep);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px oklch(0.58 0.17 45 / 0.4);
+  }
+
+  /* ===========================================================
+   * BANNER D — Stamp · 印章感
+   * =========================================================== */
+  .banner-d {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background:
+      repeating-linear-gradient(
+        135deg,
+        oklch(0.58 0.17 45 / 0.06) 0 8px,
+        transparent 8px 16px
+      ),
+      oklch(0.58 0.17 45 / 0.05);
+    border: 2px solid oklch(0.58 0.17 45 / 0.45);
+    border-radius: 4px;
+    padding: 16px 22px;
+    position: relative;
+  }
+  .banner-d::before {
+    content: 'NEEDS ATTENTION';
+    position: absolute;
+    top: -10px;
+    left: 18px;
+    background: var(--warning);
+    color: oklch(0.99 0.005 90);
+    font-family: 'Fira Code', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    padding: 2px 10px;
+    border-radius: 3px;
+  }
+  .banner-d .ico {
+    color: var(--warning);
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+  .banner-d .body { flex: 1; }
+  .banner-d .title {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    color: var(--warning-darker);
+    font-size: 15.5px;
+    margin-bottom: 3px;
+  }
+  .banner-d .desc {
+    color: var(--warning-deep);
+    font-size: 13px;
+  }
+  .banner-d .cta {
+    background: oklch(0.99 0.005 90);
+    color: var(--warning-deep);
+    border: 1.5px solid var(--warning);
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 12.5px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .banner-d .cta:hover {
+    background: var(--warning);
+    color: oklch(0.99 0.005 90);
+  }
+
+  /* ===========================================================
+   * BANNER E — Hero size · 完整大塊
+   * =========================================================== */
+  .banner-e {
+    background: oklch(0.58 0.17 45 / 0.07);
+    border: 1px solid oklch(0.58 0.17 45 / 0.32);
+    border-radius: 14px;
+    padding: 22px 26px;
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+    box-shadow: 0 1px 0 oklch(1 0 0 / 0.6) inset, 0 6px 18px oklch(0.58 0.17 45 / 0.10);
+  }
+  .banner-e .ico {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--warning);
+    color: oklch(0.99 0.005 90);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px oklch(0.58 0.17 45 / 0.30);
+  }
+  .banner-e .body { flex: 1; padding-top: 4px; }
+  .banner-e .title {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    color: var(--warning-darker);
+    font-size: 18px;
+    margin-bottom: 6px;
+  }
+  .banner-e .desc {
+    color: var(--warning-deep);
+    font-size: 13.5px;
+    line-height: 1.6;
+    margin-bottom: 12px;
+  }
+  .banner-e .cta {
+    background: var(--warning);
+    color: oklch(0.99 0.005 90);
+    border: 0;
+    padding: 10px 22px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 13.5px;
+    cursor: pointer;
+    transition: all 0.18s var(--ease);
+    box-shadow: 0 2px 8px oklch(0.58 0.17 45 / 0.30);
+  }
+  .banner-e .cta:hover {
+    background: var(--warning-deep);
+    transform: translateY(-1px);
+  }
+
+  /* ===========================================================
+   * BANNER F — Pulse glow · 帶呼吸光
+   * =========================================================== */
+  .banner-f {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: oklch(0.58 0.17 45 / 0.10);
+    border: 1.5px solid var(--warning);
+    border-radius: 12px;
+    padding: 16px 22px;
+    animation: pulse-glow 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 0 0 oklch(0.58 0.17 45 / 0.20); }
+    50% { box-shadow: 0 0 0 6px oklch(0.58 0.17 45 / 0.04); }
+  }
+  .banner-f .ico {
+    color: var(--warning);
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+  .banner-f .body { flex: 1; }
+  .banner-f .title {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    color: var(--warning-darker);
+    font-size: 15.5px;
+    margin-bottom: 3px;
+  }
+  .banner-f .desc {
+    color: var(--warning-deep);
+    font-size: 13px;
+  }
+  .banner-f .cta {
+    background: var(--warning);
+    color: oklch(0.99 0.005 90);
+    border: 0;
+    padding: 9px 16px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 12.5px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* === Footer === */
+  .footer {
+    padding: 32px 40px 60px;
+    text-align: center;
+    color: var(--app-text-muted);
+    font-size: 12px;
+  }
+
+  @media (max-width: 700px) {
+    .banner-a, .banner-c, .banner-d, .banner-e, .banner-f {
+      flex-direction: column;
+      align-items: stretch;
+      text-align: center;
+    }
+    .banner-a .ico, .banner-c .ico, .banner-e .ico {
+      margin: 0 auto;
+    }
+    .banner-b { flex-direction: column; }
+    .banner-b .left { padding: 20px; justify-content: center; }
+    .banner-b .right { flex-direction: column; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<header class="page-header">
+  <p class="eyebrow">Iteration · Warning visibility</p>
+  <h1 class="page-title">Banner Variants</h1>
+  <p class="page-subtitle">
+    目前的 alert 加強版（Baseline）若還不夠醒目，下面 6 個 banner 樣式可以替換。
+    每個都用「尚未設定該職業的裝備數值 — 請前往配裝頁設定」作為展示資料。
+  </p>
+</header>
+
+<main>
+
+  <!-- BASELINE -->
+  <div class="demo">
+    <div class="demo-header">
+      <h2 class="demo-name">Baseline · Current Alert (12% sienna)</h2>
+      <span class="demo-tag" style="background:oklch(0.55 0.04 60 / 0.14);color:oklch(0.40 0.04 55);border-color:oklch(0.55 0.04 60 / 0.4)">對照組</span>
+    </div>
+    <p class="demo-desc">"目前已強化過的 el-alert，user 認為還不夠跳"</p>
+    <div class="demo-frame">
+      <div class="baseline-alert">
+        <span class="ico">⚠</span>
+        <div class="body">
+          <div class="title">尚未設定該職業的裝備數值</div>
+          <a class="link" href="#">前往裝備頁面設定配裝 →</a>
+        </div>
+      </div>
+    </div>
+    <div class="demo-spec">EP el-alert override · sienna 12% bg / 40% border / bold title</div>
+  </div>
+
+  <!-- BANNER A -->
+  <div class="demo">
+    <div class="demo-header">
+      <h2 class="demo-name">A · 實心 Sienna 橫幅</h2>
+      <span class="demo-tag">最強烈</span>
+    </div>
+    <p class="demo-desc">"絕對不會錯過 — 整個 banner 是 sienna 實心，文字翻白"</p>
+    <div class="demo-frame">
+      <div class="banner-a">
+        <div class="ico">⚠</div>
+        <div class="body">
+          <div class="title">尚未設定該職業的裝備數值</div>
+          <div class="desc">先到配裝頁面填好作業精度、加工精度、CP 才能模擬</div>
+        </div>
+        <button class="cta">前往設定 →</button>
+      </div>
+    </div>
+    <div class="demo-spec">solid sienna bg · white text · CTA 按鈕白底 sienna 字</div>
+  </div>
+
+  <!-- BANNER B -->
+  <div class="demo">
+    <div class="demo-header">
+      <h2 class="demo-name">B · Icon 雙色塊</h2>
+      <span class="demo-tag">分區</span>
+    </div>
+    <p class="demo-desc">"like a hazard placard — icon block on the left, content on the right"</p>
+    <div class="demo-frame">
+      <div class="banner-b">
+        <div class="left"><span class="ico">⚠</span></div>
+        <div class="right">
+          <div class="body">
+            <div class="title">尚未設定該職業的裝備數值</div>
+            <div class="desc">先填好配裝才能進入模擬流程</div>
+          </div>
+          <button class="cta">前往設定 →</button>
+        </div>
+      </div>
+    </div>
+    <div class="demo-spec">left: solid sienna · right: 7% sienna fill · 1px sienna border</div>
+  </div>
+
+  <!-- BANNER C -->
+  <div class="demo">
+    <div class="demo-header">
+      <h2 class="demo-name">C · 內嵌 CTA + 圓角 Icon</h2>
+      <span class="demo-tag">推薦</span>
+    </div>
+    <p class="demo-desc">"presentable but unmistakable — slightly stronger than the alert, with an obvious action"</p>
+    <div class="demo-frame">
+      <div class="banner-c">
+        <div class="ico">⚠</div>
+        <div class="body">
+          <div class="title">尚未設定該職業的裝備數值</div>
+          <div class="desc">先填好作業精度、加工精度、CP 才能模擬</div>
+        </div>
+        <button class="cta">前往設定 →</button>
+      </div>
+    </div>
+    <div class="demo-spec">10% sienna bg · 1.5px 50% sienna border · sienna icon block · solid CTA</div>
+  </div>
+
+  <!-- BANNER D -->
+  <div class="demo">
+    <div class="demo-header">
+      <h2 class="demo-name">D · 印章感（NEEDS ATTENTION 標籤）</h2>
+      <span class="demo-tag">手作工坊感</span>
+    </div>
+    <p class="demo-desc">"like a baker's red stamp on the order — diagonal pattern + corner tag"</p>
+    <div class="demo-frame">
+      <div class="banner-d">
+        <span class="ico">⚠</span>
+        <div class="body">
+          <div class="title">尚未設定該職業的裝備數值</div>
+          <div class="desc">先填好作業精度、加工精度、CP 才能模擬</div>
+        </div>
+        <button class="cta">前往設定 →</button>
+      </div>
+    </div>
+    <div class="demo-spec">diagonal stripe pattern bg · 2px sienna border · 角落 stamp tag</div>
+  </div>
+
+  <!-- BANNER E -->
+  <div class="demo">
+    <div class="demo-header">
+      <h2 class="demo-name">E · Hero 大型橫幅</h2>
+      <span class="demo-tag">大塊面</span>
+    </div>
+    <p class="demo-desc">"a full pause — 56px circle icon, vertical layout, multi-line description"</p>
+    <div class="demo-frame">
+      <div class="banner-e">
+        <div class="ico">⚠</div>
+        <div class="body">
+          <div class="title">尚未設定該職業的裝備數值</div>
+          <div class="desc">這個職業的作業精度、加工精度、CP 還沒填寫。<br>到配裝頁完成設定後，這裡就會自動帶入正確的數值，可以開始模擬。</div>
+          <button class="cta">前往設定 →</button>
+        </div>
+      </div>
+    </div>
+    <div class="demo-spec">大尺寸 hero · 56px circle icon · 完整段落描述 + CTA</div>
+  </div>
+
+  <!-- BANNER F -->
+  <div class="demo">
+    <div class="demo-header">
+      <h2 class="demo-name">F · Pulse Glow（呼吸光）</h2>
+      <span class="demo-tag">動態</span>
+    </div>
+    <p class="demo-desc">"the banner breathes — subtle pulsing glow draws the eye without flashing"</p>
+    <div class="demo-frame">
+      <div class="banner-f">
+        <span class="ico">⚠</span>
+        <div class="body">
+          <div class="title">尚未設定該職業的裝備數值</div>
+          <div class="desc">先填好作業精度、加工精度、CP 才能模擬</div>
+        </div>
+        <button class="cta">前往設定 →</button>
+      </div>
+    </div>
+    <div class="demo-spec">10% sienna bg · 1.5px solid sienna · animation: pulse-glow 2.4s</div>
+  </div>
+
+</main>
+
+<footer class="footer">
+  <p>選 1 個方向（可調整尺寸/CTA wording 等）告訴我，我寫進 SimulatorView。</p>
+</footer>
+
+</body>
+</html>

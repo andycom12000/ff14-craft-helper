@@ -9,6 +9,11 @@ export const JOB_NAMES: Record<string, string> = {
   CUL: '烹調師',
 }
 
+export const JOB_ICONS: Record<string, string> = {
+  CRP: '🪓', BSM: '⚒️', ARM: '🛡️', GSM: '💍',
+  LTW: '🧶', WVR: '🪡', ALC: '⚗️', CUL: '🍳',
+}
+
 // yyyy.games API returns short job names without 師/術師
 const API_JOB_NAMES: Record<string, string> = {
   CRP: '木工',

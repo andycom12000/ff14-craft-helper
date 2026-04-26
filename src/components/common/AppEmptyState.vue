@@ -3,6 +3,7 @@ defineProps<{
   icon?: string
   title: string
   description?: string
+  flavor?: string
 }>()
 </script>
 
@@ -11,6 +12,7 @@ defineProps<{
     <div class="empty-icon-wrapper">
       <span class="empty-icon">{{ icon || '📦' }}</span>
     </div>
+    <p v-if="flavor" class="quote-flavor empty-flavor">{{ flavor }}</p>
     <p class="empty-title">{{ title }}</p>
     <p v-if="description" class="empty-description">{{ description }}</p>
     <div v-if="$slots.default" class="empty-actions">
@@ -27,6 +29,8 @@ defineProps<{
   justify-content: center;
   padding: 48px 24px;
   text-align: center;
+  background-image: var(--paper-noise);
+  background-size: var(--paper-noise-size);
 }
 
 .empty-icon-wrapper {
@@ -43,6 +47,11 @@ defineProps<{
 .empty-icon {
   font-size: 32px;
   line-height: 1;
+}
+
+.empty-flavor {
+  font-size: 15px;
+  margin-bottom: 4px;
 }
 
 .empty-title {

@@ -115,13 +115,13 @@ onUnmounted(() => {
           <el-icon><Suitcase /></el-icon>
           <span>配裝管理</span>
         </el-menu-item>
-        <el-menu-item index="/simulator">
-          <el-icon><Cpu /></el-icon>
-          <span>製作模擬</span>
-        </el-menu-item>
         <el-menu-item index="/batch">
           <el-icon><Operation /></el-icon>
           <span>批量製作</span>
+        </el-menu-item>
+        <el-menu-item index="/simulator">
+          <el-icon><Cpu /></el-icon>
+          <span>製作模擬</span>
         </el-menu-item>
         <el-menu-item index="/bom">
           <el-icon><List /></el-icon>
@@ -228,6 +228,13 @@ onUnmounted(() => {
 
   /* Easing */
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+
+  /* Subtle paper-noise background for hero / onboarding / empty regions —
+   * radial dot pattern at low opacity, evokes a faint paper grain. */
+  --paper-noise:
+    radial-gradient(circle at 20% 30%, oklch(0.55 0.10 60 / 0.06) 1px, transparent 1.5px),
+    radial-gradient(circle at 70% 60%, oklch(0.55 0.10 55 / 0.05) 1px, transparent 1.5px);
+  --paper-noise-size: 28px 28px, 22px 22px;
 
   /* Spacing scale */
   --space-xs: 4px;
@@ -636,6 +643,16 @@ html, body {
 
 .code-block:hover {
   background: var(--el-fill-color);
+}
+
+/* Shared Cormorant italic flavor line — used for hero quotes,
+ * empty-state flavor text, onboarding tagline, etc. */
+.quote-flavor {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  color: oklch(0.62 0.12 65);
+  letter-spacing: 0.01em;
+  margin: 0;
 }
 
 /* --- Micro-interactions --- */

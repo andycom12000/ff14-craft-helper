@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Recipe Card Style — 吐司工坊</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Fira+Code:wght@400;700&family=Noto+Serif+TC:wght@400;500;600;700;900&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --app-bg: oklch(0.965 0.022 90);
+    --app-sidebar: oklch(0.93 0.025 80);
+    --app-surface: oklch(0.99 0.01 90);
+    --app-surface-2: oklch(0.93 0.04 80);
+    --app-border: oklch(0.65 0.04 65 / 0.30);
+    --app-text: oklch(0.28 0.04 55);
+    --app-text-muted: oklch(0.50 0.03 60);
+    --app-accent: oklch(0.65 0.18 65);
+    --app-accent-light: oklch(0.78 0.15 75);
+    --app-accent-glow: oklch(0.65 0.18 65 / 0.18);
+    --app-craft: oklch(0.50 0.16 40);
+    --app-gather: oklch(0.62 0.17 135);
+    --app-market: oklch(0.58 0.20 15);
+    --app-highlight: oklch(0.50 0.13 70);
+    --ease: cubic-bezier(0.25, 1, 0.5, 1);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Noto Sans TC', sans-serif;
+    background: var(--app-bg);
+    color: var(--app-text);
+    min-height: 100vh;
+  }
+
+  /* === Header === */
+  .page-header {
+    padding: 48px 40px 32px;
+    background: var(--app-surface-2);
+    border-bottom: 1px solid var(--app-border);
+    text-align: center;
+  }
+  .eyebrow {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: var(--app-accent);
+    margin: 0 0 4px;
+    font-size: 15px;
+  }
+  .page-title {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 900;
+    font-size: 36px;
+    margin: 0 0 8px;
+    letter-spacing: 1.5px;
+    color: var(--app-text);
+  }
+  .page-subtitle {
+    color: var(--app-text-muted);
+    font-size: 14px;
+    line-height: 1.6;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+
+  /* === Grid of options === */
+  .options-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 28px;
+    padding: 40px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  @media (max-width: 1100px) { .options-grid { grid-template-columns: 1fr; } }
+
+  .option-card {
+    background: var(--app-surface);
+    border-radius: 16px;
+    padding: 28px 28px 32px;
+    border: 1px solid var(--app-border);
+    box-shadow: 0 1px 2px oklch(0.40 0.05 60 / 0.04);
+  }
+
+  .option-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+  .option-name {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    font-size: 19px;
+    color: var(--app-text);
+    margin: 0;
+  }
+  .option-tag {
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    background: var(--app-accent-glow);
+    color: var(--app-accent);
+    border: 1px solid oklch(0.65 0.18 65 / 0.4);
+  }
+  .option-desc {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: var(--app-text-muted);
+    font-size: 14px;
+    margin: 0 0 18px;
+  }
+  .option-spec {
+    font-family: 'Fira Code', monospace;
+    font-size: 10.5px;
+    color: var(--app-text-muted);
+    background: oklch(0.96 0.018 85);
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-top: 18px;
+    line-height: 1.7;
+    border: 1px solid oklch(0.55 0.04 65 / 0.18);
+  }
+
+  .option-frame {
+    background: var(--app-surface);
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px dashed oklch(0.55 0.04 65 / 0.2);
+  }
+
+  /* === Recipe card list === */
+  .recipe-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* Shared recipe card layout */
+  .rc {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    transition: all 0.2s var(--ease);
+    cursor: pointer;
+  }
+
+  .rc-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+  }
+  .rc-icon-craft { background: oklch(0.50 0.16 40 / 0.14); color: var(--app-craft); }
+  .rc-icon-gather { background: oklch(0.62 0.17 135 / 0.14); color: var(--app-gather); }
+  .rc-icon-market { background: oklch(0.58 0.20 15 / 0.14); color: var(--app-market); }
+
+  .rc-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .rc-name {
+    font-family: 'Noto Serif TC', serif;
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--app-text);
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .rc-meta {
+    font-size: 12px;
+    color: var(--app-text-muted);
+    margin-top: 3px;
+    font-weight: 500;
+  }
+
+  .rc-controls {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+  .rc-qty {
+    font-family: 'Fira Code', monospace;
+    font-weight: 700;
+    color: var(--app-accent);
+    font-size: 14px;
+    min-width: 32px;
+    text-align: right;
+  }
+  .rc-handle {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: transparent;
+    border: 0;
+    color: var(--app-text-muted);
+    cursor: grab;
+    opacity: 0;
+    transition: opacity 0.18s var(--ease);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+  .rc:hover .rc-handle { opacity: 0.6; }
+
+  /* ===========================================================
+   * BASELINE — current implementation (太深、太灰)
+   * =========================================================== */
+  .baseline .rc {
+    background: oklch(0.90 0.032 72);
+  }
+  .baseline .rc:hover {
+    background: oklch(0.96 0.018 80);
+  }
+
+  /* ===========================================================
+   * A — White Surface · Warm Border (極簡)
+   * =========================================================== */
+  .opt-a .rc {
+    background: oklch(0.99 0.01 90);
+    border: 1px solid oklch(0.65 0.04 65 / 0.22);
+  }
+  .opt-a .rc:hover {
+    border-color: var(--app-accent);
+    background: oklch(0.65 0.18 65 / 0.05);
+  }
+
+  /* ===========================================================
+   * B — Cream Paper Note (溫暖紙感)
+   * =========================================================== */
+  .opt-b .rc {
+    background: oklch(0.97 0.022 85);
+    box-shadow:
+      0 1px 0 oklch(1 0 0 / 0.6) inset,
+      0 1px 2px oklch(0.40 0.05 60 / 0.05);
+  }
+  .opt-b .rc:hover {
+    background: oklch(0.96 0.028 82);
+    box-shadow:
+      0 1px 0 oklch(1 0 0 / 0.6) inset,
+      0 4px 10px oklch(0.40 0.05 60 / 0.08);
+    transform: translateY(-1px);
+  }
+
+  /* ===========================================================
+   * C — Outline Only · Ticket (清爽票卡)
+   * =========================================================== */
+  .opt-c .rc {
+    background: transparent;
+    border: 1.5px dashed oklch(0.55 0.04 65 / 0.32);
+  }
+  .opt-c .rc:hover {
+    border-style: solid;
+    border-color: var(--app-accent);
+    background: oklch(0.65 0.18 65 / 0.04);
+  }
+
+  /* ===========================================================
+   * D — Soft Lift (純白 + 懸浮陰影)
+   * =========================================================== */
+  .opt-d .rc {
+    background: oklch(0.99 0.005 90);
+    box-shadow: 0 1px 2px oklch(0.40 0.05 60 / 0.06), 0 0 0 1px oklch(0.65 0.04 65 / 0.10);
+  }
+  .opt-d .rc:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 8px 20px oklch(0.40 0.05 60 / 0.08),
+      0 0 0 1px oklch(0.65 0.04 65 / 0.18);
+  }
+
+  /* ===========================================================
+   * E — Subtle Tint · Accent Glow (柔和暖底)
+   * =========================================================== */
+  .opt-e .rc {
+    background: oklch(0.96 0.022 80);
+  }
+  .opt-e .rc:hover {
+    background: oklch(0.94 0.04 75);
+    box-shadow: 0 0 0 2px oklch(0.65 0.18 65 / 0.15);
+  }
+
+  /* ===========================================================
+   * F — Cocoa Tint Header (加入功能區色 — 製作)
+   * =========================================================== */
+  .opt-f .rc {
+    background: oklch(0.50 0.16 40 / 0.06);
+    border: 1px solid oklch(0.50 0.16 40 / 0.18);
+  }
+  .opt-f .rc:hover {
+    background: oklch(0.50 0.16 40 / 0.10);
+    border-color: oklch(0.50 0.16 40 / 0.40);
+  }
+
+  /* ===========================================================
+   * G — Number Badge + Order Ticket (有序號像訂單)
+   * =========================================================== */
+  .opt-g .rc {
+    background: oklch(0.97 0.022 85);
+    border: 1px solid oklch(0.65 0.04 65 / 0.22);
+    position: relative;
+    padding-left: 50px;
+  }
+  .opt-g .rc::before {
+    content: attr(data-num);
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: 'Fira Code', monospace;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--app-accent);
+    background: var(--app-surface);
+    border: 1.5px solid var(--app-accent);
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .opt-g .rc:hover {
+    border-color: var(--app-accent);
+    background: oklch(0.96 0.028 80);
+  }
+
+  /* ===========================================================
+   * H — No fill · Underline divider (極簡分隔線)
+   * =========================================================== */
+  .opt-h .rc {
+    background: transparent;
+    border-radius: 0;
+    border-bottom: 1px solid oklch(0.65 0.04 65 / 0.22);
+    padding: 14px 12px;
+  }
+  .opt-h .rc:last-child {
+    border-bottom: 0;
+  }
+  .opt-h .rc:hover {
+    background: oklch(0.65 0.18 65 / 0.04);
+    border-bottom-color: var(--app-accent);
+  }
+
+  /* === Footer === */
+  .footer {
+    padding: 32px 40px 60px;
+    text-align: center;
+    color: var(--app-text-muted);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<header class="page-header">
+  <p class="eyebrow">Iteration · 2026-04-26</p>
+  <h1 class="page-title">Recipe Card 風格選擇</h1>
+  <p class="page-subtitle">
+    目前 recipe card 使用 EP fill-color-darker，呈現灰底感覺與整體 bakery 風格不和。
+    下方 8 個候選方案以同樣的配方資料呈現，挑出哪幾個感覺對。
+  </p>
+</header>
+
+<main class="options-grid">
+
+  <!-- BASELINE -->
+  <div class="option-card">
+    <div class="option-header">
+      <h3 class="option-name">Baseline · Current</h3>
+      <span class="option-tag" style="background: oklch(0.55 0.20 25 / 0.12); color: oklch(0.55 0.20 25); border-color: oklch(0.55 0.20 25 / 0.4)">需要替換</span>
+    </div>
+    <p class="option-desc">"目前的灰底感覺太重..."</p>
+    <div class="option-frame baseline">
+      <div class="recipe-list">
+        <div class="rc"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">風月の槍尖</div><div class="rc-meta">Lv90 · 槍術師</div></div><div class="rc-controls"><span class="rc-qty">×3</span><button class="rc-handle">⋮⋮</button></div></div>
+        <div class="rc"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">曉月の鎚</div><div class="rc-meta">Lv90 · 鍛冶師</div></div><div class="rc-controls"><span class="rc-qty">×2</span><button class="rc-handle">⋮⋮</button></div></div>
+        <div class="rc"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">幻光のミスリル鋼</div><div class="rc-meta">Lv88 · 鍛冶師</div></div><div class="rc-controls"><span class="rc-qty">×8</span><button class="rc-handle">⋮⋮</button></div></div>
+      </div>
+    </div>
+    <div class="option-spec">background: oklch(0.90 0.032 72) · 灰偏暖、與 surface 對比過強</div>
+  </div>
+
+  <!-- OPTION A -->
+  <div class="option-card">
+    <div class="option-header">
+      <h3 class="option-name">A · 純白 + 暖邊框</h3>
+      <span class="option-tag">極簡</span>
+    </div>
+    <p class="option-desc">"clean and quiet, hover 才出聲"</p>
+    <div class="option-frame opt-a">
+      <div class="recipe-list">
+        <div class="rc"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">風月の槍尖</div><div class="rc-meta">Lv90 · 槍術師</div></div><div class="rc-controls"><span class="rc-qty">×3</span><button class="rc-handle">⋮⋮</button></div></div>
+        <div class="rc"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">曉月の鎚</div><div class="rc-meta">Lv90 · 鍛冶師</div></div><div class="rc-controls"><span class="rc-qty">×2</span><button class="rc-handle">⋮⋮</button></div></div>
+        <div class="rc"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">幻光のミスリル鋼</div><div class="rc-meta">Lv88 · 鍛冶師</div></div><div class="rc-controls"><span class="rc-qty">×8</span><button class="rc-handle">⋮⋮</button></div></div>
+      </div>
+    </div>
+    <div class="option-spec">bg: oklch(0.99 0.01 90)<br>border: 1px solid warm 22%<br>hover: 暖邊框 → toast gold + 微 tint</div>
+  </div>
+
+  <!-- OPTION B -->
+  <div class="option-card">
+    <div class="option-header">
+      <h3 class="option-name">B · 奶油紙感</h3>
+      <span class="option-tag">有溫度</span>
+    </div>
+    <p class="option-desc">"like a folded note from the baker"</p>
+    <div class="option-frame opt-b">
+      <div class="recipe-list">
+        <div class="rc"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">風月の槍尖</div><div class="rc-meta">Lv90 · 槍術師</div></div><div class="rc-controls"><span class="rc-qty">×3</span><button class="rc-handle">⋮⋮</button></div></div>
+        <div class="rc"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">曉月の鎚</div><div class="rc-meta">Lv90 · 鍛冶師</div></div><div class="rc-controls"><span class="rc-qty">×2</span><button class="rc-handle">⋮⋮</button></div></div>
+        <div class="rc"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">幻光のミスリル鋼</div><div class="rc-meta">Lv88 · 鍛冶師</div></div><div class="rc-controls"><span class="rc-qty">×8</span><button class="rc-handle">⋮⋮</button></div></div>
+      </div>
+    </div>
+    <div class="option-spec">bg: oklch(0.97 0.022 85) 暖奶油<br>shadow: inset 高光 + 浮起<br>hover: 抬升 1px + 陰影</div>
+  </div>
+
+  <!-- OPTION C -->
+  <div class="option-card">
+    <div class="option-header">
+      <h3 class="option-name">C · 票卡虛線</h3>
+      <span class="option-tag">手作感</span>
+    </div>
+    <p class="option-desc">"Like a baker's order ticket — fills with intent"</p>
+    <div class="option-frame opt-c">
+      <div class="recipe-list">
+        <div class="rc"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">風月の槍尖</div><div class="rc-meta">Lv90 · 槍術師</div></div><div class="rc-controls"><span class="rc-qty">×3</span><button class="rc-handle">⋮⋮</button></div></div>
+        <div class="rc"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">曉月の鎚</div><div class="rc-meta">Lv90 · 鍛冶師</div></div><div class="rc-controls"><span class="rc-qty">×2</span><button class="rc-handle">⋮⋮</button></div></div>
+        <div class="rc"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">幻光のミスリル鋼</div><div class="rc-meta">Lv88 · 鍛冶師</div></div><div class="rc-controls"><span class="rc-qty">×8</span><button class="rc-handle">⋮⋮</button></div></div>
+      </div>
+    </div>
+    <div class="option-spec">bg: transparent<br>border: 1.5px dashed warm<br>hover: dashed → solid + gold</div>
+  </div>
+
+  <!-- OPTION D -->
+  <div class="option-card">
+    <div class="option-header">
+      <h3 class="option-name">D · 純白 + 浮升陰影</h3>
+      <span class="option-tag">浮起感</span>
+    </div>
+    <p class="option-desc">"each card lifts off the table when noticed"</p>
+    <div class="option-frame opt-d">
+      <div class="recipe-list">
+        <div class="rc"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">風月の槍尖</div><div class="rc-meta">Lv90 · 槍術師</div></div><div class="rc-controls"><span class="rc-qty">×3</span><button class="rc-handle">⋮⋮</button></div></div>
+        <div class="rc"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">曉月の鎚</div><div class="rc-meta">Lv90 · 鍛冶師</div></div><div class="rc-controls"><span class="rc-qty">×2</span><button class="rc-handle">⋮⋮</button></div></div>
+        <div class="rc"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">幻光のミスリル鋼</div><div class="rc-meta">Lv88 · 鍛冶師</div></div><div class="rc-controls"><span class="rc-qty">×8</span><button class="rc-handle">⋮⋮</button></div></div>
+      </div>
+    </div>
+    <div class="option-spec">bg: 純白 0.99<br>shadow: 1px subtle ring + soft drop<br>hover: lift 2px + shadow 加重</div>
+  </div>
+
+  <!-- OPTION E -->
+  <div class="option-card">
+    <div class="option-header">
+      <h3 class="option-name">E · 柔和暖底</h3>
+      <span class="option-tag">統一感</span>
+    </div>
+    <p class="option-desc">"warmth without weight"</p>
+    <div class="option-frame opt-e">
+      <div class="recipe-list">
+        <div class="rc"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">風月の槍尖</div><div class="rc-meta">Lv90 · 槍術師</div></div><div class="rc-controls"><span class="rc-qty">×3</span><button class="rc-handle">⋮⋮</button></div></div>
+        <div class="rc"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">曉月の鎚</div><div class="rc-meta">Lv90 · 鍛冶師</div></div><div class="rc-controls"><span class="rc-qty">×2</span><button class="rc-handle">⋮⋮</button></div></div>
+        <div class="rc"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">幻光のミスリル鋼</div><div class="rc-meta">Lv88 · 鍛冶師</div></div><div class="rc-controls"><span class="rc-qty">×8</span><button class="rc-handle">⋮⋮</button></div></div>
+      </div>
+    </div>
+    <div class="option-spec">bg: oklch(0.96 0.022 80)<br>border: 0<br>hover: bg 加深 + outer ring 金光</div>
+  </div>
+
+  <!-- OPTION F -->
+  <div class="option-card">
+    <div class="option-header">
+      <h3 class="option-name">F · 可可暖底</h3>
+      <span class="option-tag">分區色</span>
+    </div>
+    <p class="option-desc">"each card is dyed by its category — craft = cocoa"</p>
+    <div class="option-frame opt-f">
+      <div class="recipe-list">
+        <div class="rc"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">風月の槍尖</div><div class="rc-meta">Lv90 · 槍術師</div></div><div class="rc-controls"><span class="rc-qty">×3</span><button class="rc-handle">⋮⋮</button></div></div>
+        <div class="rc"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">曉月の鎚</div><div class="rc-meta">Lv90 · 鍛冶師</div></div><div class="rc-controls"><span class="rc-qty">×2</span><button class="rc-handle">⋮⋮</button></div></div>
+        <div class="rc"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">幻光のミスリル鋼</div><div class="rc-meta">Lv88 · 鍛冶師</div></div><div class="rc-controls"><span class="rc-qty">×8</span><button class="rc-handle">⋮⋮</button></div></div>
+      </div>
+    </div>
+    <div class="option-spec">bg: cocoa @ 6%<br>border: cocoa @ 18%<br>hover: 加深至 10% + border 40%</div>
+  </div>
+
+  <!-- OPTION G -->
+  <div class="option-card">
+    <div class="option-header">
+      <h3 class="option-name">G · 訂單編號徽章</h3>
+      <span class="option-tag">手藝感</span>
+    </div>
+    <p class="option-desc">"like the baker's queue — each gets a number"</p>
+    <div class="option-frame opt-g">
+      <div class="recipe-list">
+        <div class="rc" data-num="1"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">風月の槍尖</div><div class="rc-meta">Lv90 · 槍術師</div></div><div class="rc-controls"><span class="rc-qty">×3</span><button class="rc-handle">⋮⋮</button></div></div>
+        <div class="rc" data-num="2"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">曉月の鎚</div><div class="rc-meta">Lv90 · 鍛冶師</div></div><div class="rc-controls"><span class="rc-qty">×2</span><button class="rc-handle">⋮⋮</button></div></div>
+        <div class="rc" data-num="3"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">幻光のミスリル鋼</div><div class="rc-meta">Lv88 · 鍛冶師</div></div><div class="rc-controls"><span class="rc-qty">×8</span><button class="rc-handle">⋮⋮</button></div></div>
+      </div>
+    </div>
+    <div class="option-spec">bg: oklch(0.97 0.022 85) 暖奶油<br>序號徽章: 圓形 gold ring<br>含序號自動排隊感（適合製作流程）</div>
+  </div>
+
+  <!-- OPTION H -->
+  <div class="option-card">
+    <div class="option-header">
+      <h3 class="option-name">H · 純粹分隔線</h3>
+      <span class="option-tag">最低調</span>
+    </div>
+    <p class="option-desc">"a list, not cards — but generous"</p>
+    <div class="option-frame opt-h">
+      <div class="recipe-list">
+        <div class="rc"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">風月の槍尖</div><div class="rc-meta">Lv90 · 槍術師</div></div><div class="rc-controls"><span class="rc-qty">×3</span><button class="rc-handle">⋮⋮</button></div></div>
+        <div class="rc"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">曉月の鎚</div><div class="rc-meta">Lv90 · 鍛冶師</div></div><div class="rc-controls"><span class="rc-qty">×2</span><button class="rc-handle">⋮⋮</button></div></div>
+        <div class="rc"><div class="rc-icon rc-icon-craft">⚒</div><div class="rc-info"><div class="rc-name">幻光のミスリル鋼</div><div class="rc-meta">Lv88 · 鍛冶師</div></div><div class="rc-controls"><span class="rc-qty">×8</span><button class="rc-handle">⋮⋮</button></div></div>
+      </div>
+    </div>
+    <div class="option-spec">bg: 透明<br>border-bottom: 1px warm<br>不再是「卡片」是「列」</div>
+  </div>
+
+</main>
+
+<footer class="footer">
+  <p>挑出 1–2 個方向（可混搭，例：A 結構 + B 紙感陰影）告訴我，我寫進 BatchRecipeCard.vue。</p>
+</footer>
+
+</body>
+</html>
