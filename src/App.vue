@@ -65,8 +65,39 @@ onUnmounted(() => {
     />
     <el-aside width="220px" class="app-aside" :class="{ open: sidebarOpen }" :style="sidebarActiveStyle">
       <div class="app-logo">
-        <span class="logo-ff">吐司工坊</span>
-        <span class="logo-sub">FFXIV 製作助手</span>
+        <svg class="logo-icon" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <path
+            d="M 12 54 L 12 24 Q 12 8 32 8 Q 52 8 52 24 L 52 54 Q 52 56 50 56 L 14 56 Q 12 56 12 54 Z"
+            fill="url(#sidebarToast)"
+            stroke="#824020"
+            stroke-width="2.5"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M 18 22 Q 32 12 46 22"
+            fill="none"
+            stroke="#FFFFFF"
+            stroke-opacity="0.4"
+            stroke-width="2.2"
+            stroke-linecap="round"
+          />
+          <line x1="22" y1="34" x2="42" y2="34"
+                stroke="#824020" stroke-opacity="0.55"
+                stroke-width="2" stroke-linecap="round" />
+          <line x1="22" y1="44" x2="42" y2="44"
+                stroke="#824020" stroke-opacity="0.55"
+                stroke-width="2" stroke-linecap="round" />
+          <defs>
+            <linearGradient id="sidebarToast" x1="32" y1="8" x2="32" y2="56" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#D8AF66" />
+              <stop offset="100%" stop-color="#B07A33" />
+            </linearGradient>
+          </defs>
+        </svg>
+        <div class="logo-text">
+          <span class="logo-ff">吐司工坊</span>
+          <span class="logo-sub">FFXIV 製作助手</span>
+        </div>
         <button class="sidebar-close-btn" @click="sidebarOpen = false">
           <el-icon :size="20"><Close /></el-icon>
         </button>
@@ -666,13 +697,28 @@ html, body {
 }
 
 .app-logo {
-  height: 64px;
+  height: 72px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.logo-icon {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 2px oklch(0.40 0.10 50 / 0.18));
+}
+
+.logo-text {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border-bottom: 1px solid var(--app-border);
   gap: 2px;
+  min-width: 0;
 }
 
 .logo-ff {
@@ -681,14 +727,16 @@ html, body {
   font-weight: 900;
   color: var(--app-text);
   letter-spacing: 1px;
+  line-height: 1;
 }
 
 .logo-sub {
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
   color: oklch(0.42 0.05 55);
-  letter-spacing: 2px;
+  letter-spacing: 1.5px;
   text-transform: uppercase;
+  line-height: 1.2;
 }
 
 .app-menu {
