@@ -191,7 +191,7 @@ function onCardKeydown(event: KeyboardEvent) {
 /* Remove button                                                        */
 /* ------------------------------------------------------------------ */
 .remove-btn {
-  display: none;
+  display: flex;
   width: 22px;
   height: 22px;
   border-radius: 50%;
@@ -211,10 +211,6 @@ function onCardKeydown(event: KeyboardEvent) {
 .remove-btn:hover {
   background: oklch(0.55 0.20 25 / 0.18);
   color: oklch(0.55 0.20 25);
-}
-
-.node-card:hover .remove-btn {
-  display: flex;
 }
 
 /* ------------------------------------------------------------------ */

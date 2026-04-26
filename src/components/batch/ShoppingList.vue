@@ -492,8 +492,8 @@ function isRowChecked(row: MaterialWithPrice): boolean {
 }
 
 .quality-pill--active {
-  background: var(--app-craft);
-  color: oklch(0.98 0.005 75);
+  background: color-mix(in oklch, var(--app-craft) 12%, transparent);
+  color: color-mix(in oklch, var(--app-craft) 78%, var(--el-text-color-secondary));
 }
 
 .quality-pill--hq.quality-pill--active {
@@ -595,9 +595,9 @@ function isRowChecked(row: MaterialWithPrice): boolean {
   color: var(--accent-gold);
 }
 .quality-tag.quality-tag--nq.el-tag {
-  background: var(--app-craft);
-  border-color: var(--app-craft);
-  color: oklch(0.98 0.005 75);
+  background: color-mix(in oklch, var(--app-craft) 12%, transparent);
+  border-color: color-mix(in oklch, var(--app-craft) 22%, transparent);
+  color: color-mix(in oklch, var(--app-craft) 78%, var(--el-text-color-secondary));
 }
 
 .clickable-rows :deep(.el-table__row) {
@@ -712,8 +712,8 @@ function isRowChecked(row: MaterialWithPrice): boolean {
 }
 
 .quality-toggle-pill--active {
-  background: var(--app-craft);
-  color: oklch(0.98 0.005 75);
+  background: color-mix(in oklch, var(--app-craft) 12%, transparent);
+  color: color-mix(in oklch, var(--app-craft) 78%, var(--el-text-color-secondary));
 }
 
 .quality-toggle-pill--hq.quality-toggle-pill--active {

@@ -633,3 +633,12 @@ function handleExpand(row: FlatMaterial, expandedRows: FlatMaterial[]) {
   container-type: inline-size;
 }
 </style>
+
+<!-- Dark mode: 同 batch 表格，hard-coded cream header / faint gold hover
+     在 dark 上洗成燈箱。Unscoped 因為 [data-theme="dark"] 在 <html>。 -->
+<style>
+[data-theme="dark"] .bom-summary .el-table {
+  --el-table-header-bg-color: var(--app-surface-2);
+  --el-table-row-hover-bg-color: var(--app-accent-soft);
+}
+</style>

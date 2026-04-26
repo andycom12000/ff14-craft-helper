@@ -247,13 +247,16 @@ function requestNewBatch() {
             <el-tag size="small" type="primary">{{ getJobName(item.recipe.job) }}</el-tag>
             <span v-if="item.isSemiFinished" class="todo-badge">半成品</span>
           </div>
-          <div v-if="item.hqAmounts.some(a => a > 0)" class="todo-hq-hint">
-            <el-tag size="small" type="warning">HQ</el-tag>
-            <template v-for="(ing, ii) in item.recipe.ingredients" :key="ii">
-              <span v-if="item.hqAmounts[ii] > 0" class="hq-ingredient">
-                <ItemName :item-id="ing.itemId" :fallback="ing.name" /> x{{ item.hqAmounts[ii] }}
-              </span>
+          <div class="todo-hq-hint">
+            <template v-if="item.hqAmounts.some(a => a > 0)">
+              <el-tag size="small" type="warning">HQ</el-tag>
+              <template v-for="(ing, ii) in item.recipe.ingredients" :key="ii">
+                <span v-if="item.hqAmounts[ii] > 0" class="hq-ingredient">
+                  <ItemName :item-id="ing.itemId" :fallback="ing.name" /> x{{ item.hqAmounts[ii] }}
+                </span>
+              </template>
             </template>
+            <span v-else class="todo-hq-hint__none">全 NQ 即可</span>
           </div>
         </div>
         <div class="todo-actions">
@@ -581,10 +584,21 @@ function requestNewBatch() {
 .todo-hq-hint {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   font-size: 12px;
   color: var(--el-color-warning);
   margin-top: 2px;
+  min-height: 22px;
+}
+
+/* "全 NQ 即可" — same row reserved, but the empty state earns its place by
+ * confirming that no HQ prep is needed (signal, not deadspace). */
+.todo-hq-hint__none {
+  font-size: 11px;
+  font-style: italic;
+  color: var(--el-text-color-placeholder);
+  letter-spacing: 0.2px;
 }
 
 .hq-ingredient + .hq-ingredient::before {

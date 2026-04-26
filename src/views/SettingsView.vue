@@ -823,3 +823,31 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   }
 }
 </style>
+
+<!-- Dark mode adjustments. Light theme drops the GIF's white backdrop via
+     mix-blend-mode: multiply; on dark surfaces multiply darkens the entire
+     avatar to near-black. Drop the blend, give the frame a soft cream pad so
+     the GIF reads as a photo print on the dark desk. Same idea for the
+     pill links — 40% pure white reads as a bright wash on dark; replace
+     with a warm-tinted low-alpha surface. -->
+<style>
+[data-theme="dark"] .settings-view .about-avatar {
+  mix-blend-mode: normal;
+}
+
+[data-theme="dark"] .settings-view .about-avatar-frame {
+  background: oklch(0.92 0.020 78);
+  border-color: oklch(0.50 0.020 60);
+  box-shadow: 0 2px 10px oklch(0.05 0.02 60 / 0.45);
+}
+
+[data-theme="dark"] .settings-view .about-link {
+  background: oklch(0.55 0.012 60 / 0.10);
+  border-color: var(--app-border);
+}
+[data-theme="dark"] .settings-view .about-link:hover {
+  background: var(--app-accent-soft, oklch(0.74 0.13 68 / 0.12));
+  border-color: var(--app-accent);
+  color: var(--app-accent);
+}
+</style>

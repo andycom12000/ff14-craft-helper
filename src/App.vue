@@ -325,6 +325,20 @@ onUnmounted(() => {
   --app-accent-glow: oklch(0.72 0.14 70 / 0.18);
 }
 
+/* Sidebar inner text — light-mode CSS hard-codes oklch(0.38-0.42 …) which is
+ * almost invisible on the dark warm-brown sidebar bg. Lift to dark-tuned
+ * values that match the local --app-text/-muted tokens above. */
+:root[data-theme="dark"] .app-aside .logo-sub {
+  color: oklch(0.78 0.030 70);
+}
+:root[data-theme="dark"] .app-aside .app-menu .el-menu-item {
+  color: oklch(0.78 0.020 75);
+}
+:root[data-theme="dark"] .app-aside .app-menu .el-menu-item:hover {
+  color: oklch(0.94 0.020 80);
+  background-color: var(--app-accent-soft, oklch(0.72 0.14 70 / 0.12));
+}
+
 /* Dashboard batch-hero：dark 下用暖棕 surface flat（取代 light 的徑向漸層） */
 :root[data-theme="dark"] .batch-hero {
   background: oklch(0.24 0.025 70);
@@ -338,6 +352,14 @@ onUnmounted(() => {
 /* main-pane：dark 下 kill 掉 light 的徑向漸層，改成略亮 flat */
 :root[data-theme="dark"] .app-main {
   background: oklch(0.19 0.012 62);
+}
+
+/* el-empty illustration: EP 把預設圖片 base64 進 <img> src，CSS 變數覆蓋
+ * 進不去 — 用 filter 直接降亮度避免在 dark 上像紙張燈箱。 */
+:root[data-theme="dark"] .el-empty .el-empty__image,
+:root[data-theme="dark"] .el-empty .el-empty__image img,
+:root[data-theme="dark"] .el-empty .el-empty__image svg {
+  filter: brightness(0.55) contrast(1.05);
 }
 
 :root {
@@ -455,6 +477,19 @@ onUnmounted(() => {
 
   /* Mask — overlay 用深色半透明 */
   --el-mask-color: oklch(0.10 0.005 60 / 0.7);
+
+  /* el-empty illustration — default SVG 用 9 階灰白色，dark 上會像紙張燈箱
+   * 一樣刺眼。整組對映到深底色階梯。 */
+  --el-empty-fill-color-0: oklch(0.18 0.008 60);
+  --el-empty-fill-color-1: oklch(0.20 0.008 60);
+  --el-empty-fill-color-2: oklch(0.22 0.010 60);
+  --el-empty-fill-color-3: oklch(0.24 0.010 60);
+  --el-empty-fill-color-4: oklch(0.26 0.012 60);
+  --el-empty-fill-color-5: oklch(0.28 0.012 60);
+  --el-empty-fill-color-6: oklch(0.30 0.014 60);
+  --el-empty-fill-color-7: oklch(0.34 0.014 60);
+  --el-empty-fill-color-8: oklch(0.38 0.014 60);
+  --el-empty-fill-color-9: oklch(0.42 0.016 60);
 }
 
 /* Dark mode 元件專用調校（會凸顯的對比 / 警示） */
