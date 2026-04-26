@@ -527,9 +527,11 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  border: 1px solid var(--app-border);
   object-fit: cover;
-  background: var(--app-surface);
+  /* Drop the GIF's white background by multiplying against the page bg —
+   * white pixels collapse into the cream canvas, foreground stays visible. */
+  background: transparent;
+  mix-blend-mode: multiply;
 }
 
 .about-body {
