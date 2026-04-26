@@ -23,29 +23,27 @@ function handleClearAll() {
 </script>
 
 <template>
-  <el-card shadow="never">
-    <template #header>
-      <div class="card-header">
-        <span class="card-title">製作目標</span>
-        <div class="card-actions">
-          <el-button type="primary" size="small" :icon="Search" @click="emit('open-search')">
-            搜尋配方
-          </el-button>
-          <el-popconfirm
-            title="確定要清除所有目標嗎？"
-            confirm-button-text="確定"
-            cancel-button-text="取消"
-            @confirm="handleClearAll"
-          >
-            <template #reference>
-              <el-button size="small" :disabled="bomStore.targets.length === 0">
-                清除全部
-              </el-button>
-            </template>
-          </el-popconfirm>
-        </div>
+  <section class="bom-target-list">
+    <header class="card-header">
+      <span class="card-title">製作目標</span>
+      <div class="card-actions">
+        <el-button type="primary" size="small" :icon="Search" @click="emit('open-search')">
+          搜尋配方
+        </el-button>
+        <el-popconfirm
+          title="確定要清除所有目標嗎？"
+          confirm-button-text="確定"
+          cancel-button-text="取消"
+          @confirm="handleClearAll"
+        >
+          <template #reference>
+            <el-button size="small" :disabled="bomStore.targets.length === 0">
+              清除全部
+            </el-button>
+          </template>
+        </el-popconfirm>
       </div>
-    </template>
+    </header>
 
     <AppEmptyState
       v-if="bomStore.targets.length === 0"
@@ -124,22 +122,41 @@ function handleClearAll() {
         計算材料需求
       </el-button>
     </div>
-  </el-card>
+  </section>
 </template>
 
 <style scoped>
+.bom-target-list {
+  /* Typography header + table; no outer container chrome */
+}
+
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 0 4px;
 }
 
 .card-actions {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+/* Table IS the data block — surface + border + radius */
+.targets-table {
+  --el-table-bg-color: var(--app-surface);
+  --el-table-tr-bg-color: var(--app-surface);
+  --el-table-header-bg-color: oklch(0.955 0.028 80);
+  --el-table-row-hover-bg-color: oklch(0.65 0.18 65 / 0.05);
+  --el-table-border-color: var(--app-border);
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px oklch(0.40 0.05 60 / 0.04);
 }
 
 .calculate-row {
@@ -268,38 +285,25 @@ function handleClearAll() {
   }
   .targets-mobile-list {
     display: flex;
-    border-top: 1px solid var(--el-border-color-lighter);
+    border-top: 1px solid var(--app-border);
   }
 
-  .el-card {
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    border-radius: 0;
-    overflow: visible;
-  }
-  :deep(.el-card__header) {
+  .card-header {
     position: sticky;
     top: var(--mobile-app-bar-h, 52px);
     z-index: 10;
     padding: 10px 12px;
-    margin: 0 -12px;
+    margin: 0 -12px 0;
+    gap: 6px;
     border-bottom: 1px solid var(--app-border);
     background: color-mix(in srgb, var(--app-bg) 88%, transparent);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
   }
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    :deep(.el-card__header) {
+    .card-header {
       background: var(--app-bg);
     }
-  }
-  :deep(.el-card__body) {
-    padding: 0;
-  }
-
-  .card-header {
-    gap: 6px;
   }
 
   .card-actions {
