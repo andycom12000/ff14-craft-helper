@@ -250,9 +250,17 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
       </header>
 
       <div class="about-profile">
-        <div class="about-avatar-frame">
-          <img :src="avatarUrl" alt="Author avatar" class="about-avatar" />
-        </div>
+        <a
+          href="https://github.com/andycom12000"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="作者 GitHub"
+          class="about-avatar-link"
+        >
+          <div class="about-avatar-frame">
+            <img :src="avatarUrl" alt="Author avatar" class="about-avatar" />
+          </div>
+        </a>
         <div class="about-body">
           <p class="about-by">crafted by</p>
           <h4 class="about-author">
@@ -525,14 +533,38 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   align-items: center;
 }
 
-/* Wrapper holds the border; multiply lives on the image inside so the
- * border isn't blended away by mix-blend-mode. */
+.about-avatar-link {
+  display: inline-block;
+  border-radius: 50%;
+  text-decoration: none;
+}
+
+/* Wrapper holds the border + shadow; multiply lives on the image inside
+ * so the border isn't blended away by mix-blend-mode. */
 .about-avatar-frame {
   width: 80px;
   height: 80px;
   border-radius: 50%;
   border: 1px solid var(--app-border);
   overflow: hidden;
+  box-shadow: 0 2px 8px oklch(0.40 0.05 60 / 0.10);
+  transition:
+    box-shadow 0.2s var(--ease-out-quart, ease),
+    border-color 0.2s var(--ease-out-quart, ease),
+    transform 0.2s var(--ease-out-quart, ease);
+}
+
+.about-avatar-link:hover .about-avatar-frame {
+  transform: translateY(-1px);
+  border-color: oklch(0.62 0.12 65 / 0.55);
+  box-shadow:
+    0 4px 14px oklch(0.40 0.05 60 / 0.16),
+    0 0 0 3px oklch(0.62 0.12 65 / 0.10);
+}
+
+.about-avatar-link:focus-visible {
+  outline: 2px solid oklch(0.62 0.12 65);
+  outline-offset: 3px;
 }
 
 .about-avatar {
