@@ -183,10 +183,27 @@ function handleRefreshPrices() {
 </template>
 
 <style scoped>
-.bom-view { --page-accent: var(--app-craft); --page-accent-dim: var(--app-craft-dim); }
-
 .bom-view {
   max-width: 1200px;
+
+  /* Muted palette — matches the SimulatorView progress-bar treatment.
+   * Lower chroma versions of brand/semantic colors keep the data-heavy
+   * page calm; tags / totals / decision boxes stop competing for the eye. */
+  --page-accent: oklch(0.62 0.12 65);
+  --page-accent-dim: oklch(0.62 0.12 65 / 0.14);
+  --accent-gold: oklch(0.62 0.12 65);
+  --accent-gold-dim: oklch(0.62 0.12 65 / 0.14);
+  --el-color-primary: oklch(0.62 0.12 65);
+  --el-color-primary-light-3: oklch(0.68 0.10 70);
+  --el-color-primary-light-5: oklch(0.74 0.08 72);
+  --el-color-primary-light-7: oklch(0.82 0.06 75);
+  --el-color-primary-light-8: oklch(0.90 0.04 78);
+  --el-color-primary-light-9: oklch(0.95 0.02 80);
+  --el-color-primary-dark-2: oklch(0.55 0.13 60);
+  --el-color-success: oklch(0.55 0.10 145);
+  --el-color-warning: oklch(0.58 0.12 45);
+  --el-color-danger: oklch(0.55 0.13 25);
+  --el-color-info: oklch(0.55 0.05 230);
 }
 
 .section-gap {

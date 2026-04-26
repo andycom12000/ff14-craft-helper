@@ -54,7 +54,7 @@ function handleClearAll() {
       <el-button type="primary" :icon="Search" @click="emit('open-search')">搜尋配方</el-button>
     </AppEmptyState>
 
-    <el-table v-else :data="bomStore.targets" border style="width: 100%" class="targets-table">
+    <el-table v-else :data="bomStore.targets" style="width: 100%" class="targets-table">
       <el-table-column label="圖示" width="60" align="center">
         <template #default="{ row }">
           <img :src="row.icon" :alt="row.name" crossorigin="anonymous" loading="lazy" decoding="async" style="width: 28px; height: 28px" />
@@ -65,13 +65,14 @@ function handleClearAll() {
           <ItemName :item-id="row.itemId" :fallback="row.name" />
         </template>
       </el-table-column>
-      <el-table-column label="數量" width="140" align="center">
+      <el-table-column label="數量" width="180" align="center">
         <template #default="{ row }">
           <el-input-number
             :model-value="row.quantity"
             :min="1"
             :max="999"
             size="small"
+            controls-position="right"
             @change="(val: number | undefined) => handleQuantityChange(row.recipeId, val)"
           />
         </template>
