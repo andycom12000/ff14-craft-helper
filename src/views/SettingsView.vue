@@ -321,6 +321,10 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
    * dividing line between sections is enough for hierarchy. */
 }
 
+.settings-section:first-of-type {
+  margin-top: 20px;
+}
+
 .settings-section + .settings-section {
   margin-top: 32px;
   padding-top: 28px;
