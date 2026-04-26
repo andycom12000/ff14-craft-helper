@@ -568,7 +568,11 @@ function isRowChecked(row: MaterialWithPrice): boolean {
 }
 
 .material-table {
-  --el-table-border-color: var(--el-border-color-lighter);
+  --el-table-border-color: var(--app-border);
+  --el-table-bg-color: transparent;
+  --el-table-tr-bg-color: transparent;
+  --el-table-header-bg-color: transparent;
+  --el-table-row-hover-bg-color: oklch(0.65 0.18 65 / 0.05);
 }
 
 .clickable-rows :deep(.el-table__row) {

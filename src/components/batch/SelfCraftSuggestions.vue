@@ -183,6 +183,14 @@ function toggleAll() {
   font-variant-numeric: tabular-nums;
 }
 
+.suggestions-table {
+  /* Inherit container bg so the table doesn't read as a foreign white block */
+  --el-table-bg-color: transparent;
+  --el-table-tr-bg-color: transparent;
+  --el-table-header-bg-color: transparent;
+  --el-table-row-hover-bg-color: oklch(0.65 0.18 65 / 0.05);
+}
+
 .row-icon {
   width: 20px;
   height: 20px;
