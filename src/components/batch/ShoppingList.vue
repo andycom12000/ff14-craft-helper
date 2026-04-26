@@ -523,9 +523,8 @@ function isRowChecked(row: MaterialWithPrice): boolean {
   justify-content: space-between;
   align-items: center;
   margin-bottom: var(--space-sm);
-  background: var(--el-fill-color-lighter);
-  border-radius: 6px;
-  padding: 8px 12px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--app-border);
 }
 
 .server-info {
@@ -535,7 +534,7 @@ function isRowChecked(row: MaterialWithPrice): boolean {
 }
 
 .server-subtotal {
-  color: var(--accent-gold);
+  color: var(--app-text-muted);
   font-size: 13px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;

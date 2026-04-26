@@ -135,11 +135,10 @@ function toggleAll() {
 <style scoped>
 .self-craft-block {
   margin-bottom: 16px;
-  border: 1px solid var(--el-border-color-lighter);
-  border-left: 3px solid var(--accent-gold);
-  border-radius: 6px;
-  padding: 12px 14px;
-  background: var(--el-fill-color-lighter);
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: transparent;
 }
 
 .block-header {
@@ -159,9 +158,10 @@ function toggleAll() {
 }
 
 .block-label {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--accent-gold);
+  font-family: 'Noto Serif TC', serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--app-text);
   letter-spacing: 0.02em;
 }
 
@@ -200,9 +200,9 @@ function toggleAll() {
   .self-craft-block {
     background: transparent;
     border: none;
-    border-left: 3px solid var(--accent-gold);
+    border-top: 1px solid var(--app-border);
     border-radius: 0;
-    padding: 4px 0 10px 12px;
+    padding: 14px 0 10px;
     margin-bottom: 18px;
   }
 
