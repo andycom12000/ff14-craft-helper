@@ -186,6 +186,11 @@ onUnmounted(() => {
   --app-accent-light: oklch(0.78 0.15 75);
   --app-accent-glow: oklch(0.65 0.18 65 / 0.18);
 
+  /* Toast crust — Dashboard hero edge color (#B47351) */
+  --toast-crust: oklch(0.59 0.10 50);
+  --toast-crust-soft: oklch(0.59 0.10 50 / 0.35);
+  --toast-crust-glow: oklch(0.97 0.04 82 / 0.42);
+
   /* Semantic — success */
   --app-success: oklch(0.55 0.16 145);
   --app-success-tint: oklch(0.55 0.16 145 / 0.10);
@@ -273,6 +278,11 @@ onUnmounted(() => {
   --app-accent: oklch(0.74 0.15 68);
   --app-accent-light: oklch(0.82 0.12 72);
   --app-accent-glow: oklch(0.74 0.15 68 / 0.16);
+
+  /* Toast crust — dark：提亮 lightness 維持與背景對比 */
+  --toast-crust: oklch(0.70 0.10 52);
+  --toast-crust-soft: oklch(0.70 0.10 52 / 0.35);
+  --toast-crust-glow: oklch(0.70 0.10 52 / 0.18);
 
   /* Semantic — success */
   --app-success: oklch(0.68 0.16 145);
