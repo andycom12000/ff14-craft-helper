@@ -6,38 +6,10 @@ import { useBatchStore } from '@/stores/batch'
 import { useTimerStore } from '@/stores/timer'
 import { useSettingsStore } from '@/stores/settings'
 import { useIsMobile } from '@/composables/useMediaQuery'
-import { JOB_NAMES } from '@/utils/jobs'
+import { JOB_NAMES, JOB_ICONS } from '@/utils/jobs'
+import { isOnboardingComplete } from '@/utils/onboarding'
 import WelcomeSetup from '@/components/onboarding/WelcomeSetup.vue'
 
-const router = useRouter()
-const gearsets = useGearsetsStore()
-const batchStore = useBatchStore()
-const timerStore = useTimerStore()
-const settingsStore = useSettingsStore()
-const isMobile = useIsMobile()
-
-function readOnboardingComplete(): boolean {
-  try {
-    return localStorage.getItem('onboardingComplete') === '1'
-  } catch {
-    return false
-  }
-}
-
-const showOnboarding = ref(
-  !readOnboardingComplete()
-  && !settingsStore.region
-  && !settingsStore.dataCenter
-  && !settingsStore.server,
-)
-
-function onboardingDone() {
-  showOnboarding.value = false
-}
-
-// Rotating Cormorant italic greeting — picked once per mount,
-// scoped to time-of-day so the line tracks when the player is on.
-// Bakery flavor kept light (1-2 per bucket); rest is crafting/FFXIV.
 function getTimeBucket(): 'morning' | 'noon' | 'afternoon' | 'evening' | 'lateNight' {
   const h = new Date().getHours()
   if (h >= 5 && h < 11) return 'morning'
@@ -47,7 +19,7 @@ function getTimeBucket(): 'morning' | 'noon' | 'afternoon' | 'evening' | 'lateNi
   return 'lateNight'
 }
 
-const greetingsByTime: Record<string, string[]> = {
+const GREETINGS_BY_TIME: Record<string, string[]> = {
   morning: [
     '早安，光之戰士。',
     '新的一天，先把材料準備好。',
@@ -85,19 +57,32 @@ const greetingsByTime: Record<string, string[]> = {
   ],
 }
 
+const router = useRouter()
+const gearsets = useGearsetsStore()
+const batchStore = useBatchStore()
+const timerStore = useTimerStore()
+const settingsStore = useSettingsStore()
+const isMobile = useIsMobile()
+
+const showOnboarding = ref(
+  !isOnboardingComplete()
+  && !settingsStore.region
+  && !settingsStore.dataCenter
+  && !settingsStore.server,
+)
+
+function onboardingDone() {
+  showOnboarding.value = false
+}
+
 const greeting = (() => {
-  const pool = greetingsByTime[getTimeBucket()]
+  const pool = GREETINGS_BY_TIME[getTimeBucket()]
   return pool[Math.floor(Math.random() * pool.length)]
 })()
 
 const batchTargetCount = computed(() => batchStore.targets.length)
 const trackedTimerCount = computed(() => timerStore.trackedItems.length)
 const hasActiveWork = computed(() => batchTargetCount.value > 0 || trackedTimerCount.value > 0)
-
-const JOB_ICONS: Record<string, string> = {
-  CRP: '🪓', BSM: '⚒️', ARM: '🛡️', GSM: '💍',
-  LTW: '🧶', WVR: '🪡', ALC: '⚗️', CUL: '🍳',
-}
 
 const configuredJobs = computed(() =>
   Object.keys(JOB_NAMES).filter(job => {
@@ -108,8 +93,6 @@ const configuredJobs = computed(() =>
 
 const unconfiguredCount = computed(() => Object.keys(JOB_NAMES).length - configuredJobs.value.length)
 
-// Batch is the headline feature — pulled out into a hero card below.
-// These are the supporting craft tools, rendered smaller.
 const workflows = [
   {
     icon: '⚗️', title: '模擬單一配方', path: '/simulator', color: 'var(--app-craft)',
@@ -139,7 +122,7 @@ const tools = [
   <div v-else class="view-container dashboard" :class="{ 'is-mobile': isMobile }">
     <!-- Welcome -->
     <div class="welcome">
-      <p class="welcome-quote">{{ greeting }}</p>
+      <p class="quote-flavor welcome-quote">{{ greeting }}</p>
       <h2>歡迎回來，冒險者</h2>
       <p class="welcome-greeting" v-if="isMobile">嗨，冒險者 👋</p>
       <p class="view-desc">
@@ -270,12 +253,8 @@ const tools = [
 }
 
 .welcome-quote {
-  font-family: 'Cormorant Garamond', serif;
-  font-style: italic;
   font-size: 17px;
-  color: oklch(0.62 0.12 65);
-  margin: 0 0 6px;
-  letter-spacing: 0.01em;
+  margin-bottom: 6px;
   line-height: 1.4;
 }
 

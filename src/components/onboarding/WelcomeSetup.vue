@@ -4,16 +4,13 @@ import { useRouter } from 'vue-router'
 import { useSettingsStore } from '@/stores/settings'
 import { useLocaleStore } from '@/stores/locale'
 import { getDataCenters, getWorlds } from '@/api/universalis'
+import { JOB_ICONS } from '@/utils/jobs'
+import { markOnboardingComplete } from '@/utils/onboarding'
 import type { DataCenter, World } from '@/api/universalis'
 import type { Locale } from '@/services/local-data-source.types'
 
 const emit = defineEmits<{ done: [] }>()
 const router = useRouter()
-
-const JOB_ICONS: Array<[string, string]> = [
-  ['CRP', '🪓'], ['BSM', '⚒️'], ['ARM', '🛡️'], ['GSM', '💍'],
-  ['LTW', '🧶'], ['WVR', '🪡'], ['ALC', '⚗️'], ['CUL', '🍳'],
-]
 
 interface LanguageOption {
   locale: Locale
@@ -32,7 +29,6 @@ const settingsStore = useSettingsStore()
 const localeStore = useLocaleStore()
 
 const step = ref<1 | 2 | 3>(1)
-const TOTAL_STEPS = 3
 const selectedLocale = ref<Locale>(localeStore.current)
 
 interface RegionGroup {
@@ -101,7 +97,7 @@ watch(selectedDC, () => {
 const canGoNext = computed(() => {
   if (step.value === 1) return !!selectedLocale.value
   if (step.value === 2) return !!selectedRegion.value && !!selectedDC.value && !!selectedServer.value
-  return true // step 3 always advanceable (skippable)
+  return true
 })
 
 async function goNext() {
@@ -118,20 +114,18 @@ async function goNext() {
     step.value = 3
     return
   }
-  // step 3 fall-through: treat as skip
-  finishOnboarding(false)
+  finishAndSkip()
 }
 
-function finishOnboarding(navigateToGearset: boolean) {
-  try {
-    localStorage.setItem('onboardingComplete', '1')
-  } catch {
-    // ignore storage errors (private mode etc.)
-  }
+function finishAndSkip() {
+  markOnboardingComplete()
   emit('done')
-  if (navigateToGearset) {
-    void router.push('/gearset')
-  }
+}
+
+function finishAndOpenGearset() {
+  markOnboardingComplete()
+  emit('done')
+  void router.push('/gearset')
 }
 
 function goBack() {
@@ -162,8 +156,8 @@ const stepSub = computed(() => {
 <template>
   <div class="welcome-setup">
     <header class="welcome-header">
-      <span class="badge">第 {{ step }} / {{ TOTAL_STEPS }} 步</span>
-      <p class="welcome-quote">"工坊已準備好，等你開工。"</p>
+      <span class="badge">第 {{ step }} / 3 步</span>
+      <p class="quote-flavor welcome-quote">"工坊已準備好，等你開工。"</p>
       <h1>歡迎來到吐司工坊</h1>
       <p class="lead">第一次來？花 30 秒設定一下，我就能幫你算配方、查市場、跑模擬。</p>
     </header>
@@ -233,7 +227,7 @@ const stepSub = computed(() => {
 
       <div v-else class="gearset-step">
         <div class="gearset-jobs" aria-hidden="true">
-          <span v-for="[key, icon] in JOB_ICONS" :key="key" class="gearset-job-icon">
+          <span v-for="(icon, key) in JOB_ICONS" :key="key" class="gearset-job-icon">
             {{ icon }}
           </span>
         </div>
@@ -256,12 +250,12 @@ const stepSub = computed(() => {
         <el-button
           text
           class="skip-btn"
-          @click="finishOnboarding(false)"
+          @click="finishAndSkip"
         >之後再設定</el-button>
         <el-button
           type="primary"
           size="large"
-          @click="finishOnboarding(true)"
+          @click="finishAndOpenGearset"
         >前往設定</el-button>
       </template>
 
@@ -311,12 +305,8 @@ const stepSub = computed(() => {
 }
 
 .welcome-quote {
-  font-family: 'Cormorant Garamond', serif;
-  font-style: italic;
   font-size: 16px;
-  color: oklch(0.62 0.12 65);
   margin: 4px 0 -4px;
-  letter-spacing: 0.01em;
 }
 
 .welcome-header h1 {

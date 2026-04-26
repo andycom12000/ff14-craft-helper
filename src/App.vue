@@ -645,6 +645,16 @@ html, body {
   background: var(--el-fill-color);
 }
 
+/* Shared Cormorant italic flavor line — used for hero quotes,
+ * empty-state flavor text, onboarding tagline, etc. */
+.quote-flavor {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  color: oklch(0.62 0.12 65);
+  letter-spacing: 0.01em;
+  margin: 0;
+}
+
 /* --- Micro-interactions --- */
 
 /* Primary buttons: hover lift + active press */
