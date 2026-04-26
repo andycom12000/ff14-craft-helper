@@ -216,8 +216,8 @@ watch(open, (isOpen) => {
 .palette-kbd {
   font-size: 11px;
   color: var(--app-text-muted, #94A3B8);
-  background: rgba(148, 163, 184, 0.08);
-  border: 1px solid rgba(148, 163, 184, 0.15);
+  background: oklch(0.55 0.04 65 /0.08);
+  border: 1px solid oklch(0.55 0.04 65 /0.15);
   border-radius: 4px;
   padding: 2px 6px;
   font-family: inherit;
@@ -247,11 +247,11 @@ watch(open, (isOpen) => {
 }
 
 .palette-item.active {
-  background: var(--app-accent-glow, rgba(124, 58, 237, 0.15));
+  background: var(--app-accent-glow, oklch(0.65 0.18 65 /0.15));
 }
 
 .palette-item:active {
-  background: var(--app-surface-hover, rgba(148, 163, 184, 0.12));
+  background: var(--app-surface-hover, oklch(0.55 0.04 65 /0.12));
 }
 
 .palette-item:focus-visible {

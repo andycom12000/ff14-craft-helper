@@ -287,8 +287,8 @@ function setVolume(val: number) {
   flex-shrink: 0;
   width: 28px;
   height: 28px;
-  background: rgba(74, 222, 128, 0.12);
-  border: 1px solid rgba(74, 222, 128, 0.35);
+  background: oklch(0.55 0.16 145 /0.12);
+  border: 1px solid oklch(0.55 0.16 145 /0.35);
   border-radius: 4px;
   color: var(--app-success);
   font-size: 12px;
@@ -301,7 +301,7 @@ function setVolume(val: number) {
 }
 
 .preview-btn:hover:not(:disabled) {
-  background: rgba(74, 222, 128, 0.25);
+  background: oklch(0.55 0.16 145 /0.25);
 }
 
 .preview-btn:disabled {
@@ -329,8 +329,8 @@ function setVolume(val: number) {
 
 .upload-btn {
   padding: 4px 12px;
-  background: rgba(148, 163, 184, 0.1);
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: oklch(0.55 0.04 65 /0.1);
+  border: 1px solid oklch(0.55 0.04 65 /0.25);
   border-radius: 4px;
   color: var(--app-text, #E2E8F0);
   font-size: 12px;
@@ -340,7 +340,7 @@ function setVolume(val: number) {
 }
 
 .upload-btn:hover {
-  background: rgba(148, 163, 184, 0.2);
+  background: oklch(0.55 0.04 65 /0.2);
 }
 
 .file-input-hidden {
@@ -349,7 +349,7 @@ function setVolume(val: number) {
 
 .upload-error {
   font-size: 11px;
-  color: #F87171;
+  color: oklch(0.55 0.20 25);
   padding: 2px 0;
 }
 
@@ -379,7 +379,7 @@ function setVolume(val: number) {
 /* ------------------------------------------------------------------ */
 .divider {
   height: 1px;
-  background: rgba(148, 163, 184, 0.1);
+  background: oklch(0.55 0.04 65 /0.1);
   margin: 2px 0;
 }
 </style>

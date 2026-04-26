@@ -6,8 +6,56 @@ import { useBatchStore } from '@/stores/batch'
 import { useTimerStore } from '@/stores/timer'
 import { useSettingsStore } from '@/stores/settings'
 import { useIsMobile } from '@/composables/useMediaQuery'
-import { JOB_NAMES } from '@/utils/jobs'
+import { JOB_NAMES, JOB_ICONS } from '@/utils/jobs'
+import { isOnboardingComplete } from '@/utils/onboarding'
 import WelcomeSetup from '@/components/onboarding/WelcomeSetup.vue'
+
+function getTimeBucket(): 'morning' | 'noon' | 'afternoon' | 'evening' | 'lateNight' {
+  const h = new Date().getHours()
+  if (h >= 5 && h < 11) return 'morning'
+  if (h >= 11 && h < 14) return 'noon'
+  if (h >= 14 && h < 18) return 'afternoon'
+  if (h >= 18 && h < 22) return 'evening'
+  return 'lateNight'
+}
+
+const GREETINGS_BY_TIME: Record<string, string[]> = {
+  morning: [
+    '早安，光之戰士。',
+    '新的一天，先把材料準備好。',
+    '今天想做點什麼？',
+    '趁早開工，晚上才有時間刷副本。',
+    '新的一爐，新的一天。',
+  ],
+  noon: [
+    '趁手感正好，再來幾件。',
+    '中午也是好時段。',
+    '歇個手，再來一輪。',
+    '材料齊了嗎？',
+    '趁熱開工。',
+  ],
+  afternoon: [
+    '差幾件就湊齊一套了。',
+    '下午的進度怎麼樣？',
+    '副本前先把貨備好。',
+    '光之戰士，準備好了嗎？',
+    '今天打算挑戰什麼？',
+  ],
+  evening: [
+    '晚上適合規劃明天的批次。',
+    '工坊還沒打烊，慢慢來。',
+    '今天的成品都收得整齊了嗎？',
+    '夜班的光之戰士，準備好了嗎？',
+    '今天的進度還好嗎？',
+  ],
+  lateNight: [
+    '深夜的手最穩。',
+    '別忘了休息，明天還有副本。',
+    '夜班肝開了？慢慢來。',
+    '一爐又一爐，慢慢來不急。',
+    '夜深人靜，最適合刷手法。',
+  ],
+}
 
 const router = useRouter()
 const gearsets = useGearsetsStore()
@@ -16,16 +64,8 @@ const timerStore = useTimerStore()
 const settingsStore = useSettingsStore()
 const isMobile = useIsMobile()
 
-function readOnboardingComplete(): boolean {
-  try {
-    return localStorage.getItem('onboardingComplete') === '1'
-  } catch {
-    return false
-  }
-}
-
 const showOnboarding = ref(
-  !readOnboardingComplete()
+  !isOnboardingComplete()
   && !settingsStore.region
   && !settingsStore.dataCenter
   && !settingsStore.server,
@@ -35,21 +75,14 @@ function onboardingDone() {
   showOnboarding.value = false
 }
 
-const guideCollapsed = ref(localStorage.getItem('ff14-guide-collapsed') === 'true')
-
-function toggleGuide() {
-  guideCollapsed.value = !guideCollapsed.value
-  localStorage.setItem('ff14-guide-collapsed', String(guideCollapsed.value))
-}
+const greeting = (() => {
+  const pool = GREETINGS_BY_TIME[getTimeBucket()]
+  return pool[Math.floor(Math.random() * pool.length)]
+})()
 
 const batchTargetCount = computed(() => batchStore.targets.length)
 const trackedTimerCount = computed(() => timerStore.trackedItems.length)
 const hasActiveWork = computed(() => batchTargetCount.value > 0 || trackedTimerCount.value > 0)
-
-const JOB_ICONS: Record<string, string> = {
-  CRP: '🪓', BSM: '⚒️', ARM: '🛡️', GSM: '💍',
-  LTW: '🧶', WVR: '🪡', ALC: '⚗️', CUL: '🍳',
-}
 
 const configuredJobs = computed(() =>
   Object.keys(JOB_NAMES).filter(job => {
@@ -63,16 +96,19 @@ const unconfiguredCount = computed(() => Object.keys(JOB_NAMES).length - configu
 const workflows = [
   {
     icon: '⚗️', title: '模擬單一配方', path: '/simulator', color: 'var(--app-craft)',
-    desc: '找到最佳製作手法，提高成品品質',
+    desc: '針對單一配方算最佳手法',
   },
   {
     icon: '📜', title: '查看材料與價格', path: '/bom', color: 'var(--app-craft)',
-    desc: '展開材料樹，查詢市場價格',
+    desc: '展開素材樹，查市場價格',
   },
-  {
-    icon: '📋', title: '批量製作規劃', path: '/batch', color: 'var(--app-craft)',
-    desc: '多個配方一次算好採購和製作順序',
-  },
+]
+
+const batchFeatures = [
+  '展開素材樹 → 採購清單一次給',
+  '跨服比價，找最省的那條路',
+  '自製 vs 直購算給你看，自己決定怎麼走',
+  '製作 todo + 一鍵複製巨集',
 ]
 
 const tools = [
@@ -86,6 +122,7 @@ const tools = [
   <div v-else class="view-container dashboard" :class="{ 'is-mobile': isMobile }">
     <!-- Welcome -->
     <div class="welcome">
+      <p class="quote-flavor welcome-quote">{{ greeting }}</p>
       <h2>歡迎回來，冒險者</h2>
       <p class="welcome-greeting" v-if="isMobile">嗨，冒險者 👋</p>
       <p class="view-desc">
@@ -94,9 +131,25 @@ const tools = [
       </p>
     </div>
 
-    <!-- Workflow Cards -->
-    <div class="section-header" style="margin-bottom: 12px">
-      <h3>製作流程</h3>
+    <!-- Hero: Batch (主打功能) -->
+    <button class="batch-hero" @click="router.push('/batch')" type="button">
+      <div class="batch-hero-head">
+        <span class="batch-hero-eyebrow">主打功能</span>
+        <h3 class="batch-hero-title">
+          <span class="batch-hero-icon" aria-hidden="true">📋</span>
+          批量製作
+        </h3>
+      </div>
+      <p class="batch-hero-tagline">"一次給我清單，剩下交給工坊。"</p>
+      <ul class="batch-hero-features">
+        <li v-for="line in batchFeatures" :key="line">{{ line }}</li>
+      </ul>
+      <span class="batch-hero-cta">開始規劃 →</span>
+    </button>
+
+    <!-- Supporting craft tools -->
+    <div class="section-header" style="margin-top: 28px; margin-bottom: 12px">
+      <h3>其他製作工具</h3>
     </div>
     <div class="workflow-list">
       <button
@@ -116,7 +169,7 @@ const tools = [
 
     <!-- Tools -->
     <div class="section-header section-gap-sm">
-      <h3>實用工具</h3>
+      <h3>周邊工具</h3>
     </div>
     <div class="tools-row">
       <button
@@ -183,35 +236,6 @@ const tools = [
     <p v-if="unconfiguredCount > 0" class="gs-hint">
       還有 {{ unconfiguredCount }} 個職業尚未設定裝備數值，<button class="inline-link" @click="router.push('/gearset')">前往設定</button>
     </p>
-
-    <!-- Getting Started -->
-    <div class="section-header section-gap-lg">
-      <h3>新手指南</h3>
-      <button class="link-btn" @click="toggleGuide">{{ guideCollapsed ? '展開' : '收起' }}</button>
-    </div>
-    <div v-if="!guideCollapsed" class="steps">
-      <div class="step">
-        <span class="step-num">1</span>
-        <div>
-          <strong>設定裝備</strong>
-          <p>填入你的職業等級、作業精度、加工精度和 CP</p>
-        </div>
-      </div>
-      <div class="step">
-        <span class="step-num">2</span>
-        <div>
-          <strong>搜尋配方</strong>
-          <p>在模擬器或批量製作中搜尋你想做的道具</p>
-        </div>
-      </div>
-      <div class="step">
-        <span class="step-num">3</span>
-        <div>
-          <strong>開始製作</strong>
-          <p>模擬器會算出最佳手法，批量製作幫你規劃採購清單</p>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -220,11 +244,181 @@ const tools = [
 
 .welcome h2 { border-left-color: var(--app-accent-light); }
 
-/* Workflow Cards */
-.workflow-list {
+.welcome {
+  background-image: var(--paper-noise);
+  background-size: var(--paper-noise-size);
+  margin: -8px -16px 8px;
+  padding: 12px 16px 4px;
+  border-radius: 12px;
+}
+
+.welcome-quote {
+  font-size: 17px;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+@media (max-width: 768px) {
+  .welcome-quote {
+    /* Don't sit flush against the mobile app bar — give it room */
+    margin-top: 12px;
+    font-size: 16px;
+  }
+}
+
+/* Batch hero — the headline feature */
+.batch-hero {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: var(--app-text);
+  padding: 28px 32px;
+  margin: 8px 0 0;
+  border-radius: 16px;
+  border: 1px solid oklch(0.50 0.16 40 / 0.30);
+  background:
+    linear-gradient(140deg, oklch(0.50 0.16 40 / 0.06) 0%, oklch(0.50 0.16 40 / 0) 60%),
+    var(--app-surface);
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 0.6),
+    0 2px 8px oklch(0.40 0.05 60 / 0.06);
+  transition:
+    transform 0.2s var(--ease-out-quart),
+    border-color 0.2s var(--ease-out-quart),
+    box-shadow 0.2s var(--ease-out-quart);
+}
+
+.batch-hero:hover {
+  transform: translateY(-1px);
+  border-color: oklch(0.50 0.16 40 / 0.55);
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 0.6),
+    0 8px 22px oklch(0.40 0.05 60 / 0.10);
+}
+
+.batch-hero:focus-visible {
+  outline: 2px solid var(--app-craft);
+  outline-offset: 3px;
+}
+
+.batch-hero-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.batch-hero-eyebrow {
+  font-family: 'Fira Code', monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--app-craft);
+}
+
+.batch-hero-title {
+  font-family: 'Noto Serif TC', serif;
+  font-size: 28px;
+  font-weight: 800;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  letter-spacing: 0.5px;
+  line-height: 1.1;
+}
+
+.batch-hero-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.batch-hero-tagline {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 16px;
+  color: var(--app-craft);
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+
+.batch-hero-features {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 18px;
+  font-size: 13px;
+  color: var(--app-text-muted);
+}
+
+.batch-hero-features li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  line-height: 1.5;
+}
+
+.batch-hero-features li::before {
+  content: '·';
+  color: var(--app-craft);
+  font-weight: 700;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.batch-hero-cta {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  background: var(--app-craft);
+  color: oklch(0.99 0 0);
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 13.5px;
+  align-self: flex-start;
+  box-shadow: 0 2px 6px oklch(0.50 0.16 40 / 0.30);
+  transition: transform 0.18s var(--ease-out-quart);
+}
+
+.batch-hero:hover .batch-hero-cta {
+  transform: translateX(2px);
+}
+
+@media (max-width: 640px) {
+  .batch-hero {
+    padding: 20px;
+    border-radius: 14px;
+  }
+  .batch-hero-title {
+    font-size: 22px;
+  }
+  .batch-hero-icon {
+    font-size: 26px;
+  }
+  .batch-hero-features {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}
+
+/* Workflow Cards — 2-col grid (matches tools-row) */
+.workflow-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+@media (max-width: 480px) {
+  .workflow-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 .workflow-card {
@@ -242,7 +436,7 @@ const tools = [
 }
 
 .workflow-card:hover {
-  border-color: rgba(148, 163, 184, 0.22);
+  border-color: oklch(0.55 0.04 65 /0.22);
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.15);
 }
 
@@ -305,7 +499,7 @@ const tools = [
 }
 
 .tool-card:hover {
-  border-color: rgba(148, 163, 184, 0.22);
+  border-color: oklch(0.55 0.04 65 /0.22);
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.15);
 }
 
@@ -398,7 +592,7 @@ const tools = [
 }
 
 .status-card:hover {
-  border-color: rgba(148, 163, 184, 0.22);
+  border-color: oklch(0.55 0.04 65 /0.22);
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.15);
 }
 
@@ -428,11 +622,17 @@ const tools = [
   color: var(--app-text-muted);
 }
 
-/* Gearset Summary */
+/* Gearset Summary — fixed 4-col grid (8 jobs = 2 rows of 4) */
 .gearset-summary {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .gearset-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .gs-chip {
@@ -449,11 +649,11 @@ const tools = [
 }
 
 .gs-chip:hover {
-  border-color: rgba(148, 163, 184, 0.25);
+  border-color: oklch(0.55 0.04 65 /0.25);
 }
 
 .gs-chip.configured {
-  border-color: rgba(245, 158, 11, 0.25);
+  border-color: oklch(0.50 0.16 40 /0.25);
 }
 
 .gs-icon { font-size: 16px; }
@@ -481,53 +681,14 @@ const tools = [
 .shortcut-hint {
   font-size: 11px;
   color: var(--app-text-muted);
-  background: rgba(148, 163, 184, 0.08);
-  border: 1px solid rgba(148, 163, 184, 0.15);
+  background: oklch(0.55 0.04 65 /0.08);
+  border: 1px solid oklch(0.55 0.04 65 /0.15);
   border-radius: 4px;
   padding: 1px 6px;
   margin-left: 8px;
   font-family: inherit;
   cursor: pointer;
   vertical-align: middle;
-}
-
-/* Steps */
-.steps {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.step {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-}
-
-.step-num {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--app-accent-glow);
-  color: var(--app-accent-light);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.step strong {
-  font-size: 14px;
-  color: var(--app-text);
-}
-
-.step p {
-  margin: 2px 0 0;
-  font-size: 13px;
-  color: var(--app-text-muted);
-  line-height: 1.4;
 }
 
 @media (max-width: 768px) {
@@ -657,22 +818,6 @@ const tools = [
 }
 
 .dashboard.is-mobile .gs-name { flex: 1; font-size: 13px; }
-
-/* Onboarding steps: compact, card-y feel */
-.dashboard.is-mobile .steps {
-  gap: 10px;
-}
-
-.dashboard.is-mobile .step {
-  gap: 12px;
-  padding: 12px 14px;
-  background: var(--app-surface);
-  border: 1px solid var(--app-border);
-  border-radius: 12px;
-}
-
-.dashboard.is-mobile .step strong { font-size: 13.5px; }
-.dashboard.is-mobile .step p { font-size: 12.5px; }
 
 /* Inline link in gs-hint sits on its own line for thumb reach */
 .dashboard.is-mobile .gs-hint {

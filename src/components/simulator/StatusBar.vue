@@ -17,11 +17,12 @@ interface BarSpec {
 const bars = computed<BarSpec[]>(() => {
   const s = props.craftState
   if (!s) return []
+  // Muted variants — chroma trimmed so 4 stacked bars don't compete
   return [
-    { label: '進展', color: 'var(--app-accent)', current: s.progress, max: s.maxProgress },
-    { label: '品質', color: 'var(--app-success)', current: s.quality, max: s.maxQuality },
-    { label: '耐久', color: 'var(--el-color-warning)', current: s.durability, max: s.maxDurability },
-    { label: 'CP', color: 'var(--el-color-info)', current: s.cp, max: s.maxCp },
+    { label: '進展', color: 'oklch(0.62 0.12 65)', current: s.progress, max: s.maxProgress },
+    { label: '品質', color: 'oklch(0.55 0.10 145)', current: s.quality, max: s.maxQuality },
+    { label: '耐久', color: 'oklch(0.58 0.12 45)', current: s.durability, max: s.maxDurability },
+    { label: 'CP', color: 'oklch(0.55 0.05 230)', current: s.cp, max: s.maxCp },
   ]
 })
 

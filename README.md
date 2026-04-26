@@ -1,28 +1,32 @@
-# FF14 Craft Helper
+# 吐司工坊 · FFXIV 製作助手
 
-A web-based crafting assistant for Final Fantasy XIV. Provides craft simulation with an optimal rotation solver, material planning, batch production optimization, gathering timers, and cross-server market price comparison.
+> *Toast Workshop — a web-based crafting assistant for Final Fantasy XIV.*
+
+提供製作模擬與最佳手法求解、材料清單規劃、批量製作最佳化、採集計時，以及跨伺服器市場比價。
+
+亮色設計、多色烘焙語意、批量製作為主打功能。前身為 *FF14 Craft Helper*；2026 年 4 月起改名為「吐司工坊」並重新設計視覺。
 
 **Live:** https://andycom12000.github.io/ff14-craft-helper/
 
 ## Features
 
-### Craft Simulator
-Simulate crafting rotations step-by-step with real-time quality/progress/durability tracking. Includes an optimal rotation solver powered by [Raphael-rs](https://github.com/KonaeAkira/raphael-rs) (multi-threaded WASM), food/medicine buff optimization, and in-game macro export.
+### Batch Crafting · 批量製作（主打）
+規劃多配方批量生產：購物清單自動生成、跨伺服器比價、自製 vs 採購建議、料理／藥水推薦，並支援從遊戲截圖 OCR 匯入。
 
-### Bill of Materials (BOM)
-Expand recipes into full material trees. Lookup market prices via Universalis API with cross-server comparison and craft-vs-buy cost analysis.
+### Craft Simulator · 製作模擬
+逐步模擬製作 rotation，即時追蹤品質／作業進度／耐久，整合 [Raphael-rs](https://github.com/KonaeAkira/raphael-rs) 最佳手法求解（多執行緒 WASM）、料理／藥水 buff 最佳化，以及遊戲內 macro 匯出。
 
-### Batch Crafting
-Plan multi-recipe production runs with shopping list generation, cross-server price comparison, food/medicine recommendations, and OCR import from in-game screenshots.
+### Bill of Materials · 材料清單
+將配方展開為完整材料樹，透過 Universalis API 查詢跨伺服器市場價，比較自製與採購成本。
 
-### Gathering Timer
-Track timed gathering nodes with Eorzean time countdown, alarm notifications, interactive minimap, and market price integration.
+### Gathering Timer · 採集計時
+追蹤限時採集點，提供 Eorzean 時間倒數、提示音、互動 minimap，以及市場價格整合。
 
-### Market Price Check &nbsp;🚧 _Under development_
-A standalone cross-server price lookup page is currently disabled while being reworked. Market price comparison is still available inside the BOM and Batch Crafting views.
+### Market Price Check · 市場比價 &nbsp;🚧 _重構中_
+獨立的跨伺服器比價頁面暫時關閉重構中，市場比價功能仍保留於批量製作與材料清單頁中。
 
-### Gearset Management
-Configure crafting stats (level, craftsmanship, control, CP) for all crafting jobs.
+### Gearset Management · 配裝管理
+設定 8 種生產職的等級／作業精度／加工精度／製作力（CP），多份配裝可保留以對應不同情境。
 
 ## Tech Stack
 

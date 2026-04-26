@@ -372,16 +372,19 @@ async function handleSelfCraft(itemId: number) {
     <!-- Recipe / Gearset Info -->
     <div class="info-section">
 
-      <el-alert
+      <div
         v-if="recipe && gearset && gearset.craftsmanship === 0 && gearset.control === 0"
-        title="尚未設定該職業的裝備數值"
-        type="warning"
-        :closable="false"
-        show-icon
-        style="margin-top: 8px"
+        class="gearset-banner"
       >
-        <el-link type="primary" @click="router.push('/')">前往裝備頁面設定配裝</el-link>
-      </el-alert>
+        <div class="gearset-banner-icon" aria-hidden="true">⚠</div>
+        <div class="gearset-banner-body">
+          <div class="gearset-banner-title">尚未設定該職業的裝備數值</div>
+          <div class="gearset-banner-desc">先填好作業精度、加工精度、CP 才能開始模擬</div>
+        </div>
+        <button class="gearset-banner-cta" type="button" @click="router.push('/gearset')">
+          前往設定 →
+        </button>
+      </div>
 
       <div v-if="recipe && gearset" class="info-header-row">
         <el-descriptions
@@ -570,16 +573,19 @@ async function handleSelfCraft(itemId: number) {
           </div>
         </section>
 
-        <el-alert
+        <div
           v-if="gearset && gearset.craftsmanship === 0 && gearset.control === 0"
-          title="尚未設定該職業的裝備數值"
-          type="warning"
-          :closable="false"
-          show-icon
-          class="m-alert"
+          class="gearset-banner"
         >
-          <el-link type="primary" @click="router.push('/gearset')">前往裝備頁面設定配裝</el-link>
-        </el-alert>
+          <div class="gearset-banner-icon" aria-hidden="true">⚠</div>
+          <div class="gearset-banner-body">
+            <div class="gearset-banner-title">尚未設定該職業的裝備數值</div>
+            <div class="gearset-banner-desc">先填好作業精度、加工精度、CP 才能開始模擬</div>
+          </div>
+          <button class="gearset-banner-cta" type="button" @click="router.push('/gearset')">
+            前往設定 →
+          </button>
+        </div>
 
         <!-- Setup accordion: initial quality + food/medicine -->
         <button
@@ -1385,5 +1391,79 @@ async function handleSelfCraft(itemId: number) {
   cursor: pointer;
 }
 
-.m-sheet-danger { color: #F87171; border-color: rgba(248, 113, 113, 0.3); }
+.m-sheet-danger { color: oklch(0.55 0.20 25); border-color: oklch(0.55 0.20 25 / 0.3); }
+
+/* === Gearset-not-set warning banner (Banner C variant) === */
+.gearset-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+  padding: 18px 22px;
+  background: oklch(0.58 0.17 45 / 0.10);
+  border: 1.5px solid oklch(0.58 0.17 45 / 0.50);
+  border-radius: 12px;
+  box-shadow: 0 4px 14px oklch(0.58 0.17 45 / 0.10);
+}
+.gearset-banner-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: oklch(0.58 0.17 45);
+  color: oklch(0.99 0.005 90);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.gearset-banner-body { flex: 1; min-width: 0; }
+.gearset-banner-title {
+  font-family: 'Noto Serif TC', serif;
+  font-weight: 700;
+  font-size: 16px;
+  color: oklch(0.32 0.14 45);
+  margin-bottom: 3px;
+}
+.gearset-banner-desc {
+  font-size: 13.5px;
+  color: oklch(0.42 0.16 45);
+}
+.gearset-banner-cta {
+  flex-shrink: 0;
+  padding: 10px 20px;
+  border: 0;
+  border-radius: 10px;
+  background: oklch(0.58 0.17 45);
+  color: oklch(0.99 0.005 90);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px oklch(0.58 0.17 45 / 0.30);
+  transition:
+    background-color 0.18s var(--ease-out-quart),
+    box-shadow 0.18s var(--ease-out-quart),
+    transform 0.18s var(--ease-out-quart);
+}
+.gearset-banner-cta:hover {
+  background: oklch(0.42 0.16 45);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px oklch(0.58 0.17 45 / 0.40);
+}
+.gearset-banner-cta:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 640px) {
+  .gearset-banner {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+    padding: 16px;
+  }
+  .gearset-banner-icon {
+    margin: 0 auto;
+  }
+}
 </style>
