@@ -249,71 +249,62 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
         <h3 class="section-title">關於</h3>
       </header>
 
-      <div class="about-hero">
-        <div class="about-headline">
-          <span class="about-name">吐司工坊</span>
-          <span class="about-ver">{{ appVersion }}</span>
-          <span class="about-divider">·</span>
-          <span class="about-subline">FFXIV 製作助手</span>
-        </div>
-        <p class="about-tagline">"今天想烤點什麼？"</p>
-
-        <div class="about-credit">
-          <img :src="avatarUrl" alt="Author avatar" class="about-avatar" />
-          <span class="about-credit-line">
-            <span class="about-credit-by">crafted by</span>
+      <div class="about-profile">
+        <img :src="avatarUrl" alt="Author avatar" class="about-avatar" />
+        <div class="about-body">
+          <p class="about-by">crafted by</p>
+          <h4 class="about-author">
             <a
               href="https://github.com/andycom12000"
               target="_blank"
               rel="noopener noreferrer"
-              class="about-credit-name"
             >菸齡 (andycom12000)</a>
-          </span>
-        </div>
+          </h4>
+          <p class="about-project">
+            <strong>吐司工坊</strong>
+            FFXIV 製作助手
+            <span class="about-ver">{{ appVersion }}</span>
+          </p>
+          <p class="about-tagline">"今天想烤點什麼？"</p>
 
-        <div class="about-links">
-          <a
-            href="https://github.com/andycom12000/ff14-craft-helper"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="about-link"
-          >
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-            原始碼
-          </a>
-          <a
-            href="https://github.com/andycom12000/ff14-craft-helper/issues"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="about-link"
-          >
-            <span class="about-link-emoji" aria-hidden="true">🐛</span>
-            回報問題
-          </a>
-          <a
-            href="https://www.buymeacoffee.com/andycom12000"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="about-link"
-          >
-            <span class="about-link-emoji" aria-hidden="true">☕</span>
-            Buy me a coffee
-          </a>
-        </div>
+          <div class="about-links">
+            <a
+              href="https://github.com/andycom12000/ff14-craft-helper"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="about-link"
+            >
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+              原始碼
+            </a>
+            <a
+              href="https://github.com/andycom12000/ff14-craft-helper/issues"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="about-link"
+            >
+              <span class="about-link-emoji" aria-hidden="true">🐛</span>
+              回報問題
+            </a>
+            <a
+              href="https://www.buymeacoffee.com/andycom12000"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="about-link"
+            >
+              <span class="about-link-emoji" aria-hidden="true">☕</span>
+              Buy me a coffee
+            </a>
+          </div>
 
-        <div class="about-footnote">
-          <div>
-            <strong>求解器</strong>
+          <div class="about-tech">
+            <strong>POWERED BY</strong>
             <a
               href="https://github.com/KonaeAkira/raphael-rs"
               target="_blank"
               rel="noopener noreferrer"
             >Raphael-rs</a>
-            (WASM 多執行緒)
-          </div>
-          <div>
-            <strong>技術架構</strong>
-            Vue 3 + Pinia + Element Plus + Vite + TypeScript
+            · Vue 3 · Pinia · Element Plus · Vite · TypeScript
           </div>
         </div>
       </div>
@@ -525,176 +516,158 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
   text-align: right;
 }
 
-/* ============ About — quieter inline layout, fits Settings rhythm ============ */
-.about-hero {
-  /* Same typography vocabulary as Variant A, but scaled to match the
-   * surrounding settings sections instead of overpowering them. */
+/* ============ About — author-first profile layout ============ */
+.about-profile {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 20px;
+  align-items: start;
 }
 
-.about-headline {
-  display: flex;
+.about-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 1px solid var(--app-border);
+  object-fit: cover;
+  background: var(--app-surface);
+}
+
+.about-body {
+  min-width: 0;
+}
+
+.about-by {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 15px;
+  color: oklch(0.62 0.03 60);
+  margin: 0 0 2px;
+}
+
+.about-author {
+  font-family: 'Noto Serif TC', serif;
+  font-weight: 700;
+  font-size: 19px;
+  color: var(--app-text);
+  margin: 0 0 12px;
+  letter-spacing: 0.02em;
+}
+
+.about-author a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid oklch(0.62 0.12 65 / 0.40);
+  padding-bottom: 2px;
+  transition: color 0.18s ease, border-color 0.18s ease;
+}
+
+.about-author a:hover {
+  color: oklch(0.62 0.12 65);
+  border-bottom-color: oklch(0.62 0.12 65);
+}
+
+.about-project {
+  margin: 0 0 4px;
+  font-size: 13.5px;
+  color: var(--app-text-muted);
+  display: inline-flex;
   align-items: baseline;
   gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 4px;
 }
 
-.about-name {
-  font-family: 'Noto Serif TC', serif;
-  font-weight: 700;
-  font-size: 17px;
-  letter-spacing: 0.5px;
+.about-project strong {
   color: var(--app-text);
+  font-weight: 700;
+  font-size: 15px;
 }
 
 .about-ver {
   font-family: 'Fira Code', monospace;
-  font-size: 11.5px;
-  font-weight: 400;
-  color: var(--app-text-muted);
-  letter-spacing: 0.05em;
-}
-
-.about-divider {
+  font-size: 11px;
   color: oklch(0.62 0.03 60);
-  font-size: 13px;
-  margin: 0 -2px;
-}
-
-.about-subline {
-  font-size: 13px;
-  color: var(--app-text-muted);
+  background: oklch(0.55 0.04 65 / 0.10);
+  padding: 1px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
 }
 
 .about-tagline {
   font-family: 'Cormorant Garamond', serif;
   font-style: italic;
-  font-size: 15px;
+  font-size: 14.5px;
   color: oklch(0.62 0.12 65);
   margin: 0 0 16px;
-}
-
-.about-credit {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 16px;
-}
-
-.about-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 1px solid var(--app-border);
-  object-fit: cover;
-  background: var(--app-surface);
-  flex-shrink: 0;
-}
-
-.about-credit-line {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-  flex-wrap: wrap;
-  font-size: 13.5px;
-}
-
-.about-credit-by {
-  font-family: 'Cormorant Garamond', serif;
-  font-style: italic;
-  color: oklch(0.62 0.03 60);
-}
-
-.about-credit-name {
-  font-weight: 600;
-  color: var(--app-text);
-  text-decoration: none;
-  border-bottom: 1px dotted oklch(0.62 0.12 65 / 0.45);
-  padding-bottom: 1px;
-  transition: color 0.18s ease, border-color 0.18s ease;
-}
-
-.about-credit-name:hover {
-  color: oklch(0.62 0.12 65);
-  border-bottom-color: oklch(0.62 0.12 65);
+  line-height: 1.5;
 }
 
 .about-links {
   display: flex;
-  gap: 18px;
+  gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
 .about-link {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  color: oklch(0.62 0.12 65);
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 999px;
+  font-size: 12.5px;
+  color: var(--app-text);
   text-decoration: none;
-  font-size: 13px;
-  font-weight: 600;
-  border-bottom: 1px dotted oklch(0.62 0.12 65 / 0.4);
-  padding-bottom: 1px;
-  transition: color 0.18s ease, border-color 0.18s ease;
+  background: oklch(1 0 0 / 0.4);
+  transition: all 0.18s var(--ease-out-quart, ease);
 }
 
 .about-link:hover {
-  color: var(--app-accent);
-  border-bottom-color: var(--app-accent);
+  border-color: oklch(0.62 0.12 65);
+  color: oklch(0.62 0.12 65);
 }
 
 .about-link-emoji {
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1;
 }
 
-.about-footnote {
-  margin-top: 18px;
-  padding-top: 12px;
-  border-top: 1px solid var(--app-border);
+.about-tech {
   font-size: 11.5px;
   color: oklch(0.62 0.03 60);
   line-height: 1.7;
 }
 
-.about-footnote > div {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 6px;
-}
-
-.about-footnote strong {
+.about-tech strong {
   color: var(--app-text-muted);
   font-weight: 600;
   font-family: 'Fira Code', monospace;
   font-size: 10.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  min-width: 64px;
+  margin-right: 6px;
 }
 
-.about-footnote a {
+.about-tech a {
   color: oklch(0.62 0.12 65);
   text-decoration: none;
   border-bottom: 1px dotted oklch(0.62 0.12 65 / 0.4);
 }
 
-.about-footnote a:hover {
+.about-tech a:hover {
   color: var(--app-accent);
   border-bottom-color: var(--app-accent);
 }
 
 @media (max-width: 480px) {
-  .about-footnote > div {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-    margin-bottom: 10px;
+  .about-profile {
+    grid-template-columns: 1fr;
+    gap: 14px;
   }
-  .about-footnote strong {
-    min-width: 0;
+  .about-avatar {
+    width: 64px;
+    height: 64px;
   }
 }
 </style>
