@@ -648,6 +648,7 @@ const tools = [
 }
 .dw-tool-col {
   padding: 4px 36px;
+  border: 0;
   border-left: 1px solid var(--app-border);
   display: grid;
   grid-template-rows: subgrid;
