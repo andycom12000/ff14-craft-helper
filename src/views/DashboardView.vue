@@ -39,10 +39,14 @@ function onboardingDone() {
 // Matches the rebrand spec: "像麵包店黑板上的招呼語，增加生命力".
 const greetings = [
   '今天想烤點什麼？',
-  '"Patience is the secret ingredient."',
   '光之戰士，準備好了嗎？',
-  '"Today\'s special: 拂曉的曙鋼"',
   '一爐又一爐，慢慢來不急。',
+  '出爐囉，慢慢挑。',
+  '今天的麵團，發得正好。',
+  '從早餐到副本，都從這裡開始。',
+  '趁熱開工。',
+  '新的一爐，新的一天。',
+  '"Today\'s special: 拂曉的曙鋼"',
 ]
 const greeting = greetings[Math.floor(Math.random() * greetings.length)]
 
@@ -242,8 +246,10 @@ const tools = [
   line-height: 1.4;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .welcome-quote {
+    /* Don't sit flush against the mobile app bar — give it room */
+    margin-top: 12px;
     font-size: 16px;
   }
 }
