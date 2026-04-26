@@ -90,13 +90,6 @@ const greeting = (() => {
   return pool[Math.floor(Math.random() * pool.length)]
 })()
 
-const guideCollapsed = ref(localStorage.getItem('ff14-guide-collapsed') === 'true')
-
-function toggleGuide() {
-  guideCollapsed.value = !guideCollapsed.value
-  localStorage.setItem('ff14-guide-collapsed', String(guideCollapsed.value))
-}
-
 const batchTargetCount = computed(() => batchStore.targets.length)
 const trackedTimerCount = computed(() => timerStore.trackedItems.length)
 const hasActiveWork = computed(() => batchTargetCount.value > 0 || trackedTimerCount.value > 0)
@@ -131,7 +124,7 @@ const workflows = [
 const batchFeatures = [
   '展開素材樹 → 採購清單一次給',
   '跨服比價，找最省的那條路',
-  '自製 vs 直購建議，省下幾千 G',
+  '自製 vs 直購算給你看，自己決定怎麼走',
   '製作 todo + 一鍵複製巨集',
 ]
 
@@ -260,35 +253,6 @@ const tools = [
     <p v-if="unconfiguredCount > 0" class="gs-hint">
       還有 {{ unconfiguredCount }} 個職業尚未設定裝備數值，<button class="inline-link" @click="router.push('/gearset')">前往設定</button>
     </p>
-
-    <!-- Getting Started -->
-    <div class="section-header section-gap-lg">
-      <h3>新手指南</h3>
-      <button class="link-btn" @click="toggleGuide">{{ guideCollapsed ? '展開' : '收起' }}</button>
-    </div>
-    <div v-if="!guideCollapsed" class="steps">
-      <div class="step">
-        <span class="step-num">1</span>
-        <div>
-          <strong>設定裝備</strong>
-          <p>填入你的職業等級、作業精度、加工精度和 CP</p>
-        </div>
-      </div>
-      <div class="step">
-        <span class="step-num">2</span>
-        <div>
-          <strong>搜尋配方</strong>
-          <p>在模擬器或批量製作中搜尋你想做的道具</p>
-        </div>
-      </div>
-      <div class="step">
-        <span class="step-num">3</span>
-        <div>
-          <strong>開始製作</strong>
-          <p>多個配方一次規劃用「批量製作」，單一配方手法用「模擬器」</p>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -465,11 +429,17 @@ const tools = [
   }
 }
 
-/* Workflow Cards */
+/* Workflow Cards — 2-col grid (matches tools-row) */
 .workflow-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+@media (max-width: 480px) {
+  .workflow-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 .workflow-card {
@@ -673,11 +643,17 @@ const tools = [
   color: var(--app-text-muted);
 }
 
-/* Gearset Summary */
+/* Gearset Summary — fixed 4-col grid (8 jobs = 2 rows of 4) */
 .gearset-summary {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .gearset-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .gs-chip {
@@ -734,45 +710,6 @@ const tools = [
   font-family: inherit;
   cursor: pointer;
   vertical-align: middle;
-}
-
-/* Steps */
-.steps {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.step {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-}
-
-.step-num {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--app-accent-glow);
-  color: var(--app-accent-light);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.step strong {
-  font-size: 14px;
-  color: var(--app-text);
-}
-
-.step p {
-  margin: 2px 0 0;
-  font-size: 13px;
-  color: var(--app-text-muted);
-  line-height: 1.4;
 }
 
 @media (max-width: 768px) {
@@ -902,22 +839,6 @@ const tools = [
 }
 
 .dashboard.is-mobile .gs-name { flex: 1; font-size: 13px; }
-
-/* Onboarding steps: compact, card-y feel */
-.dashboard.is-mobile .steps {
-  gap: 10px;
-}
-
-.dashboard.is-mobile .step {
-  gap: 12px;
-  padding: 12px 14px;
-  background: var(--app-surface);
-  border: 1px solid var(--app-border);
-  border-radius: 12px;
-}
-
-.dashboard.is-mobile .step strong { font-size: 13.5px; }
-.dashboard.is-mobile .step p { font-size: 12.5px; }
 
 /* Inline link in gs-hint sits on its own line for thumb reach */
 .dashboard.is-mobile .gs-hint {
