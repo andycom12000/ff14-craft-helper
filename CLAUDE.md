@@ -1,4 +1,4 @@
-# FF14 Craft Helper - Project Instructions
+# 吐司工坊（FF14 Craft Helper）- Project Instructions
 
 ## Git Workflow
 
@@ -23,5 +23,9 @@
 - Vue 3 + Pinia + Element Plus + Vite + TypeScript
 - Raphael-rs WASM solver（多執行緒，需 SharedArrayBuffer / COOP+COEP）
 
-## Design Context
-- 設計相關上下文請參考 `.impeccable.md`
+## Brand & Design Context
+- 主品牌名：**吐司工坊（Toast Workshop）**；副線：**FFXIV 製作助手**（用於 logo 旁與 SEO meta）
+- 主打功能：批量製作（Batch Crafting）— 視覺與 sidebar 已將其置於 Tier 1
+- 視覺基調：light theme · 奶油白主背景 · 多色烘焙語意（吐司金 / 可可 / 草莓醬 / 抹茶 / 藍莓）
+- Brand & 設計細節請參考 `PRODUCT.md`
+- Rebrand spec：`docs/superpowers/specs/2026-04-26-toast-workshop-rebrand-design.md`
