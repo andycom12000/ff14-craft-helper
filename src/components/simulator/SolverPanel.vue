@@ -130,21 +130,31 @@ onUnmounted(() => {
     <div class="skill-toggles">
       <span class="toggle-label">可用技能：</span>
       <el-tooltip
-        :disabled="canUseTrainedEye"
-        content="需要工匠等級比配方等級高 10 等以上"
+        :content="canUseTrainedEye
+          ? '工匠的神速技巧：一次將品質拉到滿，不消耗 CP；需工匠等級比配方等級高 10 等。'
+          : '需要工匠等級比配方等級高 10 等以上才能使用'"
         placement="top"
       >
         <el-checkbox v-model="useTrainedEye" :disabled="!canUseTrainedEye">{{ getSkillName('TrainedEye') }}</el-checkbox>
       </el-tooltip>
-      <el-checkbox v-model="useManipulation">
-        {{ getSkillName('Manipulation') }}
-      </el-checkbox>
-      <el-checkbox v-model="useHeartAndSoul">
-        {{ getSkillName('HeartAndSoul') }}
-      </el-checkbox>
-      <el-checkbox v-model="useQuickInnovation">
-        {{ getSkillName('QuickInnovation') }}
-      </el-checkbox>
+      <el-tooltip
+        content="掌握：8 步內每步自動回復 5 點耐久，是長手法的核心 buff。"
+        placement="top"
+      >
+        <el-checkbox v-model="useManipulation">{{ getSkillName('Manipulation') }}</el-checkbox>
+      </el-tooltip>
+      <el-tooltip
+        content="心眼之手：專家配方專用。一次將普通狀態手動切到高品質，搶大波加工。"
+        placement="top"
+      >
+        <el-checkbox v-model="useHeartAndSoul">{{ getSkillName('HeartAndSoul') }}</el-checkbox>
+      </el-tooltip>
+      <el-tooltip
+        content="快速改革：專家配方專用。不耗 CP 觸發一次革新，求解器自動安排最佳時點。"
+        placement="top"
+      >
+        <el-checkbox v-model="useQuickInnovation">{{ getSkillName('QuickInnovation') }}</el-checkbox>
+      </el-tooltip>
     </div>
 
     <!-- WASM Status -->

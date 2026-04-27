@@ -109,8 +109,21 @@ const statsDescColumns = computed(() =>
 
 <template>
   <div class="food-medicine">
+    <!-- !gearset only fires when there's no recipe selected (gearsets store
+         always returns a default entry per job once a recipe sets the job
+         context). So the message must reflect "step 1 missing" not
+         "you forgot to fill in your gearset". -->
     <el-alert
       v-if="!gearset"
+      title="先選配方"
+      description="選好配方後，這裡可加食物與藥水的能力加成。"
+      type="info"
+      :closable="false"
+      show-icon
+      style="margin-bottom: 16px"
+    />
+    <el-alert
+      v-else-if="gearset.craftsmanship === 0 && gearset.control === 0"
       title="尚未設定配裝"
       description="請先在配裝管理中設定職業配裝數值。"
       type="warning"

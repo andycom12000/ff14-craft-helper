@@ -4,8 +4,16 @@ import { useRecipeStore } from '@/stores/recipe'
 import { calculateInitialQuality } from '@/engine/quality'
 import ItemName from '@/components/common/ItemName.vue'
 
+const props = defineProps<{
+  /* External HQ amounts (e.g. from CraftRecommendation "套用" button).
+     When provided, internal state syncs to it; emits stay one-way out so
+     the parent can choose v-model wiring or one-shot pushes. */
+  hqAmounts?: number[] | null
+}>()
+
 const emit = defineEmits<{
   'update:initialQuality': [value: number]
+  'update:hqAmounts': [value: number[]]
 }>()
 
 const recipeStore = useRecipeStore()
@@ -26,6 +34,23 @@ watch(
   },
   { immediate: true },
 )
+
+// Sync from external prop (e.g. apply-hq from recommendations table).
+watch(
+  () => props.hqAmounts,
+  (next) => {
+    if (!next || !recipe.value) return
+    if (next.length !== recipe.value.ingredients.length) return
+    if (next.every((v, i) => v === hqAmounts.value[i])) return
+    hqAmounts.value = [...next]
+  },
+)
+
+// Emit upward whenever internal state shifts so the parent can persist it
+// (used to round-trip across apply-hq → re-solve).
+watch(hqAmounts, (val) => {
+  emit('update:hqAmounts', [...val])
+}, { deep: true })
 
 const initialQuality = computed(() => {
   if (!recipe.value) return 0

@@ -199,39 +199,35 @@ async function loadHqRecommendations() {
     <!-- Warning: progress not maxed -->
     <el-alert v-if="analyzed && !isMaxProgress" title="進度未滿，建議提升裝備數值或調整技能" type="warning" :closable="false" show-icon style="margin-top: 12px" />
 
-    <!-- Scenario A: 雙滿 -->
-    <el-card v-if="scenario === 'maxed'" shadow="never" class="rec-card">
-      <template #header>
-        <div class="card-header">
-          <span class="card-title">材料與成本</span>
-          <el-tag type="success" size="small">雙滿</el-tag>
-        </div>
-      </template>
-      <div v-if="bomLoading">
-        <el-skeleton :rows="4" animated />
-      </div>
-      <BomSummary v-else-if="flatMaterials.length > 0" :materials="flatMaterials" :prices="prices" :target-item-ids="[recipe!.itemId]" :material-tree="bomTree" @refresh-prices="refreshPrices" />
-    </el-card>
+    <!-- Scenario A: 雙滿 (max progress + max quality) -->
+    <template v-if="scenario === 'maxed'">
+      <p class="scenario-status scenario-status--maxed">
+        <span class="scenario-status-icon" aria-hidden="true">✓</span>
+        已達雙滿，照下方採購即可
+      </p>
+      <el-skeleton v-if="bomLoading" :rows="4" animated />
+      <BomSummary
+        v-else-if="flatMaterials.length > 0"
+        :materials="flatMaterials"
+        :prices="prices"
+        :target-item-ids="[recipe!.itemId]"
+        :material-tree="bomTree"
+        @refresh-prices="refreshPrices"
+      />
+    </template>
 
-    <!-- Scenario B: 品質不足 -->
-    <el-card v-if="scenario === 'quality-deficit'" shadow="never" class="rec-card">
-      <template #header>
-        <span class="card-title">HQ 材料推薦</span>
-      </template>
-      <div v-if="hqLoading">
-        <el-skeleton :rows="3" animated />
-      </div>
+    <!-- Scenario B: 品質不足 (suggest HQ ingredient combos) -->
+    <template v-if="scenario === 'quality-deficit'">
+      <p class="scenario-status">
+        品質差距 <strong>{{ achievedQuality?.toLocaleString() }}</strong>
+        / {{ maxQuality?.toLocaleString() }}
+        （缺 <strong>{{ qualityDeficit?.toLocaleString() }}</strong>，補幾組 HQ 素材就能補上）
+      </p>
+      <el-skeleton v-if="hqLoading" :rows="3" animated />
       <template v-else>
-        <el-alert type="info" :closable="false" show-icon style="margin-bottom: 12px">
-          <template #title>
-            品質差距：{{ achievedQuality?.toLocaleString() }} / {{ maxQuality?.toLocaleString() }}（缺少 {{ qualityDeficit?.toLocaleString() }}）
-          </template>
-        </el-alert>
-
         <el-empty v-if="recommendations.length === 0" description="無法透過 HQ 素材達成品質需求" :image-size="60" />
 
         <el-table v-else :data="recommendations" border size="small" style="width: 100%" class="hq-rec-table">
-          <!-- One column per canHq ingredient -->
           <el-table-column v-for="ing in canHqIngredients" :key="ing.index" :label="ing.name" align="center" min-width="80">
             <template #default="{ row }">
               <span v-if="row.hqAmounts[ing.index] > 0" class="hq-amount">HQ {{ row.hqAmounts[ing.index] }}</span>
@@ -255,21 +251,85 @@ async function loadHqRecommendations() {
           </el-table-column>
         </el-table>
 
-        <!-- Self-craft buttons for missing prices -->
         <div v-if="missingPriceIngredients.length > 0" class="self-craft-section">
-          <el-text type="info" size="small">以下素材無 HQ 市場價格，可能需自行製作：</el-text>
+          <p class="self-craft-hint">以下素材無 HQ 市場價，可考慮自製：</p>
           <div class="self-craft-btns">
             <el-button v-for="ing in missingPriceIngredients" :key="ing.itemId" size="small" @click="emit('self-craft', ing.itemId)">
-              自行製作「<ItemName :item-id="ing.itemId" :fallback="ing.name" />」
+              自製「<ItemName :item-id="ing.itemId" :fallback="ing.name" />」
             </el-button>
           </div>
         </div>
       </template>
-    </el-card>
+    </template>
   </div>
 </template>
 
 <style scoped>
+.craft-recommendation {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Replaces the el-card header tag pattern. Reads inline with the section
+   eyebrow rather than introducing a second nested header. */
+.scenario-status {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--app-text);
+}
+.scenario-status strong {
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-weight: 600;
+  color: var(--app-craft);
+}
+.scenario-status--maxed {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, oklch(0.62 0.17 135) 12%, transparent);
+  border-radius: 8px;
+  color: oklch(0.40 0.14 135);
+  font-weight: 600;
+  align-self: flex-start;
+}
+.scenario-status-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: oklch(0.62 0.17 135);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.hq-amount {
+  color: var(--app-craft);
+  font-weight: 600;
+}
+.nq-amount {
+  color: var(--app-text-muted);
+}
+
+.self-craft-section {
+  margin-top: 4px;
+}
+.self-craft-hint {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--app-text-muted);
+}
+.self-craft-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 @media (max-width: 640px) {
   :deep(.hq-rec-table .el-table__cell),
   :deep(.hq-rec-table .el-table__header th) {
@@ -277,51 +337,5 @@ async function loadHqRecommendations() {
     padding-right: 4px;
     font-size: 12px;
   }
-}
-
-.rec-card {
-  margin-top: 12px;
-}
-
-@media (max-width: 640px) {
-  .rec-card {
-    margin-top: 0;
-  }
-  :deep(.rec-card.el-card),
-  :deep(.rec-card .el-card__header),
-  :deep(.rec-card .el-card__body) {
-    background: transparent;
-    border: 0;
-    padding: 0;
-  }
-  :deep(.rec-card .el-card__header) {
-    margin-bottom: 10px;
-  }
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.hq-amount {
-  color: var(--accent-gold);
-  font-weight: 600;
-}
-
-.nq-amount {
-  color: var(--el-text-color-placeholder);
-}
-
-.self-craft-section {
-  margin-top: 12px;
-}
-
-.self-craft-btns {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
 }
 </style>

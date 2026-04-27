@@ -1,25 +1,17 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { useRecipeStore } from '@/stores/recipe'
-import { useGearsetsStore } from '@/stores/gearsets'
-import { useBomStore } from '@/stores/bom'
-import { useMediaQuery, useIsMobile } from '@/composables/useMediaQuery'
-import { JOB_NAMES } from '@/utils/jobs'
-import { useSimulatorStore, type SimulatorMode } from '@/stores/simulator'
-import { createInitialState, type CraftParams, type CraftState, type StepResult } from '@/engine/simulator'
-import type { BuffType } from '@/engine/buffs'
-import type { EnhancedStats } from '@/engine/food-medicine'
-import { calculateInitialQuality } from '@/engine/quality'
-import { getRecipe, findRecipesByItemName } from '@/api/xivapi'
-import { simulateCraftDetail, waitForWasm } from '@/solver/worker'
-import { craftParamsToSolverConfig } from '@/solver/config'
-import type { WasmEffects, StepDetail } from '@/solver/raphael'
-import { JOB_ORDER, type Job } from '@/engine/skill-icons-by-job'
-import { JOB_ABBR } from '@/utils/jobs'
+// CSS side-effect for ElMessage already loads via useSimulator.ts (which is
+// imported below). No need to duplicate the import here.
+import { useIsMobile, useMediaQuery } from '@/composables/useMediaQuery'
+import { JOB_NAMES, JOB_ABBR } from '@/utils/jobs'
+import { type SimulatorMode } from '@/stores/simulator'
+import { useLocaleStore } from '@/stores/locale'
+import { formatMacros } from '@/services/macro-formatter'
+import { useSimulator } from '@/composables/useSimulator'
+import type { Recipe } from '@/stores/recipe'
 
-const VALID_JOBS = new Set<string>(JOB_ORDER)
 import StatusBar from '@/components/simulator/StatusBar.vue'
 import BuffDisplay from '@/components/simulator/BuffDisplay.vue'
 import ActionList from '@/components/simulator/ActionList.vue'
@@ -36,41 +28,110 @@ import AppEmptyState from '@/components/common/AppEmptyState.vue'
 import ItemName from '@/components/common/ItemName.vue'
 
 const router = useRouter()
-const recipeStore = useRecipeStore()
-const gearsetsStore = useGearsetsStore()
-const bomStore = useBomStore()
-const simStore = useSimulatorStore()
-
-const recipe = computed(() => recipeStore.currentRecipe)
-const searchSidebarOpen = ref(false)
-
 const isMobile = useIsMobile()
+const localeStore = useLocaleStore()
+
+/* Desktop-specific state */
+const macroExpanded = ref(false)
+/* At 2-col viewport, the HQ-related panels (初期品質 + 最佳手法 / HQ 推薦)
+   render as sections of b-main directly, not as a side-rail row pushed below. */
+const isTwoCol = useMediaQuery('(max-width: 1720px)')
+
+/* Mobile-specific state */
 const setupOpen = ref(false)
 const macroOpen = ref(false)
 const queueSheetOpen = ref(false)
 
-const isVeryNarrow = useMediaQuery('(max-width: 479px)')
-const infoDescColumns = computed(() => (isVeryNarrow.value ? 1 : 2))
+const {
+  recipeStore, simStore,
+  recipe, gearset, canSimulate, recipeJobAbbr,
+  effectiveStats, craftParams, currentState,
+  initialQuality, initialQualityHqAmounts, enhancedStats,
+  searchSidebarOpen, solverResult, modeOptions,
+  onInitialQualityUpdate, onEnhancedStatsUpdate, onHqAmountsUpdate,
+  handleAddFromSearch, handleRemoveFromQueue, handleClearQueue,
+  handleRemoveAction, handleClearActions,
+  handleUseSkill, onSolveComplete, handleApplyHq,
+  handleAddToBom, handleSelfCraft,
+} = useSimulator()
 
-const initialQuality = ref(0)
-const enhancedStats = ref<EnhancedStats | null>(null)
+/* Macro list — compact "巨集 1 / 巨集 2 / 展開" buttons in the cockpit's
+   sequence column. Full text only renders when expanded. */
+const macros = computed(() =>
+  formatMacros(simStore.actions, {
+    waitTime: 3,
+    includeEcho: true,
+    locale: localeStore.current,
+  }),
+)
 
-// Switch per-recipe simulator state when active recipe changes
-watch(() => recipe.value?.id ?? null, (id) => {
-  // Reset initialQuality immediately so craftParams never uses a stale value
-  // from the previous recipe (the InitialQuality component will also emit 0,
-  // but its watcher runs later in the flush queue).
-  initialQuality.value = 0
-  simStore.switchToRecipe(id)
-}, { immediate: true })
-const gearset = computed(() => {
-  if (!recipe.value) return null
-  return gearsetsStore.getGearsetForJob(recipe.value.job)
+async function copyMacro(text: string, index: number) {
+  try {
+    await navigator.clipboard.writeText(text)
+    ElMessage.success(`巨集 ${index + 1} 已複製`)
+  } catch {
+    ElMessage.error('複製失敗，請手動複製')
+  }
+}
+
+/* Flow breadcrumb steps: 配方 → 模式 → 食藥(選填) → 模擬 → 巨集.
+   Step 2 (模式) is auto-done with recipe pick (mode always defaults to solver).
+   Step 3 (食藥) is optional and never blocks step 4 activation. */
+type FlowStep = { num: number; label: string; done: boolean; optional?: boolean }
+
+/* "Food/medicine configured" = user picked a buff (or 專家之證), so
+   enhancedStats diverges from the raw gearset stats. FoodMedicine emits
+   enhancedStats on mount even with nothing selected, so a null check
+   would always be true. */
+const hasFoodConfigured = computed(() => {
+  const e = enhancedStats.value
+  const g = gearset.value
+  if (!e || !g) return false
+  return e.craftsmanship !== g.craftsmanship
+    || e.control !== g.control
+    || e.cp !== g.cp
 })
 
-const canSimulate = computed(() => !!recipe.value && !!gearset.value)
+const flowSteps = computed<FlowStep[]>(() => {
+  const hasRecipe = !!recipe.value
+  const hasActions = simStore.actions.length > 0
+  return [
+    { num: 1, label: '配方', done: hasRecipe },
+    { num: 2, label: '模式', done: hasRecipe },
+    { num: 3, label: '食藥', done: hasFoodConfigured.value, optional: true },
+    { num: 4, label: '模擬', done: hasActions },
+    { num: 5, label: '巨集', done: false },
+  ]
+})
+const flowActiveIdx = computed(() => {
+  if (!recipe.value) return 0
+  if (simStore.actions.length === 0) return 3
+  return 4
+})
 
-const foodMedicineSummary = computed(() => enhancedStats.value ? '已設定' : '未設定')
+/* Macro completion cue: one-shot pulse on macro section when actions
+   transition empty → populated (solver done / first manual click).
+   Acts as the "peak-end" signal for the flow. */
+const macroJustFilled = ref(false)
+let macroCueTimer: ReturnType<typeof setTimeout> | null = null
+watch(
+  () => simStore.actions.length,
+  (next, prev) => {
+    if ((prev ?? 0) === 0 && next > 0) {
+      macroJustFilled.value = true
+      if (macroCueTimer) clearTimeout(macroCueTimer)
+      macroCueTimer = setTimeout(() => {
+        macroJustFilled.value = false
+      }, 1800)
+    }
+  },
+)
+onBeforeUnmount(() => {
+  if (macroCueTimer) clearTimeout(macroCueTimer)
+})
+
+/* Mobile helpers */
+const foodMedicineSummary = computed(() => (enhancedStats.value ? '已設定' : '未設定'))
 const jobFullName = computed(() => {
   const j = recipe.value?.job
   if (!j) return ''
@@ -82,454 +143,287 @@ function openSearchFromSheet() {
   searchSidebarOpen.value = true
 }
 
-function pickQueueRecipe(r: import('@/stores/recipe').Recipe) {
+function pickQueueRecipe(r: Recipe) {
   recipeStore.setRecipe(r)
   queueSheetOpen.value = false
-}
-
-// recipe.job is persisted as the Chinese short-form ('木工', '烹調', ...);
-// ICONS_BY_JOB keys on the 3-letter abbr, so map here and drop unknown values
-// to null rather than type-lying a bogus string into the Job union.
-const recipeJobAbbr = computed<Job | null>(() => {
-  const j = recipe.value?.job
-  if (!j) return null
-  const abbr = JOB_ABBR[j] ?? j
-  return VALID_JOBS.has(abbr) ? (abbr as Job) : null
-})
-
-function onInitialQualityUpdate(val: number) {
-  initialQuality.value = val
-}
-
-function onEnhancedStatsUpdate(val: EnhancedStats) {
-  enhancedStats.value = val
-}
-
-const effectiveStats = computed(() => {
-  if (!gearset.value) return null
-  if (enhancedStats.value) return enhancedStats.value
-  return {
-    craftsmanship: gearset.value.craftsmanship,
-    control: gearset.value.control,
-    cp: gearset.value.cp,
-  }
-})
-
-const craftParams = computed<CraftParams | null>(() => {
-  if (!recipe.value || !gearset.value || !effectiveStats.value) return null
-  return {
-    craftsmanship: effectiveStats.value.craftsmanship,
-    control: effectiveStats.value.control,
-    cp: effectiveStats.value.cp,
-    recipeLevelTable: { ...recipe.value.recipeLevelTable },
-    crafterLevel: gearset.value.level,
-    initialQuality: initialQuality.value,
-    canHq: recipe.value.canHq,
-  }
-})
-
-const currentState = computed(() => {
-  if (!craftParams.value) return null
-  const initial = createInitialState(craftParams.value)
-  if (simStore.simulationResults.length > 0) {
-    return simStore.simulationResults[simStore.simulationResults.length - 1].state
-  }
-  return initial
-})
-
-// --- WASM effects → CraftState buff map conversion ---
-
-function wasmEffectsToBuffs(effects: WasmEffects): Map<BuffType, { stacks: number; duration: number }> {
-  const buffs = new Map<BuffType, { stacks: number; duration: number }>()
-  if (effects.inner_quiet > 0) buffs.set('InnerQuiet', { stacks: effects.inner_quiet, duration: Infinity })
-  if (effects.waste_not > 0) buffs.set('WasteNot', { stacks: 1, duration: effects.waste_not })
-  if (effects.innovation > 0) buffs.set('Innovation', { stacks: 1, duration: effects.innovation })
-  if (effects.veneration > 0) buffs.set('Veneration', { stacks: 1, duration: effects.veneration })
-  if (effects.great_strides > 0) buffs.set('GreatStrides', { stacks: 1, duration: effects.great_strides })
-  if (effects.muscle_memory > 0) buffs.set('MuscleMemory', { stacks: 1, duration: effects.muscle_memory })
-  if (effects.manipulation > 0) buffs.set('Manipulation', { stacks: 1, duration: effects.manipulation })
-  if (effects.trained_perfection_active) buffs.set('TrainedPerfection', { stacks: 1, duration: 0 })
-  if (effects.heart_and_soul_active) buffs.set('HeartAndSoul', { stacks: 1, duration: 0 })
-  return buffs
-}
-
-function wasmStepToStepResult(
-  step: StepDetail,
-  index: number,
-  params: CraftParams,
-): StepResult {
-  const state: CraftState = {
-    progress: step.progress,
-    quality: step.quality + params.initialQuality,
-    durability: step.durability,
-    cp: step.cp,
-    maxProgress: params.recipeLevelTable.difficulty,
-    maxQuality: params.recipeLevelTable.quality,
-    maxDurability: params.recipeLevelTable.durability,
-    maxCp: params.cp,
-    buffs: wasmEffectsToBuffs(step.effects),
-    step: index + 1,
-    condition: 'Normal',
-    isComplete: step.is_finished,
-    isSuccess: step.is_finished && step.progress >= params.recipeLevelTable.difficulty,
-  }
-  return { action: step.action, state, success: step.success }
-}
-
-// craftParamsToSolverConfig imported from shared util
-
-// --- WASM simulation ---
-
-let simulationVersion = 0
-
-async function runSimulation() {
-  if (!craftParams.value || simStore.actions.length === 0) {
-    simStore.setSimulationResults([])
-    return
-  }
-
-  const version = ++simulationVersion
-  const params = craftParams.value
-  const actions = [...simStore.actions]
-  const conditions = simStore.mode === 'manual' && simStore.conditions.length > 0
-    ? [...simStore.conditions]
-    : undefined
-
-  try {
-    await waitForWasm()
-    const config = craftParamsToSolverConfig(params)
-    const detail = await simulateCraftDetail(config, actions, conditions)
-
-    // Discard stale results if another simulation was triggered
-    if (version !== simulationVersion) return
-
-    const results: StepResult[] = detail.steps.map((step, i) =>
-      wasmStepToStepResult(step, i, params),
-    )
-    simStore.setSimulationResults(results)
-  } catch (err) {
-    console.error('[SimulatorView] WASM simulation failed:', err)
-    simStore.setSimulationResults([])
-  }
-}
-
-// conditions are mutated in lockstep with actions (pushAction, undo, redo,
-// resetManual) so watching actions alone is sufficient — adding conditions
-// here would double-fire on every snapshot restore.
-watch([craftParams, () => simStore.actions], runSimulation, { immediate: true })
-
-function handleAddFromSearch(recipe: import('@/stores/recipe').Recipe) {
-  recipeStore.addToQueue(recipe)
-  recipeStore.setRecipe(recipe)
-  ElMessage.success(`已將「${recipe.name}」加入模擬佇列`)
-}
-
-function handleRemoveFromQueue(recipeId: number) {
-  simStore.removeRecipeState(recipeId)
-  recipeStore.removeFromQueue(recipeId)
-}
-
-function handleClearQueue() {
-  for (const r of recipeStore.simulationQueue) {
-    simStore.removeRecipeState(r.id)
-  }
-  recipeStore.clearQueue()
-}
-
-function handleRemoveAction(index: number) {
-  simStore.removeAction(index)
-}
-
-function handleClearActions() {
-  simStore.clearActions()
-}
-
-const modeOptions = [
-  { label: '自動求解', value: 'solver' },
-  { label: '手動操作', value: 'manual' },
-]
-
-function handleUseSkill(skillId: string) {
-  simStore.pushAction(skillId)
-}
-
-// --- Craft Recommendation integration ---
-const solverResult = computed(() => simStore.solverResult)
-
-function onSolveComplete(result: { actions: string[] }) {
-  simStore.setSolverResult(result)
-}
-
-function handleApplyHq(hqAmounts: number[]) {
-  // Update initialQuality by calculating quality from the HQ amounts
-  if (!recipe.value) return
-  const ingredients = recipe.value.ingredients.map((ing, i) => ({
-    amount: ing.amount,
-    hqAmount: hqAmounts[i] ?? 0,
-    level: ing.level,
-    canHq: ing.canHq,
-  }))
-  const quality = calculateInitialQuality(
-    recipe.value.recipeLevelTable.quality,
-    recipe.value.materialQualityFactor,
-    ingredients,
-  )
-  initialQuality.value = quality
-  // Clear solver result to re-trigger recommendation after re-solve
-  simStore.setSolverResult(null)
-  ElMessage.success(`已套用 HQ 組合，初期品質：${quality.toLocaleString()}`)
-}
-
-function handleAddToBom() {
-  if (!recipe.value) return
-  bomStore.addTarget({
-    itemId: recipe.value.itemId,
-    recipeId: recipe.value.id,
-    name: recipe.value.name,
-    icon: recipe.value.icon,
-    quantity: 1,
-  })
-  ElMessage.success(`已將「${recipe.value.name}」加入購物清單`)
-}
-
-async function handleSelfCraft(itemId: number) {
-  if (!recipe.value) return
-  const ingredient = recipe.value.ingredients.find(ing => ing.itemId === itemId)
-  if (!ingredient) return
-
-  try {
-    const results = await findRecipesByItemName(ingredient.name, itemId)
-    if (results.length === 0) {
-      ElMessage.warning(`找不到「${ingredient.name}」的配方`)
-      return
-    }
-    const fullRecipe = await getRecipe(results[0].recipeId)
-    recipeStore.addToQueue(fullRecipe)
-    recipeStore.setRecipe(fullRecipe)
-    ElMessage.success(`已將「${fullRecipe.name}」加入模擬佇列`)
-  } catch (err) {
-    console.error('[SimulatorView] Failed to load recipe for self-craft:', err)
-    ElMessage.error('載入配方失敗')
-  }
 }
 </script>
 
 <template>
   <div class="view-container" :class="{ 'is-mobile': isMobile }">
+    <!-- ============ Desktop layout (cockpit) ============ -->
     <template v-if="!isMobile">
-    <h2>製作模擬</h2>
-    <p class="view-desc">試試不同手法，找到你的最佳製作流程。</p>
-
-    <!-- Queue selector -->
-    <el-card shadow="never" class="queue-card">
-      <template #header>
-        <div class="queue-header">
-          <span class="card-title">模擬佇列</span>
-          <div class="queue-actions">
-            <el-button size="small" type="primary" text @click="searchSidebarOpen = true">搜尋配方</el-button>
-            <el-button v-if="recipeStore.simulationQueue.length > 0" size="small" text type="danger" @click="handleClearQueue()">清空佇列</el-button>
-          </div>
+      <header class="page-header">
+        <div class="page-header-main">
+          <h2 class="page-title">製作模擬</h2>
+          <p class="page-desc">試試不同手法，找到你的最佳製作流程。</p>
         </div>
-      </template>
-      <div v-if="recipeStore.simulationQueue.length > 0" class="queue-items">
-        <div
-          v-for="queueRecipe in recipeStore.simulationQueue"
-          :key="queueRecipe.id"
-          class="queue-item"
-          :class="{ active: recipe?.id === queueRecipe.id }"
-          role="button"
-          tabindex="0"
-          :aria-pressed="recipe?.id === queueRecipe.id"
-          :aria-label="`選擇配方：${queueRecipe.name}`"
-          @click="recipeStore.setRecipe(queueRecipe)"
-          @keydown.enter.prevent="recipeStore.setRecipe(queueRecipe)"
-          @keydown.space.prevent="recipeStore.setRecipe(queueRecipe)"
-        >
-          <img :src="queueRecipe.icon" alt="" aria-hidden="true" loading="lazy" decoding="async" class="queue-icon" />
-          <span><ItemName :item-id="queueRecipe.itemId" :fallback="queueRecipe.name" /></span>
-          <el-tag size="small" type="info">{{ queueRecipe.job }}</el-tag>
-          <el-button
-            size="small"
-            text
-            type="danger"
-            class="queue-remove"
-            @click.stop="handleRemoveFromQueue(queueRecipe.id)"
+        <router-link to="/batch" class="page-header-link">批量製作 →</router-link>
+      </header>
+
+      <nav class="flow-breadcrumb" aria-label="製作流程">
+        <template v-for="(step, idx) in flowSteps" :key="step.num">
+          <span
+            class="flow-step"
+            :class="{ 'is-active': idx === flowActiveIdx, 'is-done': step.done }"
           >
-            移除
-          </el-button>
-        </div>
-      </div>
-      <AppEmptyState
-        v-else
-        icon="⚗️"
-        title="還沒有配方"
-        description="搜尋你想製作的道具，開始模擬最佳技能序列吧！"
-      >
-        <el-button type="primary" @click="searchSidebarOpen = true">搜尋配方</el-button>
-      </AppEmptyState>
-    </el-card>
-
-    <!-- Recipe / Gearset Info -->
-    <div class="info-section">
-
-      <div
-        v-if="recipe && gearset && gearset.craftsmanship === 0 && gearset.control === 0"
-        class="gearset-banner"
-      >
-        <div class="gearset-banner-icon" aria-hidden="true">⚠</div>
-        <div class="gearset-banner-body">
-          <div class="gearset-banner-title">尚未設定該職業的裝備數值</div>
-          <div class="gearset-banner-desc">先填好作業精度、加工精度、CP 才能開始模擬</div>
-        </div>
-        <button class="gearset-banner-cta" type="button" @click="router.push('/gearset')">
-          前往設定 →
-        </button>
-      </div>
-
-      <div v-if="recipe && gearset" class="info-header-row">
-        <el-descriptions
-          :column="infoDescColumns"
-          border
-          size="small"
-          class="info-desc"
-        >
-        <el-descriptions-item label="配方">
-          <ItemName :item-id="recipe.itemId" :fallback="recipe.name" /> (Lv.{{ recipe.level }}<template v-if="recipe.stars > 0"> {{ '\u2605'.repeat(recipe.stars) }}</template>)
-        </el-descriptions-item>
-        <el-descriptions-item label="職業 / 等級">
-          {{ JOB_NAMES[gearset.job] ?? gearset.job }} Lv.{{ gearset.level }}
-        </el-descriptions-item>
-        <el-descriptions-item label="作業精度">
-          {{ effectiveStats!.craftsmanship }}
-          <span v-if="effectiveStats!.craftsmanship !== gearset.craftsmanship" class="stat-diff">
-            (+{{ effectiveStats!.craftsmanship - gearset.craftsmanship }})
+            <span class="flow-step-num">{{ step.done ? '✓' : step.num }}</span>
+            <span class="flow-step-label">
+              {{ step.label }}<span v-if="step.optional" class="flow-step-optional">選填</span>
+            </span>
           </span>
-        </el-descriptions-item>
-        <el-descriptions-item label="加工精度">
-          {{ effectiveStats!.control }}
-          <span v-if="effectiveStats!.control !== gearset.control" class="stat-diff">
-            (+{{ effectiveStats!.control - gearset.control }})
-          </span>
-        </el-descriptions-item>
-        <el-descriptions-item label="CP">
-          {{ effectiveStats!.cp }}
-          <span v-if="effectiveStats!.cp !== gearset.cp" class="stat-diff">
-            (+{{ effectiveStats!.cp - gearset.cp }})
-          </span>
-        </el-descriptions-item>
-        <el-descriptions-item label="難度 / 品質 / 耐久">
-          {{ recipe.recipeLevelTable.difficulty }} / {{ recipe.recipeLevelTable.quality }} / {{ recipe.recipeLevelTable.durability }}
-        </el-descriptions-item>
-        </el-descriptions>
-        <el-button size="small" @click="handleAddToBom()">加入購物清單</el-button>
-      </div>
-    </div>
-
-    <!-- Shared status bars (progress / quality / buffs) -->
-    <el-card v-if="canSimulate" shadow="never" class="shared-status">
-      <StatusBar :craft-state="currentState" />
-      <el-divider style="margin: 8px 0" />
-      <BuffDisplay :buffs="currentState?.buffs ?? new Map()" />
-    </el-card>
-
-    <!-- Main Tabs -->
-    <el-tabs type="border-card" class="main-tabs">
-      <el-tab-pane label="模擬">
-        <router-link to="/batch" class="batch-tip">
-          一次要製作很多配方嗎？來回模擬複製貼上很累嗎？試試<span class="batch-tip-link">批量製作</span>吧！
-        </router-link>
-        <template v-if="canSimulate">
-          <div class="mode-switch-row">
-            <el-segmented
-              :model-value="simStore.mode"
-              :options="modeOptions"
-              size="default"
-              @change="(v: string) => simStore.setMode(v as SimulatorMode)"
-            />
-            <div v-if="simStore.mode === 'manual'" class="manual-toolbar">
-              <ConditionChips
-                :model-value="simStore.currentCondition"
-                @change="(c) => (simStore.currentCondition = c)"
-              />
-              <ManualControls />
-            </div>
-          </div>
-
-          <div class="sim-layout">
-            <div class="sim-left">
-              <el-card shadow="never" class="sim-section">
-                <template #header>
-                  <span class="card-title">技能序列</span>
-                </template>
-                <ActionList
-                  :actions="simStore.actions"
-                  :results="simStore.simulationResults"
-                  :job="recipeJobAbbr"
-                  @remove="handleRemoveAction"
-                  @clear="handleClearActions"
-                />
-              </el-card>
-
-              <el-card
-                v-if="simStore.mode === 'manual' && gearset"
-                shadow="never"
-                class="sim-section"
-              >
-                <template #header>
-                  <span class="card-title">技能面板</span>
-                </template>
-                <SkillPanel
-                  :level="gearset.level"
-                  :craft-state="currentState"
-                  :job="recipeJobAbbr"
-                  @use-skill="handleUseSkill"
-                />
-              </el-card>
-
-              <SolverPanel
-                v-if="simStore.mode === 'solver'"
-                :craft-params="craftParams"
-                @solve-complete="onSolveComplete"
-              />
-
-              <CraftRecommendation
-                v-if="simStore.mode === 'solver'"
-                :craft-params="craftParams"
-                :recipe="recipe"
-                :solver-result="solverResult"
-                @apply-hq="handleApplyHq"
-                @self-craft="handleSelfCraft"
-              />
-            </div>
-
-            <div class="sim-right">
-              <el-card shadow="never" class="sim-section">
-                <template #header>
-                  <span class="card-title">遊戲巨集</span>
-                </template>
-                <MacroExport />
-              </el-card>
-            </div>
-          </div>
+          <span v-if="idx < flowSteps.length - 1" class="flow-arrow" aria-hidden="true">→</span>
         </template>
+      </nav>
 
-        <AppEmptyState
-          v-else
-          icon="🔮"
-          title="準備就緒"
-          description="從上方佇列選擇一個配方，再確認裝備組，就能開始模擬了"
-        />
-      </el-tab-pane>
+      <div class="b-page-grid">
+        <!-- Left rail: 配方 zone -->
+        <aside class="rail rail-left">
+          <section class="rail-section">
+            <header class="rail-section-head">
+              <span class="rail-section-label">模擬佇列</span>
+              <div class="rail-section-actions">
+                <el-button size="small" type="primary" text @click="searchSidebarOpen = true">搜尋</el-button>
+                <el-button v-if="recipeStore.simulationQueue.length > 0" size="small" text type="danger" @click="handleClearQueue()">清空</el-button>
+              </div>
+            </header>
+            <ul v-if="recipeStore.simulationQueue.length > 0" class="queue-list" role="list">
+              <li
+                v-for="qr in recipeStore.simulationQueue"
+                :key="qr.id"
+                class="queue-row"
+                :class="{ 'is-active': recipe?.id === qr.id }"
+                role="button"
+                tabindex="0"
+                @click="recipeStore.setRecipe(qr)"
+                @keydown.enter.prevent="recipeStore.setRecipe(qr)"
+              >
+                <img :src="qr.icon" alt="" aria-hidden="true" loading="lazy" class="queue-row-icon" />
+                <span class="queue-row-name"><ItemName :item-id="qr.itemId" :fallback="qr.name" /></span>
+                <span class="queue-row-job">{{ qr.job }}</span>
+                <button
+                  type="button"
+                  class="queue-row-remove"
+                  aria-label="移除配方"
+                  @click.stop="handleRemoveFromQueue(qr.id)"
+                >✕</button>
+              </li>
+            </ul>
+            <p v-else class="rail-empty">尚無配方，點「搜尋」加入。</p>
+          </section>
 
-      <el-tab-pane label="初期品質">
-        <InitialQuality @update:initial-quality="onInitialQualityUpdate" />
-      </el-tab-pane>
+          <section class="rail-section">
+            <header class="rail-section-head">
+              <span class="rail-section-label">
+                食藥<span class="optional-tag">選填</span>
+                <el-tooltip
+                  content="食藥可在製作開始前永久加 作業精度 / 加工精度 / CP（依比例）。下方分別挑食物與藥水即可。"
+                  placement="top"
+                >
+                  <span class="rail-help-icon" aria-label="食藥說明">?</span>
+                </el-tooltip>
+              </span>
+            </header>
+            <FoodMedicine @update:enhanced-stats="onEnhancedStatsUpdate" />
+          </section>
+        </aside>
 
-      <el-tab-pane label="食藥">
-        <FoodMedicine @update:enhanced-stats="onEnhancedStatsUpdate" />
-      </el-tab-pane>
-    </el-tabs>
+        <!-- Center main: HUD + cockpit body + (2-col) HQ sections -->
+        <section class="b-main">
+          <template v-if="canSimulate">
+            <div class="b-hud">
+              <StatusBar :craft-state="currentState" />
+              <BuffDisplay :buffs="currentState?.buffs ?? new Map()" />
+            </div>
 
+            <div class="cockpit-body">
+              <div class="cockpit-sequence-col">
+                <section class="cockpit-section cockpit-section--sequence">
+                  <header class="cockpit-section-head">
+                    <span class="cockpit-section-label">技能序列<span v-if="simStore.actions.length" class="cockpit-section-count">{{ simStore.actions.length }}</span></span>
+                    <el-button v-if="simStore.actions.length" size="small" text type="danger" @click="handleClearActions">清空</el-button>
+                  </header>
+                  <ActionList
+                    :actions="simStore.actions"
+                    :results="simStore.simulationResults"
+                    :job="recipeJobAbbr"
+                    :show-header="false"
+                    @remove="handleRemoveAction"
+                    @clear="handleClearActions"
+                  />
+                </section>
+
+                <section class="cockpit-section cockpit-section--macro" :class="{ 'just-filled': macroJustFilled }">
+                  <header class="cockpit-section-head">
+                    <span class="cockpit-section-label">
+                      遊戲巨集
+                      <span v-if="simStore.actions.length" class="cockpit-section-count">{{ macros.length }}</span>
+                    </span>
+                    <div class="macro-quick-actions">
+                      <template v-if="macros.length === 1">
+                        <el-button size="small" type="primary" @click="copyMacro(macros[0], 0)">複製</el-button>
+                      </template>
+                      <template v-else-if="macros.length > 1">
+                        <el-button
+                          v-for="(_, mi) in macros"
+                          :key="mi"
+                          size="small"
+                          type="primary"
+                          @click="copyMacro(macros[mi], mi)"
+                        >
+                          巨集{{ mi + 1 }}
+                        </el-button>
+                      </template>
+                      <el-button
+                        v-if="macros.length > 0"
+                        size="small"
+                        @click="macroExpanded = !macroExpanded"
+                      >
+                        {{ macroExpanded ? '收起' : '展開' }}
+                      </el-button>
+                    </div>
+                  </header>
+                  <p v-if="macros.length === 0" class="rail-empty">尚無技能序列</p>
+                  <MacroExport v-else-if="macroExpanded" />
+                </section>
+              </div>
+
+              <section class="cockpit-section cockpit-section--tool">
+                <header class="cockpit-tool-head">
+                  <span class="cockpit-tool-eyebrow">模式</span>
+                  <div class="mode-switch" role="tablist" aria-label="製作模式">
+                    <span class="mode-switch-thumb" :data-mode="simStore.mode" aria-hidden="true" />
+                    <button
+                      v-for="opt in modeOptions"
+                      :key="opt.value"
+                      type="button"
+                      role="tab"
+                      class="mode-switch-option"
+                      :class="{ 'is-active': simStore.mode === opt.value }"
+                      :aria-selected="simStore.mode === opt.value"
+                      @click="simStore.setMode(opt.value as SimulatorMode)"
+                    >
+                      {{ opt.label }}
+                    </button>
+                  </div>
+                  <div v-if="simStore.mode === 'manual'" class="cockpit-tool-head-aside">
+                    <ConditionChips :model-value="simStore.currentCondition" @change="(c) => (simStore.currentCondition = c)" />
+                    <ManualControls />
+                  </div>
+                </header>
+
+                <div class="cockpit-tool-body">
+                  <SkillPanel
+                    v-if="simStore.mode === 'manual' && gearset"
+                    :level="gearset.level"
+                    :craft-state="currentState"
+                    :job="recipeJobAbbr"
+                    @use-skill="handleUseSkill"
+                  />
+                  <SolverPanel
+                    v-if="simStore.mode === 'solver'"
+                    :craft-params="craftParams"
+                    @solve-complete="onSolveComplete"
+                  />
+                </div>
+              </section>
+            </div>
+
+            <!-- 2-col mode: HQ-related panels render INSIDE b-main as cockpit
+                 sections (not as a side rail pushed below).
+                 At 3-col they live in rail-right instead. -->
+            <template v-if="isTwoCol">
+              <section class="cockpit-section cockpit-section--hq">
+                <header class="cockpit-section-head">
+                  <span class="cockpit-section-label">
+                初期品質<span class="optional-tag">選填</span>
+                <el-tooltip
+                  content="把已備好的 HQ 素材換算成「製作開始就帶的品質」。HQ 素材越多、需加工的量越少。"
+                  placement="top"
+                >
+                  <span class="rail-help-icon" aria-label="初期品質說明">?</span>
+                </el-tooltip>
+              </span>
+                </header>
+                <InitialQuality :hq-amounts="initialQualityHqAmounts" @update:initial-quality="onInitialQualityUpdate" @update:hq-amounts="onHqAmountsUpdate" />
+              </section>
+
+              <section class="cockpit-section cockpit-section--hq">
+                <header class="cockpit-section-head">
+                  <span class="cockpit-section-label">
+                最佳手法 / HQ 推薦
+                <el-tooltip
+                  content="求解完成後，這裡顯示推薦的 HQ 素材組合（哪幾樣要 HQ、多少數量），可一鍵套用回初期品質。"
+                  placement="top"
+                >
+                  <span class="rail-help-icon" aria-label="最佳手法說明">?</span>
+                </el-tooltip>
+              </span>
+                </header>
+                <CraftRecommendation
+                  v-if="simStore.mode === 'solver'"
+                  :craft-params="craftParams"
+                  :recipe="recipe"
+                  :solver-result="solverResult"
+                  @apply-hq="handleApplyHq"
+                  @self-craft="handleSelfCraft"
+                />
+                <p v-else class="rail-empty">切到自動求解、按啟動求解後顯示。</p>
+              </section>
+            </template>
+          </template>
+
+          <div v-else class="empty-pointer">
+            <span class="empty-pointer-arrow" aria-hidden="true">←</span>
+            <div class="empty-pointer-body">
+              <h3 class="empty-pointer-title">先選個配方</h3>
+              <p class="empty-pointer-desc">在左欄「模擬佇列」按搜尋、把想做的配方加進來，就能開始模擬。</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Right rail: only at 3-col mode (>1720); at 2-col these sections
+             render inside b-main instead. -->
+        <aside v-if="!isTwoCol" class="rail rail-right">
+          <section class="rail-section">
+            <header class="rail-section-head">
+              <span class="rail-section-label">
+                初期品質<span class="optional-tag">選填</span>
+                <el-tooltip
+                  content="把已備好的 HQ 素材換算成「製作開始就帶的品質」。HQ 素材越多、需加工的量越少。"
+                  placement="top"
+                >
+                  <span class="rail-help-icon" aria-label="初期品質說明">?</span>
+                </el-tooltip>
+              </span>
+            </header>
+            <InitialQuality :hq-amounts="initialQualityHqAmounts" @update:initial-quality="onInitialQualityUpdate" @update:hq-amounts="onHqAmountsUpdate" />
+          </section>
+
+          <section class="rail-section">
+            <header class="rail-section-head">
+              <span class="rail-section-label">
+                最佳手法 / HQ 推薦
+                <el-tooltip
+                  content="求解完成後，這裡顯示推薦的 HQ 素材組合（哪幾樣要 HQ、多少數量），可一鍵套用回初期品質。"
+                  placement="top"
+                >
+                  <span class="rail-help-icon" aria-label="最佳手法說明">?</span>
+                </el-tooltip>
+              </span>
+            </header>
+            <CraftRecommendation
+              v-if="canSimulate && simStore.mode === 'solver'"
+              :craft-params="craftParams"
+              :recipe="recipe"
+              :solver-result="solverResult"
+              @apply-hq="handleApplyHq"
+              @self-craft="handleSelfCraft"
+            />
+            <p v-else class="rail-empty">切到自動求解、按啟動求解後顯示。</p>
+          </section>
+        </aside>
+      </div>
     </template>
 
     <!-- ============ Mobile layout ============ -->
@@ -544,7 +438,6 @@ async function handleSelfCraft(itemId: number) {
       </AppEmptyState>
 
       <template v-else>
-        <!-- Current recipe strip -->
         <section class="m-recipe-strip">
           <img :src="recipe.icon" alt="" class="m-rs-icon" loading="lazy" />
           <div class="m-rs-body">
@@ -587,7 +480,6 @@ async function handleSelfCraft(itemId: number) {
           </button>
         </div>
 
-        <!-- Setup accordion: initial quality + food/medicine -->
         <button
           type="button"
           class="m-setup-row"
@@ -605,7 +497,7 @@ async function handleSelfCraft(itemId: number) {
         <div v-if="setupOpen" class="m-setup-body">
           <div class="m-setup-group">
             <h4 class="m-setup-group-title">初期品質</h4>
-            <InitialQuality @update:initial-quality="onInitialQualityUpdate" />
+            <InitialQuality :hq-amounts="initialQualityHqAmounts" @update:initial-quality="onInitialQualityUpdate" @update:hq-amounts="onHqAmountsUpdate" />
           </div>
           <div class="m-setup-group">
             <h4 class="m-setup-group-title">食藥</h4>
@@ -613,7 +505,6 @@ async function handleSelfCraft(itemId: number) {
           </div>
         </div>
 
-        <!-- Sticky mode segmented -->
         <div v-if="canSimulate" class="m-mode-wrap">
           <el-segmented
             :model-value="simStore.mode"
@@ -624,7 +515,6 @@ async function handleSelfCraft(itemId: number) {
           />
         </div>
 
-        <!-- Manual toolbar -->
         <div v-if="canSimulate && simStore.mode === 'manual'" class="m-manual-row">
           <ConditionChips
             :model-value="simStore.currentCondition"
@@ -633,13 +523,11 @@ async function handleSelfCraft(itemId: number) {
           <ManualControls />
         </div>
 
-        <!-- Status bars + buffs -->
         <section v-if="canSimulate" class="m-status">
           <StatusBar :craft-state="currentState" />
           <BuffDisplay :buffs="currentState?.buffs ?? new Map()" />
         </section>
 
-        <!-- Action sequence -->
         <section v-if="canSimulate" class="m-flat">
           <div class="m-flat-head">
             <h3 class="m-flat-title">
@@ -662,7 +550,6 @@ async function handleSelfCraft(itemId: number) {
           />
         </section>
 
-        <!-- Skill panel (manual) -->
         <section v-if="canSimulate && simStore.mode === 'manual' && gearset" class="m-flat">
           <h3 class="m-flat-title">技能面板</h3>
           <SkillPanel
@@ -673,7 +560,6 @@ async function handleSelfCraft(itemId: number) {
           />
         </section>
 
-        <!-- Solver / recommendation (solver mode) -->
         <section v-if="canSimulate && simStore.mode === 'solver'" class="m-flat">
           <h3 class="m-flat-title">自動求解</h3>
           <SolverPanel
@@ -693,7 +579,6 @@ async function handleSelfCraft(itemId: number) {
           />
         </section>
 
-        <!-- Macro (collapsed) -->
         <section v-if="canSimulate" class="m-flat">
           <button
             type="button"
@@ -710,7 +595,6 @@ async function handleSelfCraft(itemId: number) {
         </section>
       </template>
 
-      <!-- Queue bottom sheet -->
       <el-drawer
         v-model="queueSheetOpen"
         direction="btt"
@@ -771,45 +655,470 @@ async function handleSelfCraft(itemId: number) {
 </template>
 
 <style scoped>
-.view-container { --page-accent: var(--app-craft); --page-accent-dim: var(--app-craft-dim); }
-
-.info-section {
-  margin-bottom: 16px;
+.view-container {
+  --page-accent: var(--app-craft);
+  --page-accent-dim: var(--app-craft-dim);
 }
 
-.info-header-row {
-  margin-top: 12px;
+/* ============================================================
+   Page header (desktop)
+   ============================================================ */
+.page-header {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--app-border);
+}
+.page-header-main { min-width: 0; }
+.page-title {
+  margin: 0;
+  font-family: 'Noto Serif TC', serif;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.page-desc {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--app-text-muted);
+}
+.page-header-link {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--app-craft);
+  text-decoration: none;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--app-craft) 30%, transparent);
+  transition: all 0.15s ease-out;
+}
+.page-header-link:hover {
+  background: color-mix(in srgb, var(--app-craft) 10%, transparent);
 }
 
-.info-header-row .info-desc {
-  flex: 1;
-  min-width: 0;
-}
-
-.info-desc {
-  margin-top: 0;
-}
-
-.shared-status {
-  margin-top: 12px;
-}
-
-.main-tabs {
-  margin-top: 12px;
-}
-
-.mode-switch-row {
+/* ============================================================
+   Flow breadcrumb (配方 → 模式 → 食藥 → 模擬 → 巨集)
+   Capsule with arrows; reflects live state of recipe/actions/food.
+   ============================================================ */
+.flow-breadcrumb {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-  margin-bottom: 12px;
+  margin: 18px 0 24px;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--app-craft) 4%, var(--app-surface));
+  border: 1px solid color-mix(in srgb, var(--app-craft) 14%, var(--app-border));
+  border-radius: 999px;
+  width: fit-content;
+}
+.flow-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--app-text-muted);
+  font-size: 12px;
+  transition: color 0.2s var(--ease-out-quart, ease-out);
+}
+.flow-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--app-text) 8%, transparent);
+  color: var(--app-text-muted);
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  transition: all 0.22s var(--ease-out-quart, ease-out);
+}
+.flow-step.is-done .flow-step-num {
+  background: var(--app-craft);
+  color: white;
+}
+.flow-step.is-done .flow-step-label {
+  color: var(--app-text);
+}
+.flow-step.is-active .flow-step-num {
+  background: var(--app-craft);
+  color: white;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-craft) 22%, transparent);
+}
+.flow-step.is-active .flow-step-label {
+  color: var(--app-craft);
+  font-weight: 600;
+}
+.flow-arrow {
+  color: color-mix(in srgb, var(--app-craft) 30%, var(--app-border));
+  font-size: 11px;
+}
+.flow-step-optional {
+  font-size: 10px;
+  color: var(--app-text-muted);
+  margin-left: 4px;
 }
 
-.manual-toolbar {
+/* ============================================================
+   Page grid: rail | main | rail
+   Rails scale up to capped max so ultrawide doesn't leave dead air.
+   ============================================================ */
+.b-page-grid {
+  display: grid;
+  grid-template-columns:
+    clamp(300px, 22%, 460px)
+    minmax(0, 1fr)
+    clamp(320px, 24%, 500px);
+  gap: 24px;
+  align-items: flex-start;
+}
+
+/* ============================================================
+   Rails — single sticky container, sections inside are separated
+   by dividers, NOT individual cards.
+   ============================================================ */
+.rail {
+  position: sticky;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  min-width: 0;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+}
+
+.rail-section {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--app-border);
+}
+.rail-section:last-child { border-bottom: 0; }
+
+.rail-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.rail-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--app-craft);
+  position: relative;
+  padding-left: 10px;
+}
+.rail-section-label::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--app-craft);
+}
+.rail-section-actions {
+  display: flex;
+  gap: 4px;
+}
+
+/* Marks an input section as optional. Lower visual weight than the label
+   eyebrow itself so the user doesn't read it as a required step. */
+.optional-tag {
+  margin-left: 8px;
+  padding: 1px 6px;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--app-text-muted);
+  background: color-mix(in srgb, var(--app-text) 6%, transparent);
+  border-radius: 999px;
+  vertical-align: 1px;
+}
+
+/* Inline help icon next to non-self-explanatory section labels. Hover for
+   tooltip; tap on touch. Lower-weight than the eyebrow so it reads as
+   "extra help available" not "you need to know this". */
+.rail-help-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  width: 14px;
+  height: 14px;
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--app-text-muted);
+  background: color-mix(in srgb, var(--app-text) 8%, transparent);
+  border-radius: 50%;
+  cursor: help;
+  vertical-align: 1px;
+  transition: all 0.15s var(--ease-out-quart, ease-out);
+}
+.rail-help-icon:hover {
+  background: var(--app-craft);
+  color: white;
+}
+.rail-empty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--app-text-muted);
+  padding: 4px 0;
+}
+
+.rail-section :deep(.macro-export) {
+  margin-top: 12px;
+}
+
+/* Queue list inside left rail */
+.queue-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.queue-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s ease-out;
+}
+.queue-row:hover {
+  background: color-mix(in srgb, var(--app-craft) 6%, transparent);
+}
+.queue-row.is-active {
+  background: color-mix(in srgb, var(--app-craft) 12%, transparent);
+}
+.queue-row:focus-visible {
+  outline: 2px solid var(--app-craft);
+  outline-offset: 2px;
+}
+.queue-row-icon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--app-craft) 8%, transparent);
+}
+.queue-row-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.queue-row-job {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--app-text-muted);
+  font-family: 'Fira Code', ui-monospace, monospace;
+}
+.queue-row-remove {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  background: transparent;
+  color: var(--app-text-muted);
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0.4;
+  transition: all 0.15s ease-out;
+}
+.queue-row:hover .queue-row-remove { opacity: 1; }
+.queue-row-remove:hover {
+  background: color-mix(in srgb, oklch(0.55 0.20 25) 12%, transparent);
+  color: oklch(0.55 0.20 25);
+}
+
+/* ============================================================
+   Center main: HUD + cockpit body + (2-col) HQ sections
+   ============================================================ */
+.b-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Empty state when no recipe is picked yet — points the user back at the
+   left rail with a literal arrow. Replaces the generic "準備就緒" copy
+   so first-timers know where step 1 lives. */
+.empty-pointer {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 32px 28px;
+  background: color-mix(in srgb, var(--app-craft) 5%, var(--app-surface));
+  border: 1px dashed color-mix(in srgb, var(--app-craft) 32%, var(--app-border));
+  border-radius: 14px;
+}
+.empty-pointer-arrow {
+  flex-shrink: 0;
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--app-craft);
+  margin-top: 2px;
+  animation: empty-pointer-nudge 1.6s var(--ease-out-quart, ease-out) infinite;
+}
+@keyframes empty-pointer-nudge {
+  0%, 60%, 100% { transform: translateX(0); }
+  30% { transform: translateX(-6px); }
+}
+.empty-pointer-body { flex: 1; min-width: 0; }
+.empty-pointer-title {
+  margin: 0;
+  font-family: 'Noto Serif TC', serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.empty-pointer-desc {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--app-text-muted);
+  line-height: 1.6;
+}
+
+/* HUD — flat surface, lets the data carry weight without decoration. */
+.b-hud {
+  padding: 14px 18px 12px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+}
+.b-hud :deep(.status-bar) {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.b-hud :deep(.buff-display) {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--app-border);
+}
+
+/* Cockpit body: 序列 + 巨集 column | tool column */
+.cockpit-body {
+  display: grid;
+  grid-template-columns: minmax(220px, 30%) minmax(0, 1fr);
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.cockpit-section {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cockpit-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+/* Cockpit-section labels drop the cocoa-dot eyebrow that rail sections use.
+   The dot reads as "boxed container" branding; cockpit sections live in the
+   open canvas and only need a quiet uppercase label. Removing the repeat
+   reduces the page's eyebrow count from 7+ to the rail-only set. */
+.cockpit-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+}
+.cockpit-section-count {
+  margin-left: 8px;
+  padding: 1px 7px;
+  background: color-mix(in srgb, var(--app-text) 8%, transparent);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+/* Sequence column wraps both 序列 and 巨集 sections, sticky as a whole */
+.cockpit-sequence-col {
+  position: sticky;
+  top: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-height: calc(100vh - 220px);
+  min-width: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.cockpit-section--sequence > :deep(.action-list) { padding: 0; }
+.cockpit-section--sequence,
+.cockpit-section--macro { min-width: 0; }
+.macro-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* One-shot pulse when actions transition empty → populated (solver done /
+   first manual click). Telegraphs "the result landed here, copy from this row". */
+.cockpit-section--macro.just-filled {
+  animation: macro-just-filled 1.6s var(--ease-out-quart, cubic-bezier(0.25, 1, 0.5, 1));
+  border-radius: 12px;
+}
+@keyframes macro-just-filled {
+  0% {
+    box-shadow:
+      0 0 0 0 color-mix(in srgb, var(--app-craft) 32%, transparent),
+      0 0 24px 0 color-mix(in srgb, var(--app-craft) 22%, transparent);
+  }
+  100% {
+    box-shadow:
+      0 0 0 0 color-mix(in srgb, var(--app-craft) 0%, transparent),
+      0 0 0 0 color-mix(in srgb, var(--app-craft) 0%, transparent);
+  }
+}
+
+
+/* Tool section header: eyebrow + mode switch + (manual) condition/ctrl aside */
+.cockpit-tool-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.cockpit-tool-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+}
+.cockpit-tool-head-aside {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -817,187 +1126,255 @@ async function handleSelfCraft(itemId: number) {
   margin-left: auto;
 }
 
-.sim-layout {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
+/* Mode switch — recessed track + raised pill (iOS/macOS idiom). */
+.mode-switch {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 4px;
+  background: color-mix(in srgb, var(--app-craft) 10%, var(--app-surface));
+  border: 1px solid color-mix(in srgb, var(--app-craft) 16%, var(--app-border));
+  border-radius: 12px;
+  isolation: isolate;
 }
-
-.sim-left {
-  flex: 1;
-  min-width: 0;
-}
-
-.sim-right {
-  flex: 1;
-  min-width: 0;
-  position: sticky;
-  top: 16px;
-  max-height: calc(100vh - 32px);
-  display: flex;
-  flex-direction: column;
-}
-
-.sim-right :deep(.el-card) {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  max-height: 100%;
-}
-
-.sim-right :deep(.el-card__body) {
-  overflow-y: auto;
-  min-height: 0;
-}
-
-.sim-section {
-  margin-bottom: 12px;
-}
-
-@media (max-width: 900px) {
-  .sim-layout {
-    flex-direction: column;
-  }
-
-  .sim-right {
-    width: 100%;
-    position: static;
-    max-height: none;
-  }
-}
-
-@media (max-width: 640px) {
-  .mode-switch-row {
-    gap: 8px;
-  }
-
-  .manual-toolbar {
-    margin-left: 0;
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .info-header-row {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .sim-layout {
-    gap: 12px;
-  }
-}
-
-.stat-diff {
-  color: var(--el-color-success);
-  font-size: 12px;
-  margin-left: 4px;
-}
-
-.queue-card {
-  margin-bottom: 16px;
-}
-
-.queue-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.queue-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.queue-items {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.queue-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+.mode-switch-thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  background: var(--app-surface);
   border-radius: 8px;
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--app-text) 6%, transparent),
+    0 2px 6px color-mix(in srgb, var(--app-craft) 18%, transparent);
+  transition: transform 0.22s var(--ease-out-quart, cubic-bezier(0.25, 1, 0.5, 1));
+  z-index: 0;
+}
+.mode-switch-thumb[data-mode="manual"] {
+  transform: translateX(100%);
+}
+.mode-switch-option {
+  position: relative;
+  z-index: 1;
+  padding: 7px 22px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--app-text-muted);
   cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.queue-item:hover {
-  background-color: var(--app-surface-hover);
-}
-
-.queue-item.active {
-  background-color: var(--app-accent-glow);
-  border: 1px solid var(--el-border-color-dark);
-}
-
-.queue-item:focus-visible {
-  outline: 2px solid var(--app-accent-light);
-  outline-offset: 2px;
-}
-
-.queue-icon {
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
-}
-
-.queue-item > span {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  transition: color 0.18s var(--ease-out-quart, ease-out);
   white-space: nowrap;
 }
-
-.queue-item :deep(.el-tag) {
-  flex-shrink: 0;
-}
-
-.queue-remove {
-  margin-left: auto;
-  flex-shrink: 0;
-}
-
-.batch-tip {
-  display: block;
-  background: var(--el-color-primary-light-9);
-  border: 1px solid var(--el-color-primary-light-5);
-  border-radius: 8px;
-  padding: 10px 16px;
-  margin-bottom: 16px;
-  font-size: 13px;
-  color: var(--el-text-color-regular);
-  text-decoration: none;
-  cursor: pointer;
-  transition: background-color 0.2s, border-color 0.2s;
-}
-
-.batch-tip:hover {
-  background: var(--el-color-primary-light-7);
-  border-color: var(--el-color-primary-light-3);
-}
-
-.batch-tip:focus-visible {
-  outline: 2px solid var(--el-color-primary);
+.mode-switch-option:hover { color: var(--app-text); }
+.mode-switch-option:focus-visible {
+  outline: 2px solid var(--app-craft);
   outline-offset: 2px;
+  border-radius: 8px;
+}
+.mode-switch-option.is-active { color: var(--app-craft); }
+
+.cockpit-tool-body {
+  display: flex;
+  flex-direction: column;
 }
 
-.batch-tip-link {
-  color: var(--el-color-primary);
+/* SolverPanel chip restyle — pill checkboxes that match SkillPanel category nav */
+.cockpit-tool-body :deep(.solver-panel) {
+  display: flex;
+  flex-direction: column;
+}
+.cockpit-tool-body :deep(.solver-panel .skill-toggles) {
+  margin: 0 0 16px;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  gap: 8px;
+}
+.cockpit-tool-body :deep(.solver-panel .toggle-label) {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+  margin-right: 4px;
+}
+.cockpit-tool-body :deep(.solver-panel .el-checkbox) {
+  margin: 0;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  transition: all 0.15s var(--ease-out-quart, ease-out);
+}
+.cockpit-tool-body :deep(.solver-panel .el-checkbox:hover) {
+  border-color: color-mix(in srgb, var(--app-craft) 50%, var(--app-border));
+}
+.cockpit-tool-body :deep(.solver-panel .el-checkbox.is-checked) {
+  background: color-mix(in srgb, var(--app-craft) 15%, var(--app-surface));
+  border-color: var(--app-craft);
+}
+.cockpit-tool-body :deep(.solver-panel .el-checkbox__input) {
+  display: none;
+}
+.cockpit-tool-body :deep(.solver-panel .el-checkbox__label) {
+  padding-left: 0;
+  font-size: 13px;
+  color: var(--app-text);
+}
+.cockpit-tool-body :deep(.solver-panel .el-checkbox.is-checked .el-checkbox__label) {
+  color: var(--app-craft);
   font-weight: 600;
+}
+.cockpit-tool-body :deep(.solver-panel .el-checkbox.is-disabled) {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.cockpit-tool-body :deep(.solver-panel .solver-actions) {
+  justify-content: flex-start;
+}
+.cockpit-tool-body :deep(.solver-panel .solver-actions .el-button) {
+  min-height: 44px;
+  padding: 11px 32px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 10px;
+}
+
+/* Hide the "WASM 載入中..." status tag — disabled button already conveys
+   not-ready state and the tag pushes button out of alignment on remount. */
+.cockpit-tool-body :deep(.solver-panel .wasm-status) {
+  display: none;
+}
+
+/* SkillPanel — flatten the inner border-card el-tabs to a chip nav row */
+.cockpit-tool-body :deep(.skill-panel) {
+  margin-top: 0;
+}
+.cockpit-tool-body :deep(.skill-panel .el-tabs--border-card),
+.cockpit-tool-body :deep(.skill-panel .el-tabs--border-card > .el-tabs__content),
+.cockpit-tool-body :deep(.skill-panel .el-tabs--border-card > .el-tabs__header) {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+.cockpit-tool-body :deep(.skill-panel .el-tabs--border-card > .el-tabs__header) {
+  margin-bottom: 14px;
+  padding: 0;
+}
+.cockpit-tool-body :deep(.skill-panel .el-tabs__nav-wrap::after) {
+  display: none;
+}
+.cockpit-tool-body :deep(.skill-panel .el-tabs__nav) {
+  border: 0 !important;
+  display: flex;
+  gap: 4px;
+}
+.cockpit-tool-body :deep(.skill-panel .el-tabs__item:hover) {
+  color: var(--app-text);
+  background: color-mix(in srgb, var(--app-craft) 6%, transparent) !important;
+}
+.cockpit-tool-body :deep(.skill-panel .el-tabs__item.is-active) {
+  color: var(--app-craft) !important;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--app-craft) 12%, transparent) !important;
+}
+.cockpit-tool-body :deep(.skill-panel .el-tabs__content) {
+  padding: 0;
+}
+
+/* Unify pill sizing — solver chips and SkillPanel category nav match exactly. */
+.cockpit-tool-body :deep(.solver-panel .el-checkbox),
+.cockpit-tool-body :deep(.skill-panel .el-tabs__item) {
+  --el-checkbox-height: 36px;
+  height: 36px !important;
+  min-height: 36px;
+  line-height: 1;
+  padding: 0 16px !important;
+  font-size: 13px;
+  border-radius: 999px !important;
+  display: inline-flex !important;
+  align-items: center;
+  box-sizing: border-box;
+  border: 0;
+  margin: 0;
+  color: var(--app-text-muted);
+  background: transparent;
+  transition: all 0.15s var(--ease-out-quart, ease-out);
+}
+.cockpit-tool-body :deep(.solver-panel .el-checkbox) {
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+}
+
+/* ============================================================
+   Responsive fallbacks
+   ============================================================ */
+
+/* < 1720: drop right rail to row 2 column 2; cockpit-body stays 2-col. */
+@media (max-width: 1720px) {
+  .b-page-grid {
+    grid-template-columns: clamp(280px, 26%, 360px) minmax(0, 1fr);
+  }
+
+  .rail-left,
+  .rail-right {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .rail-right {
+    grid-column: 2;
+    grid-row: 2;
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-radius: 14px;
+  }
+  .rail-right .rail-section {
+    flex: 1 1 320px;
+    min-width: 0;
+    border-bottom: 0;
+    border-right: 1px solid var(--app-border);
+  }
+  .rail-right .rail-section:last-child {
+    border-right: 0;
+  }
+
+  .cockpit-sequence-col {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+  .cockpit-body {
+    grid-template-columns: minmax(200px, 32%) minmax(0, 1fr);
+    gap: 16px;
+  }
+}
+
+/* < 900: stack everything single-column */
+@media (max-width: 900px) {
+  .b-page-grid { grid-template-columns: 1fr; }
+  .rail,
+  .rail-right {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    flex-direction: column;
+  }
+  .rail-right .rail-section {
+    border-right: 0;
+    border-bottom: 1px solid var(--app-border);
+  }
+  .rail-right .rail-section:last-child { border-bottom: 0; }
+  .cockpit-body { grid-template-columns: 1fr; }
 }
 
 /* ============================================================
    Mobile branch — flat sections, no el-card wrappers
    ============================================================ */
-
 .view-container.is-mobile {
   padding: 0 16px 80px;
 }
@@ -1015,14 +1392,12 @@ async function handleSelfCraft(itemId: number) {
 .muted { color: var(--app-text-muted); }
 .m-rs-dot { color: var(--app-text-muted); opacity: 0.5; margin: 0 5px; }
 
-/* --- Recipe strip --- */
 .m-recipe-strip {
   display: flex;
   gap: 12px;
   padding: 14px 0;
   border-bottom: 1px solid var(--app-border);
 }
-
 .m-rs-icon {
   width: 44px;
   height: 44px;
@@ -1032,16 +1407,13 @@ async function handleSelfCraft(itemId: number) {
   background: color-mix(in srgb, var(--app-craft) 12%, transparent);
   padding: 4px;
 }
-
 .m-rs-body { flex: 1; min-width: 0; }
-
 .m-rs-title-row {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
 }
-
 .m-rs-name {
   margin: 0;
   font-size: 16px;
@@ -1052,14 +1424,12 @@ async function handleSelfCraft(itemId: number) {
   white-space: nowrap;
   min-width: 0;
 }
-
 .m-rs-stars {
   color: var(--app-craft);
   letter-spacing: 1px;
   margin-left: 4px;
   font-size: 11px;
 }
-
 .m-rs-switch {
   display: inline-flex;
   align-items: center;
@@ -1074,7 +1444,6 @@ async function handleSelfCraft(itemId: number) {
   cursor: pointer;
   flex-shrink: 0;
 }
-
 .m-rs-meta,
 .m-rs-stats {
   margin: 3px 0 0;
@@ -1086,11 +1455,6 @@ async function handleSelfCraft(itemId: number) {
   text-overflow: ellipsis;
 }
 
-.m-alert {
-  margin: 10px 0;
-}
-
-/* --- Setup accordion --- */
 .m-setup-row {
   display: flex;
   align-items: center;
@@ -1105,31 +1469,26 @@ async function handleSelfCraft(itemId: number) {
   cursor: pointer;
   text-align: left;
 }
-
 .m-setup-summary {
   font-size: 13px;
   color: var(--app-text-muted);
 }
 .m-setup-summary b { color: var(--app-text); font-weight: 600; }
-
 .m-setup-body {
   padding: 8px 2px 16px;
   border-bottom: 1px solid var(--app-border);
 }
-
 .m-setup-group + .m-setup-group {
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px dashed var(--app-border);
 }
-
 .m-setup-group-title {
   margin: 0 0 8px;
   font-size: 13px;
   font-weight: 600;
 }
 
-/* --- Sticky mode segmented --- */
 .m-mode-wrap {
   position: sticky;
   top: var(--mobile-app-bar-h);
@@ -1140,27 +1499,16 @@ async function handleSelfCraft(itemId: number) {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
-
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .m-mode-wrap {
-    background: var(--app-bg);
-  }
+  .m-mode-wrap { background: var(--app-bg); }
 }
-
-.m-mode-seg {
-  width: 100%;
-}
-
-.m-mode-seg :deep(.el-segmented) {
-  width: 100%;
-}
-
+.m-mode-seg { width: 100%; }
+.m-mode-seg :deep(.el-segmented) { width: 100%; }
 .m-mode-seg :deep(.el-segmented__group) {
   width: 100%;
   display: grid;
   grid-template-columns: 1fr 1fr;
 }
-
 .m-manual-row {
   display: flex;
   flex-wrap: wrap;
@@ -1169,28 +1517,21 @@ async function handleSelfCraft(itemId: number) {
   border-bottom: 1px solid var(--app-border);
 }
 
-/* --- Status section (flat, no card) --- */
 .m-status {
   padding: 14px 0;
   border-bottom: 1px solid var(--app-border);
 }
-
 .m-status :deep(.status-bar) {
   background: transparent;
   border: 0;
   padding: 0;
 }
 
-/* --- Flat sections --- */
 .m-flat {
   padding: 16px 0 14px;
   border-bottom: 1px solid var(--app-border);
 }
-
-.m-flat:last-child {
-  border-bottom: 0;
-}
-
+.m-flat:last-child { border-bottom: 0; }
 .m-flat-head {
   display: flex;
   align-items: center;
@@ -1198,7 +1539,6 @@ async function handleSelfCraft(itemId: number) {
   margin-bottom: 10px;
   width: 100%;
 }
-
 .m-flat-head.is-collapsible {
   background: transparent;
   border: 0;
@@ -1208,7 +1548,6 @@ async function handleSelfCraft(itemId: number) {
   color: inherit;
   margin-bottom: 0;
 }
-
 .m-flat-title {
   margin: 0;
   font-size: 12px;
@@ -1217,7 +1556,6 @@ async function handleSelfCraft(itemId: number) {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-
 .m-count {
   display: inline-block;
   margin-left: 6px;
@@ -1230,7 +1568,6 @@ async function handleSelfCraft(itemId: number) {
   font-weight: 500;
   text-transform: none;
 }
-
 .m-text-btn {
   background: transparent;
   border: 0;
@@ -1240,24 +1577,19 @@ async function handleSelfCraft(itemId: number) {
   cursor: pointer;
   padding: 4px 8px;
 }
-
 .m-macro-body { padding-top: 12px; }
 
-/* Strip inner card borders from child components so they visually belong
- * to the flat section rather than becoming yet another boxed container. */
 .view-container.is-mobile :deep(.el-card) {
   background: transparent;
   border: 0;
   box-shadow: none;
 }
-
 .view-container.is-mobile :deep(.el-card__header),
 .view-container.is-mobile :deep(.el-card__body) {
   padding: 0;
   border: 0;
 }
 
-/* --- Queue bottom sheet --- */
 :global(.m-queue-sheet.el-drawer) {
   border-radius: 20px 20px 0 0;
   background: var(--app-surface) !important;
@@ -1271,7 +1603,6 @@ async function handleSelfCraft(itemId: number) {
   padding: 8px 20px calc(24px + env(safe-area-inset-bottom));
   color: var(--app-text);
 }
-
 .m-sheet-handle {
   width: 36px;
   height: 4px;
@@ -1279,7 +1610,6 @@ async function handleSelfCraft(itemId: number) {
   border-radius: 999px;
   margin: 0 auto 14px;
 }
-
 .m-sheet-title {
   margin: 0 0 14px;
   font-size: 17px;
@@ -1292,7 +1622,6 @@ async function handleSelfCraft(itemId: number) {
   margin: 0 0 16px;
   border-top: 1px solid var(--app-border);
 }
-
 .m-q-item {
   display: flex;
   align-items: center;
@@ -1301,26 +1630,22 @@ async function handleSelfCraft(itemId: number) {
   border-bottom: 1px solid var(--app-border);
   cursor: pointer;
 }
-
 .m-q-item.is-active {
   background: color-mix(in srgb, var(--app-craft) 8%, transparent);
   margin: 0 -20px;
   padding-left: 22px;
   padding-right: 22px;
 }
-
 .m-q-item:focus-visible {
   outline: 2px solid var(--app-accent-light);
   outline-offset: -2px;
 }
-
 .m-q-icon {
   width: 28px;
   height: 28px;
   flex-shrink: 0;
   border-radius: 6px;
 }
-
 .m-q-name {
   flex: 1;
   font-weight: 600;
@@ -1330,12 +1655,10 @@ async function handleSelfCraft(itemId: number) {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 .m-q-job {
   font-size: 11px;
   color: var(--app-text-muted);
 }
-
 .m-q-remove {
   width: 28px;
   height: 28px;
@@ -1346,11 +1669,9 @@ async function handleSelfCraft(itemId: number) {
   font-size: 12px;
   cursor: pointer;
 }
-
 .m-q-remove:hover {
   background: color-mix(in srgb, var(--app-text) 6%, transparent);
 }
-
 .m-q-empty {
   padding: 24px 0;
   text-align: center;
@@ -1363,7 +1684,6 @@ async function handleSelfCraft(itemId: number) {
   flex-wrap: wrap;
   gap: 10px;
 }
-
 .m-sheet-primary {
   flex: 1;
   min-width: 140px;
@@ -1377,7 +1697,6 @@ async function handleSelfCraft(itemId: number) {
   font-weight: 600;
   cursor: pointer;
 }
-
 .m-sheet-secondary {
   flex: 1;
   min-width: 140px;
@@ -1390,10 +1709,9 @@ async function handleSelfCraft(itemId: number) {
   font-size: 14px;
   cursor: pointer;
 }
-
 .m-sheet-danger { color: oklch(0.55 0.20 25); border-color: oklch(0.55 0.20 25 / 0.3); }
 
-/* === Gearset-not-set warning banner (Banner C variant) === */
+/* === Mobile gearset-not-set warning banner === */
 .gearset-banner {
   display: flex;
   align-items: center;
@@ -1451,9 +1769,7 @@ async function handleSelfCraft(itemId: number) {
   transform: translateY(-1px);
   box-shadow: 0 6px 14px oklch(0.58 0.17 45 / 0.40);
 }
-.gearset-banner-cta:active {
-  transform: translateY(0);
-}
+.gearset-banner-cta:active { transform: translateY(0); }
 
 @media (max-width: 640px) {
   .gearset-banner {
@@ -1462,8 +1778,6 @@ async function handleSelfCraft(itemId: number) {
     text-align: center;
     padding: 16px;
   }
-  .gearset-banner-icon {
-    margin: 0 auto;
-  }
+  .gearset-banner-icon { margin: 0 auto; }
 }
 </style>
