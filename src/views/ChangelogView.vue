@@ -18,6 +18,19 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: 'v2.3.0',
+    date: '2026-04-27',
+    codename: 'Toast Workshop',
+    highlights: [
+      '【吐司工坊（Toast Workshop）正式登場】品牌全面換裝為「吐司工坊」（保留「FFXIV 製作助手」副線），主視覺改為奶油白主背景搭配多色烘焙語意（吐司金 / 可可 / 草莓醬 / 抹茶 / 藍莓），首頁、側邊欄、setup 文案與 quote 全面更新',
+      '【深色模式】設定頁新增 Auto / Light / Dark 三段切換，Auto 跟隨系統偏好；Element Plus 全 component 適配，Dashboard / 模擬 / 購物清單 / 批量製作 / 採集計時器 / 更新日誌 / 設定 全頁通過深色模式檢查',
+      '【批量製作升格 Tier 1】側邊欄與 Dashboard 將「批量製作」置於最前；Dashboard 改為寬螢幕 editorial layout，把批量製作做成 hero 區塊',
+      '【新版引導流程】onboarding 加入可跳過的「裝備設定」第三步；進站時新手提示語句與插畫 quote 強化氛圍',
+      '【視覺氛圍】首頁加入紙質 texture、empty state 與 onboarding 加入主題語句與 quote；側邊欄分層調整',
+      '【內部】重整 JOB_ICONS / onboarding storage / quote 樣式為共用模組；新增 dark mode design spec、wide-viewport design brief；CLAUDE.md / README 同步更新為吐司工坊品牌',
+    ],
+  },
+  {
     version: 'v2.2.1',
     date: '2026-04-25',
     highlights: [
