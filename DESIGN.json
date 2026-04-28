@@ -1,0 +1,269 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-04-28T00:00:00Z",
+  "title": "Design System: 吐司工坊 · Toast Workshop",
+  "extensions": {
+    "colorMeta": {
+      "toast-gold": {
+        "role": "primary",
+        "displayName": "Toasted Crust Gold",
+        "canonical": "oklch(0.65 0.18 65)",
+        "tonalRamp": [
+          "oklch(0.30 0.10 65)",
+          "oklch(0.42 0.13 65)",
+          "oklch(0.52 0.16 65)",
+          "oklch(0.60 0.18 65)",
+          "oklch(0.65 0.18 65)",
+          "oklch(0.78 0.15 75)",
+          "oklch(0.88 0.10 78)",
+          "oklch(0.96 0.04 80)"
+        ]
+      },
+      "toast-crust": {
+        "role": "primary",
+        "displayName": "Bread Crust Brown",
+        "canonical": "oklch(0.59 0.10 50)",
+        "tonalRamp": [
+          "oklch(0.28 0.06 50)",
+          "oklch(0.38 0.08 50)",
+          "oklch(0.48 0.09 50)",
+          "oklch(0.55 0.10 50)",
+          "oklch(0.59 0.10 50)",
+          "oklch(0.70 0.10 52)",
+          "oklch(0.84 0.07 55)",
+          "oklch(0.95 0.02 60)"
+        ]
+      },
+      "cocoa": {
+        "role": "secondary",
+        "displayName": "Cocoa Bark",
+        "canonical": "oklch(0.50 0.16 40)",
+        "purpose": "Crafting zone (gearsets, simulator, batch, BOM)",
+        "tonalRamp": [
+          "oklch(0.22 0.08 40)",
+          "oklch(0.32 0.12 40)",
+          "oklch(0.42 0.15 40)",
+          "oklch(0.50 0.16 40)",
+          "oklch(0.60 0.14 42)",
+          "oklch(0.74 0.10 45)",
+          "oklch(0.86 0.06 50)",
+          "oklch(0.96 0.02 55)"
+        ]
+      },
+      "strawberry-jam": {
+        "role": "secondary",
+        "displayName": "Strawberry Preserve",
+        "canonical": "oklch(0.58 0.20 15)",
+        "purpose": "Market zone (price views, market data)",
+        "tonalRamp": [
+          "oklch(0.26 0.10 15)",
+          "oklch(0.38 0.15 15)",
+          "oklch(0.48 0.18 15)",
+          "oklch(0.58 0.20 15)",
+          "oklch(0.68 0.18 18)",
+          "oklch(0.80 0.13 20)",
+          "oklch(0.90 0.07 22)",
+          "oklch(0.97 0.02 25)"
+        ]
+      },
+      "matcha": {
+        "role": "secondary",
+        "displayName": "Garden Matcha",
+        "canonical": "oklch(0.62 0.17 135)",
+        "purpose": "Gathering Timer zone",
+        "tonalRamp": [
+          "oklch(0.28 0.08 135)",
+          "oklch(0.40 0.12 135)",
+          "oklch(0.52 0.15 135)",
+          "oklch(0.62 0.17 135)",
+          "oklch(0.72 0.15 138)",
+          "oklch(0.84 0.10 140)",
+          "oklch(0.92 0.05 142)",
+          "oklch(0.97 0.02 145)"
+        ]
+      },
+      "buff-info": {
+        "role": "tertiary",
+        "displayName": "Buff Info Gold",
+        "canonical": "oklch(0.50 0.13 70)",
+        "purpose": "Buff annotations, inline hints, did-you-know cards"
+      },
+      "cream-bg": {
+        "role": "neutral",
+        "displayName": "Bakery Cream",
+        "canonical": "oklch(0.965 0.022 90)",
+        "tonalRamp": [
+          "oklch(0.18 0.008 60)",
+          "oklch(0.30 0.018 65)",
+          "oklch(0.50 0.025 70)",
+          "oklch(0.70 0.030 75)",
+          "oklch(0.85 0.025 80)",
+          "oklch(0.93 0.025 85)",
+          "oklch(0.965 0.022 90)",
+          "oklch(0.99 0.010 90)"
+        ]
+      },
+      "cream-sidebar": { "role": "neutral", "displayName": "Cream Sidebar", "canonical": "oklch(0.93 0.025 80)" },
+      "cream-surface": { "role": "neutral", "displayName": "Cream Card", "canonical": "oklch(0.975 0.018 85)" },
+      "cream-surface-2": { "role": "neutral", "displayName": "Cream Emphasis", "canonical": "oklch(0.93 0.04 80)" },
+      "cream-hover": { "role": "neutral", "displayName": "Cream Hover", "canonical": "oklch(0.94 0.025 85)" },
+      "ink-primary": { "role": "neutral", "displayName": "Ink Brown", "canonical": "oklch(0.28 0.04 55)" },
+      "ink-muted": { "role": "neutral", "displayName": "Ink Muted", "canonical": "oklch(0.50 0.03 60)" },
+      "border-default": { "role": "neutral", "displayName": "Border Warm", "canonical": "oklch(0.65 0.04 65 / 0.30)" },
+      "success": { "role": "semantic", "displayName": "Verdant Success", "canonical": "oklch(0.55 0.16 145)" },
+      "warning": { "role": "semantic", "displayName": "Bake Warning", "canonical": "oklch(0.58 0.17 45)" },
+      "danger": { "role": "semantic", "displayName": "Singed Danger", "canonical": "oklch(0.55 0.20 25)" },
+      "state-good": { "role": "semantic", "displayName": "Good Craft State", "canonical": "oklch(0.62 0.18 60)" },
+      "state-poor": { "role": "semantic", "displayName": "Poor Craft State", "canonical": "oklch(0.55 0.20 15)" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display (Cormorant Italic)", "purpose": "Hero eyebrow titles, page-level italic headers. Bakery handwriting." },
+      "headline": { "displayName": "Headline (Noto Serif TC)", "purpose": "Page H1 titles." },
+      "title": { "displayName": "Title (Noto Serif TC)", "purpose": "Section titles, hero highlight category headings." },
+      "body": { "displayName": "Body (Noto Sans TC)", "purpose": "Default UI body. Buttons, cells, form labels." },
+      "body-serif": { "displayName": "Body Serif (Noto Serif TC)", "purpose": "Editorial reading surfaces — Changelog hero highlights, About-page paragraphs." },
+      "label": { "displayName": "Label (Fira Code uppercase)", "purpose": "Eyebrow micro-labels above hero / section." },
+      "mono": { "displayName": "Mono (Fira Code)", "purpose": "Numbers, versions, dates, gil amounts." }
+    },
+    "shadows": [
+      {
+        "name": "hover-lift",
+        "value": "0 2px 8px color-mix(in srgb, oklch(0.65 0.18 65) 18%, transparent)",
+        "purpose": "Cards, ghost buttons, ledger rows on hover. Pairs with translateY(-1px)."
+      },
+      {
+        "name": "hero-ambient",
+        "value": "0 4px 18px oklch(0.40 0.05 60 / 0.06)",
+        "purpose": "Dashboard hero, Changelog hero panel. Soft warm glow, low alpha."
+      },
+      {
+        "name": "floating-element",
+        "value": "0 16px 48px rgba(0, 0, 0, 0.4)",
+        "purpose": "Dialogs, dropdowns, mobile drawer overlays."
+      },
+      {
+        "name": "inset-highlight",
+        "value": "inset 0 1px 0 oklch(1 0 0 / 0.6)",
+        "purpose": "1px white-ish inner top stroke on hero cards. Top-edge of paper sheet catching light."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-quart",
+        "value": "cubic-bezier(0.25, 1, 0.5, 1)",
+        "purpose": "Default easing for state transitions (hover lift, fade, slide)."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1440px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Single CTA per surface. Toast gold fill, lifts on hover.",
+      "html": "<button class=\"ds-btn-primary\">開始規劃 →</button>",
+      "css": ".ds-btn-primary { background: oklch(0.65 0.18 65); color: oklch(0.99 0.01 90); font-family: 'Noto Sans TC', system-ui, sans-serif; font-size: 14px; font-weight: 600; padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; transition: background 0.18s cubic-bezier(0.25,1,0.5,1), transform 0.18s cubic-bezier(0.25,1,0.5,1), box-shadow 0.18s cubic-bezier(0.25,1,0.5,1); } .ds-btn-primary:hover { background: oklch(0.78 0.15 75); transform: translateY(-1px); box-shadow: 0 2px 8px color-mix(in srgb, oklch(0.65 0.18 65) 18%, transparent); } .ds-btn-primary:focus-visible { outline: 2px solid oklch(0.65 0.18 65); outline-offset: 3px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary action. Cream-hover fill, no lift.",
+      "html": "<button class=\"ds-btn-ghost\">取消</button>",
+      "css": ".ds-btn-ghost { background: transparent; color: oklch(0.50 0.03 60); font-family: 'Noto Sans TC', system-ui, sans-serif; font-size: 14px; font-weight: 500; padding: 8px 14px; border: 1px solid oklch(0.65 0.04 65 / 0.30); border-radius: 8px; cursor: pointer; transition: background 0.15s, color 0.15s; } .ds-btn-ghost:hover { background: oklch(0.94 0.025 85); color: oklch(0.28 0.04 55); }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Default panel surface. Flat at rest, 14px corner.",
+      "html": "<div class=\"ds-card\"><h3 class=\"ds-card-title\">配方名稱</h3><p class=\"ds-card-body\">展開素材樹，採購清單一次給。</p></div>",
+      "css": ".ds-card { background: oklch(0.975 0.018 85); border: 1px solid oklch(0.65 0.04 65 / 0.30); border-radius: 14px; padding: 18px; transition: transform 0.18s cubic-bezier(0.25,1,0.5,1), box-shadow 0.18s cubic-bezier(0.25,1,0.5,1); } .ds-card:hover { transform: translateY(-1px); box-shadow: 0 2px 8px color-mix(in srgb, oklch(0.65 0.18 65) 18%, transparent); } .ds-card-title { font-family: 'Noto Serif TC', serif; font-size: 17px; font-weight: 600; color: oklch(0.28 0.04 55); margin: 0 0 8px; line-height: 1.4; } .ds-card-body { font-family: 'Noto Sans TC', system-ui, sans-serif; font-size: 14px; color: oklch(0.50 0.03 60); margin: 0; line-height: 1.7; }"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Default form input. 36px height, gold focus ring.",
+      "html": "<input class=\"ds-input\" placeholder=\"搜尋配方\" />",
+      "css": ".ds-input { background: oklch(0.975 0.018 85); color: oklch(0.28 0.04 55); font-family: 'Noto Sans TC', system-ui, sans-serif; font-size: 14px; border: 1px solid oklch(0.65 0.04 65 / 0.30); border-radius: 8px; padding: 8px 12px; height: 36px; outline: none; transition: border-color 0.15s, box-shadow 0.15s; } .ds-input::placeholder { color: oklch(0.65 0.03 60); } .ds-input:focus { border-color: oklch(0.65 0.18 65); box-shadow: 0 0 0 3px oklch(0.65 0.18 65 / 0.18); }"
+    },
+    {
+      "name": "Active Chip",
+      "kind": "chip",
+      "refersTo": "chip-active",
+      "description": "Selected pill (locale, filter). Gold fill, cream text.",
+      "html": "<button class=\"ds-chip ds-chip-active\">繁中</button>",
+      "css": ".ds-chip { background: oklch(0.94 0.025 85); color: oklch(0.50 0.03 60); font-family: 'Noto Sans TC', system-ui, sans-serif; font-size: 13px; font-weight: 500; border: none; padding: 6px 12px; border-radius: 999px; cursor: pointer; transition: background 0.15s, color 0.15s; } .ds-chip:hover { color: oklch(0.28 0.04 55); } .ds-chip-active { background: oklch(0.65 0.18 65); color: oklch(0.975 0.018 85); font-weight: 700; }"
+    },
+    {
+      "name": "Eyebrow Pill",
+      "kind": "chip",
+      "refersTo": "pill-eyebrow",
+      "description": "Toast-gold-glow micro-label above hero titles. Fira Code uppercase, wide letter-spacing.",
+      "html": "<span class=\"ds-eyebrow\">VIII · CHANGELOG</span>",
+      "css": ".ds-eyebrow { display: inline-block; background: oklch(0.65 0.18 65 / 0.18); color: oklch(0.65 0.18 65); font-family: 'Fira Code', 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.25em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; }"
+    },
+    {
+      "name": "Editorial Hero",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "Signature editorial hero pattern: eyebrow + Cormorant italic title + gold rule + serif body.",
+      "html": "<section class=\"ds-hero\"><div class=\"ds-hero-eyebrow\">本期 · April · 四月</div><h2 class=\"ds-hero-title\">v2.4.0 <span class=\"ds-hero-codename\">\"Open Counter\"</span></h2><div class=\"ds-hero-rule\"></div><p class=\"ds-hero-body\">Dashboard 寬螢幕版面、模擬器 Cockpit、更新日誌 Parchment Poet 重設計。</p></section>",
+      "css": ".ds-hero { background: oklch(0.975 0.018 85); border: 1px solid oklch(0.65 0.04 65 / 0.30); border-radius: 14px; padding: 24px 28px; box-shadow: 0 4px 18px oklch(0.40 0.05 60 / 0.06), inset 0 1px 0 oklch(1 0 0 / 0.6); } .ds-hero-eyebrow { font-family: 'Cormorant Garamond', 'Noto Serif TC', serif; font-style: italic; font-weight: 500; font-size: 16px; color: oklch(0.55 0.14 60); margin-bottom: 12px; } .ds-hero-title { font-family: 'Cormorant Garamond', 'Noto Serif TC', serif; font-weight: 500; font-size: 36px; line-height: 1.1; letter-spacing: -0.01em; color: oklch(0.28 0.04 55); margin: 0; } .ds-hero-codename { font-style: italic; font-weight: 400; color: oklch(0.50 0.03 60); font-size: 0.78em; } .ds-hero-rule { margin: 8px 0 18px; height: 1px; background: linear-gradient(90deg, oklch(0.65 0.18 65) 0, oklch(0.65 0.18 65) 56px, oklch(0.65 0.04 65 / 0.32) 56px, oklch(0.65 0.04 65 / 0.32) 100%); } .ds-hero-body { font-family: 'Noto Serif TC', serif; font-size: 15px; line-height: 1.85; color: oklch(0.35 0.04 55); margin: 0; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Morning Bakery",
+    "overview": "吐司工坊是一間早晨剛開門的麵包店：陽光從側窗灑進來、烘焙紙、玻璃果醬罐排成一列、剛揉好的麵糰在木桌上，櫃台上有一塊手寫黑板。Cream 色主背景是早晨的烘焙紙，吐司金強調色是櫃台燈下的麵包邊緣，多色語意（可可 / 草莓醬 / 抹茶）是排隊的果醬罐，Cormorant italic 是黑板上的手寫引言。\n\n吐司工坊拒絕同類 FFXIV 工具的 dark navy / purple gradient 配色。它拒絕「冷冰冰的科技工具」氣氛，拒絕「凌晨工程師專用 dashboard」的視覺常規。它的個性是溫暖、親切、輕鬆，加上一點手藝人的低調自豪。\n\n主打功能是「批量製作」（Batch Crafting）；視覺權重也跟著走：Dashboard 把它做成 hero 切片區塊，sidebar 把它放在 Tier 1。",
+    "keyCharacteristics": [
+      "Light first：奶油白 cream 主背景貫穿整站，dark mode 是次要 mode（深暖灰 + 暖棕 sidebar，不是冷藍）",
+      "Full palette 多色語意：四種烘焙食物色（吐司金 / 可可 / 草莓醬 / 抹茶）對應四個產品功能",
+      "Editorial serif accents：Cormorant Garamond italic + Noto Serif TC + Noto Sans TC + Fira Code 四軌字體分工嚴格",
+      "手作感無傾斜：hover 微抬升、紙質紋理、Cormorant italic 引言；從不傾斜任何元件",
+      "流程精簡：每頁完成一件事的完整流程"
+    ],
+    "rules": [
+      { "name": "The Jam-Jar Rule", "body": "Each functional hue (cocoa, strawberry, matcha, buff-info) belongs to exactly one product zone. Hue IS wayfinding.", "section": "colors" },
+      { "name": "The Sunlight, Not Spotlight Rule", "body": "Toast-gold is used for ≤10% of surface. Primary CTA, focus ring, active state, nothing more.", "section": "colors" },
+      { "name": "The No-Gray Rule", "body": "Every neutral tints toward warm 55-90 hue with chroma 0.018-0.04. Pure gray is forbidden. #fff and #000 never appear.", "section": "colors" },
+      { "name": "The Four-Track Rule", "body": "Every text element belongs to exactly one of: Cormorant (display/italic), Noto Serif TC (titles/editorial), Noto Sans TC (UI body), Fira Code (numbers/mono).", "section": "typography" },
+      { "name": "The Italic-Is-Sacred Rule", "body": "Cormorant Garamond italic is reserved for moments — page eyebrow titles, version codenames, month markers, taglines. Never UI body.", "section": "typography" },
+      { "name": "The 65-Character Rule", "body": "Body text caps at 65–75ch measure. Changelog 920px container honors this.", "section": "typography" },
+      { "name": "The Flat-Until-Touched Rule", "body": "Cards, panels, list rows do NOT carry shadow at rest. First shadow appears as hover or focus response.", "section": "elevation" },
+      { "name": "The Hero-Earns-Atmosphere Rule", "body": "Hero zones (one or two per page) may layer ambient shadow + paper-noise + inset highlight. Outside heroes, paper-noise and ambient shadow are forbidden.", "section": "elevation" },
+      { "name": "The Floating-Is-Heavy Rule", "body": "Dropdowns, popovers, dialogs carry clearly heavier shadow (16-48px blur, 0.4 alpha).", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep Toast Gold under 10% of any given screen.",
+      "Do map every functional zone to its assigned jam-jar hue: Crafting → Cocoa, Market → Strawberry, Gathering → Matcha.",
+      "Do lead Cormorant italic with italic intent: eyebrows, quotes, codenames, month markers — moments only.",
+      "Do keep cards flat at rest. Lift them 1-2px with accent-tinted shadow on hover.",
+      "Do use OKLCH for every color value.",
+      "Do tint every neutral toward warm 55-90 hue.",
+      "Do cap body line-length at 65–75ch.",
+      "Do use Fira Code for every number, version, date, gil amount.",
+      "Do keep dark mode warm: deep brown surfaces, warm cream text. Never cool blue/gray."
+    ],
+    "donts": [
+      "Don't use dark navy or purple gradients. tnze.yyyy.games and beherw FFXIV_Market are the named anti-references.",
+      "Don't use neon accents or glassmorphism on dark mode.",
+      "Don't put Cormorant italic inside dense UI: buttons, table cells, form labels.",
+      "Don't mix font families inside a single text element without a deliberate split.",
+      "Don't apply border-left greater than 1px as a colored stripe.",
+      "Don't use background-clip text with gradient.",
+      "Don't add resting shadows to cards, list rows, panels.",
+      "Don't use the SaaS hero-metric template.",
+      "Don't stack identical cards in a grid.",
+      "Don't use modals as a first thought.",
+      "Don't put #fff or #000 in code.",
+      "Don't localize away the bakery metaphor."
+    ]
+  }
+}
