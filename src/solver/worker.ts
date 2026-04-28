@@ -5,6 +5,7 @@
 
 import type { SolverConfig, SolverResult, SolverResponse, SimulateResult, SimulateDetailResult } from './raphael'
 import { trackEvent, trackError } from '@/utils/analytics'
+import { classifyGearBucket } from '@/utils/gear-bucket'
 
 export const SOLVE_CANCELLED = '求解已取消'
 
@@ -115,6 +116,11 @@ export function solveCraft(
       crafter_level: config.crafter_level,
       recipe_level: config.recipe_level,
       hq_target: config.hq_target,
+      gear_bucket: classifyGearBucket(
+        config.crafter_level,
+        config.craftsmanship,
+        config.control,
+      ),
     })
 
     // Solve still uses onmessage (only one solve at a time)
