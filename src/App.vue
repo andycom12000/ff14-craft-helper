@@ -15,6 +15,7 @@ import {
 } from '@element-plus/icons-vue'
 import EorzeaClock from '@/components/EorzeaClock.vue'
 import LocalePillGroup from '@/components/LocalePillGroup.vue'
+import ThemeToggle from '@/components/ThemeToggle.vue'
 import CommandPalette from '@/components/CommandPalette.vue'
 
 const route = useRoute()
@@ -97,6 +98,9 @@ onUnmounted(() => {
         <div class="logo-text">
           <span class="logo-ff">吐司工坊</span>
           <span class="logo-sub">FFXIV 製作助手</span>
+        </div>
+        <div class="logo-theme-slot">
+          <ThemeToggle />
         </div>
         <button class="sidebar-close-btn" @click="sidebarOpen = false">
           <el-icon :size="20"><Close /></el-icon>
@@ -976,6 +980,12 @@ html, body {
   line-height: 1.2;
 }
 
+.logo-theme-slot {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+}
+
 .app-menu {
   border-right: none;
   background-color: transparent;
@@ -1088,14 +1098,42 @@ html, body {
     right: 8px;
     top: 50%;
     transform: translateY(-50%);
-    width: 44px;
-    height: 44px;
+    width: 36px;
+    height: 36px;
     background: none;
     border: none;
     color: var(--app-text-muted);
     cursor: pointer;
     padding: 0;
     border-radius: 8px;
+  }
+
+  /* Sidebar is only 220px on mobile drawer; with icon + text + toggle
+     + close all needing room, lift the toggle into the absolute corner
+     alongside close, and reserve enough right padding on the parent
+     so the flex content never grows under the absolute pair. Both
+     button icons trim to 36px; "FFXIV 製作助手" sub is hidden in the
+     drawer (page H1 already carries the same context). */
+  .app-logo {
+    padding-right: 90px;
+  }
+  .app-logo .logo-theme-slot {
+    position: absolute;
+    right: 48px;
+    top: 50%;
+    transform: translateY(-50%);
+    margin: 0;
+  }
+  .app-logo .logo-theme-slot :deep(.theme-toggle) {
+    width: 36px;
+    height: 36px;
+  }
+  .app-logo .logo-ff {
+    font-size: 17px;
+    letter-spacing: 0;
+  }
+  .app-logo .logo-sub {
+    display: none;
   }
 
   .sidebar-close-btn:focus-visible {

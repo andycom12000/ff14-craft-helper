@@ -1,32 +1,30 @@
 import { defineStore } from 'pinia'
-import { computed, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 
-export type ThemeMode = 'auto' | 'light' | 'dark'
-export type ResolvedTheme = 'light' | 'dark'
+export type ThemeMode = 'light' | 'dark'
 
 const KEY = 'theme-mode'
 
-function readStoredMode(): ThemeMode {
+function readStoredMode(): ThemeMode | null {
   try {
     const v = localStorage.getItem(KEY)
-    if (v === 'auto' || v === 'light' || v === 'dark') return v
+    if (v === 'light' || v === 'dark') return v
+    // Legacy 'auto' values from v2.3.x — treat as "no choice yet" so we
+    // fall through to the system-preference seed below.
   } catch {}
-  return 'auto'
+  return null
+}
+
+function seedFromSystem(): ThemeMode {
+  try {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  } catch {
+    return 'light'
+  }
 }
 
 export const useThemeStore = defineStore('theme', () => {
-  const mode = ref<ThemeMode>(readStoredMode())
-
-  const mq = window.matchMedia('(prefers-color-scheme: dark)')
-  const systemDark = ref(mq.matches)
-  mq.addEventListener('change', (e) => {
-    systemDark.value = e.matches
-  })
-
-  const resolved = computed<ResolvedTheme>(() => {
-    if (mode.value === 'auto') return systemDark.value ? 'dark' : 'light'
-    return mode.value
-  })
+  const mode = ref<ThemeMode>(readStoredMode() ?? seedFromSystem())
 
   function setMode(m: ThemeMode) {
     mode.value = m
@@ -37,13 +35,17 @@ export const useThemeStore = defineStore('theme', () => {
     }
   }
 
+  function toggle() {
+    setMode(mode.value === 'dark' ? 'light' : 'dark')
+  }
+
   watch(
-    resolved,
+    mode,
     (v) => {
       document.documentElement.setAttribute('data-theme', v)
     },
     { immediate: true },
   )
 
-  return { mode, resolved, setMode }
+  return { mode, setMode, toggle }
 })
