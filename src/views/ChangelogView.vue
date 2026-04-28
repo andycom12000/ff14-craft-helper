@@ -435,7 +435,9 @@ function tagOf(version: string): Tag {
 
 const TAG_LABEL: Record<Tag, string> = { MAJOR: '重大', MINOR: '更新', PATCH: '修正' }
 
-const MONTHS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const MONTHS_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const MONTHS_ZH = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月']
 
 const HL_PREFIX = /^【([^】]+)】(.*)$/
 
@@ -445,46 +447,112 @@ function parseHighlight(raw: string): Highlight {
   return { category: m[1], text: m[2].replace(/^[：:]\s*/, '') }
 }
 
-interface Group {
+// ─── Hero (latest entry) ─────────────────────────────
+const heroEntry = computed(() => changelog[0])
+const heroTag = computed(() => tagOf(heroEntry.value.version))
+const heroDate = computed(() => formatHeroDate(heroEntry.value.date))
+const heroMonthLabel = computed(() => {
+  const [, m] = heroEntry.value.date.split('-')
+  const idx = parseInt(m, 10) - 1
+  return `${MONTHS_EN[idx]} · ${MONTHS_ZH[idx]}`
+})
+
+const HERO_PREVIEW_COUNT = 4
+const heroExpanded = ref(false)
+const heroVisibleHighlights = computed(() => {
+  const all = heroEntry.value.highlights
+  if (heroExpanded.value || all.length <= HERO_PREVIEW_COUNT) return all
+  return all.slice(0, HERO_PREVIEW_COUNT)
+})
+const heroRemainingCount = computed(() => Math.max(0, heroEntry.value.highlights.length - HERO_PREVIEW_COUNT))
+
+function toggleHero() {
+  heroExpanded.value = !heroExpanded.value
+}
+
+// ─── Archive (everything else, by month) ─────────────
+interface ArchiveGroup {
   ym: string
   year: string
-  mon: string
   num: string
+  mon: string
+  monZh: string
   entries: Entry[]
 }
 
-const groups = computed<Group[]>(() => {
+const archiveGroups = computed<ArchiveGroup[]>(() => {
   const by = new Map<string, Entry[]>()
-  for (const e of changelog) {
+  for (const e of changelog.slice(1)) {
     const ym = e.date.slice(0, 7)
     if (!by.has(ym)) by.set(ym, [])
     by.get(ym)!.push(e)
   }
   return Array.from(by.entries()).map(([ym, entries]) => {
     const [year, num] = ym.split('-')
-    return { ym, year, num, mon: MONTHS_EN[parseInt(num, 10) - 1], entries }
+    const idx = parseInt(num, 10) - 1
+    return { ym, year, num, mon: MONTHS_EN[idx], monZh: MONTHS_ZH[idx], entries }
   })
 })
 
-const isMobile = useIsMobile()
-const active = ref('')
-const sectionRefs = ref<Record<string, HTMLElement | null>>({})
-const rootEl = ref<HTMLElement | null>(null)
-const expanded = ref<Set<string>>(new Set())
+const expandedMonths = ref<Set<string>>(new Set())
+const expandedRows = ref<Set<string>>(new Set())
 
-function setSectionRef(ym: string, el: Element | null) {
-  sectionRefs.value[ym] = el as HTMLElement | null
+function toggleMonth(ym: string) {
+  const next = new Set(expandedMonths.value)
+  if (next.has(ym)) next.delete(ym)
+  else next.add(ym)
+  expandedMonths.value = next
 }
 
-function isExpanded(version: string, tag: Tag) {
-  return tag !== 'PATCH' || expanded.value.has(version)
+function isMonthExpanded(ym: string) {
+  return expandedMonths.value.has(ym)
 }
 
-function togglePatch(version: string) {
-  const next = new Set(expanded.value)
+function toggleRow(version: string) {
+  const next = new Set(expandedRows.value)
   if (next.has(version)) next.delete(version)
   else next.add(version)
-  expanded.value = next
+  expandedRows.value = next
+}
+
+function isRowExpanded(version: string) {
+  return expandedRows.value.has(version)
+}
+
+function summaryFor(entry: Entry): string {
+  const first = parseHighlight(entry.highlights[0])
+  const t = first.text
+  const MAX = entry.codename ? 28 : 36
+  if (t.length <= MAX) return t
+  return t.slice(0, MAX - 1) + '…'
+}
+
+// ─── Stats ──────────────────────────────────────────
+const totalReleases = computed(() => changelog.length)
+const totalHighlights = computed(() => changelog.reduce((s, e) => s + e.highlights.length, 0))
+const firstVersion = computed(() => changelog[changelog.length - 1].version)
+
+// ─── Date formatting ────────────────────────────────
+function formatHeroDate(iso: string): string {
+  const [y, m, d] = iso.split('-')
+  const idx = parseInt(m, 10) - 1
+  return `${MONTHS_SHORT[idx]} ${parseInt(d, 10)}, ${y}`
+}
+
+function formatLedgerDate(iso: string): string {
+  const [, m, d] = iso.split('-')
+  const idx = parseInt(m, 10) - 1
+  return `${MONTHS_SHORT[idx]} ${parseInt(d, 10)}`
+}
+
+// ─── Scroll spy / nav ───────────────────────────────
+const isMobile = useIsMobile()
+const active = ref('hero')
+const sectionRefs = ref<Record<string, HTMLElement | null>>({})
+const rootEl = ref<HTMLElement | null>(null)
+
+function setSectionRef(key: string, el: Element | null) {
+  sectionRefs.value[key] = el as HTMLElement | null
 }
 
 function scrollContainer(): HTMLElement | null {
@@ -495,8 +563,10 @@ function scrollContainer(): HTMLElement | null {
 let observer: IntersectionObserver | null = null
 
 onMounted(async () => {
+  archiveGroups.value.slice(0, 2).forEach((g) => expandedMonths.value.add(g.ym))
+
   await nextTick()
-  active.value = groups.value[0]?.ym ?? ''
+  active.value = 'hero'
   const root = scrollContainer()
   observer = new IntersectionObserver(
     (entries) => {
@@ -504,8 +574,8 @@ onMounted(async () => {
         .filter((e) => e.isIntersecting)
         .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]
       if (visible) {
-        const ym = (visible.target as HTMLElement).dataset.ym
-        if (ym) active.value = ym
+        const key = (visible.target as HTMLElement).dataset.navKey
+        if (key) active.value = key
       }
     },
     { root, rootMargin: '-20% 0px -60% 0px' },
@@ -520,8 +590,8 @@ onBeforeUnmount(() => {
   observer = null
 })
 
-function scrollTo(ym: string) {
-  const el = sectionRefs.value[ym]
+function scrollTo(key: string) {
+  const el = sectionRefs.value[key]
   const parent = scrollContainer()
   if (!el || !parent) return
   const offset = isMobile.value ? 124 : 24
@@ -529,137 +599,211 @@ function scrollTo(ym: string) {
   parent.scrollTo({ top, behavior: 'smooth' })
 }
 
-function formatDateDots(iso: string) {
-  return iso.replace(/-/g, ' · ')
+interface NavItem { key: string; label: string; sublabel: string; isHero?: boolean }
+
+const navItems = computed<NavItem[]>(() => {
+  const items: NavItem[] = [
+    { key: 'hero', label: '本期', sublabel: heroEntry.value.version, isHero: true },
+  ]
+  for (const g of archiveGroups.value) {
+    items.push({
+      key: g.ym,
+      label: g.mon,
+      sublabel: `${g.year} · ${g.entries.length}`,
+    })
+  }
+  return items
+})
+
+// ─── Copy version feedback ──────────────────────────
+const copiedVersion = ref<string | null>(null)
+let copyTimer: number | undefined
+async function copyVersion(v: string) {
+  try {
+    await navigator.clipboard.writeText(v)
+    copiedVersion.value = v
+    if (copyTimer) window.clearTimeout(copyTimer)
+    copyTimer = window.setTimeout(() => { copiedVersion.value = null }, 1400)
+  } catch { /* noop */ }
 }
 </script>
 
 <template>
   <div ref="rootEl" class="changelog-view">
-    <!-- PageHead -->
     <header class="page-head">
-      <div class="eyebrow">VIII · 更新日誌</div>
+      <div class="eyebrow">VIII · CHANGELOG</div>
       <h1 class="page-title">更新日誌</h1>
-      <p class="page-subtitle">每次版本的細節變更。</p>
+      <p class="page-stats">
+        自 <span class="stats-pin">{{ firstVersion }}</span>
+        起 <span class="stats-num">{{ totalReleases }}</span> 次發行 ·
+        <span class="stats-num">{{ totalHighlights }}</span> 條變更
+      </p>
     </header>
 
-    <!-- Mobile sticky month chip strip -->
     <nav class="chip-rail" aria-label="月份快速跳轉">
       <button
-        v-for="g in groups"
-        :key="g.ym"
+        v-for="n in navItems"
+        :key="n.key"
         type="button"
         class="chip"
-        :class="{ 'chip--active': active === g.ym }"
-        @click="scrollTo(g.ym)"
+        :class="{ 'chip--active': active === n.key, 'chip--hero': n.isHero }"
+        @click="scrollTo(n.key)"
       >
-        <span class="chip-mon">{{ g.mon }}</span>
-        <span class="chip-yr">{{ g.year.slice(2) }}</span>
-        <span class="chip-count">{{ g.entries.length }}</span>
+        <span class="chip-label">{{ n.label }}</span>
+        <span class="chip-sub">{{ n.sublabel }}</span>
       </button>
     </nav>
 
     <div class="layout">
-      <!-- Left timeline rail (desktop) -->
       <nav class="rail" aria-label="時間軸導覽">
-        <div class="rail-header">Timeline</div>
+        <div class="rail-header">Edition</div>
         <div class="rail-list">
           <span class="rail-line" aria-hidden="true" />
           <button
-            v-for="g in groups"
-            :key="g.ym"
+            v-for="n in navItems"
+            :key="n.key"
             type="button"
             class="rail-item"
-            :class="{ 'rail-item--active': active === g.ym }"
-            @click="scrollTo(g.ym)"
+            :class="{
+              'rail-item--active': active === n.key,
+              'rail-item--hero': n.isHero,
+            }"
+            @click="scrollTo(n.key)"
           >
             <span class="rail-bar" aria-hidden="true" />
             <span class="rail-node" aria-hidden="true" />
-            <span class="rail-mon">{{ g.mon }}</span>
-            <span class="rail-meta">
-              {{ g.year }} · {{ g.entries.length }} release{{ g.entries.length > 1 ? 's' : '' }}
-            </span>
+            <span class="rail-mon">{{ n.label }}</span>
+            <span class="rail-meta">{{ n.sublabel }}</span>
           </button>
         </div>
       </nav>
 
-      <!-- Right content column -->
       <div class="content">
+        <!-- HERO -->
         <section
-          v-for="g in groups"
-          :key="g.ym"
-          :ref="(el) => setSectionRef(g.ym, el as Element | null)"
-          :data-ym="g.ym"
-          class="month-section"
+          class="hero"
+          :ref="(el) => setSectionRef('hero', el as Element | null)"
+          data-nav-key="hero"
         >
-          <div class="month-header">
-            <h2 class="month-mon">{{ g.mon }}</h2>
-            <div class="month-ym">{{ g.year }} · {{ g.num }}</div>
-            <div class="month-spacer" />
-            <div class="month-count">
-              {{ g.entries.length }} RELEASE{{ g.entries.length > 1 ? 'S' : '' }}
+          <div class="hero-eyebrow">本　期　·　{{ heroMonthLabel }}</div>
+
+          <div class="hero-head">
+            <h2 class="hero-title">
+              <button type="button" class="ver-btn" @click="copyVersion(heroEntry.version)" :aria-label="`複製版本 ${heroEntry.version}`">
+                <span class="ver">{{ heroEntry.version }}</span>
+                <span v-if="copiedVersion === heroEntry.version" class="ver-copied" aria-live="polite">已複製</span>
+              </button>
+              <span v-if="heroEntry.codename" class="codename">"{{ heroEntry.codename }}"</span>
+            </h2>
+            <div class="hero-meta">
+              <span class="hero-date">{{ heroDate }}</span>
+              <span class="hero-tag" :class="`tag--${heroTag.toLowerCase()}`">{{ TAG_LABEL[heroTag] }}</span>
             </div>
           </div>
 
-          <div class="entries">
-            <article
+          <div class="hero-rule" aria-hidden="true" />
+
+          <ol class="hero-highlights">
+            <li v-for="(item, i) in heroVisibleHighlights" :key="i" class="hero-hl">
+              <template v-if="parseHighlight(item).category">
+                <h3 class="hero-hl-cat">{{ parseHighlight(item).category }}</h3>
+                <p class="hero-hl-text">{{ parseHighlight(item).text }}</p>
+              </template>
+              <template v-else>
+                <p class="hero-hl-text hero-hl-text--lead">{{ item }}</p>
+              </template>
+            </li>
+          </ol>
+
+          <button
+            v-if="heroEntry.highlights.length > HERO_PREVIEW_COUNT"
+            type="button"
+            class="hero-expand"
+            @click="toggleHero"
+          >
+            <span v-if="!heroExpanded">還有 {{ heroRemainingCount }} 條更新 ▾</span>
+            <span v-else>收合 ▴</span>
+          </button>
+        </section>
+
+        <div class="archive-divider" aria-hidden="true">
+          <span class="divider-label">之前的版本</span>
+          <span class="divider-rule" />
+        </div>
+
+        <section
+          v-for="g in archiveGroups"
+          :key="g.ym"
+          :ref="(el) => setSectionRef(g.ym, el as Element | null)"
+          :data-nav-key="g.ym"
+          class="month"
+          :class="{ 'month--collapsed': !isMonthExpanded(g.ym) }"
+        >
+          <button
+            type="button"
+            class="month-head"
+            :aria-expanded="isMonthExpanded(g.ym)"
+            @click="toggleMonth(g.ym)"
+          >
+            <h3 class="month-mon">{{ g.mon }}</h3>
+            <span class="month-zh">{{ g.monZh }} · {{ g.year }}</span>
+            <span class="month-spacer" />
+            <span class="month-count">{{ g.entries.length }} RELEASE{{ g.entries.length > 1 ? 'S' : '' }}</span>
+            <svg
+              class="month-chev"
+              :class="{ 'is-open': isMonthExpanded(g.ym) }"
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+
+          <ol v-if="isMonthExpanded(g.ym)" class="ledger">
+            <li
               v-for="e in g.entries"
               :key="e.version"
-              class="panel"
-              :class="[`panel--${tagOf(e.version).toLowerCase()}`, { 'panel--collapsed': !isExpanded(e.version, tagOf(e.version)) }]"
+              class="row"
+              :class="[`row--${tagOf(e.version).toLowerCase()}`, { 'row--open': isRowExpanded(e.version) }]"
             >
-              <header class="panel-header">
-                <h3 class="panel-title">
-                  <span class="ver">{{ e.version }}</span>
-                  <span v-if="e.codename" class="codename">{{ e.codename }}</span>
-                </h3>
-                <span class="panel-date">{{ formatDateDots(e.date) }}</span>
-                <span class="panel-spacer" />
-                <span class="tag" :class="`tag--${tagOf(e.version).toLowerCase()}`">
-                  {{ TAG_LABEL[tagOf(e.version)] }}
-                </span>
-              </header>
-
-              <!-- PATCH summary (collapsed) -->
               <button
-                v-if="tagOf(e.version) === 'PATCH' && !isExpanded(e.version, 'PATCH')"
                 type="button"
-                class="patch-summary"
-                @click="togglePatch(e.version)"
+                class="row-summary"
+                :aria-expanded="isRowExpanded(e.version)"
+                @click="toggleRow(e.version)"
               >
-                <span class="patch-summary-text">{{ parseHighlight(e.highlights[0]).text }}</span>
-                <span v-if="e.highlights.length > 1" class="patch-more">+{{ e.highlights.length - 1 }}</span>
-                <svg class="patch-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M6 9l6 6 6-6" />
-                </svg>
+                <span class="row-dot" aria-hidden="true">{{ tagOf(e.version) === 'PATCH' ? '○' : '●' }}</span>
+                <span class="row-ver">{{ e.version }}</span>
+                <span class="row-date">{{ formatLedgerDate(e.date) }}</span>
+                <span class="row-tail">
+                  <span v-if="e.codename" class="row-codename">"{{ e.codename }}"</span>
+                  <span class="row-summary-text">{{ summaryFor(e) }}</span>
+                </span>
               </button>
 
-              <!-- Full body -->
-              <div
-                v-else
-                class="panel-body"
-                :class="{ 'panel-body--accent': tagOf(e.version) !== 'PATCH' }"
-              >
-                <ul class="hl-list">
-                  <li v-for="(item, i) in e.highlights" :key="i" class="hl-item">
+              <div v-if="isRowExpanded(e.version)" class="row-body">
+                <ul class="row-hl-list">
+                  <li v-for="(item, i) in e.highlights" :key="i" class="row-hl">
                     <template v-if="parseHighlight(item).category">
-                      <span class="hl-cat">{{ parseHighlight(item).category }}</span>
-                      <span class="hl-text">{{ parseHighlight(item).text }}</span>
+                      <span class="row-hl-cat">{{ parseHighlight(item).category }}</span>
+                      <span class="row-hl-sep">：</span>
+                      <span class="row-hl-text">{{ parseHighlight(item).text }}</span>
                     </template>
                     <template v-else>
-                      <span class="hl-text">{{ item }}</span>
+                      <span class="row-hl-text">{{ item }}</span>
                     </template>
                   </li>
                 </ul>
-                <button
-                  v-if="tagOf(e.version) === 'PATCH'"
-                  type="button"
-                  class="patch-collapse"
-                  @click="togglePatch(e.version)"
-                >收合</button>
               </div>
-            </article>
-          </div>
+            </li>
+          </ol>
         </section>
       </div>
     </div>
@@ -667,85 +811,97 @@ function formatDateDots(iso: string) {
 </template>
 
 <style scoped>
-/* Eorzean Codex palette — scoped to this view */
 .changelog-view {
-  /* Light theme — Eorzean Codex on parchment table.
-   * Muted palette aligned with SimulatorView progress bars / BomView —
-   * lower chroma keeps the page calm so attention can land on text. */
-  --parch-50: oklch(0.28 0.04 55);   /* main text on cream — dark warm brown */
-  --parch-100: oklch(0.35 0.04 55);  /* slightly less prominent */
-  --ink-900: oklch(0.20 0.04 55);    /* high-contrast text (on gold/etc) */
+  --parch-50: oklch(0.28 0.04 55);
+  --parch-100: oklch(0.35 0.04 55);
+  --parch-200: oklch(0.42 0.04 55);
+  --ink-900: oklch(0.20 0.04 55);
   --fg-muted: oklch(0.50 0.03 60);
   --fg-faint: oklch(0.62 0.03 60);
-  --gold: oklch(0.62 0.12 65);       /* muted toast gold (was 0.18 chroma) */
-  --gold-soft: oklch(0.62 0.12 65 / .10);
-  --gold-line: oklch(0.62 0.12 65 / .28);
+  --gold: oklch(0.62 0.12 65);
+  --gold-deep: oklch(0.55 0.14 60);
+  --gold-soft: oklch(0.62 0.12 65 / .12);
+  --gold-line: oklch(0.62 0.12 65 / .32);
   --lapis: oklch(0.55 0.10 50);
   --line: oklch(0.55 0.04 65 / .18);
   --line-strong: oklch(0.55 0.04 65 / .32);
-  --neutral-tag-bg: oklch(0.50 0.03 60 / .06);
-  --neutral-tag-border: oklch(0.55 0.04 65 / .22);
 
   --display: 'Cormorant Garamond', 'Noto Serif TC', serif;
+  --serif: 'Noto Serif TC', serif;
+  --sans: 'Noto Sans TC', system-ui, sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, monospace;
 
-  --content-fs: clamp(14px, 0.875rem + 0.2vw, 15.5px);
+  --content-fs: 15px;
 
-  max-width: 1040px;
+  max-width: 920px;
   margin: 0 auto;
-  padding: 40px 40px 80px;
+  padding: 56px 40px 96px;
   color: var(--parch-50);
+
+  background-image:
+    radial-gradient(oklch(0.55 0.04 65 / 0.03) 1px, transparent 1px),
+    radial-gradient(oklch(0.55 0.04 65 / 0.018) 1px, transparent 1px);
+  background-size: 18px 18px, 11px 11px;
+  background-position: 0 0, 6px 9px;
 }
 
-/* -------- Focus styles (shared) -------- */
 .changelog-view :focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 3px;
   border-radius: 4px;
 }
 
-/* -------- PageHead -------- */
+/* ── Page head ── */
 .page-head {
-  margin-bottom: 28px;
+  margin-bottom: 56px;
 }
 .eyebrow {
   font-family: var(--mono);
   font-size: 11px;
-  letter-spacing: .3em;
+  letter-spacing: .35em;
   color: var(--gold);
   text-transform: uppercase;
-  margin-bottom: 10px;
+  margin-bottom: 14px;
 }
 .page-title {
   font-family: var(--display);
-  font-size: clamp(28px, 6vw, 44px);
+  font-style: italic;
   font-weight: 500;
-  letter-spacing: -0.01em;
+  font-size: clamp(40px, 7vw, 64px);
+  letter-spacing: -0.015em;
   margin: 0;
   color: var(--parch-50);
-  line-height: 1.05;
+  line-height: 1;
 }
-.page-subtitle {
-  margin: 10px 0 0;
+.page-stats {
+  margin: 14px 0 0;
   color: var(--fg-muted);
-  font-size: 14px;
-  max-width: 640px;
+  font-family: var(--serif);
+  font-size: 14.5px;
+  font-style: italic;
+}
+.stats-pin {
+  font-family: var(--mono);
+  font-style: normal;
+  color: var(--parch-100);
+  letter-spacing: .04em;
+}
+.stats-num {
+  font-family: var(--mono);
+  font-style: normal;
+  color: var(--gold-deep);
+  font-weight: 500;
 }
 
-/* -------- Mobile chip rail (hidden on desktop) -------- */
-.chip-rail {
-  display: none;
-}
-
-/* -------- Layout -------- */
+/* ── Layout ── */
 .layout {
   display: grid;
-  grid-template-columns: 180px 1fr;
-  gap: 28px;
+  grid-template-columns: 140px 1fr;
+  gap: 36px;
   align-items: flex-start;
 }
 
-/* -------- Rail (desktop) -------- */
+/* ── Rail ── */
 .rail {
   position: sticky;
   top: 24px;
@@ -754,11 +910,11 @@ function formatDateDots(iso: string) {
 .rail-header {
   font-family: var(--mono);
   font-size: 10px;
-  letter-spacing: .3em;
+  letter-spacing: .35em;
   color: var(--fg-faint);
   text-transform: uppercase;
   padding-left: 4px;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 .rail-list {
   position: relative;
@@ -817,15 +973,27 @@ function formatDateDots(iso: string) {
   transform: translateY(-50%) scale(1);
   transition: background-color .2s ease-out, border-color .2s ease-out, transform .2s ease-out, box-shadow .2s ease-out;
 }
+.rail-item--hero .rail-node {
+  background: var(--gold);
+  border-color: var(--gold-line);
+}
 .rail-mon {
   display: block;
   font-family: var(--display);
+  font-style: italic;
   font-weight: 500;
-  font-size: 18px;
+  font-size: 19px;
   letter-spacing: -.01em;
   line-height: 1;
   color: var(--fg-muted);
   transition: color .2s ease-out;
+}
+.rail-item--hero .rail-mon {
+  font-style: normal;
+  font-family: var(--serif);
+  font-weight: 600;
+  color: var(--parch-100);
+  font-size: 16px;
 }
 .rail-meta {
   display: block;
@@ -849,308 +1017,384 @@ function formatDateDots(iso: string) {
   transform: translateY(-50%) scale(1.4);
   box-shadow: 0 0 8px var(--gold-line);
 }
-.rail-item--active .rail-mon {
-  color: var(--parch-50);
-}
-.rail-item--active .rail-meta {
-  color: var(--gold);
-}
+.rail-item--active .rail-mon { color: var(--parch-50); }
+.rail-item--active .rail-meta { color: var(--gold); }
 
-/* -------- Content -------- */
+/* ── Mobile chip rail ── */
+.chip-rail { display: none; }
+
+/* ── Content ── */
 .content {
   display: flex;
   flex-direction: column;
-  gap: 36px;
   min-width: 0;
 }
 
-.month-section {
+/* ── HERO ── */
+.hero {
   scroll-margin-top: 24px;
+  margin-bottom: 64px;
 }
-
-.month-header {
+.hero-eyebrow {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 16px;
+  color: var(--gold-deep);
+  margin-bottom: 18px;
+}
+.hero-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 14px;
+  justify-content: space-between;
+  gap: 12px 24px;
   margin-bottom: 14px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--line);
 }
-.month-mon {
+.hero-title {
+  margin: 0;
   font-family: var(--display);
   font-weight: 500;
-  font-size: 28px;
-  letter-spacing: -.02em;
+  font-size: clamp(28px, 4.4vw, 40px);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
   color: var(--parch-50);
-  margin: 0;
-  line-height: 1;
-}
-.month-ym {
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--fg-faint);
-  letter-spacing: .2em;
-}
-.month-spacer {
-  flex: 1;
-}
-.month-count {
-  font-family: var(--mono);
-  font-size: 10.5px;
-  color: var(--fg-faint);
-  letter-spacing: .15em;
-}
-
-.entries {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-/* -------- Panel -------- */
-.panel {
-  background: linear-gradient(180deg, var(--app-surface), oklch(0.97 0.018 85));
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  overflow: hidden;
-  box-shadow:
-    inset 0 1px 0 oklch(1 0 0 / 0.6),
-    0 4px 18px oklch(0.40 0.05 60 / 0.06);
-}
-.panel--patch {
-  background: linear-gradient(180deg, oklch(0.97 0.020 85 / 0.55), oklch(0.95 0.025 85 / 0.55));
-}
-.panel-header {
   display: flex;
   align-items: baseline;
-  gap: 10px 14px;
-  padding: 14px 18px;
+  gap: 14px;
   flex-wrap: wrap;
 }
-.panel--collapsed .panel-header {
-  border-bottom: none;
-  padding-bottom: 14px;
-}
-.panel:not(.panel--collapsed) .panel-header {
-  border-bottom: 1px solid var(--line);
-}
-.panel-spacer {
-  flex: 1;
-}
-.panel-title {
-  font-family: var(--display);
-  font-weight: 500;
-  font-size: 19px;
-  line-height: 1.1;
-  letter-spacing: .01em;
-  color: var(--parch-50);
-  margin: 0;
+.ver-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
   display: inline-flex;
   align-items: baseline;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 12px;
 }
-.panel-title .ver { color: var(--parch-50); }
-.panel-title .codename {
-  color: var(--fg-muted);
-  font-style: italic;
-  font-size: 0.92em;
-}
-.panel-title .codename::before {
-  content: '·';
-  margin-right: 6px;
-  color: var(--fg-faint);
+.ver-btn:hover .ver { color: var(--gold-deep); }
+.ver { transition: color .15s ease-out; }
+.ver-copied {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .15em;
+  color: var(--gold);
+  font-weight: 500;
+  text-transform: uppercase;
   font-style: normal;
 }
-.panel-date {
-  font-size: 11.5px;
-  color: var(--fg-faint);
-  font-family: var(--mono);
-  letter-spacing: .08em;
+.codename {
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--fg-muted);
+  font-size: 0.78em;
+}
+.hero-meta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 14px;
   white-space: nowrap;
 }
-
-/* -------- Tag chip -------- */
-.tag {
+.hero-date {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: .12em;
+  color: var(--fg-faint);
+  text-transform: uppercase;
+}
+.hero-tag {
   font-family: var(--mono);
   font-size: 10.5px;
   letter-spacing: .25em;
-  padding: 3px 9px;
+  padding: 3px 10px;
   border: 1px solid currentColor;
   border-radius: 3px;
-  opacity: .9;
   white-space: nowrap;
-  flex-shrink: 0;
 }
 .tag--major { color: var(--gold); }
 .tag--minor { color: var(--lapis); }
 .tag--patch { color: var(--fg-faint); }
 
-/* -------- PATCH summary (collapsed) -------- */
-.patch-summary {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: none;
-  border-top: 1px dashed var(--line);
-  cursor: pointer;
-  padding: 12px 18px;
-  color: var(--fg-muted);
-  font: inherit;
-  font-size: var(--content-fs);
-  line-height: 1.55;
-  transition: color .15s ease-out, background-color .15s ease-out;
-}
-.patch-summary:hover {
-  color: var(--parch-100);
-  background: oklch(0.40 0.04 60 /.03);
-}
-.patch-summary-text {
-  flex: 1;
-  min-width: 0;
-}
-.patch-more {
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: .1em;
-  color: var(--fg-muted);
-  background: transparent;
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  padding: 1px 8px;
-  flex-shrink: 0;
-}
-.patch-chevron {
-  flex-shrink: 0;
-  color: var(--fg-faint);
-  transition: transform .2s ease-out;
-}
-.patch-summary:hover .patch-chevron {
-  color: var(--gold);
+.hero-rule {
+  margin: 6px 0 32px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    var(--gold) 0,
+    var(--gold) 56px,
+    var(--line-strong) 56px,
+    var(--line-strong) 100%
+  );
 }
 
-/* -------- Panel body -------- */
-.panel-body {
-  padding: 4px 18px 18px;
-}
-.hl-list {
+.hero-highlights {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 28px;
+  max-width: 62ch;
 }
-.hl-item {
-  display: grid;
-  grid-template-columns: minmax(0, auto) 1fr;
-  gap: 12px;
-  align-items: baseline;
-  color: var(--fg-muted);
+.hero-hl {
+  margin: 0;
+}
+.hero-hl-cat {
+  margin: 0 0 6px;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 17px;
+  line-height: 1.4;
+  color: var(--parch-50);
+}
+.hero-hl-text {
+  margin: 0;
+  font-family: var(--serif);
   font-size: var(--content-fs);
-  line-height: 1.7;
-}
-.panel-body--accent .hl-item {
+  line-height: 1.85;
   color: var(--parch-100);
 }
-.hl-cat {
-  font-family: var(--mono);
-  font-size: 10.5px;
-  letter-spacing: .12em;
-  color: var(--fg-muted);
-  background: var(--neutral-tag-bg);
-  border: 1px solid var(--neutral-tag-border);
-  border-radius: 3px;
-  padding: 2px 7px;
-  white-space: nowrap;
-  align-self: start;
-  margin-top: 2px;
-  text-transform: uppercase;
-}
-.panel--patch .hl-cat {
-  color: var(--fg-muted);
-  background: oklch(0.40 0.04 60 /.04);
-  border-color: var(--line-strong);
-}
-.hl-text {
-  min-width: 0;
-}
-/* Items without a category get a subtle bullet — muted, not gold */
-.hl-item:not(:has(.hl-cat))::before {
-  content: '';
-  display: inline-block;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--fg-faint);
-  margin: 0 6px 0 4px;
-  align-self: center;
-  grid-column: 1;
-}
-.hl-item:not(:has(.hl-cat)) .hl-text {
-  grid-column: 2;
-}
 
-.patch-collapse {
-  margin-top: 12px;
+.hero-expand {
+  margin-top: 32px;
   background: none;
-  border: 1px solid var(--line-strong);
-  color: var(--fg-faint);
+  border: 1px solid var(--gold-line);
+  color: var(--gold-deep);
   cursor: pointer;
-  padding: 6px 12px;
+  padding: 8px 18px;
   border-radius: 999px;
   font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: .15em;
-  transition: color .15s ease-out, border-color .15s ease-out;
+  font-size: 11.5px;
+  letter-spacing: .18em;
+  transition: color .15s ease-out, border-color .15s ease-out, background-color .15s ease-out;
 }
-.patch-collapse:hover {
+.hero-expand:hover {
+  background: var(--gold-soft);
+  border-color: var(--gold);
   color: var(--gold);
-  border-color: var(--gold-line);
 }
 
-/* -------- Reduced motion -------- */
+/* ── Archive divider ── */
+.archive-divider {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin: 0 0 36px;
+}
+.divider-label {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 16px;
+  color: var(--fg-muted);
+  flex-shrink: 0;
+}
+.divider-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--line-strong);
+}
+
+/* ── Month section ── */
+.month {
+  scroll-margin-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.month:last-child {
+  border-bottom: 1px solid var(--line);
+}
+
+.month-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 22px 4px 18px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: color .15s ease-out;
+}
+.month-head:hover { color: var(--gold-deep); }
+.month-mon {
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 30px;
+  letter-spacing: -.015em;
+  color: var(--parch-50);
+  margin: 0;
+  line-height: 1;
+}
+.month-zh {
+  font-family: var(--serif);
+  font-size: 13px;
+  color: var(--fg-faint);
+  letter-spacing: .08em;
+}
+.month-spacer { flex: 1; }
+.month-count {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--fg-faint);
+  letter-spacing: .2em;
+}
+.month-chev {
+  color: var(--fg-faint);
+  transition: transform .25s ease-out;
+}
+.month-chev.is-open {
+  transform: rotate(180deg);
+}
+
+/* ── Ledger ── */
+.ledger {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 18px;
+  display: flex;
+  flex-direction: column;
+}
+.row {
+  border-top: 1px dashed var(--line);
+}
+.row:first-child { border-top: none; }
+
+.row-summary {
+  display: grid;
+  grid-template-columns: 16px 64px 56px 1fr;
+  align-items: baseline;
+  gap: 14px;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 12px 4px;
+  text-align: left;
+  font: inherit;
+  color: var(--fg-muted);
+  transition: color .15s ease-out, background-color .15s ease-out;
+  border-radius: 2px;
+}
+.row-summary:hover {
+  color: var(--parch-100);
+  background: var(--gold-soft);
+}
+.row--open .row-summary {
+  color: var(--parch-50);
+}
+.row-dot {
+  font-size: 10px;
+  color: var(--fg-faint);
+  line-height: 1;
+  text-align: center;
+}
+.row--major .row-dot,
+.row--minor .row-dot { color: var(--gold); }
+.row--patch .row-dot { color: var(--fg-faint); }
+
+.row-ver {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--parch-100);
+  letter-spacing: .02em;
+}
+.row-date {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-faint);
+  letter-spacing: .08em;
+}
+.row-tail {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  overflow: hidden;
+}
+.row-codename {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--gold-deep);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.row-summary-text {
+  font-family: var(--serif);
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.row--open .row-summary-text { color: var(--parch-100); }
+
+.row-body {
+  padding: 4px 4px 22px 94px;
+}
+.row-hl-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  max-width: 62ch;
+}
+.row-hl {
+  font-family: var(--serif);
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--parch-100);
+}
+.row-hl-cat {
+  font-weight: 600;
+  color: var(--parch-50);
+}
+.row-hl-sep {
+  color: var(--fg-faint);
+  margin: 0 4px 0 1px;
+}
+
+/* ── Reduced motion ── */
 @media (prefers-reduced-motion: reduce) {
-  .rail-item,
-  .rail-bar,
-  .rail-node,
-  .rail-mon,
-  .rail-meta,
-  .patch-summary,
-  .patch-chevron,
-  .patch-collapse {
+  .rail-item, .rail-bar, .rail-node, .rail-mon, .rail-meta,
+  .month-head, .month-chev, .row-summary, .ver-btn, .ver,
+  .hero-expand {
     transition: none !important;
   }
 }
 
-/* -------- Responsive (mobile) -------- */
+/* ── Mobile ── */
 @media (max-width: 900px) {
   .changelog-view {
-    padding: 16px 16px 48px;
+    padding: 24px 16px 56px;
   }
   .layout {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 0;
   }
-  .rail {
-    display: none;
-  }
+  .rail { display: none; }
 
-  /* Sticky horizontal chip strip — sits right below the global mobile app bar */
   .chip-rail {
     display: flex;
     gap: 8px;
     overflow-x: auto;
     overflow-y: hidden;
-    margin: 0 -16px 16px;
+    margin: 0 -16px 28px;
     padding: 8px 16px;
     position: sticky;
     top: var(--mobile-app-bar-h, 52px);
     z-index: 10;
-    background: color-mix(in srgb, var(--app-bg, #10151f) 82%, transparent);
+    background: color-mix(in srgb, var(--app-bg) 82%, transparent);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     scrollbar-width: none;
@@ -1162,147 +1406,112 @@ function formatDateDots(iso: string) {
   .chip {
     flex-shrink: 0;
     display: inline-flex;
-    align-items: baseline;
-    gap: 6px;
-    padding: 8px 12px;
-    min-height: 40px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    padding: 6px 14px;
+    min-height: 44px;
     background: var(--app-surface);
     border: 1px solid var(--line-strong);
-    border-radius: 999px;
+    border-radius: 12px;
     color: var(--fg-muted);
     cursor: pointer;
     font: inherit;
     transition: color .15s ease-out, border-color .15s ease-out, background-color .15s ease-out;
   }
-  .chip-mon {
+  .chip-label {
     font-family: var(--display);
+    font-style: italic;
     font-weight: 500;
     font-size: 16px;
-    letter-spacing: -.01em;
+    line-height: 1.1;
   }
-  .chip-yr {
+  .chip-sub {
     font-family: var(--mono);
-    font-size: 10px;
+    font-size: 9.5px;
     letter-spacing: .15em;
     color: var(--fg-faint);
+    margin-top: 1px;
   }
-  .chip-count {
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--fg-faint);
-    background: oklch(0.40 0.04 60 /.06);
-    border-radius: 999px;
-    padding: 1px 7px;
-    margin-left: 2px;
+  .chip--hero .chip-label {
+    font-style: normal;
+    font-family: var(--serif);
+    font-weight: 600;
   }
   .chip--active {
-    color: oklch(0.99 0.01 90);
+    color: var(--ink-900);
     background: var(--gold);
     border-color: var(--gold);
   }
-  .chip--active .chip-mon { color: oklch(0.99 0.01 90); }
-  .chip--active .chip-yr,
-  .chip--active .chip-count {
-    color: oklch(0.99 0.01 90);
-    background: oklch(0.20 0.04 55 / 0.18);
+  .chip--active .chip-label,
+  .chip--active .chip-sub {
+    color: var(--ink-900);
   }
 
-  .month-section {
-    scroll-margin-top: calc(var(--mobile-app-bar-h, 52px) + 64px);
-  }
+  .hero { scroll-margin-top: calc(var(--mobile-app-bar-h, 52px) + 56px); margin-bottom: 48px; }
+  .month { scroll-margin-top: calc(var(--mobile-app-bar-h, 52px) + 56px); }
 
-  .page-title {
-    font-size: 32px;
-  }
-  .page-subtitle {
-    font-size: 13.5px;
-  }
+  .page-head { margin-bottom: 32px; }
+  .page-title { font-size: 38px; }
+  .page-stats { font-size: 13px; }
 
-  .panel-header {
-    padding: 12px 14px;
-    gap: 6px 10px;
-  }
-  .panel-title { font-size: 17px; }
-  .panel-body {
-    padding: 4px 14px 16px;
-  }
-  .patch-summary {
-    padding: 10px 14px;
-  }
+  .hero-title { font-size: 26px; }
+  .hero-meta { gap: 10px; }
 
-  /* On mobile: align category chip above text instead of inline grid */
-  .hl-item {
-    grid-template-columns: 1fr;
-    gap: 4px;
+  .hero-rule { margin: 8px 0 24px; }
+  .hero-highlights { gap: 22px; }
+  .hero-hl-cat { font-size: 16px; }
+
+  .archive-divider { margin-bottom: 24px; }
+
+  .month-head { padding: 18px 4px 14px; }
+  .month-mon { font-size: 26px; }
+
+  .row-summary {
+    grid-template-columns: 16px auto 1fr;
+    grid-template-rows: auto auto;
+    row-gap: 4px;
+    column-gap: 12px;
+    padding: 14px 4px;
   }
-  .hl-cat { justify-self: start; }
-  .hl-item:not(:has(.hl-cat))::before {
-    grid-column: 1;
-    margin-left: 0;
+  .row-dot { grid-row: 1 / span 2; align-self: start; padding-top: 4px; }
+  .row-ver { grid-column: 2; grid-row: 1; }
+  .row-date { grid-column: 3; grid-row: 1; justify-self: start; }
+  .row-tail {
+    grid-column: 2 / -1;
+    grid-row: 2;
+    flex-wrap: wrap;
+    gap: 4px 10px;
   }
-  .hl-item:not(:has(.hl-cat)) .hl-text {
-    grid-column: 1;
-  }
+  .row-summary-text { white-space: normal; }
+  .row-body { padding: 0 4px 18px 30px; }
 }
 </style>
 
 <!-- Dark mode token swap. Light theme drives an "Eorzean Codex on parchment"
-     metaphor; the same tokens read as a glowing cream stripe on dark surfaces.
-     Rebuild the palette around the dark warm-grey surface: cream → warm text,
-     parchment-cream gradient → flat surface lift, white inset → low-alpha
-     warm tint. Typography and layout stay untouched; only the pigment swaps. -->
+     metaphor; the same tokens read as a glowing cream stripe on dark surfaces. -->
 <style>
 [data-theme="dark"] .changelog-view {
-  /* Body text on dark surface — bright warm cream stack */
   --parch-50: oklch(0.94 0.010 80);
   --parch-100: oklch(0.86 0.012 78);
+  --parch-200: oklch(0.78 0.012 75);
   --ink-900: oklch(0.18 0.020 55);
   --fg-muted: oklch(0.68 0.012 70);
   --fg-faint: oklch(0.50 0.010 65);
-
-  /* Toast gold lifted for dark, chroma trimmed to avoid retina burn */
   --gold: oklch(0.74 0.13 68);
+  --gold-deep: oklch(0.80 0.12 70);
   --gold-soft: oklch(0.74 0.13 68 / 0.16);
   --gold-line: oklch(0.74 0.13 68 / 0.36);
-
-  /* Lapis (minor-version accent) — same hue, lifted */
   --lapis: oklch(0.72 0.10 50);
-
-  /* Lines — warm tint, alpha-on-dark needs higher % to read */
   --line: oklch(0.50 0.010 60 / 0.34);
   --line-strong: oklch(0.55 0.012 60 / 0.50);
 
-  /* Neutral tag — subtle warm wash + matching border */
-  --neutral-tag-bg: oklch(0.55 0.012 60 / 0.10);
-  --neutral-tag-border: oklch(0.50 0.012 60 / 0.34);
+  background-image:
+    radial-gradient(oklch(0.55 0.030 60 / 0.06) 1px, transparent 1px),
+    radial-gradient(oklch(0.55 0.030 60 / 0.04) 1px, transparent 1px);
 }
 
-/* Panel background: drop the parchment gradient, use flat surface with a hair
- * of vertical fade (0.24 → 0.21) so the panel still has gentle depth without
- * looking like a screen burn. */
-[data-theme="dark"] .changelog-view .panel {
-  background: linear-gradient(180deg, oklch(0.24 0.010 60), oklch(0.21 0.008 60));
-  box-shadow:
-    inset 0 1px 0 oklch(0.55 0.030 60 / 0.20),
-    0 4px 18px oklch(0.05 0.02 60 / 0.45);
-}
-
-/* Patch panels (older / collapsed entries) — drop a step lower so the eye
- * reads them as background relative to the active major patch. */
-[data-theme="dark"] .changelog-view .panel--patch {
-  background: linear-gradient(180deg, oklch(0.21 0.008 60), oklch(0.19 0.008 60));
-}
-
-/* Hover wash on collapsed patch summary — light hardcode wash needs to
- * re-tune for dark, otherwise hover is invisible. */
-[data-theme="dark"] .changelog-view .patch-summary:hover {
-  background: oklch(0.95 0.04 75 / 0.04);
-}
-
-/* Patch panel hl-cat tag — light hardcode (oklch 0.40 ... /.04) gets eaten
- * by the dark surface; bump to a visible warm tint. */
-[data-theme="dark"] .changelog-view .panel--patch .hl-cat {
-  background: oklch(0.55 0.012 60 / 0.10);
-  border-color: var(--line-strong);
+[data-theme="dark"] .changelog-view .row-summary:hover {
+  background: oklch(0.74 0.13 68 / .08);
 }
 </style>
