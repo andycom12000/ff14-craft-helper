@@ -55,7 +55,7 @@ watch(query, (value) => {
       loading.value = false
       trackEvent('search_query', {
         query: trimmed,
-        result_count: allResults.value.length,
+        result_count: filteredResults.value.length,
         source: 'recipe',
       })
     }
