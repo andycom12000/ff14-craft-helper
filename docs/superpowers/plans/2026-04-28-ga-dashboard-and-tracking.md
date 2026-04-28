@@ -416,9 +416,9 @@ describe('classifyGearBucket', () => {
     expect(classifyGearBucket(100, 2700, 2600)).toBe('entry')
   })
 
-  it('uses lv90 thresholds for non-cap level 87', () => {
-    // approx BiS at 90 cap: 4070/3900. 95% ~= 3867/3705
-    expect(classifyGearBucket(87, 3870, 3705)).toBe('bis')
+  it('uses lv80 thresholds for level 87 (floors to 80)', () => {
+    // approx BiS at 80 cap: 2700/2600. 95% = 2565/2470
+    expect(classifyGearBucket(87, 2565, 2470)).toBe('bis')
     expect(classifyGearBucket(87, 100, 100)).toBe('entry')
   })
 
