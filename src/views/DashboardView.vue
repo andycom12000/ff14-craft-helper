@@ -239,7 +239,7 @@ const tools = [
       </ul>
       <div class="dw-hero-cta-row">
         <span class="dw-hero-cta">開始規劃 →</span>
-        <span class="dw-hero-cta-meta">5 分鐘搞定一爐 100 件</span>
+        <span class="dw-hero-cta-meta">30 分鐘內搞定籌備任務</span>
       </div>
     </button>
 

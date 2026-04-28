@@ -182,10 +182,7 @@ function pickQueueRecipe(r: Recipe) {
           <section class="rail-section">
             <header class="rail-section-head">
               <span class="rail-section-label">模擬佇列</span>
-              <div class="rail-section-actions">
-                <el-button size="small" type="primary" text @click="searchSidebarOpen = true">搜尋</el-button>
-                <el-button v-if="recipeStore.simulationQueue.length > 0" size="small" text type="danger" @click="handleClearQueue()">清空</el-button>
-              </div>
+              <el-button v-if="recipeStore.simulationQueue.length > 0" size="small" text type="danger" @click="handleClearQueue()">清空</el-button>
             </header>
             <ul v-if="recipeStore.simulationQueue.length > 0" class="queue-list" role="list">
               <li
@@ -209,7 +206,16 @@ function pickQueueRecipe(r: Recipe) {
                 >✕</button>
               </li>
             </ul>
-            <p v-else class="rail-empty">尚無配方，點「搜尋」加入。</p>
+            <button
+              type="button"
+              class="search-cta"
+              :class="{ 'is-hero': recipeStore.simulationQueue.length === 0 }"
+              @click="searchSidebarOpen = true"
+            >
+              <span class="search-cta-icon" aria-hidden="true">⌕</span>
+              <span class="search-cta-label">{{ recipeStore.simulationQueue.length === 0 ? '搜尋配方' : '加入更多配方' }}</span>
+              <span class="search-cta-arrow" aria-hidden="true">→</span>
+            </button>
           </section>
 
           <section class="rail-section">
@@ -237,57 +243,6 @@ function pickQueueRecipe(r: Recipe) {
             </div>
 
             <div class="cockpit-body">
-              <div class="cockpit-sequence-col">
-                <section class="cockpit-section cockpit-section--sequence">
-                  <header class="cockpit-section-head">
-                    <span class="cockpit-section-label">技能序列<span v-if="simStore.actions.length" class="cockpit-section-count">{{ simStore.actions.length }}</span></span>
-                    <el-button v-if="simStore.actions.length" size="small" text type="danger" @click="handleClearActions">清空</el-button>
-                  </header>
-                  <ActionList
-                    :actions="simStore.actions"
-                    :results="simStore.simulationResults"
-                    :job="recipeJobAbbr"
-                    :show-header="false"
-                    @remove="handleRemoveAction"
-                    @clear="handleClearActions"
-                  />
-                </section>
-
-                <section class="cockpit-section cockpit-section--macro" :class="{ 'just-filled': macroJustFilled }">
-                  <header class="cockpit-section-head">
-                    <span class="cockpit-section-label">
-                      遊戲巨集
-                      <span v-if="simStore.actions.length" class="cockpit-section-count">{{ macros.length }}</span>
-                    </span>
-                    <div class="macro-quick-actions">
-                      <template v-if="macros.length === 1">
-                        <el-button size="small" type="primary" @click="copyMacro(macros[0], 0)">複製</el-button>
-                      </template>
-                      <template v-else-if="macros.length > 1">
-                        <el-button
-                          v-for="(_, mi) in macros"
-                          :key="mi"
-                          size="small"
-                          type="primary"
-                          @click="copyMacro(macros[mi], mi)"
-                        >
-                          巨集{{ mi + 1 }}
-                        </el-button>
-                      </template>
-                      <el-button
-                        v-if="macros.length > 0"
-                        size="small"
-                        @click="macroExpanded = !macroExpanded"
-                      >
-                        {{ macroExpanded ? '收起' : '展開' }}
-                      </el-button>
-                    </div>
-                  </header>
-                  <p v-if="macros.length === 0" class="rail-empty">尚無技能序列</p>
-                  <MacroExport v-else-if="macroExpanded" />
-                </section>
-              </div>
-
               <section class="cockpit-section cockpit-section--tool">
                 <header class="cockpit-tool-head">
                   <span class="cockpit-tool-eyebrow">模式</span>
@@ -327,6 +282,65 @@ function pickQueueRecipe(r: Recipe) {
                   />
                 </div>
               </section>
+
+              <div class="cockpit-sequence-col">
+                <section class="cockpit-section cockpit-section--sequence">
+                  <header class="cockpit-section-head">
+                    <span class="cockpit-section-label">技能序列<span v-if="simStore.actions.length" class="cockpit-section-count">{{ simStore.actions.length }}</span></span>
+                    <el-button v-if="simStore.actions.length" size="small" text type="danger" @click="handleClearActions">清空</el-button>
+                  </header>
+                  <ActionList
+                    v-if="simStore.actions.length > 0"
+                    :actions="simStore.actions"
+                    :results="simStore.simulationResults"
+                    :job="recipeJobAbbr"
+                    :show-header="false"
+                    @remove="handleRemoveAction"
+                    @clear="handleClearActions"
+                  />
+                  <!-- Progressive empty state: arrow points back to the
+                       solver/skill panel in the left column so a first-time
+                       user with no copy reads "the result will appear here". -->
+                  <div v-else class="seq-empty-pointer" aria-hidden="true">
+                    <span class="seq-empty-arrow">←</span>
+                    <p class="seq-empty-copy">
+                      <template v-if="simStore.mode === 'solver'">按啟動求解，序列會出現在這</template>
+                      <template v-else>點左邊技能，依序加進來</template>
+                    </p>
+                  </div>
+                </section>
+
+                <section class="cockpit-section cockpit-section--macro" :class="{ 'just-filled': macroJustFilled }">
+                  <header class="cockpit-section-head">
+                    <span class="cockpit-section-label">
+                      遊戲巨集
+                      <span v-if="simStore.actions.length" class="cockpit-section-count">{{ macros.length }}</span>
+                    </span>
+                    <el-button
+                      v-if="macros.length > 0"
+                      size="small"
+                      text
+                      @click="macroExpanded = !macroExpanded"
+                    >
+                      {{ macroExpanded ? '收起' : '展開' }}
+                    </el-button>
+                  </header>
+                  <div v-if="macros.length > 0" class="macro-cta-row">
+                    <button
+                      v-for="(_, mi) in macros"
+                      :key="mi"
+                      type="button"
+                      class="macro-cta"
+                      @click="copyMacro(macros[mi], mi)"
+                    >
+                      <span class="macro-cta-label">{{ macros.length === 1 ? '複製巨集' : `複製巨集 ${mi + 1}` }}</span>
+                      <span class="macro-cta-icon" aria-hidden="true">⧉</span>
+                    </button>
+                  </div>
+                  <p v-else class="rail-empty">技能序列出來後，巨集會自動生成</p>
+                  <MacroExport v-if="macros.length > 0 && macroExpanded" />
+                </section>
+              </div>
             </div>
 
             <!-- 2-col mode: HQ-related panels render INSIDE b-main as cockpit
@@ -827,11 +841,6 @@ function pickQueueRecipe(r: Recipe) {
   border-radius: 50%;
   background: var(--app-craft);
 }
-.rail-section-actions {
-  display: flex;
-  gap: 4px;
-}
-
 /* Marks an input section as optional. Lower visual weight than the label
    eyebrow itself so the user doesn't read it as a required step. */
 .optional-tag {
@@ -1022,10 +1031,12 @@ function pickQueueRecipe(r: Recipe) {
   border-top: 1px solid var(--app-border);
 }
 
-/* Cockpit body: 序列 + 巨集 column | tool column */
+/* Cockpit body: tool column | 序列 + 巨集 column
+   Left-to-right operation flow: pick skills/run solver (input) →
+   skill sequence appears (output) → copy macro. */
 .cockpit-body {
   display: grid;
-  grid-template-columns: minmax(220px, 30%) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 30%);
   gap: 20px;
   align-items: flex-start;
 }
@@ -1077,12 +1088,42 @@ function pickQueueRecipe(r: Recipe) {
 .cockpit-section--sequence > :deep(.action-list) { padding: 0; }
 .cockpit-section--sequence,
 .cockpit-section--macro { min-width: 0; }
-.macro-quick-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
 
+/* Progressive empty state for the sequence section.
+   Arrow nudges leftward toward the solver/skill panel; the copy is
+   italic Cormorant matching the brand's "quiet hint" voice. The whole
+   block disappears as soon as actions populate, so a returning user
+   never sees it again in the same session. */
+.seq-empty-pointer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 14px;
+  background: color-mix(in srgb, var(--app-craft) 4%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--app-craft) 26%, var(--app-border));
+  border-radius: 10px;
+}
+.seq-empty-arrow {
+  flex-shrink: 0;
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--app-craft);
+  animation: seq-empty-nudge 1.8s var(--ease-out-quart, ease-out) infinite;
+}
+@keyframes seq-empty-nudge {
+  0%, 60%, 100% { transform: translateX(0); }
+  30% { transform: translateX(-5px); }
+}
+.seq-empty-copy {
+  margin: 0;
+  font-family: 'Cormorant Garamond', 'Noto Serif TC', serif;
+  font-style: italic;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--app-text-muted);
+}
 /* One-shot pulse when actions transition empty → populated (solver done /
    first manual click). Telegraphs "the result landed here, copy from this row". */
 .cockpit-section--macro.just-filled {
@@ -1118,12 +1159,17 @@ function pickQueueRecipe(r: Recipe) {
   text-transform: uppercase;
   color: var(--app-text-muted);
 }
+/* Manual-mode aside (ConditionChips + ManualControls) sits flush with the
+   mode switch instead of drifting to the right edge — at wide column widths,
+   margin-left:auto fragmented the head into two distant clusters. A slim
+   vertical divider keeps the visual separation without the spacing. */
 .cockpit-tool-head-aside {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  margin-left: auto;
+  padding-left: 14px;
+  border-left: 1px solid var(--app-border);
 }
 
 /* Mode switch — recessed track + raised pill (iOS/macOS idiom). */
@@ -1232,22 +1278,9 @@ function pickQueueRecipe(r: Recipe) {
   cursor: not-allowed;
 }
 
-.cockpit-tool-body :deep(.solver-panel .solver-actions) {
-  justify-content: flex-start;
-}
-.cockpit-tool-body :deep(.solver-panel .solver-actions .el-button) {
-  min-height: 44px;
-  padding: 11px 32px;
-  font-size: 14px;
-  font-weight: 600;
-  border-radius: 10px;
-}
-
-/* Hide the "WASM 載入中..." status tag — disabled button already conveys
-   not-ready state and the tag pushes button out of alignment on remount. */
-.cockpit-tool-body :deep(.solver-panel .wasm-status) {
-  display: none;
-}
+/* SolverPanel's hero hub now owns its own button styling — see
+   SolverPanel.vue's .solver-cta block. The WASM "loading" hint rolls into
+   the hub copy, so no separate status-tag override is needed here. */
 
 /* SkillPanel — flatten the inner border-card el-tabs to a chip nav row */
 .cockpit-tool-body :deep(.skill-panel) {
@@ -1310,6 +1343,128 @@ function pickQueueRecipe(r: Recipe) {
 }
 
 /* ============================================================
+   Hero-secondary CTAs — search (left rail) + macro copy (sequence col)
+   Together with SolverPanel's solver-cta, these form the visual
+   triad of "the three actions you actually came here to do":
+     搜尋配方 → 啟動求解 → 複製巨集
+   All three share the toast-gold tone (--app-accent) and the lift+
+   glow behaviour. Loudness is state-aware: only the CTA matching
+   the current flow step glows; the others stay clearly clickable
+   without competing.
+   ============================================================ */
+.search-cta,
+.macro-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 16px;
+  background: var(--app-accent);
+  border: 1px solid var(--app-accent);
+  border-radius: 10px;
+  color: oklch(0.99 0.005 80);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--app-accent) 24%, transparent);
+  transition:
+    transform 0.18s var(--ease-out-quart, ease-out),
+    box-shadow 0.18s var(--ease-out-quart, ease-out),
+    background-color 0.18s var(--ease-out-quart, ease-out),
+    border-color 0.18s var(--ease-out-quart, ease-out);
+}
+.search-cta:hover,
+.macro-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--app-accent) 34%, transparent);
+}
+.search-cta:active,
+.macro-cta:active {
+  transform: translateY(0);
+}
+.search-cta:focus-visible,
+.macro-cta:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+
+/* Search CTA lives at the bottom of the queue section. */
+.search-cta {
+  margin-top: 12px;
+}
+
+/* Empty queue = step 1 of the flow is active = full hero treatment.
+   Slightly taller, soft outer halo telegraphs "this is where you start". */
+.search-cta.is-hero {
+  min-height: 52px;
+  font-size: 15px;
+  margin-top: 0;
+  box-shadow:
+    0 4px 14px color-mix(in srgb, var(--app-accent) 30%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--app-accent) 10%, transparent);
+}
+.search-cta.is-hero:hover {
+  box-shadow:
+    0 8px 22px color-mix(in srgb, var(--app-accent) 36%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--app-accent) 14%, transparent);
+}
+
+/* Queue has items = "add more" mode. Clearly clickable but not
+   competing with whatever comes next in the flow (solver / macro). */
+.search-cta:not(.is-hero) {
+  background: transparent;
+  color: var(--app-accent);
+  border-color: color-mix(in srgb, var(--app-accent) 42%, var(--app-border));
+  box-shadow: none;
+}
+.search-cta:not(.is-hero):hover {
+  background: color-mix(in srgb, var(--app-accent) 10%, transparent);
+  border-color: var(--app-accent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--app-accent) 18%, transparent);
+}
+
+.search-cta-icon,
+.macro-cta-icon {
+  flex-shrink: 0;
+  font-size: 15px;
+  line-height: 1;
+  opacity: 0.92;
+}
+.search-cta-arrow {
+  margin-left: auto;
+  font-size: 14px;
+  transition: transform 0.18s var(--ease-out-quart, ease-out);
+}
+.search-cta:hover .search-cta-arrow {
+  transform: translateX(3px);
+}
+
+/* Macro CTAs sit in their own row below the section header so they
+   can grow without crowding the label. Multiple macros wrap onto
+   shared rows of equal-width pills. */
+.macro-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.macro-cta {
+  flex: 1 1 140px;
+  width: auto;
+  justify-content: center;
+  gap: 8px;
+}
+.macro-cta-icon {
+  margin-left: 4px;
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+/* ============================================================
    Responsive fallbacks
    ============================================================ */
 
@@ -1349,9 +1504,19 @@ function pickQueueRecipe(r: Recipe) {
     overflow: visible;
   }
   .cockpit-body {
-    grid-template-columns: minmax(200px, 32%) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(200px, 32%);
     gap: 16px;
   }
+}
+
+/* < 1360: collapse the cockpit-body to a single column so the four
+   skill-toggle chips (工匠的神速技巧 / 掌握 / 心靈之手 / 快速改革) stay
+   on one line. Below ~460px tool-column width they wrap, which makes the
+   row feel like two unrelated chunks. The page-grid stays 2-col here —
+   only the inner cockpit collapses. Solver/skill panel stacks above
+   sequence + macro, preserving the top-to-bottom input → output flow. */
+@media (max-width: 1360px) {
+  .cockpit-body { grid-template-columns: 1fr; }
 }
 
 /* < 900: stack everything single-column */
@@ -1369,7 +1534,6 @@ function pickQueueRecipe(r: Recipe) {
     border-bottom: 1px solid var(--app-border);
   }
   .rail-right .rail-section:last-child { border-bottom: 0; }
-  .cockpit-body { grid-template-columns: 1fr; }
 }
 
 /* ============================================================

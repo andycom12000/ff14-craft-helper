@@ -56,9 +56,21 @@ const canHqIngredients = computed(() => {
     .filter(ing => ing.canHq)
 })
 
+/* Top-2 cheapest combos. The optimizer can return many viable combos; the
+   user only needs the two best to pick from. Sort puts known costs first;
+   Infinity (no HQ market price → must self-craft) sinks to the end and
+   only shows up if there are fewer than 2 priced options. */
+const topRecommendations = computed(() => {
+  return [...recommendations.value]
+    .sort((a, b) => a.totalCost - b.totalCost)
+    .slice(0, 2)
+})
+
 const missingPriceIngredients = computed(() => {
   if (!props.recipe) return []
-  const indices = new Set(recommendations.value.flatMap(r => r.missingPriceIndices))
+  // Scope to the combos we actually display, otherwise users see self-craft
+  // hints for ingredients only relevant to combos we hid.
+  const indices = new Set(topRecommendations.value.flatMap(r => r.missingPriceIndices))
   return [...indices].map(i => props.recipe!.ingredients[i])
 })
 
@@ -227,29 +239,41 @@ async function loadHqRecommendations() {
       <template v-else>
         <el-empty v-if="recommendations.length === 0" description="無法透過 HQ 素材達成品質需求" :image-size="60" />
 
-        <el-table v-else :data="recommendations" border size="small" style="width: 100%" class="hq-rec-table">
-          <el-table-column v-for="ing in canHqIngredients" :key="ing.index" :label="ing.name" align="center" min-width="80">
-            <template #default="{ row }">
-              <span v-if="row.hqAmounts[ing.index] > 0" class="hq-amount">HQ {{ row.hqAmounts[ing.index] }}</span>
-              <span v-else class="nq-amount">-</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="成本" align="right" width="120">
-            <template #default="{ row }">
-              <template v-if="row.totalCost === Infinity">
-                <el-tag type="warning" size="small">需自行製作</el-tag>
-              </template>
-              <template v-else>
-                {{ formatGil(row.totalCost) }}
-              </template>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" align="center" width="100">
-            <template #default="{ row }">
-              <el-button size="small" type="primary" @click="emit('apply-hq', row.hqAmounts)">套用</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+        <ul v-else class="hq-rec-list" role="list">
+          <li v-for="(rec, i) in topRecommendations" :key="i" class="hq-rec-row">
+            <div class="hq-rec-ings">
+              <span
+                v-for="ing in canHqIngredients"
+                :key="ing.index"
+                class="hq-rec-ing"
+                :class="{ 'is-hq': rec.hqAmounts[ing.index] > 0 }"
+              >
+                <ItemName :item-id="ing.itemId" :fallback="ing.name" />
+                <span class="hq-rec-ing-count">
+                  <template v-if="rec.hqAmounts[ing.index] > 0">HQ ×{{ rec.hqAmounts[ing.index] }}</template>
+                  <template v-else>NQ</template>
+                </span>
+              </span>
+            </div>
+            <div class="hq-rec-foot">
+              <span class="hq-rec-cost">
+                <el-tag v-if="rec.totalCost === Infinity" type="warning" size="small">需自行製作</el-tag>
+                <template v-else>
+                  <span class="hq-rec-cost-num">{{ formatGil(rec.totalCost) }}</span>
+                  <span class="hq-rec-cost-unit">Gil</span>
+                </template>
+              </span>
+              <button
+                type="button"
+                class="hq-rec-apply"
+                @click="emit('apply-hq', rec.hqAmounts)"
+              >
+                <span class="hq-rec-apply-label">套用</span>
+                <span class="hq-rec-apply-arrow" aria-hidden="true">→</span>
+              </button>
+            </div>
+          </li>
+        </ul>
 
         <div v-if="missingPriceIngredients.length > 0" class="self-craft-section">
           <p class="self-craft-hint">以下素材無 HQ 市場價，可考慮自製：</p>
@@ -308,12 +332,154 @@ async function loadHqRecommendations() {
   font-weight: 700;
 }
 
-.hq-amount {
-  color: var(--app-craft);
-  font-weight: 600;
+/* HQ recommendation list — top-2 cheapest combos rendered as cocoa-tinted
+   strips (NOT bordered cards — the rail-section above already has a rim,
+   nested cards are banned by the design system). The tint + rounded
+   corners + gap give each row clear separation without horizontal overflow,
+   which is what the old el-table couldn't deliver on dense recipes. */
+.hq-rec-list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
-.nq-amount {
+.hq-rec-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 14px;
+  background: color-mix(in srgb, var(--app-craft) 6%, transparent);
+  border-radius: 10px;
+  transition: background-color 0.15s var(--ease-out-quart, ease-out);
+}
+.hq-rec-row:hover {
+  background: color-mix(in srgb, var(--app-craft) 11%, transparent);
+}
+/* Cheapest combo (first row) gets a quiet "best pick" cue: a leading
+   accent line on the side. Doesn't fight the 套用 button for attention. */
+.hq-rec-row:first-child {
+  background: color-mix(in srgb, var(--app-craft) 9%, transparent);
+  position: relative;
+}
+.hq-rec-row:first-child::before {
+  content: '最低價';
+  position: absolute;
+  top: -7px;
+  left: 12px;
+  padding: 1px 8px;
+  background: var(--app-craft);
+  color: white;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+/* Ingredient pills — HQ ones pop in cocoa, NQ ones recede.
+   Constant ordering across rows (canHqIngredients order) so users can
+   scan vertically to compare options. */
+.hq-rec-ings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+.hq-rec-ing {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--app-surface);
+  border: 1px solid color-mix(in srgb, var(--app-border) 80%, transparent);
+  border-radius: 999px;
+  font-size: 12px;
   color: var(--app-text-muted);
+  opacity: 0.62;
+  transition: all 0.15s var(--ease-out-quart, ease-out);
+}
+.hq-rec-ing.is-hq {
+  background: color-mix(in srgb, var(--app-craft) 14%, var(--app-surface));
+  border-color: color-mix(in srgb, var(--app-craft) 42%, var(--app-border));
+  color: var(--app-text);
+  opacity: 1;
+}
+.hq-rec-ing-count {
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--app-text-muted);
+  white-space: nowrap;
+}
+.hq-rec-ing.is-hq .hq-rec-ing-count {
+  color: var(--app-craft);
+}
+
+/* Cost + apply row — always single-line, no wrap, no overflow.
+   套用 is the action; cost is reference. */
+.hq-rec-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.hq-rec-cost {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+}
+.hq-rec-cost-num {
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--app-text);
+  letter-spacing: 0.01em;
+}
+.hq-rec-cost-unit {
+  font-size: 11px;
+  color: var(--app-text-muted);
+  font-family: 'Fira Code', ui-monospace, monospace;
+}
+
+.hq-rec-apply {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  background: var(--app-accent);
+  border: 1px solid var(--app-accent);
+  border-radius: 8px;
+  color: oklch(0.99 0.005 80);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--app-accent) 22%, transparent);
+  transition:
+    transform 0.15s var(--ease-out-quart, ease-out),
+    box-shadow 0.15s var(--ease-out-quart, ease-out);
+}
+.hq-rec-apply:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 12px color-mix(in srgb, var(--app-accent) 32%, transparent);
+}
+.hq-rec-apply:active {
+  transform: translateY(0);
+}
+.hq-rec-apply:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+.hq-rec-apply-arrow {
+  font-size: 12px;
+  transition: transform 0.15s var(--ease-out-quart, ease-out);
+}
+.hq-rec-apply:hover .hq-rec-apply-arrow {
+  transform: translateX(2px);
 }
 
 .self-craft-section {
@@ -328,14 +494,5 @@ async function loadHqRecommendations() {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-@media (max-width: 640px) {
-  :deep(.hq-rec-table .el-table__cell),
-  :deep(.hq-rec-table .el-table__header th) {
-    padding-left: 4px;
-    padding-right: 4px;
-    font-size: 12px;
-  }
 }
 </style>

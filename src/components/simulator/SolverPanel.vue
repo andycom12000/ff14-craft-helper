@@ -157,10 +157,7 @@ onUnmounted(() => {
       </el-tooltip>
     </div>
 
-    <!-- WASM Status -->
-    <div v-if="wasmStatus === 'loading'" class="wasm-status">
-      <el-tag type="info" size="small">WASM 求解器載入中...</el-tag>
-    </div>
+    <!-- WASM error stays as full alert; "loading" rolls into the hub hint -->
     <el-alert
       v-if="wasmStatus === 'error'"
       title="WASM 求解器載入失敗"
@@ -171,35 +168,43 @@ onUnmounted(() => {
       style="margin-bottom: 12px"
     />
 
-    <!-- Actions -->
-    <div class="solver-actions">
-      <el-button
-        v-if="status !== 'solving'"
-        type="warning"
-        :disabled="wasmStatus !== 'ready'"
-        @click="handleSolve"
-      >
-        自動求解
-      </el-button>
-      <el-button
-        v-if="status === 'solving'"
-        type="danger"
-        @click="handleCancel"
-      >
-        取消求解
-      </el-button>
-    </div>
+    <!-- Hero hub — the focal point of the wide tool column.
+         Idle: oversized CTA + italic hint.
+         Solving: progress bar takes the same space + cancel.
+         A first-time user with no instruction lands here first. -->
+    <div class="solver-hub" :data-state="status">
+      <template v-if="status !== 'solving'">
+        <el-button
+          class="solver-cta"
+          type="warning"
+          :disabled="wasmStatus !== 'ready'"
+          @click="handleSolve"
+        >
+          <span class="solver-cta-label">啟動求解</span>
+          <span class="solver-cta-arrow" aria-hidden="true">→</span>
+        </el-button>
+        <p class="solver-hint">
+          <template v-if="wasmStatus === 'ready'">推算最佳手法 · 通常 5–10 秒</template>
+          <template v-else-if="wasmStatus === 'loading'">求解器載入中⋯ 馬上就好</template>
+          <template v-else>求解器無法啟動，請查看錯誤訊息</template>
+        </p>
+      </template>
 
-    <!-- Progress -->
-    <div v-if="status === 'solving'" class="solver-progress">
-      <el-progress
-        :percentage="progress"
-        :indeterminate="progress === 0"
-        :stroke-width="16"
-        striped
-        striped-flow
-      />
-      <el-text type="info" size="small" style="margin-top: 6px">正在求解中，請稍候...</el-text>
+      <template v-else>
+        <div class="solver-running">
+          <el-progress
+            :percentage="progress"
+            :indeterminate="progress === 0"
+            :stroke-width="12"
+            striped
+            striped-flow
+          />
+          <div class="solver-running-meta">
+            <span class="solver-hint">正在算最佳手法⋯</span>
+            <el-button class="solver-cancel" size="small" plain type="danger" @click="handleCancel">取消</el-button>
+          </div>
+        </div>
+      </template>
     </div>
 
     <!-- Error -->
@@ -265,24 +270,80 @@ onUnmounted(() => {
     flex-basis: 100%;
   }
 
-  .solver-actions :deep(.el-button) {
-    flex: 1;
+  .solver-cta {
+    width: 100%;
+    justify-content: center;
   }
 }
 
-.solver-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.solver-progress {
+/* ============================================================
+   Hero hub — the wide-column focal point.
+   The CTA dominates the cockpit's tool column so a first-time
+   user looking at the simulator with no instruction lands their
+   eye on this button.
+   ============================================================ */
+.solver-hub {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 12px 0;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0 4px;
 }
 
-.solver-progress .el-progress {
-  width: 100%;
+/* Oversized warning-tone CTA. Element Plus' size="large" caps below what we
+   want for a hero button, so we overrride min-height + padding directly. */
+.solver-hub :deep(.solver-cta) {
+  min-height: 56px;
+  padding: 0 32px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--app-craft) 28%, transparent);
+  transition:
+    transform 0.18s var(--ease-out-quart),
+    box-shadow 0.18s var(--ease-out-quart);
 }
+.solver-hub :deep(.solver-cta:not(.is-disabled):hover) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--app-craft) 34%, transparent);
+}
+.solver-hub :deep(.solver-cta.is-disabled) {
+  box-shadow: none;
+  opacity: 0.55;
+}
+.solver-cta-label { display: inline-block; }
+.solver-cta-arrow {
+  display: inline-block;
+  margin-left: 10px;
+  transition: transform 0.18s var(--ease-out-quart);
+}
+.solver-hub :deep(.solver-cta:not(.is-disabled):hover) .solver-cta-arrow {
+  transform: translateX(3px);
+}
+
+.solver-hint {
+  margin: 0;
+  font-family: 'Cormorant Garamond', 'Noto Serif TC', serif;
+  font-style: italic;
+  font-size: 15px;
+  color: var(--el-text-color-secondary);
+  letter-spacing: 0.01em;
+}
+
+.solver-running {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.solver-running :deep(.el-progress) { width: 100%; }
+.solver-running-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.solver-running-meta .solver-hint { margin: 0; }
 </style>
