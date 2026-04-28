@@ -1,6 +1,12 @@
-import { describe, it, expect } from 'vitest'
-import { aggregateByWorld } from '@/api/universalis'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { aggregateByWorld, getMarketData } from '@/api/universalis'
 import type { MarketListing } from '@/api/universalis'
+import { trackEvent } from '@/utils/analytics'
+
+vi.mock('@/utils/analytics', () => ({
+  trackEvent: vi.fn(),
+  trackError: vi.fn(),
+}))
 
 function makeListing(overrides: Partial<MarketListing>): MarketListing {
   return {
@@ -50,5 +56,50 @@ describe('aggregateByWorld', () => {
     expect(result).toHaveLength(1)
     expect(result[0].minPriceNQ).toBe(0)
     expect(result[0].minPriceHQ).toBe(900)
+  })
+})
+
+describe('universalis_fetch tracking', () => {
+  beforeEach(() => {
+    vi.mocked(trackEvent).mockClear()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('emits universalis_fetch with ok=true on 200', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ itemID: 5057, listings: [] }), { status: 200 }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await getMarketData('Tonberry', 5057)
+
+    expect(trackEvent).toHaveBeenCalledWith(
+      'universalis_fetch',
+      expect.objectContaining({
+        server: 'Tonberry',
+        item_count: 1,
+        ok: true,
+        status: 200,
+      }),
+    )
+    const call = vi.mocked(trackEvent).mock.calls[0][1]!
+    expect(typeof call.duration_ms).toBe('number')
+  })
+
+  it('emits universalis_fetch with ok=false on HTTP error', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response('Not Found', { status: 404, statusText: 'Not Found' }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(getMarketData('Tonberry', 5057)).rejects.toThrow()
+
+    expect(trackEvent).toHaveBeenCalledWith(
+      'universalis_fetch',
+      expect.objectContaining({ ok: false, status: 404, server: 'Tonberry' }),
+    )
   })
 })

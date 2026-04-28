@@ -1,6 +1,13 @@
+import { trackEvent } from '@/utils/analytics'
+
 const BASE_URL = 'https://universalis.app/api/v2'
 const REQUEST_TIMEOUT_MS = 20000
 const QUICK_REQUEST_TIMEOUT_MS = 8000
+
+interface FetchTracking {
+  server: string
+  item_count: number
+}
 
 export interface MarketListing {
   pricePerUnit: number
@@ -34,11 +41,20 @@ export interface World {
   name: string
 }
 
-async function fetchUniversalis<T>(path: string, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
+async function fetchUniversalis<T>(
+  path: string,
+  timeoutMs = REQUEST_TIMEOUT_MS,
+  tracking?: FetchTracking,
+): Promise<T> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
+  const startedAt = performance.now()
+  let status = 0
+  let ok = false
   try {
     const response = await fetch(`${BASE_URL}/${path}`, { signal: controller.signal })
+    status = response.status
+    ok = response.ok
     if (!response.ok) {
       throw new Error(`Universalis request failed: ${response.status} ${response.statusText}`)
     }
@@ -50,14 +66,24 @@ async function fetchUniversalis<T>(path: string, timeoutMs = REQUEST_TIMEOUT_MS)
     throw err
   } finally {
     clearTimeout(timer)
+    if (tracking) {
+      trackEvent('universalis_fetch', {
+        server: tracking.server,
+        item_count: tracking.item_count,
+        duration_ms: Math.round(performance.now() - startedAt),
+        ok,
+        status,
+      })
+    }
   }
 }
 
-export function getMarketData(
-  server: string,
-  itemId: number
-): Promise<MarketData> {
-  return fetchUniversalis(`${encodeURIComponent(server)}/${itemId}`)
+export function getMarketData(server: string, itemId: number): Promise<MarketData> {
+  return fetchUniversalis(
+    `${encodeURIComponent(server)}/${itemId}`,
+    REQUEST_TIMEOUT_MS,
+    { server, item_count: 1 },
+  )
 }
 
 export async function getAggregatedPrices(
@@ -80,6 +106,8 @@ export async function getAggregatedPrices(
     const ids = chunk.join(',')
     const data = await fetchUniversalis<MarketData | { items: Record<string, MarketData> }>(
       `${encodeURIComponent(server)}/${ids}`,
+      REQUEST_TIMEOUT_MS,
+      { server, item_count: chunk.length },
     )
     if (chunk.length === 1) {
       result.set(chunk[0], data as MarketData)
@@ -162,11 +190,12 @@ export interface WorldPriceSummary {
   listingCount: number
 }
 
-export function getMarketDataByDC(
-  dcName: string,
-  itemId: number
-): Promise<MarketData> {
-  return fetchUniversalis(`${encodeURIComponent(dcName)}/${itemId}`)
+export function getMarketDataByDC(dcName: string, itemId: number): Promise<MarketData> {
+  return fetchUniversalis(
+    `${encodeURIComponent(dcName)}/${itemId}`,
+    REQUEST_TIMEOUT_MS,
+    { server: dcName, item_count: 1 },
+  )
 }
 
 export function aggregateByWorld(listings: MarketListing[]): WorldPriceSummary[] {
