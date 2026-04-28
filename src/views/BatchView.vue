@@ -6,6 +6,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { useGearsetsStore } from '@/stores/gearsets'
 import { runBatchOptimization } from '@/services/batch-optimizer'
 import { SOLVE_CANCELLED } from '@/solver/worker'
+import { trackEvent, trackError } from '@/utils/analytics'
 import CostSummaryPanel from '@/components/batch/CostSummaryPanel.vue'
 import BatchList from '@/components/batch/BatchList.vue'
 import BatchSettings from '@/components/batch/BatchSettings.vue'
@@ -153,6 +154,14 @@ async function startOptimization() {
   batchStore.clearResults()
   expandedSections.value = new Set()
 
+  const startedAt = performance.now()
+  trackEvent('batch_optimization_start', {
+    target_count: batchStore.targets.length,
+    total_quantity: batchStore.targets.reduce((sum, t) => sum + t.quantity, 0),
+    calc_mode: batchStore.calcMode,
+    cross_server: settings.crossServer,
+  })
+
   try {
     const results = await runBatchOptimization(
       batchStore.targets,
@@ -186,12 +195,21 @@ async function startOptimization() {
       () => batchStore.isCancelled,
     )
     batchStore.results = results
+    trackEvent('batch_optimization_complete', {
+      duration_ms: Math.round(performance.now() - startedAt),
+      target_count: batchStore.targets.length,
+      todo_count: results.todoList.length,
+    })
   } catch (err) {
     if (err instanceof Error && err.message === SOLVE_CANCELLED) {
       ElMessage.info('已取消計算')
+      trackEvent('batch_optimization_cancelled')
     } else {
+      const message = err instanceof Error ? err.message : String(err)
       console.error('[BatchView] Optimization failed:', err)
-      ElMessage.error(`最佳化計算失敗：${err instanceof Error ? err.message : String(err)}`)
+      ElMessage.error(`最佳化計算失敗：${message}`)
+      trackEvent('batch_optimization_failed', { reason: message })
+      trackError(`batch_optimization_failed: ${message}`)
     }
   } finally {
     batchStore.isRunning = false
@@ -200,6 +218,10 @@ async function startOptimization() {
 
 function handleAddRecipe(recipe: import('@/stores/recipe').Recipe) {
   batchStore.addTarget(recipe)
+  trackEvent('batch_add_recipe', {
+    recipe_id: recipe.id,
+    target_count: batchStore.targets.length,
+  })
   ElMessage.success(`已加入「${recipe.name}」`)
 }
 

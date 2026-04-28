@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
+import { trackPageView } from '@/utils/analytics'
 
 const router = createRouter({
   history: createWebHashHistory(),
@@ -58,6 +59,10 @@ const router = createRouter({
       meta: { title: '設定' },
     },
   ],
+})
+
+router.afterEach((to) => {
+  trackPageView(to.fullPath, to.meta.title as string | undefined)
 })
 
 export default router

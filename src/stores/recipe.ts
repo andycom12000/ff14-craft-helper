@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { trackEvent } from '@/utils/analytics'
 
 export interface Ingredient {
   itemId: number
@@ -43,6 +44,11 @@ export const useRecipeStore = defineStore('recipe', () => {
 
   function setRecipe(recipe: Recipe) {
     currentRecipe.value = recipe
+    trackEvent('recipe_select', {
+      recipe_id: recipe.id,
+      job: recipe.job,
+      level: recipe.level,
+    })
   }
 
   function clearRecipe() {
@@ -52,6 +58,10 @@ export const useRecipeStore = defineStore('recipe', () => {
   function addToQueue(recipe: Recipe) {
     if (simulationQueue.value.some(r => r.id === recipe.id)) return
     simulationQueue.value.push(recipe)
+    trackEvent('queue_add_recipe', {
+      recipe_id: recipe.id,
+      queue_size: simulationQueue.value.length,
+    })
   }
 
   function removeFromQueue(recipeId: number) {

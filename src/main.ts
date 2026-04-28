@@ -6,8 +6,28 @@ import App from './App.vue'
 import router from './router'
 import { useLocaleStore } from '@/stores/locale'
 import { useThemeStore } from '@/stores/theme'
+import { trackError } from '@/utils/analytics'
 
 const app = createApp(App)
+
+window.addEventListener('error', (event) => {
+  trackError(event.message, {
+    filename: event.filename,
+    lineno: event.lineno,
+    colno: event.colno,
+  })
+})
+
+window.addEventListener('unhandledrejection', (event) => {
+  const reason = event.reason instanceof Error ? event.reason.message : String(event.reason)
+  trackError(`Unhandled rejection: ${reason}`)
+})
+
+app.config.errorHandler = (err, _instance, info) => {
+  const message = err instanceof Error ? err.message : String(err)
+  trackError(`Vue error: ${message}`, { hook: info })
+  console.error(err)
+}
 
 const pinia = createPinia()
 pinia.use(piniaPluginPersistedstate)

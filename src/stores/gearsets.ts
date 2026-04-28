@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { JOB_NAMES, JOB_ABBR } from '@/utils/jobs'
+import { trackEvent } from '@/utils/analytics'
 
 export interface GearsetStats {
   level: number
@@ -48,6 +49,9 @@ export const useGearsetsStore = defineStore('gearsets', () => {
     for (const job of Object.keys(gearsets.value)) {
       gearsets.value[job] = { ...gearsets.value[job], ...defined }
     }
+    trackEvent('gearset_apply_all', {
+      fields: Object.keys(defined).join(','),
+    })
   }
 
   // Migrate from old array format and ensure all jobs exist

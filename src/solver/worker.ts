@@ -4,6 +4,7 @@
  */
 
 import type { SolverConfig, SolverResult, SolverResponse, SimulateResult, SimulateDetailResult } from './raphael'
+import { trackEvent, trackError } from '@/utils/analytics'
 
 export const SOLVE_CANCELLED = '求解已取消'
 
@@ -42,6 +43,7 @@ function getWorker(): Worker {
       } else if (data.type === 'init-error') {
         wasmStatus = 'error'
         wasmErrorMessage = data.error ?? 'WASM 初始化失敗'
+        trackError('wasm_load_failed', { reason: wasmErrorMessage })
         const waiters = wasmErrorWaiters.splice(0)
         wasmReadyWaiters.length = 0
         for (const cb of waiters) cb(wasmErrorMessage)
@@ -104,6 +106,12 @@ export function solveCraft(
   return new Promise<SolverResult>((resolve, reject) => {
     const w = getWorker()
     currentReject = reject
+    const startedAt = performance.now()
+    trackEvent('solver_start', {
+      crafter_level: config.crafter_level,
+      recipe_level: config.recipe_level,
+      hq_target: config.hq_target,
+    })
 
     // Solve still uses onmessage (only one solve at a time)
     const prevHandler = w.onmessage
@@ -119,16 +127,25 @@ export function solveCraft(
       } else if (data.type === 'result' && data.result) {
         currentReject = null
         w.onmessage = prevHandler
+        trackEvent('solver_complete', {
+          duration_ms: Math.round(performance.now() - startedAt),
+          action_count: data.result.actions.length,
+          steps: data.result.steps,
+        })
         resolve(data.result)
       } else if (data.type === 'error') {
         currentReject = null
         w.onmessage = prevHandler
-        reject(new Error(data.error ?? '求解器發生未知錯誤'))
+        const message = data.error ?? '求解器發生未知錯誤'
+        trackEvent('solver_failed', { reason: message })
+        trackError(`solver_failed: ${message}`)
+        reject(new Error(message))
       }
     }
 
     w.onerror = (err) => {
       currentReject = null
+      trackError(`solver_worker_error: ${err.message}`)
       reject(new Error(`Worker error: ${err.message}`))
     }
 
