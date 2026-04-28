@@ -11,8 +11,13 @@ let worker: Worker | null = null
 let currentReject: ((reason: Error) => void) | null = null
 let wasmStatus: 'loading' | 'ready' | 'error' = 'loading'
 let wasmErrorMessage: string | null = null
-let onWasmReady: (() => void) | null = null
-let onWasmError: ((error: string) => void) | null = null
+// Multiple components (SolverPanel, CraftRecommendation, …) can call
+// waitForWasm() concurrently — especially right after a route remount when
+// every consumer re-registers at once. A single-slot callback would overwrite
+// the previous waiter and leave it hanging forever, which manifests as
+// "HQ 推薦消失" after navigating away and back. Keep a queue.
+const wasmReadyWaiters: Array<() => void> = []
+const wasmErrorWaiters: Array<(error: string) => void> = []
 
 // Request ID counter and pending callbacks for multiplexing
 let nextRequestId = 0
@@ -31,13 +36,15 @@ function getWorker(): Worker {
       const data = e.data
       if (data.type === 'ready') {
         wasmStatus = 'ready'
-        onWasmReady?.()
-        onWasmReady = null
+        const waiters = wasmReadyWaiters.splice(0)
+        wasmErrorWaiters.length = 0
+        for (const cb of waiters) cb()
       } else if (data.type === 'init-error') {
         wasmStatus = 'error'
         wasmErrorMessage = data.error ?? 'WASM 初始化失敗'
-        onWasmError?.(wasmErrorMessage)
-        onWasmError = null
+        const waiters = wasmErrorWaiters.splice(0)
+        wasmReadyWaiters.length = 0
+        for (const cb of waiters) cb(wasmErrorMessage)
       } else if (data.requestId !== undefined) {
         // Routed response for simulate/simulate-detail
         const pending = pendingRequests.get(data.requestId)
@@ -67,8 +74,8 @@ export function waitForWasm(): Promise<void> {
   if (wasmStatus === 'error') return Promise.reject(new Error(wasmErrorMessage ?? 'WASM 初始化失敗'))
 
   return new Promise<void>((resolve, reject) => {
-    onWasmReady = resolve
-    onWasmError = (err) => reject(new Error(err))
+    wasmReadyWaiters.push(resolve)
+    wasmErrorWaiters.push((err) => reject(new Error(err)))
   })
 }
 
@@ -215,4 +222,8 @@ export function disposeWorker(): void {
   wasmErrorMessage = null
   currentReject = null
   pendingRequests.clear()
+  // Drop pending waiters; the next getWorker() will spin up a fresh
+  // 'ready' lifecycle and any new caller will register against that.
+  wasmReadyWaiters.length = 0
+  wasmErrorWaiters.length = 0
 }
