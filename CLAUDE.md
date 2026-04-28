@@ -23,6 +23,20 @@
 - Vue 3 + Pinia + Element Plus + Vite + TypeScript
 - Raphael-rs WASM solver（多執行緒，需 SharedArrayBuffer / COOP+COEP）
 
+## Temp Files & Scratch Artifacts
+任何「驗證截圖、暫時 mockup、比對 before/after、benchmark output」等**不該被 commit** 的檔案，一律放進 `.tmp/`，依用途分子目錄：
+
+- `.tmp/screenshots/` — Chrome DevTools / 視覺驗證截圖（檔名建議 `<task>-<n>.png`）
+- `.tmp/compare/<task>/{before,after}/` — UI 改版前後比對
+- `.tmp/scratch/` — 其他臨時檔（OCR 樣本、HTML mockup、log dump…）
+
+整個 `.tmp/` 已在 `.gitignore`，要清空時：
+```bash
+rm -rf .tmp/
+```
+
+**不要**把暫存檔散在 project root（`.tmp-*.png`、`tmp-compare/`、`audit-*.png`、`ui-verify-*.png` 都是過去的反例）。Chrome DevTools MCP 的 `take_screenshot` 也要把 `filePath` 指到 `.tmp/screenshots/...`。
+
 ## Brand & Design Context
 - 主品牌名：**吐司工坊（Toast Workshop）**；副線：**FFXIV 製作助手**（用於 logo 旁與 SEO meta）
 - 主打功能：批量製作（Batch Crafting）— 視覺與 sidebar 已將其置於 Tier 1

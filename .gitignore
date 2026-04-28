@@ -42,9 +42,10 @@ raphael-wasm-wrapper/target/
 # ETL data cache (game data build script)
 .data-cache/
 
-# Scratch screenshots at repo root (verification/testing artifacts from Claude runs)
-/*.png
+# Scratch / temp artifacts — see CLAUDE.md "Temp Files & Scratch Artifacts"
+.tmp/
 
-# Scratch comparison / brainstorm dirs
+# Legacy scratch locations kept ignored for safety (new files should land in .tmp/)
+/*.png
 tmp-compare/
 .superpowers/
