@@ -43,7 +43,11 @@ function getWorker(): Worker {
       } else if (data.type === 'init-error') {
         wasmStatus = 'error'
         wasmErrorMessage = data.error ?? 'WASM 初始化失敗'
-        trackError('wasm_load_failed', { reason: wasmErrorMessage })
+        trackEvent('wasm_load_failed', {
+          reason: wasmErrorMessage,
+          fallback_used: false,
+        })
+        trackError(`WASM init failed: ${wasmErrorMessage}`)
         const waiters = wasmErrorWaiters.splice(0)
         wasmReadyWaiters.length = 0
         for (const cb of waiters) cb(wasmErrorMessage)
