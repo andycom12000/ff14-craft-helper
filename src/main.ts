@@ -49,3 +49,15 @@ useThemeStore()
 app.mount('#app')
 
 registerWebVitals()
+
+// Canary: GitHub Pages COOP/COEP headers should keep us isolated. If they
+// break, this scorecard in C section will start firing and we notice fast.
+if (typeof crossOriginIsolated === 'boolean' && !crossOriginIsolated) {
+  const SAB_KEY = 'ff14ch.sab_unavailable_sent'
+  if (!sessionStorage.getItem(SAB_KEY)) {
+    import('@/utils/analytics').then(({ trackEvent }) => {
+      trackEvent('sab_unavailable')
+      sessionStorage.setItem(SAB_KEY, '1')
+    })
+  }
+}
