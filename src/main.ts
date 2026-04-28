@@ -7,6 +7,7 @@ import router from './router'
 import { useLocaleStore } from '@/stores/locale'
 import { useThemeStore } from '@/stores/theme'
 import { trackError } from '@/utils/analytics'
+import { registerWebVitals } from '@/utils/web-vitals-tracking'
 
 const app = createApp(App)
 
@@ -46,3 +47,5 @@ useLocaleStore()
 useThemeStore()
 
 app.mount('#app')
+
+registerWebVitals()
