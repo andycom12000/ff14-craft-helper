@@ -18,6 +18,19 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: 'v2.4.0',
+    date: '2026-04-28',
+    codename: 'Open Counter',
+    highlights: [
+      '【Dashboard 寬螢幕版面】首頁改為寬螢幕專屬 editorial layout，把批量製作做成 hero 切片區塊，桌面寬螢幕視野完整利用；非寬螢幕沿用既有版型',
+      '【模擬器寬螢幕 Cockpit】模擬器改為寬螢幕 cockpit layout，加入 flow breadcrumb 流程列；solver 控制區改為 hero hub（大 CTA + italic hint），求解中以 progress bar + 取消鈕共占同一空間',
+      '【HQ 推薦清單重設計】HQ 推薦從表格改為 top-2 可可色清單，凸顯最便宜兩組，套用按鈕重設計；缺價提示也只針對實際顯示的組合',
+      '【更新日誌 Parchment Poet 重設計】最新版本升格為 hero（Cormorant italic eyebrow + 金線 underline + 雙行 highlight）；舊版本改為月份 ledger（dot ● 重大／更新、○ 修正 + 一行摘要），密度與可讀性大幅提升',
+      '【修正 HQ 推薦消失 bug】路由切換回模擬器後 HQ 推薦偶爾不出現：WASM ready waiter 從單一 callback slot 改為 queue，多元件並發 register 不再互相蓋掉',
+      '【Dashboard 文案】批量製作 CTA 副文案從「5 分鐘搞定一爐 100 件」改為「30 分鐘內搞定籌備任務」，更貼近實際使用情境',
+    ],
+  },
+  {
     version: 'v2.3.0',
     date: '2026-04-27',
     codename: 'Toast Workshop',
