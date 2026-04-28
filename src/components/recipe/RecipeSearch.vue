@@ -3,6 +3,7 @@ import { ref, computed, watch, onUnmounted } from 'vue'
 import { Search } from '@element-plus/icons-vue'
 import { searchRecipes, type RecipeSearchResult } from '@/api/xivapi'
 import ItemName from '@/components/common/ItemName.vue'
+import { trackEvent } from '@/utils/analytics'
 
 const CRAFT_JOBS = ['木工', '鍛造', '甲冑', '金工', '皮革', '裁縫', '鍊金', '烹調'] as const
 
@@ -52,6 +53,11 @@ watch(query, (value) => {
       allResults.value = []
     } finally {
       loading.value = false
+      trackEvent('search_query', {
+        query: trimmed,
+        result_count: allResults.value.length,
+        source: 'recipe',
+      })
     }
   }, 200)
 })
