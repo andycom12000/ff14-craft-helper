@@ -18,6 +18,15 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: 'v2.6.0',
+    date: '2026-04-28',
+    highlights: [
+      '【觀測指標擴充】補上 Web Vitals（LCP / CLS / INP / FCP / TTFB）、Universalis 市場 API 成功率與耗時、求解器裝備區段（entry / mid / bis 三段）、配方搜尋關鍵字與無結果率、WASM 載入失敗與 SharedArrayBuffer 不可用的 canary 事件',
+      '【內部】GA4 註冊 24 個 custom dimension / metric，並建立「吐司工坊」儀表板的 4 區塊（使用者規模 / 功能使用 / 效能與穩定 / 玩家洞察）',
+      '【內部】新增 web-vitals 套件、gear-bucket 分類器與單元測試；Universalis fetch 重構為支援可選追蹤參數，metadata 端點不污染成功率指標',
+    ],
+  },
+  {
     version: 'v2.5.0',
     date: '2026-04-28',
     highlights: [
