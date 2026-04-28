@@ -18,6 +18,16 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: 'v2.5.0',
+    date: '2026-04-28',
+    highlights: [
+      '【主題切換移到頁首】右上角新增 light / dark 切換按鈕，一鍵切換主題；設定頁的主題選擇器同步移除避免重複',
+      '【匿名使用統計】補上頁面瀏覽、求解器、批量製作、配方選擇等事件的匿名統計，未來可依實際使用狀況排序新功能優先序；production 錯誤也會自動上報以便回頭排查（不收集任何個人資料）',
+      '【設計系統文件】新增 DESIGN.md / DESIGN.json，把吐司工坊的色票、字體、間距、元件 token 正式定稿',
+      '【內部】.tmp/ 暫存目錄正式列入慣例，驗證截圖與 UI 比對素材集中管理；mobile UX backlog 文件整理',
+    ],
+  },
+  {
     version: 'v2.4.0',
     date: '2026-04-28',
     codename: 'Open Counter',
