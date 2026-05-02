@@ -36,6 +36,8 @@ export interface Recipe {
   materialQualityFactor: number
   ingredients: Ingredient[]
   recipeLevelTable: RecipeLevelTable
+  // Sentinel for user-authored recipes; downstream skips Universalis + BOM lookups.
+  isCustom?: boolean
 }
 
 export const useRecipeStore = defineStore('recipe', () => {

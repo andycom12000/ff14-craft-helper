@@ -94,6 +94,9 @@ watch(() => props.solverResult, async (result) => {
     qualityDeficit.value = simResult.max_quality - effectiveQuality
     analyzed.value = true
 
+    // Custom recipes have no ingredients/itemId; skip BOM + Universalis lookups.
+    if (props.recipe.isCustom) return
+
     if (isMaxProgress.value && isMaxQuality.value) {
       await loadBom()
     } else if (isMaxProgress.value && !isMaxQuality.value) {
@@ -215,17 +218,20 @@ async function loadHqRecommendations() {
     <template v-if="scenario === 'maxed'">
       <p class="scenario-status scenario-status--maxed">
         <span class="scenario-status-icon" aria-hidden="true">✓</span>
-        已達雙滿，照下方採購即可
+        {{ recipe!.isCustom ? '已達雙滿' : '已達雙滿，照下方採購即可' }}
       </p>
-      <el-skeleton v-if="bomLoading" :rows="4" animated />
-      <BomSummary
-        v-else-if="flatMaterials.length > 0"
-        :materials="flatMaterials"
-        :prices="prices"
-        :target-item-ids="[recipe!.itemId]"
-        :material-tree="bomTree"
-        @refresh-prices="refreshPrices"
-      />
+      <p v-if="recipe!.isCustom" class="custom-recipe-notice">自訂配方僅顯示求解狀態，不查市場價格與材料樹。</p>
+      <template v-else>
+        <el-skeleton v-if="bomLoading" :rows="4" animated />
+        <BomSummary
+          v-else-if="flatMaterials.length > 0"
+          :materials="flatMaterials"
+          :prices="prices"
+          :target-item-ids="[recipe!.itemId]"
+          :material-tree="bomTree"
+          @refresh-prices="refreshPrices"
+        />
+      </template>
     </template>
 
     <!-- Scenario B: 品質不足 (suggest HQ ingredient combos) -->
@@ -235,7 +241,8 @@ async function loadHqRecommendations() {
         / {{ maxQuality?.toLocaleString() }}
         （缺 <strong>{{ qualityDeficit?.toLocaleString() }}</strong>，補幾組 HQ 素材就能補上）
       </p>
-      <el-skeleton v-if="hqLoading" :rows="3" animated />
+      <p v-if="recipe!.isCustom" class="custom-recipe-notice">自訂配方無 HQ 素材推薦，請手動調整技能或裝備數值補上品質。</p>
+      <el-skeleton v-else-if="hqLoading" :rows="3" animated />
       <template v-else>
         <el-empty v-if="recommendations.length === 0" description="無法透過 HQ 素材達成品質需求" :image-size="60" />
 
@@ -302,6 +309,15 @@ async function loadHqRecommendations() {
   font-size: 13px;
   line-height: 1.55;
   color: var(--app-text);
+}
+.custom-recipe-notice {
+  margin: 4px 0 0;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--app-text-muted);
+  background: color-mix(in srgb, var(--app-craft) 6%, transparent);
+  border-radius: 8px;
 }
 .scenario-status strong {
   font-family: 'Fira Code', ui-monospace, monospace;

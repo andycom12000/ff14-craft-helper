@@ -239,6 +239,10 @@ export function useSimulator() {
 
   function handleAddToBom() {
     if (!recipe.value) return
+    if (recipe.value.isCustom) {
+      ElMessage.warning('自訂配方無材料資訊，無法加入購物清單')
+      return
+    }
     bomStore.addTarget({
       itemId: recipe.value.itemId,
       recipeId: recipe.value.id,

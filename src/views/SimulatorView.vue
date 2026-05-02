@@ -24,6 +24,7 @@ import SkillPanel from '@/components/simulator/SkillPanel.vue'
 import ConditionChips from '@/components/simulator/ConditionChips.vue'
 import ManualControls from '@/components/simulator/ManualControls.vue'
 import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
+import CustomRecipeDialog from '@/components/simulator/CustomRecipeDialog.vue'
 import AppEmptyState from '@/components/common/AppEmptyState.vue'
 import ItemName from '@/components/common/ItemName.vue'
 
@@ -41,6 +42,9 @@ const isTwoCol = useMediaQuery('(max-width: 1720px)')
 const setupOpen = ref(false)
 const macroOpen = ref(false)
 const queueSheetOpen = ref(false)
+
+/* Custom recipe dialog (shared by desktop + mobile entries) */
+const customRecipeDialogOpen = ref(false)
 
 const {
   recipeStore, simStore,
@@ -195,8 +199,13 @@ function pickQueueRecipe(r: Recipe) {
                 @click="recipeStore.setRecipe(qr)"
                 @keydown.enter.prevent="recipeStore.setRecipe(qr)"
               >
-                <img :src="qr.icon" alt="" aria-hidden="true" loading="lazy" class="queue-row-icon" />
-                <span class="queue-row-name"><ItemName :item-id="qr.itemId" :fallback="qr.name" /></span>
+                <span v-if="qr.isCustom" class="queue-row-icon queue-row-icon--custom" aria-hidden="true">✎</span>
+                <img v-else :src="qr.icon" alt="" aria-hidden="true" loading="lazy" class="queue-row-icon" />
+                <span class="queue-row-name">
+                  <ItemName v-if="!qr.isCustom" :item-id="qr.itemId" :fallback="qr.name" />
+                  <template v-else>{{ qr.name }}</template>
+                </span>
+                <span v-if="qr.isCustom" class="queue-row-badge">自訂</span>
                 <span class="queue-row-job">{{ qr.job }}</span>
                 <button
                   type="button"
@@ -216,6 +225,30 @@ function pickQueueRecipe(r: Recipe) {
               <span class="search-cta-label">{{ recipeStore.simulationQueue.length === 0 ? '搜尋配方' : '加入更多配方' }}</span>
               <span class="search-cta-arrow" aria-hidden="true">→</span>
             </button>
+            <div class="custom-cta-row">
+              <button
+                type="button"
+                class="custom-cta"
+                @click="customRecipeDialogOpen = true"
+              >
+                <span class="custom-cta-icon" aria-hidden="true">✎</span>
+                <span class="custom-cta-label">自訂配方</span>
+              </button>
+              <el-tooltip
+                placement="top"
+                :show-after="120"
+              >
+                <template #content>
+                  <div style="max-width: 260px; line-height: 1.55;">
+                    新版本上線後，配方資料需要等資料源同步（通常數天內）。在那之前，可以從遊戲內配方介面或 wiki 抄下 rlv、難度、品質、耐久，按「自訂配方」自行輸入。自訂配方不會查市場價格與材料樹。
+                  </div>
+                </template>
+                <span class="rail-help-icon" aria-label="自訂配方說明">?</span>
+              </el-tooltip>
+            </div>
+            <p class="search-tip">
+              找不到新版配方？先用搜尋，找不到再用<button type="button" class="search-tip-link" @click="customRecipeDialogOpen = true">自訂配方</button>自行輸入。
+            </p>
           </section>
 
           <section class="rail-section">
@@ -449,15 +482,19 @@ function pickQueueRecipe(r: Recipe) {
         description="搜尋你想製作的道具，開始模擬最佳技能序列吧！"
       >
         <el-button type="primary" @click="searchSidebarOpen = true">搜尋配方</el-button>
+        <el-button @click="customRecipeDialogOpen = true">自訂配方</el-button>
       </AppEmptyState>
 
       <template v-else>
         <section class="m-recipe-strip">
-          <img :src="recipe.icon" alt="" class="m-rs-icon" loading="lazy" />
+          <span v-if="recipe.isCustom" class="m-rs-icon m-rs-icon--custom" aria-hidden="true">✎</span>
+          <img v-else :src="recipe.icon" alt="" class="m-rs-icon" loading="lazy" />
           <div class="m-rs-body">
             <div class="m-rs-title-row">
               <h3 class="m-rs-name">
-                <ItemName :item-id="recipe.itemId" :fallback="recipe.name" />
+                <ItemName v-if="!recipe.isCustom" :item-id="recipe.itemId" :fallback="recipe.name" />
+                <template v-else>{{ recipe.name }}</template>
+                <span v-if="recipe.isCustom" class="m-rs-badge">自訂</span>
               </h3>
               <button class="m-rs-switch" @click="queueSheetOpen = true">
                 切換 <span class="m-chev">▾</span>
@@ -633,10 +670,13 @@ function pickQueueRecipe(r: Recipe) {
               @keydown.enter.prevent="pickQueueRecipe(qr)"
               @keydown.space.prevent="pickQueueRecipe(qr)"
             >
-              <img :src="qr.icon" alt="" class="m-q-icon" loading="lazy" />
+              <span v-if="qr.isCustom" class="m-q-icon m-q-icon--custom" aria-hidden="true">✎</span>
+              <img v-else :src="qr.icon" alt="" class="m-q-icon" loading="lazy" />
               <span class="m-q-name">
-                <ItemName :item-id="qr.itemId" :fallback="qr.name" />
+                <ItemName v-if="!qr.isCustom" :item-id="qr.itemId" :fallback="qr.name" />
+                <template v-else>{{ qr.name }}</template>
               </span>
+              <span v-if="qr.isCustom" class="m-q-badge">自訂</span>
               <span class="m-q-job">{{ qr.job }}</span>
               <button
                 class="m-q-remove"
@@ -650,7 +690,11 @@ function pickQueueRecipe(r: Recipe) {
           <div class="m-sheet-actions">
             <button class="m-sheet-primary" @click="openSearchFromSheet">搜尋配方</button>
             <button
-              v-if="recipe"
+              class="m-sheet-secondary"
+              @click="queueSheetOpen = false; customRecipeDialogOpen = true"
+            >自訂配方</button>
+            <button
+              v-if="recipe && !recipe.isCustom"
               class="m-sheet-secondary"
               @click="handleAddToBom"
             >加入購物清單</button>
@@ -665,6 +709,7 @@ function pickQueueRecipe(r: Recipe) {
     </template>
 
     <RecipeSearchSidebar v-model="searchSidebarOpen" context="加入模擬佇列" @add="handleAddFromSearch" />
+    <CustomRecipeDialog v-model="customRecipeDialogOpen" @enqueue="handleAddFromSearch" />
   </div>
 </template>
 
@@ -927,6 +972,26 @@ function pickQueueRecipe(r: Recipe) {
   flex-shrink: 0;
   border-radius: 6px;
   background: color-mix(in srgb, var(--app-craft) 8%, transparent);
+}
+.queue-row-icon--custom {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: var(--app-craft);
+  font-family: 'Cormorant Garamond', 'Noto Serif TC', serif;
+}
+.queue-row-badge {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-craft) 18%, transparent);
+  color: var(--app-craft);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-family: 'Fira Code', ui-monospace, monospace;
+  text-transform: uppercase;
 }
 .queue-row-name {
   flex: 1;
@@ -1443,6 +1508,73 @@ function pickQueueRecipe(r: Recipe) {
   transform: translateX(3px);
 }
 
+/* Secondary CTA: 自訂配方 — ghost cocoa, deliberately quieter than search.
+   Sits one step below the search CTA so the "search first" hierarchy holds. */
+.custom-cta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.custom-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: 1;
+  min-height: 36px;
+  padding: 0 14px;
+  background: transparent;
+  color: var(--app-craft);
+  border: 1px solid color-mix(in srgb, var(--app-craft) 32%, var(--app-border));
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    transform 0.18s var(--ease-out-quart, ease-out),
+    background-color 0.18s var(--ease-out-quart, ease-out),
+    border-color 0.18s var(--ease-out-quart, ease-out);
+}
+.custom-cta:hover {
+  background: color-mix(in srgb, var(--app-craft) 8%, transparent);
+  border-color: var(--app-craft);
+  transform: translateY(-1px);
+}
+.custom-cta:focus-visible {
+  outline: 2px solid var(--app-craft);
+  outline-offset: 2px;
+}
+.custom-cta-icon {
+  font-family: 'Cormorant Garamond', 'Noto Serif TC', serif;
+  font-style: italic;
+  font-size: 15px;
+  line-height: 1;
+}
+.custom-cta-label { font-family: inherit; }
+
+.search-tip {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--app-text-muted);
+}
+.search-tip-link {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0 1px;
+  font: inherit;
+  color: var(--app-craft);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.search-tip-link:hover { color: var(--app-craft-strong, var(--app-craft)); }
+
 /* Macro CTAs sit in their own row below the section header so they
    can grow without crowding the label. Multiple macros wrap onto
    shared rows of equal-width pills. */
@@ -1570,6 +1702,29 @@ function pickQueueRecipe(r: Recipe) {
   object-fit: contain;
   background: color-mix(in srgb, var(--app-craft) 12%, transparent);
   padding: 4px;
+}
+.m-rs-icon--custom {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-family: 'Cormorant Garamond', 'Noto Serif TC', serif;
+  font-style: italic;
+  color: var(--app-craft);
+  padding: 0;
+}
+.m-rs-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-craft) 18%, transparent);
+  color: var(--app-craft);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-family: 'Fira Code', ui-monospace, monospace;
+  vertical-align: 2px;
 }
 .m-rs-body { flex: 1; min-width: 0; }
 .m-rs-title-row {
@@ -1809,6 +1964,27 @@ function pickQueueRecipe(r: Recipe) {
   height: 28px;
   flex-shrink: 0;
   border-radius: 6px;
+}
+.m-q-icon--custom {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--app-craft) 14%, transparent);
+  color: var(--app-craft);
+  font-family: 'Cormorant Garamond', 'Noto Serif TC', serif;
+  font-style: italic;
+  font-size: 16px;
+}
+.m-q-badge {
+  flex-shrink: 0;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-craft) 18%, transparent);
+  color: var(--app-craft);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-family: 'Fira Code', ui-monospace, monospace;
 }
 .m-q-name {
   flex: 1;
