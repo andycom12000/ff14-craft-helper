@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "buildTime": "2026-04-22T18:30:19.395Z",
+  "buildTime": "2026-05-03T05:37:22.592Z",
   "locales": [
     "zh-TW",
     "zh-CN",
@@ -15,15 +15,15 @@
     },
     "zh-CN": {
       "repo": "thewakingsands/ffxiv-datamining-cn",
-      "commit": "8c812fe261519879eac471d3ce76bddb02e81157"
+      "commit": "e0408ef00cbbea5af91dcf019911c9b762c4e314"
     },
     "en": {
       "repo": "xivapi/ffxiv-datamining",
-      "commit": "d67201a2a27933a444bf249d900f7afd2840f6ff"
+      "commit": "ab3b961d58988b493283eb9fd28cb930ea07b169"
     },
     "ja": {
       "repo": "xivapi/ffxiv-datamining",
-      "commit": "d67201a2a27933a444bf249d900f7afd2840f6ff"
+      "commit": "ab3b961d58988b493283eb9fd28cb930ea07b169"
     }
   }
 }
