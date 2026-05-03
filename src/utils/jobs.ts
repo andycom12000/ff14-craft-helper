@@ -1,3 +1,7 @@
+export type Job = 'CRP' | 'BSM' | 'ARM' | 'GSM' | 'LTW' | 'WVR' | 'ALC' | 'CUL'
+
+export const JOB_ORDER: readonly Job[] = ['CRP', 'BSM', 'ARM', 'GSM', 'LTW', 'WVR', 'ALC', 'CUL']
+
 export const JOB_NAMES: Record<string, string> = {
   CRP: '木工師',
   BSM: '鍛造師',
@@ -33,6 +37,10 @@ export const JOB_ABBR: Record<string, string> = Object.fromEntries([
 
 export function getJobName(abbr: string): string {
   return JOB_NAMES[abbr] ?? abbr
+}
+
+export function getJobLabel(abbr: string): string {
+  return `${JOB_ICONS[abbr] ?? ''} ${JOB_NAMES[abbr] ?? abbr}`.trim()
 }
 
 // FFXIV CraftType sheet: 0..7 → DoH job abbreviation

@@ -3,9 +3,9 @@
 // The +50-per-job offset heuristic almost holds but GSM has off-by-one
 // deviations for several skills, so the full table is stored explicitly.
 
-export type Job = 'CRP' | 'BSM' | 'ARM' | 'GSM' | 'LTW' | 'WVR' | 'ALC' | 'CUL'
-
-export const JOB_ORDER: readonly Job[] = ['CRP', 'BSM', 'ARM', 'GSM', 'LTW', 'WVR', 'ALC', 'CUL']
+import type { Job } from '@/utils/jobs'
+export type { Job } from '@/utils/jobs'
+export { JOB_ORDER } from '@/utils/jobs'
 
 const ICONS_BY_JOB: Record<string, Record<Job, number>> = {
   BasicSynthesis:    { CRP: 1501, BSM: 1551, ARM: 1601, GSM: 1651, LTW: 1701, WVR: 1751, ALC: 1801, CUL: 1851 },

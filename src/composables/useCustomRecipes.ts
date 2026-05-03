@@ -43,12 +43,21 @@ function readStorage(): CustomRecipeForm[] {
   }
 }
 
-function writeStorage(list: CustomRecipeForm[]) {
-  if (typeof localStorage === 'undefined') return
+export class CustomRecipeStorageError extends Error {
+  constructor(message: string, public readonly cause?: unknown) {
+    super(message)
+    this.name = 'CustomRecipeStorageError'
+  }
+}
+
+function writeStorage(list: CustomRecipeForm[]): void {
+  if (typeof localStorage === 'undefined') {
+    throw new CustomRecipeStorageError('瀏覽器未提供 localStorage')
+  }
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(list))
-  } catch {
-    // Quota exceeded or storage disabled; intentionally swallow.
+  } catch (err) {
+    throw new CustomRecipeStorageError('localStorage 寫入失敗（可能容量已滿或被瀏覽器禁用）', err)
   }
 }
 
@@ -68,15 +77,17 @@ export function useCustomRecipes() {
     } else {
       list.push(entry)
     }
-    customRecipes.value = list
+    // Write before mutating in-memory state so a quota failure leaves the
+    // saved-list ref consistent with what's actually persisted.
     writeStorage(list)
+    customRecipes.value = list
     return entry
   }
 
   function remove(id: string) {
     const list = customRecipes.value.filter(r => r.id !== id)
-    customRecipes.value = list
     writeStorage(list)
+    customRecipes.value = list
   }
 
   async function lookupRlv(rlv: number): Promise<RltRecord | null> {

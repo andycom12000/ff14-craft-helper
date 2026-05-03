@@ -25,6 +25,7 @@ import ConditionChips from '@/components/simulator/ConditionChips.vue'
 import ManualControls from '@/components/simulator/ManualControls.vue'
 import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
 import CustomRecipeDialog from '@/components/simulator/CustomRecipeDialog.vue'
+import { CUSTOM_RECIPE_ICON } from '@/composables/useCustomRecipes'
 import AppEmptyState from '@/components/common/AppEmptyState.vue'
 import ItemName from '@/components/common/ItemName.vue'
 
@@ -199,7 +200,7 @@ function pickQueueRecipe(r: Recipe) {
                 @click="recipeStore.setRecipe(qr)"
                 @keydown.enter.prevent="recipeStore.setRecipe(qr)"
               >
-                <span v-if="qr.isCustom" class="queue-row-icon queue-row-icon--custom" aria-hidden="true">✎</span>
+                <span v-if="qr.isCustom" class="queue-row-icon queue-row-icon--custom" aria-hidden="true">{{ CUSTOM_RECIPE_ICON }}</span>
                 <img v-else :src="qr.icon" alt="" aria-hidden="true" loading="lazy" class="queue-row-icon" />
                 <span class="queue-row-name">
                   <ItemName v-if="!qr.isCustom" :item-id="qr.itemId" :fallback="qr.name" />
@@ -231,7 +232,7 @@ function pickQueueRecipe(r: Recipe) {
                 class="custom-cta"
                 @click="customRecipeDialogOpen = true"
               >
-                <span class="custom-cta-icon" aria-hidden="true">✎</span>
+                <span class="custom-cta-icon" aria-hidden="true">{{ CUSTOM_RECIPE_ICON }}</span>
                 <span class="custom-cta-label">自訂配方</span>
               </button>
               <el-tooltip
@@ -487,7 +488,7 @@ function pickQueueRecipe(r: Recipe) {
 
       <template v-else>
         <section class="m-recipe-strip">
-          <span v-if="recipe.isCustom" class="m-rs-icon m-rs-icon--custom" aria-hidden="true">✎</span>
+          <span v-if="recipe.isCustom" class="m-rs-icon m-rs-icon--custom" aria-hidden="true">{{ CUSTOM_RECIPE_ICON }}</span>
           <img v-else :src="recipe.icon" alt="" class="m-rs-icon" loading="lazy" />
           <div class="m-rs-body">
             <div class="m-rs-title-row">
@@ -670,7 +671,7 @@ function pickQueueRecipe(r: Recipe) {
               @keydown.enter.prevent="pickQueueRecipe(qr)"
               @keydown.space.prevent="pickQueueRecipe(qr)"
             >
-              <span v-if="qr.isCustom" class="m-q-icon m-q-icon--custom" aria-hidden="true">✎</span>
+              <span v-if="qr.isCustom" class="m-q-icon m-q-icon--custom" aria-hidden="true">{{ CUSTOM_RECIPE_ICON }}</span>
               <img v-else :src="qr.icon" alt="" class="m-q-icon" loading="lazy" />
               <span class="m-q-name">
                 <ItemName v-if="!qr.isCustom" :item-id="qr.itemId" :fallback="qr.name" />
