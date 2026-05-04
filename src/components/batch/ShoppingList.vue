@@ -10,6 +10,7 @@ import { useIsMobile } from '@/composables/useMediaQuery'
 import CrossWorldPriceDetail, { type WorldPriceRow } from '@/components/common/CrossWorldPriceDetail.vue'
 import ItemName from '@/components/common/ItemName.vue'
 import SelfCraftSuggestions from './SelfCraftSuggestions.vue'
+import NqhqSplitTip from './NqhqSplitTip.vue'
 import { formatGil } from '@/utils/format'
 
 const isMobile = useIsMobile()
@@ -40,6 +41,10 @@ const effectiveServerGroups = computed<ServerGroup[]>(() => {
   }
   return [...map.values()]
 })
+
+const allShoppingItems = computed<MaterialWithPrice[]>(() =>
+  effectiveServerGroups.value.flatMap(g => g.items),
+)
 
 const buyFinishedSavings = computed(() => {
   if (!props.buyFinishedItems.length) return null
@@ -211,6 +216,9 @@ function isRowChecked(row: MaterialWithPrice): boolean {
       </div>
       <el-text size="small" type="info">展開素材可單獨調整</el-text>
     </div>
+
+    <!-- First-time tip explaining same-itemId NQ + HQ pairs -->
+    <NqhqSplitTip :items="allShoppingItems" />
 
     <!-- Server groups -->
     <div class="server-grid">

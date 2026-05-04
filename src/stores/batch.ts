@@ -139,6 +139,16 @@ export const useBatchStore = defineStore('batch', () => {
   const qualityOverrides = ref<Record<number, 'nq' | 'hq'>>({})
   // Whether to automatically evaluate food/medicine recommendations
   const autoEvaluateBuffs = ref(true)
+  // First-time-tip flags. Bumping the version string re-shows the tip after copy edits.
+  const nqhqTipDismissed = ref<'' | 'v1'>('')
+
+  function dismissNqhqTip() {
+    nqhqTipDismissed.value = 'v1'
+  }
+
+  function resurfaceNqhqTip() {
+    nqhqTipDismissed.value = ''
+  }
 
   /** Total number of shopping items, mirrors what the user actually sees */
   const shoppingItemCount = computed(() => {
@@ -398,6 +408,9 @@ export const useBatchStore = defineStore('batch', () => {
     bulkQualityMode,
     qualityOverrides,
     autoEvaluateBuffs,
+    nqhqTipDismissed,
+    dismissNqhqTip,
+    resurfaceNqhqTip,
     shoppingItemCount,
     shoppingCheckedCount,
     allShoppingDone,
@@ -434,6 +447,7 @@ export const useBatchStore = defineStore('batch', () => {
       'bulkQualityMode',
       'qualityOverrides',
       'autoEvaluateBuffs',
+      'nqhqTipDismissed',
     ],
   },
 })
