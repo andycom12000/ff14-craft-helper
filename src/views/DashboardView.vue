@@ -9,6 +9,7 @@ import { useIsMobile } from '@/composables/useMediaQuery'
 import { JOB_NAMES, JOB_ICONS } from '@/utils/jobs'
 import { isOnboardingComplete } from '@/utils/onboarding'
 import WelcomeSetup from '@/components/onboarding/WelcomeSetup.vue'
+import GearsetSheet from '@/components/gearset/GearsetSheet.vue'
 
 function getTimeBucket(): 'morning' | 'noon' | 'afternoon' | 'evening' | 'lateNight' {
   const h = new Date().getHours()
@@ -93,6 +94,14 @@ const configuredJobs = computed(() =>
 )
 
 const unconfiguredCount = computed(() => Object.keys(JOB_NAMES).length - configuredJobs.value.length)
+
+/* Gearset sheet — replaces in-page navigations to /gearset */
+const gearsetSheetOpen = ref(false)
+const gearsetSheetFocusJob = ref<string | null>(null)
+function openGearsetSheet(focusJob: string | null = null) {
+  gearsetSheetFocusJob.value = focusJob
+  gearsetSheetOpen.value = true
+}
 
 const workflows = [
   {
@@ -199,11 +208,11 @@ const tools = [
 
     <div class="section-header section-gap-lg">
       <h3>裝備狀態</h3>
-      <button class="link-btn" @click="router.push('/gearset')">管理裝備 →</button>
+      <button class="link-btn" @click="openGearsetSheet()">管理裝備 →</button>
     </div>
 
     <div class="gearset-summary">
-      <div v-for="job in Object.keys(JOB_NAMES)" :key="job" class="gs-chip" :class="{ configured: configuredJobs.includes(job) }" @click="router.push('/gearset')">
+      <div v-for="job in Object.keys(JOB_NAMES)" :key="job" class="gs-chip" :class="{ configured: configuredJobs.includes(job) }" @click="openGearsetSheet(job)">
         <span class="gs-icon">{{ JOB_ICONS[job] }}</span>
         <span class="gs-name">{{ JOB_NAMES[job] }}</span>
         <span v-if="configuredJobs.includes(job)" class="gs-lv">Lv.{{ gearsets.gearsets[job].level }}</span>
@@ -212,7 +221,7 @@ const tools = [
     </div>
 
     <p v-if="unconfiguredCount > 0" class="gs-hint">
-      還有 {{ unconfiguredCount }} 個職業尚未設定裝備數值，<button class="inline-link" @click="router.push('/gearset')">前往設定</button>
+      還有 {{ unconfiguredCount }} 個職業尚未設定裝備數值，<button class="inline-link" @click="openGearsetSheet()">前往設定</button>
     </p>
   </div>
 
@@ -335,17 +344,22 @@ const tools = [
             :key="job"
             class="dw-gear-chip"
             :class="{ unset: !configuredJobs.includes(job) }"
-            @click="router.push('/gearset')"
+            @click="openGearsetSheet(job)"
           >
             <span class="dw-gear-chip-icon">{{ JOB_ICONS[job] }}</span>
             <span class="dw-gear-chip-name">{{ JOB_NAMES[job] }}</span>
             <span class="dw-gear-chip-lv">{{ configuredJobs.includes(job) ? gearsets.gearsets[job].level : '—' }}</span>
           </span>
         </div>
-        <a class="dw-footer-link" @click="router.push('/gearset')">管理 →</a>
+        <a class="dw-footer-link" @click="openGearsetSheet()">管理 →</a>
       </div>
     </div>
   </div>
+
+  <GearsetSheet
+    v-model:open="gearsetSheetOpen"
+    :focus-job="gearsetSheetFocusJob"
+  />
 </template>
 
 <style scoped>

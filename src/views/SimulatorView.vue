@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 // CSS side-effect for ElMessage already loads via useSimulator.ts (which is
 // imported below). No need to duplicate the import here.
@@ -28,8 +27,8 @@ import CustomRecipeDialog from '@/components/simulator/CustomRecipeDialog.vue'
 import { CUSTOM_RECIPE_ICON } from '@/composables/useCustomRecipes'
 import AppEmptyState from '@/components/common/AppEmptyState.vue'
 import ItemName from '@/components/common/ItemName.vue'
+import GearsetSheet from '@/components/gearset/GearsetSheet.vue'
 
-const router = useRouter()
 const isMobile = useIsMobile()
 const localeStore = useLocaleStore()
 
@@ -152,6 +151,29 @@ function pickQueueRecipe(r: Recipe) {
   recipeStore.setRecipe(r)
   queueSheetOpen.value = false
 }
+
+/* === Gearset sheet === */
+const gearsetSheetOpen = ref(false)
+const gearsetSheetFocusJob = ref<string | null>(null)
+
+function openGearsetSheet(focusJob?: string | null) {
+  gearsetSheetFocusJob.value = focusJob ?? null
+  gearsetSheetOpen.value = true
+}
+
+/* recipe-side gearset state for current recipe */
+const gearsetMissing = computed(() => {
+  if (!gearset.value) return false
+  return gearset.value.craftsmanship === 0 && gearset.value.control === 0
+})
+
+const gearsetLevelInsufficient = computed(() => {
+  if (!recipe.value || !gearset.value) return false
+  if (gearsetMissing.value) return false /* missing-gearset takes priority */
+  return gearset.value.level < recipe.value.level
+})
+
+const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelInsufficient.value)
 </script>
 
 <template>
@@ -184,6 +206,19 @@ function pickQueueRecipe(r: Recipe) {
       <div class="b-page-grid">
         <!-- Left rail: 配方 zone -->
         <aside class="rail rail-left">
+          <div class="rail-quick-actions">
+            <button
+              type="button"
+              class="rail-quick-btn"
+              :class="{ 'is-warning': gearsetBlocking }"
+              @click="openGearsetSheet(recipe?.job ?? null)"
+              :title="gearsetBlocking ? '配裝需要調整' : '打開配裝設定'"
+            >
+              <span class="rail-quick-icon" aria-hidden="true">⚒</span>
+              <span class="rail-quick-label">配裝</span>
+              <span v-if="gearsetBlocking" class="rail-quick-dot" aria-hidden="true" />
+            </button>
+          </div>
           <section class="rail-section">
             <header class="rail-section-head">
               <span class="rail-section-label">模擬佇列</span>
@@ -276,7 +311,28 @@ function pickQueueRecipe(r: Recipe) {
               <BuffDisplay :buffs="currentState?.buffs ?? new Map()" />
             </div>
 
-            <div class="cockpit-body">
+            <div v-if="gearsetMissing" class="gearset-banner">
+              <div class="gearset-banner-icon" aria-hidden="true">⚠</div>
+              <div class="gearset-banner-body">
+                <div class="gearset-banner-title">還沒填 {{ jobFullName }} 的裝備數值</div>
+                <div class="gearset-banner-desc">填好就能開始模擬</div>
+              </div>
+              <button class="gearset-banner-cta" type="button" @click="openGearsetSheet(recipe?.job ?? null)">
+                就地填入 ▾
+              </button>
+            </div>
+            <div v-else-if="gearsetLevelInsufficient && gearset && recipe" class="gearset-banner">
+              <div class="gearset-banner-icon" aria-hidden="true">⚠</div>
+              <div class="gearset-banner-body">
+                <div class="gearset-banner-title">等級不夠：{{ jobFullName }} Lv {{ gearset.level }}、配方需要 Lv {{ recipe.level }}</div>
+                <div class="gearset-banner-desc">請先調整配裝</div>
+              </div>
+              <button class="gearset-banner-cta" type="button" @click="openGearsetSheet(recipe?.job ?? null)">
+                調整配裝 ▾
+              </button>
+            </div>
+
+            <div class="cockpit-body" :class="{ 'is-blocked': gearsetBlocking }">
               <section class="cockpit-section cockpit-section--tool">
                 <header class="cockpit-tool-head">
                   <span class="cockpit-tool-eyebrow">模式</span>
@@ -518,17 +574,24 @@ function pickQueueRecipe(r: Recipe) {
           </div>
         </section>
 
-        <div
-          v-if="gearset && gearset.craftsmanship === 0 && gearset.control === 0"
-          class="gearset-banner"
-        >
+        <div v-if="gearsetMissing" class="gearset-banner">
           <div class="gearset-banner-icon" aria-hidden="true">⚠</div>
           <div class="gearset-banner-body">
-            <div class="gearset-banner-title">尚未設定該職業的裝備數值</div>
-            <div class="gearset-banner-desc">先填好作業精度、加工精度、CP 才能開始模擬</div>
+            <div class="gearset-banner-title">還沒填 {{ jobFullName }} 的裝備數值</div>
+            <div class="gearset-banner-desc">填好就能開始模擬</div>
           </div>
-          <button class="gearset-banner-cta" type="button" @click="router.push('/gearset')">
-            前往設定 →
+          <button class="gearset-banner-cta" type="button" @click="openGearsetSheet(recipe?.job ?? null)">
+            就地填入 ▾
+          </button>
+        </div>
+        <div v-else-if="gearsetLevelInsufficient && gearset && recipe" class="gearset-banner">
+          <div class="gearset-banner-icon" aria-hidden="true">⚠</div>
+          <div class="gearset-banner-body">
+            <div class="gearset-banner-title">等級不夠：{{ jobFullName }} Lv {{ gearset.level }}、配方需要 Lv {{ recipe.level }}</div>
+            <div class="gearset-banner-desc">請先調整配裝</div>
+          </div>
+          <button class="gearset-banner-cta" type="button" @click="openGearsetSheet(recipe?.job ?? null)">
+            調整配裝 ▾
           </button>
         </div>
 
@@ -602,7 +665,7 @@ function pickQueueRecipe(r: Recipe) {
           />
         </section>
 
-        <section v-if="canSimulate && simStore.mode === 'manual' && gearset" class="m-flat">
+        <section v-if="canSimulate && !gearsetBlocking && simStore.mode === 'manual' && gearset" class="m-flat">
           <h3 class="m-flat-title">技能面板</h3>
           <SkillPanel
             :level="gearset.level"
@@ -612,7 +675,7 @@ function pickQueueRecipe(r: Recipe) {
           />
         </section>
 
-        <section v-if="canSimulate && simStore.mode === 'solver'" class="m-flat">
+        <section v-if="canSimulate && !gearsetBlocking && simStore.mode === 'solver'" class="m-flat">
           <h3 class="m-flat-title">自動求解</h3>
           <SolverPanel
             :craft-params="craftParams"
@@ -620,7 +683,7 @@ function pickQueueRecipe(r: Recipe) {
           />
         </section>
 
-        <section v-if="canSimulate && simStore.mode === 'solver'" class="m-flat">
+        <section v-if="canSimulate && !gearsetBlocking && simStore.mode === 'solver'" class="m-flat">
           <h3 class="m-flat-title">最佳手法</h3>
           <CraftRecommendation
             :craft-params="craftParams"
@@ -711,6 +774,25 @@ function pickQueueRecipe(r: Recipe) {
 
     <RecipeSearchSidebar v-model="searchSidebarOpen" context="加入模擬佇列" @add="handleAddFromSearch" />
     <CustomRecipeDialog v-model="customRecipeDialogOpen" @enqueue="handleAddFromSearch" />
+
+    <Teleport v-if="isMobile" to="#mobile-bar-actions" defer>
+      <button
+        type="button"
+        class="m-quick-gearset-btn"
+        :class="{ 'is-warning': gearsetBlocking }"
+        @click="openGearsetSheet(recipe?.job ?? null)"
+        :aria-label="gearsetBlocking ? '配裝需要調整' : '打開配裝'"
+      >
+        <span aria-hidden="true">⚒</span>
+        <span class="m-quick-gearset-label">配裝</span>
+        <span v-if="gearsetBlocking" class="m-quick-gearset-dot" aria-hidden="true" />
+      </button>
+    </Teleport>
+
+    <GearsetSheet
+      v-model:open="gearsetSheetOpen"
+      :focus-job="gearsetSheetFocusJob"
+    />
   </div>
 </template>
 
@@ -852,6 +934,59 @@ function pickQueueRecipe(r: Recipe) {
   background: var(--app-surface);
   border: 1px solid var(--app-border);
   border-radius: 14px;
+}
+
+.rail-quick-actions {
+  display: flex;
+  gap: 6px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--app-border);
+}
+.rail-quick-btn {
+  position: relative;
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 12px;
+  background: color-mix(in srgb, var(--app-craft) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--app-craft) 24%, transparent);
+  border-radius: 999px;
+  color: var(--app-craft);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.18s var(--ease-out-quart),
+    transform 0.12s var(--ease-out-quart),
+    border-color 0.18s var(--ease-out-quart);
+}
+.rail-quick-btn:hover {
+  background: color-mix(in srgb, var(--app-craft) 14%, transparent);
+  transform: translateY(-1px);
+}
+.rail-quick-btn:active { transform: translateY(0); }
+.rail-quick-btn:focus-visible {
+  outline: 2px solid var(--app-craft);
+  outline-offset: 2px;
+}
+.rail-quick-btn.is-warning {
+  background: oklch(0.58 0.17 45 / 0.10);
+  border-color: oklch(0.58 0.17 45 / 0.40);
+  color: oklch(0.42 0.16 45);
+}
+.rail-quick-icon { font-size: 14px; line-height: 1; }
+.rail-quick-dot {
+  position: absolute;
+  top: 6px;
+  right: 14px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: oklch(0.58 0.17 45);
+  box-shadow: 0 0 0 2px var(--app-bg);
 }
 
 .rail-section {
@@ -1105,6 +1240,29 @@ function pickQueueRecipe(r: Recipe) {
   grid-template-columns: minmax(0, 1fr) minmax(220px, 30%);
   gap: 20px;
   align-items: flex-start;
+}
+
+/* Cockpit blocked = gearset missing or level too low.
+   Dim, disable interaction, and overlay an explanatory line. */
+.cockpit-body.is-blocked {
+  position: relative;
+  pointer-events: none;
+}
+.cockpit-body.is-blocked > * { opacity: 0.42; filter: saturate(0.7); }
+.cockpit-body.is-blocked::after {
+  content: '配裝就緒後才能開始模擬';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: 'Noto Serif TC', serif;
+  font-size: 14px;
+  color: var(--app-text-muted);
+  background: color-mix(in srgb, var(--app-bg) 78%, transparent);
+  border: 1px dashed var(--app-border);
+  border-radius: 14px;
+  pointer-events: none;
+  backdrop-filter: blur(0.5px);
 }
 
 .cockpit-section {
@@ -2120,5 +2278,38 @@ function pickQueueRecipe(r: Recipe) {
     padding: 16px;
   }
   .gearset-banner-icon { margin: 0 auto; }
+}
+
+/* === Mobile teleport: gearset quick button in #mobile-bar-actions === */
+.m-quick-gearset-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  background: color-mix(in srgb, var(--app-craft) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--app-craft) 28%, transparent);
+  border-radius: 999px;
+  color: var(--app-craft);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.m-quick-gearset-btn:active { transform: scale(0.97); }
+.m-quick-gearset-btn.is-warning {
+  background: oklch(0.58 0.17 45 / 0.12);
+  border-color: oklch(0.58 0.17 45 / 0.40);
+  color: oklch(0.42 0.16 45);
+}
+.m-quick-gearset-label {
+  font-size: 12px;
+}
+.m-quick-gearset-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: oklch(0.58 0.17 45);
 }
 </style>

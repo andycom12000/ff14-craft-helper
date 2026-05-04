@@ -1,15 +1,29 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useBatchStore } from '@/stores/batch'
+import { useGearsetsStore } from '@/stores/gearsets'
 import { Search } from '@element-plus/icons-vue'
 import BatchRecipeCard from './BatchRecipeCard.vue'
 import OcrImportDialog from './OcrImportDialog.vue'
 import AppEmptyState from '@/components/common/AppEmptyState.vue'
 
 const batchStore = useBatchStore()
+const gearsetsStore = useGearsetsStore()
 const showOcrDialog = ref(false)
 
-const emit = defineEmits<{ 'open-search': [] }>()
+const emit = defineEmits<{
+  'open-search': []
+  'open-gearset': [job: string]
+}>()
+
+function gearsetLevelFor(job: string): number | null {
+  const gs = gearsetsStore.getGearsetForJob(job)
+  if (!gs) return null
+  /* If unset entirely, BatchView's missing-gearset banner already covers it.
+     Treat 0/0/0 stats as "not configured" so the level pill stays hidden. */
+  if (gs.craftsmanship === 0 && gs.control === 0) return null
+  return gs.level
+}
 
 const dragIndex = ref<number | null>(null)
 const dropTargetIndex = ref<number | null>(null)
@@ -96,8 +110,10 @@ function onDragEnd() {
         </span>
         <BatchRecipeCard
           :target="target"
+          :gearset-level="gearsetLevelFor(target.recipe.job)"
           @update:quantity="(id, qty) => batchStore.updateQuantity(id, qty)"
           @remove="(id) => batchStore.removeTarget(id)"
+          @open-gearset="(job) => emit('open-gearset', job)"
         />
       </div>
     </div>

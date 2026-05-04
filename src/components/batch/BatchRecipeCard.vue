@@ -6,11 +6,22 @@ import { starsDisplay } from '@/utils/format'
 import { Delete } from '@element-plus/icons-vue'
 import ItemName from '@/components/common/ItemName.vue'
 
-const props = defineProps<{ target: BatchTarget }>()
+const props = defineProps<{
+  target: BatchTarget
+  gearsetLevel?: number | null
+}>()
 const emit = defineEmits<{
   'update:quantity': [id: number, qty: number]
   remove: [id: number]
+  'open-gearset': [job: string]
 }>()
+
+const recipeLevel = computed(() => props.target.recipe.recipeLevelTable.classJobLevel)
+const isLevelLow = computed(() => {
+  if (props.gearsetLevel == null) return false
+  if (props.gearsetLevel <= 0) return false
+  return props.gearsetLevel < recipeLevel.value
+})
 
 // Items per craft. Food/medicine usually yield 3, everything else 1.
 const yieldPerCraft = computed(() => Math.max(1, props.target.recipe.amountResult ?? 1))
@@ -39,6 +50,15 @@ const showYieldHint = computed(() => yieldPerCraft.value > 1)
         Lv.{{ target.recipe.recipeLevelTable.classJobLevel }}
         {{ starsDisplay(target.recipe.stars) }}
         <el-tag size="small" type="primary">{{ getJobName(target.recipe.job) }}</el-tag>
+        <button
+          v-if="isLevelLow"
+          type="button"
+          class="recipe-card-lvl-pill"
+          :title="`你的 ${getJobName(target.recipe.job)} 等級不夠，遊戲目前禁止製作`"
+          @click="emit('open-gearset', target.recipe.job)"
+        >
+          Lv {{ gearsetLevel }} · 需 {{ recipeLevel }}
+        </button>
         <span class="recipe-card-qty">× {{ target.quantity }} 份</span>
       </div>
       <div v-if="showYieldHint" class="recipe-card-hint">
@@ -233,5 +253,29 @@ const showYieldHint = computed(() => yieldPerCraft.value > 1)
   box-shadow:
     inset 0 1px 0 oklch(0.50 0.04 60 / 0.24),
     0 6px 16px oklch(0.05 0.02 60 / 0.50);
+}
+
+.recipe-card-lvl-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-craft) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--app-craft) 32%, transparent);
+  color: var(--app-craft);
+  font-family: 'Fira Code', 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background-color 0.18s var(--ease-out-quart);
+}
+.recipe-card-lvl-pill:hover {
+  background: color-mix(in srgb, var(--app-craft) 20%, transparent);
+}
+.recipe-card-lvl-pill:focus-visible {
+  outline: 2px solid var(--app-craft);
+  outline-offset: 2px;
 }
 </style>

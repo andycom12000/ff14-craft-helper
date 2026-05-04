@@ -18,6 +18,8 @@ import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
 import BuffRecommendationCard from '@/components/batch/BuffRecommendationCard.vue'
 import FlowBreadcrumb from '@/components/common/FlowBreadcrumb.vue'
 import ConfirmNewBatch from '@/components/batch/ConfirmNewBatch.vue'
+import GearsetSheet from '@/components/gearset/GearsetSheet.vue'
+import { JOB_NAMES } from '@/utils/jobs'
 
 const batchStore = useBatchStore()
 const settings = useSettingsStore()
@@ -146,8 +148,61 @@ watch(() => batchStore.isRunning, (running, wasRunning) => {
   }
 })
 
+/* === Gearset sheet === */
+const gearsetSheetOpen = ref(false)
+const gearsetSheetFocusJob = ref<string | null>(null)
+
+function openGearsetSheet(focusJob?: string | null) {
+  gearsetSheetFocusJob.value = focusJob ?? null
+  gearsetSheetOpen.value = true
+}
+
+/* Jobs used by current batch */
+const usedJobs = computed(() => {
+  const set = new Set<string>()
+  for (const t of batchStore.targets) {
+    if (t.recipe.job) set.add(t.recipe.job)
+  }
+  return set
+})
+
+/* Missing-gearset jobs in the batch (no craftsmanship & control set) */
+const missingGearsetJobs = computed<string[]>(() => {
+  const result: string[] = []
+  for (const job of usedJobs.value) {
+    const gs = gearsets.getGearsetForJob(job)
+    if (!gs || (gs.craftsmanship === 0 && gs.control === 0)) {
+      result.push(job)
+    }
+  }
+  return result
+})
+
+/* Targets where gearset.level < recipe.level (but not missing). Soft warn only. */
+const lowLevelTargets = computed(() => {
+  const out: { recipe: import('@/stores/recipe').Recipe; gearsetLevel: number }[] = []
+  for (const t of batchStore.targets) {
+    const gs = gearsets.getGearsetForJob(t.recipe.job)
+    if (!gs) continue
+    if (gs.craftsmanship === 0 && gs.control === 0) continue
+    if (gs.level < t.recipe.level) {
+      out.push({ recipe: t.recipe, gearsetLevel: gs.level })
+    }
+  }
+  return out
+})
+
+const missingJobsLabel = computed(() => missingGearsetJobs.value
+  .map(j => JOB_NAMES[j] ?? j).join('、'))
+
 async function startOptimization() {
   if (batchStore.targets.length === 0) return
+
+  /* Hard block if any required job has no gearset configured. */
+  if (missingGearsetJobs.value.length > 0) {
+    openGearsetSheet(missingGearsetJobs.value[0] ?? null)
+    return
+  }
 
   batchStore.isRunning = true
   batchStore.isCancelled = false
@@ -319,10 +374,44 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
       </component>
       <div v-if="!isSectionCollapsed(0)" class="prepare-grid">
         <div class="prepare-main">
-          <BatchList @open-search="sidebarOpen = true" />
+          <BatchList
+            @open-search="sidebarOpen = true"
+            @open-gearset="(job) => openGearsetSheet(job)"
+          />
         </div>
         <div class="prepare-side">
           <BatchSettings />
+
+          <div v-if="missingGearsetJobs.length > 0" class="batch-gs-banner">
+            <div class="batch-gs-banner-icon" aria-hidden="true">⚠</div>
+            <div class="batch-gs-banner-body">
+              <div class="batch-gs-banner-title">{{ missingGearsetJobs.length }} 職還沒設定數值</div>
+              <div class="batch-gs-banner-desc">{{ missingJobsLabel }}</div>
+            </div>
+            <button
+              type="button"
+              class="batch-gs-banner-cta"
+              @click="openGearsetSheet(missingGearsetJobs[0] ?? null)"
+            >
+              補完 {{ missingGearsetJobs.length }} 職 ▾
+            </button>
+          </div>
+
+          <div v-else-if="lowLevelTargets.length > 0" class="batch-lvl-alert">
+            <div class="batch-lvl-alert-icon" aria-hidden="true">ℹ</div>
+            <div class="batch-lvl-alert-body">
+              <div class="batch-lvl-alert-title">{{ lowLevelTargets.length }} 件目標 · 遊戲目前禁止製作</div>
+              <div class="batch-lvl-alert-desc">等級不夠的職業還無法在遊戲內開始這配方，可以保留為未來規劃，或先調整配裝</div>
+            </div>
+            <button
+              type="button"
+              class="batch-lvl-alert-cta"
+              @click="openGearsetSheet(lowLevelTargets[0]?.recipe.job ?? null)"
+            >
+              調整配裝
+            </button>
+          </div>
+
           <div class="batch-action">
             <el-button
               type="primary"
@@ -415,6 +504,12 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
 
     <!-- Search Sidebar (shared) -->
     <RecipeSearchSidebar v-model="sidebarOpen" context="加入批量清單" @add="handleAddRecipe" />
+
+    <GearsetSheet
+      v-model:open="gearsetSheetOpen"
+      :focus-job="gearsetSheetFocusJob"
+      :missing-jobs="missingGearsetJobs"
+    />
   </div>
 </template>
 
@@ -782,5 +877,109 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
   .prepare-side {
     flex: 0 0 420px;
   }
+}
+
+/* === Missing-gearset hard banner (warning) === */
+.batch-gs-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: oklch(0.58 0.17 45 / 0.10);
+  border: 1px solid oklch(0.58 0.17 45 / 0.32);
+  border-radius: 12px;
+}
+.batch-gs-banner-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: oklch(0.58 0.17 45);
+  color: oklch(0.99 0.01 90);
+  display: grid; place-items: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.batch-gs-banner-body { flex: 1; min-width: 0; }
+.batch-gs-banner-title {
+  font-family: 'Noto Serif TC', serif;
+  font-weight: 700;
+  font-size: 14.5px;
+  color: oklch(0.32 0.14 45);
+  margin-bottom: 2px;
+}
+.batch-gs-banner-desc {
+  font-size: 12.5px;
+  color: oklch(0.42 0.16 45);
+  line-height: 1.5;
+}
+.batch-gs-banner-cta {
+  flex-shrink: 0;
+  padding: 9px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: oklch(0.58 0.17 45);
+  color: oklch(0.99 0.01 90);
+  font: inherit;
+  font-weight: 600;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background-color 0.18s var(--ease-out-quart), transform 0.12s var(--ease-out-quart);
+}
+.batch-gs-banner-cta:hover {
+  background: oklch(0.42 0.16 45);
+  transform: translateY(-1px);
+}
+
+/* === Low-level soft alert (cocoa info) === */
+.batch-lvl-alert {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--app-craft) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--app-craft) 28%, transparent);
+  border-radius: 12px;
+}
+.batch-lvl-alert-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--app-craft) 18%, transparent);
+  color: var(--app-craft);
+  display: grid; place-items: center;
+  font-size: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.batch-lvl-alert-body { flex: 1; min-width: 0; }
+.batch-lvl-alert-title {
+  font-family: 'Noto Serif TC', serif;
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--app-craft);
+  margin-bottom: 2px;
+}
+.batch-lvl-alert-desc {
+  font-size: 12px;
+  color: var(--app-text-muted);
+  line-height: 1.5;
+}
+.batch-lvl-alert-cta {
+  flex-shrink: 0;
+  padding: 7px 12px;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--app-craft) 40%, transparent);
+  border-radius: 8px;
+  color: var(--app-craft);
+  font: inherit;
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.18s var(--ease-out-quart);
+}
+.batch-lvl-alert-cta:hover {
+  background: color-mix(in srgb, var(--app-craft) 12%, transparent);
 }
 </style>
