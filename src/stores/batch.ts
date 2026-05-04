@@ -6,6 +6,7 @@ import { isCrystal } from '@/services/shopping-list'
 import type { WorldPriceSummary } from '@/api/universalis'
 import type { FoodBuff } from '@/engine/food-medicine'
 import { cancelSolve } from '@/solver/worker'
+import { trackEvent } from '@/utils/analytics'
 
 export type { ShoppingItem, ServerGroup, CrystalSummary }
 
@@ -144,10 +145,12 @@ export const useBatchStore = defineStore('batch', () => {
 
   function dismissNqhqTip() {
     nqhqTipDismissed.value = 'v1'
+    trackEvent('nqhq_tip_dismiss', { version: 'v1' })
   }
 
   function resurfaceNqhqTip() {
     nqhqTipDismissed.value = ''
+    trackEvent('nqhq_tip_resurface')
   }
 
   /** Total number of shopping items, mirrors what the user actually sees */

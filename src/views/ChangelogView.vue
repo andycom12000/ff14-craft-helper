@@ -18,6 +18,17 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: 'v2.7.0',
+    date: '2026-05-05',
+    highlights: [
+      '【批量採購數量修正】食物／藥品配方（每次製作產出 3 份）的買 vs 自製判斷與材料量都會錯算：門檻把「每次 craft 的素材成本（=3 份的成本）」直接拿來跟「單份買價」比較，過度偏向直購；自製時材料又按使用者填的份數整份再乘一次。現在統一以 `amountResult` 換算「想要的份數 → 製作次數」，閾值改成 per-output 比對，材料按實際 craft 次數算',
+      '【份數標示更清楚】批量製作與購物清單的目標卡片永遠顯示「× N 份」徽章，amountResult > 1 的配方額外顯示「每次製作產出 M 份 → 共 K 次製作」黃字提示，手機版終於看得出輸入框是份數而非無單位數字',
+      '【NQ／HQ 拆分說明】當系統因部分配方需要 HQ 起手品質而把同一素材拆成兩列（一列 NQ、一列 HQ）時，新增首次提示橫幅說明「這不是顯示錯誤」；按「知道了」後改顯示一個 `?` chip，點擊可隨時重看說明，狀態跨會話保留',
+      '【採購進度分母修正】在「自製建議」勾選把某成品改為自製後，採購清單會即時把該成品換成原料，但底下「採購進度 0 / N 完成」的分母還是用最佳化器初始輸出，不會跟著動；現在改用實際顯示的清單來算',
+      '【內部】`Recipe` interface 加入 `amountResult` 並從 RecipeRecord 端到端 plumb；`RecipeOptimizeResult` 新增 `outputAmount` 與 `quantity`（craft 次數）兩種語意；BOM tree expansion 同步以 amountResult 套用 ⌈amount/yield⌉ 換算',
+    ],
+  },
+  {
     version: 'v2.6.0',
     date: '2026-04-28',
     highlights: [
