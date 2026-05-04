@@ -215,7 +215,7 @@ describe('produceSelfCraftCandidates', () => {
     const result = await produceSelfCraftCandidates({
       recipesToCraft: [{
         recipe: { id: 10, itemId: 100, name: 'Root', icon: '', job: 'CRP', level: 100 } as any,
-        quantity: 1, actions: [], hqAmounts: [], initialQuality: 0,
+        quantity: 1, outputAmount: 1, actions: [], hqAmounts: [], initialQuality: 0,
         isDoubleMax: true, materials: [], qualityDeficit: 0,
       }],
       priceMap: new Map(),
@@ -273,7 +273,7 @@ describe('produceSelfCraftCandidates', () => {
 
     const parentResult = {
       recipe: { id: 10, itemId: 100, name: 'Root', icon: '', job: 'CRP', level: 90 } as any,
-      quantity: 1, actions: [], hqAmounts: [2, 0], initialQuality: 0,
+      quantity: 1, outputAmount: 1, actions: [], hqAmounts: [2, 0], initialQuality: 0,
       isDoubleMax: false,
       materials: [{ itemId: 50, name: 'Inter', icon: '', amount: 10 }],
       qualityDeficit: 0,
@@ -322,7 +322,7 @@ describe('produceSelfCraftCandidates', () => {
     const result = await produceSelfCraftCandidates({
       recipesToCraft: [{
         recipe: { id: 10, itemId: 100, name: 'Root', icon: '', job: 'CRP', level: 90 } as any,
-        quantity: 1, actions: [], hqAmounts: [], initialQuality: 0,
+        quantity: 1, outputAmount: 1, actions: [], hqAmounts: [], initialQuality: 0,
         isDoubleMax: true, materials: [], qualityDeficit: 0,
       }],
       priceMap: new Map(),
@@ -362,7 +362,7 @@ describe('produceSelfCraftCandidates', () => {
     await produceSelfCraftCandidates({
       recipesToCraft: [{
         recipe: { id: 10, itemId: 100, name: 'Root', icon: '', job: 'CRP', level: 90 } as any,
-        quantity: 1, actions: [], hqAmounts: [], initialQuality: 0,
+        quantity: 1, outputAmount: 1, actions: [], hqAmounts: [], initialQuality: 0,
         isDoubleMax: true, materials: [], qualityDeficit: 0,
       }],
       priceMap,
@@ -433,7 +433,7 @@ describe('produceSelfCraftCandidates', () => {
     }
     vi.mocked(getRecipe).mockResolvedValue(whetstoneRecipe as any)
     const mockOptimizeRecipe = vi.fn().mockResolvedValue({
-      recipe: whetstoneRecipe, quantity: 1, actions: [], hqAmounts: [],
+      recipe: whetstoneRecipe, quantity: 1, outputAmount: 1, actions: [], hqAmounts: [],
       initialQuality: 0, isDoubleMax: true,
       materials: [{ itemId: 1, name: 'Ore', icon: '', amount: 4 }], qualityDeficit: 0,
     })
@@ -442,12 +442,12 @@ describe('produceSelfCraftCandidates', () => {
       recipesToCraft: [
         {
           recipe: { id: 20, itemId: 200, name: 'Weapon A', icon: '', job: 'CRP', level: 90 } as any,
-          quantity: 1, actions: [], hqAmounts: [], initialQuality: 0,
+          quantity: 1, outputAmount: 1, actions: [], hqAmounts: [], initialQuality: 0,
           isDoubleMax: true, materials: [], qualityDeficit: 0,
         },
         {
           recipe: { id: 21, itemId: 201, name: 'Weapon B', icon: '', job: 'CRP', level: 90 } as any,
-          quantity: 3, actions: [], hqAmounts: [], initialQuality: 0,
+          quantity: 3, outputAmount: 3, actions: [], hqAmounts: [], initialQuality: 0,
           isDoubleMax: true, materials: [], qualityDeficit: 0,
         },
       ],

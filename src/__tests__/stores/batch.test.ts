@@ -13,6 +13,7 @@ const mockRecipe: Recipe = {
   stars: 2,
   canHq: true,
   materialQualityFactor: 75,
+  amountResult: 1,
   ingredients: [],
   recipeLevelTable: {
     classJobLevel: 100, stars: 2, difficulty: 6600, quality: 14040,

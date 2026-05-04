@@ -13,6 +13,7 @@ const mockRecipe = (id: number, name: string): Recipe => ({
   stars: 0,
   canHq: true,
   materialQualityFactor: 0,
+  amountResult: 1,
   ingredients: [],
   recipeLevelTable: {
     classJobLevel: 50, stars: 0, difficulty: 100, quality: 100,

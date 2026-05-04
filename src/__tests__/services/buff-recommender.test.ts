@@ -115,7 +115,7 @@ describe('evaluateBuffRecommendation', () => {
 
     const unachievable: RecipeOptimizeResult = {
       recipe: { ...mockRecipe, id: 2, name: 'Hard Potion' },
-      quantity: 6, actions: ['muscle_memory'],
+      quantity: 6, outputAmount: 6, actions: ['muscle_memory'],
       hqAmounts: [], initialQuality: 0, isDoubleMax: false,
       materials: [{ itemId: 200, name: 'Mat A', icon: '', amount: 3 }],
       qualityDeficit: 3000,
