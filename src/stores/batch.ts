@@ -140,12 +140,11 @@ export const useBatchStore = defineStore('batch', () => {
   // Whether to automatically evaluate food/medicine recommendations
   const autoEvaluateBuffs = ref(true)
 
-  /** Total number of shopping items (server groups + self-craft) */
+  /** Total number of shopping items, mirrors what the user actually sees */
   const shoppingItemCount = computed(() => {
-    if (!results.value) return 0
     const keys = new Set<string>()
-    for (const g of results.value.serverGroups) {
-      for (const item of g.items) keys.add(shoppingKey(item.itemId, item.type, item.isFinishedProduct))
+    for (const item of finalShoppingItems.value) {
+      keys.add(shoppingKey(item.itemId, item.type, item.isFinishedProduct))
     }
     return keys.size
   })
