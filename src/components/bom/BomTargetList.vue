@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { Search, Delete } from '@element-plus/icons-vue'
 import AppEmptyState from '@/components/common/AppEmptyState.vue'
 import ItemName from '@/components/common/ItemName.vue'
+import type { BomTarget } from '@/stores/bom'
 
 const bomStore = useBomStore()
 
@@ -19,6 +20,13 @@ function handleQuantityChange(recipeId: number, val: number | undefined) {
 function handleClearAll() {
   bomStore.clearTargets()
   ElMessage.info('已清除所有目標')
+}
+
+function yieldHint(row: BomTarget): string | null {
+  const yieldPerCraft = Math.max(1, row.amountResult ?? 1)
+  if (yieldPerCraft <= 1) return null
+  const crafts = Math.ceil(row.quantity / yieldPerCraft)
+  return `每次製作產出 ${yieldPerCraft} 份 → 共 ${crafts} 次製作`
 }
 </script>
 
@@ -63,6 +71,7 @@ function handleClearAll() {
       <el-table-column label="品項名稱" min-width="180" show-overflow-tooltip>
         <template #default="{ row }">
           <ItemName :item-id="row.itemId" :fallback="row.name" />
+          <div v-if="yieldHint(row)" class="target-yield-hint">{{ yieldHint(row) }}</div>
         </template>
       </el-table-column>
       <el-table-column label="數量" width="140" align="center">
@@ -97,6 +106,7 @@ function handleClearAll() {
         <img :src="row.icon" :alt="row.name" crossorigin="anonymous" loading="lazy" decoding="async" class="target-row__icon" />
         <span class="target-row__name">
           <ItemName :item-id="row.itemId" :fallback="row.name" />
+          <span v-if="yieldHint(row)" class="target-yield-hint">{{ yieldHint(row) }}</span>
         </span>
         <el-input-number
           :model-value="row.quantity"
@@ -164,6 +174,14 @@ function handleClearAll() {
  * which forces the column wider than declared and triggers horizontal scroll. */
 .target-qty {
   width: 100% !important;
+}
+
+.target-yield-hint {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--accent-gold);
+  line-height: 1.3;
 }
 
 .calculate-row {

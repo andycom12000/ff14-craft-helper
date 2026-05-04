@@ -54,6 +54,12 @@ function onDragEnd() {
   dropTargetIndex.value = null
 }
 
+function craftLabel(item: TodoItem): string {
+  const yieldPerCraft = Math.max(1, item.recipe.amountResult ?? 1)
+  if (yieldPerCraft <= 1) return `x${item.quantity}`
+  return `x${item.quantity}（產出 ${item.quantity * yieldPerCraft} 份）`
+}
+
 const doneCount = computed(() => props.items.filter(i => i.done).length)
 const progressPercent = computed(() =>
   props.items.length === 0 ? 0 : Math.round((doneCount.value / props.items.length) * 100),
@@ -181,7 +187,7 @@ function requestNewBatch() {
                 ><ItemName :item-id="item.recipe.itemId" :fallback="item.recipe.name" /></span>
               </div>
               <div class="todo-meta">
-                x{{ item.quantity }} |
+                {{ craftLabel(item) }} |
                 <el-tag size="small" type="primary">{{ getJobName(item.recipe.job) }}</el-tag>
                 <span v-if="item.isSemiFinished" class="todo-badge">半成品</span>
               </div>
@@ -243,7 +249,7 @@ function requestNewBatch() {
             />
           </div>
           <div class="todo-meta">
-            x{{ item.quantity }} |
+            {{ craftLabel(item) }} |
             <el-tag size="small" type="primary">{{ getJobName(item.recipe.job) }}</el-tag>
             <span v-if="item.isSemiFinished" class="todo-badge">半成品</span>
           </div>

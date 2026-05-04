@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { flattenMaterialTree, getCraftingOrder, computeOptimalCosts } from '@/services/bom-calculator'
 import type { MaterialNode } from '@/stores/bom'
 
@@ -322,5 +322,43 @@ describe('buildMaterialTree signature and exports', () => {
   it('exports SELF_CRAFT_SAVINGS_THRESHOLD at 0.05', async () => {
     const mod = await import('@/services/bom-calculator')
     expect(mod.SELF_CRAFT_SAVINGS_THRESHOLD).toBe(0.05)
+  })
+})
+
+describe('buildMaterialTree with amountResult', () => {
+  it('scales ingredient totals by craft count, not output count', async () => {
+    vi.resetModules()
+    vi.doMock('@/api/xivapi', () => ({
+      getRecipe: vi.fn().mockResolvedValue({
+        id: 1, itemId: 100, name: 'Tea', icon: '', job: 'CUL',
+        level: 89, stars: 0, canHq: true, materialQualityFactor: 50,
+        amountResult: 3, // food yields 3 servings per craft
+        ingredients: [
+          { itemId: 200, name: 'Leaf', icon: '', amount: 4, canHq: false, level: 1 },
+        ],
+        recipeLevelTable: { classJobLevel: 89, stars: 0, difficulty: 0, quality: 0,
+          durability: 70, suggestedCraftsmanship: 0, progressDivider: 100,
+          qualityDivider: 100, progressModifier: 100, qualityModifier: 100 },
+      }),
+      findRecipesByItemName: vi.fn().mockResolvedValue([]),
+    }))
+    const { buildMaterialTree } = await import('@/services/bom-calculator')
+
+    // User wants 9 servings → ⌈9/3⌉ = 3 crafts → 4 leaves × 3 = 12 leaves
+    const tree = await buildMaterialTree(
+      [{ itemId: 100, recipeId: 1, name: 'Tea', icon: '', quantity: 9 }],
+      3,
+    )
+    expect(tree[0].amount).toBe(9)
+    expect(tree[0].children![0].itemId).toBe(200)
+    expect(tree[0].children![0].amount).toBe(12) // not 36 (which 9 × 4 would give)
+
+    // Target.quantity that doesn't divide evenly rounds up — 5 servings → 2 crafts → 8 leaves
+    const tree2 = await buildMaterialTree(
+      [{ itemId: 100, recipeId: 1, name: 'Tea', icon: '', quantity: 5 }],
+      3,
+    )
+    expect(tree2[0].children![0].amount).toBe(8)
+    vi.doUnmock('@/api/xivapi')
   })
 })

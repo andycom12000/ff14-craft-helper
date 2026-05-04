@@ -33,7 +33,7 @@ import { COMMON_FOODS, COMMON_MEDICINES, applyFoodBuff, applyMedicineBuff, resol
 
 const mockRecipe: Recipe = {
   id: 1, itemId: 100, name: 'Test', icon: '', job: 'CRP',
-  level: 90, stars: 0, canHq: true, materialQualityFactor: 75,
+  level: 90, stars: 0, canHq: true, materialQualityFactor: 75, amountResult: 1,
   ingredients: [{ itemId: 200, name: 'Mat A', icon: '', amount: 3, canHq: true, level: 50 }],
   recipeLevelTable: {
     classJobLevel: 90, stars: 0, difficulty: 3500, quality: 7200,

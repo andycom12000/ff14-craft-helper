@@ -34,6 +34,8 @@ export interface Recipe {
   stars: number
   canHq: boolean
   materialQualityFactor: number
+  // Items produced per craft (food/medicine typically yield 3). Defaults to 1.
+  amountResult: number
   ingredients: Ingredient[]
   recipeLevelTable: RecipeLevelTable
   // Sentinel for user-authored recipes; downstream skips Universalis + BOM lookups.

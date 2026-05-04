@@ -249,6 +249,7 @@ export function useSimulator() {
       name: recipe.value.name,
       icon: recipe.value.icon,
       quantity: 1,
+      amountResult: recipe.value.amountResult,
     })
     ElMessage.success(`已將「${recipe.value.name}」加入購物清單`)
   }

@@ -32,7 +32,7 @@ describe('generateCandidateCombos', () => {
 
 const mockRecipe: Recipe = {
   id: 1, itemId: 100, name: 'Test Recipe', icon: '', job: 'CRP',
-  level: 90, stars: 0, canHq: true, materialQualityFactor: 75,
+  level: 90, stars: 0, canHq: true, materialQualityFactor: 75, amountResult: 1,
   ingredients: [
     { itemId: 200, name: 'Mat A', icon: '', amount: 3, canHq: true, level: 50 },
   ],
@@ -46,7 +46,7 @@ const mockRecipe: Recipe = {
 
 function makeDeficitResult(recipe: Recipe, qualityDeficit: number): RecipeOptimizeResult {
   return {
-    recipe, quantity: 2, actions: ['muscle_memory'],
+    recipe, quantity: 2, outputAmount: 2, actions: ['muscle_memory'],
     hqAmounts: [3], initialQuality: 500, isDoubleMax: false,
     materials: [{ itemId: 200, name: 'Mat A', icon: '', amount: 3 }],
     qualityDeficit,

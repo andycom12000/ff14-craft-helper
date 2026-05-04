@@ -108,6 +108,7 @@ export function useCustomRecipes() {
       stars: form.stars,
       canHq: form.canHq,
       materialQualityFactor: 0,
+      amountResult: 1,
       ingredients: [],
       recipeLevelTable: {
         classJobLevel: form.level,

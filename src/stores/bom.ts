@@ -17,7 +17,10 @@ export interface BomTarget {
    */
   name: string
   icon: string
+  /** # of finished items the user wants. */
   quantity: number
+  /** Items produced per craft. Optional for legacy data; treat undefined as 1. */
+  amountResult?: number
 }
 
 export interface MaterialNode {

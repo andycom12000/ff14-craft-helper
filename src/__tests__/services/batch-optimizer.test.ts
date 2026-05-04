@@ -33,7 +33,7 @@ import { getMarketData } from '@/api/universalis'
 
 const mockRecipe: Recipe = {
   id: 1, itemId: 100, name: 'Test', icon: '', job: 'CRP',
-  level: 90, stars: 0, canHq: true, materialQualityFactor: 75,
+  level: 90, stars: 0, canHq: true, materialQualityFactor: 75, amountResult: 1,
   ingredients: [
     { itemId: 200, name: 'Mat A', icon: '', amount: 3, canHq: true, level: 50 },
     { itemId: 201, name: 'Mat B', icon: '', amount: 2, canHq: false, level: 50 },
@@ -151,6 +151,110 @@ describe('runBatchOptimization', () => {
     expect(result.buyFinishedItems).toHaveLength(1)
     expect(result.buyFinishedItems[0].recipe.itemId).toBe(mockRecipe.itemId)
     expect(result.todoList).toHaveLength(0)
+  })
+
+  it('buy threshold for amountResult>1 recipe compares per-output cost', async () => {
+    // Food yields 3 per craft. Materials cost 600/craft = 200/serving.
+    // Buy price 250/serving > 200 → must NOT downgrade to buy.
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory', 'groundwork'], progress: 3500, quality: 7200, steps: 2 })
+    vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
+    const { getAggregatedPrices } = await import('@/api/universalis')
+    const foodRecipe: Recipe = { ...mockRecipe, amountResult: 3 }
+    vi.mocked(getAggregatedPrices).mockResolvedValue(new Map([
+      [foodRecipe.itemId, { minPriceNQ: 0, minPriceHQ: 250, listings: [] } as any],
+      [200, { minPriceNQ: 100, minPriceHQ: 0, listings: [] } as any], // 100 * 3 = 300
+      [201, { minPriceNQ: 150, minPriceHQ: 0, listings: [] } as any], // 150 * 2 = 300
+    ]))
+    const result = await runBatchOptimization(
+      [{ recipe: foodRecipe, quantity: 9 }],
+      () => mockGearset, defaultSettings,
+      () => {}, () => false,
+    )
+    expect(result.buyFinishedItems).toHaveLength(0)
+    expect(result.todoList).toHaveLength(1)
+    // 9 servings ÷ 3 per craft = 3 crafts; each craft uses ing.amount × crafts
+    expect(result.todoList[0].quantity).toBe(3)
+  })
+
+  it('amountResult>1 buy path uses output count, not craft count', async () => {
+    // Same food recipe but cheaper market: 80/serving < 200/serving craft cost → buy.
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory', 'groundwork'], progress: 3500, quality: 7200, steps: 2 })
+    vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
+    const { getAggregatedPrices } = await import('@/api/universalis')
+    const foodRecipe: Recipe = { ...mockRecipe, amountResult: 3 }
+    vi.mocked(getAggregatedPrices).mockResolvedValue(new Map([
+      [foodRecipe.itemId, { minPriceNQ: 0, minPriceHQ: 80, listings: [] } as any],
+      [200, { minPriceNQ: 100, minPriceHQ: 0, listings: [] } as any],
+      [201, { minPriceNQ: 150, minPriceHQ: 0, listings: [] } as any],
+    ]))
+    const result = await runBatchOptimization(
+      [{ recipe: foodRecipe, quantity: 9 }],
+      () => mockGearset, defaultSettings,
+      () => {}, () => false,
+    )
+    expect(result.buyFinishedItems).toHaveLength(1)
+    expect(result.buyFinishedItems[0].quantity).toBe(9) // buy 9 servings, not 3 crafts
+    const finishedRow = result.serverGroups.flatMap(g => g.items).find(i => i.isFinishedProduct)
+    expect(finishedRow?.amount).toBe(9)
+  })
+
+  it('amountResult>1 quick-buy uses craft count for materials', async () => {
+    const { getAggregatedPrices } = await import('@/api/universalis')
+    const foodRecipe: Recipe = { ...mockRecipe, amountResult: 3 }
+    vi.mocked(getAggregatedPrices).mockResolvedValue(new Map([
+      [200, { minPriceNQ: 100, minPriceHQ: 0, listings: [] } as any],
+      [201, { minPriceNQ: 150, minPriceHQ: 0, listings: [] } as any],
+    ]))
+    const result = await runBatchOptimization(
+      [{ recipe: foodRecipe, quantity: 9 }], // 9 servings = 3 crafts
+      () => mockGearset,
+      { ...defaultSettings, calcMode: 'quick-buy' },
+      () => {}, () => false,
+    )
+    const mat200 = result.quickBuyMaterials!.find(m => m.itemId === 200)!
+    expect(mat200.amount).toBe(9) // 3 per craft × 3 crafts
+    const mat201 = result.quickBuyMaterials!.find(m => m.itemId === 201)!
+    expect(mat201.amount).toBe(6) // 2 per craft × 3 crafts
+  })
+
+  it('buy-finished preserves target quantity (regression: was always 1)', async () => {
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory', 'groundwork'], progress: 3500, quality: 7200, steps: 2 })
+    vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
+    const { getAggregatedPrices } = await import('@/api/universalis')
+    vi.mocked(getAggregatedPrices).mockResolvedValue(new Map([
+      [mockRecipe.itemId, { minPriceNQ: 0, minPriceHQ: 1000, listings: [] } as any],
+      [200, { minPriceNQ: 1000, minPriceHQ: 0, listings: [] } as any],
+      [201, { minPriceNQ: 500, minPriceHQ: 0, listings: [] } as any],
+    ]))
+
+    const result = await runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 7 }],
+      () => mockGearset,
+      defaultSettings,
+      () => {}, () => false,
+    )
+    expect(result.buyFinishedItems).toHaveLength(1)
+    expect(result.buyFinishedItems[0].quantity).toBe(7)
+    // Critical: shopping list row's amount must equal the requested quantity
+    const allItems = result.serverGroups.flatMap(g => g.items)
+    const finishedRow = allItems.find(i => i.isFinishedProduct)
+    expect(finishedRow?.amount).toBe(7)
+  })
+
+  it('buy-finished via level-insufficient exception preserves target quantity', async () => {
+    vi.mocked(getMarketData).mockResolvedValue({ minPriceNQ: 5000, minPriceHQ: 8000 } as any)
+    const lowGearset: GearsetStats = { level: 50, craftsmanship: 1000, control: 1000, cp: 300 }
+    const result = await runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 9 }],
+      () => lowGearset,
+      { ...defaultSettings, exceptionStrategy: 'buy' },
+      () => {}, () => false,
+    )
+    expect(result.buyFinishedItems).toHaveLength(1)
+    expect(result.buyFinishedItems[0].quantity).toBe(9)
+    const allItems = result.serverGroups.flatMap(g => g.items)
+    const finishedRow = allItems.find(i => i.isFinishedProduct)
+    expect(finishedRow?.amount).toBe(9)
   })
 
   it('selfMakeOverrides forces craft even when buying would be cheaper', async () => {

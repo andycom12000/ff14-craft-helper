@@ -149,6 +149,7 @@ export async function getRecipe(id: number): Promise<Recipe> {
     stars: 0,
     canHq: recipe.canHq,
     materialQualityFactor: recipe.materialQualityFactor,
+    amountResult: recipe.amountResult > 0 ? recipe.amountResult : 1,
     ingredients,
     recipeLevelTable,
   }

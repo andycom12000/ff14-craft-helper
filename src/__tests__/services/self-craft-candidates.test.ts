@@ -20,7 +20,7 @@ describe('filterCandidatesByThreshold', () => {
 
 const mkRecipe = (id: number, job: string, level: number): Recipe => ({
   id, itemId: id * 10, name: `Recipe ${id}`, icon: '', job,
-  level, stars: 0, canHq: true, materialQualityFactor: 50, ingredients: [],
+  level, stars: 0, canHq: true, materialQualityFactor: 50, amountResult: 1, ingredients: [],
   recipeLevelTable: {
     classJobLevel: level, stars: 0, difficulty: 1000, quality: 2000,
     durability: 70, suggestedCraftsmanship: 0,

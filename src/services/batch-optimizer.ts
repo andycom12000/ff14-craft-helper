@@ -15,7 +15,11 @@ import { produceSelfCraftCandidates } from '@/services/self-craft-candidates'
 
 export interface RecipeOptimizeResult {
   recipe: Recipe
+  // # of crafts to perform. For amountResult=1 this equals outputAmount.
   quantity: number
+  // # of finished items the user actually wants. Drives buy/craft cost compare
+  // and the buy-finished shopping row.
+  outputAmount: number
   actions: string[]
   hqAmounts: number[]
   initialQuality: number
@@ -55,7 +59,7 @@ export async function optimizeRecipe(
 
   if (isDoubleMax) {
     return {
-      recipe, quantity: 1, actions: solverResult.actions,
+      recipe, quantity: 1, outputAmount: 1, actions: solverResult.actions,
       hqAmounts: [], initialQuality: 0, isDoubleMax: true, materials, qualityDeficit: 0,
     }
   }
@@ -71,7 +75,7 @@ export async function optimizeRecipe(
   const bestCombo = combos[0]
 
   return {
-    recipe, quantity: 1, actions: solverResult.actions,
+    recipe, quantity: 1, outputAmount: 1, actions: solverResult.actions,
     hqAmounts: bestCombo?.hqAmounts ?? [],
     initialQuality: bestCombo?.initialQuality ?? 0,
     isDoubleMax: false, materials, qualityDeficit,
@@ -168,7 +172,12 @@ export async function runBatchOptimization(
 
     try {
       const result = await optimizeRecipe(target.recipe, gearset, (pct) => report('solving', pct), buffs)
-      result.quantity = target.quantity
+      // target.quantity = output items the user wants. amountResult is how many
+      // items each craft produces (3 for most food/medicine). result.quantity
+      // therefore tracks # of crafts, while outputAmount tracks # of items.
+      const yieldPerCraft = Math.max(1, target.recipe.amountResult)
+      result.outputAmount = target.quantity
+      result.quantity = Math.ceil(target.quantity / yieldPerCraft)
 
       if (!result.isDoubleMax && result.hqAmounts.length === 0) {
         // Save for buff recommendation evaluation (food/medicine may fix this)
@@ -246,8 +255,8 @@ export async function runBatchOptimization(
   const selfMakeOverrides = settings.selfMakeOverrides ?? {}
 
   for (const r of recipeResults) {
-    // Calculate per-unit craft cost from materials
-    let craftCostPerUnit = 0
+    // Per-craft material cost (one craft consumes r.materials and yields amountResult items).
+    let craftCostPerBatch = 0
     for (let j = 0; j < r.materials.length; j++) {
       const m = r.materials[j]
       if (m.itemId < 20) continue // skip crystals
@@ -256,8 +265,12 @@ export async function runBatchOptimization(
       const nqCount = m.amount - hqCount
       const nqPrice = md?.minPriceNQ ?? 0
       const hqPrice = md?.minPriceHQ ?? 0
-      craftCostPerUnit += nqPrice * nqCount + hqPrice * hqCount
+      craftCostPerBatch += nqPrice * nqCount + hqPrice * hqCount
     }
+    // Per-output craft cost: divide by amountResult so food/medicine (yield 3)
+    // compares apples-to-apples against per-item buy price.
+    const yieldPerCraft = Math.max(1, r.recipe.amountResult)
+    const craftCostPerUnit = craftCostPerBatch / yieldPerCraft
 
     // Get finished product buy price (HQ for items that can be HQ)
     const finishedMd = priceMap.get(r.recipe.itemId)
@@ -266,9 +279,9 @@ export async function runBatchOptimization(
     let buyServer: string | undefined
 
     if (settings.crossServer && finishedMd?.listings?.length) {
-      const result = findCheapestServerPurchase(finishedMd.listings, r.quantity, buyHq, settings.server)
+      const result = findCheapestServerPurchase(finishedMd.listings, r.outputAmount, buyHq, settings.server)
       if (result.bestCost < Infinity) {
-        buyPrice = Math.round(result.bestCost / r.quantity)
+        buyPrice = Math.round(result.bestCost / r.outputAmount)
         buyServer = result.bestServer
       }
     } else {
@@ -282,7 +295,7 @@ export async function runBatchOptimization(
     } else if (buyPrice > 0 && buyPrice <= craftCostPerUnit) {
       buyFinishedItems.push({
         recipe: r.recipe,
-        quantity: r.quantity,
+        quantity: r.outputAmount,
         craftCost: craftCostPerUnit,
         buyPrice,
         buyServer,
@@ -492,8 +505,12 @@ async function runQuickBuy(
   interface QBMat { itemId: number; name: string; icon: string; amount: number; canHq: boolean }
   const matMap = new Map<number, QBMat>()
   for (const t of targets) {
+    // t.quantity is # of output items wanted; convert to # of crafts so
+    // ingredient totals match for amountResult > 1 recipes (food/medicine).
+    const yieldPerCraft = Math.max(1, t.recipe.amountResult)
+    const crafts = Math.ceil(t.quantity / yieldPerCraft)
     for (const ing of t.recipe.ingredients) {
-      const amount = ing.amount * t.quantity
+      const amount = ing.amount * crafts
       const existing = matMap.get(ing.itemId)
       if (existing) {
         existing.amount += amount

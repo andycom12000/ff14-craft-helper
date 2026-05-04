@@ -39,6 +39,11 @@ async function findFirstRecipe(
 
 /**
  * Recursively expand a single ingredient node.
+ *
+ * `amount` is the # of finished items of `itemId` needed at this depth.
+ * To craft them we need ⌈amount / amountResult⌉ crafts; ingredient totals
+ * scale by that craft count so food/medicine intermediates (yield 3) don't
+ * over-buy materials by 3×.
  */
 async function expandNode(
   itemId: number,
@@ -63,13 +68,16 @@ async function expandNode(
   const newAncestors = new Set(ancestorIds)
   newAncestors.add(itemId)
 
+  const yieldPerCraft = Math.max(1, recipe.amountResult)
+  const crafts = Math.ceil(amount / yieldPerCraft)
+
   const children = await Promise.all(
     recipe.ingredients.map((ing) =>
       expandNode(
         ing.itemId,
         ing.name,
         ing.icon,
-        ing.amount * amount,
+        ing.amount * crafts,
         depth + 1,
         maxDepth,
         newAncestors,
@@ -99,13 +107,18 @@ export async function buildMaterialTree(
       const recipe = await fetchRecipeCached(target.recipeId)
       const ancestorIds = new Set([target.itemId])
 
+      // target.quantity = # of finished items the user wants. Convert to
+      // crafts so food/medicine (yield 3) don't multiply ingredient totals.
+      const yieldPerCraft = Math.max(1, recipe.amountResult)
+      const crafts = Math.ceil(target.quantity / yieldPerCraft)
+
       const children = await Promise.all(
         recipe.ingredients.map((ing) =>
           expandNode(
             ing.itemId,
             ing.name,
             ing.icon,
-            ing.amount * target.quantity,
+            ing.amount * crafts,
             1,
             maxDepth,
             ancestorIds,

@@ -124,6 +124,7 @@ function handleAddFromSearch(recipe: import('@/stores/recipe').Recipe) {
     name: recipe.name,
     icon: recipe.icon,
     quantity: 1,
+    amountResult: recipe.amountResult,
   })
   ElMessage.success(`已加入「${recipe.name}」`)
 }

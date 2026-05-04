@@ -1,15 +1,23 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { BatchTarget } from '@/stores/batch'
 import { getJobName } from '@/utils/jobs'
 import { starsDisplay } from '@/utils/format'
 import { Delete } from '@element-plus/icons-vue'
 import ItemName from '@/components/common/ItemName.vue'
 
-defineProps<{ target: BatchTarget }>()
+const props = defineProps<{ target: BatchTarget }>()
 const emit = defineEmits<{
   'update:quantity': [id: number, qty: number]
   remove: [id: number]
 }>()
+
+// Items per craft. Food/medicine usually yield 3, everything else 1.
+const yieldPerCraft = computed(() => Math.max(1, props.target.recipe.amountResult ?? 1))
+// Crafts needed to produce target.quantity items, rounded up.
+const crafts = computed(() => Math.ceil(props.target.quantity / yieldPerCraft.value))
+// Show the per-craft yield hint only when it's not the trivial 1:1 case.
+const showYieldHint = computed(() => yieldPerCraft.value > 1)
 </script>
 
 <template>
@@ -31,6 +39,10 @@ const emit = defineEmits<{
         Lv.{{ target.recipe.recipeLevelTable.classJobLevel }}
         {{ starsDisplay(target.recipe.stars) }}
         <el-tag size="small" type="primary">{{ getJobName(target.recipe.job) }}</el-tag>
+        <span class="recipe-card-qty">× {{ target.quantity }} 份</span>
+      </div>
+      <div v-if="showYieldHint" class="recipe-card-hint">
+        每次製作產出 {{ yieldPerCraft }} 份 → 共 {{ crafts }} 次製作
       </div>
     </div>
     <div class="recipe-card-controls">
@@ -40,6 +52,7 @@ const emit = defineEmits<{
         :min="1"
         :max="99"
         size="small"
+        :aria-label="`想要的份數：${target.recipe.name}`"
       />
       <el-button
         :icon="Delete"
@@ -113,12 +126,26 @@ const emit = defineEmits<{
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
+}
+
+.recipe-card-qty {
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.recipe-card-hint {
+  margin-top: 3px;
+  font-size: 11.5px;
+  color: var(--accent-gold);
+  line-height: 1.35;
 }
 
 .recipe-card-controls {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   flex-shrink: 0;
 }
 
