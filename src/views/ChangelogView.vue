@@ -18,6 +18,18 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: 'v2.8.0',
+    date: '2026-05-05',
+    highlights: [
+      '【就地填配裝】模擬器、批量製作、首頁的「前往設定」入口不再跳到配裝管理頁；改成從畫面底部滑出 sheet，當下就能編輯 8 職數值，關閉後回到原本的配方／佇列／食藥設定，不被打斷',
+      '【模擬器等級守門】選到的配方等級超過該職等級時，模擬器顯示警告 banner（遊戲本身就會禁止製作），cockpit 區暫時鎖定，按「調整配裝 ▾」就地修正後即可繼續',
+      '【批量製作軟提醒】batch 內若有配方等級超過該職等級，會在「開始最佳化」上方顯示提醒 alert（可繼續執行，因可能是先規劃未來目標），對應的 recipe 卡片上會出現 cocoa 色 `Lv X · 需 Y` chip 提醒，點擊可直接開 sheet 修正',
+      '【批量製作守門】若批次裡有任何職還沒設定數值，「開始最佳化」按鈕會先打開 sheet 並聚焦到第一個缺的職，避免無解結果',
+      '【模擬器配裝快捷】sidebar 左欄頂部新增 ⚒ 配裝 quick-action 按鈕，隨時開 sheet；缺數值 / 等級不足時按鈕變橘色並帶警示點，手機版同樣 teleport 到上方 bar',
+      '【內部】`GearsetSheet.vue` 抽為共用元件供四處使用；移除 SimulatorView / DashboardView 多處 `router.push(\'/gearset\')`，僅保留 onboarding 流程的首次導頁與 sidebar 主選單路由',
+    ],
+  },
+  {
     version: 'v2.7.0',
     date: '2026-05-05',
     highlights: [
