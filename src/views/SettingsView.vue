@@ -324,6 +324,7 @@ watch([selectedRegion, selectedDC, selectedServer, selectedPriceMode], autoSave)
       <h3 class="thanks-title">特別感謝</h3>
       <p class="thanks-desc">社群朋友的回饋、測試與點子，讓這個工具變得更好。</p>
       <ul class="thanks-list">
+        <li>Zoris</li>
         <li>BE4R</li>
         <li>哎低</li>
         <li>永恆詩歌</li>
