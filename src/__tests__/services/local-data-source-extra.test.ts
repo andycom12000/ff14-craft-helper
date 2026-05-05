@@ -100,7 +100,7 @@ describe('local-data-source extra-shard lazy load', () => {
     expect(extraFetches.length).toBe(1)
   })
 
-  it('does not retry the extra shard after a failure', async () => {
+  it('does not retry an extra shard after it fails (per locale)', async () => {
     const fetchMock = vi.fn(async (url: string) => {
       if (url.endsWith('items/zh-TW.json')) {
         return { ok: true, status: 200, statusText: 'OK', json: async () => LEAN }
@@ -117,10 +117,15 @@ describe('local-data-source extra-shard lazy load', () => {
     expect(a).toBeUndefined()
     expect(b).toBeUndefined()
 
+    // getItem walks every locale's extra on a miss, but each locale's extra
+    // is only fetched ONCE total (failure cached). Across two getItem calls
+    // we still expect at most 4 extra fetches (one per locale), not 8.
     const extraFetches = fetchMock.mock.calls.filter((c) =>
       String(c[0]).includes('-extra.json'),
     )
-    expect(extraFetches.length).toBe(1)
+    const uniqueExtraUrls = new Set(extraFetches.map((c) => String(c[0])))
+    expect(extraFetches.length).toBe(uniqueExtraUrls.size)
+    expect(uniqueExtraUrls.size).toBeLessThanOrEqual(4)
   })
 
   it('falls through to zh-TW extra shard when target locale extra misses', async () => {
@@ -141,10 +146,44 @@ describe('local-data-source extra-shard lazy load', () => {
     const fetchMock = mockFetchOk({
       'items/zh-TW.json': LEAN,
       'items/zh-TW-extra.json': EXTRA,
+      'items/zh-CN.json': { schemaVersion: 1, items: [] },
+      'items/en.json': { schemaVersion: 1, items: [] },
+      'items/ja.json': { schemaVersion: 1, items: [] },
+      'items/zh-CN-extra.json': { schemaVersion: 1, items: [] },
+      'items/en-extra.json': { schemaVersion: 1, items: [] },
+      'items/ja-extra.json': { schemaVersion: 1, items: [] },
     })
     globalThis.fetch = fetchMock as unknown as typeof fetch
 
     const item = await getItem(123456, 'zh-TW')
     expect(item).toBeUndefined()
+  })
+
+  it('zh-TW user gets en/ja name when zh-TW upstream lags', async () => {
+    // Reproduces the real 44878 issue: TW datamining repo lags ~13% behind
+    // the others, so getItem must walk past zh-TW (lean + extra) into the
+    // other locales' extras to find the name.
+    const fetchMock = mockFetchOk({
+      'items/zh-TW.json': LEAN,
+      'items/zh-TW-extra.json': { schemaVersion: 1, items: [] },
+      'items/zh-CN.json': { schemaVersion: 1, items: [] },
+      'items/zh-CN-extra.json': {
+        schemaVersion: 1,
+        items: [[44878, '园艺工挂画框', 1, 0, 51573]],
+      },
+      'items/en.json': LEAN_EN,
+      'items/en-extra.json': {
+        schemaVersion: 1,
+        items: [[44878, "Botanist's Wall Frames", 1, 0, 51573]],
+      },
+      'items/ja.json': { schemaVersion: 1, items: [] },
+      'items/ja-extra.json': { schemaVersion: 1, items: [] },
+    })
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+
+    const item = await getItem(44878, 'zh-TW')
+    // Visit order for zh-TW user is [zh-TW, zh-CN, en, ja].
+    // zh-CN extra has 44878, so zh-CN wins before en even though en also has it.
+    expect(item?.name).toBe('园艺工挂画框')
   })
 })

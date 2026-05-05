@@ -299,22 +299,29 @@ export async function loadManifest(): Promise<Manifest> {
 
 export async function getItem(id: number, locale?: Locale): Promise<ItemRecord | undefined> {
   const loc = locale ?? getLocale()
-  const items = await loadItems(loc)
-  const found = items.get(id)
-  if (found) return found
-  if (loc !== 'zh-TW') {
-    const fallback = await loadItems('zh-TW')
-    const fb = fallback.get(id)
-    if (fb) return fb
+
+  // Try target locale lean → target locale extra. If both miss, fall through
+  // to other locales in priority order (en is the most complete per the
+  // build comment about TW lagging ~13%; zh-CN is second most complete).
+  // The point isn't perfect locale fidelity — for an obscure id we'd rather
+  // show 「ボタニスト・ピクチャーフレーム」 than 「物品 #44878」.
+  // Fetch errors per-locale are swallowed: a 404 on zh-CN.json shouldn't
+  // block the user from getting an en name.
+  const visitOrder: Locale[] = [loc, ...LOCALES.filter((l) => l !== loc)]
+
+  for (const l of visitOrder) {
+    try {
+      const lean = await loadItems(l)
+      const found = lean.get(id)
+      if (found) return found
+    } catch {
+      // missing per-locale shard is non-fatal; keep walking
+    }
   }
-  // Lean miss: try the extra shard. Triggered by import dialog hitting an
-  // NPC-shop / FATE / housing item that isn't recipe-referenced.
-  const extra = await loadExtraItems(loc)
-  const fromExtra = extra.get(id)
-  if (fromExtra) return fromExtra
-  if (loc !== 'zh-TW') {
-    const fallbackExtra = await loadExtraItems('zh-TW')
-    return fallbackExtra.get(id)
+  for (const l of visitOrder) {
+    const extra = await loadExtraItems(l)
+    const found = extra.get(id)
+    if (found) return found
   }
   return undefined
 }
