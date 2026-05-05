@@ -11,7 +11,7 @@ const PILLS: Pill[] = [
   { locale: 'zh-TW', label: '繁中' },
   { locale: 'zh-CN', label: '简中' },
   { locale: 'en', label: 'EN' },
-  { locale: 'ja', label: 'JA' },
+  { locale: 'ja', label: 'JP' },
 ]
 
 const localeStore = useLocaleStore()
