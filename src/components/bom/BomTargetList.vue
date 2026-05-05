@@ -14,8 +14,8 @@ const emit = defineEmits<{
   'open-import': []
 }>()
 
-function handleQuantityChange(recipeId: number, val: number | undefined) {
-  bomStore.updateTargetQuantity(recipeId, val ?? 1)
+function handleQuantityChange(itemId: number, val: number | undefined) {
+  bomStore.updateTargetQuantity(itemId, val ?? 1)
 }
 
 function handleClearAll() {
@@ -91,7 +91,7 @@ function yieldHint(row: BomTarget): string | null {
             :max="999"
             size="small"
             class="target-qty"
-            @change="(val: number | undefined) => handleQuantityChange(row.recipeId, val)"
+            @change="(val: number | undefined) => handleQuantityChange(row.itemId, val)"
           />
         </template>
       </el-table-column>
@@ -101,7 +101,7 @@ function yieldHint(row: BomTarget): string | null {
             type="danger"
             size="small"
             text
-            @click="bomStore.removeTarget(row.recipeId)"
+            @click="bomStore.removeTarget(row.itemId)"
           >
             移除
           </el-button>
@@ -111,7 +111,7 @@ function yieldHint(row: BomTarget): string | null {
 
     <!-- Mobile: compact single-line rows -->
     <ul v-if="bomStore.targets.length > 0" class="targets-mobile-list">
-      <li v-for="row in bomStore.targets" :key="row.recipeId" class="target-row">
+      <li v-for="row in bomStore.targets" :key="row.itemId" class="target-row">
         <img :src="row.icon" :alt="row.name" crossorigin="anonymous" loading="lazy" decoding="async" class="target-row__icon" />
         <span class="target-row__name">
           <ItemName :item-id="row.itemId" :fallback="row.name" />
@@ -124,13 +124,13 @@ function yieldHint(row: BomTarget): string | null {
           size="small"
           aria-label="數量"
           class="target-row__qty"
-          @change="(val: number | undefined) => handleQuantityChange(row.recipeId, val)"
+          @change="(val: number | undefined) => handleQuantityChange(row.itemId, val)"
         />
         <button
           type="button"
           class="target-row__remove"
           :aria-label="`移除 ${row.name}`"
-          @click="bomStore.removeTarget(row.recipeId)"
+          @click="bomStore.removeTarget(row.itemId)"
         >
           <el-icon><Delete /></el-icon>
         </button>

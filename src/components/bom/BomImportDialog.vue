@@ -58,8 +58,8 @@ const nonCraftableCount = computed(() =>
 const importableCount = computed(() =>
   resolved.value.filter((r) => {
     if (r.unknown) return false
-    const chosen = effectiveRecipeId(r)
-    return chosen !== null
+    if (r.recipes.length === 0) return true // non-craftable goes in as well
+    return effectiveRecipeId(r) !== null
   }).length,
 )
 
@@ -124,8 +124,16 @@ function chooseRecipe(itemId: number, recipeId: number) {
 }
 
 async function confirmImport() {
+  // Three buckets:
+  //   - craftable + recipe chosen → BomTarget with recipeId, fetch recipe meta
+  //   - non-craftable but item known → BomTarget with recipeId=null, use the
+  //     resolver's name/icon (BOM tracks it for purchase planning even though
+  //     there's no craft expansion to do)
+  //   - unknown id (not in any shard) → still skipped; we have no name to show
+  //   - ambiguous (>1 recipe, no choice yet) → skipped, shouldn't reach here
   const selected = resolved.value.filter((r) => {
     if (r.unknown) return false
+    if (r.recipes.length === 0) return true // non-craftable
     return effectiveRecipeId(r) !== null
   })
 
@@ -136,6 +144,16 @@ async function confirmImport() {
 
   const fetched = await Promise.all(
     selected.map(async (r): Promise<BomTarget | null> => {
+      // Non-craftable: no recipe to fetch.
+      if (r.recipes.length === 0) {
+        return {
+          itemId: r.itemId,
+          recipeId: null,
+          name: r.name,
+          icon: r.icon,
+          quantity: r.qty,
+        }
+      }
       const recipeId = effectiveRecipeId(r)!
       try {
         const recipe = await getRecipe(recipeId)
@@ -237,16 +255,13 @@ onBeforeUnmount(() => {
           <span v-if="ambiguousCount > 0" class="bid-summary__warn">
             · {{ ambiguousCount }} 筆需要選擇配方
           </span>
-          <span v-if="nonCraftableCount > 0" class="bid-summary__danger">
-            · {{ nonCraftableCount }} 筆非製作物品，自動跳過
+          <span v-if="nonCraftableCount > 0" class="bid-summary__hint">
+            · 含 {{ nonCraftableCount }} 筆非製作物品（市場／NPC 採購）
           </span>
           <span v-if="unknownCount > 0" class="bid-summary__danger">
             · {{ unknownCount }} 筆找不到資料
           </span>
         </div>
-        <p v-if="nonCraftableCount > 0 || unknownCount > 0" class="bid-summary-hint">
-          跳過的多半是 NPC 商店、FATE 獎勵或採集類道具 — 本工具只處理可製作的目標
-        </p>
 
         <ul class="bid-list" role="list">
           <li
@@ -274,8 +289,8 @@ onBeforeUnmount(() => {
               <div v-else-if="r.resolvedRecipeId === null && r.recipes.length > 1" class="bid-row__meta">
                 找到 {{ r.recipes.length }} 個配方，請選擇
               </div>
-              <div v-else-if="r.resolvedRecipeId === null" class="bid-row__meta bid-row__meta--err">
-                非製作物品（NPC／採集／獎勵類），跳過
+              <div v-else-if="r.recipes.length === 0" class="bid-row__meta">
+                非製作物品 · 將以「市場／NPC」方式追蹤
               </div>
               <div v-else class="bid-row__meta">
                 配方 #{{ r.resolvedRecipeId }}
@@ -403,6 +418,10 @@ onBeforeUnmount(() => {
 
 .bid-summary__danger {
   color: var(--el-color-danger);
+}
+
+.bid-summary__hint {
+  color: var(--app-text-muted);
 }
 
 .bid-list {

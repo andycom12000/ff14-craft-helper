@@ -143,7 +143,7 @@ const drillDrawerOpen = computed<boolean>({
         :icon="row.icon"
         :amount="row.amount"
         :is-craftable="row.isCraftable"
-        immutable
+        :immutable="row.isCraftable"
       />
     </div>
 

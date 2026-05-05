@@ -104,6 +104,18 @@ export async function buildMaterialTree(
 ): Promise<MaterialNode[]> {
   const results = await Promise.allSettled(
     targets.map(async (target) => {
+      // Non-craftable target: leaf node with no children, no recipeId.
+      // Lives alongside craftable targets in the tree; user picks the
+      // acquisition mode (market / NPC / gather) on its decision row.
+      if (target.recipeId === null) {
+        return {
+          itemId: target.itemId,
+          name: target.name,
+          icon: target.icon,
+          amount: target.quantity,
+        } as MaterialNode
+      }
+
       const recipe = await fetchRecipeCached(target.recipeId)
       const ancestorIds = new Set([target.itemId])
 
@@ -145,7 +157,7 @@ export async function buildMaterialTree(
       name: targets[i].name,
       icon: targets[i].icon,
       amount: targets[i].quantity,
-      recipeId: targets[i].recipeId,
+      recipeId: targets[i].recipeId ?? undefined,
     }
   })
 }

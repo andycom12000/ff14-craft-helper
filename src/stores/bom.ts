@@ -15,7 +15,13 @@ export type AcquisitionSource = 'market' | 'craft' | 'gather' | 'npc'
 
 export interface BomTarget {
   itemId: number
-  recipeId: number
+  /**
+   * Recipe id when the target is a craftable item. `null` for items the user
+   * wants to procure but can't craft (NPC vendor, FATE rewards, gathered
+   * goods imported from a Teamcraft list). Non-craftable targets bypass
+   * material expansion and live in flatMaterials as a single raw entry.
+   */
+  recipeId: number | null
   /**
    * @deprecated name is no longer the source of truth for rendering.
    * Components should resolve the current-locale name via useItemName(itemId).
@@ -121,7 +127,10 @@ export const useBomStore = defineStore('bom', () => {
   const fetchingPriceIds = ref<Set<number>>(new Set())
 
   function addTarget(target: BomTarget) {
-    const existing = targets.value.find(t => t.recipeId === target.recipeId)
+    // Dedupe by itemId — same item shouldn't appear twice even with different
+    // recipe choices, and itemId is the only stable key for non-craftable
+    // targets (recipeId is null for those).
+    const existing = targets.value.find(t => t.itemId === target.itemId)
     if (existing) {
       existing.quantity += target.quantity
     } else {
@@ -129,12 +138,12 @@ export const useBomStore = defineStore('bom', () => {
     }
   }
 
-  function removeTarget(recipeId: number) {
-    targets.value = targets.value.filter(t => t.recipeId !== recipeId)
+  function removeTarget(itemId: number) {
+    targets.value = targets.value.filter(t => t.itemId !== itemId)
   }
 
-  function updateTargetQuantity(recipeId: number, quantity: number) {
-    const target = targets.value.find(t => t.recipeId === recipeId)
+  function updateTargetQuantity(itemId: number, quantity: number) {
+    const target = targets.value.find(t => t.itemId === itemId)
     if (target) {
       target.quantity = quantity
     }
@@ -277,7 +286,11 @@ export const useBomStore = defineStore('bom', () => {
         craftCost = allKnown ? sum : Infinity
       }
 
-      if (isTarget) {
+      if (isTarget && isCraftable) {
+        // Craftable target stays on craft regardless of cost — that's the
+        // whole point of putting it in the BOM. Non-craftable targets fall
+        // through to the same cheapest-mode logic as a normal leaf so the
+        // user sees market vs NPC up front.
         const cost = Number.isFinite(craftCost)
           ? craftCost
           : Number.isFinite(marketCost)

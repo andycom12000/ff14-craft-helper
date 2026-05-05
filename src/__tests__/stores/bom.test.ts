@@ -258,6 +258,22 @@ describe('useBomStore.applyOptimalDefaults', () => {
     // Should not throw; mode defaults to market for raw leaves
     expect(bom.getEffectiveMode(202)).toBe('market')
   })
+
+  it('non-craftable target picks the cheapest of {market, npc} (not forced craft)', () => {
+    const bom = useBomStore()
+    // Single non-craftable target — recipeId null, no children in the tree.
+    bom.targets = [{ itemId: 500, recipeId: null, name: 'Housing Item', icon: '', quantity: 1 }]
+    bom.materialTree = [
+      { itemId: 500, name: 'Housing Item', icon: '', amount: 1 },
+    ]
+    bom.prices = new Map([[500, priceInfo(500, 9999)]]) // expensive on market
+    bom.acquisitionAvailability = new Map([
+      [500, { canMarket: true, canGather: false, canNpc: true, npcPrice: 100 }],
+    ])
+    bom.applyOptimalDefaults()
+    // NPC is much cheaper → mode flips even though item is in target list
+    expect(bom.getEffectiveMode(500)).toBe('npc')
+  })
 })
 
 describe('useBomStore.fetchPrices', () => {

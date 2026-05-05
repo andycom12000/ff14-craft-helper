@@ -104,19 +104,32 @@ async function handleRefreshPrices() {
 }
 
 async function handleSendToBatch() {
-  if (bomStore.targets.length === 0) {
-    ElMessage.warning('清單為空')
+  // Batch is craft-only; non-craftable targets (recipeId === null) have no
+  // recipe to optimize and are silently filtered. The user can still see
+  // them in BOM for purchase planning.
+  const craftableTargets = bomStore.targets.filter(
+    (t): t is typeof t & { recipeId: number } => t.recipeId !== null,
+  )
+  if (craftableTargets.length === 0) {
+    ElMessage.warning(
+      bomStore.targets.length === 0 ? '清單為空' : '清單中沒有可批量製作的目標',
+    )
     return
   }
   try {
     const recipes = await Promise.all(
-      bomStore.targets.map((t) => getRecipe(t.recipeId)),
+      craftableTargets.map((t) => getRecipe(t.recipeId)),
     )
     for (let i = 0; i < recipes.length; i++) {
       batchStore.addTarget(recipes[i])
-      batchStore.updateQuantity(bomStore.targets[i].recipeId, bomStore.targets[i].quantity)
+      batchStore.updateQuantity(craftableTargets[i].recipeId, craftableTargets[i].quantity)
     }
-    ElMessage.success(`已送出 ${bomStore.targets.length} 筆到批量計算`)
+    const skipped = bomStore.targets.length - craftableTargets.length
+    ElMessage.success(
+      skipped > 0
+        ? `已送出 ${craftableTargets.length} 筆到批量（${skipped} 筆非製作物品已跳過）`
+        : `已送出 ${craftableTargets.length} 筆到批量計算`,
+    )
     router.push('/batch')
   } catch (err) {
     console.error('[BOM] Send to batch failed:', err)
@@ -141,7 +154,7 @@ function handleImported() {
     <div class="bom-cockpit" :class="{ 'is-mobile': isMobile }">
       <div v-if="isCockpitMobile" class="b-mobile-strip" aria-label="目標摘要">
         <ul v-if="bomStore.targets.length > 0" class="b-mobile-strip__chips">
-          <li v-for="t in bomStore.targets" :key="t.recipeId" class="b-mobile-chip">
+          <li v-for="t in bomStore.targets" :key="t.itemId" class="b-mobile-chip">
             <span class="b-mobile-chip__qty">×{{ t.quantity }}</span>
             <ItemName :item-id="t.itemId" :fallback="t.name" />
           </li>
