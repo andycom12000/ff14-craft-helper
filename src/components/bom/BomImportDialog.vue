@@ -41,12 +41,18 @@ const visible = computed({
 
 const ambiguousCount = computed(() =>
   resolved.value.filter(
-    (r) => r.resolvedRecipeId === null && r.recipes.length > 1,
+    (r) => !r.unknown && r.resolvedRecipeId === null && r.recipes.length > 1,
   ).length,
 )
 
 const unknownCount = computed(() =>
   resolved.value.filter((r) => r.unknown).length,
+)
+
+const nonCraftableCount = computed(() =>
+  resolved.value.filter(
+    (r) => !r.unknown && r.recipes.length === 0,
+  ).length,
 )
 
 const importableCount = computed(() =>
@@ -231,12 +237,15 @@ onBeforeUnmount(() => {
           <span v-if="ambiguousCount > 0" class="bid-summary__warn">
             · {{ ambiguousCount }} 筆需要選擇配方
           </span>
+          <span v-if="nonCraftableCount > 0" class="bid-summary__danger">
+            · {{ nonCraftableCount }} 筆非製作物品，自動跳過
+          </span>
           <span v-if="unknownCount > 0" class="bid-summary__danger">
-            · {{ unknownCount }} 筆非製作物品，自動跳過
+            · {{ unknownCount }} 筆找不到資料
           </span>
         </div>
-        <p v-if="unknownCount > 0" class="bid-summary-hint">
-          找不到的多半是 NPC 商店、FATE 獎勵或採集類道具 — 本工具只處理可製作的目標
+        <p v-if="nonCraftableCount > 0 || unknownCount > 0" class="bid-summary-hint">
+          跳過的多半是 NPC 商店、FATE 獎勵或採集類道具 — 本工具只處理可製作的目標
         </p>
 
         <ul class="bid-list" role="list">
@@ -260,13 +269,13 @@ onBeforeUnmount(() => {
             <div class="bid-row__main">
               <div class="bid-row__name">{{ r.name }}</div>
               <div v-if="r.unknown" class="bid-row__meta bid-row__meta--err">
-                ID {{ r.itemId }} · 非製作物品（NPC／採集／獎勵類），跳過
+                ID {{ r.itemId }} · 找不到資料，跳過
               </div>
               <div v-else-if="r.resolvedRecipeId === null && r.recipes.length > 1" class="bid-row__meta">
                 找到 {{ r.recipes.length }} 個配方，請選擇
               </div>
               <div v-else-if="r.resolvedRecipeId === null" class="bid-row__meta bid-row__meta--err">
-                找不到配方，跳過
+                非製作物品（NPC／採集／獎勵類），跳過
               </div>
               <div v-else class="bid-row__meta">
                 配方 #{{ r.resolvedRecipeId }}
