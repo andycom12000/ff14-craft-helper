@@ -375,7 +375,8 @@ function buildRlt(rows, headers, verbose) {
   return rlt
 }
 
-function buildItems(rows, headers, whitelist, verbose, label) {
+function buildItems(rows, headers, whitelist, verbose, label, opts = {}) {
+  const { invert = false } = opts
   const idCol = pickHeader(headers, ['#']) || '#'
   const nameCol = pickHeader(headers, ['Name']) || 'Name'
   const levelCol =
@@ -391,7 +392,13 @@ function buildItems(rows, headers, whitelist, verbose, label) {
   for (const r of rows) {
     const id = toInt(r[idCol])
     if (id <= 0) continue
-    if (!whitelist.has(id)) continue
+    const inWhitelist = whitelist.has(id)
+    // Lean shard: keep when id is recipe-referenced.
+    // Extra shard: keep every named item that isn't in the lean shard, so
+    // import dialog can resolve names for non-craftable housing furniture
+    // / NPC-shop items / FATE rewards. Items with empty Name are always
+    // dropped (CSV pad rows / placeholder ids).
+    if (invert ? inWhitelist : !inWhitelist) continue
     const name = String(r[nameCol] ?? '').trim()
     if (!name) continue
     items.push([
@@ -503,13 +510,23 @@ async function main() {
   ]
 
   const itemsByLocale = {}
+  const itemsExtraByLocale = {}
   for (const src of itemSources) {
     log(verbose, `Reading ${src.path} as ${src.format}`)
     const text = await readCsv(src.path)
     const { headers, rows } = parseCsv(text, src.format)
     const items = buildItems(rows, headers, referencedItems, verbose, src.locale)
     itemsByLocale[src.locale] = items
-    log(verbose, `  [${src.locale}] kept ${items.length} items`)
+    log(verbose, `  [${src.locale}] kept ${items.length} items (lean)`)
+
+    // Extra shard: every named item NOT in the lean shard. Lazy-loaded
+    // by getItem on first miss so cold-start path stays unchanged.
+    const leanIds = new Set(items.map((row) => row[0]))
+    const extra = buildItems(rows, headers, leanIds, verbose, src.locale, {
+      invert: true,
+    })
+    itemsExtraByLocale[src.locale] = extra
+    log(verbose, `  [${src.locale}] kept ${extra.length} items (extra)`)
   }
 
   // 4. Sanity checks.
@@ -596,6 +613,12 @@ async function main() {
       JSON.stringify({ schemaVersion: 1, items }),
     )
   }
+  for (const [locale, items] of Object.entries(itemsExtraByLocale)) {
+    await fs.writeFile(
+      path.join(OUT_TMP, 'items', `${locale}-extra.json`),
+      JSON.stringify({ schemaVersion: 1, items }),
+    )
+  }
   const manifest = {
     schemaVersion: 1,
     buildTime: new Date().toISOString(),
@@ -621,6 +644,10 @@ async function main() {
     ['items/zh-CN.json', 'items/zh-CN.json'],
     ['items/en.json', 'items/en.json'],
     ['items/ja.json', 'items/ja.json'],
+    ['items/zh-TW-extra.json', 'items/zh-TW-extra.json'],
+    ['items/zh-CN-extra.json', 'items/zh-CN-extra.json'],
+    ['items/en-extra.json', 'items/en-extra.json'],
+    ['items/ja-extra.json', 'items/ja-extra.json'],
   ]
   for (const [from, to] of copies) {
     const src = path.join(OUT_TMP, from)
@@ -651,6 +678,10 @@ async function main() {
   for (const [locale, items] of Object.entries(itemsByLocale)) {
     const size = (await fs.stat(path.join(OUT_FINAL, 'items', `${locale}.json`))).size
     console.log(`  items[${locale}]: ${items.length} (${(size / 1024).toFixed(1)} KB)`)
+  }
+  for (const [locale, items] of Object.entries(itemsExtraByLocale)) {
+    const size = (await fs.stat(path.join(OUT_FINAL, 'items', `${locale}-extra.json`))).size
+    console.log(`  items[${locale}-extra]: ${items.length} (${(size / 1024).toFixed(1)} KB)`)
   }
   const recipesSize = (await fs.stat(path.join(OUT_FINAL, 'recipes.json'))).size
   const rltSize = (await fs.stat(path.join(OUT_FINAL, 'rlt.json'))).size

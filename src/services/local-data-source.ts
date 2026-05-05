@@ -94,6 +94,14 @@ let manifestPromise: Promise<Manifest> | null = null
 const itemsPromises = new Map<Locale, Promise<Map<number, ItemRecord>>>()
 const itemsCache = new Map<Locale, Map<number, ItemRecord>>()
 
+// Extra shard (non-craftable items: housing furniture, NPC-shop items,
+// FATE/獎勵 rewards). Only fetched on a getItem miss so cold-start
+// stays cheap. A failed fetch is recorded and not retried — otherwise a
+// single bogus id would hammer the network on every subsequent miss.
+const extraItemsPromises = new Map<Locale, Promise<Map<number, ItemRecord>>>()
+const extraItemsCache = new Map<Locale, Map<number, ItemRecord>>()
+const extraItemsFailed = new Set<Locale>()
+
 // Vite base path (e.g. '/ff14-craft-helper/' for GH Pages, '/' for plain host).
 // Fallback to '/' for non-Vite contexts (node tests stub globalThis.fetch anyway).
 const BASE_URL: string =
@@ -232,6 +240,46 @@ export async function loadItems(locale?: Locale): Promise<Map<number, ItemRecord
   return promise
 }
 
+/**
+ * Lazily fetch the per-locale extra shard (non-craftable items). Resolves to
+ * the parsed map; subsequent calls return the cached promise. If the fetch
+ * fails (network / 404), the failure is recorded so we don't retry on every
+ * subsequent getItem miss; the returned promise still resolves to an empty
+ * map so callers can pattern-match without a try/catch.
+ *
+ * No locale fallback here — getItem walks both target-locale and zh-TW extra
+ * shards explicitly when a miss persists.
+ */
+async function loadExtraItems(locale: Locale): Promise<Map<number, ItemRecord>> {
+  if (extraItemsFailed.has(locale)) return new Map()
+  const cached = extraItemsPromises.get(locale)
+  if (cached) return cached
+  const promise = (async () => {
+    try {
+      const data = await fetchJson<ItemsFile>(dataUrl(`/data/items/${locale}-extra.json`))
+      if (data.schemaVersion !== 1) {
+        throw new Error(
+          `items/${locale}-extra.json: unsupported schemaVersion ${(data as { schemaVersion?: number }).schemaVersion}`,
+        )
+      }
+      const map = new Map<number, ItemRecord>()
+      for (const tuple of data.items as ItemTuple[]) {
+        const [id, name, level, canBeHq, iconId] = tuple
+        map.set(id, { name, level, canBeHq: canBeHq === 1, iconId })
+      }
+      extraItemsCache.set(locale, map)
+      itemsCacheVersion.value++
+      return map
+    } catch (err) {
+      console.warn(`[items] extra shard load failed for ${locale}:`, err)
+      extraItemsFailed.add(locale)
+      return new Map<number, ItemRecord>()
+    }
+  })()
+  extraItemsPromises.set(locale, promise)
+  return promise
+}
+
 export async function loadManifest(): Promise<Manifest> {
   if (manifestPromise) return manifestPromise
   manifestPromise = (async () => {
@@ -256,15 +304,27 @@ export async function getItem(id: number, locale?: Locale): Promise<ItemRecord |
   if (found) return found
   if (loc !== 'zh-TW') {
     const fallback = await loadItems('zh-TW')
-    return fallback.get(id)
+    const fb = fallback.get(id)
+    if (fb) return fb
+  }
+  // Lean miss: try the extra shard. Triggered by import dialog hitting an
+  // NPC-shop / FATE / housing item that isn't recipe-referenced.
+  const extra = await loadExtraItems(loc)
+  const fromExtra = extra.get(id)
+  if (fromExtra) return fromExtra
+  if (loc !== 'zh-TW') {
+    const fallbackExtra = await loadExtraItems('zh-TW')
+    return fallbackExtra.get(id)
   }
   return undefined
 }
 
 export function getItemSync(id: number, locale?: Locale): ItemRecord | undefined {
   const loc = locale ?? getLocale()
-  const map = itemsCache.get(loc)
-  return map?.get(id)
+  const lean = itemsCache.get(loc)
+  const found = lean?.get(id)
+  if (found) return found
+  return extraItemsCache.get(loc)?.get(id)
 }
 
 export async function getRecipe(id: number): Promise<RecipeRecord | undefined> {
@@ -362,6 +422,9 @@ export function __resetForTesting(): void {
   manifestPromise = null
   itemsPromises.clear()
   itemsCache.clear()
+  extraItemsPromises.clear()
+  extraItemsCache.clear()
+  extraItemsFailed.clear()
   localeListeners.clear()
   try {
     globalThis.localStorage?.removeItem(LOCALE_STORAGE_KEY)
