@@ -346,8 +346,12 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-height: 60vh;
-  overflow-y: auto;
+  /* Bound the whole dialog body to viewport minus the dialog chrome
+   * (header ~52px + footer ~64px + padding) so the inner scroll
+   * containers have a real ceiling to push against. Without this the
+   * dialog body grows past the viewport and the list scroll is unreachable. */
+  max-height: calc(85vh - 140px);
+  min-height: 0;
 }
 
 .bid-subtitle {
@@ -434,7 +438,14 @@ onBeforeUnmount(() => {
   background: var(--app-bg);
   border: 1px solid var(--app-border);
   border-radius: 10px;
-  overflow: hidden;
+  /* Long Teamcraft lists (20+ items) need to scroll inside the dialog,
+   * not push the bottom CTA off-screen. flex:1 + min-height:0 lets the
+   * list claim remaining vertical space inside the body's max-height
+   * constraint and clip with internal scroll. */
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .bid-row {
