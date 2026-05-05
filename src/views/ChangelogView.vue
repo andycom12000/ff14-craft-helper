@@ -28,6 +28,7 @@ const changelog: Entry[] = [
       '【分享下拉】總計列「分享連結」改成 dropdown，多了「複製材料清單 (Markdown)」一鍵帶純文字材料清單到 Discord/Notion',
       '【chip 圖示更直覺】取得方式 chip 從 M/C/G/N 字母換成 `⌖ ⚒ ⛏ ⛟` 符號，配合多語 fallback font 在 zh-TW/zh-CN/ja/en 都可讀',
       '【匯入體驗】Teamcraft 匯入對話框新增「填入範例連結」一鍵試用、>30 筆時顯示「比對中 12 / 38」進度計數、不再因匯入靜默觸發計算（v2.9.0 行為違反原 spec Q5）',
+      '【技能翻譯修正】模擬器與批量製作頁面的 Immaculate Mend 由錯誤的「精修II」改回 zh-TW 社群通譯「巧奪天工」',
       '【內部】bom store 增 priceFetchStatus / fetchingPriceIds + hoist fetchPrices；BomCraftTreeNode 加「自製成本拆解」eyebrow 標題，desktop 與 mobile sheet 都套用',
     ],
   },
