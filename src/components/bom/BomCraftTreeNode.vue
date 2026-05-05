@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import type { MaterialNode } from '@/stores/bom'
 import { useBomStore, getPrice } from '@/stores/bom'
 import { useSettingsStore } from '@/stores/settings'
+import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
 import { computeOptimalCosts } from '@/services/bom-calculator'
 import { formatGil } from '@/utils/format'
 import BomDecisionRow from '@/components/bom/BomDecisionRow.vue'
+import CrossWorldPriceDetail from '@/components/common/CrossWorldPriceDetail.vue'
 
 const props = defineProps<{
   /** The parent material node whose children we render. */
@@ -64,6 +66,22 @@ const verdict = computed(() => {
 function isChildCraftable(node: MaterialNode): boolean {
   return !!(node.recipeId && node.children && node.children.length > 0)
 }
+
+const { crossWorldData, crossWorldLoading, fetchCrossWorldData } = useCrossWorldPricing()
+
+const canMarketParent = computed(() => {
+  const a = bom.acquisitionAvailability.get(props.parent.itemId)
+  return a ? a.canMarket : true
+})
+
+const crossWorldRows = computed(() => crossWorldData.value.get(props.parent.itemId))
+const crossWorldIsLoading = computed(() => crossWorldLoading.value.has(props.parent.itemId))
+
+onMounted(() => {
+  if (canMarketParent.value) {
+    void fetchCrossWorldData(props.parent.itemId, props.parent.name)
+  }
+})
 </script>
 
 <template>
@@ -84,6 +102,15 @@ function isChildCraftable(node: MaterialNode): boolean {
       <div v-if="verdict" class="ctn-compare__verdict" :data-kind="verdict.kind">
         {{ verdict.kind === 'craft' ? '自製省' : '直購省' }} {{ formatGil(verdict.saving) }}
       </div>
+    </div>
+
+    <div v-if="canMarketParent" class="ctn-cross-world">
+      <span class="ctn-cross-world__label">跨服比價</span>
+      <CrossWorldPriceDetail
+        :data="crossWorldRows"
+        :loading="crossWorldIsLoading"
+        compact
+      />
     </div>
 
     <div v-if="crystalChildren.length > 0" class="ctn-crystals">
@@ -177,6 +204,21 @@ function isChildCraftable(node: MaterialNode): boolean {
 
 .ctn-compare__verdict[data-kind='buy'] {
   background: var(--app-surface-hover);
+  color: var(--app-text-muted);
+}
+
+.ctn-cross-world {
+  padding: 0 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ctn-cross-world__label {
+  font-family: 'Fira Code', ui-monospace, monospace;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 11px;
   color: var(--app-text-muted);
 }
 
