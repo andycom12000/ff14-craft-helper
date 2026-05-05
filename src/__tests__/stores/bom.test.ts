@@ -2,7 +2,18 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useBomStore, getPrice } from '@/stores/bom'
 import { useSettingsStore } from '@/stores/settings'
-import type { PriceInfo } from '@/stores/bom'
+import type { PriceInfo, MaterialNode } from '@/stores/bom'
+
+function priceInfo(itemId: number, nq: number, hq = nq): PriceInfo {
+  return {
+    itemId,
+    minPrice: nq,
+    avgPrice: nq,
+    hqMinPrice: hq,
+    hqAvgPrice: hq,
+    lastUpdated: 0,
+  }
+}
 
 const mockPrice: PriceInfo = {
   itemId: 1,
@@ -63,5 +74,183 @@ describe('useBomStore.totalCost', () => {
 
     settingsStore.priceDisplayMode = 'hq'
     expect(bomStore.totalCost).toBe(200 * 10 + 80 * 5) // 2400
+  })
+})
+
+/**
+ * Tree shape used across the next describe blocks:
+ *
+ *   target (id=100, recipeId=1, amount=2, craftable)
+ *     ├── child A (id=10, recipeId=2, amount=4, craftable — half intermediate)
+ *     │     ├── leaf A1 (id=200, raw, amount=8)
+ *     │     └── leaf A2 (id=201, raw, amount=4)
+ *     └── leaf B   (id=202, raw, amount=6)
+ */
+function makeTree(): MaterialNode[] {
+  const leafA1: MaterialNode = { itemId: 200, name: 'A1', icon: '', amount: 8 }
+  const leafA2: MaterialNode = { itemId: 201, name: 'A2', icon: '', amount: 4 }
+  const leafB: MaterialNode = { itemId: 202, name: 'B', icon: '', amount: 6 }
+  const childA: MaterialNode = {
+    itemId: 10,
+    name: 'Half',
+    icon: '',
+    amount: 4,
+    recipeId: 2,
+    children: [leafA1, leafA2],
+  }
+  const target: MaterialNode = {
+    itemId: 100,
+    name: 'Target',
+    icon: '',
+    amount: 2,
+    recipeId: 1,
+    children: [childA, leafB],
+  }
+  return [target]
+}
+
+describe('useBomStore.setAcquisitionMode', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  it('writes mode for raw items', () => {
+    const bom = useBomStore()
+    bom.setAcquisitionMode(200, 'gather')
+    expect(bom.getEffectiveMode(200)).toBe('gather')
+  })
+
+  it('falls through to market when no mode is set', () => {
+    const bom = useBomStore()
+    expect(bom.getEffectiveMode(999)).toBe('market')
+  })
+
+  it('returns "craft" for an expanded craftable regardless of stored mode', () => {
+    const bom = useBomStore()
+    bom.materialTree = makeTree()
+    // node 10 is a craftable intermediate, expanded by default (no collapsed)
+    expect(bom.getEffectiveMode(10)).toBe('craft')
+  })
+
+  it('switching a craftable to market collapses the node', () => {
+    const bom = useBomStore()
+    bom.materialTree = makeTree()
+    bom.setAcquisitionMode(10, 'market')
+    expect(bom.getEffectiveMode(10)).toBe('market')
+    expect(bom.findNode(10)?.collapsed).toBe(true)
+  })
+
+  it('switching a collapsed craftable back to craft un-collapses', () => {
+    const bom = useBomStore()
+    bom.materialTree = makeTree()
+    bom.setAcquisitionMode(10, 'market')
+    bom.setAcquisitionMode(10, 'craft')
+    expect(bom.getEffectiveMode(10)).toBe('craft')
+    expect(bom.findNode(10)?.collapsed).toBe(false)
+  })
+
+  it('rejects "craft" on a non-craftable item', () => {
+    const bom = useBomStore()
+    bom.materialTree = makeTree()
+    bom.setAcquisitionMode(200, 'craft')
+    // mode shouldn't flip to craft for a leaf
+    expect(bom.getEffectiveMode(200)).toBe('market')
+  })
+})
+
+describe('useBomStore.applyOptimalDefaults', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    const settings = useSettingsStore()
+    settings.priceDisplayMode = 'nq'
+  })
+
+  it('picks market when its cost beats craft and NPC for a craftable', () => {
+    const bom = useBomStore()
+    bom.targets = [{ itemId: 100, recipeId: 1, name: 'Target', icon: '', quantity: 2 }]
+    bom.materialTree = makeTree()
+    // children's market prices total: leafA1 8×5 + leafA2 4×5 = 60. childA market 4×10 = 40.
+    // childA market (40) < its craft cost (60). Default should pick market.
+    bom.prices = new Map([
+      [10, priceInfo(10, 10)],
+      [200, priceInfo(200, 5)],
+      [201, priceInfo(201, 5)],
+      [202, priceInfo(202, 3)],
+    ])
+    bom.applyOptimalDefaults()
+    expect(bom.getEffectiveMode(10)).toBe('market')
+    // Leaves stay market (default cheapest with no NPC alternative)
+    expect(bom.getEffectiveMode(202)).toBe('market')
+  })
+
+  it('keeps craftable on craft when craft cost is cheapest', () => {
+    const bom = useBomStore()
+    bom.targets = [{ itemId: 100, recipeId: 1, name: 'Target', icon: '', quantity: 2 }]
+    bom.materialTree = makeTree()
+    // childA market 100; craft cost = 8×1 + 4×1 = 12. Should stay craft.
+    bom.prices = new Map([
+      [10, priceInfo(10, 100)],
+      [200, priceInfo(200, 1)],
+      [201, priceInfo(201, 1)],
+      [202, priceInfo(202, 1)],
+    ])
+    bom.applyOptimalDefaults()
+    expect(bom.getEffectiveMode(10)).toBe('craft')
+    expect(bom.findNode(10)?.collapsed).toBeFalsy()
+  })
+
+  it('picks NPC when it is cheaper than market', () => {
+    const bom = useBomStore()
+    bom.targets = [{ itemId: 100, recipeId: 1, name: 'Target', icon: '', quantity: 2 }]
+    bom.materialTree = makeTree()
+    bom.prices = new Map([
+      [10, priceInfo(10, 50)],
+      [200, priceInfo(200, 5)],
+      [201, priceInfo(201, 5)],
+      [202, priceInfo(202, 100)], // expensive on market
+    ])
+    bom.acquisitionAvailability = new Map([
+      [202, { canMarket: true, canGather: false, canNpc: true, npcPrice: 8 }], // NPC much cheaper
+    ])
+    bom.applyOptimalDefaults()
+    expect(bom.getEffectiveMode(202)).toBe('npc')
+  })
+
+  it('targets always stay on craft', () => {
+    const bom = useBomStore()
+    bom.targets = [{ itemId: 100, recipeId: 1, name: 'Target', icon: '', quantity: 2 }]
+    bom.materialTree = makeTree()
+    bom.prices = new Map([
+      [100, priceInfo(100, 1)], // target market is dirt-cheap
+      [10, priceInfo(10, 100)],
+      [200, priceInfo(200, 100)],
+      [201, priceInfo(201, 100)],
+      [202, priceInfo(202, 100)],
+    ])
+    bom.applyOptimalDefaults()
+    // target (100) is craftable + in target list — should stay craft
+    expect(bom.getEffectiveMode(100)).toBe('craft')
+  })
+
+  it('does not pick NPC when no npcPrice is known (Infinity guard)', () => {
+    const bom = useBomStore()
+    bom.targets = [{ itemId: 100, recipeId: 1, name: 'Target', icon: '', quantity: 2 }]
+    bom.materialTree = makeTree()
+    bom.prices = new Map([[202, priceInfo(202, 50)]])
+    bom.acquisitionAvailability = new Map([
+      [202, { canMarket: true, canGather: false, canNpc: false, npcPrice: null }],
+    ])
+    bom.applyOptimalDefaults()
+    expect(bom.getEffectiveMode(202)).toBe('market')
+  })
+
+  it('falls back to market when no price data is available', () => {
+    const bom = useBomStore()
+    bom.targets = [{ itemId: 100, recipeId: 1, name: 'Target', icon: '', quantity: 2 }]
+    bom.materialTree = makeTree()
+    // No prices at all
+    bom.applyOptimalDefaults()
+    // Should not throw; mode defaults to market for raw leaves
+    expect(bom.getEffectiveMode(202)).toBe('market')
   })
 })
