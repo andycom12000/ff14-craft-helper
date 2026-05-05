@@ -143,9 +143,8 @@ async function handleSendToBatch() {
 }
 
 function handleImported() {
-  // After import, recalc materials so the decision table refreshes.
   if (bomStore.targets.length > 0) {
-    void handleCalculate()
+    ElMessage.success('已匯入，按「計算」開始拆解素材')
   }
 }
 </script>
