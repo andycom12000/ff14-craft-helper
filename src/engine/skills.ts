@@ -53,7 +53,7 @@ export const SKILLS: SkillDefinition[] = [
   // Repair / Other
   { id: 'MastersMend', nameEn: 'Master\'s Mend', nameZh: '精修', nameJa: 'マスターズメンド', category: 'repair', level: 7, cp: 88, durability: 0, description: '恢復 30 耐久', iconId: 1952 },
   { id: 'Manipulation', nameEn: 'Manipulation', nameZh: '掌握', nameJa: 'マニピュレーション', category: 'repair', level: 65, cp: 96, durability: 0, description: '每回合恢復 5 耐久，8 回合', iconId: 1985 },
-  { id: 'ImmaculateMend', nameEn: 'Immaculate Mend', nameZh: '精修II', nameJa: 'マスターズメンドII', category: 'repair', level: 98, cp: 112, durability: 0, description: '耐久恢復至上限', iconId: 1950 },
+  { id: 'ImmaculateMend', nameEn: 'Immaculate Mend', nameZh: '巧奪天工', nameJa: 'マスターズメンドII', category: 'repair', level: 98, cp: 112, durability: 0, description: '耐久恢復至上限', iconId: 1950 },
   { id: 'Observe', nameEn: 'Observe', nameZh: '觀察', nameJa: '経過観察', category: 'other', level: 13, cp: 7, durability: 0, description: '等待一回合', iconId: 1954 },
   { id: 'TricksOfTheTrade', nameEn: 'Tricks of the Trade', nameZh: '秘訣', nameJa: '秘訣', category: 'other', level: 13, cp: 0, durability: 0, description: '恢復 20 CP（高品質限定）', iconId: 1990 },
   { id: 'HeartAndSoul', nameEn: 'Heart and Soul', nameZh: '心靈之手', nameJa: '一心不乱', category: 'other', level: 86, cp: 0, durability: 0, description: '下次可用高品質限定技能', iconId: 1996 },
