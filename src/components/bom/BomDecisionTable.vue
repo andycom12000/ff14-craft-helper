@@ -201,10 +201,7 @@ const drillDrawerOpen = computed<boolean>({
   >
     <div class="bdt-drill-sheet__handle" aria-hidden="true" />
     <div v-if="drillNode" class="bdt-drill-sheet__body">
-      <div class="bdt-drill-sheet__title">
-        <span class="bdt-drill-sheet__eyebrow">自製成本拆解</span>
-        <span class="bdt-drill-sheet__name">{{ drillNode.name }}</span>
-      </div>
+      <span class="bdt-drill-sheet__name">{{ drillNode.name }}</span>
       <BomCraftTreeNode :parent="drillNode" />
     </div>
   </el-drawer>
@@ -378,25 +375,12 @@ const drillDrawerOpen = computed<boolean>({
   overflow-y: auto;
 }
 
-.bdt-drill-sheet__title {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 6px 16px 10px;
-}
-
-.bdt-drill-sheet__eyebrow {
-  font-family: 'Fira Code', ui-monospace, monospace;
-  font-size: 10.5px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--app-text-muted);
-}
-
 .bdt-drill-sheet__name {
+  display: block;
   font-family: 'Noto Serif TC', serif;
   font-size: 16px;
   font-weight: 700;
   color: var(--app-text);
+  padding: 6px 16px 8px;
 }
 </style>

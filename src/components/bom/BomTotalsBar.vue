@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Refresh, Share, ArrowRight, WarningFilled } from '@element-plus/icons-vue'
+import { Refresh, Share, ArrowRight, ArrowDown, WarningFilled } from '@element-plus/icons-vue'
 import { useBomStore } from '@/stores/bom'
 import { buildTeamcraftImportUrl } from '@/services/teamcraft-import'
 import { formatGil } from '@/utils/format'
@@ -24,6 +24,16 @@ const hasSaving = computed(() => savingPct.value > 0.5)
 const hasLoss = computed(() => savingPct.value < -0.5)
 const failedCount = computed(() => bom.failedPriceCount)
 
+async function copyToClipboard(text: string, successMsg: string) {
+  try {
+    await navigator.clipboard.writeText(text)
+    ElMessage.success(successMsg)
+  } catch {
+    ElMessage.error('複製失敗，請手動複製')
+    window.prompt('複製這段內容：', text)
+  }
+}
+
 async function copyTeamcraftUrl() {
   if (bom.targets.length === 0) {
     ElMessage.warning('清單為空')
@@ -36,13 +46,24 @@ async function copyTeamcraftUrl() {
       qty: t.quantity,
     })),
   )
-  try {
-    await navigator.clipboard.writeText(url)
-    ElMessage.success('已複製 Teamcraft 連結')
-  } catch {
-    ElMessage.error('複製失敗，請手動複製')
-    window.prompt('複製這個連結：', url)
+  await copyToClipboard(url, '已複製 Teamcraft 連結')
+}
+
+async function copyMaterialsMarkdown() {
+  if (bom.flatMaterials.length === 0) {
+    ElMessage.warning('還沒計算材料，先按「計算」')
+    return
   }
+  const lines: string[] = []
+  for (const m of bom.flatMaterials) {
+    lines.push(`- ×${m.totalAmount} ${m.name}`)
+  }
+  await copyToClipboard(lines.join('\n'), '已複製材料清單 (Markdown)')
+}
+
+function handleShare(action: string) {
+  if (action === 'teamcraft') void copyTeamcraftUrl()
+  else if (action === 'markdown') void copyMaterialsMarkdown()
 }
 </script>
 
@@ -83,9 +104,18 @@ async function copyTeamcraftUrl() {
       >
         重新查價
       </el-button>
-      <el-button size="small" :icon="Share" @click="copyTeamcraftUrl">
-        分享連結
-      </el-button>
+      <el-dropdown trigger="click" @command="handleShare">
+        <el-button size="small" :icon="Share">
+          分享
+          <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+        </el-button>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item command="teamcraft">複製 Teamcraft 連結</el-dropdown-item>
+            <el-dropdown-item command="markdown">複製材料清單 (Markdown)</el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
       <el-button
         type="primary"
         size="small"

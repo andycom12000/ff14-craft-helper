@@ -27,6 +27,12 @@ const mergeStrategy = ref<'merge' | 'replace'>('merge')
 const errorMessage = ref<string | null>(null)
 const debounceTimer = ref<number | null>(null)
 const recipeChoices = ref<Map<number, number>>(new Map())
+const resolveProgress = ref<{ done: number; total: number } | null>(null)
+
+// A real Teamcraft list URL the user can paste with one click. The IDs may
+// or may not resolve cleanly — that's fine; the dialog is showing format,
+// and unknown items get flagged in the result list.
+const SAMPLE_URL = 'https://ffxivteamcraft.com/import/NTM0MCw4LDM7NTMzNyw0LDU='
 
 const visible = computed({
   get: () => props.modelValue,
@@ -84,14 +90,26 @@ async function runParse() {
   }
 
   loadingPhase.value = 'resolving'
+  // Only show the counter when there's enough work that progress feedback
+  // matters. <30 entries resolves under a second; the spinner is fine.
+  resolveProgress.value = parsed.entries.length > 30
+    ? { done: 0, total: parsed.entries.length }
+    : null
   try {
-    resolved.value = await resolveTeamcraftEntries(parsed.entries)
+    resolved.value = await resolveTeamcraftEntries(parsed.entries, (done, total) => {
+      if (resolveProgress.value) resolveProgress.value = { done, total }
+    })
   } catch (err) {
     console.error('[BOM Import] resolve failed:', err)
     errorMessage.value = '解析時發生錯誤，請稍後再試'
   } finally {
     loadingPhase.value = null
+    resolveProgress.value = null
   }
+}
+
+function fillSample() {
+  inputText.value = SAMPLE_URL
 }
 
 function chooseRecipe(itemId: number, recipeId: number) {
@@ -194,7 +212,17 @@ onBeforeUnmount(() => {
         class="bid-input"
       />
 
+      <button
+        v-if="!inputText.trim()"
+        type="button"
+        class="bid-sample"
+        @click="fillSample"
+      >填入範例連結</button>
+
       <p v-if="errorMessage" class="bid-error">{{ errorMessage }}</p>
+      <p v-else-if="loadingPhase === 'resolving' && resolveProgress" class="bid-status">
+        比對中 {{ resolveProgress.done }} / {{ resolveProgress.total }}
+      </p>
       <p v-else-if="loadingPhase" class="bid-status">解析中…</p>
 
       <template v-if="resolved.length > 0">
@@ -321,6 +349,23 @@ onBeforeUnmount(() => {
   margin: 0;
   font-size: 13px;
   color: var(--app-text-muted);
+}
+
+.bid-sample {
+  align-self: flex-start;
+  margin-top: -4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--app-craft);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.bid-sample:hover {
+  color: oklch(from var(--app-craft) calc(l - 0.06) c h);
 }
 
 .bid-summary {

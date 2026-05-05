@@ -18,6 +18,20 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: 'v2.10.0',
+    date: '2026-05-05',
+    highlights: [
+      '【手機版重新設計】<900px 起，左 rail 收進底部 sheet，最上方留一條 chip 摘要列直接看 ×N 目標品；點「編輯目標」開抽屜進去改清單／設定／按計算。決策列若是自製 row，點下去也會走底部 sheet 而不是擠在當列展開',
+      '【自動 scroll 到總計列】算完那一刻畫面自動 smooth-scroll 到主區頂端的總計列，再也不用自己滾下去看花多少 gil',
+      '【跨服比價回到 drill-down】v2.9.0 把舊版的 cross-world 跨服價格表洗掉了，這版補回 — drill 開時自動拉 garlandtools / Universalis 跨 DC 比價，列在「直購本品 vs 材料自製」下面',
+      '【查價失敗 per-row 重試】Universalis 偶爾會掉部分回應，現在每列遇到查價失敗會在單價欄出現一顆「查價失敗 重試」chip 直接點重打；總計列右上角會出現「N 列查價失敗」warn 計數',
+      '【分享下拉】總計列「分享連結」改成 dropdown，多了「複製材料清單 (Markdown)」一鍵帶純文字材料清單到 Discord/Notion',
+      '【chip 圖示更直覺】取得方式 chip 從 M/C/G/N 字母換成 `⌖ ⚒ ⛏ ⛟` 符號，配合多語 fallback font 在 zh-TW/zh-CN/ja/en 都可讀',
+      '【匯入體驗】Teamcraft 匯入對話框新增「填入範例連結」一鍵試用、>30 筆時顯示「比對中 12 / 38」進度計數、不再因匯入靜默觸發計算（v2.9.0 行為違反原 spec Q5）',
+      '【內部】bom store 增 priceFetchStatus / fetchingPriceIds + hoist fetchPrices；BomCraftTreeNode 加「自製成本拆解」eyebrow 標題，desktop 與 mobile sheet 都套用',
+    ],
+  },
+  {
     version: 'v2.9.0',
     date: '2026-05-05',
     highlights: [

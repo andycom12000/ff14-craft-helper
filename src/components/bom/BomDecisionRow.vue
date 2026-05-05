@@ -33,10 +33,10 @@ const availability = computed(() => bom.acquisitionAvailability.get(props.itemId
 const segments = computed(() => {
   const av = availability.value
   const out: { value: AcquisitionSource; label: string; icon: string }[] = []
-  if (!av || av.canMarket) out.push({ value: 'market', label: '市場', icon: 'M' })
-  if (props.isCraftable) out.push({ value: 'craft', label: '自製', icon: 'C' })
-  if (!av || av.canGather) out.push({ value: 'gather', label: '自採', icon: 'G' })
-  if (!av || av.canNpc) out.push({ value: 'npc', label: 'NPC', icon: 'N' })
+  if (!av || av.canMarket) out.push({ value: 'market', label: '市場', icon: '⌖' })
+  if (props.isCraftable) out.push({ value: 'craft', label: '自製', icon: '⚒' })
+  if (!av || av.canGather) out.push({ value: 'gather', label: '自採', icon: '⛏' })
+  if (!av || av.canNpc) out.push({ value: 'npc', label: 'NPC', icon: '⛟' })
   return out
 })
 
@@ -157,7 +157,7 @@ function onRowClick() {
       </button>
     </div>
     <div v-else class="dec-row__locked">
-      <span class="dec-seg dec-seg--locked"><span class="dec-seg__icon">C</span><span class="dec-seg__label">自製</span></span>
+      <span class="dec-seg dec-seg--locked"><span class="dec-seg__icon">⚒</span><span class="dec-seg__label">自製</span></span>
     </div>
 
     <div class="dec-row__unit">
@@ -332,10 +332,15 @@ function onRowClick() {
   height: 16px;
   border-radius: 50%;
   background: color-mix(in srgb, currentColor 12%, transparent);
-  font-family: 'Fira Code', ui-monospace, monospace;
-  font-size: 10px;
-  font-weight: 600;
+  /* Symbola / system emoji fonts render the geometric glyphs (⌖ ⚒ ⛏ ⛟)
+   * cleanly across zh-TW / zh-CN / ja / en. Fall back to mono so the
+   * letterform sticks if the system has no symbol font. */
+  font-family: 'Apple Symbols', 'Segoe UI Symbol', 'Noto Sans Symbols 2',
+    'Symbola', 'Fira Code', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
   letter-spacing: 0;
+  line-height: 1;
 }
 
 .dec-seg.is-active.is-craft .dec-seg__icon {

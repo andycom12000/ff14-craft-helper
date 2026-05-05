@@ -123,44 +123,52 @@ export interface ResolvedTeamcraftEntry {
 
 export async function resolveTeamcraftEntries(
   entries: TeamcraftEntry[],
+  onProgress?: (done: number, total: number) => void,
 ): Promise<ResolvedTeamcraftEntry[]> {
+  let done = 0
+  const total = entries.length
   return Promise.all(
     entries.map(async (entry): Promise<ResolvedTeamcraftEntry> => {
-      const item = await getItem(entry.itemId)
-      if (!item) {
+      try {
+        const item = await getItem(entry.itemId)
+        if (!item) {
+          return {
+            itemId: entry.itemId,
+            qty: entry.qty,
+            importedRecipeId: entry.recipeId,
+            recipes: [],
+            resolvedRecipeId: null,
+            name: `物品 #${entry.itemId}`,
+            icon: '',
+            unknown: true,
+          }
+        }
+        const recipes = await findRecipesByItemName(item.name, entry.itemId)
+        const recipesSorted = [...recipes].sort((a, b) => a.recipeId - b.recipeId)
+        let resolvedRecipeId: number | null = null
+        if (
+          entry.recipeId !== null &&
+          recipesSorted.some((r) => r.recipeId === entry.recipeId)
+        ) {
+          resolvedRecipeId = entry.recipeId
+        } else if (recipesSorted.length === 1) {
+          resolvedRecipeId = recipesSorted[0].recipeId
+        } else if (recipesSorted.length === 0) {
+          resolvedRecipeId = null
+        }
         return {
           itemId: entry.itemId,
           qty: entry.qty,
           importedRecipeId: entry.recipeId,
-          recipes: [],
-          resolvedRecipeId: null,
-          name: `物品 #${entry.itemId}`,
-          icon: '',
-          unknown: true,
+          recipes: recipesSorted,
+          resolvedRecipeId,
+          name: item.name,
+          icon: item.iconId ? getIconUrl(item.iconId) : '',
+          unknown: false,
         }
-      }
-      const recipes = await findRecipesByItemName(item.name, entry.itemId)
-      const recipesSorted = [...recipes].sort((a, b) => a.recipeId - b.recipeId)
-      let resolvedRecipeId: number | null = null
-      if (
-        entry.recipeId !== null &&
-        recipesSorted.some((r) => r.recipeId === entry.recipeId)
-      ) {
-        resolvedRecipeId = entry.recipeId
-      } else if (recipesSorted.length === 1) {
-        resolvedRecipeId = recipesSorted[0].recipeId
-      } else if (recipesSorted.length === 0) {
-        resolvedRecipeId = null
-      }
-      return {
-        itemId: entry.itemId,
-        qty: entry.qty,
-        importedRecipeId: entry.recipeId,
-        recipes: recipesSorted,
-        resolvedRecipeId,
-        name: item.name,
-        icon: item.iconId ? getIconUrl(item.iconId) : '',
-        unknown: false,
+      } finally {
+        done++
+        onProgress?.(done, total)
       }
     }),
   )

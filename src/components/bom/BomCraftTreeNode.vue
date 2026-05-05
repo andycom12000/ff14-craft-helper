@@ -86,6 +86,8 @@ onMounted(() => {
 
 <template>
   <div class="craft-tree-node" :data-depth="depth ?? 1">
+    <span v-if="(depth ?? 1) === 1" class="ctn-eyebrow">自製成本拆解</span>
+
     <div v-if="verdict || directBuyCost !== null" class="ctn-compare">
       <div class="ctn-compare__row">
         <span class="ctn-compare__label">直購本品</span>
@@ -150,6 +152,15 @@ onMounted(() => {
   gap: 8px;
   padding: 12px 0 14px;
   border-top: 1px dashed var(--app-border);
+}
+
+.ctn-eyebrow {
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+  padding: 0 14px;
 }
 
 .ctn-compare {
