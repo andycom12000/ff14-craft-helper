@@ -227,14 +227,17 @@ onBeforeUnmount(() => {
 
       <template v-if="resolved.length > 0">
         <div class="bid-summary">
-          將匯入 <strong>{{ importableCount }}</strong> 筆
+          將匯入 <strong>{{ importableCount }}</strong> / {{ resolved.length }} 筆
           <span v-if="ambiguousCount > 0" class="bid-summary__warn">
-            · 有 {{ ambiguousCount }} 筆需要選擇配方
+            · {{ ambiguousCount }} 筆需要選擇配方
           </span>
           <span v-if="unknownCount > 0" class="bid-summary__danger">
-            · {{ unknownCount }} 筆找不到
+            · {{ unknownCount }} 筆非製作物品，自動跳過
           </span>
         </div>
+        <p v-if="unknownCount > 0" class="bid-summary-hint">
+          找不到的多半是 NPC 商店、FATE 獎勵或採集類道具 — 本工具只處理可製作的目標
+        </p>
 
         <ul class="bid-list" role="list">
           <li
@@ -257,7 +260,7 @@ onBeforeUnmount(() => {
             <div class="bid-row__main">
               <div class="bid-row__name">{{ r.name }}</div>
               <div v-if="r.unknown" class="bid-row__meta bid-row__meta--err">
-                ID {{ r.itemId }} — 不在資料庫，可能是新版物品
+                ID {{ r.itemId }} · 非製作物品（NPC／採集／獎勵類），跳過
               </div>
               <div v-else-if="r.resolvedRecipeId === null && r.recipes.length > 1" class="bid-row__meta">
                 找到 {{ r.recipes.length }} 個配方，請選擇
@@ -371,6 +374,13 @@ onBeforeUnmount(() => {
 .bid-summary {
   font-size: 13.5px;
   color: var(--app-text);
+}
+
+.bid-summary-hint {
+  margin: -6px 0 0;
+  font-size: 12px;
+  color: var(--app-text-muted);
+  line-height: 1.5;
 }
 
 .bid-summary strong {
