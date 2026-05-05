@@ -18,6 +18,20 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: 'v2.9.0',
+    date: '2026-05-05',
+    highlights: [
+      '【購物清單大改版】整頁 redesign 為決策 cockpit：左 sticky rail 放目標清單 + 查價設定 + 計算 CTA，主區是「素材取得決策表」hero。每筆素材一列，可選 市場 / 自製 / 自採 / NPC 四種取得方式，總價與「估省 vs 全部市買」即時更新',
+      '【最划算自動套用】算完後系統會自動為每筆素材挑選 {市場, 自製, NPC} 中最便宜的一種（自採排除，因為它是時間成本不是 gil 成本）；自製成本 = 子配方遞迴；NPC 售價來自 garlandtools',
+      '【取得方式智慧過濾】每筆素材的 chip 會根據 garlandtools 資料隱藏不適用選項：純採集礦不顯示「自製」、半成品不顯示「自採」、沒 NPC 售的不顯示 NPC',
+      '【Teamcraft 匯入／匯出】貼 `https://ffxivteamcraft.com/import/...` 連結直接匯入；ReMakePlace、MakePlace 等工具的 export 也通用。同時可從總計列「分享連結」一鍵複製 Teamcraft URL 帶走清單',
+      '【自製拆解 row drill-down】craftable row 點任意位置（chip 除外）即展開子配方對比面板，顯示「直購本品 vs 材料自製」與差價，水晶以橫條 chip 收合不佔列數',
+      '【批量製作入口】總計列「轉到批量計算」一鍵把目前 BOM 目標送進 batchStore 跳轉 /batch，銜接後續製作流程',
+      '【視覺對齊吐司工坊設計系統】cocoa 主色（crafting zone）；rail 是單張卡，內部用 dashed divider + mono eyebrow label 切段，沒有 box-in-box；Jam-Jar Rule 守住 — 自製 chip 用 cocoa，其他三個 active chip 用深暖棕中性色',
+      '【內部】新增 `services/teamcraft-import.ts` parser/builder（含 39 個單測）、`services/item-acquisition.ts` 整合 garlandtools；BOM store 加 `acquisitionMode` / `expandedRows` / `acquisitionAvailability` 與 `applyOptimalDefaults()`；元件拆出 BomDecisionRow / BomDecisionTable / BomCraftTreeNode / BomTotalsBar / BomSettingsCard / BomImportDialog',
+    ],
+  },
+  {
     version: 'v2.8.0',
     date: '2026-05-05',
     highlights: [

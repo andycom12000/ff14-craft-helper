@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useBomStore } from '@/stores/bom'
 import { ElMessage } from 'element-plus'
-import { Search, Delete } from '@element-plus/icons-vue'
+import { Search, Delete, Download } from '@element-plus/icons-vue'
 import AppEmptyState from '@/components/common/AppEmptyState.vue'
 import ItemName from '@/components/common/ItemName.vue'
 import type { BomTarget } from '@/stores/bom'
@@ -11,6 +11,7 @@ const bomStore = useBomStore()
 const emit = defineEmits<{
   calculate: []
   'open-search': []
+  'open-import': []
 }>()
 
 function handleQuantityChange(recipeId: number, val: number | undefined) {
@@ -35,9 +36,14 @@ function yieldHint(row: BomTarget): string | null {
     <header class="card-header">
       <span class="card-title">製作目標</span>
       <div class="card-actions">
-        <el-button type="primary" size="small" :icon="Search" @click="emit('open-search')">
-          搜尋配方
-        </el-button>
+        <div class="card-actions__primary">
+          <el-button type="primary" size="small" :icon="Search" @click="emit('open-search')">
+            搜尋
+          </el-button>
+          <el-button size="small" :icon="Download" @click="emit('open-import')">
+            匯入
+          </el-button>
+        </div>
         <el-popconfirm
           title="確定要清除所有目標嗎？"
           confirm-button-text="確定"
@@ -45,8 +51,8 @@ function yieldHint(row: BomTarget): string | null {
           @confirm="handleClearAll"
         >
           <template #reference>
-            <el-button size="small" :disabled="bomStore.targets.length === 0">
-              清除全部
+            <el-button size="small" text :disabled="bomStore.targets.length === 0">
+              清除
             </el-button>
           </template>
         </el-popconfirm>
@@ -59,7 +65,10 @@ function yieldHint(row: BomTarget): string | null {
       title="建立你的購物清單"
       description="加入想製作的道具，自動計算所需素材和市場價格"
     >
-      <el-button type="primary" :icon="Search" @click="emit('open-search')">搜尋配方</el-button>
+      <div class="empty-actions">
+        <el-button type="primary" :icon="Search" @click="emit('open-search')">搜尋配方</el-button>
+        <el-button :icon="Download" @click="emit('open-import')">匯入 Teamcraft</el-button>
+      </div>
     </AppEmptyState>
 
     <el-table v-else :data="bomStore.targets" style="width: 100%" class="targets-table">
@@ -128,17 +137,18 @@ function yieldHint(row: BomTarget): string | null {
       </li>
     </ul>
 
-    <div v-if="bomStore.targets.length > 0" class="calculate-row">
-      <el-button type="success" @click="emit('calculate')">
-        計算材料需求
-      </el-button>
-    </div>
+
   </section>
 </template>
 
 <style scoped>
 .bom-target-list {
-  /* Typography header + table; no outer container chrome */
+  /* Container query owner so the compact list / table swap follows the
+   * actual rendered width, not the viewport. The BOM cockpit rail forces
+   * the rail-side instance to ~280–360px regardless of viewport, which
+   * the el-table layout (icon 60 + name 180 + qty 140 + ops 80 ≈ 460) can
+   * never honor without overflow. */
+  container-type: inline-size;
 }
 
 .card-header {
@@ -153,21 +163,32 @@ function yieldHint(row: BomTarget): string | null {
 
 .card-actions {
   display: flex;
+  align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-/* Table IS the data block — surface + border + radius */
+.card-actions__primary {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* Table is data inside the rail card — borrow EP table's row dividers but
+ * skip the wrapping chrome so it never reads as a card-in-card with the
+ * surrounding rail. */
 .targets-table {
-  --el-table-bg-color: var(--app-surface);
-  --el-table-tr-bg-color: var(--app-surface);
-  --el-table-header-bg-color: oklch(0.955 0.028 80);
-  --el-table-row-hover-bg-color: oklch(0.65 0.18 65 / 0.05);
+  --el-table-bg-color: transparent;
+  --el-table-tr-bg-color: transparent;
+  --el-table-header-bg-color: transparent;
+  --el-table-row-hover-bg-color: var(--app-surface-hover);
   --el-table-border-color: var(--app-border);
-  border: 1px solid var(--app-border);
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 1px 2px oklch(0.40 0.05 60 / 0.04);
 }
 
 /* Quantity input fills its column — desktop el-input-number defaults to ~150px
@@ -303,7 +324,9 @@ function yieldHint(row: BomTarget): string | null {
   display: none;
 }
 
-@media (max-width: 640px) {
+/* Container-driven swap: when the list lives in a narrow rail (cockpit) or on
+ * a phone, show the compact row pattern instead of the wide el-table. */
+@container (max-width: 480px) {
   .targets-table {
     display: none;
   }
@@ -311,7 +334,10 @@ function yieldHint(row: BomTarget): string | null {
     display: flex;
     border-top: 1px solid var(--app-border);
   }
+}
 
+/* Mobile (≤640px viewport): sticky header bar + tighter spacing. */
+@media (max-width: 640px) {
   .card-header {
     position: sticky;
     top: var(--mobile-app-bar-h, 52px);
@@ -332,10 +358,6 @@ function yieldHint(row: BomTarget): string | null {
 
   .card-actions {
     gap: 6px;
-  }
-
-  .calculate-row {
-    margin-top: 14px;
   }
 }
 </style>
