@@ -1,17 +1,19 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { Edit, Search } from '@element-plus/icons-vue'
 import BomTargetList from '@/components/bom/BomTargetList.vue'
 import BomSettingsCard from '@/components/bom/BomSettingsCard.vue'
 import BomTotalsBar from '@/components/bom/BomTotalsBar.vue'
 import BomDecisionTable from '@/components/bom/BomDecisionTable.vue'
 import BomImportDialog from '@/components/bom/BomImportDialog.vue'
 import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
+import ItemName from '@/components/common/ItemName.vue'
 import { useBomStore } from '@/stores/bom'
 import { useBatchStore } from '@/stores/batch'
 import { useLocaleStore } from '@/stores/locale'
-import { useIsMobile } from '@/composables/useMediaQuery'
+import { useIsMobile, useMediaQuery } from '@/composables/useMediaQuery'
 import { loadingState } from '@/services/local-data-source'
 import { buildMaterialTree, flattenMaterialTree } from '@/services/bom-calculator'
 import { getRecipe } from '@/api/xivapi'
@@ -20,6 +22,7 @@ const bomStore = useBomStore()
 const batchStore = useBatchStore()
 const localeStore = useLocaleStore()
 const isMobile = useIsMobile()
+const isCockpitMobile = useMediaQuery('(max-width: 900px)')
 const router = useRouter()
 
 const isLoadingData = computed(() => {
@@ -30,6 +33,13 @@ const isLoadingData = computed(() => {
 const searchSidebarOpen = ref(false)
 const importDialogOpen = ref(false)
 const calculating = ref(false)
+const totalsAnchor = ref<HTMLElement | null>(null)
+const targetsDrawerOpen = ref(false)
+
+function handleMobileCalculate() {
+  targetsDrawerOpen.value = false
+  void handleCalculate()
+}
 const fetchingPrices = computed(() => bomStore.fetchingPriceIds.size > 0)
 const calculated = computed(() => bomStore.materialTree.length > 0)
 const loadingMessage = ref('正在計算材料需求...')
@@ -65,6 +75,9 @@ async function handleCalculate() {
     } else {
       ElMessage.warning('部分價格查詢失敗，可在該列點「重試」')
     }
+
+    await nextTick()
+    totalsAnchor.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   } catch (err) {
     console.error('[BOM] Calculation failed:', err)
     ElMessage.error('材料計算失敗，請稍後再試')
@@ -126,7 +139,44 @@ function handleImported() {
     </header>
 
     <div class="bom-cockpit" :class="{ 'is-mobile': isMobile }">
-      <aside class="b-rail" aria-label="目標與設定">
+      <div v-if="isCockpitMobile" class="b-mobile-strip" aria-label="目標摘要">
+        <ul v-if="bomStore.targets.length > 0" class="b-mobile-strip__chips">
+          <li v-for="t in bomStore.targets" :key="t.recipeId" class="b-mobile-chip">
+            <span class="b-mobile-chip__qty">×{{ t.quantity }}</span>
+            <ItemName :item-id="t.itemId" :fallback="t.name" />
+          </li>
+        </ul>
+        <p v-else class="b-mobile-strip__empty">清單為空，點下方按鈕新增目標</p>
+        <div class="b-mobile-strip__actions">
+          <el-button
+            size="small"
+            :icon="Edit"
+            @click="targetsDrawerOpen = true"
+          >
+            編輯目標
+          </el-button>
+          <el-button
+            v-if="bomStore.targets.length > 0"
+            type="primary"
+            size="small"
+            :loading="calculating"
+            @click="handleCalculate"
+          >
+            計算
+          </el-button>
+          <el-button
+            v-else
+            type="primary"
+            size="small"
+            :icon="Search"
+            @click="searchSidebarOpen = true"
+          >
+            搜尋配方
+          </el-button>
+        </div>
+      </div>
+
+      <aside v-else class="b-rail" aria-label="目標與設定">
         <div class="b-rail__scroll">
           <BomTargetList
             @calculate="handleCalculate"
@@ -149,7 +199,7 @@ function handleImported() {
       </aside>
 
       <main class="b-main">
-        <div v-if="calculated && !calculating" class="b-main__totals">
+        <div v-if="calculated && !calculating" ref="totalsAnchor" class="b-main__totals">
           <BomTotalsBar
             :fetching-prices="fetchingPrices"
             @refresh-prices="handleRefreshPrices"
@@ -191,6 +241,40 @@ function handleImported() {
       @add="handleAddFromSearch"
     />
     <BomImportDialog v-model="importDialogOpen" @imported="handleImported" />
+
+    <el-drawer
+      v-if="isCockpitMobile"
+      v-model="targetsDrawerOpen"
+      direction="btt"
+      size="auto"
+      :with-header="false"
+      :modal="true"
+      :close-on-press-escape="true"
+      :close-on-click-modal="true"
+      :append-to-body="true"
+      class="b-targets-sheet"
+    >
+      <div class="b-targets-sheet__handle" aria-hidden="true" />
+      <div class="b-targets-sheet__body">
+        <BomTargetList
+          @calculate="handleMobileCalculate"
+          @open-search="targetsDrawerOpen = false; searchSidebarOpen = true"
+          @open-import="targetsDrawerOpen = false; importDialogOpen = true"
+        />
+        <BomSettingsCard />
+      </div>
+      <div v-if="bomStore.targets.length > 0" class="b-targets-sheet__cta">
+        <el-button
+          type="primary"
+          size="large"
+          class="b-rail__calc"
+          :loading="calculating"
+          @click="handleMobileCalculate"
+        >
+          計算材料需求
+        </el-button>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
@@ -275,6 +359,9 @@ function handleImported() {
   position: sticky;
   top: 16px;
   z-index: 5;
+  /* Match the sticky offset so smooth-scroll lands the totals row
+   * just below the page chrome instead of half-hidden under it. */
+  scroll-margin-top: 16px;
 }
 
 .b-main__loading {
@@ -330,10 +417,108 @@ function handleImported() {
   }
 }
 
+/* <900px: chip strip replaces the static rail. The full target list +
+ * settings live in a bottom-sheet behind the「編輯目標」button so the
+ * decision table gets the full viewport width to itself. */
+.b-mobile-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+}
+
+.b-mobile-strip__chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.b-mobile-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-craft-dim) 20%, var(--app-bg));
+  color: var(--app-text);
+  font-size: 12.5px;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.b-mobile-chip__qty {
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 11.5px;
+  color: var(--app-text-muted);
+}
+
+.b-mobile-strip__empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--app-text-muted);
+}
+
+.b-mobile-strip__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.b-mobile-strip__actions .el-button {
+  flex: 1;
+}
+
 @media (min-width: 1920px) {
   .bom-cockpit {
     grid-template-columns: clamp(320px, 22%, 380px) minmax(0, 1fr);
     gap: 32px;
   }
+}
+</style>
+
+<style>
+/* Mobile targets drawer — append-to-body means scoped styles can't reach it. */
+.b-targets-sheet.el-drawer {
+  border-top-left-radius: 18px;
+  border-top-right-radius: 18px;
+  max-height: 88vh;
+}
+
+.b-targets-sheet .el-drawer__body {
+  padding: 0 !important;
+  display: flex;
+  flex-direction: column;
+}
+
+.b-targets-sheet__handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--app-border);
+  margin: 8px auto 4px;
+  flex-shrink: 0;
+}
+
+.b-targets-sheet__body {
+  padding: 12px 14px 14px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.b-targets-sheet__cta {
+  flex-shrink: 0;
+  padding: 12px 14px;
+  border-top: 1px solid var(--app-border);
+  background: color-mix(in srgb, var(--app-craft-dim) 12%, var(--app-surface));
 }
 </style>

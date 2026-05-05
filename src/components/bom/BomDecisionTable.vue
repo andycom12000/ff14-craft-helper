@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type { FlatMaterial, MaterialNode } from '@/stores/bom'
 import { useBomStore } from '@/stores/bom'
+import { useMediaQuery } from '@/composables/useMediaQuery'
 import BomDecisionRow from '@/components/bom/BomDecisionRow.vue'
 import BomCraftTreeNode from '@/components/bom/BomCraftTreeNode.vue'
 import ItemName from '@/components/common/ItemName.vue'
@@ -82,6 +83,38 @@ const crystalRollup = computed<CrystalSummary[]>(() => {
 function getNodeForRow(itemId: number): MaterialNode | null {
   return bom.findNode(itemId)
 }
+
+/**
+ * <900px: drill content moves to a bottom sheet so it isn't crammed inline
+ * on a phone-width row. The sheet shows whichever expanded craftable item
+ * is most recent; closing it folds that item back up.
+ */
+const isCockpitMobile = useMediaQuery('(max-width: 900px)')
+
+const drillTargetItemId = computed<number | null>(() => {
+  if (!isCockpitMobile.value) return null
+  // expandedRows is iteration-ordered (Set keeps insertion order); the
+  // last entry that's still in 'craft' mode wins.
+  let chosen: number | null = null
+  for (const id of bom.expandedRows) {
+    const node = bom.findNode(id)
+    if (node?.recipeId && node.children?.length && !node.collapsed) chosen = id
+  }
+  return chosen
+})
+
+const drillNode = computed<MaterialNode | null>(() =>
+  drillTargetItemId.value !== null ? bom.findNode(drillTargetItemId.value) : null,
+)
+
+const drillDrawerOpen = computed<boolean>({
+  get: () => drillTargetItemId.value !== null,
+  set: (v) => {
+    if (!v && drillTargetItemId.value !== null) {
+      bom.toggleRowExpanded(drillTargetItemId.value)
+    }
+  },
+})
 </script>
 
 <template>
@@ -128,7 +161,7 @@ function getNodeForRow(itemId: number): MaterialNode | null {
           :is-craftable="row.isCraftable"
         />
         <div
-          v-if="row.isCraftable && bom.isRowExpanded(row.itemId) && bom.getEffectiveMode(row.itemId) === 'craft'"
+          v-if="!isCockpitMobile && row.isCraftable && bom.isRowExpanded(row.itemId) && bom.getEffectiveMode(row.itemId) === 'craft'"
           class="bdt-drill"
         >
           <BomCraftTreeNode
@@ -153,6 +186,28 @@ function getNodeForRow(itemId: number): MaterialNode | null {
       尚未計算 — 從左側加入目標後按「計算材料需求」
     </p>
   </section>
+
+  <el-drawer
+    v-if="isCockpitMobile"
+    v-model="drillDrawerOpen"
+    direction="btt"
+    size="auto"
+    :with-header="false"
+    :modal="true"
+    :close-on-press-escape="true"
+    :close-on-click-modal="true"
+    :append-to-body="true"
+    class="bdt-drill-sheet"
+  >
+    <div class="bdt-drill-sheet__handle" aria-hidden="true" />
+    <div v-if="drillNode" class="bdt-drill-sheet__body">
+      <div class="bdt-drill-sheet__title">
+        <span class="bdt-drill-sheet__eyebrow">自製成本拆解</span>
+        <span class="bdt-drill-sheet__name">{{ drillNode.name }}</span>
+      </div>
+      <BomCraftTreeNode :parent="drillNode" />
+    </div>
+  </el-drawer>
 </template>
 
 <style scoped>
@@ -292,5 +347,56 @@ function getNodeForRow(itemId: number): MaterialNode | null {
     gap: 4px;
     align-items: flex-start;
   }
+}
+</style>
+
+<style>
+/* Drawer is teleported to body via :append-to-body, so its styles can't be
+ * scoped — declare globally with a class hook instead. */
+.bdt-drill-sheet.el-drawer {
+  border-top-left-radius: 18px;
+  border-top-right-radius: 18px;
+  max-height: 80vh;
+}
+
+.bdt-drill-sheet .el-drawer__body {
+  padding: 0 !important;
+  display: flex;
+  flex-direction: column;
+}
+
+.bdt-drill-sheet__handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--app-border);
+  margin: 8px auto 4px;
+}
+
+.bdt-drill-sheet__body {
+  padding: 6px 0 18px;
+  overflow-y: auto;
+}
+
+.bdt-drill-sheet__title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 16px 10px;
+}
+
+.bdt-drill-sheet__eyebrow {
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+}
+
+.bdt-drill-sheet__name {
+  font-family: 'Noto Serif TC', serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--app-text);
 }
 </style>
