@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Refresh, Share, ArrowRight } from '@element-plus/icons-vue'
+import { Refresh, Share, ArrowRight, WarningFilled } from '@element-plus/icons-vue'
 import { useBomStore } from '@/stores/bom'
 import { buildTeamcraftImportUrl } from '@/services/teamcraft-import'
 import { formatGil } from '@/utils/format'
@@ -22,6 +22,7 @@ const baseline = computed(() => bom.marketBaselineTotal)
 const savingPct = computed(() => bom.savingPercent)
 const hasSaving = computed(() => savingPct.value > 0.5)
 const hasLoss = computed(() => savingPct.value < -0.5)
+const failedCount = computed(() => bom.failedPriceCount)
 
 async function copyTeamcraftUrl() {
   if (bom.targets.length === 0) {
@@ -62,6 +63,15 @@ async function copyTeamcraftUrl() {
       <span v-else-if="hasLoss">直購划算</span>
       <span v-else>持平</span>
       <span class="totals-bar__saving-hint">vs 全部市買 {{ formatGil(baseline) }}</span>
+    </div>
+
+    <div
+      v-if="failedCount > 0"
+      class="totals-bar__warn"
+      role="alert"
+    >
+      <el-icon><WarningFilled /></el-icon>
+      <span>{{ failedCount }} 列查價失敗</span>
     </div>
 
     <div class="totals-bar__actions">
@@ -162,6 +172,22 @@ async function copyTeamcraftUrl() {
   color: var(--app-text-muted);
   font-weight: 400;
   letter-spacing: 0;
+}
+
+.totals-bar__warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--app-warning, oklch(0.62 0.13 55)) 10%, transparent);
+  color: var(--app-warning, oklch(0.45 0.13 55));
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.totals-bar__warn .el-icon {
+  font-size: 14px;
 }
 
 .totals-bar__actions {

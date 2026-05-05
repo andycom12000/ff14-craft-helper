@@ -1,8 +1,13 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useBomStore, getPrice } from '@/stores/bom'
 import { useSettingsStore } from '@/stores/settings'
 import type { PriceInfo, MaterialNode } from '@/stores/bom'
+
+vi.mock('@/api/universalis', () => ({
+  getAggregatedPrices: vi.fn(),
+}))
+import { getAggregatedPrices } from '@/api/universalis'
 
 function priceInfo(itemId: number, nq: number, hq = nq): PriceInfo {
   return {
@@ -252,5 +257,81 @@ describe('useBomStore.applyOptimalDefaults', () => {
     bom.applyOptimalDefaults()
     // Should not throw; mode defaults to market for raw leaves
     expect(bom.getEffectiveMode(202)).toBe('market')
+  })
+})
+
+describe('useBomStore.fetchPrices', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.mocked(getAggregatedPrices).mockReset()
+  })
+
+  it('marks every requested id as ok on success', async () => {
+    vi.mocked(getAggregatedPrices).mockResolvedValue(
+      new Map([
+        [
+          200,
+          {
+            minPriceNQ: 5,
+            currentAveragePriceNQ: 5,
+            minPriceHQ: 0,
+            currentAveragePriceHQ: 0,
+            lastUploadTime: 0,
+          },
+        ],
+      ]) as unknown as Awaited<ReturnType<typeof getAggregatedPrices>>,
+    )
+    const bom = useBomStore()
+    const r = await bom.fetchPrices([200, 201])
+    expect(r.ok).toBe(true)
+    expect(bom.priceFetchStatus.get(200)).toBe('ok')
+    // id with no listings still flips to 'ok' — empty result is "no data", not failure
+    expect(bom.priceFetchStatus.get(201)).toBe('ok')
+  })
+
+  it('marks every requested id as failed when fetch throws', async () => {
+    vi.mocked(getAggregatedPrices).mockRejectedValue(new Error('network'))
+    const bom = useBomStore()
+    const r = await bom.fetchPrices([200, 201])
+    expect(r.ok).toBe(false)
+    expect(bom.priceFetchStatus.get(200)).toBe('failed')
+    expect(bom.priceFetchStatus.get(201)).toBe('failed')
+  })
+
+  it('failedPriceCount only counts flat materials', async () => {
+    vi.mocked(getAggregatedPrices).mockRejectedValue(new Error('network'))
+    const bom = useBomStore()
+    bom.flatMaterials = [
+      { itemId: 200, name: 'A', icon: '', totalAmount: 1, isRaw: true },
+      { itemId: 201, name: 'B', icon: '', totalAmount: 1, isRaw: true },
+    ]
+    await bom.fetchPrices([200, 201, 999]) // 999 isn't in flatMaterials
+    expect(bom.failedPriceCount).toBe(2)
+  })
+
+  it('isPriceFetching tracks per-id during the request', async () => {
+    let resolve: ((v: Awaited<ReturnType<typeof getAggregatedPrices>>) => void) | null = null
+    vi.mocked(getAggregatedPrices).mockImplementation(
+      () => new Promise((r) => { resolve = r as never }),
+    )
+    const bom = useBomStore()
+    const promise = bom.fetchPrices([200])
+    expect(bom.isPriceFetching(200)).toBe(true)
+    resolve!(new Map() as never)
+    await promise
+    expect(bom.isPriceFetching(200)).toBe(false)
+  })
+
+  it('a successful retry of one id flips its failed status to ok', async () => {
+    vi.mocked(getAggregatedPrices).mockRejectedValueOnce(new Error('network'))
+    const bom = useBomStore()
+    await bom.fetchPrices([200])
+    expect(bom.priceFetchStatus.get(200)).toBe('failed')
+
+    vi.mocked(getAggregatedPrices).mockResolvedValueOnce(
+      new Map() as unknown as Awaited<ReturnType<typeof getAggregatedPrices>>,
+    )
+    await bom.fetchPrices([200])
+    expect(bom.priceFetchStatus.get(200)).toBe('ok')
   })
 })

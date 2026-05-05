@@ -3,10 +3,13 @@ import { ref, computed } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
 import type { PriceDisplayMode } from '@/stores/settings'
 import { flattenMaterialTree } from '@/services/bom-calculator'
+import { getAggregatedPrices } from '@/api/universalis'
 import {
   fetchItemAcquisitionBatch,
   type ItemAcquisition,
 } from '@/services/item-acquisition'
+
+export type PriceFetchStatus = 'ok' | 'failed'
 
 export type AcquisitionSource = 'market' | 'craft' | 'gather' | 'npc'
 
@@ -106,6 +109,17 @@ export const useBomStore = defineStore('bom', () => {
    */
   const acquisitionAvailability = ref<Map<number, ItemAcquisition>>(new Map())
 
+  /**
+   * Per-itemId Universalis fetch status. 'ok' once a fetch has returned a
+   * price record (even an empty one); 'failed' when the network/server call
+   * threw. Untouched items have no entry — that's "unknown / not-yet-asked".
+   * The decision row uses this to render an inline retry affordance only
+   * when retry would actually help (i.e., we know the item is marketable
+   * and the last fetch threw).
+   */
+  const priceFetchStatus = ref<Map<number, PriceFetchStatus>>(new Map())
+  const fetchingPriceIds = ref<Set<number>>(new Set())
+
   function addTarget(target: BomTarget) {
     const existing = targets.value.find(t => t.recipeId === target.recipeId)
     if (existing) {
@@ -133,7 +147,79 @@ export const useBomStore = defineStore('bom', () => {
     acquisitionMode.value = new Map()
     expandedRows.value = new Set()
     acquisitionAvailability.value = new Map()
+    priceFetchStatus.value = new Map()
+    fetchingPriceIds.value = new Set()
   }
+
+  /**
+   * Fetch market prices for the given itemIds (or every flat material + every
+   * target if omitted). On a successful response, items present in the
+   * response get status='ok'; items the user asked about but were missing
+   * from the response also get 'ok' (Universalis returns empty arrays for
+   * items with no listings — that's not a failure). On a thrown error,
+   * every requested id flips to 'failed' so the UI can show a retry chip.
+   */
+  async function fetchPrices(itemIds?: number[]): Promise<{ ok: boolean }> {
+    const settings = useSettingsStore()
+    const ids = itemIds ?? flatMaterials.value.map((m) => m.itemId)
+    for (const t of targets.value) {
+      if (!ids.includes(t.itemId)) ids.push(t.itemId)
+    }
+    if (ids.length === 0) return { ok: true }
+
+    const fetchingNext = new Set(fetchingPriceIds.value)
+    for (const id of ids) fetchingNext.add(id)
+    fetchingPriceIds.value = fetchingNext
+
+    try {
+      const marketDataMap = await getAggregatedPrices(settings.server, ids)
+
+      const priceMap = new Map(prices.value)
+      for (const [id, data] of marketDataMap) {
+        priceMap.set(id, {
+          itemId: id,
+          minPrice: data.minPriceNQ,
+          avgPrice: data.currentAveragePriceNQ,
+          hqMinPrice: data.minPriceHQ,
+          hqAvgPrice: data.currentAveragePriceHQ,
+          lastUpdated: data.lastUploadTime,
+        })
+      }
+      prices.value = priceMap
+
+      const statusNext = new Map(priceFetchStatus.value)
+      for (const id of ids) statusNext.set(id, 'ok')
+      priceFetchStatus.value = statusNext
+      return { ok: true }
+    } catch (err) {
+      console.error('[BOM] Price fetch failed:', err)
+      const statusNext = new Map(priceFetchStatus.value)
+      for (const id of ids) statusNext.set(id, 'failed')
+      priceFetchStatus.value = statusNext
+      return { ok: false }
+    } finally {
+      const finalSet = new Set(fetchingPriceIds.value)
+      for (const id of ids) finalSet.delete(id)
+      fetchingPriceIds.value = finalSet
+    }
+  }
+
+  function isPriceFetching(itemId: number): boolean {
+    return fetchingPriceIds.value.has(itemId)
+  }
+
+  /**
+   * Count of rows the user can see and act on whose last price fetch failed.
+   * Restricted to flat (raw) materials — intermediate craftable nodes are
+   * computed costs, not market lookups, so a failure on them doesn't surface.
+   */
+  const failedPriceCount = computed(() => {
+    let n = 0
+    for (const mat of flatMaterials.value) {
+      if (priceFetchStatus.value.get(mat.itemId) === 'failed') n++
+    }
+    return n
+  })
 
   async function fetchAcquisitionAvailability(itemIds: number[]) {
     if (itemIds.length === 0) return
@@ -380,6 +466,9 @@ export const useBomStore = defineStore('bom', () => {
     acquisitionMode,
     expandedRows,
     acquisitionAvailability,
+    priceFetchStatus,
+    fetchingPriceIds,
+    failedPriceCount,
     totalCost,
     effectiveGrandTotal,
     marketBaselineTotal,
@@ -390,7 +479,9 @@ export const useBomStore = defineStore('bom', () => {
     clearTargets,
     toggleCollapsed,
     recalcFlat,
+    fetchPrices,
     fetchAcquisitionAvailability,
+    isPriceFetching,
     applyOptimalDefaults,
     findNode,
     isCraftableInTree,

@@ -10,17 +10,14 @@ import BomImportDialog from '@/components/bom/BomImportDialog.vue'
 import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
 import { useBomStore } from '@/stores/bom'
 import { useBatchStore } from '@/stores/batch'
-import { useSettingsStore } from '@/stores/settings'
 import { useLocaleStore } from '@/stores/locale'
 import { useIsMobile } from '@/composables/useMediaQuery'
 import { loadingState } from '@/services/local-data-source'
 import { buildMaterialTree, flattenMaterialTree } from '@/services/bom-calculator'
-import { getAggregatedPrices } from '@/api/universalis'
 import { getRecipe } from '@/api/xivapi'
 
 const bomStore = useBomStore()
 const batchStore = useBatchStore()
-const settingsStore = useSettingsStore()
 const localeStore = useLocaleStore()
 const isMobile = useIsMobile()
 const router = useRouter()
@@ -33,7 +30,7 @@ const isLoadingData = computed(() => {
 const searchSidebarOpen = ref(false)
 const importDialogOpen = ref(false)
 const calculating = ref(false)
-const fetchingPrices = ref(false)
+const fetchingPrices = computed(() => bomStore.fetchingPriceIds.size > 0)
 const calculated = computed(() => bomStore.materialTree.length > 0)
 const loadingMessage = ref('正在計算材料需求...')
 
@@ -57,51 +54,22 @@ async function handleCalculate() {
     bomStore.flatMaterials = flat
 
     loadingMessage.value = '正在比對市價、NPC、自製...'
-    await Promise.all([
-      fetchPrices(flat.map((m) => m.itemId)),
+    const [priceResult] = await Promise.all([
+      bomStore.fetchPrices(flat.map((m) => m.itemId)),
       bomStore.fetchAcquisitionAvailability(flat.map((m) => m.itemId)),
     ])
     bomStore.applyOptimalDefaults()
 
-    ElMessage.success('材料計算完成')
+    if (priceResult.ok) {
+      ElMessage.success('材料計算完成')
+    } else {
+      ElMessage.warning('部分價格查詢失敗，可在該列點「重試」')
+    }
   } catch (err) {
     console.error('[BOM] Calculation failed:', err)
     ElMessage.error('材料計算失敗，請稍後再試')
   } finally {
     calculating.value = false
-  }
-}
-
-async function fetchPrices(itemIds?: number[]) {
-  const ids = itemIds ?? bomStore.flatMaterials.map((m) => m.itemId)
-  // Always include target itemIds so the market baseline can reflect them.
-  for (const t of bomStore.targets) {
-    if (!ids.includes(t.itemId)) ids.push(t.itemId)
-  }
-  if (ids.length === 0) return
-
-  fetchingPrices.value = true
-
-  try {
-    const marketDataMap = await getAggregatedPrices(settingsStore.server, ids)
-
-    const priceMap = new Map(bomStore.prices)
-    for (const [id, data] of marketDataMap) {
-      priceMap.set(id, {
-        itemId: id,
-        minPrice: data.minPriceNQ,
-        avgPrice: data.currentAveragePriceNQ,
-        hqMinPrice: data.minPriceHQ,
-        hqAvgPrice: data.currentAveragePriceHQ,
-        lastUpdated: data.lastUploadTime,
-      })
-    }
-    bomStore.prices = priceMap
-  } catch (err) {
-    console.error('[BOM] Price fetch failed:', err)
-    ElMessage.error('價格取得失敗，請稍後再試')
-  } finally {
-    fetchingPrices.value = false
   }
 }
 
@@ -117,8 +85,9 @@ function handleAddFromSearch(recipe: import('@/stores/recipe').Recipe) {
   ElMessage.success(`已加入「${recipe.name}」`)
 }
 
-function handleRefreshPrices() {
-  fetchPrices()
+async function handleRefreshPrices() {
+  const r = await bomStore.fetchPrices()
+  if (!r.ok) ElMessage.error('價格取得失敗，請稍後再試')
 }
 
 async function handleSendToBatch() {

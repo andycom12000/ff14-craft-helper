@@ -73,6 +73,18 @@ const totalDisplay = computed(() => {
   return null
 })
 
+const isPriceFailed = computed(
+  () =>
+    mode.value === 'market' &&
+    bom.priceFetchStatus.get(props.itemId) === 'failed',
+)
+const isPriceRetrying = computed(() => bom.isPriceFetching(props.itemId))
+
+async function retryPrice() {
+  if (isPriceRetrying.value) return
+  await bom.fetchPrices([props.itemId])
+}
+
 const isExpanded = computed(() => bom.isRowExpanded(props.itemId))
 const isRowToggleable = computed(
   () => props.isCraftable && mode.value === 'craft' && !props.immutable,
@@ -149,12 +161,21 @@ function onRowClick() {
     </div>
 
     <div class="dec-row__unit">
-      <template v-if="unitDisplay">{{ unitDisplay }}</template>
+      <button
+        v-if="isPriceFailed"
+        type="button"
+        class="dec-row__retry"
+        :disabled="isPriceRetrying"
+        :aria-label="`重試查價：${name}`"
+        @click.stop="retryPrice"
+      >{{ isPriceRetrying ? '查價中…' : '查價失敗 重試' }}</button>
+      <template v-else-if="unitDisplay">{{ unitDisplay }}</template>
       <GilDisplay v-else :value="unitPrice" />
     </div>
 
     <div class="dec-row__total">
-      <template v-if="totalDisplay">{{ totalDisplay }}</template>
+      <template v-if="isPriceFailed">—</template>
+      <template v-else-if="totalDisplay">{{ totalDisplay }}</template>
       <GilDisplay v-else :value="lineTotal" />
     </div>
 
@@ -350,6 +371,31 @@ function onRowClick() {
   font-size: 14px;
   font-weight: 600;
   color: var(--app-text);
+}
+
+.dec-row__retry {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  border: 1px solid color-mix(in srgb, var(--app-warning, oklch(0.62 0.13 55)) 40%, transparent);
+  background: color-mix(in srgb, var(--app-warning, oklch(0.62 0.13 55)) 8%, transparent);
+  color: var(--app-warning, oklch(0.45 0.13 55));
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s var(--ease-out-quart, ease-out);
+}
+
+.dec-row__retry:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--app-warning, oklch(0.62 0.13 55)) 18%, transparent);
+}
+
+.dec-row__retry:disabled {
+  cursor: progress;
+  opacity: 0.7;
 }
 
 .dec-row__chev {
