@@ -18,7 +18,6 @@ import { useIsMobile, useMediaQuery } from '@/composables/useMediaQuery'
 import { loadingState } from '@/services/local-data-source'
 import { buildMaterialTree, flattenMaterialTree } from '@/services/bom-calculator'
 import { getRecipe } from '@/api/xivapi'
-import { fetchZoneMetaBulk, fetchNpcNameBulk } from '@/services/zone-meta'
 
 const bomStore = useBomStore()
 const batchStore = useBatchStore()
@@ -200,24 +199,11 @@ async function primeRouteData() {
     const mode = bomStore.getEffectiveMode(m.itemId)
     if (mode === 'npc' || mode === 'gather') npcGatherIds.push(m.itemId)
   }
-  if (npcGatherIds.length === 0) {
-    routeDataPrimed = true
-    return
+  if (npcGatherIds.length > 0) {
+    // fetchItemLocationsForRoute bundles zone/npc metadata before its single
+    // reactive write, so consumers see real names on first render.
+    await bomStore.fetchItemLocationsForRoute(npcGatherIds)
   }
-  await bomStore.fetchItemLocationsForRoute(npcGatherIds)
-  const zoneIds = new Set<number>()
-  const npcIds = new Set<number>()
-  for (const id of npcGatherIds) {
-    const loc = bomStore.itemLocations.get(id)
-    if (!loc) continue
-    for (const v of loc.npcVendors) {
-      zoneIds.add(v.zoneId)
-      npcIds.add(v.npcId)
-    }
-    for (const n of loc.gatherNodes) zoneIds.add(n.zoneId)
-  }
-  if (zoneIds.size > 0) await fetchZoneMetaBulk([...zoneIds])
-  if (npcIds.size > 0) await fetchNpcNameBulk([...npcIds])
   routeDataPrimed = true
 }
 

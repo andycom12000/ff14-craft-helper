@@ -110,6 +110,8 @@ export function parseGarlandLocations(doc: GarlandItemDocument): ItemLocations {
   // --- NPC vendors ---
   // Garland's NPC partial uses `obj.l` for the PlaceName.Id (locationId),
   // unlike node partials which use `obj.z`. Accept both for safety.
+  // Coords are sometimes serialized as strings; coerce to Number so downstream
+  // `toFixed` calls don't blow up.
   const npcVendors: ItemLocations['npcVendors'] = []
   for (const vendorId of item.vendors ?? []) {
     const partial = findPartial('npc', vendorId)
@@ -117,11 +119,14 @@ export function parseGarlandLocations(doc: GarlandItemDocument): ItemLocations {
     const { c, z, l } = partial.obj
     const zoneId = z ?? l
     if (!c || zoneId === undefined) continue
+    const x = Number(c[0])
+    const y = Number(c[1])
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue
     const entry: ItemLocations['npcVendors'][number] = {
       npcId: vendorId,
       zoneId,
-      x: c[0],
-      y: c[1],
+      x,
+      y,
     }
     if (typeof item.price === 'number' && item.price > 0) {
       entry.price = item.price
@@ -141,13 +146,16 @@ export function parseGarlandLocations(doc: GarlandItemDocument): ItemLocations {
     if (!partial) continue
     const { c, z, l, t } = partial.obj
     if (!c || z === undefined) continue
+    const x = Number(c[0])
+    const y = Number(c[1])
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue
     gatherNodes.push({
       nodeId,
       type: nodeType(t),
       level: l ?? 0,
       zoneId: z,
-      x: c[0],
-      y: c[1],
+      x,
+      y,
     })
   }
 

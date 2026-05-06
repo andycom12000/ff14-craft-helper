@@ -6,6 +6,7 @@ import { useMediaQuery } from '@/composables/useMediaQuery'
 import BomDecisionRow from '@/components/bom/BomDecisionRow.vue'
 import BomCraftTreeNode from '@/components/bom/BomCraftTreeNode.vue'
 import BomAcquisitionDetail from '@/components/bom/BomAcquisitionDetail.vue'
+import BomMarketDetail from '@/components/bom/BomMarketDetail.vue'
 import ZoneMapSheet from '@/components/bom/ZoneMapSheet.vue'
 import ItemName from '@/components/common/ItemName.vue'
 
@@ -154,16 +155,38 @@ function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
         <span class="bdt-group__title">完成品</span>
         <span class="bdt-group__hint">這些是你要做出來的東西，自製是預設選擇</span>
       </div>
-      <BomDecisionRow
-        v-for="row in targetRows"
-        :key="`t-${row.itemId}`"
-        :item-id="row.itemId"
-        :name="row.name"
-        :icon="row.icon"
-        :amount="row.amount"
-        :is-craftable="row.isCraftable"
-        :immutable="row.isCraftable"
-      />
+      <template v-for="row in targetRows" :key="`t-${row.itemId}`">
+        <BomDecisionRow
+          :item-id="row.itemId"
+          :name="row.name"
+          :icon="row.icon"
+          :amount="row.amount"
+          :is-craftable="row.isCraftable"
+          :immutable="row.isCraftable"
+        />
+        <!-- Non-craftable targets (NPC vendors, gatherables, market-only items
+             imported from Teamcraft) get the same drill content as material
+             rows so the player can still see vendor / location / price detail
+             for the item they're trying to procure. -->
+        <template v-if="!row.isCraftable && !isCockpitMobile && bom.isRowExpanded(row.itemId)">
+          <div
+            v-if="bom.getEffectiveMode(row.itemId) === 'npc' || bom.getEffectiveMode(row.itemId) === 'gather'"
+            class="bdt-drill bdt-drill--acquisition"
+          >
+            <BomAcquisitionDetail
+              :item-id="row.itemId"
+              :mode="bom.getEffectiveMode(row.itemId) as 'npc' | 'gather'"
+              @open-map-sheet="onOpenMapSheet"
+            />
+          </div>
+          <div
+            v-else-if="bom.getEffectiveMode(row.itemId) === 'market'"
+            class="bdt-drill bdt-drill--acquisition"
+          >
+            <BomMarketDetail :item-id="row.itemId" :item-name="row.name" />
+          </div>
+        </template>
+      </template>
     </div>
 
     <div v-if="materialRows.length > 0" class="bdt-group">
@@ -198,6 +221,12 @@ function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
               :mode="bom.getEffectiveMode(row.itemId) as 'npc' | 'gather'"
               @open-map-sheet="onOpenMapSheet"
             />
+          </div>
+          <div
+            v-else-if="bom.getEffectiveMode(row.itemId) === 'market'"
+            class="bdt-drill bdt-drill--acquisition"
+          >
+            <BomMarketDetail :item-id="row.itemId" :item-name="row.name" />
           </div>
         </template>
       </template>

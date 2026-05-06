@@ -51,15 +51,17 @@ describe('BomDecisionRow — isRowToggleable', () => {
     setActivePinia(createPinia())
   })
 
-  it('is NOT toggleable when mode is market (default) even if non-craftable', () => {
+  it('IS toggleable when mode is market (default) so the user can drill into the cross-world price table', () => {
     const w = mount(BomDecisionRow, { props: makeProps() })
-    expect(w.find('.dec-row').classes()).not.toContain('is-row-toggleable')
+    expect(w.find('.dec-row').classes()).toContain('is-row-toggleable')
   })
 
-  it('is NOT toggleable for craft mode when isCraftable=false', () => {
+  it('is NOT toggleable for craft mode when isCraftable=false', async () => {
     const bom = useBomStore()
-    bom.setAcquisitionMode(100, 'market') // market by default anyway
+    bom.acquisitionMode.set(100, 'craft')
+    bom.acquisitionMode = new Map(bom.acquisitionMode)
     const w = mount(BomDecisionRow, { props: makeProps({ isCraftable: false }) })
+    await w.vm.$nextTick()
     expect(w.find('.dec-row').classes()).not.toContain('is-row-toggleable')
   })
 

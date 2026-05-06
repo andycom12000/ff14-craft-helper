@@ -10,6 +10,7 @@ import {
 } from '@/services/item-acquisition'
 import type { ItemLocations } from '@/services/item-locations'
 import { fetchItemLocationsBatch } from '@/services/item-locations'
+import { fetchZoneMetaBulk, fetchNpcNameBulk } from '@/services/zone-meta'
 
 export type PriceFetchStatus = 'ok' | 'failed'
 
@@ -588,8 +589,31 @@ export const useBomStore = defineStore('bom', () => {
   // Route planner actions
   // ---------------------------------------------------------------------------
 
+  /**
+   * Loads location data AND the zone/NPC name metadata it references, in that
+   * order, so consumers reading via the non-reactive `getZoneMetaSync` /
+   * `getNpcNameSync` getters at render time see real names on the very first
+   * render after `itemLocations` updates. Without bundling these, the reactive
+   * write on `itemLocations` triggers a re-render before the name caches are
+   * populated, leaving rows showing `#zone:146` / `#npc:1008907` placeholders.
+   */
   async function fetchItemLocationsForRoute(itemIds: number[]) {
     const fresh = await fetchItemLocationsBatch(itemIds)
+
+    const zoneIds = new Set<number>()
+    const npcIds = new Set<number>()
+    for (const [, info] of fresh) {
+      for (const v of info.npcVendors) {
+        zoneIds.add(v.zoneId)
+        npcIds.add(v.npcId)
+      }
+      for (const n of info.gatherNodes) zoneIds.add(n.zoneId)
+    }
+    await Promise.all([
+      zoneIds.size > 0 ? fetchZoneMetaBulk([...zoneIds]) : Promise.resolve(),
+      npcIds.size > 0 ? fetchNpcNameBulk([...npcIds]) : Promise.resolve(),
+    ])
+
     const merged = new Map(itemLocations.value)
     for (const [id, info] of fresh) merged.set(id, info)
     itemLocations.value = merged

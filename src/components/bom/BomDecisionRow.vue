@@ -89,7 +89,8 @@ const isExpanded = computed(() => bom.isRowExpanded(props.itemId))
 const isRowToggleable = computed(() => {
   if (props.immutable) return false
   if (mode.value === 'craft') return props.isCraftable
-  return mode.value === 'npc' || mode.value === 'gather'
+  // npc/gather drill = location detail; market drill = cross-world price table.
+  return mode.value === 'npc' || mode.value === 'gather' || mode.value === 'market'
 })
 
 function selectMode(m: AcquisitionSource) {
