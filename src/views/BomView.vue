@@ -462,7 +462,11 @@ onMounted(async () => {
    * fits within the viewport. Once sticky-active, this leaves ~120px of
    * unused vertical room — acceptable trade-off vs. an off-screen CTA.
    * Use dvh so iOS browser chrome shrink/grow doesn't clip the CTA. */
-  max-height: calc(100dvh - var(--bom-rail-offset, 100px) - 32px);
+  /* The extra `-2px` accounts for the rail's 1px top + 1px bottom border;
+   * the box-sizing default doesn't include border in max-height, so without
+   * this adjustment the rail's outer offsetHeight ends up 2px taller than
+   * the viewport-derived cap and leaks a y-scroll. */
+  max-height: calc(100dvh - var(--bom-rail-offset, 100px) - 32px - 2px);
   background: var(--app-surface);
   border: 1px solid var(--app-border);
   border-radius: 14px;

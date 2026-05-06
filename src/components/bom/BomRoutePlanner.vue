@@ -330,11 +330,10 @@ watch(
   display: flex;
   flex-direction: column;
   gap: 12px;
-  /* Cap the route planner to the viewport so micro-overflow from sticky
-   * shadows / sub-pixel rounding doesn't bubble up into a page-level
-   * scroll. The active card already manages its own internal scroll. */
-  max-height: calc(100dvh - 240px);
-  overflow: hidden;
+  /* No overflow: hidden — that scopes the toolbar's `position: sticky`
+   * to .brp instead of .b-main, which makes the toolbar stick at top:120
+   * within the planner card and slam into the nav row underneath. The
+   * card body's own height calc keeps the page from overflowing. */
 }
 
 /* Horizontal stepper. Stays compact even at 20+ stops by ellipsing the

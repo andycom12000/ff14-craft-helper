@@ -290,20 +290,8 @@ function openMapSheet(src: { zoneId: number; x: number; y: number }) {
         class="bad__map-block"
         data-map-canvas
       >
-        <!-- Zone chips (when multiple zones) -->
-        <div v-if="sourceZoneIds.length > 1" class="bad__zone-chips">
-          <button
-            v-for="zid in sourceZoneIds"
-            :key="zid"
-            type="button"
-            class="bad__zone-chip"
-            :class="{ 'is-active': zid === activeZoneId }"
-            :aria-pressed="activeZoneId === zid"
-            @click="activeZoneId = zid"
-          >{{ resolveZoneName(zid) }}</button>
-        </div>
-
-        <!-- Map container -->
+        <!-- Map container first; zone-selector chips below (was above —
+             user prefers the spatial picture to land before the controls). -->
         <div class="bad__map-container">
           <img
             :src="mapImageUrl!"
@@ -327,6 +315,19 @@ function openMapSheet(src: { zoneId: number; x: number; y: number }) {
             :title="marker.label"
             aria-hidden="true"
           />
+        </div>
+
+        <!-- Zone chips (when multiple zones) -->
+        <div v-if="sourceZoneIds.length > 1" class="bad__zone-chips">
+          <button
+            v-for="zid in sourceZoneIds"
+            :key="zid"
+            type="button"
+            class="bad__zone-chip"
+            :class="{ 'is-active': zid === activeZoneId }"
+            :aria-pressed="activeZoneId === zid"
+            @click="activeZoneId = zid"
+          >{{ resolveZoneName(zid) }}</button>
         </div>
       </div>
 
@@ -660,7 +661,10 @@ function openMapSheet(src: { zoneId: number; x: number; y: number }) {
   .bad {
     flex-direction: row;
     align-items: flex-start;
-    gap: 18px;
+    /* Map ↔ source-list gap matches the source grid's column gap (12px)
+     * so the visual rhythm is even — sources sit one column-gap to the
+     * right of the map instead of being pushed far away. */
+    gap: 12px;
   }
 
   .bad__map-block {

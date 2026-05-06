@@ -325,7 +325,14 @@ function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
   color: var(--app-text-muted);
 }
 
-.bdt-head__col--qty,
+/* Column-label text alignment mirrors the row data underneath:
+ *   數量 left-aligned (.dec-row__qty defaults to start)
+ *   單價 / 小計 right-aligned (.dec-row__unit / __total are right)
+ *   方式 centered (.dec-row__locked / __seg are center-justified) */
+.bdt-head__col--qty {
+  text-align: left;
+}
+
 .bdt-head__col--unit,
 .bdt-head__col--total {
   text-align: right;
