@@ -58,6 +58,13 @@ interface MapSearchFields {
    * payload — that's why every minimap lookup was silently dropping.
    */
   PlaceName?: { value?: number; row_id?: number }
+  /**
+   * Sub-instance PlaceName id. Zero on the canonical overworld map; non-zero
+   * for duty / instance / housing-ward variants that share the parent
+   * PlaceName id. We pick the row with the lowest sub so the player sees
+   * the open-world map, not a random instance.
+   */
+  PlaceNameSub?: { value?: number; row_id?: number }
 }
 
 
@@ -161,21 +168,31 @@ async function _doFetchZoneMeta(ids: number[]): Promise<Map<number, ZoneMeta>> {
       `${XIVAPI_SHEET_BASE}/search` +
       `?sheets=Map` +
       `&query=${queryParts}` +
-      `&fields=Id,SizeFactor,PlaceName.Id`
+      `&fields=Id,SizeFactor,PlaceName.Id,PlaceNameSub.Id`
     const resp = await fetch(url)
     if (resp.ok) {
       const data = await resp.json()
+      // A single PlaceName id can match multiple Map rows — the canonical
+      // overworld map (PlaceNameSub == 0) plus any duty / instance / housing
+      // variants. Pick the row with the lowest PlaceNameSub for each id;
+      // ties broken by encounter order. Without this, e.g. East Shroud
+      // (PlaceName=55) returned both `f1f2/00 sub=0` and `f1e6/00 sub=112`
+      // and the loop's last-write-wins assigned the wrong texture.
+      const bestSubByZone = new Map<number, number>()
       for (const result of data.results ?? []) {
         const f = result.fields as MapSearchFields
         const placeNameId = f.PlaceName?.value ?? f.PlaceName?.row_id
         const mapStringId = f.Id
+        const sub = f.PlaceNameSub?.value ?? f.PlaceNameSub?.row_id ?? 0
         const sizeFactor = f.SizeFactor ?? 100
-        if (placeNameId != null && mapStringId) {
-          mapInfoByZone.set(placeNameId, {
-            mapAssetUrl: buildMapAssetUrl(mapStringId),
-            sizeFactor,
-          })
-        }
+        if (placeNameId == null || !mapStringId) continue
+        const prevBest = bestSubByZone.get(placeNameId)
+        if (prevBest !== undefined && prevBest <= sub) continue
+        bestSubByZone.set(placeNameId, sub)
+        mapInfoByZone.set(placeNameId, {
+          mapAssetUrl: buildMapAssetUrl(mapStringId),
+          sizeFactor,
+        })
       }
     } else {
       console.error('[zone-meta] Map search fetch failed:', resp.status)
