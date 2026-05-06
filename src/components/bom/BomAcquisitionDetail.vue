@@ -86,19 +86,27 @@ onMounted(() => {
 
 const locations = computed(() => bomStore.itemLocations.get(props.itemId) ?? null)
 
-// Sorted sources
-const sortedSources = computed(() => {
+// Discriminated union for typed template access
+type DisplaySource =
+  | { kind: 'npc'; npcId: number; zoneId: number; x: number; y: number; price?: number }
+  | { kind: 'gather'; nodeId: number; type: 'MIN' | 'BTN' | 'FSH'; level: number; zoneId: number; x: number; y: number }
+
+const displaySources = computed<DisplaySource[]>(() => {
   if (!locations.value) return []
   if (props.mode === 'npc') {
-    return [...locations.value.npcVendors].sort(
-      (a, b) => (a.price ?? Infinity) - (b.price ?? Infinity),
-    )
-  } else {
-    return [...locations.value.gatherNodes].sort((a, b) => a.level - b.level)
+    return [...locations.value.npcVendors]
+      .sort((a, b) => (a.price ?? 0) - (b.price ?? 0))
+      .map(v => ({ kind: 'npc' as const, ...v }))
   }
+  return [...locations.value.gatherNodes]
+    .sort((a, b) => a.level - b.level)
+    .map(n => ({ kind: 'gather' as const, ...n }))
 })
 
-const hasSources = computed(() => sortedSources.value.length > 0)
+// Keep sortedSources as an alias for code that already uses it (markers, zone IDs)
+const sortedSources = displaySources
+
+const hasSources = computed(() => displaySources.value.length > 0)
 
 const isEmpty = computed(
   () => hasFetched.value && !isFetching.value && !hasSources.value,
@@ -234,15 +242,23 @@ const activeZoneMarkers = computed((): Marker[] => {
       return {
         left,
         top,
-        isPrimary: idx === 0 && activeZoneId.value === sortedSources.value[0]?.zoneId,
+        isPrimary: idx === 0 && activeZoneId.value === displaySources.value[0]?.zoneId,
         isGather: props.mode === 'gather',
         label:
-          props.mode === 'npc'
-            ? resolveNpcName((src as { npcId: number }).npcId)
-            : `Lv${(src as { level: number }).level}`,
+          src.kind === 'npc'
+            ? resolveNpcName(src.npcId)
+            : `Lv${src.level}`,
       }
     })
 })
+
+// ---------------------------------------------------------------------------
+// Pre-computed aetheryte per displayed source (Fix 3: hoist template calls)
+// ---------------------------------------------------------------------------
+
+const sourceAetherytes = computed((): (AetheryteEntry | null)[] =>
+  displaySources.value.map(src => getFirstAetheryte(src.zoneId)),
+)
 
 // ---------------------------------------------------------------------------
 // Phone: open map sheet
@@ -270,8 +286,8 @@ function openMapSheet(src: { zoneId: number; x: number; y: number }) {
       <!-- Source list -->
       <div class="bad__sources">
         <div
-          v-for="(src, idx) in sortedSources"
-          :key="mode === 'npc' ? (src as any).npcId ?? idx : (src as any).nodeId ?? idx"
+          v-for="(src, idx) in displaySources"
+          :key="src.kind === 'npc' ? src.npcId : src.nodeId"
           class="bad__source-row"
           :class="{ 'is-primary': idx === 0 }"
           data-source-row
@@ -282,11 +298,11 @@ function openMapSheet(src: { zoneId: number; x: number; y: number }) {
           <!-- Name + location -->
           <div class="bad__src-info">
             <span class="bad__src-name">
-              <template v-if="mode === 'npc'">
-                {{ resolveNpcName((src as any).npcId) }}
+              <template v-if="src.kind === 'npc'">
+                {{ resolveNpcName(src.npcId) }}
               </template>
               <template v-else>
-                Lv{{ (src as any).level }} 採{{ gatherTypeLabel((src as any).type) }}點
+                Lv{{ src.level }} 採{{ gatherTypeLabel(src.type) }}點
               </template>
             </span>
             <span class="bad__src-loc">
@@ -294,20 +310,20 @@ function openMapSheet(src: { zoneId: number; x: number; y: number }) {
               X:{{ src.x.toFixed(1) }} Y:{{ src.y.toFixed(1) }}
             </span>
 
-            <!-- Aetheryte chip -->
+            <!-- Aetheryte chip (pre-computed, no repeated calls) -->
             <span
-              v-if="getFirstAetheryte(src.zoneId)"
+              v-if="sourceAetherytes[idx]"
               class="bad__src-aeth"
             >
               <span class="bad__aeth-label">
-                📍 {{ getFirstAetheryte(src.zoneId)!.name }}
-                {{ getFirstAetheryte(src.zoneId)!.tpCostBase }}G
+                📍 {{ sourceAetherytes[idx]!.name }}
+                {{ sourceAetherytes[idx]!.tpCostBase }}G
               </span>
               <button
                 type="button"
                 class="bad__tp-btn"
-                :aria-label="`複製傳送指令到 ${getFirstAetheryte(src.zoneId)!.name}`"
-                @click.stop="copyTp(getFirstAetheryte(src.zoneId)!.name)"
+                :aria-label="`複製傳送指令到 ${sourceAetherytes[idx]!.name}`"
+                @click.stop="copyTp(sourceAetherytes[idx]!.name)"
               >⎘ /tp</button>
             </span>
           </div>
@@ -338,6 +354,7 @@ function openMapSheet(src: { zoneId: number; x: number; y: number }) {
             type="button"
             class="bad__zone-chip"
             :class="{ 'is-active': zid === activeZoneId }"
+            :aria-pressed="activeZoneId === zid"
             @click="activeZoneId = zid"
           >{{ resolveZoneName(zid) }}</button>
         </div>
@@ -574,7 +591,7 @@ function openMapSheet(src: { zoneId: number; x: number; y: number }) {
 
 .bad__zone-chip.is-active {
   background: var(--app-craft);
-  color: oklch(0.98 0.012 85);
+  color: var(--app-cream-surface, #faf7f2);
   border-color: var(--app-craft);
 }
 
