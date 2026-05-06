@@ -403,6 +403,7 @@ function openMapSheet(src: { zoneId: number; x: number; y: number }) {
 }
 
 
+
 /* -----------------------------------------------------------------------
    Skeleton / empty
 ----------------------------------------------------------------------- */
@@ -648,5 +649,42 @@ function openMapSheet(src: { zoneId: number; x: number; y: number }) {
 .bad-marker.is-primary {
   outline: 2px solid var(--app-toast-gold);
   outline-offset: 2px;
+}
+
+/* Desktop: minimap + zone chips pinned on the left, sources flow on the
+ * right as a 2-column grid. The map provides spatial context once; the
+ * right column devotes the rest of the row to the actual to-do list.
+ * Media query lives at the bottom of the stylesheet so it wins against
+ * the base `.bad__sources { display: flex }` declaration above. */
+@media (min-width: 768px) {
+  .bad {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 18px;
+  }
+
+  .bad__map-block {
+    flex-shrink: 0;
+    width: 368px;
+  }
+
+  .bad__sources {
+    flex: 1;
+    min-width: 0;
+    display: grid;
+    /* Fixed 2 columns per request — tall vendor lists wrap into two side-
+     * by-side stacks instead of one long ladder. */
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 12px;
+  }
+
+  /* Inside the grid the row separators come from the grid gap; drop the
+   * bottom border so adjacent cells don't get a double-line. Round the
+   * corners so each cell reads as its own card. */
+  .bad__source-row {
+    border-bottom: none;
+    border: 1px solid var(--app-border);
+    border-radius: 8px;
+  }
 }
 </style>
