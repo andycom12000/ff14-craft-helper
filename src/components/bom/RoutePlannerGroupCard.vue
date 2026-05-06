@@ -3,11 +3,10 @@ import { computed, ref } from 'vue'
 import { useBomStore } from '@/stores/bom'
 import { useZoneName } from '@/composables/useZoneName'
 import { useMediaQuery } from '@/composables/useMediaQuery'
-import { getZoneMetaSync, getNpcNameSync } from '@/services/zone-meta'
+import { getZoneMetaSync } from '@/services/zone-meta'
 import { useLocaleStore } from '@/stores/locale'
 import { convertToPixel, pixelToPercent } from '@/utils/map-coords'
 import type { Group, GroupRow } from '@/services/route-planner'
-import type { Locale } from '@/services/zone-meta'
 
 // ---------------------------------------------------------------------------
 // Props / Emits
@@ -77,11 +76,6 @@ function toggleChecked(itemId: number) {
 // ---------------------------------------------------------------------------
 // Row label helpers
 // ---------------------------------------------------------------------------
-
-function resolveNpcName(npcId: number): string {
-  const locale = localeStore.current as Locale
-  return getNpcNameSync(npcId, locale) ?? getNpcNameSync(npcId, 'en') ?? `#npc:${npcId}`
-}
 
 function rowModeName(row: GroupRow): string {
   if (row.source.vendorName !== undefined) {
