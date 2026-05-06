@@ -255,6 +255,9 @@ watch(
       <!-- Stop-to-stop nav. Sits directly under the progress toolbar so the
            prev/next controls are within reach of the progress info, not
            buried under the stop card. Wraps at both ends. -->
+      <!-- Single nav row: prev / stepper-chips / next. The stepper takes
+           the centre space so the user can see the entire route at a
+           glance AND step through it from one row of controls. -->
       <div class="brp-nav">
         <button
           type="button"
@@ -263,7 +266,32 @@ watch(
         >
           ← {{ currentStopIdx === 0 ? '回到末站' : '上一站' }}
         </button>
-        <span class="brp-nav__count">{{ currentStopIdx + 1 }} / {{ totalStops }}</span>
+
+        <nav class="brp-stepper" aria-label="採買路線進度">
+          <ol class="brp-stepper__track">
+            <li
+              v-for="step in stepperItems"
+              :key="step.idx"
+              class="brp-stepper__item"
+              :class="{
+                'is-current': step.isCurrent,
+                'is-done': step.isDone,
+              }"
+            >
+              <button
+                type="button"
+                class="brp-stepper__chip"
+                :aria-current="step.isCurrent ? 'step' : undefined"
+                :aria-label="`第 ${step.idx + 1} 站`"
+                @click="gotoStop(step.idx)"
+              >
+                <span class="brp-stepper__num">{{ String(step.idx + 1).padStart(2, '0') }}</span>
+                <span v-if="step.isDone" class="brp-stepper__done" aria-hidden="true">✓</span>
+              </button>
+            </li>
+          </ol>
+        </nav>
+
         <button
           type="button"
           class="brp-nav__btn brp-nav__btn--primary"
@@ -272,34 +300,6 @@ watch(
           {{ currentStopIdx + 1 >= totalStops ? '回到首站' : '下一站' }} →
         </button>
       </div>
-
-      <!-- Stepper: horizontal numbered chips. Sits above the active card so
-           the user can see the entire route at a glance and jump anywhere
-           without scrolling through every stop. -->
-      <nav class="brp-stepper" aria-label="採買路線進度">
-        <ol class="brp-stepper__track">
-          <li
-            v-for="step in stepperItems"
-            :key="step.idx"
-            class="brp-stepper__item"
-            :class="{
-              'is-current': step.isCurrent,
-              'is-done': step.isDone,
-            }"
-          >
-            <button
-              type="button"
-              class="brp-stepper__chip"
-              :aria-current="step.isCurrent ? 'step' : undefined"
-              :aria-label="`第 ${step.idx + 1} 站`"
-              @click="gotoStop(step.idx)"
-            >
-              <span class="brp-stepper__num">{{ String(step.idx + 1).padStart(2, '0') }}</span>
-              <span v-if="step.isDone" class="brp-stepper__done" aria-hidden="true">✓</span>
-            </button>
-          </li>
-        </ol>
-      </nav>
 
       <!-- Active card — full main width so the map gets the room it needs. -->
       <RoutePlannerGroupCard
@@ -336,8 +336,17 @@ watch(
  * number-only chips; user clicks any chip to jump. Active chip is
  * cocoa-filled to match the card's stop badge. */
 .brp-stepper {
+  /* Centre between prev/next inside .brp-nav. flex:1 takes the remaining
+   * row space; horizontal scroll handles long stop counts. */
+  flex: 1;
+  min-width: 0;
   overflow-x: auto;
   scrollbar-width: thin;
+}
+
+.brp-stepper__track {
+  /* Center the chips in the available row space; long lists scroll. */
+  justify-content: center;
 }
 
 .brp-stepper__track {
@@ -468,13 +477,6 @@ watch(
   outline-offset: 2px;
 }
 
-.brp-nav__count {
-  font-family: 'Fira Code', ui-monospace, monospace;
-  font-size: 13px;
-  color: var(--app-text-muted);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-}
 
 /* Empty state */
 .brp-empty {
