@@ -6,7 +6,7 @@
  * the lifetime of the page session; no LRU (zone/NPC id sets are bounded).
  *
  * Map sheet rows are discovered via a single search query:
- *   /api/search?sheets=Map&query=PlaceName=146|PlaceName=153|…
+ *   /api/search?sheets=Map&query=PlaceName=146,153,…
  * This collapses the N+1 per-zone searches in garland.ts into one call.
  */
 
@@ -73,10 +73,13 @@ interface NpcFields {
  * Fetch zone metadata for a list of zone IDs (= PlaceName row IDs).
  * Issues at most 2 network requests regardless of the number of IDs:
  *   1. Sheet/PlaceName bulk rows → locale names
- *   2. Search/Map with OR filter → map asset + sizeFactor
+ *   2. Search/Map with comma-separated filter → map asset + sizeFactor
+ *      (e.g., query=PlaceName=146,153,155)
  *
  * Results are cached; repeat calls with already-cached IDs skip network.
  * Concurrent calls with the same ID set share one in-flight Promise.
+ * Only entries with at least one populated locale name or map asset are cached,
+ * ensuring failed partial fetches don't prevent retries.
  */
 export async function fetchZoneMetaBulk(
   zoneIds: number[],
@@ -195,6 +198,8 @@ async function _doFetchZoneMeta(ids: number[]): Promise<Map<number, ZoneMeta>> {
   }
 
   // Merge and populate cache.
+  // Only cache entries with at least one useful piece of data (locale name or map asset).
+  // This prevents empty entries from failed fetches from clogging the cache.
   const result = new Map<number, ZoneMeta>()
   for (const id of ids) {
     const localeMap = namesByZone.get(id) ?? new Map<Locale, string>()
@@ -204,8 +209,12 @@ async function _doFetchZoneMeta(ids: number[]): Promise<Map<number, ZoneMeta>> {
       mapAssetUrl: mapInfo.mapAssetUrl,
       sizeFactor: mapInfo.sizeFactor,
     }
-    zoneCache.set(id, meta)
-    result.set(id, meta)
+    // Only cache if we got at least one useful piece of data.
+    const hasData = localeMap.size > 0 || mapInfo.mapAssetUrl.length > 0
+    if (hasData) {
+      zoneCache.set(id, meta)
+      result.set(id, meta)
+    }
   }
   return result
 }
@@ -298,8 +307,11 @@ async function _doFetchNpcNames(
       if (!localeMap.has('zh-TW') && f.Singular) {
         localeMap.set('zh-TW', sToT(f.Singular))
       }
-      npcCache.set(row.row_id as number, localeMap)
-      result.set(row.row_id as number, localeMap)
+      // Only cache if we got at least one locale name.
+      if (localeMap.size > 0) {
+        npcCache.set(row.row_id as number, localeMap)
+        result.set(row.row_id as number, localeMap)
+      }
     }
   } catch (err) {
     console.error('[zone-meta] ENpcResident fetch error:', err)

@@ -295,6 +295,58 @@ describe('fetchZoneMetaBulk', () => {
     expect(meta).not.toBeNull()
     expect(meta!.zoneNameByLocale.get('en')).toBe('Lower La Noscea')
   })
+
+  it('does not cache empty entries from failed fetches — retry succeeds', async () => {
+    // First call: both fetches throw
+    const failFetch = vi.fn(async (_url: string) => {
+      throw new Error('network error')
+    })
+    vi.stubGlobal('fetch', failFetch)
+
+    await fetchZoneMetaBulk([146])
+    expect(getZoneMetaSync(146)).toBeNull() // not cached
+
+    // Second call: fetch succeeds
+    const successFetch = mockResponses([
+      {
+        pattern: PATTERN_PLACE_NAME,
+        body: {
+          rows: [
+            {
+              row_id: 146,
+              fields: {
+                Name: '拉诺西亚低地',
+                Name_chs: '拉诺西亚低地',
+                Name_en: 'Lower La Noscea',
+                Name_ja: 'ラノシア低地',
+              },
+            },
+          ],
+        },
+      },
+      {
+        pattern: PATTERN_MAP_SEARCH,
+        body: {
+          results: [
+            {
+              fields: {
+                Id: 'r1f1/00',
+                SizeFactor: 100,
+                'PlaceName.Id': 146,
+              },
+            },
+          ],
+        },
+      },
+    ])
+    vi.stubGlobal('fetch', successFetch)
+
+    await fetchZoneMetaBulk([146])
+    expect(getZoneMetaSync(146)).not.toBeNull()
+    expect(getZoneMetaSync(146)?.zoneNameByLocale.get('en')).toBe(
+      'Lower La Noscea',
+    )
+  })
 })
 
 // ---------------------------------------------------------------------------
