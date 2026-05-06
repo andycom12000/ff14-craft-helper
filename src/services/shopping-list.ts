@@ -87,6 +87,26 @@ export function groupByServer(materials: MaterialWithPrice[]): ServerGroup[] {
   }))
 }
 
+/**
+ * Move the home-server group to the end so cross-server runs surface first
+ * (player typically wants the "trips needed" servers up top, then their home
+ * server as the residual local-pickup). Returns input unchanged if homeServer
+ * is empty/missing from the list.
+ */
+export function sortServerGroupsHomeLast(
+  groups: ServerGroup[],
+  homeServer: string,
+): ServerGroup[] {
+  if (!homeServer) return groups
+  const others: ServerGroup[] = []
+  let home: ServerGroup | undefined
+  for (const g of groups) {
+    if (g.server === homeServer) home = g
+    else others.push(g)
+  }
+  return home ? [...others, home] : groups
+}
+
 export interface PurchaseResult {
   totalCost: number
   effectiveUnitPrice: number  // totalCost / neededQty

@@ -2,9 +2,11 @@ import { describe, it, expect } from 'vitest'
 import {
   separateCrystals,
   groupByServer,
+  sortServerGroupsHomeLast,
   aggregateMaterials,
   calculateBestPurchase,
   type MaterialWithPrice,
+  type ServerGroup,
 } from '@/services/shopping-list'
 import type { MarketListing } from '@/api/universalis'
 
@@ -25,6 +27,34 @@ describe('separateCrystals', () => {
     const { crystals, nonCrystals } = separateCrystals([])
     expect(crystals).toHaveLength(0)
     expect(nonCrystals).toHaveLength(0)
+  })
+})
+
+describe('sortServerGroupsHomeLast', () => {
+  const make = (server: string): ServerGroup => ({ server, items: [], subtotal: 0 })
+
+  it('moves the home server to the end', () => {
+    const groups = [make('Tonberry'), make('Chocobo'), make('Mandragora')]
+    const sorted = sortServerGroupsHomeLast(groups, 'Chocobo')
+    expect(sorted.map(g => g.server)).toEqual(['Tonberry', 'Mandragora', 'Chocobo'])
+  })
+
+  it('preserves order when home server not present', () => {
+    const groups = [make('Tonberry'), make('Mandragora')]
+    const sorted = sortServerGroupsHomeLast(groups, 'Chocobo')
+    expect(sorted.map(g => g.server)).toEqual(['Tonberry', 'Mandragora'])
+  })
+
+  it('returns input unchanged when home server is empty', () => {
+    const groups = [make('Tonberry'), make('Chocobo')]
+    const sorted = sortServerGroupsHomeLast(groups, '')
+    expect(sorted).toBe(groups)
+  })
+
+  it('keeps order of other servers', () => {
+    const groups = [make('A'), make('Home'), make('B'), make('C')]
+    const sorted = sortServerGroupsHomeLast(groups, 'Home')
+    expect(sorted.map(g => g.server)).toEqual(['A', 'B', 'C', 'Home'])
   })
 })
 

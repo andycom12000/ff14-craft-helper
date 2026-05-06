@@ -2,9 +2,11 @@
 import { ref, watch, triggerRef, computed, nextTick, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { CrystalSummary, ServerGroup, MaterialWithPrice } from '@/services/shopping-list'
+import { sortServerGroupsHomeLast } from '@/services/shopping-list'
 import type { WorldPriceSummary } from '@/api/universalis'
 import type { BuyFinishedDecision, SelfCraftCandidate } from '@/stores/batch'
 import { useBatchStore } from '@/stores/batch'
+import { useSettingsStore } from '@/stores/settings'
 import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
 import { useIsMobile } from '@/composables/useMediaQuery'
 import CrossWorldPriceDetail, { type WorldPriceRow } from '@/components/common/CrossWorldPriceDetail.vue'
@@ -26,20 +28,26 @@ const props = defineProps<{
 }>()
 
 const batchStore = useBatchStore()
+const settingsStore = useSettingsStore()
 const { crossWorldData, crossWorldLoading, fetchCrossWorldData } = useCrossWorldPricing()
 
 const effectiveServerGroups = computed<ServerGroup[]>(() => {
   const items = batchStore.finalShoppingItems
-  if (items.length === 0) return props.serverGroups
-  const map = new Map<string, ServerGroup>()
-  for (const it of items) {
-    const server = it.server ?? '本伺服器'
-    if (!map.has(server)) map.set(server, { server, items: [], subtotal: 0 })
-    const g = map.get(server)!
-    g.items.push(it)
-    g.subtotal += it.unitPrice * it.amount
+  let groups: ServerGroup[]
+  if (items.length === 0) {
+    groups = props.serverGroups
+  } else {
+    const map = new Map<string, ServerGroup>()
+    for (const it of items) {
+      const server = it.server ?? '本伺服器'
+      if (!map.has(server)) map.set(server, { server, items: [], subtotal: 0 })
+      const g = map.get(server)!
+      g.items.push(it)
+      g.subtotal += it.unitPrice * it.amount
+    }
+    groups = [...map.values()]
   }
-  return [...map.values()]
+  return sortServerGroupsHomeLast(groups, settingsStore.server)
 })
 
 const allShoppingItems = computed<MaterialWithPrice[]>(() =>
