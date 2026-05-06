@@ -42,6 +42,9 @@ raphael-wasm-wrapper/target/
 # ETL data cache (game data build script)
 .data-cache/
 
+# Synced from node_modules by scripts/sync-tesseract-worker.mjs
+public/tesseract-shim/worker.min.js
+
 # Scratch / temp artifacts — see CLAUDE.md "Temp Files & Scratch Artifacts"
 .tmp/
 

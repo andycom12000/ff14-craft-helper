@@ -17,11 +17,17 @@
 ## WASM Build
 - wasm-pack 路徑：需加 `/c/Users/andyc/.cargo/bin` 到 PATH
 - 建置指令：`cd raphael-wasm-wrapper && RUSTUP_TOOLCHAIN=nightly wasm-pack build --target web --out-dir ../public/solver-wasm`
+- 建置完務必跑一次 `npm run patch-wasm`：修掉 `wasm-bindgen-rayon` 1.3.0 在 `workerHelpers.no-bundler.js` 用 positional 參數呼叫 `pkg.default()` 的 deprecation warning（每個 rayon worker 各噴一次）。腳本 idempotent，重跑無害。
 - WASM 檔案放在 `public/solver-wasm/`（不是 `src/`）
 
 ## Tech Stack
 - Vue 3 + Pinia + Element Plus + Vite + TypeScript
 - Raphael-rs WASM solver（多執行緒，需 SharedArrayBuffer / COOP+COEP）
+
+## OCR (Tesseract.js)
+- Tesseract worker 走 `public/tesseract-shim/shim.js`：先過濾 LSTM-only build 的 `Parameter not found` 噪音，再 importScripts upstream worker
+- `public/tesseract-shim/worker.min.js` 是從 `node_modules/tesseract.js/dist/` 同步過來的，已 gitignore；npm 的 `predev` / `prebuild` hook 會自動執行 `node scripts/sync-tesseract-worker.mjs`
+- 想手動觸發：`npm run sync-tesseract`
 
 ## Temp Files & Scratch Artifacts
 任何「驗證截圖、暫時 mockup、比對 before/after、benchmark output」等**不該被 commit** 的檔案，一律放進 `.tmp/`，依用途分子目錄：

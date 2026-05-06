@@ -4,12 +4,16 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/sync-tesseract-worker.mjs",
     "dev": "vite",
+    "prebuild": "node scripts/sync-tesseract-worker.mjs",
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build-game-data": "node scripts/build-game-data.mjs"
+    "build-game-data": "node scripts/build-game-data.mjs",
+    "patch-wasm": "node scripts/patch-wasm-rayon-init.mjs",
+    "sync-tesseract": "node scripts/sync-tesseract-worker.mjs"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.0",

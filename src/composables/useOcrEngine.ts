@@ -11,7 +11,13 @@ export function useOcrEngine() {
     if (worker) return worker
     isLoading.value = true
     const Tesseract = await import('tesseract.js')
+    // Route through our shim worker so we can mute LSTM-only noise (legacy
+    // params in chi_tra.traineddata that the LSTM-only Tesseract Core
+    // rejects). Shim importScripts the upstream worker.min.js synced by
+    // scripts/sync-tesseract-worker.mjs (predev/prebuild npm hook).
+    const base = import.meta.env.BASE_URL ?? '/'
     worker = await Tesseract.createWorker('chi_tra', undefined, {
+      workerPath: `${base}tesseract-shim/shim.js`,
       logger: (m) => {
         if (m.status === 'recognizing text') {
           // Each pass reports its own 0→1 progress; scale across the two passes.
