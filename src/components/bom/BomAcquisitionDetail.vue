@@ -343,7 +343,7 @@ function openMapSheet(src: { zoneId: number; x: number; y: number }) {
           <!-- Mode icon -->
           <span class="bad__src-icon" aria-hidden="true">{{ mode === 'npc' ? '⛟' : '⛏' }}</span>
 
-          <!-- Name + location -->
+          <!-- Name → 地點 → X,Y, one per line -->
           <div class="bad__src-info">
             <span class="bad__src-name">
               <template v-if="src.kind === 'npc'">
@@ -353,9 +353,9 @@ function openMapSheet(src: { zoneId: number; x: number; y: number }) {
                 Lv{{ src.level }} 採{{ gatherTypeLabel(src.type) }}點
               </template>
             </span>
-            <span class="bad__src-loc">
-              {{ resolveZoneName(src.zoneId) }} ·
-              X:{{ src.x.toFixed(1) }} Y:{{ src.y.toFixed(1) }}
+            <span class="bad__src-zone">{{ resolveZoneName(src.zoneId) }}</span>
+            <span class="bad__src-coords">
+              X:{{ src.x.toFixed(1) }} &nbsp;Y:{{ src.y.toFixed(1) }}
             </span>
 
             <!-- Aetheryte chip (pre-computed, no repeated calls) -->
@@ -439,7 +439,9 @@ function openMapSheet(src: { zoneId: number; x: number; y: number }) {
 .bad__source-row {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  /* Tighter icon ↔ info gap so the text block sits ~5px further left,
+   * reclaiming row width for the new 3-line stack (name / zone / coords). */
+  gap: 5px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--app-border);
   background: var(--app-surface);
@@ -491,6 +493,26 @@ function openMapSheet(src: { zoneId: number; x: number; y: number }) {
   color: var(--app-text-muted);
   font-family: 'Fira Code', ui-monospace, monospace;
   letter-spacing: 0.02em;
+}
+
+/* Zone name on its own line — sans-serif, slightly muted. */
+.bad__src-zone {
+  font-size: 12px;
+  color: var(--app-text-muted);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Coordinates on their own line — mono so X/Y digits column-align across
+ * cards. Slightly more muted than zone name to reinforce the hierarchy. */
+.bad__src-coords {
+  font-size: 11.5px;
+  color: var(--app-text-muted);
+  font-family: 'Fira Code', ui-monospace, monospace;
+  letter-spacing: 0.04em;
+  opacity: 0.8;
 }
 
 .bad__src-aeth {
