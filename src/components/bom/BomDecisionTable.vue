@@ -150,7 +150,9 @@ function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
       <div class="bdt-head__col bdt-head__col--chev" />
     </div>
 
-    <div v-if="targetRows.length > 0" class="bdt-group">
+    <div class="bdt-columns">
+
+    <div v-if="targetRows.length > 0" class="bdt-group bdt-group--targets">
       <div class="bdt-group__header">
         <span class="bdt-group__title">完成品</span>
         <span class="bdt-group__hint">這些是你要做出來的東西，自製是預設選擇</span>
@@ -189,7 +191,7 @@ function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
       </template>
     </div>
 
-    <div v-if="materialRows.length > 0" class="bdt-group">
+    <div v-if="materialRows.length > 0" class="bdt-group bdt-group--materials">
       <div class="bdt-group__header">
         <span class="bdt-group__title">材料</span>
         <span class="bdt-group__hint">逐筆挑選取得方式，總價會即時更新</span>
@@ -231,6 +233,8 @@ function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
         </template>
       </template>
     </div>
+
+    </div><!-- /.bdt-columns -->
 
     <div v-if="crystalRollup.length > 0" class="bdt-crystals">
       <span class="bdt-crystals__label">水晶</span>
@@ -326,13 +330,44 @@ function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
   text-align: center;
 }
 
-.bdt-group {
+.bdt-columns {
   display: flex;
   flex-direction: column;
 }
 
+.bdt-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 .bdt-group + .bdt-group {
   border-top: 1px solid var(--app-border);
+}
+
+/* Wide viewports: split 完成品 + 材料 into two side-by-side columns so
+ * neither is hidden below a long scroll. The crystals roll-up stays
+ * full-width below. */
+@container (min-width: 1100px) {
+  .bdt-columns {
+    flex-direction: row;
+    align-items: stretch;
+  }
+  .bdt-columns > .bdt-group {
+    flex: 1;
+    min-width: 0;
+  }
+  .bdt-columns > .bdt-group + .bdt-group {
+    border-top: none;
+    border-left: 1px solid var(--app-border);
+  }
+  /* Column labels (素材/數量/取得/單價/小計) belonged to a single full-
+   * width grid; in 2-col mode they no longer line up with the rows
+   * underneath each side. Hide it — each group's own header (完成品 /
+   * 材料 + hint) plus the in-row affordances cover the same role. */
+  .bdt-head {
+    display: none;
+  }
 }
 
 .bdt-group__header {
