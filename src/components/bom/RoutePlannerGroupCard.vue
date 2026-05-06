@@ -686,7 +686,7 @@ function onMapError(e: Event) {
    * + sticky stack (totals/tabs/toolbar) + eyebrow + stepper + card
    * header + nav row + paddings ≈ 580px. Cap at 720 so tall monitors
    * don't waste space on a giant map. */
-  height: min(720px, calc(100dvh - 604px));
+  height: min(720px, calc(100dvh - 612px));
   min-height: 420px;
   align-items: stretch;
   overflow: hidden;
@@ -699,7 +699,7 @@ function onMapError(e: Event) {
   position: relative;
   /* Explicitly size width to the same expression as body height — gives a
    * perfect square once the col is stretched vertically by the flex body. */
-  width: min(720px, calc(100dvh - 604px));
+  width: min(720px, calc(100dvh - 612px));
 }
 
 .rpgc.is-big-map .rpgc__map-container {

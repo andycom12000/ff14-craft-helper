@@ -330,6 +330,11 @@ watch(
   display: flex;
   flex-direction: column;
   gap: 12px;
+  /* Cap the route planner to the viewport so micro-overflow from sticky
+   * shadows / sub-pixel rounding doesn't bubble up into a page-level
+   * scroll. The active card already manages its own internal scroll. */
+  max-height: calc(100dvh - 240px);
+  overflow: hidden;
 }
 
 /* Horizontal stepper. Stays compact even at 20+ stops by ellipsing the
