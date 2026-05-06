@@ -344,6 +344,6 @@ describe('sortRoute', () => {
       aetherytes,
     }))
     expect(result.groups).toHaveLength(1)
-    expect(result.groups[0].isHero).toBeFalsy()
+    expect(result.groups[0].isHero).toBeUndefined()
   })
 })

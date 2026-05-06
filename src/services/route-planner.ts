@@ -32,11 +32,17 @@ export interface AetheryteInfo {
   tpCostBase: number
 }
 
+export interface GroupRow {
+  itemId: number
+  source: ChosenSource
+  orderInZone: number
+}
+
 export interface Group {
   zoneId: number
   aetheryte: AetheryteInfo | null
   tpCost: number
-  rows: Array<{ itemId: number; source: ChosenSource; orderInZone: number }>
+  rows: GroupRow[]
   isHero?: boolean
 }
 
@@ -62,7 +68,18 @@ interface Assignment {
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
-/** Cheapest aetheryte tpCostBase for a zone, or 0 if zone not in map. */
+/**
+ * Cheapest aetheryte tpCostBase for a zone, or 0 if zone not in map.
+ *
+ * Note: tpCostOf returns the *cheapest* aetheryte cost for Pass 1's argmin.
+ * The final per-group display aetheryte (chosen by pickNearestAetheryte)
+ * may have a different (potentially higher) tpCostBase. This is acceptable
+ * because (a) most zones in our aetherytes.json have a single aetheryte,
+ * (b) when multiple aetherytes share a zone, their costs are usually equal,
+ * and (c) using cheapest for cost comparison is the user-favorable choice
+ * (lowest plausible cost). If this becomes user-visible, switch to using
+ * the centroid-nearest aetheryte's cost for both purposes.
+ */
 function tpCostOf(zoneId: number, aetherytes: Map<number, AetheryteInfo[]>): number {
   const list = aetherytes.get(zoneId)
   if (!list || list.length === 0) return 0
