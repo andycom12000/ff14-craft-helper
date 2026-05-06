@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { convertToPixel, cropRegion } from '@/utils/map-coords'
+import { convertToPixel, cropRegion, buildMapAssetUrl, pixelToPercent } from '@/utils/map-coords'
 
 describe('convertToPixel', () => {
   it('converts raw coords to pixel position', () => {
@@ -28,5 +28,31 @@ describe('cropRegion', () => {
     const result = cropRegion(50, 50, 2048, 200)
     expect(result.sx).toBe(0)
     expect(result.sy).toBe(0)
+  })
+})
+
+describe('buildMapAssetUrl', () => {
+  it('builds the canonical xivapi map asset path matching existing garland.ts format', () => {
+    // IMPORTANT: format must match what src/api/garland.ts:126 currently produces.
+    // garland.ts uses `ui/map/${folder}/${sub}/${folder}${sub}_m.tex` — NO underscore between folder and sub.
+    // Do NOT change format — refactor must be a behavior-preserving extraction.
+    expect(buildMapAssetUrl('r1f1/00')).toBe('ui/map/r1f1/00/r1f100_m.tex')
+    expect(buildMapAssetUrl('w1d3/01')).toBe('ui/map/w1d3/01/w1d301_m.tex')
+  })
+
+  it('returns empty string for malformed id', () => {
+    expect(buildMapAssetUrl('')).toBe('')
+    expect(buildMapAssetUrl('no-slash')).toBe('')
+  })
+})
+
+describe('pixelToPercent', () => {
+  it('converts pixel coords to css percentage with default 2048 map', () => {
+    expect(pixelToPercent(1024, 1024)).toEqual({ left: '50%', top: '50%' })
+    expect(pixelToPercent(512, 0)).toEqual({ left: '25%', top: '0%' })
+  })
+
+  it('honors custom map pixel size', () => {
+    expect(pixelToPercent(512, 512, 1024)).toEqual({ left: '50%', top: '50%' })
   })
 })
