@@ -51,8 +51,6 @@ const inflight = new Map<number, Promise<ItemLocations>>()
 
 const GARLAND_ITEM = 'https://garlandtools.org/db/doc/item/en/3'
 
-const EMPTY: ItemLocations = { npcVendors: [], gatherNodes: [] }
-
 // ---------------------------------------------------------------------------
 // LRU helpers
 // ---------------------------------------------------------------------------
@@ -166,14 +164,14 @@ export async function fetchItemLocations(itemId: number): Promise<ItemLocations>
   const promise = (async () => {
     try {
       const resp = await fetch(`${GARLAND_ITEM}/${itemId}.json`)
-      if (!resp.ok) return EMPTY
+      if (!resp.ok) return { npcVendors: [], gatherNodes: [] }
       const data: GarlandItemDocument = await resp.json()
       const result = parseGarlandLocations(data)
       lruSet(itemId, result)
       return result
     } catch {
       // Do NOT cache on failure so the next call retries.
-      return EMPTY
+      return { npcVendors: [], gatherNodes: [] }
     } finally {
       inflight.delete(itemId)
     }
