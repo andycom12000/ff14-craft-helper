@@ -86,9 +86,11 @@ async function retryPrice() {
 }
 
 const isExpanded = computed(() => bom.isRowExpanded(props.itemId))
-const isRowToggleable = computed(
-  () => props.isCraftable && mode.value === 'craft' && !props.immutable,
-)
+const isRowToggleable = computed(() => {
+  if (props.immutable) return false
+  if (mode.value === 'craft') return props.isCraftable
+  return mode.value === 'npc' || mode.value === 'gather'
+})
 
 function selectMode(m: AcquisitionSource) {
   if (props.immutable) return
@@ -116,7 +118,7 @@ function onRowClick() {
     :role="isRowToggleable ? 'button' : undefined"
     :tabindex="isRowToggleable ? 0 : undefined"
     :aria-expanded="isRowToggleable ? isExpanded : undefined"
-    :aria-label="isRowToggleable ? (isExpanded ? `收合 ${name} 子配方` : `展開 ${name} 子配方`) : undefined"
+    :aria-label="isRowToggleable ? (isExpanded ? `收合 ${name} 詳細` : `展開 ${name} 詳細`) : undefined"
     @click="onRowClick"
     @keydown.enter.prevent="onRowClick"
     @keydown.space.prevent="onRowClick"

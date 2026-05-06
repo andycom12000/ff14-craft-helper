@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { FlatMaterial, MaterialNode } from '@/stores/bom'
 import { useBomStore } from '@/stores/bom'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import BomDecisionRow from '@/components/bom/BomDecisionRow.vue'
 import BomCraftTreeNode from '@/components/bom/BomCraftTreeNode.vue'
+import BomAcquisitionDetail from '@/components/bom/BomAcquisitionDetail.vue'
+import ZoneMapSheet from '@/components/bom/ZoneMapSheet.vue'
 import ItemName from '@/components/common/ItemName.vue'
 
 const props = defineProps<{
@@ -115,6 +117,23 @@ const drillDrawerOpen = computed<boolean>({
     }
   },
 })
+
+// ---------------------------------------------------------------------------
+// ZoneMapSheet — local bottom-sheet for BomAcquisitionDetail map links.
+// Phones open a ZoneMapSheet inline here; the sheet is lightweight and there
+// is no conflict with the craft drill-sheet because npc/gather rows are
+// never in craft mode simultaneously.
+// ---------------------------------------------------------------------------
+
+const mapSheetOpen = ref(false)
+const mapSheetZoneId = ref<number | null>(null)
+const mapSheetCoords = ref<{ x: number; y: number } | null>(null)
+
+function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
+  mapSheetZoneId.value = zoneId
+  mapSheetCoords.value = coords
+  mapSheetOpen.value = true
+}
 </script>
 
 <template>
@@ -160,15 +179,27 @@ const drillDrawerOpen = computed<boolean>({
           :amount="row.amount"
           :is-craftable="row.isCraftable"
         />
-        <div
-          v-if="!isCockpitMobile && row.isCraftable && bom.isRowExpanded(row.itemId) && bom.getEffectiveMode(row.itemId) === 'craft'"
-          class="bdt-drill"
-        >
-          <BomCraftTreeNode
-            v-if="getNodeForRow(row.itemId)"
-            :parent="getNodeForRow(row.itemId)!"
-          />
-        </div>
+        <template v-if="!isCockpitMobile && bom.isRowExpanded(row.itemId)">
+          <div
+            v-if="bom.getEffectiveMode(row.itemId) === 'craft' && row.isCraftable"
+            class="bdt-drill"
+          >
+            <BomCraftTreeNode
+              v-if="getNodeForRow(row.itemId)"
+              :parent="getNodeForRow(row.itemId)!"
+            />
+          </div>
+          <div
+            v-else-if="bom.getEffectiveMode(row.itemId) === 'npc' || bom.getEffectiveMode(row.itemId) === 'gather'"
+            class="bdt-drill bdt-drill--acquisition"
+          >
+            <BomAcquisitionDetail
+              :item-id="row.itemId"
+              :mode="bom.getEffectiveMode(row.itemId) as 'npc' | 'gather'"
+              @open-map-sheet="onOpenMapSheet"
+            />
+          </div>
+        </template>
       </template>
     </div>
 
@@ -186,6 +217,12 @@ const drillDrawerOpen = computed<boolean>({
       尚未計算 — 從左側加入目標後按「計算材料需求」
     </p>
   </section>
+
+  <ZoneMapSheet
+    v-model="mapSheetOpen"
+    :zone-id="mapSheetZoneId"
+    :highlight-coords="mapSheetCoords ?? undefined"
+  />
 
   <el-drawer
     v-if="isCockpitMobile"
@@ -285,6 +322,12 @@ const drillDrawerOpen = computed<boolean>({
 .bdt-drill {
   background: color-mix(in srgb, var(--app-craft-dim) 8%, var(--app-bg));
   border-bottom: 1px solid var(--app-border);
+}
+
+.bdt-drill--acquisition {
+  /* Acquisition detail has its own internal padding; keep the outer shell
+   * neutral so BomAcquisitionDetail's dashed top border reads cleanly. */
+  background: var(--app-surface);
 }
 
 .bdt-crystals {
