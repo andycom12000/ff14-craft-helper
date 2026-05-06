@@ -31,22 +31,21 @@ const batchStore = useBatchStore()
 const settingsStore = useSettingsStore()
 const { crossWorldData, crossWorldLoading, fetchCrossWorldData } = useCrossWorldPricing()
 
+function regroupFinalItems(items: typeof batchStore.finalShoppingItems): ServerGroup[] {
+  const map = new Map<string, ServerGroup>()
+  for (const it of items) {
+    const server = it.server ?? '本伺服器'
+    if (!map.has(server)) map.set(server, { server, items: [], subtotal: 0 })
+    const g = map.get(server)!
+    g.items.push(it)
+    g.subtotal += it.unitPrice * it.amount
+  }
+  return [...map.values()]
+}
+
 const effectiveServerGroups = computed<ServerGroup[]>(() => {
   const items = batchStore.finalShoppingItems
-  let groups: ServerGroup[]
-  if (items.length === 0) {
-    groups = props.serverGroups
-  } else {
-    const map = new Map<string, ServerGroup>()
-    for (const it of items) {
-      const server = it.server ?? '本伺服器'
-      if (!map.has(server)) map.set(server, { server, items: [], subtotal: 0 })
-      const g = map.get(server)!
-      g.items.push(it)
-      g.subtotal += it.unitPrice * it.amount
-    }
-    groups = [...map.values()]
-  }
+  const groups = items.length === 0 ? props.serverGroups : regroupFinalItems(items)
   return sortServerGroupsHomeLast(groups, settingsStore.server)
 })
 

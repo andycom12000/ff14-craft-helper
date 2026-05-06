@@ -17,7 +17,9 @@ export function useOcrEngine() {
     // scripts/sync-tesseract-worker.mjs (predev/prebuild npm hook).
     const base = import.meta.env.BASE_URL ?? '/'
     worker = await Tesseract.createWorker('chi_tra', undefined, {
-      workerPath: `${base}tesseract-shim/shim.js`,
+      // Pass `base` through so the shim can resolve worker.min.js without
+      // hard-coding the project's base path (see public/tesseract-shim/shim.js).
+      workerPath: `${base}tesseract-shim/shim.js?base=${encodeURIComponent(base)}`,
       logger: (m) => {
         if (m.status === 'recognizing text') {
           // Each pass reports its own 0→1 progress; scale across the two passes.

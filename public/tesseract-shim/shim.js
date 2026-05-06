@@ -22,5 +22,9 @@
 })();
 
 // Resolve upstream worker via absolute path. Blob-worker `self.location` is
-// `blob:...`, so relative URLs are unreliable — use origin + project base.
-importScripts(self.location.origin + '/ff14-craft-helper/tesseract-shim/worker.min.js');
+// `blob:...`, so relative URLs are unreliable — the caller passes the project
+// base in via `?base=` (see useOcrEngine.ts) so this script doesn't have to
+// hard-code `/ff14-craft-helper/` and survive a base-path rename.
+const params = new URLSearchParams(self.location.search);
+const base = params.get('base') || '/';
+importScripts(self.location.origin + base + 'tesseract-shim/worker.min.js');
