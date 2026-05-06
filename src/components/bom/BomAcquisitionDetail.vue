@@ -283,6 +283,53 @@ function openMapSheet(src: { zoneId: number; x: number; y: number }) {
 
     <!-- Main content -->
     <template v-else-if="hasSources">
+      <!-- Map block first (was below the source list; user prefers it on top
+           so the spatial context lands before the textual one). -->
+      <div
+        v-if="!isPhone && hasMap"
+        class="bad__map-block"
+        data-map-canvas
+      >
+        <!-- Zone chips (when multiple zones) -->
+        <div v-if="sourceZoneIds.length > 1" class="bad__zone-chips">
+          <button
+            v-for="zid in sourceZoneIds"
+            :key="zid"
+            type="button"
+            class="bad__zone-chip"
+            :class="{ 'is-active': zid === activeZoneId }"
+            :aria-pressed="activeZoneId === zid"
+            @click="activeZoneId = zid"
+          >{{ resolveZoneName(zid) }}</button>
+        </div>
+
+        <!-- Map container -->
+        <div class="bad__map-container">
+          <img
+            :src="mapImageUrl!"
+            :alt="`${resolveZoneName(activeZoneId!)} 地圖`"
+            class="bad__map-img"
+            loading="lazy"
+            decoding="async"
+            @error="(e) => { (e.target as HTMLImageElement).style.display = 'none' }"
+          />
+
+          <!-- Markers -->
+          <div
+            v-for="(marker, i) in activeZoneMarkers"
+            :key="i"
+            class="bad-marker"
+            :class="{
+              'gather': marker.isGather,
+              'is-primary': marker.isPrimary,
+            }"
+            :style="{ left: marker.left, top: marker.top }"
+            :title="marker.label"
+            aria-hidden="true"
+          />
+        </div>
+      </div>
+
       <!-- Source list -->
       <div class="bad__sources">
         <div
@@ -339,52 +386,6 @@ function openMapSheet(src: { zoneId: number; x: number; y: number }) {
           >🗺️ 地圖</button>
         </div>
       </div>
-
-      <!-- Map block (desktop only, ≥768px) -->
-      <div
-        v-if="!isPhone && hasMap"
-        class="bad__map-block"
-        data-map-canvas
-      >
-        <!-- Zone chips (when multiple zones) -->
-        <div v-if="sourceZoneIds.length > 1" class="bad__zone-chips">
-          <button
-            v-for="zid in sourceZoneIds"
-            :key="zid"
-            type="button"
-            class="bad__zone-chip"
-            :class="{ 'is-active': zid === activeZoneId }"
-            :aria-pressed="activeZoneId === zid"
-            @click="activeZoneId = zid"
-          >{{ resolveZoneName(zid) }}</button>
-        </div>
-
-        <!-- Map container -->
-        <div class="bad__map-container">
-          <img
-            :src="mapImageUrl!"
-            :alt="`${resolveZoneName(activeZoneId!)} 地圖`"
-            class="bad__map-img"
-            loading="lazy"
-            decoding="async"
-            @error="(e) => { (e.target as HTMLImageElement).style.display = 'none' }"
-          />
-
-          <!-- Markers -->
-          <div
-            v-for="(marker, i) in activeZoneMarkers"
-            :key="i"
-            class="bad-marker"
-            :class="{
-              'gather': marker.isGather,
-              'is-primary': marker.isPrimary,
-            }"
-            :style="{ left: marker.left, top: marker.top }"
-            :title="marker.label"
-            aria-hidden="true"
-          />
-        </div>
-      </div>
     </template>
   </div>
 </template>
@@ -401,31 +402,6 @@ function openMapSheet(src: { zoneId: number; x: number; y: number }) {
   border-top: 1px dashed var(--app-border);
 }
 
-/* Desktop: sources on the left, minimap on the right — mirrors the
- * route planner card so the spatial mental model is consistent across
- * tabs. The list scrolls if it grows tall; the map stays in place. */
-@media (min-width: 768px) {
-  .bad {
-    flex-direction: row;
-    align-items: flex-start;
-    gap: 16px;
-  }
-
-  .bad__sources {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .bad__map-block {
-    flex-shrink: 0;
-    width: 300px;
-    /* Pin the block to the row so when the source list scrolls the map
-     * stays alongside its first row. */
-    align-self: flex-start;
-    position: sticky;
-    top: 8px;
-  }
-}
 
 /* -----------------------------------------------------------------------
    Skeleton / empty
@@ -629,7 +605,9 @@ function openMapSheet(src: { zoneId: number; x: number; y: number }) {
 .bad__map-container {
   position: relative;
   aspect-ratio: 16 / 11;
-  max-width: 320px;
+  /* Was 320px — bumped 15% so the spatial layout reads at a glance instead
+   * of forcing the user to lean in. */
+  max-width: 368px;
   width: 100%;
   background: var(--app-cream-emphasis, var(--app-cream-surface, var(--app-surface)));
   border-radius: 8px;

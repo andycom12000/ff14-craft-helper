@@ -29,10 +29,11 @@ function onResort() {
 
 <template>
   <div class="rpt" data-testid="route-toolbar">
+    <span class="rpt__label">採買進度</span>
     <el-progress
       :percentage="pct"
       :show-text="false"
-      :stroke-width="6"
+      :stroke-width="10"
       class="rpt__bar"
       :class="{ 'is-complete': isComplete }"
       data-testid="progress"
@@ -70,6 +71,13 @@ function onResort() {
 .rpt__bar {
   flex: 1;
   min-width: 120px;
+}
+
+/* Make the empty track visible so the bar isn't a single grey hairline at
+ * 0% — was barely there before, leading users to think the bar disappeared. */
+.rpt__bar :deep(.el-progress-bar__outer) {
+  background-color: color-mix(in srgb, var(--app-craft) 14%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--app-craft) 24%, transparent) !important;
 }
 
 /* Force el-progress to use cocoa fill (Sunlight Spotlight Rule — no toast-gold gradient) */

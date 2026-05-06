@@ -6,6 +6,8 @@ import { useMediaQuery } from '@/composables/useMediaQuery'
 import { getZoneMetaSync } from '@/services/zone-meta'
 import { convertToPixel, pixelToPercent } from '@/utils/map-coords'
 import type { Group, GroupRow } from '@/services/route-planner'
+import type { FlatMaterial } from '@/stores/bom'
+import ItemName from '@/components/common/ItemName.vue'
 
 // ---------------------------------------------------------------------------
 // Props / Emits
@@ -86,6 +88,19 @@ const totalGil = computed(() => {
 // ---------------------------------------------------------------------------
 // Checked state
 // ---------------------------------------------------------------------------
+
+// Quick lookup from itemId → flat material (icon + qty + fallback name).
+// Built once per recompute of flatMaterials so each row's `materialFor`
+// call is O(1).
+const materialIndex = computed(() => {
+  const m = new Map<number, FlatMaterial>()
+  for (const flat of bomStore.flatMaterials) m.set(flat.itemId, flat)
+  return m
+})
+
+function materialFor(itemId: number): FlatMaterial | undefined {
+  return materialIndex.value.get(itemId)
+}
 
 function isChecked(itemId: number): boolean {
   return bomStore.routeViewSession.checked.has(itemId)
@@ -454,16 +469,37 @@ function onMapError(e: Event) {
           <!-- Order badge -->
           <span class="rpgc__order-badge">{{ row.orderInZone }}</span>
 
-          <!-- Mode icon -->
-          <span class="rpgc__mode-icon" aria-hidden="true">{{ rowModeIcon(row) }}</span>
+          <!-- Item info (icon + name + qty) — what the player is buying -->
+          <div class="rpgc__item">
+            <img
+              v-if="materialFor(row.itemId)?.icon"
+              :src="materialFor(row.itemId)!.icon"
+              alt=""
+              class="rpgc__item-icon"
+              loading="lazy"
+              decoding="async"
+              crossorigin="anonymous"
+            />
+            <div class="rpgc__item-text">
+              <span class="rpgc__item-name">
+                <ItemName :item-id="row.itemId" :fallback="materialFor(row.itemId)?.name" />
+              </span>
+              <span v-if="materialFor(row.itemId)?.totalAmount" class="rpgc__item-qty">
+                ×{{ materialFor(row.itemId)!.totalAmount }}
+              </span>
+            </div>
+          </div>
 
-          <!-- Row info -->
-          <div class="rpgc__row-info">
-            <span class="rpgc__row-name">{{ rowModeName(row) }}</span>
-            <span class="rpgc__row-meta">
-              X:{{ row.source.x.toFixed(1) }} Y:{{ row.source.y.toFixed(1) }}
-            </span>
-            <span v-if="row.source.itemPrice" class="rpgc__row-price">
+          <!-- NPC / source info — where to get it (right-aligned) -->
+          <div class="rpgc__src">
+            <span class="rpgc__src-mode" aria-hidden="true">{{ rowModeIcon(row) }}</span>
+            <div class="rpgc__src-text">
+              <span class="rpgc__src-name">{{ rowModeName(row) }}</span>
+              <span class="rpgc__src-meta">
+                X:{{ row.source.x.toFixed(1) }} Y:{{ row.source.y.toFixed(1) }}
+              </span>
+            </div>
+            <span v-if="row.source.itemPrice" class="rpgc__src-price">
               {{ row.source.itemPrice }}G
             </span>
           </div>
@@ -881,7 +917,10 @@ function onMapError(e: Event) {
 }
 
 .rpgc__row.is-checked .rpgc__row-name,
-.rpgc__row.is-checked .rpgc__row-meta {
+.rpgc__row.is-checked .rpgc__row-meta,
+.rpgc__row.is-checked .rpgc__item-name,
+.rpgc__row.is-checked .rpgc__src-name,
+.rpgc__row.is-checked .rpgc__src-meta {
   text-decoration: line-through;
   color: var(--app-text-muted);
 }
@@ -934,24 +973,31 @@ function onMapError(e: Event) {
   flex-shrink: 0;
 }
 
-/* Mode icon */
-.rpgc__mode-icon {
-  font-size: 14px;
-  flex-shrink: 0;
-  font-family: 'Apple Symbols', 'Segoe UI Symbol', 'Noto Sans Symbols 2', 'Symbola', ui-monospace, monospace;
-}
-
-/* Row info */
-.rpgc__row-info {
+/* ── Item block (left) — what to buy ───────────────────────────────────── */
+.rpgc__item {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 8px;
   flex: 1;
   min-width: 0;
 }
 
-.rpgc__row-name {
-  font-size: 13px;
+.rpgc__item-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.rpgc__item-text {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.rpgc__item-name {
+  font-size: 13.5px;
   font-weight: 500;
   color: var(--app-text);
   white-space: nowrap;
@@ -960,19 +1006,61 @@ function onMapError(e: Event) {
   transition: color 0.1s ease-out;
 }
 
-.rpgc__row-meta {
-  font-size: 11.5px;
+.rpgc__item-qty {
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--app-text-muted);
+  flex-shrink: 0;
+}
+
+/* ── Source block (right) — where to get it ───────────────────────────── */
+.rpgc__src {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.rpgc__src-mode {
+  font-size: 14px;
+  flex-shrink: 0;
+  font-family: 'Apple Symbols', 'Segoe UI Symbol', 'Noto Sans Symbols 2', 'Symbola', ui-monospace, monospace;
+  color: var(--app-text-muted);
+}
+
+.rpgc__src-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rpgc__src-name {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--app-text);
+  white-space: nowrap;
+  transition: color 0.1s ease-out;
+}
+
+.rpgc__src-meta {
+  font-size: 11px;
   color: var(--app-text-muted);
   font-family: 'Fira Code', ui-monospace, monospace;
   letter-spacing: 0.02em;
   transition: color 0.1s ease-out;
+  white-space: nowrap;
 }
 
-/* Price: app-text at 600 weight (not toast-gold) */
-.rpgc__row-price {
+.rpgc__src-price {
   font-size: 12px;
   font-weight: 600;
   color: var(--app-text);
+  flex-shrink: 0;
+  font-family: 'Fira Code', ui-monospace, monospace;
 }
 
 /* Phone: map button */
