@@ -149,23 +149,6 @@ function evictLru() {
   } catch {}
 }
 
-let writeTimer: ReturnType<typeof setTimeout> | null = null
-function scheduleWrite(sig: string, session: { excluded: Set<number>; checked: Set<number>; collapsedGroups: Set<number> }) {
-  if (writeTimer) clearTimeout(writeTimer)
-  writeTimer = setTimeout(() => {
-    try {
-      localStorage.setItem(lsKey(sig), JSON.stringify({
-        excluded: [...session.excluded],
-        checked: [...session.checked],
-        collapsedGroups: [...session.collapsedGroups],
-        _mtime: Date.now(),
-      }))
-      evictLru()
-    } catch {}
-    writeTimer = null
-  }, WRITE_DEBOUNCE_MS)
-}
-
 export const useBomStore = defineStore('bom', () => {
   const targets = ref<BomTarget[]>([])
   const materialTree = ref<MaterialNode[]>([])
@@ -227,6 +210,25 @@ export const useBomStore = defineStore('bom', () => {
       .map(t => `${t.itemId}:${t.quantity}`)
       .join(',')
   })
+
+  // Scoped to each store instance — prevents HMR / multi-instance timer collisions.
+  let writeTimer: ReturnType<typeof setTimeout> | null = null
+
+  function scheduleWrite(sig: string, session: { excluded: Set<number>; checked: Set<number>; collapsedGroups: Set<number> }) {
+    if (writeTimer) clearTimeout(writeTimer)
+    writeTimer = setTimeout(() => {
+      try {
+        localStorage.setItem(lsKey(sig), JSON.stringify({
+          excluded: [...session.excluded],
+          checked: [...session.checked],
+          collapsedGroups: [...session.collapsedGroups],
+          _mtime: Date.now(),
+        }))
+        evictLru()
+      } catch {}
+      writeTimer = null
+    }, WRITE_DEBOUNCE_MS)
+  }
 
   // Reload session from localStorage whenever the target list changes.
   watch(targetSig, (next) => {
