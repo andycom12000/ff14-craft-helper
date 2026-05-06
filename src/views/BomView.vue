@@ -411,11 +411,12 @@ onMounted(async () => {
   --page-accent: var(--app-craft);
   --page-accent-dim: var(--app-craft-dim);
 
-  /* Approximate vertical room consumed by everything above the rail (page
-   * heading + description + cockpit gap) so the sticky rail can cap its own
-   * height to avoid pushing the calc CTA off-screen when not yet sticky-active.
-   * Matches `<header class="bom-view__header">` + 18px margin + cockpit top. */
-  --bom-rail-offset: 116px;
+  /* Total vertical chrome consumed outside the rail: app-main padding
+   * (20+20) + bom-view padding (28+28) + page header (62 + 18 margin) ≈
+   * 176px. Subtract this from 100dvh so the rail and the rest of the page
+   * fit within the viewport before calculation, avoiding a 30px page
+   * overflow that requires scrolling to reveal the calc CTA. */
+  --bom-rail-offset: 148px;
 }
 
 .bom-view__header {
