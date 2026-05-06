@@ -231,7 +231,10 @@ onMounted(async () => {
 <template>
   <div class="bom-view" v-loading="isLoadingData">
     <header class="bom-view__header">
-      <h2>購物清單</h2>
+      <h2>
+        購物清單
+        <span class="bom-view__beta" aria-label="實驗中">實驗中</span>
+      </h2>
       <p class="view-desc">想做什麼就加進來，我會幫你算好材料、查市價、估省下多少錢。</p>
     </header>
 
@@ -407,6 +410,29 @@ onMounted(async () => {
 
 .bom-view__header {
   margin-bottom: 18px;
+}
+
+.bom-view__header h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bom-view__beta {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-toast-gold, oklch(0.78 0.14 78)) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--app-toast-gold, oklch(0.78 0.14 78)) 50%, transparent);
+  color: var(--app-toast-gold, oklch(0.78 0.14 78));
+  font-family: 'Cormorant Garamond', 'Noto Serif TC', serif;
+  font-style: italic;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+  line-height: 1.2;
 }
 
 .view-desc {

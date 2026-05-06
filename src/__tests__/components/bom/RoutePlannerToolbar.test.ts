@@ -5,23 +5,14 @@ import RoutePlannerToolbar from '@/components/bom/RoutePlannerToolbar.vue'
 describe('RoutePlannerToolbar', () => {
   it('renders progress count', () => {
     const w = mount(RoutePlannerToolbar, {
-      props: { optimizeBy: 'gil', progress: { done: 7, total: 12 } },
+      props: { progress: { done: 7, total: 12 } },
     })
     expect(w.find('[data-testid="progress-count"]').text()).toBe('7 / 12')
   })
 
-  it('emits update:optimizeBy when segmented changes', async () => {
-    const w = mount(RoutePlannerToolbar, {
-      props: { optimizeBy: 'gil', progress: { done: 0, total: 5 } },
-    })
-    const seg = w.findComponent({ name: 'ElSegmented' })
-    seg.vm.$emit('update:modelValue', 'hop')
-    expect(w.emitted('update:optimizeBy')?.[0]).toEqual(['hop'])
-  })
-
   it('emits reset and re-sort on button clicks', async () => {
     const w = mount(RoutePlannerToolbar, {
-      props: { optimizeBy: 'gil', progress: { done: 0, total: 5 } },
+      props: { progress: { done: 0, total: 5 } },
     })
     const buttons = w.findAll('.rpt__btn')
     await buttons[0].trigger('click')
@@ -32,14 +23,14 @@ describe('RoutePlannerToolbar', () => {
 
   it('marks bar as complete when done === total', () => {
     const w = mount(RoutePlannerToolbar, {
-      props: { optimizeBy: 'gil', progress: { done: 5, total: 5 } },
+      props: { progress: { done: 5, total: 5 } },
     })
     expect(w.find('[data-testid="progress"]').classes()).toContain('is-complete')
   })
 
   it('shows 0% when total is 0', () => {
     const w = mount(RoutePlannerToolbar, {
-      props: { optimizeBy: 'gil', progress: { done: 0, total: 0 } },
+      props: { progress: { done: 0, total: 0 } },
     })
     expect(w.find('[data-testid="progress"]').classes()).not.toContain('is-complete')
   })

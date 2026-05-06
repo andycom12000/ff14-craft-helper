@@ -1,14 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { ElSegmented, ElProgress } from 'element-plus'
+import { ElProgress } from 'element-plus'
 
 const props = defineProps<{
-  optimizeBy: 'gil' | 'hop'
   progress: { done: number; total: number }
 }>()
 
 const emit = defineEmits<{
-  'update:optimizeBy': [value: 'gil' | 'hop']
   'reset': []
   're-sort': []
 }>()
@@ -19,10 +17,6 @@ const pct = computed(() => {
 })
 
 const isComplete = computed(() => props.progress.total > 0 && props.progress.done >= props.progress.total)
-
-function onUpdateMode(v: string | number | boolean) {
-  emit('update:optimizeBy', v as 'gil' | 'hop')
-}
 
 function onReset() {
   emit('reset')
@@ -35,16 +29,6 @@ function onResort() {
 
 <template>
   <div class="rpt" data-testid="route-toolbar">
-    <span class="rpt__label">最佳化目標</span>
-    <el-segmented
-      :model-value="optimizeBy"
-      @update:model-value="onUpdateMode"
-      :options="[
-        { label: '最少傳送費', value: 'gil' },
-        { label: '最少跳點', value: 'hop' },
-      ]"
-      data-testid="optimize-toggle"
-    />
     <el-progress
       :percentage="pct"
       :show-text="false"

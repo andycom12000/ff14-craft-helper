@@ -117,27 +117,6 @@ describe('BomRoutePlanner', () => {
     }
   })
 
-  it('calls setOptimizeBy via toolbar update:optimize-by event', async () => {
-    const store = useBomStore()
-    store.flatMaterials = [
-      { itemId: 100, name: 'X', icon: '', totalAmount: 1, isRaw: true },
-    ] as typeof store.flatMaterials
-    store.acquisitionMode.set(100, 'npc')
-    store.itemLocations.set(100, {
-      npcVendors: [{ npcId: 1, zoneId: 146, x: 25, y: 31, price: 100 }],
-      gatherNodes: [],
-    })
-    const w = mount(BomRoutePlanner)
-    await flushPromises()
-    await w.vm.$nextTick()
-    const toolbar = w.findComponent({ name: 'RoutePlannerToolbar' })
-    expect(toolbar.exists()).toBe(true)
-    // Toolbar emits 'update:optimizeBy' (camelCase); Vue maps kebab ↔ camel
-    toolbar.vm.$emit('update:optimizeBy', 'hop')
-    await flushPromises()
-    expect(store.routeViewPrefs.optimizeBy).toBe('hop')
-  })
-
   it('eyebrow always renders', async () => {
     const w = mount(BomRoutePlanner)
     await flushPromises()

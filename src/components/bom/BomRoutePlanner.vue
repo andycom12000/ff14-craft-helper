@@ -141,10 +141,6 @@ watch(
 
 // ── Toolbar action handlers ───────────────────────────────────────────────────
 
-function onOptimizeByChange(v: 'gil' | 'hop') {
-  bomStore.setOptimizeBy(v)
-}
-
 function onReset() {
   bomStore.routeViewSession = {
     ...bomStore.routeViewSession,
@@ -197,11 +193,20 @@ function gotoStop(idx: number) {
 }
 
 function prevStop() {
-  gotoStop(currentStopIdx.value - 1)
+  // Wrap from the first stop back to the last so the user can step
+  // backwards through the whole list without dead-ending.
+  if (totalStops.value === 0) return
+  const next = currentStopIdx.value - 1
+  gotoStop(next < 0 ? totalStops.value - 1 : next)
 }
 
 function nextStop() {
-  gotoStop(currentStopIdx.value + 1)
+  // Wrap from the last stop back to the first — pairs with prevStop's
+  // backwards wrap, and lets the auto-advance loop never get stuck on
+  // the final card after everything is checked.
+  if (totalStops.value === 0) return
+  const next = currentStopIdx.value + 1
+  gotoStop(next >= totalStops.value ? 0 : next)
 }
 
 // Auto-advance to the next unfinished stop after a card's last item gets
@@ -242,9 +247,7 @@ watch(
     <!-- 3. Normal -->
     <template v-else>
       <RoutePlannerToolbar
-        :optimize-by="bomStore.routeViewPrefs.optimizeBy"
         :progress="progress"
-        @update:optimize-by="onOptimizeByChange"
         @reset="onReset"
         @re-sort="onResort"
       />
@@ -290,22 +293,25 @@ watch(
         @open-map-sheet="onOpenMapSheet"
       />
 
-      <!-- Stop-to-stop navigation. Sticks to the bottom of the card so the
-           user always has prev/next within reach while ticking off items. -->
+      <!-- Stop-to-stop navigation. Wraps at both ends so the user can keep
+           cycling without dead-ending. The label flips to "首站" / "末站"
+           on the wrap so the cycling intent is explicit, not a silent jump. -->
       <div class="brp-nav">
         <button
           type="button"
           class="brp-nav__btn"
-          :disabled="currentStopIdx === 0"
           @click="prevStop"
-        >← 上一站</button>
+        >
+          ← {{ currentStopIdx === 0 ? '回到末站' : '上一站' }}
+        </button>
         <span class="brp-nav__count">{{ currentStopIdx + 1 }} / {{ totalStops }}</span>
         <button
           type="button"
           class="brp-nav__btn brp-nav__btn--primary"
-          :disabled="currentStopIdx + 1 >= totalStops"
           @click="nextStop"
-        >下一站 →</button>
+        >
+          {{ currentStopIdx + 1 >= totalStops ? '回到首站' : '下一站' }} →
+        </button>
       </div>
     </template>
 
