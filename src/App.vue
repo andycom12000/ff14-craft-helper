@@ -130,6 +130,7 @@ onUnmounted(() => {
         <el-menu-item index="/bom">
           <el-icon><List /></el-icon>
           <span>購物清單</span>
+          <span class="menu-badge menu-badge--beta">實驗中</span>
         </el-menu-item>
         <el-menu-item index="/market" disabled>
           <el-icon><TrendCharts /></el-icon>
@@ -1041,6 +1042,15 @@ html, body {
   border: 1px solid var(--app-border);
   border-radius: 999px;
   letter-spacing: 0.5px;
+}
+
+/* Experimental tag — still actively developed and usable, just not stable.
+ * Toast-gold to read as "warm, in progress" rather than the muted
+ * 開發中 chip which means the page literally doesn't work yet. */
+.menu-badge--beta {
+  color: var(--app-toast-gold, oklch(0.78 0.14 78));
+  background: color-mix(in srgb, var(--app-toast-gold, oklch(0.78 0.14 78)) 14%, transparent);
+  border-color: color-mix(in srgb, var(--app-toast-gold, oklch(0.78 0.14 78)) 40%, transparent);
 }
 
 .app-main {

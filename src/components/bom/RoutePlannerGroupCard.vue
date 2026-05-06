@@ -871,9 +871,13 @@ function onMapError(e: Event) {
   background: color-mix(in srgb, var(--app-craft) 4%, transparent);
 }
 
-/* Checked row: strikethrough + warm tint background (NOT green) */
+/* Checked row: dim + strikethrough, matching the Batch TodoList style.
+ * No tint background — it read as "this row is selected/active" rather
+ * than "this row is done", which is the opposite of the intended
+ * affordance. Lower opacity + line-through tells the user "out of the
+ * way, finished" without competing visually with the still-open rows. */
 .rpgc__row.is-checked {
-  background: var(--app-cream-emphasis, color-mix(in srgb, var(--app-cream-surface, #faf7f2) 70%, var(--app-craft-dim) 30%));
+  opacity: 0.55;
 }
 
 .rpgc__row.is-checked .rpgc__row-name,
