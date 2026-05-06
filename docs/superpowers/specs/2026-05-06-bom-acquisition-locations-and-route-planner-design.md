@@ -23,7 +23,13 @@
 
 ## 3. Design Direction
 
-- **Color strategy**：延續 BOM 主軸 cocoa（Jam-Jar Rule，crafting zone）。新增配色：NPC = 草莓醬紅、採集 = 抹茶綠、以太之光標 = 藍莓、已完成 = 可可灰。地圖底圖以 game asset 原色為主，marker 浮在上方提供高對比。
+- **Color strategy**：延續 BOM 主軸 cocoa（Jam-Jar Rule，crafting zone）。**嚴格守 Jam-Jar Rule**——不借 strawberry（市場專屬）、不借 matcha（採集計時器專屬）。所有 marker 統一以 cocoa 為主色，用「形狀 + alpha + icon」區分 npc/gather/done，色差最多到 cocoa 與 cocoa-dim 兩階。toast-gold 嚴守 Sunlight Spotlight Rule（≤10%）：只用於 active state ring、focus、與「全部完成」toast，不進進度條漸層、不進 marker。
+- **Marker 視覺語彙**：
+  - NPC marker = cocoa filled circle + 內嵌 `⛟`，2px cream-surface 描邊
+  - Gather marker = cocoa outlined circle + 內嵌 `⛏`，內填 cream-surface
+  - Done = ink-muted（灰）filled + checkmark；strikethrough 對應 list row
+  - Hover/selected = 加 toast-gold 2px ring（合法 Spotlight 用途）
+  - Aetheryte ✦ = cocoa（不用藍莓避免新增第三色）
 - **Scene sentence**：玩家把 BOM 整理完畢，發現有 12 樣要自己跑——他不想開三個瀏覽器分頁查 NPC 在哪，更不想在遊戲裡開地圖一個一個點。打開「採買路線」tab，看到「東拉諲西亞 4 件 · 拉諲西亞低地 3 件…」，按完傳送就邊跑邊勾。
 - **Anchor refs**：
   - **FFXIV Teamcraft · Gathering optimizer**：每 zone 一張地圖 + 編號 marker + 對應 checklist
@@ -55,12 +61,14 @@
 │ └─────────────────────────────────────────────────────┘ │
 │ [東拉諲西亞] [拉諲西亞低地]   ← zone chip 切底圖         │
 │                                                         │
-│ ┌─[ 小地圖 320×216 ]──┐                                  │
+│ ┌─[ 小地圖 ]──────────┐                                  │
 │ │ ●主來源              │  底圖：xivapi Map asset         │
 │ │ ◯替代來源            │  marker：CSS absolute           │
 │ └─────────────────────┘                                  │
 └─────────────────────────────────────────────────────────┘
 ```
+
+小地圖容器使用 `aspect-ratio: 16/11; max-width: 320px; width: 100%`，在不同 row 寬度下彈性收縮（不固定 320×216 px），手機 viewport 自然縮為螢幕寬度。`<768px` viewport 下，§5.1 展開區的小地圖**直接隱藏**（與 §5.3 一致），改提供 row 上方一個 `🗺️ 地圖` 按鈕觸發 bottom sheet — 整個 BOM 內地圖在 phone 都走 sheet，不在 in-flow。
 
 排序：NPC 依 `itemPrice ASC`、Gather 依 `nodeLevel ASC`。「⎘ /tp」MVP = 複製 `/tp <aetheryte 名>` 到剪貼簿。
 
@@ -81,15 +89,18 @@
 
 ### 5.3 採買路線 tab —「Layout A · 2-欄 zone card 網格」
 
-每張 zone card 內含 map + list；用 `auto-fit minmax(440px, 1fr)`：
+每張 zone card 內含 map + list；用 `auto-fit minmax(440px, 1fr)`，**四檔 viewport** 區分桌機 / 平板 / 手機：
 
-| Viewport | 欄數 | 卡寬 | Map | List |
-|---|---|---|---|---|
-| `≥1700px` | 3 欄 | ~480px | 240×280 | 240px wide |
-| `1100–1700px` | 2 欄 | ~720px | 240×280 | 480px wide |
-| `<1100px` | 1 欄 | full | full × 240 (橫) | full wide |
+| Viewport | 欄數 | 卡內排列 | Map 處理 |
+|---|---|---|---|
+| `≥1700px` | 3 欄 (~480px) | map 240px × list 240px 並排 | 卡內常駐 |
+| `1100–1700px` | 2 欄 (~720px) | map 240px × list 480px 並排 | 卡內常駐 |
+| `768–1100px`（tablet） | 1 欄 full | map 280px × list rest 並排 | 卡內常駐 |
+| `<768px`（phone） | 1 欄 full | **list-only**，地圖隱藏 | 每張 card header 加 `🗺️ 地圖` 按鈕 → bottom sheet 全屏地圖 |
 
-每張 card 結構：
+**Hero card 規則（破 identical-grid 節奏）**：sortRoute 輸出後，「件數最多 _或_ 預估花最大 gil」的那張 zone card 標記為 hero — **跨 2 欄**（在 2/3-col viewport 下）、背景換 `cream-emphasis`、map 高度 +40px、list 字級 +1px。視覺上明顯重於同伴卡，引導使用者「先去這裡」。`<768px` 不套（單欄已自然主從）。
+
+每張 card 結構（非 hero）：
 
 ```
 ┌──────────────────────────────────────────────────┐
@@ -108,7 +119,21 @@ Toolbar（route planner 內共用）：
 最佳化目標 [◉最少傳送費 ○最少跳點]   ████░░ 7/12   [🔄重新排序] [🗑️重設]
 ```
 
-**互動**：marker ↔ list row hover 雙向 highlight；marker 編號 = 該 zone 內 list 的順序。Group header 可點摺疊，預設前 2 組展開、其餘摺起。
+進度條 fill 用 cocoa 純色（`var(--app-craft)`），**不**用 toast-gold 或漸層；toast-gold 只出現在 100% 達成時的 ring 與「全部完成」toast，守 Sunlight Spotlight Rule。
+
+**互動**：marker ↔ list row hover 雙向 highlight（hover 時對方加 toast-gold 2px ring）；marker 編號 = 該 zone 內 list 的順序。Group header 可點摺疊，預設前 2 組展開、其餘摺起。
+
+### 5.4 Editorial Moments（Toast Workshop personality）
+
+工具感為主，但保留 3 個 Cormorant Garamond italic 編輯時刻，避免完全 utilitarian：
+
+| 時刻 | 文字 | typography |
+|---|---|---|
+| Tab 切到「採買路線」時頂部 eyebrow | *今天的烤盤 · today's bake* | Cormorant italic, 14px, ink-muted |
+| 全部勾完的成功 toast | *烤盤已清空 · 收工* | Cormorant italic, 18px, toast-gold |
+| Empty state（BOM 沒任何 npc/gather row） | *今天不用出門 — 材料都齊了* | Cormorant italic, 22px, ink-muted, 下方加 1px gold underline 56px |
+
+不在 list row、checkbox、按鈕、tooltip 裡用 Cormorant（Italic-Is-Sacred Rule）。
 
 ## 6. Architecture
 
@@ -122,10 +147,12 @@ BomView
 │     ├─ BomCraftTreeNode (existing) ← craft mode 展開區
 │     └─ <NEW> BomAcquisitionDetail   ← npc/gather mode 展開區
 └─ <NEW> BomRoutePlanner                       (tab=route 時顯示)
-   ├─ <NEW> RoutePlannerToolbar    gil/hop el-segmented + el-progress + actions
-   └─ <NEW> RoutePlannerGroupCard ×N  每張 = 一個 zone
-      ├─ 內嵌 map（xivapi asset + CSS marker，<img loading="lazy">）
-      └─ checklist rows（item-centric）
+│  ├─ <NEW> RoutePlannerToolbar    gil/hop el-segmented + el-progress + actions
+│  ├─ <NEW> RoutePlannerEyebrow    Cormorant italic「今天的烤盤」(§5.4)
+│  └─ <NEW> RoutePlannerGroupCard ×N  每張 = 一個 zone（hero variant 跨 2 col）
+│     ├─ 內嵌 map（xivapi asset + CSS marker，<img loading="lazy">；phone 隱藏）
+│     └─ checklist rows（item-centric）
+└─ <NEW> ZoneMapSheet (only on phone)           bottom sheet，phone 上唯一地圖容器
 ```
 
 ### 6.2 資料服務
@@ -341,6 +368,9 @@ export function pixelToPercent(px: number, py: number, mapPx = 2048) {
 | `checked` Set 變動（勾選） | **不**重跑 `sortRoute`、**不** re-group；只更新該 row 的 `.checked` class |
 | locale 切換 | NPC/zone 名透過 `useZoneName`/`useNpcName` reactive 重渲染（讀模組層 cache，**不**重新 fetch xivapi）；map asset URL 不變 |
 | 第一次進 route tab | `await fetch('/data/aetherytes.json')` + 觸發任何尚未 fetch 的 `itemLocations`；顯示 skeleton 直到完成 |
+| 全部 npc/gather row 都被勾完 | progress bar 100% + toast-gold ring；彈 toast：*烤盤已清空 · 收工*（Cormorant italic, §5.4） |
+| BOM 沒任何 npc/gather row（全 craft/market） | route tab 仍可切，內容顯示 §5.4 empty state「今天不用出門」；tab badge 不顯示數字 |
+| Phone (`<768px`) 點 row 上的 `🗺️ 地圖` 按鈕 | 開 `ZoneMapSheet` bottom sheet，全屏顯示該 zone 地圖 + 該 row 的單一 marker 高亮；下拉關閉 |
 | 全部勾完 | progress bar 變綠 + toast「全部完成」；提供「重設勾選」/「回 BOM 主表」 |
 
 ## 9. Testing Strategy
