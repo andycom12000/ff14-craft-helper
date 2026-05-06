@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
 import type { PriceDisplayMode } from '@/stores/settings'
 import { flattenMaterialTree } from '@/services/bom-calculator'
@@ -8,6 +8,8 @@ import {
   fetchItemAcquisitionBatch,
   type ItemAcquisition,
 } from '@/services/item-acquisition'
+import type { ItemLocations } from '@/services/item-locations'
+import { fetchItemLocationsBatch } from '@/services/item-locations'
 
 export type PriceFetchStatus = 'ok' | 'failed'
 
@@ -90,6 +92,80 @@ export function getPrice(price: PriceInfo, mode: PriceDisplayMode): number {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Route planner — localStorage helpers (module-scope, one store per session)
+// ---------------------------------------------------------------------------
+
+const PREFS_KEY = 'bom-route-prefs'
+const ROUTE_KEY_PREFIX = 'bom-route::'
+const ROUTE_LRU_LIMIT = 8
+const WRITE_DEBOUNCE_MS = 500
+
+function readPrefsFromLs(): 'gil' | 'hop' | null {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return parsed?.optimizeBy === 'hop' ? 'hop' : parsed?.optimizeBy === 'gil' ? 'gil' : null
+  } catch { return null }
+}
+
+function writePrefsToLs(prefs: { optimizeBy: 'gil' | 'hop' }) {
+  try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)) } catch {}
+}
+
+function lsKey(sig: string) { return `${ROUTE_KEY_PREFIX}${sig}` }
+
+function loadSession(sig: string): { excluded: Set<number>; checked: Set<number>; collapsedGroups: Set<number> } {
+  try {
+    const raw = localStorage.getItem(lsKey(sig))
+    if (!raw) return { excluded: new Set(), checked: new Set(), collapsedGroups: new Set() }
+    const v = JSON.parse(raw)
+    return {
+      excluded: new Set(v.excluded ?? []),
+      checked: new Set(v.checked ?? []),
+      collapsedGroups: new Set(v.collapsedGroups ?? []),
+    }
+  } catch { return { excluded: new Set(), checked: new Set(), collapsedGroups: new Set() } }
+}
+
+function evictLru() {
+  try {
+    const keys: Array<[string, number]> = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)!
+      if (!k.startsWith(ROUTE_KEY_PREFIX)) continue
+      try {
+        const v = JSON.parse(localStorage.getItem(k)!)
+        keys.push([k, v._mtime ?? 0])
+      } catch {
+        localStorage.removeItem(k)
+      }
+    }
+    if (keys.length <= ROUTE_LRU_LIMIT) return
+    keys.sort((a, b) => a[1] - b[1])
+    const toRemove = keys.length - ROUTE_LRU_LIMIT
+    for (let i = 0; i < toRemove; i++) localStorage.removeItem(keys[i][0])
+  } catch {}
+}
+
+let writeTimer: ReturnType<typeof setTimeout> | null = null
+function scheduleWrite(sig: string, session: { excluded: Set<number>; checked: Set<number>; collapsedGroups: Set<number> }) {
+  if (writeTimer) clearTimeout(writeTimer)
+  writeTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(lsKey(sig), JSON.stringify({
+        excluded: [...session.excluded],
+        checked: [...session.checked],
+        collapsedGroups: [...session.collapsedGroups],
+        _mtime: Date.now(),
+      }))
+      evictLru()
+    } catch {}
+    writeTimer = null
+  }, WRITE_DEBOUNCE_MS)
+}
+
 export const useBomStore = defineStore('bom', () => {
   const targets = ref<BomTarget[]>([])
   const materialTree = ref<MaterialNode[]>([])
@@ -125,6 +201,45 @@ export const useBomStore = defineStore('bom', () => {
    */
   const priceFetchStatus = ref<Map<number, PriceFetchStatus>>(new Map())
   const fetchingPriceIds = ref<Set<number>>(new Set())
+
+  // ---------------------------------------------------------------------------
+  // Route planner state
+  // ---------------------------------------------------------------------------
+
+  /** Per-itemId location data (NPC vendors + gather nodes). Populated lazily. */
+  const itemLocations = ref<Map<number, ItemLocations>>(new Map())
+
+  const routeViewPrefs = ref<{ optimizeBy: 'gil' | 'hop' }>({
+    optimizeBy: readPrefsFromLs() ?? 'gil',
+  })
+
+  const routeViewSession = ref<{
+    excluded: Set<number>
+    checked: Set<number>
+    collapsedGroups: Set<number>
+  }>({ excluded: new Set(), checked: new Set(), collapsedGroups: new Set() })
+
+  /** Stable, order-independent signature of the current target list. */
+  const targetSig = computed(() => {
+    return targets.value
+      .slice()
+      .sort((a, b) => a.itemId - b.itemId)
+      .map(t => `${t.itemId}:${t.quantity}`)
+      .join(',')
+  })
+
+  // Reload session from localStorage whenever the target list changes.
+  watch(targetSig, (next) => {
+    routeViewSession.value = loadSession(next)
+  }, { immediate: true, flush: 'sync' })
+
+  // Debounce-persist session mutations back to localStorage.
+  watch(routeViewSession, (next) => {
+    if (targetSig.value) scheduleWrite(targetSig.value, next)
+  }, { deep: true, flush: 'sync' })
+
+  // Persist prefs immediately on change.
+  watch(routeViewPrefs, (next) => writePrefsToLs(next), { deep: true, flush: 'sync' })
 
   function addTarget(target: BomTarget) {
     // Dedupe by itemId — same item shouldn't appear twice even with different
@@ -467,6 +582,40 @@ export const useBomStore = defineStore('bom', () => {
     node.collapsed = !node.collapsed
   }
 
+  // ---------------------------------------------------------------------------
+  // Route planner actions
+  // ---------------------------------------------------------------------------
+
+  async function fetchItemLocationsForRoute(itemIds: number[]) {
+    const fresh = await fetchItemLocationsBatch(itemIds)
+    const merged = new Map(itemLocations.value)
+    for (const [id, info] of fresh) merged.set(id, info)
+    itemLocations.value = merged
+  }
+
+  function setOptimizeBy(mode: 'gil' | 'hop') {
+    if (routeViewPrefs.value.optimizeBy === mode) return
+    routeViewPrefs.value = { optimizeBy: mode }
+  }
+
+  function toggleChecked(itemId: number) {
+    const next = new Set(routeViewSession.value.checked)
+    if (next.has(itemId)) next.delete(itemId); else next.add(itemId)
+    routeViewSession.value = { ...routeViewSession.value, checked: next }
+  }
+
+  function toggleExcluded(itemId: number) {
+    const next = new Set(routeViewSession.value.excluded)
+    if (next.has(itemId)) next.delete(itemId); else next.add(itemId)
+    routeViewSession.value = { ...routeViewSession.value, excluded: next }
+  }
+
+  function toggleGroupCollapsed(zoneId: number) {
+    const next = new Set(routeViewSession.value.collapsedGroups)
+    if (next.has(zoneId)) next.delete(zoneId); else next.add(zoneId)
+    routeViewSession.value = { ...routeViewSession.value, collapsedGroups: next }
+  }
+
   function recalcFlat() {
     flatMaterials.value = flattenMaterialTree(materialTree.value)
   }
@@ -502,5 +651,15 @@ export const useBomStore = defineStore('bom', () => {
     setAcquisitionMode,
     toggleRowExpanded,
     isRowExpanded,
+    // Route planner
+    itemLocations,
+    routeViewPrefs,
+    routeViewSession,
+    targetSig,
+    fetchItemLocationsForRoute,
+    setOptimizeBy,
+    toggleChecked,
+    toggleExcluded,
+    toggleGroupCollapsed,
   }
 })
