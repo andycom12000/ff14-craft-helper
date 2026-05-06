@@ -401,6 +401,32 @@ function openMapSheet(src: { zoneId: number; x: number; y: number }) {
   border-top: 1px dashed var(--app-border);
 }
 
+/* Desktop: sources on the left, minimap on the right — mirrors the
+ * route planner card so the spatial mental model is consistent across
+ * tabs. The list scrolls if it grows tall; the map stays in place. */
+@media (min-width: 768px) {
+  .bad {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .bad__sources {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .bad__map-block {
+    flex-shrink: 0;
+    width: 300px;
+    /* Pin the block to the row so when the source list scrolls the map
+     * stays alongside its first row. */
+    align-self: flex-start;
+    position: sticky;
+    top: 8px;
+  }
+}
+
 /* -----------------------------------------------------------------------
    Skeleton / empty
 ----------------------------------------------------------------------- */

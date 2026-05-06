@@ -431,8 +431,11 @@ onMounted(async () => {
   font-weight: 600;
   font-size: 13px;
   letter-spacing: 0.04em;
-  vertical-align: middle;
-  line-height: 1.2;
+  line-height: 1;
+  /* CJK glyphs sit visibly lower in their line-box than the pill's italic
+   * Latin glyphs, so geometric centering reads as the pill floating above
+   * the text. Nudge the pill down to align with the text's optical centre. */
+  margin-top: 6px;
 }
 
 .view-desc {
