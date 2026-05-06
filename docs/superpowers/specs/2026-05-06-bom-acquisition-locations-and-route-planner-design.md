@@ -39,7 +39,13 @@
 ## 4. Scope
 
 - Fidelity: production-ready
-- Breadth: 新增 4 個元件（`BomViewTabs` `BomAcquisitionDetail` `BomRoutePlanner` `RoutePlannerGroupCard`）+ 1 個服務（`route-planner.ts`）+ 1 個資料服務擴充（`item-locations.ts` / 重構 `item-acquisition.ts`）+ 1 份新靜態資料（`public/data/aetherytes.json`）
+- Breadth:
+  - 新增 6 個元件：`BomAcquisitionDetail` · `BomRoutePlanner` · `RoutePlannerToolbar` · `RoutePlannerEyebrow` · `RoutePlannerGroupCard` · `ZoneMapSheet`（phone only）
+  - 新增 3 個服務：`item-locations.ts` · `zone-meta.ts` · `route-planner.ts`
+  - 新增 2 個 composable：`useZoneName` · `useNpcName`
+  - 新增 1 份靜態資料：`public/data/aetherytes.json`
+  - **不重構** `src/services/item-acquisition.ts`（保持輕薄，acquisitionAvailability 仍給 BOM 主表 chip 用）
+  - Tab 切換用 inline `<el-segmented>`，**不**包獨立元件
 - Interactivity: shipped-quality，含 localStorage 持久化 + reactive store 整合
 - Time intent: 迭代到可以打 tag 上線；MVP 不含路線真實 TSP 最佳化（greedy heuristic）、不含地圖 SVG marker 動畫
 
@@ -85,7 +91,7 @@
 
 - `bomViewTab` = `BomView` 內 ref + sessionStorage（見 §6.3）
 - `routeBadgeText` = `count > 0 ? \`(${count})\` : ''`，count = 未勾完 npc/gather 行數
-- 行動裝置（≤900px）：`<el-segmented>` block-level 即可，不再做特例樣式
+- 行動裝置（`<768px`）：`<el-segmented>` block-level 即可，不再做特例樣式
 
 ### 5.3 採買路線 tab —「Layout A · 2-欄 zone card 網格」
 
@@ -131,7 +137,7 @@ Toolbar（route planner 內共用）：
 |---|---|---|
 | Tab 切到「採買路線」時頂部 eyebrow | *今天的烤盤 · today's bake* | Cormorant italic, 14px, ink-muted |
 | 全部勾完的成功 toast | *烤盤已清空 · 收工* | Cormorant italic, 18px, toast-gold |
-| Empty state（BOM 沒任何 npc/gather row） | *今天不用出門 — 材料都齊了* | Cormorant italic, 22px, ink-muted, 下方加 1px gold underline 56px |
+| Empty state（BOM 沒任何 npc/gather row） | *今天不用出門，材料都齊了* | Cormorant italic, 22px, ink-muted, 下方加 1px gold underline 56px |
 
 不在 list row、checkbox、按鈕、tooltip 裡用 Cormorant（Italic-Is-Sacred Rule）。
 
@@ -141,18 +147,18 @@ Toolbar（route planner 內共用）：
 
 ```
 BomView
-├─ <el-segmented> (inline, 不獨立元件)        "材料明細 / 採買路線"
-└─ BomDecisionTable                            (tab=detail 時顯示)
+├─ <el-segmented> (inline)                     "材料明細 / 採買路線"
+├─ BomDecisionTable                            (tab=detail 時顯示)
 │  └─ BomDecisionRow (existing)
-│     ├─ BomCraftTreeNode (existing) ← craft mode 展開區
-│     └─ <NEW> BomAcquisitionDetail   ← npc/gather mode 展開區
-└─ <NEW> BomRoutePlanner                       (tab=route 時顯示)
-│  ├─ <NEW> RoutePlannerToolbar    gil/hop el-segmented + el-progress + actions
-│  ├─ <NEW> RoutePlannerEyebrow    Cormorant italic「今天的烤盤」(§5.4)
-│  └─ <NEW> RoutePlannerGroupCard ×N  每張 = 一個 zone（hero variant 跨 2 col）
+│     ├─ BomCraftTreeNode (existing)           ← craft mode 展開區
+│     └─ <NEW> BomAcquisitionDetail            ← npc/gather mode 展開區
+├─ <NEW> BomRoutePlanner                       (tab=route 時顯示)
+│  ├─ <NEW> RoutePlannerEyebrow                Cormorant italic「今天的烤盤」(§5.4)
+│  ├─ <NEW> RoutePlannerToolbar                gil/hop el-segmented + el-progress + actions
+│  └─ <NEW> RoutePlannerGroupCard ×N           每張 = 一個 zone（hero variant 跨 2 col）
 │     ├─ 內嵌 map（xivapi asset + CSS marker，<img loading="lazy">；phone 隱藏）
 │     └─ checklist rows（item-centric）
-└─ <NEW> ZoneMapSheet (only on phone)           bottom sheet，phone 上唯一地圖容器
+└─ <NEW> ZoneMapSheet (only on phone, teleport-to-body)  全屏 bottom sheet
 ```
 
 ### 6.2 資料服務
@@ -288,11 +294,11 @@ interface RouteOutput {
 }
 
 interface Group {
-  zoneId: number
-  zoneNameId: number             // 給 useZoneName(id) 解析顯示
+  zoneId: number                   // 同時是 PlaceName.Id（給 useZoneName 解析）
   aetheryte: AetheryteInfo | null  // null 代表 zone 不在 aetherytes.json
-  tpCost: number                 // 0 if aetheryte === null（顯示 ?G）
+  tpCost: number                   // 0 if aetheryte === null（UI 顯示 ?G）
   rows: Array<{ itemId: number; source: ChosenSource; orderInZone: number }>
+  isHero?: boolean                 // §5.3 hero card 規則：件數最多 or 預估 gil 最大
 }
 ```
 
@@ -336,7 +342,9 @@ interface Group {
 
 6. **Zone 之間排序**：`tpCost ASC`，`null` aetheryte 的 zone 排最後
 
-7. 回傳 `RouteOutput`
+7. **標記 hero card**（§5.3）：在 `groups` 上挑一張設 `isHero = true` — 規則 `argmax(group.rows.length, sum(row.itemPrice * qty))`；少於 2 group 不標 hero（單組沒有對比意義）
+
+8. 回傳 `RouteOutput`
 
 ### 7.2 座標換算（map pixel）
 
@@ -371,7 +379,7 @@ export function pixelToPercent(px: number, py: number, mapPx = 2048) {
 | 全部 npc/gather row 都被勾完 | progress bar 100% + toast-gold ring；彈 toast：*烤盤已清空 · 收工*（Cormorant italic, §5.4） |
 | BOM 沒任何 npc/gather row（全 craft/market） | route tab 仍可切，內容顯示 §5.4 empty state「今天不用出門」；tab badge 不顯示數字 |
 | Phone (`<768px`) 點 row 上的 `🗺️ 地圖` 按鈕 | 開 `ZoneMapSheet` bottom sheet，全屏顯示該 zone 地圖 + 該 row 的單一 marker 高亮；下拉關閉 |
-| 全部勾完 | progress bar 變綠 + toast「全部完成」；提供「重設勾選」/「回 BOM 主表」 |
+| 全部勾完後使用者再加新 target | targetSig 變、新 sig 的 session 從零；UI 不主動跳回 detail tab，使用者自己選擇 |
 
 ## 9. Testing Strategy
 
@@ -382,33 +390,44 @@ export function pixelToPercent(px: number, py: number, mapPx = 2048) {
   - `groupAndOrder()` — 0/1/20 列 stress
   - `pickNearestAetheryte()` — centroid + euclidean
   - `sortRoute()` end-to-end 5 fixtures（簡單 / 同 zone 多項 / 多 zone / unknown aetheryte / empty）
-- `item-detail.ts`（重構後）
-  - `parseGarlandPartials()` — vendors/nodes 各 6-8 fixture
-  - 拒絕 `tradeable=0` 進 npc 列表
+  - `markHero()` — 0/1/2/N groups 各驗一案
+- `item-locations.ts`
+  - `parseGarlandLocations()` — vendors/nodes 各 6-8 fixture
+  - LRU 上限 500 entries（驗逐出最舊）
+  - inflight dedupe（同 itemId 並行請求只發一次）
+- `zone-meta.ts`
+  - `fetchZoneMetaBulk()` 對 30 zoneIds 應發 1 個 PlaceName + 1 個 Map query，不是 30 個
 - `bom store`
-  - localStorage signature stable（target 順序不影響）
-  - LRU 上限 8 key
-  - excluded/checked 在 sig 變更時自動清空
+  - `targetSig` canonical CSV stable（target 順序不影響）
+  - LRU 上限 8 個 `bom-route::*` key
+  - `routeViewSession` 在 sig 變更時自動 reset/load
+  - localStorage 寫入 debounce（連點 10 次只寫 1 次）
 
 ### 9.2 Component tests（vitest + @testing-library/vue）
 
-- `BomViewTabs`：tab disabled 在沒計算前
+- `BomView` tab 切換（inline `<el-segmented>`）：disabled 在沒 calculate 前；切換寫 sessionStorage
 - `BomRoutePlanner`：
-  - 空狀態（沒 npc/gather row）→ 「BOM 中沒有需要外出的材料」
-  - toolbar 切 gil/hop → emit + marker 編號重排
-  - row checkbox → store 更新 + progress bar 變動
-  - hover row → 對應 marker 加 `.hover` class
-  - 摺疊 zone group → body 隱藏
+  - 空狀態（沒 npc/gather row）→ §5.4 Empty state Cormorant italic
+  - toolbar 切 gil/hop → marker 編號重排（含 hero card 重新標）
+  - row checkbox → store 更新 + progress bar 變動，**不**觸發 sortRoute re-run
+  - hover row → 對應 marker 加 toast-gold ring class（雙向）
+  - 摺疊 zone group → body 隱藏，狀態存 `routeViewSession.collapsedGroups`
+  - hero card variant：跨 col + cream-emphasis 背景驗證
 - `BomAcquisitionDetail`：
   - npc mode 展示主來源 + 替代列
   - zone chip 切換更新 map 底圖
   - garlandtools 失敗 → 顯示重試 chip
+  - aspect-ratio map 在 200/320/480 三個容器寬度都不溢出
+- `ZoneMapSheet`（phone only）：
+  - `<768px` viewport 才掛載
+  - 下拉手勢關閉
 
 ### 9.3 Integration（Chrome DevTools MCP via `e2e-execute`）
 
 - 完整流程：加目標 → 計算 → 切 route tab → 切 gil/hop → 勾若干列 → reload → 勾選保留 → 改 target qty → 勾選清空
-- 在 1280px / 1700px / 900px 三檔 viewport 驗證 Layout A 的 1/2/3 欄切換
+- 四檔 viewport 都跑一次：`1800px`（3 欄）/ `1400px`（2 欄）/ `900px`（tablet 1 欄、map 卡內）/ `375px`（phone 1 欄、地圖只在 sheet）
 - 視覺對比：`.tmp/compare/route-planner/{before,after}/`
+- Brand QA：toast-gold 在每張 viewport 截圖實測 ≤10% 像素佔比；marker 確認無 strawberry/matcha 色相滲入
 
 ### 9.4 手動驗收
 
@@ -428,12 +447,13 @@ export function pixelToPercent(px: number, py: number, mapPx = 2048) {
 
 ## 11. References
 
+- Brand 規範：`PRODUCT.md` · `DESIGN.md`（特別是 Jam-Jar Rule、Sunlight Spotlight Rule、Italic-Is-Sacred Rule、Flat-Until-Touched Rule）
 - 現有 BOM cockpit spec: `docs/superpowers/specs/2026-05-05-bom-decision-cockpit-design.md`
 - 現有 garlandtools + xivapi 整合: `src/api/garland.ts:104-134`
 - 已存在的座標換算 helper: `src/utils/map-coords.ts:1-10`
 - locale-reactive 名稱解析範本: `src/composables/useItemName.ts:1-14`
 - localStorage try/catch 寫入範本: `src/stores/theme.ts:30-39`
+- `<el-segmented>` 既有用法: `src/components/batch/BatchSettings.vue`
 - v2.10 non-craftable target 功能 commit: `31c6d4a`
-- Mockups（保存於 `.superpowers/brainstorm/`）：
-  - v2: `bom-acquisition-mockups-v2.html`（採用 v3 後棄）
-  - v3: `bom-acquisition-mockups-v3-wide-layouts.html`（Layout A 確認）
+- Mockups（gitignored，保存於 `.superpowers/brainstorm/` 開發機）：
+  - v3: `bom-acquisition-mockups-v3-wide-layouts.html`（Layout A 確認）— 注意：此 mockup 早於 brand audit，色彩借用 strawberry/matcha 已被 §3 修正案否決，**僅作版面結構參考**
