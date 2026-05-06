@@ -11,7 +11,7 @@ import type { Group, GroupRow } from '@/services/route-planner'
 // Props / Emits
 // ---------------------------------------------------------------------------
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   group: Group
   /** 1-based stop number across the whole route (Stop 01, 02, …). */
   stopNumber: number
@@ -19,7 +19,18 @@ const props = defineProps<{
   totalStops: number
   /** zoneId of the next stop, or null if this is the last stop. */
   nextZoneId: number | null
-}>()
+  /** Stepper provides its own next/prev — hide the in-card "↓ 下一站" footer. */
+  hideNextHint?: boolean
+  /** Single-card stepper mode: ignore collapsed-by-zone state and always
+   * show the body. */
+  forceExpanded?: boolean
+  /** Single-card stepper mode: stretch the map to ~50% of the card width. */
+  bigMap?: boolean
+}>(), {
+  hideNextHint: false,
+  forceExpanded: false,
+  bigMap: false,
+})
 
 const emit = defineEmits<{
   'open-map-sheet': [zoneId: number, coords: { x: number; y: number }]
@@ -45,9 +56,13 @@ const isLastStop = computed(() => props.nextZoneId === null)
 // Collapse state
 // ---------------------------------------------------------------------------
 
-const isCollapsed = computed(() =>
-  bomStore.routeViewSession.collapsedGroups.has(props.group.zoneId),
-)
+const isCollapsed = computed(() => {
+  // forceExpanded is set by the stepper view, where there's only ever one
+  // card on screen — collapsing would just hide the only thing the user
+  // came here to see.
+  if (props.forceExpanded) return false
+  return bomStore.routeViewSession.collapsedGroups.has(props.group.zoneId)
+})
 
 function toggleCollapse() {
   bomStore.toggleGroupCollapsed(props.group.zoneId)
@@ -206,7 +221,7 @@ function onMapError(e: Event) {
 <template>
   <div
     class="rpgc"
-    :class="{ 'is-last': isLastStop }"
+    :class="{ 'is-last': isLastStop, 'is-big-map': bigMap }"
     data-testid="group-card"
   >
     <!-- ── Header ──────────────────────────────────────────────────────────── -->
@@ -348,14 +363,16 @@ function onMapError(e: Event) {
     </div>
 
     <!-- ── Next-stop hint ──────────────────────────────────────────────────── -->
-    <div v-if="!isLastStop" class="rpgc__next" aria-hidden="true">
-      <span class="rpgc__next-arrow">↓</span>
-      <span class="rpgc__next-label">下一站</span>
-      <span class="rpgc__next-name">{{ nextZoneName }}</span>
-    </div>
-    <div v-else class="rpgc__next rpgc__next--last" aria-hidden="true">
-      <em class="rpgc__finish">收工</em>
-    </div>
+    <template v-if="!hideNextHint">
+      <div v-if="!isLastStop" class="rpgc__next" aria-hidden="true">
+        <span class="rpgc__next-arrow">↓</span>
+        <span class="rpgc__next-label">下一站</span>
+        <span class="rpgc__next-name">{{ nextZoneName }}</span>
+      </div>
+      <div v-else class="rpgc__next rpgc__next--last" aria-hidden="true">
+        <em class="rpgc__finish">收工</em>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -504,6 +521,14 @@ function onMapError(e: Event) {
   border-right: 1px solid var(--app-border);
 }
 
+/* Single-card stepper mode: map gets the lion's share so coordinates aren't
+ * crammed and the user can actually read which corner of the zone they're
+ * heading to. The checklist becomes the secondary column. */
+.rpgc.is-big-map .rpgc__map-col {
+  width: clamp(360px, 52%, 720px);
+  padding: 16px;
+}
+
 .rpgc__map-container {
   position: relative;
   width: 100%;
@@ -517,6 +542,24 @@ function onMapError(e: Event) {
 /* Hero: slightly taller map (~+40px equivalent via ratio tweak) */
 .rpgc__map-container.is-hero {
   aspect-ratio: 16 / 12.5;
+}
+
+/* Big-map mode: keep the map square — FFXIV maps are 2048×2048 — so the
+ * markers don't squash and the player can locate quadrants at a glance. */
+.rpgc.is-big-map .rpgc__map-container {
+  aspect-ratio: 1 / 1;
+}
+
+.rpgc.is-big-map .rpgc__marker {
+  width: 26px;
+  height: 26px;
+  font-size: 11px;
+}
+
+.rpgc.is-big-map .rpgc__marker--aeth {
+  width: 24px;
+  height: 24px;
+  font-size: 14px;
 }
 
 .rpgc__map-img {

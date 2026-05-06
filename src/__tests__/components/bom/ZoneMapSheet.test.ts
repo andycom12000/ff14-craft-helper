@@ -54,8 +54,23 @@ describe('ZoneMapSheet', () => {
       vi.fn(async (url: string) => ({
         ok: true,
         json: async () => {
-          if (url.includes('PlaceName')) {
-            // PlaceName sheet response
+          // Match Map search FIRST — its URL contains "PlaceName=146" inside
+          // the query string, which would falsely match a substring check.
+          if (url.includes('search?sheets=Map')) {
+            return {
+              results: [
+                {
+                  row_id: 12,
+                  fields: {
+                    Id: 'r1f1/00',
+                    SizeFactor: 100,
+                    PlaceName: { value: 146 },
+                  },
+                },
+              ],
+            }
+          }
+          if (url.includes('/sheet/PlaceName')) {
             return {
               rows: [
                 {
@@ -76,7 +91,7 @@ describe('ZoneMapSheet', () => {
                   fields: {
                     Id: 'r1f1/00',
                     SizeFactor: 100,
-                    'PlaceName.Id': 146,
+                    PlaceName: { value: 146 },
                   },
                 },
               ],
@@ -107,18 +122,9 @@ describe('ZoneMapSheet', () => {
       vi.fn(async (url: string) => ({
         ok: true,
         json: async () => {
-          if (url.includes('PlaceName')) {
-            return {
-              rows: [
-                {
-                  row_id: 146,
-                  fields: {
-                    Name_en: 'Lower La Noscea',
-                  },
-                },
-              ],
-            }
-          } else if (url.includes('Map')) {
+          // Match Map search before the PlaceName substring check (the Map
+          // URL itself contains "PlaceName=146" inside its query string).
+          if (url.includes('search?sheets=Map')) {
             return {
               results: [
                 {
@@ -126,8 +132,18 @@ describe('ZoneMapSheet', () => {
                   fields: {
                     Id: 'r1f1/00',
                     SizeFactor: 100,
-                    'PlaceName.Id': 146,
+                    PlaceName: { value: 146 },
                   },
+                },
+              ],
+            }
+          }
+          if (url.includes('/sheet/PlaceName')) {
+            return {
+              rows: [
+                {
+                  row_id: 146,
+                  fields: { Name_en: 'Lower La Noscea' },
                 },
               ],
             }

@@ -298,8 +298,25 @@ export const useBomStore = defineStore('bom', () => {
     for (const id of ids) fetchingNext.add(id)
     fetchingPriceIds.value = fetchingNext
 
+    // When the user has 跨服採購 on we have to query the data center, not their
+    // home world — Universalis returns 404 for an empty path segment, which
+    // is exactly what `${BASE_URL}/${''}/${ids}` produces. Fall back to the
+    // other field if one is unset.
+    const effectiveScope =
+      (settings.crossServer ? settings.dataCenter || settings.server : settings.server || settings.dataCenter)
+    if (!effectiveScope) {
+      console.warn('[BOM] No server/data-center configured; skipping price fetch')
+      const statusNext = new Map(priceFetchStatus.value)
+      for (const id of ids) statusNext.set(id, 'failed')
+      priceFetchStatus.value = statusNext
+      const finalSet = new Set(fetchingPriceIds.value)
+      for (const id of ids) finalSet.delete(id)
+      fetchingPriceIds.value = finalSet
+      return { ok: false }
+    }
+
     try {
-      const marketDataMap = await getAggregatedPrices(settings.server, ids)
+      const marketDataMap = await getAggregatedPrices(effectiveScope, ids)
 
       const priceMap = new Map(prices.value)
       for (const [id, data] of marketDataMap) {

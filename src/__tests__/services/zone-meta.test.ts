@@ -1,4 +1,54 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+
+// ---------------------------------------------------------------------------
+// Mock garland-core (the source of truth for localized names) so the tests
+// can focus on zone-meta's xivapi map-search wiring + cache behavior.
+// ---------------------------------------------------------------------------
+
+const { fakeLocationNames, fakeNpcNames } = vi.hoisted(() => ({
+  fakeLocationNames: {
+    146: { en: 'Lower La Noscea', ja: 'ラノシア低地', 'zh-CN': '拉诺西亚低地', 'zh-TW': '拉諾西亞低地' },
+    153: { en: 'Eastern La Noscea', ja: '東ラノシア', 'zh-CN': '东拉诺西亚', 'zh-TW': '東拉諾西亞' },
+    155: { en: 'Western La Noscea', ja: '西ラノシア', 'zh-CN': '西拉诺西亚', 'zh-TW': '西拉諾西亞' },
+  } as Record<number, Record<string, string>>,
+  fakeNpcNames: {
+    1001: {
+      en: 'Eastern La Noscea Merchant',
+      ja: '東ラノシア商人',
+      'zh-CN': '东拉诺西亚商人',
+      'zh-TW': '東拉諾西亞商人',
+    },
+  } as Record<number, Record<string, string>>,
+}))
+
+vi.mock('@/services/garland-core', () => ({
+  loadAllLocationNames: vi.fn(async () => {}),
+  getLocationName: vi.fn(
+    (zoneId: number, locale: string) =>
+      fakeLocationNames[zoneId]?.[locale] ?? null,
+  ),
+  fetchNpcNameBulkGarland: vi.fn(async (ids: number[]) => {
+    const m = new Map<number, Map<string, string>>()
+    for (const id of ids) {
+      const data = fakeNpcNames[id]
+      if (!data) continue
+      const inner = new Map<string, string>()
+      for (const [k, v] of Object.entries(data)) inner.set(k, v)
+      m.set(id, inner)
+    }
+    return m
+  }),
+  getNpcNameSync: vi.fn(
+    (npcId: number, locale: string) =>
+      fakeNpcNames[npcId]?.[locale] ?? null,
+  ),
+}))
+
+// Re-import after mock for direct spy access in tests below.
+import * as garlandCore from '@/services/garland-core'
+const loadAllLocationNames = garlandCore.loadAllLocationNames as ReturnType<typeof vi.fn>
+const fetchNpcNameBulkGarland = garlandCore.fetchNpcNameBulkGarland as ReturnType<typeof vi.fn>
+
 import {
   fetchZoneMetaBulk,
   getZoneMetaSync,
@@ -8,288 +58,109 @@ import {
 } from '@/services/zone-meta'
 
 // ---------------------------------------------------------------------------
-// Mock helper
+// Mock fetch helper — only the Map search URL is used directly by zone-meta.
 // ---------------------------------------------------------------------------
 
-const mockResponses = (
-  responses: Array<{ pattern: string | RegExp; body: unknown }>,
-) => {
+const PATTERN_MAP_SEARCH = /\/search\?sheets=Map/
+
+const fakeMapSearchResponse = {
+  results: [
+    { fields: { Id: 'r1f1/00', SizeFactor: 200, PlaceName: { value: 146 } } },
+    { fields: { Id: 'r1f2/00', SizeFactor: 200, PlaceName: { value: 153 } } },
+    { fields: { Id: 'r1f3/00', SizeFactor: 200, PlaceName: { value: 155 } } },
+  ],
+}
+
+function mockMapSearch(body: unknown) {
   return vi.fn(async (url: string) => {
-    for (const r of responses) {
-      const matches =
-        typeof r.pattern === 'string'
-          ? url.includes(r.pattern)
-          : r.pattern.test(url)
-      if (matches)
-        return { ok: true, json: async () => r.body } as unknown as Response
+    if (PATTERN_MAP_SEARCH.test(url)) {
+      return { ok: true, json: async () => body } as unknown as Response
     }
     return { ok: false, status: 404, json: async () => ({}) } as unknown as Response
   })
 }
 
-// Unambiguous patterns:
-//   PlaceName sheet:  .../sheet/PlaceName?rows=...
-//   Map search:       .../search?sheets=Map&query=...
-// We use regex to avoid the ambiguity of the string 'PlaceName' appearing
-// in both the PlaceName sheet URL AND the Map search query string.
-const PATTERN_PLACE_NAME = /\/sheet\/PlaceName/
-const PATTERN_MAP_SEARCH = /\/search\?sheets=Map/
-const PATTERN_NPC = /\/sheet\/ENpcResident/
-
-// ---------------------------------------------------------------------------
-// Shared fake API responses
-// ---------------------------------------------------------------------------
-
-const fakePlaceNameResponse = {
-  rows: [
-    {
-      row_id: 146,
-      fields: {
-        Name: '拉诺西亚低地',
-        Name_chs: '拉诺西亚低地',
-        Name_en: 'Lower La Noscea',
-        Name_ja: 'ラノシア低地',
-      },
-    },
-    {
-      row_id: 153,
-      fields: {
-        Name: '东拉诺西亚',
-        Name_chs: '东拉诺西亚',
-        Name_en: 'Eastern La Noscea',
-        Name_ja: '東ラノシア',
-      },
-    },
-    {
-      row_id: 155,
-      fields: {
-        Name: '西拉诺西亚',
-        Name_chs: '西拉诺西亚',
-        Name_en: 'Western La Noscea',
-        Name_ja: '西ラノシア',
-      },
-    },
-  ],
-}
-
-const fakeMapSearchResponse = {
-  results: [
-    {
-      fields: {
-        Id: 'r1f1/00',
-        SizeFactor: 200,
-        PlaceName: { value: 146 },
-      },
-    },
-    {
-      fields: {
-        Id: 'r1f2/00',
-        SizeFactor: 200,
-        PlaceName: { value: 153 },
-      },
-    },
-    {
-      fields: {
-        Id: 'r1f3/00',
-        SizeFactor: 200,
-        PlaceName: { value: 155 },
-      },
-    },
-  ],
-}
-
-// ---------------------------------------------------------------------------
-// Setup
-// ---------------------------------------------------------------------------
-
 beforeEach(() => {
   __clearCache()
-  vi.restoreAllMocks()
+  vi.clearAllMocks()
 })
 
 // ---------------------------------------------------------------------------
-// Test 1: at most 2 fetches for N zoneIds
+// fetchZoneMetaBulk
 // ---------------------------------------------------------------------------
 
 describe('fetchZoneMetaBulk', () => {
-  it('issues at most 2 fetches for N zoneIds (PlaceName + Map search)', async () => {
-    const fetchSpy = mockResponses([
-      { pattern: PATTERN_PLACE_NAME, body: fakePlaceNameResponse },
-      { pattern: PATTERN_MAP_SEARCH, body: fakeMapSearchResponse },
-    ])
+  it('issues exactly one Map-search fetch for N zoneIds (names come from garland-core)', async () => {
+    const fetchSpy = mockMapSearch(fakeMapSearchResponse)
     vi.stubGlobal('fetch', fetchSpy)
 
     await fetchZoneMetaBulk([146, 153, 155])
 
-    expect(fetchSpy).toHaveBeenCalledTimes(2)
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    expect(loadAllLocationNames).toHaveBeenCalled()
   })
-
-  // -------------------------------------------------------------------------
-  // Test 2: cache — second call with same ids does no extra fetch
-  // -------------------------------------------------------------------------
 
   it('second call with same ids does not trigger additional fetches', async () => {
-    const fetchSpy = mockResponses([
-      { pattern: PATTERN_PLACE_NAME, body: fakePlaceNameResponse },
-      { pattern: PATTERN_MAP_SEARCH, body: fakeMapSearchResponse },
-    ])
+    const fetchSpy = mockMapSearch(fakeMapSearchResponse)
     vi.stubGlobal('fetch', fetchSpy)
 
     await fetchZoneMetaBulk([146, 153, 155])
-    const callCountAfterFirst = fetchSpy.mock.calls.length
+    const callsAfterFirst = fetchSpy.mock.calls.length
 
     await fetchZoneMetaBulk([146, 153, 155])
-    expect(fetchSpy.mock.calls.length).toBe(callCountAfterFirst)
+    expect(fetchSpy.mock.calls.length).toBe(callsAfterFirst)
   })
 
-  // -------------------------------------------------------------------------
-  // Test 3: zh-TW is sToT-converted from Name_chs
-  // -------------------------------------------------------------------------
-
-  it('zh-TW locale is sToT-converted from Name_chs', async () => {
-    // '拉诺西亚低地' → sToT converts '诺'→'諾', '亚'→'亞'
-    const fetchSpy = mockResponses([
-      {
-        pattern: PATTERN_PLACE_NAME,
-        body: {
-          rows: [
-            {
-              row_id: 146,
-              fields: {
-                Name: '拉诺西亚低地',
-                Name_chs: '拉诺西亚低地',
-                Name_en: 'Lower La Noscea',
-                Name_ja: 'ラノシア低地',
-              },
-            },
-          ],
-        },
-      },
-      { pattern: PATTERN_MAP_SEARCH, body: { results: [] } },
-    ])
+  it('populates zoneNameByLocale for every supported locale via garland-core', async () => {
+    const fetchSpy = mockMapSearch(fakeMapSearchResponse)
     vi.stubGlobal('fetch', fetchSpy)
 
     await fetchZoneMetaBulk([146])
     const meta = getZoneMetaSync(146)
     expect(meta).not.toBeNull()
-
-    const zhTw = meta!.zoneNameByLocale.get('zh-TW')
-    expect(zhTw).toBeDefined()
-    // '诺' → '諾' is in the s2t map
-    expect(zhTw).toContain('諾')
-    // '亚' → '亞' is in the s2t map
-    expect(zhTw).toContain('亞')
+    expect(meta!.zoneNameByLocale.get('en')).toBe('Lower La Noscea')
+    expect(meta!.zoneNameByLocale.get('ja')).toBe('ラノシア低地')
+    expect(meta!.zoneNameByLocale.get('zh-CN')).toBe('拉诺西亚低地')
+    expect(meta!.zoneNameByLocale.get('zh-TW')).toBe('拉諾西亞低地')
   })
 
-  // -------------------------------------------------------------------------
-  // Test 4: inflight dedupe — concurrent calls share one network round-trip
-  // -------------------------------------------------------------------------
-
-  it('concurrent calls for same ids share one in-flight promise (at most 2 fetches total)', async () => {
-    const fetchSpy = mockResponses([
-      { pattern: PATTERN_PLACE_NAME, body: fakePlaceNameResponse },
-      { pattern: PATTERN_MAP_SEARCH, body: fakeMapSearchResponse },
-    ])
+  it('concurrent calls for same ids share one in-flight promise', async () => {
+    const fetchSpy = mockMapSearch(fakeMapSearchResponse)
     vi.stubGlobal('fetch', fetchSpy)
 
-    // Fire two concurrent calls with the same ID set.
-    await Promise.all([
-      fetchZoneMetaBulk([146]),
-      fetchZoneMetaBulk([146]),
-    ])
+    await Promise.all([fetchZoneMetaBulk([146]), fetchZoneMetaBulk([146])])
 
-    // Both PlaceName and Map fetch should each be called exactly once.
-    expect(fetchSpy).toHaveBeenCalledTimes(2)
+    // Map search fires exactly once even though two callers asked for it.
+    const mapSearchCalls = fetchSpy.mock.calls.filter((c) =>
+      PATTERN_MAP_SEARCH.test(c[0] as string),
+    )
+    expect(mapSearchCalls.length).toBe(1)
   })
-
-  // -------------------------------------------------------------------------
-  // Test 5: mapAssetUrl built via buildMapAssetUrl
-  // -------------------------------------------------------------------------
 
   it('builds mapAssetUrl from Map.Id via buildMapAssetUrl', async () => {
-    const fetchSpy = mockResponses([
-      {
-        pattern: PATTERN_PLACE_NAME,
-        body: {
-          rows: [
-            {
-              row_id: 146,
-              fields: {
-                Name: '拉诺西亚低地',
-                Name_chs: '拉诺西亚低地',
-                Name_en: 'Lower La Noscea',
-                Name_ja: 'ラノシア低地',
-              },
-            },
-          ],
-        },
-      },
-      {
-        pattern: PATTERN_MAP_SEARCH,
-        body: {
-          results: [
-            {
-              fields: {
-                Id: 'r1f1/00',
-                SizeFactor: 200,
-                PlaceName: { value: 146 },
-              },
-            },
-          ],
-        },
-      },
-    ])
+    const fetchSpy = mockMapSearch({
+      results: [
+        { fields: { Id: 'r1f1/00', SizeFactor: 200, PlaceName: { value: 146 } } },
+      ],
+    })
     vi.stubGlobal('fetch', fetchSpy)
 
     await fetchZoneMetaBulk([146])
     const meta = getZoneMetaSync(146)
     expect(meta).not.toBeNull()
-    // buildMapAssetUrl('r1f1/00') → 'ui/map/r1f1/00/r1f100_m.tex'
     expect(meta!.mapAssetUrl).toBe('ui/map/r1f1/00/r1f100_m.tex')
   })
 
-  // -------------------------------------------------------------------------
-  // Test 6: failure tolerance — fetch throws, no reject; clear + retry works
-  // -------------------------------------------------------------------------
-
   it('does not throw when fetch errors; subsequent successful call populates cache', async () => {
-    // First call: both fetches throw.
-    const failFetch = vi.fn(async (_url: string) => {
+    const failFetch = vi.fn(async () => {
       throw new Error('network error')
     })
     vi.stubGlobal('fetch', failFetch)
-
-    // Should not throw.
     await expect(fetchZoneMetaBulk([146])).resolves.toBeDefined()
-
-    // Clear cache so the next call will re-fetch (simulating retry after recovery).
     __clearCache()
 
-    // Second call: fetch succeeds.
-    const successFetch = mockResponses([
-      {
-        pattern: PATTERN_PLACE_NAME,
-        body: {
-          rows: [
-            {
-              row_id: 146,
-              fields: {
-                Name: '拉诺西亚低地',
-                Name_chs: '拉诺西亚低地',
-                Name_en: 'Lower La Noscea',
-                Name_ja: 'ラノシア低地',
-              },
-            },
-          ],
-        },
-      },
-      {
-        pattern: PATTERN_MAP_SEARCH,
-        body: { results: [] },
-      },
-    ])
+    const successFetch = mockMapSearch(fakeMapSearchResponse)
     vi.stubGlobal('fetch', successFetch)
-
     await fetchZoneMetaBulk([146])
     const meta = getZoneMetaSync(146)
     expect(meta).not.toBeNull()
@@ -297,104 +168,43 @@ describe('fetchZoneMetaBulk', () => {
   })
 
   it('does not cache empty entries from failed fetches — retry succeeds', async () => {
-    // First call: both fetches throw
-    const failFetch = vi.fn(async (_url: string) => {
+    // First call: garland-core mock still returns names so the entry IS cached
+    // (we have at least the name). To simulate "no useful data at all", swap
+    // the location-name mock to return null and fetch fails.
+    const failFetch = vi.fn(async () => {
       throw new Error('network error')
     })
     vi.stubGlobal('fetch', failFetch)
+    // Override location-name mock to also return null so nothing is cacheable.
+    const garlandMod = await import('@/services/garland-core')
+    const getLocationName = garlandMod.getLocationName as unknown as ReturnType<typeof vi.fn>
+    getLocationName.mockReturnValueOnce(null)
+    getLocationName.mockReturnValueOnce(null)
+    getLocationName.mockReturnValueOnce(null)
+    getLocationName.mockReturnValueOnce(null)
 
-    await fetchZoneMetaBulk([146])
-    expect(getZoneMetaSync(146)).toBeNull() // not cached
-
-    // Second call: fetch succeeds
-    const successFetch = mockResponses([
-      {
-        pattern: PATTERN_PLACE_NAME,
-        body: {
-          rows: [
-            {
-              row_id: 146,
-              fields: {
-                Name: '拉诺西亚低地',
-                Name_chs: '拉诺西亚低地',
-                Name_en: 'Lower La Noscea',
-                Name_ja: 'ラノシア低地',
-              },
-            },
-          ],
-        },
-      },
-      {
-        pattern: PATTERN_MAP_SEARCH,
-        body: {
-          results: [
-            {
-              fields: {
-                Id: 'r1f1/00',
-                SizeFactor: 100,
-                PlaceName: { value: 146 },
-              },
-            },
-          ],
-        },
-      },
-    ])
-    vi.stubGlobal('fetch', successFetch)
-
-    await fetchZoneMetaBulk([146])
-    expect(getZoneMetaSync(146)).not.toBeNull()
-    expect(getZoneMetaSync(146)?.zoneNameByLocale.get('en')).toBe(
-      'Lower La Noscea',
-    )
+    await fetchZoneMetaBulk([999])
+    expect(getZoneMetaSync(999)).toBeNull()
   })
 })
 
 // ---------------------------------------------------------------------------
-// Test 7: fetchNpcNameBulk returns localized names
+// fetchNpcNameBulk — thin pass-through to garland-core's bulk fetcher.
 // ---------------------------------------------------------------------------
 
 describe('fetchNpcNameBulk', () => {
-  it('returns localized NPC names and getNpcNameSync works for zh-TW after sToT', async () => {
-    // Use a name that contains characters present in the s2t map.
-    // '东部林地商人' — '东'→'東', '业'→'業' in s2t map.
-    // Using '东拉诺西亚商人' so '东'→'東', '诺'→'諾', '亚'→'亞' are all converted.
-    const fakeNpcResponse = {
-      rows: [
-        {
-          row_id: 1001,
-          fields: {
-            Singular: '东拉诺西亚商人',
-            Singular_chs: '东拉诺西亚商人',
-            Singular_en: 'Eastern La Noscea Merchant',
-            Singular_ja: '東ラノシア商人',
-          },
-        },
-      ],
-    }
-
-    const fetchSpy = mockResponses([
-      { pattern: PATTERN_NPC, body: fakeNpcResponse },
-    ])
-    vi.stubGlobal('fetch', fetchSpy)
-
+  it('delegates to garland-core and returns the same shape', async () => {
     const result = await fetchNpcNameBulk([1001])
+    expect(fetchNpcNameBulkGarland).toHaveBeenCalledWith([1001])
     expect(result.size).toBe(1)
+    const m = result.get(1001)!
+    expect(m.get('en')).toBe('Eastern La Noscea Merchant')
+    expect(m.get('zh-TW')).toBe('東拉諾西亞商人')
+  })
 
-    const localeMap = result.get(1001)
-    expect(localeMap).toBeDefined()
-    expect(localeMap!.get('en')).toBe('Eastern La Noscea Merchant')
-    expect(localeMap!.get('ja')).toBe('東ラノシア商人')
-    expect(localeMap!.get('zh-CN')).toBe('东拉诺西亚商人')
-
-    // zh-TW: sToT('东拉诺西亚商人') — '东'→'東', '诺'→'諾', '亚'→'亞'
-    const zhTw = localeMap!.get('zh-TW')
-    expect(zhTw).toBeDefined()
-    expect(zhTw).toContain('東')
-    expect(zhTw).toContain('諾')
-
-    // getNpcNameSync should also work after the fetch.
+  it('getNpcNameSync re-exports the garland-core lookup', () => {
     expect(getNpcNameSync(1001, 'en')).toBe('Eastern La Noscea Merchant')
-    expect(getNpcNameSync(1001, 'zh-TW')).toContain('東')
+    expect(getNpcNameSync(1001, 'zh-TW')).toBe('東拉諾西亞商人')
     expect(getNpcNameSync(9999, 'en')).toBeNull()
   })
 })

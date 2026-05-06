@@ -49,7 +49,12 @@ const cache = new Map<number, ItemLocations>()
 const accessOrder: number[] = []
 const inflight = new Map<number, Promise<ItemLocations>>()
 
-const GARLAND_ITEM = 'https://garlandtools.org/db/doc/item/en/3'
+// Use the chs (Simplified Chinese) endpoint — its schema includes node
+// coordinates (`c`) on partials, which the en/3 schema omits. Without
+// coords, every gather node renders "查無位置資料". NPC partials carry
+// `c` on both schemas, so vendor data was unaffected — only gather
+// rows surfaced the gap, which is why this was a delayed catch.
+const GARLAND_ITEM = 'https://www.garlandtools.cn/db/doc/item/chs/3'
 
 // ---------------------------------------------------------------------------
 // LRU helpers

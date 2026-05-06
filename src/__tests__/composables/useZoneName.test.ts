@@ -1,5 +1,37 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
+
+// ---------------------------------------------------------------------------
+// Mock garland-core (the actual source of localized names since the v2 rewrite).
+// vi.hoisted lets us declare the canned data above the vi.mock factory.
+// ---------------------------------------------------------------------------
+
+const { fakeLocations, fakeNpcs } = vi.hoisted(() => ({
+  fakeLocations: {} as Record<number, Record<string, string>>,
+  fakeNpcs: {} as Record<number, Record<string, string>>,
+}))
+
+vi.mock('@/services/garland-core', () => ({
+  loadAllLocationNames: vi.fn(async () => {}),
+  getLocationName: vi.fn(
+    (zoneId: number, locale: string) => fakeLocations[zoneId]?.[locale] ?? null,
+  ),
+  fetchNpcNameBulkGarland: vi.fn(async (ids: number[]) => {
+    const m = new Map<number, Map<string, string>>()
+    for (const id of ids) {
+      const data = fakeNpcs[id]
+      if (!data) continue
+      const inner = new Map<string, string>()
+      for (const [k, v] of Object.entries(data)) inner.set(k, v)
+      m.set(id, inner)
+    }
+    return m
+  }),
+  getNpcNameSync: vi.fn(
+    (npcId: number, locale: string) => fakeNpcs[npcId]?.[locale] ?? null,
+  ),
+}))
+
 import { useZoneName } from '@/composables/useZoneName'
 import { useNpcName } from '@/composables/useNpcName'
 import { fetchZoneMetaBulk, fetchNpcNameBulk, __clearCache } from '@/services/zone-meta'
@@ -7,30 +39,32 @@ import { fetchZoneMetaBulk, fetchNpcNameBulk, __clearCache } from '@/services/zo
 beforeEach(() => {
   setActivePinia(createPinia())
   __clearCache()
-  vi.restoreAllMocks()
+  // Wipe the canned data between tests.
+  for (const k of Object.keys(fakeLocations)) delete fakeLocations[Number(k)]
+  for (const k of Object.keys(fakeNpcs)) delete fakeNpcs[Number(k)]
+  // Mock the Map-search xivapi call (zone-meta still uses xivapi for asset URLs).
+  vi.stubGlobal('fetch', vi.fn(async () => ({
+    ok: true,
+    json: async () => ({ results: [] }),
+  } as Response)))
 })
 
 describe('useZoneName', () => {
   it('returns name for current locale after fetch', async () => {
-    vi.stubGlobal('fetch', vi.fn(async (url: string) => ({
-      ok: true,
-      json: async () => url.includes('PlaceName')
-        ? { rows: [{ row_id: 146, fields: { Name_chs: '拉诺西亚低地', Name_en: 'Lower La Noscea', Name_ja: '低地ラノシア' } }] }
-        : { results: [{ row_id: 12, fields: { Id: 'r1f1/00', SizeFactor: 100, 'PlaceName.Id': 146 } }] }
-    } as Response)))
+    fakeLocations[146] = {
+      en: 'Lower La Noscea',
+      ja: 'ラノシア低地',
+      'zh-CN': '拉诺西亚低地',
+      'zh-TW': '拉諾西亞低地',
+    }
     await fetchZoneMetaBulk([146])
     const name = useZoneName(() => 146)
-    // Default locale (zh-TW from project default); should contain a zh-TW form character
-    expect(name.value).toMatch(/拉|諾|諲/)
+    // Default locale is zh-TW.
+    expect(name.value).toMatch(/拉|諾|亞/)
   })
 
   it('falls back to en when locale-specific name missing', async () => {
-    vi.stubGlobal('fetch', vi.fn(async (url: string) => ({
-      ok: true,
-      json: async () => url.includes('PlaceName')
-        ? { rows: [{ row_id: 200, fields: { Name_en: 'Mystery Zone' } }] }  // only en
-        : { results: [] }
-    } as Response)))
+    fakeLocations[200] = { en: 'Mystery Zone' }
     await fetchZoneMetaBulk([200])
     const name = useZoneName(() => 200)
     expect(name.value).toBe('Mystery Zone')
@@ -44,10 +78,12 @@ describe('useZoneName', () => {
 
 describe('useNpcName', () => {
   it('returns localized name', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({
-      ok: true,
-      json: async () => ({ rows: [{ row_id: 1001, fields: { Singular_chs: '商人甲', Singular_en: 'Vendor A', Singular_ja: '商人甲' } }] })
-    } as Response)))
+    fakeNpcs[1001] = {
+      en: 'Vendor A',
+      ja: '商人甲',
+      'zh-CN': '商人甲',
+      'zh-TW': '商人甲',
+    }
     await fetchNpcNameBulk([1001])
     const n = useNpcName(() => 1001)
     expect(n.value).toBeTruthy()
@@ -55,10 +91,7 @@ describe('useNpcName', () => {
   })
 
   it('falls back to en', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({
-      ok: true,
-      json: async () => ({ rows: [{ row_id: 2000, fields: { Singular_en: 'En Only' } }] })
-    } as Response)))
+    fakeNpcs[2000] = { en: 'En Only' }
     await fetchNpcNameBulk([2000])
     const n = useNpcName(() => 2000)
     expect(n.value).toBe('En Only')

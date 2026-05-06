@@ -489,6 +489,16 @@ onMounted(async () => {
   /* Match the sticky offset so smooth-scroll lands the totals row
    * just below the page chrome instead of half-hidden under it. */
   scroll-margin-top: 16px;
+  /* Backdrop blur + opaque-ish surface so material rows scrolling underneath
+   * are clearly hidden, not merely overlapped. The totals bar is the user's
+   * north-star while scanning rows — anything reading through it is noise. */
+  background: color-mix(in srgb, var(--app-bg) 85%, transparent);
+  backdrop-filter: saturate(140%) blur(12px);
+  -webkit-backdrop-filter: saturate(140%) blur(12px);
+  /* Card-like definition once pinned, plus a soft drop to distinguish it
+   * from the rows scrolling underneath. */
+  border-radius: 12px;
+  box-shadow: 0 6px 14px -8px oklch(0.28 0.04 55 / 0.18);
 }
 
 /* Sticky stack inside the right column (totals → tabs → table head /
@@ -500,12 +510,15 @@ onMounted(async () => {
   position: sticky;
   top: 80px;
   z-index: 4;
-  /* el-segmented is transparent by default; back it with the page surface
-   * so material rows scrolling underneath don't bleed through. */
-  background: var(--app-bg);
-  /* A tiny shadow gives the sticky bar visible separation once it's
-   * pinned, matching the totals bar above. */
-  box-shadow: 0 4px 6px -4px oklch(0.28 0.04 55 / 0.10);
+  /* Same blur strategy as the totals bar so rows are visibly obscured,
+   * not just z-stacked. Plain opaque fill backs feature-detection-less
+   * browsers without harming the blurred look elsewhere. */
+  background: color-mix(in srgb, var(--app-bg) 88%, transparent);
+  backdrop-filter: saturate(140%) blur(10px);
+  -webkit-backdrop-filter: saturate(140%) blur(10px);
+  padding: 4px;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px -6px oklch(0.28 0.04 55 / 0.18);
 }
 
 .b-main__loading {
