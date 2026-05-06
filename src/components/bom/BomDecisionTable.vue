@@ -310,15 +310,10 @@ function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
   text-transform: uppercase;
   color: var(--app-text-muted);
   /* Third tier of the right-column sticky stack (totals → tabs → header).
-   * Keeps the column labels anchored while the user scrolls a long row list.
-   * Blurred fill so material rows scrolling underneath read as obscured
-   * (matches totals + tabs treatment). */
+   * Solid fill so rows scrolling underneath are hidden cleanly. */
   position: sticky;
   top: 120px;
   z-index: 3;
-  background: color-mix(in srgb, var(--app-surface-2) 92%, transparent);
-  backdrop-filter: saturate(140%) blur(10px);
-  -webkit-backdrop-filter: saturate(140%) blur(10px);
 }
 
 .bdt-head__col--qty,

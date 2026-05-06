@@ -76,9 +76,6 @@ function onResort() {
   position: sticky;
   top: 120px;
   z-index: 3;
-  /* Blurred fill keeps cards scrolling underneath obscured. */
-  backdrop-filter: saturate(140%) blur(10px);
-  -webkit-backdrop-filter: saturate(140%) blur(10px);
 }
 
 .rpt__label {

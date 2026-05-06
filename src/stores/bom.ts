@@ -305,10 +305,11 @@ export const useBomStore = defineStore('bom', () => {
     const effectiveScope =
       (settings.crossServer ? settings.dataCenter || settings.server : settings.server || settings.dataCenter)
     if (!effectiveScope) {
+      // No server / data-center configured. Don't mark as 'failed' — the
+      // failure was on the user side, not the API. Leave priceFetchStatus
+      // untouched so 100+ retry chips don't scream "broken" at the user.
+      // The TotalsBar surfaces this via priceServerNotConfigured instead.
       console.warn('[BOM] No server/data-center configured; skipping price fetch')
-      const statusNext = new Map(priceFetchStatus.value)
-      for (const id of ids) statusNext.set(id, 'failed')
-      priceFetchStatus.value = statusNext
       const finalSet = new Set(fetchingPriceIds.value)
       for (const id of ids) finalSet.delete(id)
       fetchingPriceIds.value = finalSet

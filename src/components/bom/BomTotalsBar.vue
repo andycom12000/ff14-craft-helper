@@ -1,12 +1,24 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Refresh, Share, ArrowRight, ArrowDown, WarningFilled } from '@element-plus/icons-vue'
+import { Refresh, Share, ArrowRight, ArrowDown, WarningFilled, Setting } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
 import { useBomStore } from '@/stores/bom'
+import { useSettingsStore } from '@/stores/settings'
 import { buildTeamcraftImportUrl } from '@/services/teamcraft-import'
 import { formatGil } from '@/utils/format'
 
 const bom = useBomStore()
+const settings = useSettingsStore()
+const router = useRouter()
+
+const priceServerNotConfigured = computed(
+  () => !settings.server && !settings.dataCenter,
+)
+
+function goToSettings() {
+  router.push('/settings')
+}
 
 defineProps<{
   fetchingPrices?: boolean
@@ -86,8 +98,18 @@ function handleShare(action: string) {
       <span class="totals-bar__saving-hint">vs 全部市買 {{ formatGil(baseline) }}</span>
     </div>
 
+    <button
+      v-if="priceServerNotConfigured"
+      type="button"
+      class="totals-bar__warn totals-bar__warn--cta"
+      @click="goToSettings"
+    >
+      <el-icon><Setting /></el-icon>
+      <span>請先到設定挑你的伺服器，才能查市場價</span>
+    </button>
+
     <div
-      v-if="failedCount > 0"
+      v-else-if="failedCount > 0"
       class="totals-bar__warn"
       role="alert"
     >
@@ -218,6 +240,20 @@ function handleShare(action: string) {
 
 .totals-bar__warn .el-icon {
   font-size: 14px;
+}
+
+.totals-bar__warn--cta {
+  border: 1px solid color-mix(in srgb, var(--app-craft) 30%, transparent);
+  background: color-mix(in srgb, var(--app-craft) 8%, transparent);
+  color: var(--app-craft);
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0.02em;
+  transition: background-color 0.12s ease-out;
+}
+
+.totals-bar__warn--cta:hover {
+  background: color-mix(in srgb, var(--app-craft) 14%, transparent);
 }
 
 .totals-bar__actions {

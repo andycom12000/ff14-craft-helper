@@ -1,11 +1,28 @@
+/**
+ * FFXIV map texture is 2048×2048 covering 41 in-game units (rawCoord 1..42).
+ * `sizeFactor` from the Map sheet scales the visible region — sizeFactor=100
+ * means the texture covers 41 units, sizeFactor=200 means it covers ~21 units
+ * (zoomed in 2×). The reference implementation lives in NodeMinimap.vue.
+ *
+ * Formula:
+ *   pixel = (rawCoord - 1) / 41 * 2048 * sizeFactor / 100
+ *
+ * The previous version `(rawX - offsetX) * sizeFactor / 100 + 1024` placed
+ * every marker near the center because in-game coords (1..42) plus 1024
+ * always landed in the 1024..1044 pixel band. That looked like all pins
+ * stacked at the same spot.
+ */
 export function convertToPixel(opts: {
   rawX: number; rawY: number;
-  offsetX: number; offsetY: number;
+  offsetX?: number; offsetY?: number;
   sizeFactor: number;
 }): { px: number; py: number } {
+  const { rawX, rawY, sizeFactor } = opts
+  const offsetX = opts.offsetX ?? 0
+  const offsetY = opts.offsetY ?? 0
   return {
-    px: (opts.rawX - opts.offsetX) * opts.sizeFactor / 100 + 1024,
-    py: (opts.rawY - opts.offsetY) * opts.sizeFactor / 100 + 1024,
+    px: ((rawX - offsetX) - 1) / 41 * 2048 * sizeFactor / 100,
+    py: ((rawY - offsetY) - 1) / 41 * 2048 * sizeFactor / 100,
   }
 }
 

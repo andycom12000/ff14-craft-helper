@@ -489,16 +489,19 @@ onMounted(async () => {
   /* Match the sticky offset so smooth-scroll lands the totals row
    * just below the page chrome instead of half-hidden under it. */
   scroll-margin-top: 16px;
-  /* Backdrop blur + opaque-ish surface so material rows scrolling underneath
-   * are clearly hidden, not merely overlapped. The totals bar is the user's
-   * north-star while scanning rows — anything reading through it is noise. */
-  background: color-mix(in srgb, var(--app-bg) 85%, transparent);
-  backdrop-filter: saturate(140%) blur(12px);
-  -webkit-backdrop-filter: saturate(140%) blur(12px);
-  /* Card-like definition once pinned, plus a soft drop to distinguish it
-   * from the rows scrolling underneath. */
+  /* Solid surface (with a heavy blur as fallback for under the rounded
+   * corners) so material rows scrolling underneath are visibly hidden,
+   * not bleeding through a translucent overlay. */
+  background: var(--app-bg);
+  backdrop-filter: saturate(140%) blur(16px);
+  -webkit-backdrop-filter: saturate(140%) blur(16px);
   border-radius: 12px;
-  box-shadow: 0 6px 14px -8px oklch(0.28 0.04 55 / 0.18);
+  /* A soft shadow + a 1px hairline below to pop the bar off the rows when
+   * pinned. The hairline reads on light & dark theme without any extra
+   * border on the static (un-pinned) totals layout. */
+  box-shadow:
+    0 1px 0 var(--app-border),
+    0 8px 18px -10px oklch(0.28 0.04 55 / 0.22);
 }
 
 /* Sticky stack inside the right column (totals → tabs → table head /
@@ -510,15 +513,14 @@ onMounted(async () => {
   position: sticky;
   top: 80px;
   z-index: 4;
-  /* Same blur strategy as the totals bar so rows are visibly obscured,
-   * not just z-stacked. Plain opaque fill backs feature-detection-less
-   * browsers without harming the blurred look elsewhere. */
-  background: color-mix(in srgb, var(--app-bg) 88%, transparent);
-  backdrop-filter: saturate(140%) blur(10px);
-  -webkit-backdrop-filter: saturate(140%) blur(10px);
+  /* Solid surface so rows scrolling underneath are hidden, not bleeding
+   * through. */
+  background: var(--app-bg);
   padding: 4px;
   border-radius: 10px;
-  box-shadow: 0 4px 10px -6px oklch(0.28 0.04 55 / 0.18);
+  box-shadow:
+    0 1px 0 var(--app-border),
+    0 6px 14px -8px oklch(0.28 0.04 55 / 0.18);
 }
 
 .b-main__loading {

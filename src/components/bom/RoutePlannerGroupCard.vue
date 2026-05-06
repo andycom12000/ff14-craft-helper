@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useBomStore } from '@/stores/bom'
 import { useZoneName } from '@/composables/useZoneName'
 import { useMediaQuery } from '@/composables/useMediaQuery'
@@ -201,6 +201,91 @@ const aetheryteMarker = computed(() => {
 })
 
 // ---------------------------------------------------------------------------
+// Map zoom + pan (big-map mode only).
+// Wheel = zoom (toward cursor), mouse drag = pan. Reset on stop change.
+// Markers + image share the same transform so they move together.
+// ---------------------------------------------------------------------------
+
+const MIN_ZOOM = 1
+const MAX_ZOOM = 4
+const zoom = ref(1)
+const panX = ref(0)
+const panY = ref(0)
+const dragging = ref(false)
+const dragStart = ref({ x: 0, y: 0, panX: 0, panY: 0 })
+const mapColRef = ref<HTMLElement | null>(null)
+
+// Reset transform whenever the active stop (group) changes.
+watch(() => props.group.zoneId, () => {
+  zoom.value = 1
+  panX.value = 0
+  panY.value = 0
+})
+
+const transformStyle = computed(() => ({
+  transform: `translate(${panX.value}px, ${panY.value}px) scale(${zoom.value})`,
+  transformOrigin: '0 0',
+}))
+
+function clampPan(nextZoom: number) {
+  // Keep the visible region from drifting past the map edge by more than
+  // half the container — gives the user a soft tether back to the centre.
+  const el = mapColRef.value?.querySelector('.rpgc__map-container') as HTMLElement | null
+  if (!el) return
+  const w = el.clientWidth
+  const h = el.clientHeight
+  const maxPanX = w * (nextZoom - 1)
+  const maxPanY = h * (nextZoom - 1)
+  panX.value = Math.min(0, Math.max(-maxPanX, panX.value))
+  panY.value = Math.min(0, Math.max(-maxPanY, panY.value))
+}
+
+function onMapWheel(e: WheelEvent) {
+  if (!props.bigMap) return
+  e.preventDefault()
+  const el = e.currentTarget as HTMLElement
+  const rect = el.getBoundingClientRect()
+  const mx = e.clientX - rect.left
+  const my = e.clientY - rect.top
+  const delta = e.deltaY < 0 ? 0.2 : -0.2
+  const nextZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom.value + delta))
+  if (nextZoom === zoom.value) return
+  // Zoom toward cursor: keep cursor stationary in zone-space.
+  const ratio = nextZoom / zoom.value
+  panX.value = mx - (mx - panX.value) * ratio
+  panY.value = my - (my - panY.value) * ratio
+  zoom.value = nextZoom
+  clampPan(nextZoom)
+}
+
+function onMapMousedown(e: MouseEvent) {
+  if (!props.bigMap || zoom.value <= 1) return
+  dragging.value = true
+  dragStart.value = { x: e.clientX, y: e.clientY, panX: panX.value, panY: panY.value }
+  window.addEventListener('mousemove', onMapMousemove)
+  window.addEventListener('mouseup', onMapMouseup)
+}
+
+function onMapMousemove(e: MouseEvent) {
+  if (!dragging.value) return
+  panX.value = dragStart.value.panX + (e.clientX - dragStart.value.x)
+  panY.value = dragStart.value.panY + (e.clientY - dragStart.value.y)
+  clampPan(zoom.value)
+}
+
+function onMapMouseup() {
+  dragging.value = false
+  window.removeEventListener('mousemove', onMapMousemove)
+  window.removeEventListener('mouseup', onMapMouseup)
+}
+
+function resetZoom() {
+  zoom.value = 1
+  panX.value = 0
+  panY.value = 0
+}
+
+// ---------------------------------------------------------------------------
 // Phone: emit open-map-sheet
 // ---------------------------------------------------------------------------
 
@@ -266,43 +351,77 @@ function onMapError(e: Event) {
       <!-- Map (desktop only, ≥768px) -->
       <div
         v-if="!isPhone && mapImageUrl"
+        ref="mapColRef"
         class="rpgc__map-col"
         data-testid="map-col"
         aria-hidden="true"
       >
-        <div class="rpgc__map-container" :class="{ 'is-hero': group.isHero }">
-          <img
-            :src="mapImageUrl"
-            :alt="`${zoneName} 地圖`"
-            class="rpgc__map-img"
-            loading="lazy"
-            decoding="async"
-            @error="onMapError"
-          />
+        <div
+          class="rpgc__map-container"
+          :class="{ 'is-hero': group.isHero, 'is-zoomed': zoom > 1, 'is-dragging': dragging }"
+          @wheel="onMapWheel"
+          @mousedown="onMapMousedown"
+        >
+          <div class="rpgc__map-stage" :style="transformStyle">
+            <img
+              :src="mapImageUrl"
+              :alt="`${zoneName} 地圖`"
+              class="rpgc__map-img"
+              loading="lazy"
+              decoding="async"
+              draggable="false"
+              @error="onMapError"
+            />
 
-          <!-- Aetheryte marker (✦, cocoa) -->
-          <div
-            v-if="aetheryteMarker"
-            class="rpgc__marker rpgc__marker--aeth"
-            :style="{ left: aetheryteMarker.left, top: aetheryteMarker.top }"
-            :title="aetheryteMarker.name"
-          >✦</div>
+            <!-- Aetheryte marker (✦, cocoa) -->
+            <div
+              v-if="aetheryteMarker"
+              class="rpgc__marker rpgc__marker--aeth"
+              :style="{ left: aetheryteMarker.left, top: aetheryteMarker.top }"
+              :title="aetheryteMarker.name"
+            >✦</div>
 
-          <!-- Row markers -->
-          <div
-            v-for="marker in mapMarkers"
-            :key="marker.itemId"
-            class="rpgc__marker"
-            :class="{
-              'rpgc__marker--npc': marker.isNpc,
-              'rpgc__marker--gather': !marker.isNpc,
-              'is-done': marker.isDone,
-              'is-hovered': marker.isHovered,
-            }"
-            :style="{ left: marker.left, top: marker.top }"
-            :title="marker.label"
-          >
-            <span class="rpgc__marker-num">{{ marker.order }}</span>
+            <!-- Row markers -->
+            <div
+              v-for="marker in mapMarkers"
+              :key="marker.itemId"
+              class="rpgc__marker"
+              :class="{
+                'rpgc__marker--npc': marker.isNpc,
+                'rpgc__marker--gather': !marker.isNpc,
+                'is-done': marker.isDone,
+                'is-hovered': marker.isHovered,
+              }"
+              :style="{ left: marker.left, top: marker.top }"
+              :title="marker.label"
+            >
+              <span class="rpgc__marker-num">{{ marker.order }}</span>
+            </div>
+          </div>
+
+          <!-- Zoom controls (big-map only) -->
+          <div v-if="bigMap" class="rpgc__zoom-controls">
+            <button
+              type="button"
+              class="rpgc__zoom-btn"
+              aria-label="放大"
+              :disabled="zoom >= MAX_ZOOM"
+              @click.stop="() => { zoom = Math.min(MAX_ZOOM, zoom + 0.4); clampPan(zoom) }"
+            >＋</button>
+            <button
+              type="button"
+              class="rpgc__zoom-btn"
+              aria-label="縮小"
+              :disabled="zoom <= MIN_ZOOM"
+              @click.stop="() => { zoom = Math.max(MIN_ZOOM, zoom - 0.4); clampPan(zoom) }"
+            >－</button>
+            <button
+              type="button"
+              class="rpgc__zoom-btn"
+              aria-label="重設"
+              :disabled="zoom === 1 && panX === 0 && panY === 0"
+              @click.stop="resetZoom"
+            >⟲</button>
           </div>
         </div>
       </div>
@@ -521,12 +640,42 @@ function onMapError(e: Event) {
   border-right: 1px solid var(--app-border);
 }
 
-/* Single-card stepper mode: map gets the lion's share so coordinates aren't
- * crammed and the user can actually read which corner of the zone they're
- * heading to. The checklist becomes the secondary column. */
+/* Single-card stepper mode: pin the body to a viewport-relative height so
+ * the page itself doesn't scroll. The map column derives its width from
+ * body height via aspect-ratio (always square); the checklist column
+ * scrolls within. */
+.rpgc.is-big-map .rpgc__body {
+  /* Body height = viewport minus chrome above & below the card body.
+   * Empirically measured chrome stack at 1280×1253 viewport: page header
+   * + sticky stack (totals/tabs/toolbar) + eyebrow + stepper + card
+   * header + nav row + paddings ≈ 580px. Cap at 720 so tall monitors
+   * don't waste space on a giant map. */
+  height: min(720px, calc(100dvh - 610px));
+  min-height: 420px;
+  align-items: stretch;
+  overflow: hidden;
+}
+
 .rpgc.is-big-map .rpgc__map-col {
-  width: clamp(360px, 52%, 720px);
+  flex-shrink: 0;
   padding: 16px;
+  display: flex;
+  position: relative;
+  /* Explicitly size width to the same expression as body height — gives a
+   * perfect square once the col is stretched vertically by the flex body. */
+  width: min(720px, calc(100dvh - 610px));
+}
+
+.rpgc.is-big-map .rpgc__map-container {
+  width: 100%;
+  height: 100%;
+}
+
+.rpgc.is-big-map .rpgc__checklist {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  min-height: 0;
+  flex: 1;
 }
 
 .rpgc__map-container {
@@ -560,6 +709,60 @@ function onMapError(e: Event) {
   width: 24px;
   height: 24px;
   font-size: 14px;
+}
+
+/* Zoom + pan: the stage holds the image AND markers so they transform
+ * together. Container clips the overflow when zoomed in. */
+.rpgc__map-stage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  will-change: transform;
+}
+
+.rpgc__map-container.is-zoomed {
+  cursor: grab;
+}
+
+.rpgc__map-container.is-dragging {
+  cursor: grabbing;
+}
+
+.rpgc__zoom-controls {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 4;
+}
+
+.rpgc__zoom-btn {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--app-border);
+  background: color-mix(in srgb, var(--app-surface) 92%, transparent);
+  color: var(--app-text);
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: background-color 0.12s ease-out;
+}
+
+.rpgc__zoom-btn:hover:not(:disabled) {
+  background: var(--app-surface);
+}
+
+.rpgc__zoom-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .rpgc__map-img {
