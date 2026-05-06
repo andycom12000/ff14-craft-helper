@@ -408,6 +408,12 @@ onMounted(async () => {
    * stays for total amount inside the totals bar. */
   --page-accent: var(--app-craft);
   --page-accent-dim: var(--app-craft-dim);
+
+  /* Approximate vertical room consumed by everything above the rail (page
+   * heading + description + cockpit gap) so the sticky rail can cap its own
+   * height to avoid pushing the calc CTA off-screen when not yet sticky-active.
+   * Matches `<header class="bom-view__header">` + 18px margin + cockpit top. */
+  --bom-rail-offset: 116px;
 }
 
 .bom-view__header {
@@ -432,7 +438,13 @@ onMounted(async () => {
   top: 16px;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 32px);
+  /* When the page hasn't been scrolled past the page header, the rail's
+   * natural top sits ~--bom-rail-offset below the viewport top. Subtract
+   * that so the rail (and especially its sticky bottom calc CTA) always
+   * fits within the viewport. Once sticky-active, this leaves ~120px of
+   * unused vertical room — acceptable trade-off vs. an off-screen CTA.
+   * Use dvh so iOS browser chrome shrink/grow doesn't clip the CTA. */
+  max-height: calc(100dvh - var(--bom-rail-offset, 100px) - 32px);
   background: var(--app-surface);
   border: 1px solid var(--app-border);
   border-radius: 14px;
