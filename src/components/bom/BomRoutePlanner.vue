@@ -251,6 +251,28 @@ watch(
         @reset="onReset"
         @re-sort="onResort"
       />
+
+      <!-- Stop-to-stop nav. Sits directly under the progress toolbar so the
+           prev/next controls are within reach of the progress info, not
+           buried under the stop card. Wraps at both ends. -->
+      <div class="brp-nav">
+        <button
+          type="button"
+          class="brp-nav__btn"
+          @click="prevStop"
+        >
+          ← {{ currentStopIdx === 0 ? '回到末站' : '上一站' }}
+        </button>
+        <span class="brp-nav__count">{{ currentStopIdx + 1 }} / {{ totalStops }}</span>
+        <button
+          type="button"
+          class="brp-nav__btn brp-nav__btn--primary"
+          @click="nextStop"
+        >
+          {{ currentStopIdx + 1 >= totalStops ? '回到首站' : '下一站' }} →
+        </button>
+      </div>
+
       <!-- Stepper: horizontal numbered chips. Sits above the active card so
            the user can see the entire route at a glance and jump anywhere
            without scrolling through every stop. -->
@@ -292,27 +314,6 @@ watch(
         :big-map="true"
         @open-map-sheet="onOpenMapSheet"
       />
-
-      <!-- Stop-to-stop navigation. Wraps at both ends so the user can keep
-           cycling without dead-ending. The label flips to "首站" / "末站"
-           on the wrap so the cycling intent is explicit, not a silent jump. -->
-      <div class="brp-nav">
-        <button
-          type="button"
-          class="brp-nav__btn"
-          @click="prevStop"
-        >
-          ← {{ currentStopIdx === 0 ? '回到末站' : '上一站' }}
-        </button>
-        <span class="brp-nav__count">{{ currentStopIdx + 1 }} / {{ totalStops }}</span>
-        <button
-          type="button"
-          class="brp-nav__btn brp-nav__btn--primary"
-          @click="nextStop"
-        >
-          {{ currentStopIdx + 1 >= totalStops ? '回到首站' : '下一站' }} →
-        </button>
-      </div>
     </template>
 
     <!-- 4. Phone bottom sheet -->

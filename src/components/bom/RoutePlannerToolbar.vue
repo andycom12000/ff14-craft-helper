@@ -37,10 +37,15 @@ function onResort() {
     <el-progress
       :percentage="pct"
       :stroke-width="10"
+      :show-text="false"
       :status="isComplete ? 'success' : ''"
       class="rpt__bar"
       data-testid="progress"
     />
+    <!-- Percentage sits between the bar and the X/Y count, both vertically
+         centred with the bar. Rendered manually (instead of letting EP show
+         its internal text) so the alignment is under our control. -->
+    <span class="rpt__pct" data-testid="progress-pct">{{ pct }}%</span>
     <span class="rpt__count" data-testid="progress-count">{{ progress.done }} / {{ progress.total }}</span>
     <button type="button" class="rpt__btn" @click="onResort" aria-label="重新排序">🔄 重新排序</button>
     <button type="button" class="rpt__btn" @click="onReset" aria-label="重設勾選">🗑️ 重設</button>
@@ -81,6 +86,17 @@ function onResort() {
  * BatchProgress (one consistent look across the app). The cocoa-on-cocoa
  * override that used to live here had near-zero contrast at low
  * percentages, which is why the bar appeared not to update. */
+
+.rpt__pct {
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--app-text);
+  white-space: nowrap;
+  min-width: 44px;
+  text-align: center;
+  /* Vertically centered with the bar via the parent's `align-items: center`. */
+}
 
 .rpt__count {
   font-family: 'Fira Code', ui-monospace, monospace;
