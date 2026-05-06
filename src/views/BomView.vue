@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Edit, Search } from '@element-plus/icons-vue'
@@ -7,6 +7,7 @@ import BomTargetList from '@/components/bom/BomTargetList.vue'
 import BomSettingsCard from '@/components/bom/BomSettingsCard.vue'
 import BomTotalsBar from '@/components/bom/BomTotalsBar.vue'
 import BomDecisionTable from '@/components/bom/BomDecisionTable.vue'
+import BomRoutePlanner from '@/components/bom/BomRoutePlanner.vue'
 import BomImportDialog from '@/components/bom/BomImportDialog.vue'
 import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
 import ItemName from '@/components/common/ItemName.vue'
@@ -17,6 +18,7 @@ import { useIsMobile, useMediaQuery } from '@/composables/useMediaQuery'
 import { loadingState } from '@/services/local-data-source'
 import { buildMaterialTree, flattenMaterialTree } from '@/services/bom-calculator'
 import { getRecipe } from '@/api/xivapi'
+import { fetchZoneMetaBulk, fetchNpcNameBulk } from '@/services/zone-meta'
 
 const bomStore = useBomStore()
 const batchStore = useBatchStore()
@@ -142,6 +144,87 @@ function handleImported() {
     ElMessage.success('已匯入，按「計算」開始拆解素材')
   }
 }
+
+// ─── Route tab state ───────────────────────────────────────────────────────
+
+const VIEW_TAB_KEY = 'bom-view-tab'
+type ViewTab = 'detail' | 'route'
+
+const bomViewTab = ref<ViewTab>(
+  (sessionStorage.getItem(VIEW_TAB_KEY) as ViewTab) || 'detail',
+)
+watch(bomViewTab, (v) => {
+  try { sessionStorage.setItem(VIEW_TAB_KEY, v) } catch {}
+})
+
+const routeBadgeCount = computed(() => {
+  let n = 0
+  for (const m of bomStore.flatMaterials) {
+    if (!m.isRaw) continue
+    if (m.itemId < 20) continue // crystals
+    const mode = bomStore.getEffectiveMode(m.itemId)
+    if (mode !== 'npc' && mode !== 'gather') continue
+    if (bomStore.routeViewSession.excluded.has(m.itemId)) continue
+    if (!bomStore.routeViewSession.checked.has(m.itemId)) n++
+  }
+  return n
+})
+
+const tabOptions = computed(() => [
+  { label: '📋 材料明細', value: 'detail' as const },
+  {
+    label: `🗺️ 採買路線${routeBadgeCount.value > 0 ? ` (${routeBadgeCount.value})` : ''}`,
+    value: 'route' as const,
+  },
+])
+
+// ─── Lazy prime route data ──────────────────────────────────────────────────
+
+let routeDataPrimed = false
+
+async function primeRouteData() {
+  if (routeDataPrimed) return
+  const npcGatherIds: number[] = []
+  for (const m of bomStore.flatMaterials) {
+    if (!m.isRaw) continue
+    if (m.itemId < 20) continue
+    const mode = bomStore.getEffectiveMode(m.itemId)
+    if (mode === 'npc' || mode === 'gather') npcGatherIds.push(m.itemId)
+  }
+  if (npcGatherIds.length === 0) {
+    routeDataPrimed = true
+    return
+  }
+  await bomStore.fetchItemLocationsForRoute(npcGatherIds)
+  const zoneIds = new Set<number>()
+  const npcIds = new Set<number>()
+  for (const id of npcGatherIds) {
+    const loc = bomStore.itemLocations.get(id)
+    if (!loc) continue
+    for (const v of loc.npcVendors) {
+      zoneIds.add(v.zoneId)
+      npcIds.add(v.npcId)
+    }
+    for (const n of loc.gatherNodes) zoneIds.add(n.zoneId)
+  }
+  if (zoneIds.size > 0) await fetchZoneMetaBulk([...zoneIds])
+  if (npcIds.size > 0) await fetchNpcNameBulk([...npcIds])
+  routeDataPrimed = true
+}
+
+watch(bomViewTab, async (v) => {
+  if (v === 'route') await primeRouteData()
+})
+
+watch(() => bomStore.targetSig, () => {
+  routeDataPrimed = false
+})
+
+onMounted(async () => {
+  if (bomViewTab.value === 'route') {
+    await primeRouteData()
+  }
+})
 </script>
 
 <template>
@@ -230,12 +313,20 @@ function handleImported() {
             <el-skeleton :rows="4" animated />
             <p class="loading-text">正在取得市場價格...</p>
           </div>
-          <BomDecisionTable
-            v-else
-            :materials="bomStore.flatMaterials"
-            :material-tree="bomStore.materialTree"
-            :target-item-ids="targetItemIds"
-          />
+          <template v-else>
+            <el-segmented
+              v-model="bomViewTab"
+              :options="tabOptions"
+              class="b-view-tabs"
+            />
+            <BomDecisionTable
+              v-if="bomViewTab === 'detail'"
+              :materials="bomStore.flatMaterials"
+              :material-tree="bomStore.materialTree"
+              :target-item-ids="targetItemIds"
+            />
+            <BomRoutePlanner v-else-if="bomViewTab === 'route'" />
+          </template>
         </template>
 
         <div v-else-if="bomStore.targets.length > 0" class="b-main__pending">
@@ -403,6 +494,10 @@ function handleImported() {
 
 .b-main__pending--empty {
   padding: 96px 24px;
+}
+
+.b-view-tabs {
+  margin-bottom: 12px;
 }
 
 @media (max-width: 1440px) {
