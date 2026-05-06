@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, watch, onMounted } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Edit, Search } from '@element-plus/icons-vue'
@@ -77,14 +77,8 @@ async function handleCalculate() {
       ElMessage.warning('部分價格查詢失敗，可在該列點「重試」')
     }
 
-    // Calculate populates flatMaterials AFTER targetSig changes — the watcher
-    // already fired with empty materials and parked primed=true. Force a fresh
-    // prime here so npc/gather rows get their location data ready for the
-    // route tab without requiring a manual tab toggle.
-    routeDataPrimed = false
-    if (bomViewTab.value === 'route') {
-      void primeRouteData()
-    }
+    // primeRouteData runs reactively via the npcGatherSig watcher whenever
+    // flatMaterials or acquisitionMode change, so no manual trigger here.
 
     await nextTick()
     totalsAnchor.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -188,43 +182,48 @@ const tabOptions = computed(() => [
 
 // ─── Lazy prime route data ──────────────────────────────────────────────────
 
-let routeDataPrimed = false
-
+/**
+ * Fetch location data for any npc/gather raw materials that aren't already
+ * cached in `bomStore.itemLocations`. Idempotent — called whenever the
+ * route-relevant set might have changed (calc finished, user toggled a row
+ * to npc/gather, route tab opened). The store's underlying LRU dedupes
+ * already-fetched ids, so cheap re-runs are fine.
+ */
 async function primeRouteData() {
-  if (routeDataPrimed) return
-  const npcGatherIds: number[] = []
+  const missing: number[] = []
   for (const m of bomStore.flatMaterials) {
     if (!m.isRaw) continue
     if (m.itemId < 20) continue
     const mode = bomStore.getEffectiveMode(m.itemId)
-    if (mode === 'npc' || mode === 'gather') npcGatherIds.push(m.itemId)
+    if (mode !== 'npc' && mode !== 'gather') continue
+    if (bomStore.itemLocations.has(m.itemId)) continue
+    missing.push(m.itemId)
   }
-  if (npcGatherIds.length > 0) {
-    // fetchItemLocationsForRoute bundles zone/npc metadata before its single
-    // reactive write, so consumers see real names on first render.
-    await bomStore.fetchItemLocationsForRoute(npcGatherIds)
+  if (missing.length > 0) {
+    await bomStore.fetchItemLocationsForRoute(missing)
   }
-  routeDataPrimed = true
 }
+
+// Build a stable signature of "npc/gather rows in flatMaterials" so the
+// watcher below fires exactly once per relevant change — switching a single
+// row from market → gather, recalculating, restoring a session, etc.
+const npcGatherSig = computed(() => {
+  const ids: string[] = []
+  for (const m of bomStore.flatMaterials) {
+    if (!m.isRaw) continue
+    if (m.itemId < 20) continue
+    const mode = bomStore.getEffectiveMode(m.itemId)
+    if (mode === 'npc' || mode === 'gather') ids.push(`${m.itemId}:${mode}`)
+  }
+  return ids.sort().join(',')
+})
+
+watch(npcGatherSig, () => {
+  void primeRouteData()
+}, { immediate: true })
 
 watch(bomViewTab, async (v) => {
   if (v === 'route') await primeRouteData()
-})
-
-// targetSig changes mean a fresh BOM was calculated. Reset the primed flag and,
-// if the user is already on the route tab (e.g. session-restored), re-prime so
-// the new flatMaterials get their location data without requiring a tab toggle.
-watch(() => bomStore.targetSig, async () => {
-  routeDataPrimed = false
-  if (bomViewTab.value === 'route') {
-    await primeRouteData()
-  }
-})
-
-onMounted(async () => {
-  if (bomViewTab.value === 'route') {
-    await primeRouteData()
-  }
 })
 </script>
 
