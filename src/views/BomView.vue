@@ -491,6 +491,23 @@ onMounted(async () => {
   scroll-margin-top: 16px;
 }
 
+/* Sticky stack inside the right column (totals → tabs → table head /
+ * route toolbar). Stack offsets follow measured heights of the elements
+ * above so each layer parks just below the previous, keeping wayfinding
+ * (totals row + active tab + column headers) anchored as the user scrolls
+ * the long material list. */
+.b-view-tabs {
+  position: sticky;
+  top: 80px;
+  z-index: 4;
+  /* el-segmented is transparent by default; back it with the page surface
+   * so material rows scrolling underneath don't bleed through. */
+  background: var(--app-bg);
+  /* A tiny shadow gives the sticky bar visible separation once it's
+   * pinned, matching the totals bar above. */
+  box-shadow: 0 4px 6px -4px oklch(0.28 0.04 55 / 0.10);
+}
+
 .b-main__loading {
   padding: 24px;
   background: var(--app-surface);

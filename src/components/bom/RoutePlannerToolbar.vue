@@ -70,6 +70,12 @@ function onResort() {
   border: 1px solid var(--app-border);
   border-radius: 10px;
   font-size: 12.5px;
+  /* Third tier of the right-column sticky stack (totals → tabs → toolbar).
+   * Mirrors .bdt-head's offset on the materials tab so the wayfinding chrome
+   * stays anchored across both tabs. */
+  position: sticky;
+  top: 120px;
+  z-index: 3;
 }
 
 .rpt__label {

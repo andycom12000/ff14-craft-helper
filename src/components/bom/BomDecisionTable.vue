@@ -280,8 +280,11 @@ function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
   background: var(--app-surface);
   border: 1px solid var(--app-border);
   border-radius: 12px;
-  overflow: hidden;
   container-type: inline-size;
+  /* No overflow: hidden — that would scope the sticky .bdt-head to this
+   * (non-scrolling) container, defeating the right-column sticky stack.
+   * Rows have matching surface backgrounds so corner clipping is not
+   * required for visual cleanliness. */
 }
 
 .bdt-head {
@@ -306,6 +309,11 @@ function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--app-text-muted);
+  /* Third tier of the right-column sticky stack (totals → tabs → header).
+   * Keeps the column labels anchored while the user scrolls a long row list. */
+  position: sticky;
+  top: 120px;
+  z-index: 3;
 }
 
 .bdt-head__col--qty,
