@@ -294,6 +294,8 @@ onMounted(async () => {
             @open-search="searchSidebarOpen = true"
             @open-import="importDialogOpen = true"
           />
+        </div>
+        <div class="b-rail__settings">
           <BomSettingsCard />
         </div>
         <div v-if="bomStore.targets.length > 0" class="b-rail__cta">
@@ -459,6 +461,13 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.b-rail__settings {
+  flex-shrink: 0;
+  padding: 14px;
+  border-top: 1px solid var(--app-border);
+  background: var(--app-surface);
 }
 
 .b-rail__cta {
