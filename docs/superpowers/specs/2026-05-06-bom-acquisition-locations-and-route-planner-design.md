@@ -64,17 +64,20 @@
 
 排序：NPC 依 `itemPrice ASC`、Gather 依 `nodeLevel ASC`。「⎘ /tp」MVP = 複製 `/tp <aetheryte 名>` 到剪貼簿。
 
-### 5.2 Tab Strip（`BomViewTabs`）
+### 5.2 Tab 切換（inline，**不**獨立元件）
 
-放在 `BomTotalsBar` 下方、`BomDecisionTable` 上方：
+放在 `BomTotalsBar` 下方、`BomDecisionTable` 上方，直接用 Element Plus `<el-segmented>`（已用於 `BatchSettings`）：
 
+```vue
+<el-segmented v-model="bomViewTab" :options="[
+  { label: '📋 材料明細', value: 'detail' },
+  { label: `🗺️ 採買路線 ${routeBadgeText}`, value: 'route' },
+]" :disabled="!calculated" />
 ```
-[ 📋 材料明細 ]  [ 🗺️ 採買路線 (12) ]
-```
 
-- 「採買路線」徽章 = 未勾完的 npc/gather 行數
-- BOM 還沒 calculate 前 disabled
-- 行動裝置（≤900px）：tab 等寬置頂
+- `bomViewTab` = `BomView` 內 ref + sessionStorage（見 §6.3）
+- `routeBadgeText` = `count > 0 ? \`(${count})\` : ''`，count = 未勾完 npc/gather 行數
+- 行動裝置（≤900px）：`<el-segmented>` block-level 即可，不再做特例樣式
 
 ### 5.3 採買路線 tab —「Layout A · 2-欄 zone card 網格」
 
@@ -113,42 +116,59 @@ Toolbar（route planner 內共用）：
 
 ```
 BomView
-└─ BomDecisionTable
-   ├─ <NEW> BomViewTabs              "材料明細 / 採買路線"
-   ├─ BomDecisionRow (existing)
-   │  ├─ BomCraftTreeNode (existing) ← craft mode 展開區
-   │  └─ <NEW> BomAcquisitionDetail   ← npc/gather mode 展開區
-   └─ <NEW> BomRoutePlanner           ← tab=route 切到這裡
-      ├─ <NEW> RoutePlannerToolbar    gil/hop toggle、progress、actions
-      └─ <NEW> RoutePlannerGroupCard ×N  每張 = 一個 zone
-         ├─ 內嵌 map（xivapi asset + CSS marker）
-         └─ checklist rows（item-centric）
+├─ <el-segmented> (inline, 不獨立元件)        "材料明細 / 採買路線"
+└─ BomDecisionTable                            (tab=detail 時顯示)
+│  └─ BomDecisionRow (existing)
+│     ├─ BomCraftTreeNode (existing) ← craft mode 展開區
+│     └─ <NEW> BomAcquisitionDetail   ← npc/gather mode 展開區
+└─ <NEW> BomRoutePlanner                       (tab=route 時顯示)
+   ├─ <NEW> RoutePlannerToolbar    gil/hop el-segmented + el-progress + actions
+   └─ <NEW> RoutePlannerGroupCard ×N  每張 = 一個 zone
+      ├─ 內嵌 map（xivapi asset + CSS marker，<img loading="lazy">）
+      └─ checklist rows（item-centric）
 ```
 
 ### 6.2 資料服務
 
-**重構**：將現有 `src/services/item-acquisition.ts` rename + 擴充為 `src/services/item-detail.ts`，單一 garlandtools fetch 同時回傳兩塊：
+**保留** `src/services/item-acquisition.ts` **不重構**。`acquisitionAvailability: Map<itemId, ItemAcquisition>` 仍是 BOM 主表 chip 的輕資料來源（5 fields），不被肥大化。
+
+**新增** `src/services/item-locations.ts`，**獨立、按需 fetch**：
 
 ```ts
-interface ItemDetail {
-  acquisition: ItemAcquisition  // 現有：canMarket/canGather/canNpc/npcPrice
-  locations: ItemLocations      // 新增
-}
-
 interface ItemLocations {
-  npcVendors: Vendor[]   // { npcId, npcName(zh-TW), zoneId, zoneName(zh-TW), x, y, price }
-  gatherNodes: Node[]    // { nodeId, type:'MIN'|'BTN'|'FSH', level, zoneId, zoneName, x, y }
+  npcVendors: Array<{ npcId: number; zoneId: number; x: number; y: number; price?: number }>
+  gatherNodes: Array<{ nodeId: number; type: 'MIN'|'BTN'|'FSH'; level: number; zoneId: number; x: number; y: number }>
 }
 ```
 
-- garlandtools 取 ID + 座標 + price
-- xivapi 補：zone 名（PlaceName + s2t）、map asset（Map sheet 的 `Id` + `SizeFactor`）、NPC 名（ENpcResident + s2t）— 沿用 `src/api/garland.ts:104-134` 已驗證的模式
-- Cache：`Map<itemId, ItemDetail>`，inflight dedupe 維持
-- Batch fetch：concurrency=6，與目前 `fetchItemAcquisitionBatch` 一致
+- 觸發點：(a) BOM Decision Row 展開且 `mode ∈ {npc, gather}`；(b) Route tab 第一次切換
+- 不在「計算材料需求」CTA 路徑上，不拖慢 BOM 主流程
+- 單一 garlandtools fetch（與現有 `fetchItemAcquisition` 共用同一 endpoint）→ 解析 `nodes` / `vendors` 拿 ID + 座標
+- **重要**：locations 只存 ID（zoneId / npcId / nodeId），**不存名稱**。名稱透過下文的 reactive composable 解析（避免「locale 切換 → 重新 fetch xivapi」的浪費，模式對齊 `useItemName`）
+- Cache：`Map<itemId, ItemLocations>`，**LRU 上限 500 條**避免長 session 累積；inflight dedupe 沿用 `item-acquisition.ts` 的 `inflight` Map 模式
+- Batch fetch：concurrency=6
 
-**新增** `src/services/route-planner.ts`：純函式，`sortRoute(input) → RouteOutput`，演算法見 §7.1。
+**新增** `src/services/zone-meta.ts` — **全域批次** xivapi metadata，不per-item：
 
-**新增** `public/data/aetherytes.json`：手寫 + 從 xivapi Aetheryte sheet 半自動產生：
+```ts
+// 一次性整批解析，避免 garland.ts 那種「每個 zone 1 個 Map sheet search」的 N+1
+export async function fetchZoneMetaBulk(zoneIds: number[]): Promise<Map<number, ZoneMeta>>
+export async function fetchNpcNameBulk(npcIds: number[]): Promise<Map<number, string>>
+
+interface ZoneMeta {
+  zoneNameByLocale: Map<Locale, string>  // PlaceName + s2t for zh-TW
+  mapAssetUrl: string                    // 抽 helper buildMapAssetUrl(mapId)
+  sizeFactor: number
+}
+```
+
+- xivapi PlaceName / Map sheet **支援 ids in 單次 query** via `Sheet/PlaceName?rows=146,147,148&fields=Name`，把 garland.ts 現有的 `Promise.all(per-zone Map search)` 改為一次帶完整 ID list 的 query
+- Map asset URL 從 `src/api/garland.ts:124-126` 抽 helper `buildMapAssetUrl(mapId: string): string`，本服務與 `src/api/garland.ts` 共用
+- 結果 cache 在模組層（生命週期 = page session），不需 LRU（zone/NPC ID 是有限集合）
+
+**新增** `src/services/route-planner.ts` — 純函式，`sortRoute(input) → RouteOutput`，演算法 §7.1
+
+**新增** `public/data/aetherytes.json` — 手寫 + 從 xivapi Aetheryte sheet 半自動產生：
 
 ```json
 {
@@ -164,29 +184,51 @@ interface ItemLocations {
 }
 ```
 
-`tpCostBase` 為平均估值（不模擬角色等級折扣），約 ~150 zones / ~250 aetherytes，<20KB。route planner 第一次切到 tab 時 lazy import。
+`tpCostBase` 為平均估值（不模擬角色等級折扣），約 ~150 zones / ~250 aetherytes，<20KB。route planner 第一次切到 tab 時 `await fetch('/data/aetherytes.json')`（不要 ESM `import`，避免進初始 bundle）。
+
+**新增** `src/composables/useZoneName.ts` / `useNpcName.ts` — 完全照 `src/composables/useItemName.ts:1-14` 範本：locale store watcher + computed + 讀模組層 cache，回傳 `ComputedRef<string>`。locale 切換時零 fetch、reactive 重渲染。
+
+**重用清單**：
+- `src/utils/map-coords.ts` 的 `convertToPixel({ rawX, rawY, offsetX, offsetY, sizeFactor })` ← §7.2 座標換算直接用，不重寫
+- `src/composables/useItemName.ts` ← `useZoneName` / `useNpcName` 模板
+- `src/stores/theme.ts:30-39` 的 try/catch localStorage 寫入模式 ← `routeView` 持久化照抄
+- Element Plus `<el-segmented>`（已用於 `BatchSettings`）← §5.2 tab 切換不另起包裝元件
+- Element Plus `<el-progress>`（已用於 `BatchProgress.vue`）← toolbar progress bar
+- `src/services/item-acquisition.ts:91-106` 的 worker-pool batch 模式 ← `item-locations.ts` 比照
 
 ### 6.3 Store 改動 (`src/stores/bom.ts`)
 
-新增：
+新增（`acquisitionAvailability` 維持現狀，**不**取代）：
 
 ```ts
-itemDetails: ref<Map<number, ItemDetail>>(new Map())  // 取代現有 acquisitionAvailability
+itemLocations: ref<Map<number, ItemLocations>>(new Map())  // 來自 item-locations.ts，LRU 500
 
-routeView: ref<{
-  mode: 'detail' | 'route'              // tab state
-  optimizeBy: 'gil' | 'hop'             // route opt target
-  excluded: Set<number>                 // user-unchecked itemIds
-  checked: Set<number>                  // 完成度（item-centric）
-  collapsedGroups: Set<number>          // 摺疊的 zoneIds
-}>
+// 拆兩塊：prefs（使用者偏好，無關當下 BOM）vs session（這份 BOM 的暫存）
+routeViewPrefs: ref<{
+  optimizeBy: 'gil' | 'hop'
+}>                                                          // localStorage key: bom-route-prefs
+
+routeViewSession: ref<{
+  excluded: Set<number>                                     // user-unchecked itemIds
+  checked: Set<number>                                      // 完成度（item-centric）
+  collapsedGroups: Set<number>                              // 摺疊的 zoneIds
+}>                                                          // localStorage key: bom-route::<targetSig>
 ```
 
+`mode: 'detail' | 'route'` 不放 store，由 `BomView` 持有 `ref` + `sessionStorage`（key `bom-view-tab`），與 BOM target 無關，不會因為改 target qty 被重置。
+
 **localStorage 持久化**：
-- key = `bom-route::<targetSig>`
-- `targetSig = sha1(JSON.stringify(targets.map(t=>[t.itemId,t.quantity]).sort()))`（固定排序避免順序影響簽名）
-- target list 改變 → 簽名變 → 舊 key 自然失效；LRU 上限 8 個 key
-- `mode` 與 `optimizeBy` **不**綁簽名（使用者偏好），單獨存 `bom-route-prefs`
+- `routeViewPrefs` → key `bom-route-prefs`，目前只有 `optimizeBy`，照 `src/stores/theme.ts:30-39` try/catch 寫入
+- `routeViewSession` → key `bom-route::<targetSig>`
+- `targetSig` = canonical CSV：`targets.slice().sort((a,b) => a.itemId - b.itemId).map(t => \`${t.itemId}:${t.quantity}\`).join(',')`，**不用 sha1**（避免引入 crypto 依賴；CSV 短且穩定）
+- `targetSig` 由 `computed` 算出；`watch(targetSig, (next, prev) => { if (next !== prev) loadOrResetSession(next) })` 處理 target 變動 → session 自動重置/載回對應 key 的歷史
+- LRU 上限 8 個 `bom-route::*` key，超過時 evict 最舊
+- 寫入 debounce 500ms（checkbox 連點不會 hammer localStorage）
+
+**Reactivity 觸發邊界**（避免 over-rendering）：
+- `sortRoute()` 結果是 `computed`，inputs = `(itemLocations.value, routeViewPrefs.optimizeBy, routeViewSession.excluded, aetherytes)`
+- **`checked` 不是 sortRoute 的 input**：勾選只影響 row 的 `.checked` class（strikethrough），不會觸發重排或 re-group
+- `collapsedGroups` 不是 sortRoute 的 input：純 UI 摺疊狀態
 
 ### 6.4 既有結構不動
 
@@ -199,23 +241,88 @@ routeView: ref<{
 
 ### 7.1 `sortRoute()` — greedy heuristic
 
-明確標註為 **non-optimal heuristic**，對 BOM 規模（5–25 zones、30–80 rows）已堪用。
+明確標註為 **non-optimal heuristic**，對 BOM 規模（5–25 zones、30–80 rows）已堪用。輸入輸出型別：
+
+```ts
+interface RouteInput {
+  rows: Array<{ itemId: number; mode: 'npc'|'gather'; qty: number;
+                sources: Array<{ zoneId: number; x: number; y: number;
+                                 vendorName?: string; nodeLevel?: number;
+                                 itemPrice?: number }> }>
+  aetherytes: Map<number, AetheryteInfo[]>  // zoneId → aetherytes
+  optimizeBy: 'gil' | 'hop'
+  excluded: Set<number>
+}
+
+interface RouteOutput {
+  groups: Array<Group>           // Group 由 component 內 derive count/totalGil
+  totalTpCost: number
+  totalHops: number              // = groups.length
+}
+
+interface Group {
+  zoneId: number
+  zoneNameId: number             // 給 useZoneName(id) 解析顯示
+  aetheryte: AetheryteInfo | null  // null 代表 zone 不在 aetherytes.json
+  tpCost: number                 // 0 if aetheryte === null（顯示 ?G）
+  rows: Array<{ itemId: number; source: ChosenSource; orderInZone: number }>
+}
+```
 
 **步驟**：
 
 1. **過濾**：移除 `excluded` 與水晶（`itemId < 20`）
-2. **每列挑 primary source**：
-   - `optimizeBy === 'gil'`：`(itemPrice * qty) + tpCostToZone` 最低
-   - `optimizeBy === 'hop'`：兩階段 — Pass 1 按 gil 規則挑出初值，Pass 2 對「有替代 zone 的 row」嘗試移到「已存在的 popular zone」直到不再改善
-   - tie-break：gather 依 `nodeLevel ASC`、npc 依 `itemPrice ASC`、再依 `vendorName` 字母序
-3. **挑 zone 的 aetheryte**：對 zone 內所有 stops 算 centroid，取距離最近的 aetheryte
-4. **Zone 內排序**：依距離 aetheryte 升冪（簡單歐式距離），編號 1..N
-5. **Zone 之間排序**：`tpCost ASC`（兩種 mode 都一樣，差別只在第 2 步的 source 選擇）
-6. 回傳 `{ groups, totalTpCost, totalHops }`
+
+2. **Pass 1 — 每列挑 primary source（按 gil 規則）**：
+   ```
+   for each row r:
+     r.primarySource = argmin over r.sources of:
+       (s.itemPrice ?? 0) * r.qty + tpCostOf(s.zoneId, aetherytes)
+     tie-break: gather→nodeLevel ASC, npc→itemPrice ASC, then vendorName 字典序
+   ```
+
+3. **Pass 2 — 僅當 `optimizeBy === 'hop'` 才執行**：嘗試把 row 從冷門 zone 移到已存在的熱門 zone：
+   ```
+   improved = true
+   while improved:
+     improved = false
+     zoneCounts = countBy(rows, r => r.primarySource.zoneId)  // Map<zoneId, count>
+     for each row r in rows (sorted by alternativesCount DESC):
+       currentZone = r.primarySource.zoneId
+       if zoneCounts.get(currentZone) > 1: continue           // 沒移走也不會少 zone
+       for each alt source in r.sources where alt.zoneId !== currentZone:
+         if zoneCounts.get(alt.zoneId) >= 1:                  // 移到已訪 zone 才算改善
+           # 接受條件：總 hops 嚴格減少（離開的 zone 變空），gil 增量在 30% 以內
+           gilDelta = costOf(alt) - costOf(r.primarySource)
+           if gilDelta / costOf(r.primarySource) <= 0.30:
+             r.primarySource = alt
+             zoneCounts.set(currentZone, zoneCounts.get(currentZone) - 1)
+             zoneCounts.set(alt.zoneId, zoneCounts.get(alt.zoneId) + 1)
+             improved = true
+             break  # 換下一個 row
+   ```
+   30% gil cap 避免 hop-min 為了少跑一個區擠出 10 倍 gil 的怪結果。
+
+4. **挑 zone 的 aetheryte**：對 zone 內所有 stops 算 centroid `(avgX, avgY)`，取距離 centroid 最近的 aetheryte（簡單歐式距離；zone 不在 `aetherytes.json` → `aetheryte = null`、`tpCost = 0`、UI 顯示 `?G`）
+
+5. **Zone 內排序**：依距離 aetheryte 升冪，綁定 `orderInZone = 1..N`
+
+6. **Zone 之間排序**：`tpCost ASC`，`null` aetheryte 的 zone 排最後
+
+7. 回傳 `RouteOutput`
 
 ### 7.2 座標換算（map pixel）
 
-xivapi `SizeFactor` → 倍率 = `200 / SizeFactor`；遊戲座標 `(c)` → 圖上歸一化座標 `(c - 1) * 倍率 / 41 + 1`。CSS percentage = 直接 `(normalized / 42) * 100%`。沿用業界通用公式，`route-planner.ts` 內提供 helper。
+**直接 `import { convertToPixel } from '@/utils/map-coords'`**（已存在的 helper，已用於 garland.ts 流程）。
+
+`route-planner.ts` 不重新實作公式；如需從像素再換成 CSS percentage（marker 定位），加薄 wrapper：
+
+```ts
+import { convertToPixel } from '@/utils/map-coords'
+export function pixelToPercent(px: number, py: number, mapPx = 2048) {
+  return { left: `${(px / mapPx) * 100}%`, top: `${(py / mapPx) * 100}%` }
+}
+```
 
 ## 8. Edge Cases
 
@@ -231,7 +338,9 @@ xivapi `SizeFactor` → 倍率 = `200 / SizeFactor`；遊戲座標 `(c)` → 圖
 | 水晶 `itemId < 20` | 永遠不進 route；但仍在 §5.1 展開區顯示來源 |
 | BOM target 變更 | targetSig 變、新 key 從零開始；舊 key 留到 LRU 滿 |
 | optimizeBy 切換 | 重跑 `sortRoute`；marker 編號重排；勾選不重置 |
-| locale 切換 | NPC/zone 名 reactive 重渲染（透過 `useItemName` 同款 composable）；map asset URL 不變 |
+| `checked` Set 變動（勾選） | **不**重跑 `sortRoute`、**不** re-group；只更新該 row 的 `.checked` class |
+| locale 切換 | NPC/zone 名透過 `useZoneName`/`useNpcName` reactive 重渲染（讀模組層 cache，**不**重新 fetch xivapi）；map asset URL 不變 |
+| 第一次進 route tab | `await fetch('/data/aetherytes.json')` + 觸發任何尚未 fetch 的 `itemLocations`；顯示 skeleton 直到完成 |
 | 全部勾完 | progress bar 變綠 + toast「全部完成」；提供「重設勾選」/「回 BOM 主表」 |
 
 ## 9. Testing Strategy
@@ -291,6 +400,9 @@ xivapi `SizeFactor` → 倍率 = `200 / SizeFactor`；遊戲座標 `(c)` → 圖
 
 - 現有 BOM cockpit spec: `docs/superpowers/specs/2026-05-05-bom-decision-cockpit-design.md`
 - 現有 garlandtools + xivapi 整合: `src/api/garland.ts:104-134`
+- 已存在的座標換算 helper: `src/utils/map-coords.ts:1-10`
+- locale-reactive 名稱解析範本: `src/composables/useItemName.ts:1-14`
+- localStorage try/catch 寫入範本: `src/stores/theme.ts:30-39`
 - v2.10 non-craftable target 功能 commit: `31c6d4a`
 - Mockups（保存於 `.superpowers/brainstorm/`）：
   - v2: `bom-acquisition-mockups-v2.html`（採用 v3 後棄）
