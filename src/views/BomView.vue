@@ -78,6 +78,15 @@ async function handleCalculate() {
       ElMessage.warning('部分價格查詢失敗，可在該列點「重試」')
     }
 
+    // Calculate populates flatMaterials AFTER targetSig changes — the watcher
+    // already fired with empty materials and parked primed=true. Force a fresh
+    // prime here so npc/gather rows get their location data ready for the
+    // route tab without requiring a manual tab toggle.
+    routeDataPrimed = false
+    if (bomViewTab.value === 'route') {
+      void primeRouteData()
+    }
+
     await nextTick()
     totalsAnchor.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   } catch (err) {
@@ -216,8 +225,14 @@ watch(bomViewTab, async (v) => {
   if (v === 'route') await primeRouteData()
 })
 
-watch(() => bomStore.targetSig, () => {
+// targetSig changes mean a fresh BOM was calculated. Reset the primed flag and,
+// if the user is already on the route tab (e.g. session-restored), re-prime so
+// the new flatMaterials get their location data without requiring a tab toggle.
+watch(() => bomStore.targetSig, async () => {
   routeDataPrimed = false
+  if (bomViewTab.value === 'route') {
+    await primeRouteData()
+  }
 })
 
 onMounted(async () => {

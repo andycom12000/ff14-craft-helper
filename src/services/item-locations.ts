@@ -108,15 +108,18 @@ export function parseGarlandLocations(doc: GarlandItemDocument): ItemLocations {
   }
 
   // --- NPC vendors ---
+  // Garland's NPC partial uses `obj.l` for the PlaceName.Id (locationId),
+  // unlike node partials which use `obj.z`. Accept both for safety.
   const npcVendors: ItemLocations['npcVendors'] = []
   for (const vendorId of item.vendors ?? []) {
     const partial = findPartial('npc', vendorId)
     if (!partial) continue
-    const { c, z } = partial.obj
-    if (!c || z === undefined) continue
+    const { c, z, l } = partial.obj
+    const zoneId = z ?? l
+    if (!c || zoneId === undefined) continue
     const entry: ItemLocations['npcVendors'][number] = {
       npcId: vendorId,
-      zoneId: z,
+      zoneId,
       x: c[0],
       y: c[1],
     }

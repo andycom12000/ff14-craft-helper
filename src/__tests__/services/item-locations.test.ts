@@ -77,6 +77,33 @@ describe('parseGarlandLocations', () => {
     expect(result.gatherNodes).toHaveLength(0)
   })
 
+  // Regression: real garlandtools NPC partials use obj.l (locationId), not obj.z
+  // (See https://garlandtools.org/db/doc/item/en/3/<id>.json — NPC partials use
+  //  l for the PlaceName.Id while node partials use z.)
+  it('reads zoneId from obj.l for NPC partials (real garland schema)', () => {
+    const result = parseGarlandLocations(
+      doc(
+        { id: 4811, vendors: [1008907], price: 28 },
+        [
+          {
+            type: 'npc',
+            id: '1008907',
+            // Real garland shape — l: 33 is locationId; no z field on NPC
+            obj: { n: 'Sahagin Vendor', c: [16.99, 22.44], l: 33 },
+          },
+        ],
+      ),
+    )
+    expect(result.npcVendors).toHaveLength(1)
+    expect(result.npcVendors[0]).toEqual({
+      npcId: 1008907,
+      zoneId: 33,
+      x: 16.99,
+      y: 22.44,
+      price: 28,
+    })
+  })
+
   // Case 2: Extracts gather nodes (MIN) from item.nodes with type classified
   it('extracts gather nodes from item.nodes and classifies MIN (t<=1)', () => {
     const result = parseGarlandLocations(
