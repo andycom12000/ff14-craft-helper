@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { ElProgress } from 'element-plus'
+// `<el-progress>` is auto-resolved by ElementPlusResolver in vite.config.ts,
+// which also injects the matching CSS bundle. The explicit
+// `import { ElProgress } from 'element-plus'` we used to have here bypassed
+// that — JS arrived but no CSS, so the bar rendered with no track and no
+// fill (the "進度條不顯示" bug).
 
 const props = defineProps<{
   progress: { done: number; total: number }
@@ -32,10 +36,9 @@ function onResort() {
     <span class="rpt__label">採買進度</span>
     <el-progress
       :percentage="pct"
-      :show-text="false"
       :stroke-width="10"
+      :status="isComplete ? 'success' : ''"
       class="rpt__bar"
-      :class="{ 'is-complete': isComplete }"
       data-testid="progress"
     />
     <span class="rpt__count" data-testid="progress-count">{{ progress.done }} / {{ progress.total }}</span>
@@ -70,25 +73,14 @@ function onResort() {
 
 .rpt__bar {
   flex: 1;
-  min-width: 120px;
+  min-width: 160px;
 }
 
-/* Make the empty track visible so the bar isn't a single grey hairline at
- * 0% — was barely there before, leading users to think the bar disappeared. */
-.rpt__bar :deep(.el-progress-bar__outer) {
-  background-color: color-mix(in srgb, var(--app-craft) 14%, transparent) !important;
-  border: 1px solid color-mix(in srgb, var(--app-craft) 24%, transparent) !important;
-}
-
-/* Force el-progress to use cocoa fill (Sunlight Spotlight Rule — no toast-gold gradient) */
-.rpt__bar :deep(.el-progress-bar__inner) {
-  background-color: var(--app-craft) !important;
-  background-image: none !important;
-}
-
-.rpt__bar.is-complete :deep(.el-progress-bar__inner) {
-  background-color: var(--app-toast-gold, oklch(0.78 0.13 75)) !important;
-}
+/* No :deep overrides — defer to Element Plus's default progress styling
+ * so this bar matches the bars in batch's TodoList, ShoppingList, and
+ * BatchProgress (one consistent look across the app). The cocoa-on-cocoa
+ * override that used to live here had near-zero contrast at low
+ * percentages, which is why the bar appeared not to update. */
 
 .rpt__count {
   font-family: 'Fira Code', ui-monospace, monospace;

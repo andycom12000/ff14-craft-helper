@@ -21,17 +21,22 @@ describe('RoutePlannerToolbar', () => {
     expect(w.emitted('reset')).toBeTruthy()
   })
 
-  it('marks bar as complete when done === total', () => {
+  it('marks bar as complete via el-progress status when done === total', () => {
     const w = mount(RoutePlannerToolbar, {
       props: { progress: { done: 5, total: 5 } },
     })
-    expect(w.find('[data-testid="progress"]').classes()).toContain('is-complete')
+    // Without ElementPlusResolver in vitest config, <el-progress> is a stub
+    // and EP's internal `is-success` class isn't applied. Assert on the
+    // attribute we pass to the component instead.
+    const bar = w.find('[data-testid="progress"]')
+    expect(bar.attributes('status')).toBe('success')
   })
 
-  it('shows 0% when total is 0', () => {
+  it('does not mark complete when total is 0', () => {
     const w = mount(RoutePlannerToolbar, {
       props: { progress: { done: 0, total: 0 } },
     })
-    expect(w.find('[data-testid="progress"]').classes()).not.toContain('is-complete')
+    const bar = w.find('[data-testid="progress"]')
+    expect(bar.attributes('status')).toBe('')
   })
 })
