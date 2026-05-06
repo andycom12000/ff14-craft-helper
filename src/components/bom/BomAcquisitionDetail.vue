@@ -199,12 +199,14 @@ const activeZoneMeta = computed(() =>
   activeZoneId.value !== null ? getZoneMetaSync(activeZoneId.value) : null,
 )
 
-const XIVAPI_ASSET_BASE = 'https://xivapi.com/'
+// xivapi v1 serves map assets via the asset proxy with ?format=png. The legacy
+// xivapi.com host blocks CORS for these textures; beta.xivapi.com does not.
+const XIVAPI_ASSET_BASE = 'https://beta.xivapi.com/api/1/asset/'
 
 const mapImageUrl = computed(() => {
   const url = activeZoneMeta.value?.mapAssetUrl
   if (!url) return null
-  return `${XIVAPI_ASSET_BASE}${url}`
+  return `${XIVAPI_ASSET_BASE}${url}?format=png`
 })
 
 const hasMap = computed(() => !!mapImageUrl.value)

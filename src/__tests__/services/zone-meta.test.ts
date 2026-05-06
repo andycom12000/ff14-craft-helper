@@ -78,21 +78,21 @@ const fakeMapSearchResponse = {
       fields: {
         Id: 'r1f1/00',
         SizeFactor: 200,
-        'PlaceName.Id': 146,
+        PlaceName: { value: 146 },
       },
     },
     {
       fields: {
         Id: 'r1f2/00',
         SizeFactor: 200,
-        'PlaceName.Id': 153,
+        PlaceName: { value: 153 },
       },
     },
     {
       fields: {
         Id: 'r1f3/00',
         SizeFactor: 200,
-        'PlaceName.Id': 155,
+        PlaceName: { value: 155 },
       },
     },
   ],
@@ -232,7 +232,7 @@ describe('fetchZoneMetaBulk', () => {
               fields: {
                 Id: 'r1f1/00',
                 SizeFactor: 200,
-                'PlaceName.Id': 146,
+                PlaceName: { value: 146 },
               },
             },
           ],
@@ -332,7 +332,7 @@ describe('fetchZoneMetaBulk', () => {
               fields: {
                 Id: 'r1f1/00',
                 SizeFactor: 100,
-                'PlaceName.Id': 146,
+                PlaceName: { value: 146 },
               },
             },
           ],

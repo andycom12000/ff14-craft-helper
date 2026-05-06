@@ -13,6 +13,12 @@ import type { Group, GroupRow } from '@/services/route-planner'
 
 const props = defineProps<{
   group: Group
+  /** 1-based stop number across the whole route (Stop 01, 02, …). */
+  stopNumber: number
+  /** Total stops in the route — drives "stop X / Y" hint and last-stop detection. */
+  totalStops: number
+  /** zoneId of the next stop, or null if this is the last stop. */
+  nextZoneId: number | null
 }>()
 
 const emit = defineEmits<{
@@ -31,6 +37,9 @@ const isPhone = useMediaQuery('(max-width: 767px)')
 // ---------------------------------------------------------------------------
 
 const zoneName = useZoneName(() => props.group.zoneId)
+const nextZoneName = useZoneName(() => props.nextZoneId ?? -1)
+const stopLabel = computed(() => String(props.stopNumber).padStart(2, '0'))
+const isLastStop = computed(() => props.nextZoneId === null)
 
 // ---------------------------------------------------------------------------
 // Collapse state
@@ -98,13 +107,15 @@ function rowIsNpc(row: GroupRow): boolean {
 // Map
 // ---------------------------------------------------------------------------
 
-const XIVAPI_ASSET_BASE = 'https://xivapi.com/'
+// xivapi v1 serves map assets via the asset proxy with ?format=png. The legacy
+// xivapi.com host blocks CORS for these textures; beta.xivapi.com does not.
+const XIVAPI_ASSET_BASE = 'https://beta.xivapi.com/api/1/asset/'
 
 const mapMeta = computed(() => getZoneMetaSync(props.group.zoneId))
 const mapImageUrl = computed(() => {
   const url = mapMeta.value?.mapAssetUrl
   if (!url) return null
-  return `${XIVAPI_ASSET_BASE}${url}`
+  return `${XIVAPI_ASSET_BASE}${url}?format=png`
 })
 
 // ---------------------------------------------------------------------------
@@ -195,7 +206,7 @@ function onMapError(e: Event) {
 <template>
   <div
     class="rpgc"
-    :class="{ 'is-hero': group.isHero }"
+    :class="{ 'is-last': isLastStop }"
     data-testid="group-card"
   >
     <!-- ── Header ──────────────────────────────────────────────────────────── -->
@@ -209,8 +220,13 @@ function onMapError(e: Event) {
       @keydown.enter.prevent="toggleCollapse"
       @keydown.space.prevent="toggleCollapse"
     >
+      <!-- Stop badge (the wayfinding signal — sequence is the whole point of this view) -->
+      <span class="rpgc__stop-badge" :aria-label="`第 ${stopNumber} 站，共 ${totalStops} 站`">
+        <span class="rpgc__stop-num">{{ stopLabel }}</span>
+      </span>
+
       <!-- Zone name -->
-      <span class="rpgc__zone-name">🌍 {{ zoneName }}</span>
+      <span class="rpgc__zone-name">{{ zoneName }}</span>
 
       <!-- Aetheryte chip -->
       <span
@@ -330,6 +346,16 @@ function onMapError(e: Event) {
         </div>
       </div>
     </div>
+
+    <!-- ── Next-stop hint ──────────────────────────────────────────────────── -->
+    <div v-if="!isLastStop" class="rpgc__next" aria-hidden="true">
+      <span class="rpgc__next-arrow">↓</span>
+      <span class="rpgc__next-label">下一站</span>
+      <span class="rpgc__next-name">{{ nextZoneName }}</span>
+    </div>
+    <div v-else class="rpgc__next rpgc__next--last" aria-hidden="true">
+      <em class="rpgc__finish">收工</em>
+    </div>
   </div>
 </template>
 
@@ -346,10 +372,11 @@ function onMapError(e: Event) {
   flex-direction: column;
 }
 
-.rpgc.is-hero {
-  background: var(--app-cream-emphasis, color-mix(in srgb, var(--app-cream-surface, #faf7f2) 80%, var(--app-craft-dim) 20%));
-  grid-column: span 2;
-}
+/* `is-hero` no longer paints a brighter surface — the bright variant
+ * stood out so much it broke the rhythm of the timeline and gave the
+ * wrong wayfinding signal (a card that's just got more items shouldn't
+ * look like the start of the route). The hero status is now communicated
+ * solely through the stop-number badge above. */
 
 /* -----------------------------------------------------------------------
    Header
@@ -381,7 +408,7 @@ function onMapError(e: Event) {
 }
 
 .rpgc__zone-name {
-  font-size: 14px;
+  font-size: 14.5px;
   font-weight: 600;
   color: var(--app-text);
   flex: 1;
@@ -391,8 +418,28 @@ function onMapError(e: Event) {
   text-overflow: ellipsis;
 }
 
-.rpgc.is-hero .rpgc__zone-name {
-  font-size: 15px;
+/* -----------------------------------------------------------------------
+   Stop badge — primary wayfinding cue. Big, cocoa, mono numerals.
+----------------------------------------------------------------------- */
+.rpgc__stop-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--app-craft);
+  color: var(--app-cream-surface, #faf7f2);
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow: 0 1px 4px oklch(0.28 0.04 55 / 0.25);
+}
+
+.rpgc__stop-num {
+  font-size: 13px;
+  line-height: 1;
 }
 
 .rpgc__aeth-chip {
@@ -703,5 +750,64 @@ function onMapError(e: Event) {
 .rpgc__map-btn:focus-visible {
   outline: 2px solid var(--app-craft);
   outline-offset: 2px;
+}
+
+/* -----------------------------------------------------------------------
+   Next-stop hint — the timeline connector. The arrow + zone name lives
+   inside the card so the visual continuity (one card → next card) reads
+   without needing a separate connector element between cards.
+----------------------------------------------------------------------- */
+.rpgc__next {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-top: 1px dashed var(--app-border);
+  background: color-mix(in srgb, var(--app-craft-dim) 10%, transparent);
+  font-size: 12px;
+  color: var(--app-text-muted);
+}
+
+.rpgc__next-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--app-craft) 20%, transparent);
+  color: var(--app-craft);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.rpgc__next-label {
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.rpgc__next-name {
+  font-weight: 600;
+  color: var(--app-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rpgc__next--last {
+  justify-content: center;
+  background: transparent;
+  border-top-style: solid;
+  padding: 12px 14px;
+}
+
+.rpgc__finish {
+  font-family: 'Cormorant Garamond', 'Noto Serif TC', serif;
+  font-style: italic;
+  font-size: 16px;
+  color: var(--app-toast-gold, oklch(0.78 0.14 78));
+  letter-spacing: 0.04em;
 }
 </style>

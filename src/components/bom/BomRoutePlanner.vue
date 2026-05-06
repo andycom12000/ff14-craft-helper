@@ -188,15 +188,21 @@ function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
         @reset="onReset"
         @re-sort="onResort"
       />
-      <div class="brp-grid">
-        <RoutePlannerGroupCard
+      <ol class="brp-timeline">
+        <li
           v-for="(g, i) in routeOutput.groups"
           :key="`${g.zoneId}-${i}`"
-          :group="g"
-          :class="{ 'brp-grid__cell--hero': g.isHero }"
-          @open-map-sheet="onOpenMapSheet"
-        />
-      </div>
+          class="brp-timeline__item"
+        >
+          <RoutePlannerGroupCard
+            :group="g"
+            :stop-number="i + 1"
+            :total-stops="routeOutput.groups.length"
+            :next-zone-id="i + 1 < routeOutput.groups.length ? routeOutput.groups[i + 1].zoneId : null"
+            @open-map-sheet="onOpenMapSheet"
+          />
+        </li>
+      </ol>
     </template>
 
     <!-- 4. Phone bottom sheet -->
@@ -215,26 +221,22 @@ function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
   gap: 12px;
 }
 
-.brp-grid {
-  display: grid;
+/* Vertical timeline of stops. Single column on every viewport so the sequence
+ * (Stop 1 → Stop 2 → …) reads top-to-bottom unambiguously; wide screens
+ * spend that width on each card's internal density (map + checklist) rather
+ * than on packing more cards side-by-side, which scrambled the order. */
+.brp-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
 }
 
-@media (min-width: 1700px) {
-  .brp-grid {
-    grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
-  }
-}
-
-.brp-grid__cell--hero {
-  grid-column: span 2;
-}
-
-@media (max-width: 767px) {
-  .brp-grid__cell--hero {
-    grid-column: span 1;
-  }
+.brp-timeline__item {
+  margin: 0;
+  padding: 0;
 }
 
 /* Empty state */

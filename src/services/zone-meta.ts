@@ -55,7 +55,13 @@ interface PlaceNameFields {
 interface MapSearchFields {
   Id?: string
   SizeFactor?: number
-  'PlaceName.Id'?: number
+  /**
+   * xivapi v1 returns the PlaceName link as a nested object, not a dotted
+   * field. Field shape: `{ value, sheet: 'PlaceName', row_id, fields }`.
+   * The dotted form `PlaceName.Id` we tried first does not exist on the
+   * payload — that's why every minimap lookup was silently dropping.
+   */
+  PlaceName?: { value?: number; row_id?: number }
 }
 
 interface NpcFields {
@@ -183,7 +189,7 @@ async function _doFetchZoneMeta(ids: number[]): Promise<Map<number, ZoneMeta>> {
       const data = await resp.json()
       for (const result of data.results ?? []) {
         const f = result.fields as MapSearchFields
-        const placeNameId = f['PlaceName.Id']
+        const placeNameId = f.PlaceName?.value ?? f.PlaceName?.row_id
         const mapStringId = f.Id
         const sizeFactor = f.SizeFactor ?? 100
         if (placeNameId != null && mapStringId) {
