@@ -34,13 +34,6 @@ function makeFailFetch() {
   }) as unknown as typeof fetch
 }
 
-function makeNonOkFetch() {
-  return vi.fn(async (_url: string) => ({
-    ok: false,
-    status: 404,
-    json: async () => ({}),
-  })) as unknown as typeof fetch
-}
 
 // ---------------------------------------------------------------------------
 // parseGarlandLocations — pure parser tests (Cases 1–5)

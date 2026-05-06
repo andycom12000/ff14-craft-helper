@@ -2,8 +2,6 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElSkeleton } from 'element-plus'
 import { useBomStore } from '@/stores/bom'
-import { useNpcName } from '@/composables/useNpcName'
-import { useZoneName } from '@/composables/useZoneName'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import { getZoneMetaSync } from '@/services/zone-meta'
 import { convertToPixel, pixelToPercent } from '@/utils/map-coords'

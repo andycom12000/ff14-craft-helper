@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
-import { mount, flushPromises } from '@vue/test-utils'
+import { mount } from '@vue/test-utils'
 import ZoneMapSheet from '@/components/bom/ZoneMapSheet.vue'
 import { fetchZoneMetaBulk, __clearCache } from '@/services/zone-meta'
 
@@ -180,7 +179,6 @@ describe('ZoneMapSheet', () => {
     // Simulate closing the drawer by triggering the update:modelValue event
     // The component's template has @update:model-value="(v) => emit('update:modelValue', v)"
     // which forwards the el-drawer's event
-    const emitSpy = vi.spyOn(w.vm, '$emit')
     w.vm.$emit('update:modelValue', false)
 
     const events = w.emitted('update:modelValue')

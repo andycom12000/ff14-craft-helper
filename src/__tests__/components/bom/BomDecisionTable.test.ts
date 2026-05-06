@@ -53,17 +53,14 @@ function makeTable(bom: ReturnType<typeof useBomStore>, itemId: number) {
     name: 'Iron Ore',
     icon: '',
     totalAmount: 3,
-    depth: 1,
-    recipeId: null,
+    isRaw: true,
   }
   const node: MaterialNode = {
     itemId,
     name: 'Iron Ore',
     icon: '',
     amount: 3,
-    recipeId: null,
     children: [],
-    depth: 1,
     collapsed: false,
   }
   vi.spyOn(bom, 'isCraftableInTree').mockReturnValue(false)

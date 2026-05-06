@@ -4,7 +4,6 @@ import { useBomStore } from '@/stores/bom'
 import { useZoneName } from '@/composables/useZoneName'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import { getZoneMetaSync } from '@/services/zone-meta'
-import { useLocaleStore } from '@/stores/locale'
 import { convertToPixel, pixelToPercent } from '@/utils/map-coords'
 import type { Group, GroupRow } from '@/services/route-planner'
 
@@ -25,7 +24,6 @@ const emit = defineEmits<{
 // ---------------------------------------------------------------------------
 
 const bomStore = useBomStore()
-const localeStore = useLocaleStore()
 const isPhone = useMediaQuery('(max-width: 767px)')
 
 // ---------------------------------------------------------------------------
