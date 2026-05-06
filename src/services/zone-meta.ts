@@ -169,7 +169,10 @@ async function _doFetchZoneMeta(ids: number[]): Promise<Map<number, ZoneMeta>> {
   //   query=PlaceName=146,153,155
   // This fetches one row per (PlaceName, Map) pair in a single round-trip.
   try {
-    const queryParts = ids.map((id) => `PlaceName=${id}`).join(',')
+    // xivapi search OR-joins terms with whitespace (URL-encoded as `+`),
+    // not commas — `PlaceName=A,PlaceName=B` returns HTTP 400 while
+    // `PlaceName=A+PlaceName=B` returns matching rows for both ids.
+    const queryParts = ids.map((id) => `PlaceName=${id}`).join('+')
     const url =
       `${XIVAPI_SHEET_BASE}/search` +
       `?sheets=Map` +
