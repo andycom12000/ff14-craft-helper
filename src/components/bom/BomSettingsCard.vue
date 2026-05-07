@@ -8,10 +8,10 @@ const isMobile = useIsMobile()
 
 <template>
   <template v-if="!isMobile">
-    <section class="bom-settings">
-      <header class="bom-settings__header">
-        <span class="bom-settings__title">查價設定</span>
-      </header>
+    <el-card shadow="never" class="bom-settings-card">
+      <template #header>
+        <span class="card-title">查價設定</span>
+      </template>
 
       <div class="bom-settings__row">
         <div class="bom-settings__cell">
@@ -51,7 +51,7 @@ const isMobile = useIsMobile()
         </div>
         <span class="bom-settings__hint">等級不足或無法雙滿時</span>
       </div>
-    </section>
+    </el-card>
   </template>
 
   <template v-else>
@@ -111,31 +111,17 @@ const isMobile = useIsMobile()
 </template>
 
 <style scoped>
-/* Section, not a card. The rail (.b-rail in BomView) is the card; settings
- * sits inside as a typographic block separated by a dashed divider — never
- * box-in-box. See DESIGN.md "Rails — single sticky container, sections
- * inside are separated by dividers, NOT individual cards." */
-.bom-settings {
+/* Card chrome inherits el-card defaults; matches BatchSettings (.settings-card)
+ * which doesn't override either header or body padding. `.card-title` falls
+ * back to the global rule in App.vue (15px / 600). */
+.bom-settings-card {
+  margin-top: 0;
+}
+
+.bom-settings-card :deep(.el-card__body) {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding-top: 14px;
-  border-top: 1px dashed var(--app-border);
-}
-
-.bom-settings__header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 2px;
-}
-
-.bom-settings__title {
-  font-family: 'Fira Code', ui-monospace, monospace;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--app-text-muted);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  gap: 4px;
 }
 
 .bom-settings__row {
