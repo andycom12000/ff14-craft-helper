@@ -136,7 +136,7 @@ let worldsBundleCache: WorldsBundle | null = null
 
 async function loadWorldsBundle(): Promise<WorldsBundle> {
   if (worldsBundleCache) return worldsBundleCache
-  const res = await fetch('/data/worlds.json', { cache: 'force-cache' })
+  const res = await fetch(`${import.meta.env.BASE_URL}data/worlds.json`, { cache: 'force-cache' })
   if (!res.ok) throw new Error(`worlds.json HTTP ${res.status}`)
   const bundle = (await res.json()) as WorldsBundle
   worldsBundleCache = bundle

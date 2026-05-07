@@ -44,7 +44,7 @@ let _aetherytesCache: AetherytesData | null = null
 
 async function loadAetherytes(): Promise<AetherytesData> {
   if (_aetherytesCache) return _aetherytesCache
-  const resp = await fetch('/data/aetherytes.json')
+  const resp = await fetch(`${import.meta.env.BASE_URL}data/aetherytes.json`)
   _aetherytesCache = (await resp.json()) as AetherytesData
   return _aetherytesCache
 }

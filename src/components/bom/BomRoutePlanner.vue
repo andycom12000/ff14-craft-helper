@@ -19,7 +19,7 @@ let _aetherytesData: Map<number, AetheryteInfo[]> | null = null
 async function loadAetherytes(): Promise<Map<number, AetheryteInfo[]>> {
   if (_aetherytesData) return _aetherytesData
   try {
-    const resp = await fetch('/data/aetherytes.json')
+    const resp = await fetch(`${import.meta.env.BASE_URL}data/aetherytes.json`)
     if (!resp.ok) throw new Error('aetherytes load failed')
     const json = await resp.json()
     const map = new Map<number, AetheryteInfo[]>()
