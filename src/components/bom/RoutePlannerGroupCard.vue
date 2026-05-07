@@ -715,8 +715,11 @@ function onMapError(e: Event) {
     max-height: none;
   }
   .rpgc__checklist {
-    flex: 0 0 360px;
-    max-width: 360px;
+    /* Wider than the original 360 so item names like 「金毗羅鱷革升龍皮甲」
+     * (8+ CJK chars) and «艾奧傑亞百科全書» fit without ellipsis. The map
+     * column still holds majority width on standard 1440 viewports. */
+    flex: 0 0 440px;
+    max-width: 440px;
     overflow-y: auto;
     scrollbar-width: thin;
     min-height: 0;
