@@ -18,6 +18,13 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: 'v2.10.1',
+    date: '2026-05-08',
+    highlights: [
+      '【OCR 截圖匯入修好了】裝備清單截圖辨識在 production 因為 tesseract worker 抓錯路徑（少了 `/ff14-craft-helper/` 前綴）整個 fail，已修復；同時把 leptonica 對窄行裁圖的 `Image too small to scale` / `Line cannot be recognized` 警告塞進 shim 的 console 過濾器，DevTools 不再被洗版',
+    ],
+  },
+  {
     version: 'v2.10.0',
     date: '2026-05-05',
     highlights: [
