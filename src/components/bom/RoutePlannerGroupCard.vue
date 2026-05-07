@@ -690,12 +690,13 @@ function onMapError(e: Event) {
     flex-direction: row;
     align-items: stretch;
     /* Body height = viewport minus chrome above & below the card body.
-     * Empirically measured chrome stack at 1280×1253 viewport: page header
-     * + sticky stack (totals/tabs/toolbar) + eyebrow + stepper + card
-     * header + nav row + paddings ≈ 580px. Cap at 720 so tall monitors
-     * don't waste space on a giant map. */
-    height: min(720px, calc(100dvh - 580px));
-    min-height: 460px;
+     * Chrome stack at the route tab (post-calc, post-trim): section
+     * headers + sticky totals/tabs/toolbar + card header + paddings
+     * ≈ 460px. Cap at 720 so tall monitors don't waste space on a giant
+     * map; min-height keeps the map usable when the viewport is short
+     * enough that the calc would zero the body out. */
+    height: min(720px, calc(100dvh - 540px));
+    min-height: 320px;
     overflow: hidden;
   }
   .rpgc__map-col {

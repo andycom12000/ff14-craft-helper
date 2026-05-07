@@ -275,7 +275,12 @@ watch(bomViewTab, async (v) => {
 
 <template>
   <div class="bom-view" v-loading="isLoadingData" :style="{ '--bom-flow-h': `${flowHeight}px` }">
-    <header class="bom-view__header">
+    <!-- Page header is onboarding-only: it carries the title + welcome copy
+         that helps a first-time user grok the page. Once they've calc'd it
+         becomes dead weight that pushes the route map below the fold, so
+         we drop it to claim the height back. The sidebar still highlights
+         "購物清單" so wayfinding doesn't suffer. -->
+    <header v-if="!calculated" class="bom-view__header">
       <h2>
         購物清單
         <span class="bom-view__beta" aria-label="實驗中">實驗中</span>
