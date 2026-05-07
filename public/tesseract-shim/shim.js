@@ -11,6 +11,11 @@
   const NOISE = [
     /^Warning: Parameter not found:/,
     /^Estimating resolution as /,
+    // Leptonica/Tesseract complaints about narrow line crops or rows the LSTM
+    // pass gives up on. The dual-PSM fusion (PSM 6 + PSM 4) covers these gaps,
+    // so the surviving merged text is unaffected — the messages are just noise.
+    /^Image too small to scale!!/,
+    /^Line cannot be recognized!!/,
   ];
   const wrap = (orig) => function (first) {
     if (typeof first === 'string' && NOISE.some((p) => p.test(first))) return;

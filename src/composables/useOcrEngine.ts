@@ -20,6 +20,12 @@ export function useOcrEngine() {
       // Pass `base` through so the shim can resolve worker.min.js without
       // hard-coding the project's base path (see public/tesseract-shim/shim.js).
       workerPath: `${base}tesseract-shim/shim.js?base=${encodeURIComponent(base)}`,
+      // Spawn the worker directly from workerPath instead of wrapping it in a
+      // Blob that does importScripts(workerPath). The blob wrapper makes the
+      // running worker's self.location a blob: URL, which strips the ?base=
+      // query the shim relies on to resolve worker.min.js under a non-root
+      // GitHub Pages base path.
+      workerBlobURL: false,
       logger: (m) => {
         if (m.status === 'recognizing text') {
           // Each pass reports its own 0→1 progress; scale across the two passes.
