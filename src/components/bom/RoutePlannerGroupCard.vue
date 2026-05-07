@@ -542,6 +542,9 @@ function onMapError(e: Event) {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  /* Make the card itself the size container so the inner layout flips
+     based on the card's own width, not the viewport. */
+  container-type: inline-size;
 }
 
 /* `is-hero` no longer paints a brighter surface — the bright variant
@@ -652,99 +655,89 @@ function onMapError(e: Event) {
 }
 
 /* -----------------------------------------------------------------------
-   Body — two-column layout ≥768px
+   Body layout
+   - Default (stacked): map full-width on top, checklist full-width below.
+     Used at narrow card widths (mobile, tablet portrait, narrow desktop)
+     so source-info rows don't fight the map column for horizontal space.
+   - ≥1100 card width (hero-map row): map fills the leftover horizontal
+     space and the body's full height; checklist pinned to a narrow
+     scrollable column on the right. Body height matches what the
+     stepper needs so the page itself doesn't scroll on a single card.
 ----------------------------------------------------------------------- */
 .rpgc__body {
   display: flex;
   flex-direction: column;
 }
 
-@media (min-width: 768px) {
-  .rpgc__body {
-    flex-direction: row;
-    align-items: flex-start;
-  }
-}
-
-/* -----------------------------------------------------------------------
-   Map column (desktop)
------------------------------------------------------------------------ */
 .rpgc__map-col {
-  flex-shrink: 0;
-  width: 240px;
   padding: 12px;
-  border-right: 1px solid var(--app-border);
-}
-
-/* Single-card stepper mode: pin the body to a viewport-relative height so
- * the page itself doesn't scroll. The map column derives its width from
- * body height via aspect-ratio (always square); the checklist column
- * scrolls within. */
-.rpgc.is-big-map .rpgc__body {
-  /* Body height = viewport minus chrome above & below the card body.
-   * Empirically measured chrome stack at 1280×1253 viewport: page header
-   * + sticky stack (totals/tabs/toolbar) + eyebrow + stepper + card
-   * header + nav row + paddings ≈ 580px. Cap at 720 so tall monitors
-   * don't waste space on a giant map. */
-  height: min(720px, calc(100dvh - 580px));
-  min-height: 420px;
-  align-items: stretch;
-  overflow: hidden;
-}
-
-.rpgc.is-big-map .rpgc__map-col {
-  flex-shrink: 0;
-  padding: 16px;
-  display: flex;
-  position: relative;
-  /* Explicitly size width to the same expression as body height — gives a
-   * perfect square once the col is stretched vertically by the flex body. */
-  width: min(720px, calc(100dvh - 580px));
-}
-
-.rpgc.is-big-map .rpgc__map-container {
-  width: 100%;
-  height: 100%;
-}
-
-.rpgc.is-big-map .rpgc__checklist {
-  overflow-y: auto;
-  scrollbar-width: thin;
-  min-height: 0;
-  flex: 1;
+  border-bottom: 1px solid var(--app-border);
 }
 
 .rpgc__map-container {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 11;
+  aspect-ratio: 16 / 7;            /* stacked: cinematic strip, not towering */
+  max-height: 240px;
   background: var(--app-cream-emphasis, var(--app-cream-surface, var(--app-surface)));
   border-radius: 6px;
   overflow: hidden;
   border: 1px solid var(--app-border);
 }
 
-/* Hero: slightly taller map (~+40px equivalent via ratio tweak) */
-.rpgc__map-container.is-hero {
-  aspect-ratio: 16 / 12.5;
+@container (min-width: 720px) {
+  .rpgc__body {
+    flex-direction: row;
+    align-items: stretch;
+    /* Body height = viewport minus chrome above & below the card body.
+     * Empirically measured chrome stack at 1280×1253 viewport: page header
+     * + sticky stack (totals/tabs/toolbar) + eyebrow + stepper + card
+     * header + nav row + paddings ≈ 580px. Cap at 720 so tall monitors
+     * don't waste space on a giant map. */
+    height: min(720px, calc(100dvh - 580px));
+    min-height: 460px;
+    overflow: hidden;
+  }
+  .rpgc__map-col {
+    flex: 1;
+    min-width: 0;
+    padding: 16px;
+    display: flex;
+    position: relative;
+    border-bottom: none;
+    border-right: 1px solid var(--app-border);
+  }
+  .rpgc__map-container {
+    aspect-ratio: auto;
+    width: 100%;
+    height: 100%;
+    max-height: none;
+  }
+  .rpgc__checklist {
+    flex: 0 0 360px;
+    max-width: 360px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    min-height: 0;
+  }
+  .rpgc__marker {
+    width: 26px;
+    height: 26px;
+    font-size: 11px;
+  }
+  .rpgc__marker--aeth {
+    width: 24px;
+    height: 24px;
+    font-size: 14px;
+  }
 }
 
-/* Big-map mode: keep the map square — FFXIV maps are 2048×2048 — so the
- * markers don't squash and the player can locate quadrants at a glance. */
-.rpgc.is-big-map .rpgc__map-container {
-  aspect-ratio: 1 / 1;
-}
-
-.rpgc.is-big-map .rpgc__marker {
-  width: 26px;
-  height: 26px;
-  font-size: 11px;
-}
-
-.rpgc.is-big-map .rpgc__marker--aeth {
-  width: 24px;
-  height: 24px;
-  font-size: 14px;
+/* Hero: slightly taller stacked map. Only meaningful below 1100 — at ≥1100
+ * the container query already gives the map full body height. */
+@container (max-width: 719px) {
+  .rpgc__map-container.is-hero {
+    aspect-ratio: 16 / 8;
+  }
 }
 
 /* Zoom + pan: the stage holds the image AND markers so they transform
