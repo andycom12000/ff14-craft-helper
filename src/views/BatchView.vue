@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useBatchStore } from '@/stores/batch'
 import { useSettingsStore } from '@/stores/settings'
@@ -19,6 +19,7 @@ import BuffRecommendationCard from '@/components/batch/BuffRecommendationCard.vu
 import FlowBreadcrumb from '@/components/common/FlowBreadcrumb.vue'
 import ConfirmNewBatch from '@/components/batch/ConfirmNewBatch.vue'
 import GearsetSheet from '@/components/gearset/GearsetSheet.vue'
+import { useStickyToolbarHeight } from '@/composables/useStickyToolbarHeight'
 import { JOB_NAMES } from '@/utils/jobs'
 
 const batchStore = useBatchStore()
@@ -116,28 +117,7 @@ function startNewBatch() {
 // Mobile sticky offset: measure FlowBreadcrumb height into a CSS var so
 // scroll-margin-top tracks the real toolbar height (which changes with
 // active label length / pending state).
-const flowBreadcrumbRef = ref<{ $el?: HTMLElement } | HTMLElement>()
-const flowHeight = ref(0)
-let flowResizeObserver: ResizeObserver | null = null
-
-onMounted(() => {
-  const node = flowBreadcrumbRef.value as { $el?: HTMLElement } | HTMLElement | undefined
-  const el = (node && '$el' in node ? node.$el : node) as HTMLElement | undefined
-  if (!el || typeof ResizeObserver === 'undefined') return
-  flowResizeObserver = new ResizeObserver(([entry]) => {
-    if (!entry) return
-    // Use border-box height so padding/border are included — that matches
-    // the visual area the sticky toolbar actually covers.
-    const borderBox = entry.borderBoxSize?.[0]
-    flowHeight.value = borderBox ? borderBox.blockSize : entry.target.getBoundingClientRect().height
-  })
-  flowResizeObserver.observe(el)
-})
-
-onBeforeUnmount(() => {
-  flowResizeObserver?.disconnect()
-  flowResizeObserver = null
-})
+const { targetRef: flowBreadcrumbRef, height: flowHeight } = useStickyToolbarHeight()
 
 // Auto-scroll to shopping section when optimization finishes
 watch(() => batchStore.isRunning, (running, wasRunning) => {

@@ -10,6 +10,7 @@ import BomRoutePlanner from '@/components/bom/BomRoutePlanner.vue'
 import BomImportDialog from '@/components/bom/BomImportDialog.vue'
 import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
 import FlowBreadcrumb from '@/components/common/FlowBreadcrumb.vue'
+import { useStickyToolbarHeight } from '@/composables/useStickyToolbarHeight'
 import { useBomStore } from '@/stores/bom'
 import { useBatchStore } from '@/stores/batch'
 import { useLocaleStore } from '@/stores/locale'
@@ -44,6 +45,9 @@ const loadingMessage = ref('正在計算材料需求...')
 
 const sectionPrepare = ref<HTMLElement>()
 const sectionResults = ref<HTMLElement>()
+
+// Mobile sticky offset: track FlowBreadcrumb height for scroll-margin-top.
+const { targetRef: flowBreadcrumbRef, height: flowHeight } = useStickyToolbarHeight()
 
 // Tracks which already-completed sections the user has manually re-expanded.
 const expandedSections = ref(new Set<number>())
@@ -81,6 +85,10 @@ function clearAndStartOver(): void {
 }
 
 const targetItemIds = computed(() => bomStore.targets.map((t) => t.itemId))
+
+const nonCraftableCount = computed(
+  () => bomStore.targets.filter((t) => t.recipeId === null).length,
+)
 
 async function handleCalculate() {
   if (bomStore.targets.length === 0) {
@@ -266,7 +274,7 @@ watch(bomViewTab, async (v) => {
 </script>
 
 <template>
-  <div class="bom-view" v-loading="isLoadingData">
+  <div class="bom-view" v-loading="isLoadingData" :style="{ '--bom-flow-h': `${flowHeight}px` }">
     <header class="bom-view__header">
       <h2>
         購物清單
@@ -276,7 +284,8 @@ watch(bomViewTab, async (v) => {
     </header>
 
     <FlowBreadcrumb
-      class="bom-flow"
+      ref="flowBreadcrumbRef"
+      class="mobile-sticky-toolbar bom-flow"
       :steps="[
         { label: '準備清單', icon: '📋' },
         { label: '採買清單', icon: '🛒' },
@@ -346,6 +355,21 @@ watch(bomViewTab, async (v) => {
             >
               {{ calculating ? '計算中…' : '▶ 計算材料需求' }}
             </el-button>
+          </div>
+
+          <div v-if="bomStore.targets.length > 0" class="bom-calc-hint">
+            <div class="bom-calc-hint-icon" aria-hidden="true">✨</div>
+            <div class="bom-calc-hint-body">
+              <div class="bom-calc-hint-title">
+                準備好計算 {{ bomStore.targets.length }} 個目標
+                <span v-if="nonCraftableCount > 0" class="bom-calc-hint-extra">
+                  · {{ nonCraftableCount }} 件無配方會直接採買
+                </span>
+              </div>
+              <div class="bom-calc-hint-desc">
+                展開素材、比對市價、估自製與直購差價
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -654,6 +678,56 @@ watch(bomViewTab, async (v) => {
   border-color: oklch(from var(--app-craft) calc(l + 0.06) c h);
 }
 
+/* Right-column balance hint: a slim info card under the CTA that fills
+ * the empty space left by short target lists in 2-col mode. Mirrors
+ * Batch's batch-lvl-alert chrome (cocoa wash, soft border) so the two
+ * pages' aside cards read as one family. */
+.bom-calc-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--app-craft) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--app-craft) 22%, transparent);
+  border-radius: 12px;
+}
+
+.bom-calc-hint-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--app-craft) 16%, transparent);
+  color: var(--app-craft);
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.bom-calc-hint-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.bom-calc-hint-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--app-text);
+  margin-bottom: 2px;
+  line-height: 1.45;
+}
+
+.bom-calc-hint-extra {
+  color: var(--app-craft);
+  font-weight: 500;
+}
+
+.bom-calc-hint-desc {
+  font-size: 11.5px;
+  color: var(--app-text-muted);
+  line-height: 1.5;
+}
+
 @media (min-width: 1440px) {
   .prepare-grid {
     flex-direction: row;
@@ -771,7 +845,9 @@ watch(bomViewTab, async (v) => {
 }
 
 /* Mobile (≤768): page title is shown in the global app bar; hide the
- * in-view title row to mirror BatchView's behavior and reclaim space. */
+ * in-view title row to mirror BatchView's behavior and reclaim space.
+ * Sections also need to clear the sticky FlowBreadcrumb when scrolled to,
+ * tracked dynamically via --bom-flow-h. */
 @media (max-width: 768px) {
   .bom-view__header {
     display: none;
@@ -781,6 +857,10 @@ watch(bomViewTab, async (v) => {
     padding-top: 10px;
     padding-bottom: 10px;
     margin-bottom: 8px;
+  }
+
+  .bom-section {
+    scroll-margin-top: calc(var(--mobile-app-bar-h, 52px) + var(--bom-flow-h, 100px) + 8px);
   }
 }
 
