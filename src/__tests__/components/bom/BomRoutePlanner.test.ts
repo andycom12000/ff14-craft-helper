@@ -117,9 +117,4 @@ describe('BomRoutePlanner', () => {
     }
   })
 
-  it('eyebrow always renders', async () => {
-    const w = mount(BomRoutePlanner)
-    await flushPromises()
-    expect(w.findComponent({ name: 'RoutePlannerEyebrow' }).exists()).toBe(true)
-  })
 })

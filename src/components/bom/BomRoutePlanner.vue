@@ -7,7 +7,6 @@ import { sortRoute } from '@/services/route-planner'
 import { getNpcNameSync } from '@/services/zone-meta'
 import type { AetheryteInfo, RouteRow, ChosenSource, RouteOutput } from '@/services/route-planner'
 import type { Locale } from '@/services/local-data-source.types'
-import RoutePlannerEyebrow from '@/components/bom/RoutePlannerEyebrow.vue'
 import RoutePlannerToolbar from '@/components/bom/RoutePlannerToolbar.vue'
 import RoutePlannerGroupCard from '@/components/bom/RoutePlannerGroupCard.vue'
 import ZoneMapSheet from '@/components/bom/ZoneMapSheet.vue'
@@ -148,13 +147,6 @@ function onReset() {
   }
 }
 
-function onResort() {
-  // sortRoute auto-recomputes on its inputs; this handler exists for explicit
-  // "nudge" UX feedback. For MVP, we just show a toast — the computed already
-  // reflects latest state.
-  ElMessage.info('路線已重新排序')
-}
-
 // ── Bottom sheet handlers ─────────────────────────────────────────────────────
 
 function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
@@ -192,23 +184,6 @@ function gotoStop(idx: number) {
   currentStopIdx.value = idx
 }
 
-function prevStop() {
-  // Wrap from the first stop back to the last so the user can step
-  // backwards through the whole list without dead-ending.
-  if (totalStops.value === 0) return
-  const next = currentStopIdx.value - 1
-  gotoStop(next < 0 ? totalStops.value - 1 : next)
-}
-
-function nextStop() {
-  // Wrap from the last stop back to the first — pairs with prevStop's
-  // backwards wrap, and lets the auto-advance loop never get stuck on
-  // the final card after everything is checked.
-  if (totalStops.value === 0) return
-  const next = currentStopIdx.value + 1
-  gotoStop(next >= totalStops.value ? 0 : next)
-}
-
 // Auto-advance to the next unfinished stop after a card's last item gets
 // checked off. Defer one tick so the user sees their final ✓ animate before
 // the card transitions.
@@ -231,8 +206,6 @@ watch(
 
 <template>
   <div class="brp">
-    <RoutePlannerEyebrow />
-
     <!-- 1. Loading aetherytes -->
     <div v-if="isLoading" class="brp-loading">
       <el-skeleton :rows="6" animated />
@@ -244,62 +217,34 @@ watch(
       <div class="brp-empty__rule" />
     </div>
 
-    <!-- 3. Normal -->
+    <!-- 3. Normal — toolbar carries progress + stepper chips inline so the
+         map is reachable in one viewport. -->
     <template v-else>
-      <RoutePlannerToolbar
-        :progress="progress"
-        @reset="onReset"
-        @re-sort="onResort"
-      />
-
-      <!-- Stop-to-stop nav. Sits directly under the progress toolbar so the
-           prev/next controls are within reach of the progress info, not
-           buried under the stop card. Wraps at both ends. -->
-      <!-- Single nav row: prev / stepper-chips / next. The stepper takes
-           the centre space so the user can see the entire route at a
-           glance AND step through it from one row of controls. -->
-      <div class="brp-nav">
-        <button
-          type="button"
-          class="brp-nav__btn"
-          @click="prevStop"
-        >
-          ← {{ currentStopIdx === 0 ? '回到末站' : '上一站' }}
-        </button>
-
-        <nav class="brp-stepper" aria-label="採買路線進度">
-          <ol class="brp-stepper__track">
-            <li
-              v-for="step in stepperItems"
-              :key="step.idx"
-              class="brp-stepper__item"
-              :class="{
-                'is-current': step.isCurrent,
-                'is-done': step.isDone,
-              }"
-            >
-              <button
-                type="button"
-                class="brp-stepper__chip"
-                :aria-current="step.isCurrent ? 'step' : undefined"
-                :aria-label="`第 ${step.idx + 1} 站`"
-                @click="gotoStop(step.idx)"
+      <RoutePlannerToolbar :progress="progress" @reset="onReset">
+        <template v-if="totalStops > 1" #nav>
+          <nav class="brp-stepper" aria-label="採買路線進度">
+            <ol class="brp-stepper__track">
+              <li
+                v-for="step in stepperItems"
+                :key="step.idx"
+                class="brp-stepper__item"
+                :class="{ 'is-current': step.isCurrent, 'is-done': step.isDone }"
               >
-                <span class="brp-stepper__num">{{ String(step.idx + 1).padStart(2, '0') }}</span>
-                <span v-if="step.isDone" class="brp-stepper__done" aria-hidden="true">✓</span>
-              </button>
-            </li>
-          </ol>
-        </nav>
-
-        <button
-          type="button"
-          class="brp-nav__btn brp-nav__btn--primary"
-          @click="nextStop"
-        >
-          {{ currentStopIdx + 1 >= totalStops ? '回到首站' : '下一站' }} →
-        </button>
-      </div>
+                <button
+                  type="button"
+                  class="brp-stepper__chip"
+                  :aria-current="step.isCurrent ? 'step' : undefined"
+                  :aria-label="`第 ${step.idx + 1} 站`"
+                  @click="gotoStop(step.idx)"
+                >
+                  <span class="brp-stepper__num">{{ String(step.idx + 1).padStart(2, '0') }}</span>
+                  <span v-if="step.isDone" class="brp-stepper__done" aria-hidden="true">✓</span>
+                </button>
+              </li>
+            </ol>
+          </nav>
+        </template>
+      </RoutePlannerToolbar>
 
       <!-- Active card — full main width so the map gets the room it needs. -->
       <RoutePlannerGroupCard
@@ -336,27 +281,20 @@ watch(
    * card body's own height calc keeps the page from overflowing. */
 }
 
-/* Horizontal stepper. Stays compact even at 20+ stops by ellipsing the
- * number-only chips; user clicks any chip to jump. Active chip is
- * cocoa-filled to match the card's stop badge. */
+/* Horizontal stepper. Lives inside the toolbar's `nav` slot so the user can
+ * jump between stops on the same row as the progress bar — no extra row
+ * pushing the map off-screen. Number-only chips keep the row narrow even
+ * with 20+ stops; horizontal scroll handles overflow. */
 .brp-stepper {
-  /* Centre between prev/next inside .brp-nav. flex:1 takes the remaining
-   * row space; horizontal scroll handles long stop counts. */
-  flex: 1;
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: thin;
 }
 
 .brp-stepper__track {
-  /* Center the chips in the available row space; long lists scroll. */
-  justify-content: center;
-}
-
-.brp-stepper__track {
   list-style: none;
   margin: 0;
-  padding: 4px 0;
+  padding: 0;
   display: flex;
   flex-wrap: nowrap;
   gap: 6px;
@@ -428,59 +366,6 @@ watch(
 .brp-stepper__item.is-current .brp-stepper__done {
   color: var(--app-cream-surface, #faf7f2);
 }
-
-/* Stop-to-stop nav. Lives below the active card; "next" is the prominent
- * CTA so the user's reading flow → "tick off this stop's items, then click
- * next" — feels like a guided checklist. */
-.brp-nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 4px 0;
-}
-
-.brp-nav__btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border: 1px solid var(--app-border);
-  background: var(--app-surface);
-  color: var(--app-text);
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.12s ease-out, border-color 0.12s ease-out;
-}
-
-.brp-nav__btn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--app-craft) 8%, var(--app-surface));
-  border-color: color-mix(in srgb, var(--app-craft) 30%, var(--app-border));
-}
-
-.brp-nav__btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.brp-nav__btn--primary {
-  background: var(--app-craft);
-  color: var(--app-cream-surface, #faf7f2);
-  border-color: var(--app-craft);
-}
-
-.brp-nav__btn--primary:hover:not(:disabled) {
-  background: oklch(from var(--app-craft) calc(l + 0.06) c h);
-  border-color: oklch(from var(--app-craft) calc(l + 0.06) c h);
-}
-
-.brp-nav__btn:focus-visible {
-  outline: 2px solid var(--app-craft);
-  outline-offset: 2px;
-}
-
 
 /* Empty state */
 .brp-empty {

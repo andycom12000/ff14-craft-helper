@@ -10,14 +10,11 @@ describe('RoutePlannerToolbar', () => {
     expect(w.find('[data-testid="progress-count"]').text()).toBe('7 / 12')
   })
 
-  it('emits reset and re-sort on button clicks', async () => {
+  it('emits reset on button click', async () => {
     const w = mount(RoutePlannerToolbar, {
       props: { progress: { done: 0, total: 5 } },
     })
-    const buttons = w.findAll('.rpt__btn')
-    await buttons[0].trigger('click')
-    await buttons[1].trigger('click')
-    expect(w.emitted('re-sort')).toBeTruthy()
+    await w.find('.rpt__btn').trigger('click')
     expect(w.emitted('reset')).toBeTruthy()
   })
 

@@ -12,7 +12,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'reset': []
-  're-sort': []
 }>()
 
 const pct = computed(() => {
@@ -25,15 +24,10 @@ const isComplete = computed(() => props.progress.total > 0 && props.progress.don
 function onReset() {
   emit('reset')
 }
-
-function onResort() {
-  emit('re-sort')
-}
 </script>
 
 <template>
   <div class="rpt" data-testid="route-toolbar">
-    <span class="rpt__label">採買進度</span>
     <el-progress
       :percentage="pct"
       :stroke-width="10"
@@ -42,12 +36,9 @@ function onResort() {
       class="rpt__bar"
       data-testid="progress"
     />
-    <!-- Percentage sits between the bar and the X/Y count, both vertically
-         centred with the bar. Rendered manually (instead of letting EP show
-         its internal text) so the alignment is under our control. -->
     <span class="rpt__pct" data-testid="progress-pct">{{ pct }}%</span>
     <span class="rpt__count" data-testid="progress-count">{{ progress.done }} / {{ progress.total }}</span>
-    <button type="button" class="rpt__btn" @click="onResort" aria-label="重新排序">🔄 重新排序</button>
+    <slot name="nav" />
     <button type="button" class="rpt__btn" @click="onReset" aria-label="重設勾選">🗑️ 重設</button>
   </div>
 </template>
