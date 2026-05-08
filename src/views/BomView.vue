@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import BomTargetList from '@/components/bom/BomTargetList.vue'
@@ -12,6 +12,7 @@ import BomImportDialog from '@/components/bom/BomImportDialog.vue'
 import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
 import FlowBreadcrumb from '@/components/common/FlowBreadcrumb.vue'
 import { useStickyToolbarHeight } from '@/composables/useStickyToolbarHeight'
+import { useObserverFlag } from '@/composables/useObserverFlag'
 import { useBomStore } from '@/stores/bom'
 import { useBatchStore } from '@/stores/batch'
 import { useLocaleStore } from '@/stores/locale'
@@ -282,62 +283,18 @@ watch(bomViewTab, async (v) => {
 // lives in the sticky band that follows the user. Show the strip only
 // after the receipt scrolls out of view, so they never compete for space.
 
-const receiptEl = ref<HTMLElement | null>(null)
-const stripVisible = ref(false)
-let receiptObserver: IntersectionObserver | null = null
+// Strip takes over once the receipt has scrolled past the viewport top.
+const { targetRef: receiptEl, flag: stripVisible } = useObserverFlag(
+  (entry) => !entry.isIntersecting && entry.boundingClientRect.bottom < 0,
+  { threshold: 0, rootMargin: '0px' },
+)
 
-watch(receiptEl, (el, prev) => {
-  if (prev) receiptObserver?.unobserve(prev)
-  if (!el) {
-    stripVisible.value = false
-    return
-  }
-  if (!receiptObserver) {
-    receiptObserver = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          // The receipt's bottom edge has crossed above the viewport top —
-          // the user has scrolled past it, so the strip can take over.
-          stripVisible.value = !entry.isIntersecting && entry.boundingClientRect.bottom < 0
-        }
-      },
-      { threshold: 0, rootMargin: '0px' },
-    )
-  }
-  receiptObserver.observe(el)
-})
-
-// Sentinel sits just above .results-sticky; when it scrolls out of the
-// viewport top (offset by .el-main's 20px padding), the band is pinned.
-// Gating backdrop-filter on this state means the GPU isn't blurring an
-// area that has nothing scrolling beneath it.
-const stickySentinel = ref<HTMLElement | null>(null)
-const stickyStuck = ref(false)
-let stickyObserver: IntersectionObserver | null = null
-
-watch(stickySentinel, (el, prev) => {
-  if (prev) stickyObserver?.unobserve(prev)
-  if (!el) {
-    stickyStuck.value = false
-    return
-  }
-  if (!stickyObserver) {
-    stickyObserver = new IntersectionObserver(
-      ([entry]) => {
-        stickyStuck.value = !entry.isIntersecting && entry.boundingClientRect.top < 0
-      },
-      { threshold: 0, rootMargin: '-20px 0 0 0' },
-    )
-  }
-  stickyObserver.observe(el)
-})
-
-onBeforeUnmount(() => {
-  receiptObserver?.disconnect()
-  receiptObserver = null
-  stickyObserver?.disconnect()
-  stickyObserver = null
-})
+// Gate the frosted band on actual pinned state — at rest there's nothing
+// scrolling beneath it, so blur work is wasted GPU.
+const { targetRef: stickySentinel, flag: stickyStuck } = useObserverFlag(
+  (entry) => !entry.isIntersecting,
+  { threshold: 0, rootMargin: '-20px 0px 0px 0px' },
+)
 </script>
 
 <template>

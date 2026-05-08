@@ -135,6 +135,14 @@ function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
   mapSheetCoords.value = coords
   mapSheetOpen.value = true
 }
+
+// Single shared aria-live region for the table — selectMode in any row
+// emits announce-expand here, so SR users get one well-defined queue
+// instead of one per row.
+const announcement = ref('')
+function onAnnounceExpand(detail: { modeLabel: string; itemName: string }) {
+  announcement.value = `已切換為${detail.modeLabel}，已展開${detail.itemName}詳細`
+}
 </script>
 
 <template>
@@ -164,6 +172,7 @@ function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
           :amount="row.amount"
           :is-craftable="row.isCraftable"
           :immutable="row.isCraftable"
+          @announce-expand="onAnnounceExpand"
         />
         <!-- Non-craftable targets (NPC vendors, gatherables, market-only items
              imported from Teamcraft) get the same drill content as material
@@ -212,6 +221,7 @@ function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
           :icon="row.icon"
           :amount="row.amount"
           :is-craftable="row.isCraftable"
+          @announce-expand="onAnnounceExpand"
         />
         <template v-if="!isCockpitMobile && bom.isRowExpanded(row.itemId)">
           <div
@@ -258,6 +268,8 @@ function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
     <p v-if="targetRows.length === 0 && materialRows.length === 0" class="bdt-empty">
       尚未計算 — 從左側加入目標後按「計算材料需求」
     </p>
+
+    <span class="bdt-sr-only" role="status" aria-live="polite">{{ announcement }}</span>
   </section>
 
   <ZoneMapSheet
@@ -468,6 +480,18 @@ function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
   text-align: center;
   color: var(--app-text-muted);
   font-size: 13.5px;
+}
+
+.bdt-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 @container (max-width: 720px) {
