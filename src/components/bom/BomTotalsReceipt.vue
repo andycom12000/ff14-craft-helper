@@ -143,17 +143,17 @@ function handleShare(action: string) {
           class="receipt__pct"
           :data-kind="hasSaving ? 'save' : 'loss'"
         >
-          <span class="receipt__pct-lead">{{ hasSaving ? '省' : '多花' }}</span>
+          <span class="receipt__pct-lead">{{ hasSaving ? '省' : '多' }}</span>
           <strong>{{ Math.min(99, Math.round(Math.abs(savingPct))) }}%</strong>
           <span class="receipt__pct-tail">·&nbsp;{{ hasSaving ? '−' : '+' }}{{ formatGil(hasSaving ? savingGil : lossGil) }}</span>
         </div>
       </div>
       <p v-if="baseline > 0" class="receipt__caption">
         <template v-if="hasSaving">
-          比全部市買 {{ formatGil(baseline) }} 便宜 {{ formatGil(savingGil) }}。
+          全部市買要 {{ formatGil(baseline) }} Gil，自製省下 {{ formatGil(savingGil) }}。
         </template>
         <template v-else-if="hasLoss">
-          比全部市買 {{ formatGil(baseline) }} 多花 {{ formatGil(lossGil) }}。
+          全部市買要 {{ formatGil(baseline) }} Gil，自製會多花 {{ formatGil(lossGil) }}。
         </template>
         <template v-else>
           自製和直購差不多，挑你習慣的方式吧。
@@ -244,11 +244,10 @@ function handleShare(action: string) {
           </template>
         </el-dropdown>
         <el-button
-          type="primary"
           size="default"
           :icon="ArrowRight"
           :disabled="bom.targets.length === 0"
-          class="receipt__primary-action"
+          class="receipt__send-action"
           @click="emit('send-to-batch')"
         >
           送往批量
@@ -536,14 +535,34 @@ function handleShare(action: string) {
   width: 100%;
 }
 
-.receipt__primary-action {
-  background: var(--app-craft);
-  border-color: var(--app-craft);
+/* EP redeclares --el-button-bg-color on .el-button itself, so the override
+ * has to live at button scope, not on the parent. */
+.receipt__actions :deep(.el-button) {
+  --el-button-bg-color: var(--app-surface);
+  --el-button-text-color: var(--app-text);
+  --el-button-border-color: var(--app-border);
+  --el-button-hover-bg-color: color-mix(in srgb, var(--app-craft) 6%, var(--app-surface));
+  --el-button-hover-text-color: var(--app-craft);
+  --el-button-hover-border-color: color-mix(in srgb, var(--app-craft) 35%, var(--app-border));
 }
 
-.receipt__primary-action:hover {
-  background: oklch(from var(--app-craft) calc(l + 0.06) c h);
-  border-color: oklch(from var(--app-craft) calc(l + 0.06) c h);
+.receipt__send-action {
+  background: color-mix(in srgb, var(--app-craft) 9%, var(--app-surface));
+  border-color: color-mix(in srgb, var(--app-craft) 45%, var(--app-border));
+  color: var(--app-craft);
+}
+
+.receipt__send-action:hover,
+.receipt__send-action:focus-visible {
+  background: color-mix(in srgb, var(--app-craft) 16%, var(--app-surface));
+  border-color: var(--app-craft);
+  color: var(--app-craft);
+}
+
+.receipt__send-action:is(.is-disabled, [disabled]) {
+  background: var(--app-surface);
+  border-color: var(--app-border);
+  color: var(--app-text-muted);
 }
 
 /* ── Responsive collapse ───────────────────────────────────── */

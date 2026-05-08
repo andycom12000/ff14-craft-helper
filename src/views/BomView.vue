@@ -491,6 +491,17 @@ onBeforeUnmount(() => {
   </div>
 </template>
 
+<!-- Non-scoped: needs to reach .el-main, an ancestor outside this component.
+     :has() restricts the override to pages where .bom-view is mounted, so it
+     doesn't bleed onto Batch / Simulator / Settings. The clip lets the sticky
+     band's negative-margin bleed extend the cream/blur to the .el-main edges
+     without spawning a horizontal scrollbar. -->
+<style>
+.el-main:has(.bom-view) {
+  overflow-x: clip;
+}
+</style>
+
 <style scoped>
 .bom-view {
   /* Match BatchView's reading-width ladder so both pages read as siblings
@@ -773,25 +784,32 @@ onBeforeUnmount(() => {
   }
 }
 
-/* ── Results sticky stack — tabs lead, strip joins below them only
-   when the receipt has scrolled out of view. The wrapper itself
-   carries no background — that previously painted a full-width cream
-   band whose horizontal extent (beside the compact pill bar) read as
-   a visible "white stripe" below the tabs. The pill bar and the
-   strip carry their own opaque bgs, so they remain visible while
-   pinned; empty horizontal space lets content scroll through cleanly,
-   matching the iOS-style segmented-control rhythm. ─────────────────── */
+/* Sticky results header — frosted band that pins flush to the viewport.
+ * `top: -20px` + `margin-top: -20px` cancel .el-main's 20px padding-top
+ * (sticky would otherwise pin at the padding edge, leaving a 20px gap
+ * where rows scroll past unobscured); `padding-top: 28px` (8 + 20)
+ * restores the visible content offset. The viewport-bleed margin/padding
+ * pair extends the cream/blur to .el-main's edges instead of stopping at
+ * the section column; sidebar's opaque bg masks the left-side bleed. */
 .results-sticky {
   position: sticky;
-  top: 0;
+  top: -20px;
+  margin: -20px calc(50% - 50vw) 8px;
+  padding: 28px calc(50vw - 50%) 10px;
   z-index: 5;
-  /* No background, no padding. Pill bar + strip own their own
-   * surfaces; the wrapper only handles flex stacking + sticky pin. */
-  margin-bottom: 8px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
+  background: color-mix(in srgb, var(--app-bg) 10%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid color-mix(in srgb, var(--app-craft) 10%, transparent);
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  .results-sticky {
+    background: var(--app-bg);
+  }
 }
 
 /* When the strip has materialized, the band has more weight; the
@@ -825,7 +843,12 @@ onBeforeUnmount(() => {
  * inner pill's curvature matches the outer frame instead of reading
  * as a square inside a rounded rectangle. */
 .results-tabs {
-  background: color-mix(in srgb, var(--app-craft) 6%, var(--app-surface));
+  /* 90% opaque so the band's blur shows faintly through the pill. */
+  background: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--app-craft) 6%, var(--app-surface)) 90%,
+    transparent
+  );
   border: 1px solid color-mix(in srgb, var(--app-craft) 22%, var(--app-border));
   padding: 3px;
   border-radius: 999px;
@@ -885,7 +908,12 @@ onBeforeUnmount(() => {
 @media (max-width: 900px) {
   .results-sticky {
     position: static;
+    top: auto;
+    margin: 0;
     padding: 0;
+    background: transparent;
+    backdrop-filter: none;
+    border-bottom: none;
     box-shadow: none;
   }
 

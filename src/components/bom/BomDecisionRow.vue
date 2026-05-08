@@ -116,21 +116,13 @@ const isRowToggleable = computed(() => {
 
 function selectMode(m: AcquisitionSource) {
   if (props.immutable) return
-  if (m !== mode.value) {
-    bom.setAcquisitionMode(props.itemId, m)
-    if (m === 'craft' && !bom.isRowExpanded(props.itemId)) {
-      bom.toggleRowExpanded(props.itemId)
-    }
-  } else {
-    // User clicked the already-active mode while the picker was open —
-    // mark as settled so the row collapses to a chip, even though no
-    // change happened. Without this, opening the picker and clicking
-    // away would leave it expanded forever.
-    bom.setAcquisitionMode(props.itemId, m, true)
+  const isChanging = m !== mode.value
+  // Always call setAcquisitionMode — on a no-op pick it still marks the
+  // row settled, collapsing the picker back to a chip.
+  bom.setAcquisitionMode(props.itemId, m)
+  if (isChanging && isRowToggleable.value && !bom.isRowExpanded(props.itemId)) {
+    bom.toggleRowExpanded(props.itemId)
   }
-  // Always re-collapse after a pick. Settled rows go back to chip view;
-  // unsettled rows that just got their first manual pick now ARE settled
-  // (the store side-effect tagged them) so they also collapse.
   pickerExpanded.value = false
 }
 
