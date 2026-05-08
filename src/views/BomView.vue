@@ -773,43 +773,39 @@ onBeforeUnmount(() => {
   }
 }
 
-/* ── Results sticky stack — tabs lead (always pinned at the top of
-   the section), strip joins them only when the receipt has scrolled
-   out of view (driven by IntersectionObserver). Single sticky element
-   keeps the chrome flush so no scroll content leaks between slabs. ─ */
+/* ── Results sticky stack — tabs lead, strip joins below them only
+   when the receipt has scrolled out of view. The wrapper itself
+   carries no background — that previously painted a full-width cream
+   band whose horizontal extent (beside the compact pill bar) read as
+   a visible "white stripe" below the tabs. The pill bar and the
+   strip carry their own opaque bgs, so they remain visible while
+   pinned; empty horizontal space lets content scroll through cleanly,
+   matching the iOS-style segmented-control rhythm. ─────────────────── */
 .results-sticky {
   position: sticky;
-  /* `top: -20px` (matching .app-main's 20px padding) pins the wrapper at
-   * y=0 of the viewport instead of y=20. Without it, content scrolls
-   * through the 20px padding band above the wrapper because overflow:auto
-   * containers don't clip content out of their padding zone.
-   *
-   * Padding-top compensates the negative `top` so the inner tabs sit
-   * at the same visual offset they would with top:0 + padding-top:0
-   * — no extra cream "frame" around the pill bar. */
-  top: -20px;
+  top: 0;
   z-index: 5;
-  scroll-margin-top: -20px;
-  background: var(--app-bg);
-  padding: 20px 0 0;
-  margin-bottom: 16px;
+  /* No background, no padding. Pill bar + strip own their own
+   * surfaces; the wrapper only handles flex stacking + sticky pin. */
+  margin-bottom: 8px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 8px;
 }
 
-/* Only paint the boundary shadow once the strip has materialized — when
- * the receipt is still on-screen, the band is just the tabs and we
- * don't need the heavier "pinned chrome" cue. */
+/* When the strip has materialized, the band has more weight; the
+ * tabs become a tighter rail above the totals strip. */
 .results-sticky--with-strip {
-  padding-bottom: 8px;
-  box-shadow:
-    0 1px 0 var(--app-border),
-    0 8px 18px -10px oklch(0.28 0.04 55 / 0.22);
+  /* Strip is full-width while pill bar is compact; allow stretch so
+   * the strip occupies the section width even when the pill above
+   * doesn't. */
+  align-items: stretch;
 }
 
-.results-strip {
-  /* Inherits gap from .results-sticky's flex */
+.results-sticky--with-strip .results-tabs {
+  /* Pill bar stays compact even in stretch context */
+  align-self: flex-start;
 }
 
 .strip-fade-enter-active,
@@ -856,6 +852,15 @@ onBeforeUnmount(() => {
   color: var(--app-cream-surface, #faf7f2);
   /* No box-shadow — drop shadow under a pill creates a visible "edge"
    * that can read as a square corner against the rounded container. */
+}
+
+/* Element Plus paints the active background via a separate slider DIV
+ * (`.el-segmented__item-selected`) layered on top of the label, with a
+ * default 2px radius. Without this override the slider's square-ish
+ * corners win over our 999px label radius, making the active "pill"
+ * read as a rounded rectangle. */
+.results-tabs :deep(.el-segmented__item-selected) {
+  border-radius: 999px;
 }
 
 .results-tabs :deep(.el-segmented__item:hover:not(.is-selected)) {
