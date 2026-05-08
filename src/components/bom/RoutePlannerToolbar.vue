@@ -39,7 +39,7 @@ function onReset() {
     <span class="rpt__pct" data-testid="progress-pct">{{ pct }}%</span>
     <span class="rpt__count" data-testid="progress-count">{{ progress.done }} / {{ progress.total }}</span>
     <slot name="nav" />
-    <button type="button" class="rpt__btn" @click="onReset" aria-label="重設勾選">🗑️ 重設</button>
+    <button type="button" class="rpt__btn" @click="onReset" aria-label="重設勾選">⌫ 重設</button>
   </div>
 </template>
 

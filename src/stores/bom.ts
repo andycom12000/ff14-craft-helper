@@ -132,10 +132,19 @@ function loadSession(sig: string): { excluded: Set<number>; checked: Set<number>
 
 function evictLru() {
   try {
-    const keys: Array<[string, number]> = []
+    // First pass: count matching keys cheaply, no JSON parse. Bail out if
+    // we're under the limit — the common case after every session mutation
+    // is "nothing to do" and we shouldn't be paying parse cost for it.
+    const matchingKeys: string[] = []
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i)!
-      if (!k.startsWith(ROUTE_KEY_PREFIX)) continue
+      if (k.startsWith(ROUTE_KEY_PREFIX)) matchingKeys.push(k)
+    }
+    if (matchingKeys.length <= ROUTE_LRU_LIMIT) return
+
+    // Over limit — only now parse mtime to decide who to evict.
+    const keys: Array<[string, number]> = []
+    for (const k of matchingKeys) {
       try {
         const v = JSON.parse(localStorage.getItem(k)!)
         keys.push([k, v._mtime ?? 0])
@@ -143,7 +152,6 @@ function evictLru() {
         localStorage.removeItem(k)
       }
     }
-    if (keys.length <= ROUTE_LRU_LIMIT) return
     keys.sort((a, b) => a[1] - b[1])
     const toRemove = keys.length - ROUTE_LRU_LIMIT
     for (let i = 0; i < toRemove; i++) localStorage.removeItem(keys[i][0])
@@ -236,12 +244,15 @@ export const useBomStore = defineStore('bom', () => {
     routeViewSession.value = loadSession(next)
   }, { immediate: true, flush: 'sync' })
 
-  // Debounce-persist session mutations back to localStorage.
+  // Debounce-persist session mutations back to localStorage. `flush: 'sync'`
+  // keeps scheduleWrite firing in the same tick as the mutation so the
+  // debounce window starts at user-action time, not 1 microtask later.
+  // Tests with fake timers also rely on this sync chain.
   watch(routeViewSession, (next) => {
     if (targetSig.value) scheduleWrite(targetSig.value, next)
   }, { deep: true, flush: 'sync' })
 
-  // Persist prefs immediately on change.
+  // Persist prefs immediately on change. Same fake-timer reasoning as above.
   watch(routeViewPrefs, (next) => writePrefsToLs(next), { deep: true, flush: 'sync' })
 
   function addTarget(target: BomTarget) {
@@ -436,7 +447,21 @@ export const useBomStore = defineStore('bom', () => {
         return cost
       }
 
+      // Honor the "原料準備" setting: when the user has chosen 自採 as the
+      // default for raw materials, gatherable non-craftable nodes default
+      // to gather (cost 0). Crystals (itemId < 20) and craftable nodes
+      // bypass this — crystals can't be gathered, and craftable nodes have
+      // their own cheapest-mode logic that includes craft.
+      const canGather = acquisitionAvailability.value.get(node.itemId)?.canGather === true
+      const isCrystal = node.itemId < 20
+      const preferGather =
+        settings.rawMaterialDefault === 'gather' &&
+        !isCraftable &&
+        !isCrystal &&
+        canGather
+
       const candidates: Array<{ mode: AcquisitionSource; cost: number }> = []
+      if (preferGather) candidates.push({ mode: 'gather', cost: 0 })
       if (Number.isFinite(marketCost)) candidates.push({ mode: 'market', cost: marketCost })
       if (Number.isFinite(craftCost)) candidates.push({ mode: 'craft', cost: craftCost })
       if (Number.isFinite(npcCost)) candidates.push({ mode: 'npc', cost: npcCost })

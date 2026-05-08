@@ -348,9 +348,9 @@ function onMapError(e: Event) {
         v-if="group.aetheryte"
         class="rpgc__aeth-chip"
       >
-        📍 {{ group.aetheryte.name }} {{ group.tpCost }}G
+        <span aria-hidden="true">◉</span> {{ group.aetheryte.name }} {{ group.tpCost }}G
       </span>
-      <span v-else class="rpgc__aeth-chip rpgc__aeth-chip--warn">📍 ?G</span>
+      <span v-else class="rpgc__aeth-chip rpgc__aeth-chip--warn"><span aria-hidden="true">◉</span> ?G</span>
 
       <!-- Count + gil -->
       <span class="rpgc__count">
@@ -512,7 +512,7 @@ function onMapError(e: Event) {
             :data-testid="`row-map-btn-${row.itemId}`"
             :aria-label="`查看 ${zoneName} 地圖`"
             @click.stop="openMapSheet(row)"
-          >🗺️ 地圖</button>
+          ><span aria-hidden="true">⊞</span> 地圖</button>
         </div>
       </div>
     </div>
@@ -690,12 +690,12 @@ function onMapError(e: Event) {
     flex-direction: row;
     align-items: stretch;
     /* Body height = viewport minus chrome above & below the card body.
-     * Chrome stack at the route tab (post-calc, post-trim): section
-     * headers + sticky totals/tabs/toolbar + card header + paddings
-     * ≈ 460px. Cap at 720 so tall monitors don't waste space on a giant
-     * map; min-height keeps the map usable when the viewport is short
-     * enough that the calc would zero the body out. */
-    height: min(720px, calc(100dvh - 540px));
+     * Post-receipt-refactor chrome (route tab only — receipt + strip
+     * are hidden): FlowBreadcrumb + section padding + bigger tab pills
+     * + brp toolbar + card header + paddings ≈ 320–360px. Cap at 720
+     * so tall monitors don't waste space; min-height keeps the map
+     * usable when the viewport is short. */
+    height: min(720px, calc(100dvh - 440px));
     min-height: 320px;
     overflow: hidden;
   }
@@ -718,8 +718,8 @@ function onMapError(e: Event) {
     /* Wider than the original 360 so item names like 「金毗羅鱷革升龍皮甲」
      * (8+ CJK chars) and «艾奧傑亞百科全書» fit without ellipsis. The map
      * column still holds majority width on standard 1440 viewports. */
-    flex: 0 0 440px;
-    max-width: 440px;
+    flex: 0 0 500px;
+    max-width: 500px;
     overflow-y: auto;
     scrollbar-width: thin;
     min-height: 0;
@@ -907,10 +907,11 @@ function onMapError(e: Event) {
 /* Checked row: dim + strikethrough, matching the Batch TodoList style.
  * No tint background — it read as "this row is selected/active" rather
  * than "this row is done", which is the opposite of the intended
- * affordance. Lower opacity + line-through tells the user "out of the
- * way, finished" without competing visually with the still-open rows. */
+ * affordance. Opacity 0.7 (was 0.55) keeps text within WCAG AA contrast
+ * against cream surface; line-through-color is set explicitly so it
+ * reads as a clear strike rather than ghost-faded. */
 .rpgc__row.is-checked {
-  opacity: 0.55;
+  opacity: 0.7;
 }
 
 .rpgc__row.is-checked .rpgc__row-name,
@@ -919,6 +920,7 @@ function onMapError(e: Event) {
 .rpgc__row.is-checked .rpgc__src-name,
 .rpgc__row.is-checked .rpgc__src-meta {
   text-decoration: line-through;
+  text-decoration-color: var(--app-text-muted);
   color: var(--app-text-muted);
 }
 

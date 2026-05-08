@@ -342,6 +342,15 @@ function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
   text-align: center;
 }
 
+/* When each row stacks (≤720px container), the column labels stop matching
+ * the data grid — the labels would imply a single-row layout that the
+ * stacked rows no longer follow. Hide them. */
+@container (max-width: 720px) {
+  .bdt-head {
+    display: none;
+  }
+}
+
 .bdt-columns {
   display: flex;
   flex-direction: column;
@@ -350,7 +359,13 @@ function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
 
 /* Each group is now a self-contained card with its own border, header, and
  * column labels — they read as two distinct sections (完成品 / 材料)
- * rather than two halves of one big table. */
+ * rather than two halves of one big table.
+ *
+ * `container-type: inline-size` is critical: the row's stacked layout
+ * (`@container (max-width: 720px)` in BomDecisionRow.vue) triggers off
+ * the nearest container ancestor's width. Without this, the row queries
+ * .bom-decision-table (1100+) and stays in the 8-column horizontal
+ * layout even at 540px per group, which collapses the name column to 0. */
 .bdt-group {
   display: flex;
   flex-direction: column;
@@ -359,6 +374,7 @@ function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
   border: 1px solid var(--app-border);
   border-radius: 12px;
   overflow: hidden;
+  container-type: inline-size;
 }
 
 /* Wide viewports: split 完成品 + 材料 into two side-by-side cards so

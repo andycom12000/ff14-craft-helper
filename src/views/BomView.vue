@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, watch } from 'vue'
+import { ref, computed, nextTick, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import BomTargetList from '@/components/bom/BomTargetList.vue'
 import BomSettingsCard from '@/components/bom/BomSettingsCard.vue'
 import BomTotalsBar from '@/components/bom/BomTotalsBar.vue'
+import BomTotalsReceipt from '@/components/bom/BomTotalsReceipt.vue'
 import BomDecisionTable from '@/components/bom/BomDecisionTable.vue'
 import BomRoutePlanner from '@/components/bom/BomRoutePlanner.vue'
 import BomImportDialog from '@/components/bom/BomImportDialog.vue'
@@ -219,9 +220,9 @@ const routeBadgeCount = computed(() => {
 })
 
 const tabOptions = computed(() => [
-  { label: '📋 材料明細', value: 'detail' as const },
+  { label: '材料明細', value: 'detail' as const },
   {
-    label: `🗺️ 採買路線${routeBadgeCount.value > 0 ? ` (${routeBadgeCount.value})` : ''}`,
+    label: `採買路線${routeBadgeCount.value > 0 ? ` · ${routeBadgeCount.value}` : ''}`,
     value: 'route' as const,
   },
 ])
@@ -264,12 +265,51 @@ const npcGatherSig = computed(() => {
   return ids.sort().join(',')
 })
 
+// Fire on actual changes only — the route-tab watcher below covers the
+// case where the user opens the route tab without having toggled any rows.
+// `immediate: true` here used to spend ~100–300ms fetching zone-meta at
+// mount even when the user never visited the route tab.
 watch(npcGatherSig, () => {
   void primeRouteData()
-}, { immediate: true })
+})
 
 watch(bomViewTab, async (v) => {
   if (v === 'route') await primeRouteData()
+}, { immediate: true })
+
+// ─── Receipt ↔ Strip swap ─────────────────────────────────────────────────
+// The full Receipt sits in flow at the top of Section 2; the slim Strip
+// lives in the sticky band that follows the user. Show the strip only
+// after the receipt scrolls out of view, so they never compete for space.
+
+const receiptEl = ref<HTMLElement | null>(null)
+const stripVisible = ref(false)
+let receiptObserver: IntersectionObserver | null = null
+
+watch(receiptEl, (el, prev) => {
+  if (prev) receiptObserver?.unobserve(prev)
+  if (!el) {
+    stripVisible.value = false
+    return
+  }
+  if (!receiptObserver) {
+    receiptObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          // The receipt's bottom edge has crossed above the viewport top —
+          // the user has scrolled past it, so the strip can take over.
+          stripVisible.value = !entry.isIntersecting && entry.boundingClientRect.bottom < 0
+        }
+      },
+      { threshold: 0, rootMargin: '0px' },
+    )
+  }
+  receiptObserver.observe(el)
+})
+
+onBeforeUnmount(() => {
+  receiptObserver?.disconnect()
+  receiptObserver = null
 })
 </script>
 
@@ -292,8 +332,8 @@ watch(bomViewTab, async (v) => {
       ref="flowBreadcrumbRef"
       class="mobile-sticky-toolbar bom-flow"
       :steps="[
-        { label: '準備清單', icon: '📋' },
-        { label: '採買清單', icon: '🛒' },
+        { label: '準備清單', icon: '1' },
+        { label: '採買清單', icon: '2' },
       ]"
       :active-step="currentStep"
       :pending="calculating"
@@ -330,7 +370,7 @@ watch(bomViewTab, async (v) => {
           <template v-if="currentStep > 0">✓</template>
           <template v-else>1</template>
         </span>
-        <h3 class="section-title">準備清單</h3>
+        <h2 class="section-title">準備清單</h2>
         <span class="section-desc">
           {{ currentStep > 0 ? `${bomStore.targets.length} 個目標` : '加入要製作的物品並設定查價條件' }}
         </span>
@@ -358,23 +398,11 @@ watch(bomViewTab, async (v) => {
               :loading="calculating"
               @click="handleCalculate"
             >
-              {{ calculating ? '計算中…' : '▶ 計算材料需求' }}
+              {{ calculating ? '計算中…' : '計算材料需求' }}
             </el-button>
-          </div>
-
-          <div v-if="bomStore.targets.length > 0" class="bom-calc-hint">
-            <div class="bom-calc-hint-icon" aria-hidden="true">✨</div>
-            <div class="bom-calc-hint-body">
-              <div class="bom-calc-hint-title">
-                準備好計算 {{ bomStore.targets.length }} 個目標
-                <span v-if="nonCraftableCount > 0" class="bom-calc-hint-extra">
-                  · {{ nonCraftableCount }} 件無配方會直接採買
-                </span>
-              </div>
-              <div class="bom-calc-hint-desc">
-                展開素材、比對市價、估自製與直購差價
-              </div>
-            </div>
+            <p v-if="nonCraftableCount > 0" class="prepare-cta__note">
+              {{ nonCraftableCount }} 件無配方會直接列為採買
+            </p>
           </div>
         </div>
       </div>
@@ -385,7 +413,7 @@ watch(bomViewTab, async (v) => {
     <section v-if="calculating" class="bom-section bom-section--transient">
       <div class="section-header section-header--transient">
         <span class="section-spinner" aria-hidden="true" />
-        <h3 class="section-title">材料計算中</h3>
+        <h2 class="section-title">材料計算中</h2>
         <span class="section-desc">{{ loadingMessage }}</span>
       </div>
       <div class="bom-loading">
@@ -394,19 +422,47 @@ watch(bomViewTab, async (v) => {
     </section>
 
     <!-- Section 2 — 採買清單 (totals + 材料明細 / 採買路線). Reached after
-         calc; nothing renders here until results exist. -->
-    <section v-if="calculated && !calculating" ref="sectionResults" class="bom-section">
-      <div class="section-header">
-        <span class="section-step section-step--active" aria-hidden="true">2</span>
-        <h3 class="section-title">採買清單</h3>
-        <span class="section-desc">挑取得方式、查市價、規劃採買路線</span>
-      </div>
+         calc; nothing renders here until results exist.
 
-      <div class="results-totals">
-        <BomTotalsBar
+         FlowBreadcrumb above already owns the "you are on step 2" rail,
+         so this section drops its inline step badge to keep wayfinding
+         single-railed and reclaim the height for the receipt. -->
+    <section v-if="calculated && !calculating" ref="sectionResults" class="bom-section bom-section--results">
+      <!-- Wide receipt (in flow). Only shown on the 材料明細 tab — the
+           採買路線 tab is task-focused (check items off) and doesn't
+           need the cost summary repeated above the route map. -->
+      <div ref="receiptEl">
+        <BomTotalsReceipt
+          v-if="!(fetchingPrices && bomStore.prices.size === 0) && bomViewTab === 'detail'"
           :fetching-prices="fetchingPrices"
           @refresh-prices="handleRefreshPrices"
           @send-to-batch="handleSendToBatch"
+        />
+      </div>
+
+      <!-- Sticky band: condensed totals strip (only on 材料明細 tab,
+           and only after the user has scrolled past the receipt) plus
+           the always-visible view tabs. Single sticky element keeps the
+           chrome flush so scroll content never leaks between slabs. -->
+      <div
+        class="results-sticky"
+        :class="{ 'results-sticky--with-strip': stripVisible && bomViewTab === 'detail' }"
+      >
+        <Transition name="strip-fade">
+          <div v-if="stripVisible && bomViewTab === 'detail'" class="results-strip">
+            <BomTotalsBar
+              :fetching-prices="fetchingPrices"
+              @refresh-prices="handleRefreshPrices"
+              @send-to-batch="handleSendToBatch"
+            />
+          </div>
+        </Transition>
+
+        <el-segmented
+          v-if="!(fetchingPrices && bomStore.prices.size === 0)"
+          v-model="bomViewTab"
+          :options="tabOptions"
+          class="results-tabs"
         />
       </div>
 
@@ -415,11 +471,6 @@ watch(bomViewTab, async (v) => {
         <p class="loading-text">正在取得市場價格...</p>
       </div>
       <template v-else>
-        <el-segmented
-          v-model="bomViewTab"
-          :options="tabOptions"
-          class="results-tabs"
-        />
         <BomDecisionTable
           v-if="bomViewTab === 'detail'"
           :materials="bomStore.flatMaterials"
@@ -509,6 +560,12 @@ watch(bomViewTab, async (v) => {
 :deep(.bom-flow__reset) {
   font-size: 13px;
   padding-inline: 8px;
+}
+
+:deep(.bom-flow__reset:focus-visible) {
+  outline: 2px solid var(--app-craft);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 @media (max-width: 640px) {
@@ -683,52 +740,9 @@ watch(bomViewTab, async (v) => {
   border-color: oklch(from var(--app-craft) calc(l + 0.06) c h);
 }
 
-/* Right-column balance hint: a slim info card under the CTA that fills
- * the empty space left by short target lists in 2-col mode. Mirrors
- * Batch's batch-lvl-alert chrome (cocoa wash, soft border) so the two
- * pages' aside cards read as one family. */
-.bom-calc-hint {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px 14px;
-  background: color-mix(in srgb, var(--app-craft) 6%, transparent);
-  border: 1px solid color-mix(in srgb, var(--app-craft) 22%, transparent);
-  border-radius: 12px;
-}
-
-.bom-calc-hint-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--app-craft) 16%, transparent);
-  color: var(--app-craft);
-  display: grid;
-  place-items: center;
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-.bom-calc-hint-body {
-  flex: 1;
-  min-width: 0;
-}
-
-.bom-calc-hint-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--app-text);
-  margin-bottom: 2px;
-  line-height: 1.45;
-}
-
-.bom-calc-hint-extra {
-  color: var(--app-craft);
-  font-weight: 500;
-}
-
-.bom-calc-hint-desc {
-  font-size: 11.5px;
+.prepare-cta__note {
+  margin: 8px 4px 0;
+  font-size: 12px;
   color: var(--app-text-muted);
   line-height: 1.5;
 }
@@ -758,35 +772,88 @@ watch(bomViewTab, async (v) => {
   }
 }
 
-/* ── Results section — totals stuck to top, then tab segmented + table /
-   route. Sticky offsets stack so totals → tabs always read as one stack
-   when scrolled into a long list. ───────────────────────────────────── */
-.results-totals {
+/* ── Results sticky stack — only the slim strip + tabs are pinned; the
+   wide receipt sits in flow above. The strip mounts only when the
+   receipt has scrolled out of view (controlled by IntersectionObserver
+   in the script). Single sticky element keeps the chrome flush so no
+   scroll content leaks between slabs. ──────────────────────────────── */
+.results-sticky {
   position: sticky;
-  top: 16px;
+  /* `top: -20px` (matching .app-main's 20px padding) pins the wrapper at
+   * y=0 of the viewport instead of y=20. Without it, content scrolls
+   * through the 20px padding band above the wrapper because overflow:auto
+   * containers don't clip content out of their padding zone.
+   *
+   * The extra padding-top compensates so the inner totals bar sits at
+   * the same visual offset it would with top:0 + padding-top:12. */
+  top: -20px;
   z-index: 5;
-  scroll-margin-top: 16px;
+  scroll-margin-top: -20px;
   background: var(--app-bg);
-  backdrop-filter: saturate(140%) blur(16px);
-  -webkit-backdrop-filter: saturate(140%) blur(16px);
-  border-radius: 12px;
+  padding: 28px 0 8px;
+  margin-bottom: 12px;
+}
+
+/* Only paint the boundary shadow once the strip has materialized — when
+ * the receipt is still on-screen, the band is just the tabs and we
+ * don't need the heavier "pinned chrome" cue. */
+.results-sticky--with-strip {
   box-shadow:
     0 1px 0 var(--app-border),
     0 8px 18px -10px oklch(0.28 0.04 55 / 0.22);
-  margin-bottom: 16px;
 }
 
+.results-strip {
+  margin-bottom: 8px;
+}
+
+.strip-fade-enter-active,
+.strip-fade-leave-active {
+  transition: opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.strip-fade-enter-from,
+.strip-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+/* Tabs honor the Jam-Jar Rule (BOM = crafting → cocoa). Beefed-up size
+ * + cocoa-glow inactive wash so the user actually sees they have a
+ * choice. The previous low-key segmented control read as decoration. */
 .results-tabs {
-  position: sticky;
-  top: 80px;
-  z-index: 4;
-  background: var(--app-bg);
+  background: color-mix(in srgb, var(--app-craft) 6%, var(--app-surface));
+  border: 1px solid color-mix(in srgb, var(--app-craft) 22%, var(--app-border));
   padding: 4px;
-  border-radius: 10px;
-  box-shadow:
-    0 1px 0 var(--app-border),
-    0 6px 14px -8px oklch(0.28 0.04 55 / 0.18);
-  margin-bottom: 12px;
+  border-radius: 12px;
+  --el-color-primary: var(--app-craft);
+  display: inline-flex;
+  width: auto;
+  align-self: flex-start;
+}
+
+.results-tabs :deep(.el-segmented__item) {
+  color: var(--app-text);
+  font-family: 'Noto Serif TC', serif;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 6px 18px;
+  letter-spacing: 0.02em;
+  border-radius: 8px;
+  transition: background-color 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    color 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.results-tabs :deep(.el-segmented__item.is-selected) {
+  background: var(--app-craft);
+  color: var(--app-cream-surface, #faf7f2);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--app-craft) 25%, transparent);
+}
+
+.results-tabs :deep(.el-segmented__item:hover:not(.is-selected)) {
+  background: color-mix(in srgb, var(--app-craft) 12%, transparent);
+  color: var(--app-craft);
 }
 
 .bom-loading {
@@ -804,9 +871,10 @@ watch(bomViewTab, async (v) => {
 }
 
 @media (max-width: 900px) {
-  .results-totals,
-  .results-tabs {
+  .results-sticky {
     position: static;
+    padding: 0;
+    box-shadow: none;
   }
 
   .bom-section {

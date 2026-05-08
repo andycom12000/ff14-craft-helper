@@ -364,7 +364,7 @@ function openMapSheet(src: { zoneId: number; x: number; y: number }) {
               class="bad__src-aeth"
             >
               <span class="bad__aeth-label">
-                📍 {{ sourceAetherytes[idx]!.name }}
+                <span aria-hidden="true">◉</span> {{ sourceAetherytes[idx]!.name }}
                 {{ sourceAetherytes[idx]!.tpCostBase }}G
               </span>
               <button
@@ -384,7 +384,7 @@ function openMapSheet(src: { zoneId: number; x: number; y: number }) {
             data-map-button
             :aria-label="`查看 ${resolveZoneName(src.zoneId)} 地圖`"
             @click.stop="openMapSheet(src)"
-          >🗺️ 地圖</button>
+          ><span aria-hidden="true">⊞</span> 地圖</button>
         </div>
       </div>
     </template>

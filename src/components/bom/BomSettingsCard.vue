@@ -43,6 +43,22 @@ const isMobile = useIsMobile()
 
       <div class="bom-settings__row">
         <div class="bom-settings__cell">
+          <span class="bom-settings__label">原料準備</span>
+          <el-radio-group v-model="settings.rawMaterialDefault" size="small">
+            <el-radio-button value="buy">購買</el-radio-button>
+            <el-radio-button value="gather">自採</el-radio-button>
+          </el-radio-group>
+        </div>
+        <span class="bom-settings__hint">
+          {{ settings.rawMaterialDefault === 'gather'
+            ? '可採集的原料預設標為自採（免費）'
+            : '原料預設走市場價'
+          }}
+        </span>
+      </div>
+
+      <div class="bom-settings__row">
+        <div class="bom-settings__cell">
           <span class="bom-settings__label">遇到例外</span>
           <el-radio-group v-model="settings.exceptionStrategy" size="small">
             <el-radio-button value="skip">跳過</el-radio-button>
@@ -57,7 +73,7 @@ const isMobile = useIsMobile()
   <template v-else>
     <div class="m-bom-settings">
       <div class="m-cell">
-        <span class="m-cell-icon" aria-hidden="true">🌐</span>
+        <span class="m-cell-icon" aria-hidden="true">⌖</span>
         <div class="m-cell-body">
           <div class="m-cell-title">跨服採購</div>
           <div class="m-cell-sub">
@@ -68,7 +84,7 @@ const isMobile = useIsMobile()
       </div>
 
       <div class="m-cell">
-        <span class="m-cell-icon" aria-hidden="true">🔄</span>
+        <span class="m-cell-icon" aria-hidden="true">⟳</span>
         <div class="m-cell-body">
           <div class="m-cell-title">遞迴查價</div>
           <div class="m-cell-sub">把材料的材料也納入比價</div>
@@ -77,7 +93,7 @@ const isMobile = useIsMobile()
       </div>
 
       <div v-if="settings.recursivePricing" class="m-cell">
-        <span class="m-cell-icon" aria-hidden="true">↕</span>
+        <span class="m-cell-icon" aria-hidden="true">⇅</span>
         <div class="m-cell-body">
           <div class="m-cell-title">遞迴深度</div>
           <div class="m-cell-sub">最多展開幾層</div>
@@ -91,8 +107,29 @@ const isMobile = useIsMobile()
         />
       </div>
 
+      <div class="m-cell">
+        <span class="m-cell-icon" aria-hidden="true">⛏</span>
+        <div class="m-cell-body">
+          <div class="m-cell-title">原料準備</div>
+          <div class="m-cell-sub">
+            {{ settings.rawMaterialDefault === 'gather'
+              ? '可採集原料預設自採'
+              : '原料預設走市場價'
+            }}
+          </div>
+        </div>
+        <el-segmented
+          v-model="settings.rawMaterialDefault"
+          :options="[
+            { label: '購買', value: 'buy' },
+            { label: '自採', value: 'gather' },
+          ]"
+          size="small"
+        />
+      </div>
+
       <div class="m-cell m-cell--last">
-        <span class="m-cell-icon" aria-hidden="true">⚠️</span>
+        <span class="m-cell-icon" aria-hidden="true">△</span>
         <div class="m-cell-body">
           <div class="m-cell-title">遇到例外</div>
           <div class="m-cell-sub">等級不足或無法雙滿時</div>

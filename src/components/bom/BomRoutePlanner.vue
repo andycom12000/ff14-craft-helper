@@ -358,6 +358,18 @@ watch(
   outline-offset: 2px;
 }
 
+/* Mobile: pad the chip out to a 44px touch target so finger taps don't
+ * fall on the gap between adjacent stops. The visual chip stays compact
+ * via inline padding; the touch target grows via min-height + extra
+ * vertical padding. */
+@media (max-width: 640px) {
+  .brp-stepper__chip {
+    min-height: var(--touch-target-min, 44px);
+    padding: 9px 12px;
+    font-size: 13px;
+  }
+}
+
 .brp-stepper__done {
   color: var(--app-craft);
   font-weight: 700;

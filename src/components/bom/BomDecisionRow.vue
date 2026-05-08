@@ -434,21 +434,38 @@ function onRowClick() {
 }
 
 @container (max-width: 720px) {
+  /* In the post-1440 split (完成品 + 材料 二欄), each pane lands in this
+   * branch even on a wide viewport. Quantity sits beside unit price on
+   * the third row so the user never has to glance to the top-right
+   * corner to read "×4" — it now lives next to the gil it multiplies. */
   .dec-row {
-    grid-template-columns: 28px minmax(0, 1fr) 36px 28px;
+    grid-template-columns: 28px minmax(0, 1fr) 28px;
     grid-template-areas:
-      'icon name qty chev'
-      'seg seg seg seg'
-      'unit unit total total';
+      'icon name chev'
+      'seg  seg  seg'
+      'qty  unit total';
+    column-gap: 10px;
     row-gap: 8px;
     padding: 12px;
   }
   .dec-row__icon { grid-area: icon; }
   .dec-row__name { grid-area: name; }
-  .dec-row__qty { grid-area: qty; text-align: right; }
+  .dec-row__qty {
+    grid-area: qty;
+    text-align: left;
+    align-self: baseline;
+    font-size: 12.5px;
+    color: var(--app-text-muted);
+  }
   .dec-row__filler { display: none; }
-  .dec-row__seg, .dec-row__locked { grid-area: seg; }
-  .dec-row__unit { grid-area: unit; text-align: left; }
+  .dec-row__seg, .dec-row__locked { grid-area: seg; justify-self: start; }
+  .dec-row__unit {
+    grid-area: unit;
+    text-align: right;
+    /* Pad-left lets the unit price visually anchor next to qty without
+     * the two collapsing into a single rail. */
+    padding-left: 6px;
+  }
   .dec-row__total { grid-area: total; }
   .dec-row__chev { grid-area: chev; }
 }

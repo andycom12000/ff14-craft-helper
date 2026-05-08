@@ -202,6 +202,14 @@ onUnmounted(() => {
   --app-success-tint-strong: oklch(0.55 0.16 145 / 0.18);
   --app-success-border: oklch(0.55 0.16 145 / 0.35);
 
+  /* Semantic — warning (bake) */
+  --app-warning: oklch(0.55 0.14 55);
+  --app-warning-tint: oklch(0.55 0.14 55 / 0.10);
+  --app-warning-border: oklch(0.55 0.14 55 / 0.32);
+
+  /* Semantic — danger (singed) */
+  --app-danger: oklch(0.55 0.20 25);
+
   /* Craft condition orbs (good / normal / poor) */
   --state-normal: oklch(0.55 0.02 65);
   --state-good: oklch(0.62 0.18 60);
@@ -294,6 +302,14 @@ onUnmounted(() => {
   --app-success-tint: oklch(0.68 0.16 145 / 0.16);
   --app-success-tint-strong: oklch(0.68 0.16 145 / 0.24);
   --app-success-border: oklch(0.68 0.16 145 / 0.40);
+
+  /* Semantic — warning (bake) — dark: lift L for dark surfaces */
+  --app-warning: oklch(0.78 0.13 55);
+  --app-warning-tint: oklch(0.78 0.13 55 / 0.18);
+  --app-warning-border: oklch(0.78 0.13 55 / 0.40);
+
+  /* Semantic — danger (singed) — dark: lift L for dark surfaces */
+  --app-danger: oklch(0.72 0.18 22);
 
   /* Craft condition orbs */
   --state-normal: oklch(0.65 0.02 65);
@@ -534,6 +550,14 @@ html, body {
   color: var(--app-text);
 }
 
+/* Without this, Element Plus components render in their default
+ * Helvetica/PingFang/Microsoft YaHei chain, which on Windows resolves
+ * to Arial — pulling ~20% of body text away from Noto Sans TC and
+ * breaking the four-track typography contract. */
+:root {
+  --el-font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
 #app {
   height: 100%;
 }
@@ -664,18 +688,22 @@ html, body {
   padding: 28px 32px;
 }
 
-.view-container h2,
-.bom-view h2,
-.market-view h2,
-.settings-view h2 {
+/* Page-level h2 — typography only. The editorial gold rule belongs to
+ * dedicated hero zones (Dashboard batch slice, Changelog "本期"), not
+ * every page title. Other views (Simulator, Dashboard, etc.) render a
+ * plain serif h2 and the BOM / Market / Settings should match. */
+.view-container > h2,
+.bom-view > .bom-view__header h2,
+.bom-view > h2,
+.market-view > h2,
+.settings-view > h2 {
   margin-top: 0;
   margin-bottom: 8px;
-  font-size: clamp(18px, 4.5vw, 22px);
+  font-family: 'Noto Serif TC', serif;
+  font-size: clamp(20px, 4.5vw, 24px);
   font-weight: 700;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.01em;
   color: var(--app-text);
-  padding-left: 14px;
-  border-left: 3px solid var(--page-accent);
 }
 
 .view-desc {
