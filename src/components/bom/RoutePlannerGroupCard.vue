@@ -695,7 +695,7 @@ function onMapError(e: Event) {
      * + brp toolbar + card header + paddings ≈ 320–360px. Cap at 720
      * so tall monitors don't waste space; min-height keeps the map
      * usable when the viewport is short. */
-    height: min(720px, calc(100dvh - 440px));
+    height: min(720px, calc(100dvh - 480px));
     min-height: 320px;
     overflow: hidden;
   }

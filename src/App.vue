@@ -688,15 +688,16 @@ html, body {
   padding: 28px 32px;
 }
 
-/* Page-level h2 — typography only. The editorial gold rule belongs to
- * dedicated hero zones (Dashboard batch slice, Changelog "本期"), not
- * every page title. Other views (Simulator, Dashboard, etc.) render a
- * plain serif h2 and the BOM / Market / Settings should match. */
-.view-container > h2,
-.bom-view > .bom-view__header h2,
-.bom-view > h2,
-.market-view > h2,
-.settings-view > h2 {
+/* Page-level h2 — typography only. Descendant matching (not direct
+ * child) so views that wrap the title in a `.batch-title-row` /
+ * `.page-header` / `.bom-view__header` block still pick up the rule.
+ * Section h2s nested inside flow sections override this with their own
+ * `.section-title` styles, so they don't accidentally inherit the
+ * page-title look. */
+.view-container h2,
+.bom-view h2,
+.market-view h2,
+.settings-view h2 {
   margin-top: 0;
   margin-bottom: 8px;
   font-family: 'Noto Serif TC', serif;
@@ -704,6 +705,19 @@ html, body {
   font-weight: 700;
   letter-spacing: 0.01em;
   color: var(--app-text);
+}
+
+/* Section titles inside flow sections opt out of the page-h2 rule —
+ * they're H2s for accessibility (h1→h2 hierarchy) but visually read as
+ * subsection headers, smaller and inline with the step badge. */
+.bom-view .section-title,
+.batch-view .section-title,
+.market-view .section-title,
+.settings-view .section-title {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0;
+  margin: 0;
 }
 
 .view-desc {

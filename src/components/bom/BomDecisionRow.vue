@@ -434,17 +434,21 @@ function onRowClick() {
 }
 
 @container (max-width: 720px) {
-  /* In the post-1440 split (完成品 + 材料 二欄), each pane lands in this
-   * branch even on a wide viewport. Quantity sits beside unit price on
-   * the third row so the user never has to glance to the top-right
-   * corner to read "×4" — it now lives next to the gil it multiplies. */
+  /* Post-1440 split (完成品 + 材料 二欄) lands each pane in this branch
+   * even on a wide viewport. Layout reads as:
+   *   row 1: [icon] [name] ······ [chev]
+   *   row 2: [segmented control spans full width]
+   *   row 3: [單價 ×N]    ············    [總價]
+   * Unit and qty sit adjacent on the bottom-left so the user reads
+   * "200 Gil ×4 = 800" naturally; no diagonal glance to a top-right
+   * qty. Total anchors the bottom-right. */
   .dec-row {
-    grid-template-columns: 28px minmax(0, 1fr) 28px;
+    grid-template-columns: 28px auto auto 1fr auto 28px;
     grid-template-areas:
-      'icon name chev'
-      'seg  seg  seg'
-      'qty  unit total';
-    column-gap: 10px;
+      'icon name name name name chev'
+      'seg  seg  seg  seg  seg  seg'
+      '.    unit qty  .    total .';
+    column-gap: 6px;
     row-gap: 8px;
     padding: 12px;
   }
@@ -454,19 +458,24 @@ function onRowClick() {
     grid-area: qty;
     text-align: left;
     align-self: baseline;
+    justify-self: start;
     font-size: 12.5px;
     color: var(--app-text-muted);
+    /* Small breathing room between the price number and "×N". */
+    padding-left: 4px;
   }
   .dec-row__filler { display: none; }
   .dec-row__seg, .dec-row__locked { grid-area: seg; justify-self: start; }
   .dec-row__unit {
     grid-area: unit;
-    text-align: right;
-    /* Pad-left lets the unit price visually anchor next to qty without
-     * the two collapsing into a single rail. */
-    padding-left: 6px;
+    text-align: left;
+    justify-self: end;
   }
-  .dec-row__total { grid-area: total; }
+  .dec-row__total {
+    grid-area: total;
+    text-align: right;
+    justify-self: end;
+  }
   .dec-row__chev { grid-area: chev; }
 }
 </style>
