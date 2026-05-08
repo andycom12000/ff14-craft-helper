@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
 import type { PriceDisplayMode } from '@/stores/settings'
 import { flattenMaterialTree } from '@/services/bom-calculator'
@@ -8,6 +8,9 @@ import {
   fetchItemAcquisitionBatch,
   type ItemAcquisition,
 } from '@/services/item-acquisition'
+import type { ItemLocations } from '@/services/item-locations'
+import { fetchItemLocationsBatch } from '@/services/item-locations'
+import { fetchZoneMetaBulk, fetchNpcNameBulk } from '@/services/zone-meta'
 
 export type PriceFetchStatus = 'ok' | 'failed'
 
@@ -90,6 +93,71 @@ export function getPrice(price: PriceInfo, mode: PriceDisplayMode): number {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Route planner — localStorage helpers (module-scope, one store per session)
+// ---------------------------------------------------------------------------
+
+const PREFS_KEY = 'bom-route-prefs'
+const ROUTE_KEY_PREFIX = 'bom-route::'
+const ROUTE_LRU_LIMIT = 8
+const WRITE_DEBOUNCE_MS = 500
+
+function readPrefsFromLs(): 'gil' | 'hop' | null {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return parsed?.optimizeBy === 'hop' ? 'hop' : parsed?.optimizeBy === 'gil' ? 'gil' : null
+  } catch { return null }
+}
+
+function writePrefsToLs(prefs: { optimizeBy: 'gil' | 'hop' }) {
+  try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)) } catch {}
+}
+
+function lsKey(sig: string) { return `${ROUTE_KEY_PREFIX}${sig}` }
+
+function loadSession(sig: string): { excluded: Set<number>; checked: Set<number>; collapsedGroups: Set<number> } {
+  try {
+    const raw = localStorage.getItem(lsKey(sig))
+    if (!raw) return { excluded: new Set(), checked: new Set(), collapsedGroups: new Set() }
+    const v = JSON.parse(raw)
+    return {
+      excluded: new Set(v.excluded ?? []),
+      checked: new Set(v.checked ?? []),
+      collapsedGroups: new Set(v.collapsedGroups ?? []),
+    }
+  } catch { return { excluded: new Set(), checked: new Set(), collapsedGroups: new Set() } }
+}
+
+function evictLru() {
+  try {
+    // First pass: count matching keys cheaply, no JSON parse. Bail out if
+    // we're under the limit — the common case after every session mutation
+    // is "nothing to do" and we shouldn't be paying parse cost for it.
+    const matchingKeys: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)!
+      if (k.startsWith(ROUTE_KEY_PREFIX)) matchingKeys.push(k)
+    }
+    if (matchingKeys.length <= ROUTE_LRU_LIMIT) return
+
+    // Over limit — only now parse mtime to decide who to evict.
+    const keys: Array<[string, number]> = []
+    for (const k of matchingKeys) {
+      try {
+        const v = JSON.parse(localStorage.getItem(k)!)
+        keys.push([k, v._mtime ?? 0])
+      } catch {
+        localStorage.removeItem(k)
+      }
+    }
+    keys.sort((a, b) => a[1] - b[1])
+    const toRemove = keys.length - ROUTE_LRU_LIMIT
+    for (let i = 0; i < toRemove; i++) localStorage.removeItem(keys[i][0])
+  } catch {}
+}
+
 export const useBomStore = defineStore('bom', () => {
   const targets = ref<BomTarget[]>([])
   const materialTree = ref<MaterialNode[]>([])
@@ -109,6 +177,18 @@ export const useBomStore = defineStore('bom', () => {
   const expandedRows = ref<Set<number>>(new Set())
 
   /**
+   * Item IDs the user has explicitly picked an acquisition mode for. The
+   * decision row collapses the segmented picker into a single "active mode"
+   * chip once the row is touched — the user has made their call and
+   * doesn't need 4 chips of always-on options anymore.
+   *
+   * applyOptimalDefaults does NOT add to this set (auto-defaults shouldn't
+   * count as a user decision); only an explicit setAcquisitionMode call from
+   * the UI does. clearTargets / a fresh calc reset it.
+   */
+  const userTouchedModes = ref<Set<number>>(new Set())
+
+  /**
    * Per-itemId availability (market / gather / NPC). Populated lazily after
    * a calculate by hitting garlandtools. Missing entries fall back to
    * permissive — the row shows every chip until we know better.
@@ -125,6 +205,67 @@ export const useBomStore = defineStore('bom', () => {
    */
   const priceFetchStatus = ref<Map<number, PriceFetchStatus>>(new Map())
   const fetchingPriceIds = ref<Set<number>>(new Set())
+
+  // ---------------------------------------------------------------------------
+  // Route planner state
+  // ---------------------------------------------------------------------------
+
+  /** Per-itemId location data (NPC vendors + gather nodes). Populated lazily. */
+  const itemLocations = ref<Map<number, ItemLocations>>(new Map())
+
+  const routeViewPrefs = ref<{ optimizeBy: 'gil' | 'hop' }>({
+    optimizeBy: readPrefsFromLs() ?? 'gil',
+  })
+
+  const routeViewSession = ref<{
+    excluded: Set<number>
+    checked: Set<number>
+    collapsedGroups: Set<number>
+  }>({ excluded: new Set(), checked: new Set(), collapsedGroups: new Set() })
+
+  /** Stable, order-independent signature of the current target list. */
+  const targetSig = computed(() => {
+    return targets.value
+      .slice()
+      .sort((a, b) => a.itemId - b.itemId)
+      .map(t => `${t.itemId}:${t.quantity}`)
+      .join(',')
+  })
+
+  // Scoped to each store instance — prevents HMR / multi-instance timer collisions.
+  let writeTimer: ReturnType<typeof setTimeout> | null = null
+
+  function scheduleWrite(sig: string, session: { excluded: Set<number>; checked: Set<number>; collapsedGroups: Set<number> }) {
+    if (writeTimer) clearTimeout(writeTimer)
+    writeTimer = setTimeout(() => {
+      try {
+        localStorage.setItem(lsKey(sig), JSON.stringify({
+          excluded: [...session.excluded],
+          checked: [...session.checked],
+          collapsedGroups: [...session.collapsedGroups],
+          _mtime: Date.now(),
+        }))
+        evictLru()
+      } catch {}
+      writeTimer = null
+    }, WRITE_DEBOUNCE_MS)
+  }
+
+  // Reload session from localStorage whenever the target list changes.
+  watch(targetSig, (next) => {
+    routeViewSession.value = loadSession(next)
+  }, { immediate: true, flush: 'sync' })
+
+  // Debounce-persist session mutations back to localStorage. `flush: 'sync'`
+  // keeps scheduleWrite firing in the same tick as the mutation so the
+  // debounce window starts at user-action time, not 1 microtask later.
+  // Tests with fake timers also rely on this sync chain.
+  watch(routeViewSession, (next) => {
+    if (targetSig.value) scheduleWrite(targetSig.value, next)
+  }, { deep: true, flush: 'sync' })
+
+  // Persist prefs immediately on change. Same fake-timer reasoning as above.
+  watch(routeViewPrefs, (next) => writePrefsToLs(next), { deep: true, flush: 'sync' })
 
   function addTarget(target: BomTarget) {
     // Dedupe by itemId — same item shouldn't appear twice even with different
@@ -155,6 +296,7 @@ export const useBomStore = defineStore('bom', () => {
     flatMaterials.value = []
     acquisitionMode.value = new Map()
     expandedRows.value = new Set()
+    userTouchedModes.value = new Set()
     acquisitionAvailability.value = new Map()
     priceFetchStatus.value = new Map()
     fetchingPriceIds.value = new Set()
@@ -180,8 +322,26 @@ export const useBomStore = defineStore('bom', () => {
     for (const id of ids) fetchingNext.add(id)
     fetchingPriceIds.value = fetchingNext
 
+    // When the user has 跨服採購 on we have to query the data center, not their
+    // home world — Universalis returns 404 for an empty path segment, which
+    // is exactly what `${BASE_URL}/${''}/${ids}` produces. Fall back to the
+    // other field if one is unset.
+    const effectiveScope =
+      (settings.crossServer ? settings.dataCenter || settings.server : settings.server || settings.dataCenter)
+    if (!effectiveScope) {
+      // No server / data-center configured. Don't mark as 'failed' — the
+      // failure was on the user side, not the API. Leave priceFetchStatus
+      // untouched so 100+ retry chips don't scream "broken" at the user.
+      // The TotalsBar surfaces this via priceServerNotConfigured instead.
+      console.warn('[BOM] No server/data-center configured; skipping price fetch')
+      const finalSet = new Set(fetchingPriceIds.value)
+      for (const id of ids) finalSet.delete(id)
+      fetchingPriceIds.value = finalSet
+      return { ok: false }
+    }
+
     try {
-      const marketDataMap = await getAggregatedPrices(settings.server, ids)
+      const marketDataMap = await getAggregatedPrices(effectiveScope, ids)
 
       const priceMap = new Map(prices.value)
       for (const [id, data] of marketDataMap) {
@@ -300,7 +460,21 @@ export const useBomStore = defineStore('bom', () => {
         return cost
       }
 
+      // Honor the "原料準備" setting: when the user has chosen 自採 as the
+      // default for raw materials, gatherable non-craftable nodes default
+      // to gather (cost 0). Crystals (itemId < 20) and craftable nodes
+      // bypass this — crystals can't be gathered, and craftable nodes have
+      // their own cheapest-mode logic that includes craft.
+      const canGather = acquisitionAvailability.value.get(node.itemId)?.canGather === true
+      const isCrystal = node.itemId < 20
+      const preferGather =
+        settings.rawMaterialDefault === 'gather' &&
+        !isCraftable &&
+        !isCrystal &&
+        canGather
+
       const candidates: Array<{ mode: AcquisitionSource; cost: number }> = []
+      if (preferGather) candidates.push({ mode: 'gather', cost: 0 })
       if (Number.isFinite(marketCost)) candidates.push({ mode: 'market', cost: marketCost })
       if (Number.isFinite(craftCost)) candidates.push({ mode: 'craft', cost: craftCost })
       if (Number.isFinite(npcCost)) candidates.push({ mode: 'npc', cost: npcCost })
@@ -371,8 +545,13 @@ export const useBomStore = defineStore('bom', () => {
    * Set acquisition mode for an item. When switching to/from 'craft',
    * also flip the tree node's collapsed state so flattenMaterialTree
    * walks the right subtree on the next recalc.
+   *
+   * `fromUser=true` (default) marks the row as user-touched so the
+   * decision row collapses to a single chip. applyOptimalDefaults
+   * passes fromUser=false so auto-picked rows stay open until the
+   * user explicitly chooses.
    */
-  function setAcquisitionMode(itemId: number, mode: AcquisitionSource) {
+  function setAcquisitionMode(itemId: number, mode: AcquisitionSource, fromUser = true) {
     const node = findNode(itemId)
     if (mode === 'craft') {
       if (!node || !node.recipeId || !node.children || node.children.length === 0) {
@@ -386,7 +565,15 @@ export const useBomStore = defineStore('bom', () => {
         node.collapsed = true
       }
     }
+    if (fromUser) {
+      userTouchedModes.value.add(itemId)
+      userTouchedModes.value = new Set(userTouchedModes.value)
+    }
     recalcFlat()
+  }
+
+  function isModeUserSettled(itemId: number): boolean {
+    return userTouchedModes.value.has(itemId)
   }
 
   function toggleRowExpanded(itemId: number) {
@@ -467,6 +654,63 @@ export const useBomStore = defineStore('bom', () => {
     node.collapsed = !node.collapsed
   }
 
+  // ---------------------------------------------------------------------------
+  // Route planner actions
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Loads location data AND the zone/NPC name metadata it references, in that
+   * order, so consumers reading via the non-reactive `getZoneMetaSync` /
+   * `getNpcNameSync` getters at render time see real names on the very first
+   * render after `itemLocations` updates. Without bundling these, the reactive
+   * write on `itemLocations` triggers a re-render before the name caches are
+   * populated, leaving rows showing `#zone:146` / `#npc:1008907` placeholders.
+   */
+  async function fetchItemLocationsForRoute(itemIds: number[]) {
+    const fresh = await fetchItemLocationsBatch(itemIds)
+
+    const zoneIds = new Set<number>()
+    const npcIds = new Set<number>()
+    for (const [, info] of fresh) {
+      for (const v of info.npcVendors) {
+        zoneIds.add(v.zoneId)
+        npcIds.add(v.npcId)
+      }
+      for (const n of info.gatherNodes) zoneIds.add(n.zoneId)
+    }
+    await Promise.all([
+      zoneIds.size > 0 ? fetchZoneMetaBulk([...zoneIds]) : Promise.resolve(),
+      npcIds.size > 0 ? fetchNpcNameBulk([...npcIds]) : Promise.resolve(),
+    ])
+
+    const merged = new Map(itemLocations.value)
+    for (const [id, info] of fresh) merged.set(id, info)
+    itemLocations.value = merged
+  }
+
+  function setOptimizeBy(mode: 'gil' | 'hop') {
+    if (routeViewPrefs.value.optimizeBy === mode) return
+    routeViewPrefs.value = { optimizeBy: mode }
+  }
+
+  function toggleChecked(itemId: number) {
+    const next = new Set(routeViewSession.value.checked)
+    if (next.has(itemId)) next.delete(itemId); else next.add(itemId)
+    routeViewSession.value = { ...routeViewSession.value, checked: next }
+  }
+
+  function toggleExcluded(itemId: number) {
+    const next = new Set(routeViewSession.value.excluded)
+    if (next.has(itemId)) next.delete(itemId); else next.add(itemId)
+    routeViewSession.value = { ...routeViewSession.value, excluded: next }
+  }
+
+  function toggleGroupCollapsed(zoneId: number) {
+    const next = new Set(routeViewSession.value.collapsedGroups)
+    if (next.has(zoneId)) next.delete(zoneId); else next.add(zoneId)
+    routeViewSession.value = { ...routeViewSession.value, collapsedGroups: next }
+  }
+
   function recalcFlat() {
     flatMaterials.value = flattenMaterialTree(materialTree.value)
   }
@@ -478,6 +722,7 @@ export const useBomStore = defineStore('bom', () => {
     prices,
     acquisitionMode,
     expandedRows,
+    userTouchedModes,
     acquisitionAvailability,
     priceFetchStatus,
     fetchingPriceIds,
@@ -500,7 +745,18 @@ export const useBomStore = defineStore('bom', () => {
     isCraftableInTree,
     getEffectiveMode,
     setAcquisitionMode,
+    isModeUserSettled,
     toggleRowExpanded,
     isRowExpanded,
+    // Route planner
+    itemLocations,
+    routeViewPrefs,
+    routeViewSession,
+    targetSig,
+    fetchItemLocationsForRoute,
+    setOptimizeBy,
+    toggleChecked,
+    toggleExcluded,
+    toggleGroupCollapsed,
   }
 })

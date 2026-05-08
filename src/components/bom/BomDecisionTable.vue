@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { FlatMaterial, MaterialNode } from '@/stores/bom'
 import { useBomStore } from '@/stores/bom'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import BomDecisionRow from '@/components/bom/BomDecisionRow.vue'
 import BomCraftTreeNode from '@/components/bom/BomCraftTreeNode.vue'
+import BomAcquisitionDetail from '@/components/bom/BomAcquisitionDetail.vue'
+import BomMarketDetail from '@/components/bom/BomMarketDetail.vue'
+import ZoneMapSheet from '@/components/bom/ZoneMapSheet.vue'
 import ItemName from '@/components/common/ItemName.vue'
 
 const props = defineProps<{
@@ -115,42 +118,101 @@ const drillDrawerOpen = computed<boolean>({
     }
   },
 })
+
+// ---------------------------------------------------------------------------
+// ZoneMapSheet — local bottom-sheet for BomAcquisitionDetail map links.
+// Phones open a ZoneMapSheet inline here; the sheet is lightweight and there
+// is no conflict with the craft drill-sheet because npc/gather rows are
+// never in craft mode simultaneously.
+// ---------------------------------------------------------------------------
+
+const mapSheetOpen = ref(false)
+const mapSheetZoneId = ref<number | null>(null)
+const mapSheetCoords = ref<{ x: number; y: number } | null>(null)
+
+function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
+  mapSheetZoneId.value = zoneId
+  mapSheetCoords.value = coords
+  mapSheetOpen.value = true
+}
+
+// Single shared aria-live region for the table — selectMode in any row
+// emits announce-expand here, so SR users get one well-defined queue
+// instead of one per row.
+const announcement = ref('')
+function onAnnounceExpand(detail: { modeLabel: string; itemName: string }) {
+  announcement.value = `已切換為${detail.modeLabel}，已展開${detail.itemName}詳細`
+}
 </script>
 
 <template>
   <section class="bom-decision-table" aria-label="素材取得決策表">
-    <div class="bdt-head">
-      <div class="bdt-head__col bdt-head__col--icon" />
-      <div class="bdt-head__col bdt-head__col--name">素材</div>
-      <div class="bdt-head__col bdt-head__col--qty">數量</div>
-      <div class="bdt-head__col bdt-head__col--filler" />
-      <div class="bdt-head__col bdt-head__col--seg">取得</div>
-      <div class="bdt-head__col bdt-head__col--unit">單價</div>
-      <div class="bdt-head__col bdt-head__col--total">小計</div>
-      <div class="bdt-head__col bdt-head__col--chev" />
-    </div>
+    <div class="bdt-columns">
 
-    <div v-if="targetRows.length > 0" class="bdt-group">
+    <div v-if="targetRows.length > 0" class="bdt-group bdt-group--targets">
       <div class="bdt-group__header">
         <span class="bdt-group__title">完成品</span>
         <span class="bdt-group__hint">這些是你要做出來的東西，自製是預設選擇</span>
       </div>
-      <BomDecisionRow
-        v-for="row in targetRows"
-        :key="`t-${row.itemId}`"
-        :item-id="row.itemId"
-        :name="row.name"
-        :icon="row.icon"
-        :amount="row.amount"
-        :is-craftable="row.isCraftable"
-        :immutable="row.isCraftable"
-      />
+      <div class="bdt-head">
+        <div class="bdt-head__col bdt-head__col--icon" />
+        <div class="bdt-head__col bdt-head__col--name">物品</div>
+        <div class="bdt-head__col bdt-head__col--qty">數量</div>
+        <div class="bdt-head__col bdt-head__col--filler" />
+        <div class="bdt-head__col bdt-head__col--seg">方式</div>
+        <div class="bdt-head__col bdt-head__col--unit">單價</div>
+        <div class="bdt-head__col bdt-head__col--total">小計</div>
+        <div class="bdt-head__col bdt-head__col--chev" />
+      </div>
+      <template v-for="row in targetRows" :key="`t-${row.itemId}`">
+        <BomDecisionRow
+          :item-id="row.itemId"
+          :name="row.name"
+          :icon="row.icon"
+          :amount="row.amount"
+          :is-craftable="row.isCraftable"
+          :immutable="row.isCraftable"
+          @announce-expand="onAnnounceExpand"
+        />
+        <!-- Non-craftable targets (NPC vendors, gatherables, market-only items
+             imported from Teamcraft) get the same drill content as material
+             rows so the player can still see vendor / location / price detail
+             for the item they're trying to procure. -->
+        <template v-if="!row.isCraftable && !isCockpitMobile && bom.isRowExpanded(row.itemId)">
+          <div
+            v-if="bom.getEffectiveMode(row.itemId) === 'npc' || bom.getEffectiveMode(row.itemId) === 'gather'"
+            class="bdt-drill bdt-drill--acquisition"
+          >
+            <BomAcquisitionDetail
+              :item-id="row.itemId"
+              :mode="bom.getEffectiveMode(row.itemId) as 'npc' | 'gather'"
+              @open-map-sheet="onOpenMapSheet"
+            />
+          </div>
+          <div
+            v-else-if="bom.getEffectiveMode(row.itemId) === 'market'"
+            class="bdt-drill bdt-drill--acquisition"
+          >
+            <BomMarketDetail :item-id="row.itemId" :item-name="row.name" />
+          </div>
+        </template>
+      </template>
     </div>
 
-    <div v-if="materialRows.length > 0" class="bdt-group">
+    <div v-if="materialRows.length > 0" class="bdt-group bdt-group--materials">
       <div class="bdt-group__header">
         <span class="bdt-group__title">材料</span>
         <span class="bdt-group__hint">逐筆挑選取得方式，總價會即時更新</span>
+      </div>
+      <div class="bdt-head">
+        <div class="bdt-head__col bdt-head__col--icon" />
+        <div class="bdt-head__col bdt-head__col--name">物品</div>
+        <div class="bdt-head__col bdt-head__col--qty">數量</div>
+        <div class="bdt-head__col bdt-head__col--filler" />
+        <div class="bdt-head__col bdt-head__col--seg">方式</div>
+        <div class="bdt-head__col bdt-head__col--unit">單價</div>
+        <div class="bdt-head__col bdt-head__col--total">小計</div>
+        <div class="bdt-head__col bdt-head__col--chev" />
       </div>
       <template v-for="row in materialRows" :key="`m-${row.itemId}`">
         <BomDecisionRow
@@ -159,18 +221,39 @@ const drillDrawerOpen = computed<boolean>({
           :icon="row.icon"
           :amount="row.amount"
           :is-craftable="row.isCraftable"
+          @announce-expand="onAnnounceExpand"
         />
-        <div
-          v-if="!isCockpitMobile && row.isCraftable && bom.isRowExpanded(row.itemId) && bom.getEffectiveMode(row.itemId) === 'craft'"
-          class="bdt-drill"
-        >
-          <BomCraftTreeNode
-            v-if="getNodeForRow(row.itemId)"
-            :parent="getNodeForRow(row.itemId)!"
-          />
-        </div>
+        <template v-if="!isCockpitMobile && bom.isRowExpanded(row.itemId)">
+          <div
+            v-if="bom.getEffectiveMode(row.itemId) === 'craft' && row.isCraftable"
+            class="bdt-drill"
+          >
+            <BomCraftTreeNode
+              v-if="getNodeForRow(row.itemId)"
+              :parent="getNodeForRow(row.itemId)!"
+            />
+          </div>
+          <div
+            v-else-if="bom.getEffectiveMode(row.itemId) === 'npc' || bom.getEffectiveMode(row.itemId) === 'gather'"
+            class="bdt-drill bdt-drill--acquisition"
+          >
+            <BomAcquisitionDetail
+              :item-id="row.itemId"
+              :mode="bom.getEffectiveMode(row.itemId) as 'npc' | 'gather'"
+              @open-map-sheet="onOpenMapSheet"
+            />
+          </div>
+          <div
+            v-else-if="bom.getEffectiveMode(row.itemId) === 'market'"
+            class="bdt-drill bdt-drill--acquisition"
+          >
+            <BomMarketDetail :item-id="row.itemId" :item-name="row.name" />
+          </div>
+        </template>
       </template>
     </div>
+
+    </div><!-- /.bdt-columns -->
 
     <div v-if="crystalRollup.length > 0" class="bdt-crystals">
       <span class="bdt-crystals__label">水晶</span>
@@ -185,7 +268,15 @@ const drillDrawerOpen = computed<boolean>({
     <p v-if="targetRows.length === 0 && materialRows.length === 0" class="bdt-empty">
       尚未計算 — 從左側加入目標後按「計算材料需求」
     </p>
+
+    <span class="bdt-sr-only" role="status" aria-live="polite">{{ announcement }}</span>
   </section>
+
+  <ZoneMapSheet
+    v-model="mapSheetOpen"
+    :zone-id="mapSheetZoneId"
+    :highlight-coords="mapSheetCoords ?? undefined"
+  />
 
   <el-drawer
     v-if="isCockpitMobile"
@@ -211,13 +302,17 @@ const drillDrawerOpen = computed<boolean>({
 .bom-decision-table {
   display: flex;
   flex-direction: column;
-  background: var(--app-surface);
-  border: 1px solid var(--app-border);
-  border-radius: 12px;
-  overflow: hidden;
+  gap: 16px;
+  /* No outer card border — each group is its own card now (see .bdt-group
+   * below). The crystals roll-up sits below as its own slim card. */
+  background: transparent;
   container-type: inline-size;
 }
 
+/* Per-group column labels. Lives inside each .bdt-group card, just under
+ * the section heading. Not sticky any more — each card has its own
+ * scroll/page-flow context, and the right-column sticky stack already
+ * covers totals + tabs + toolbar so the user keeps wayfinding. */
 .bdt-head {
   display: grid;
   grid-template-columns:
@@ -231,7 +326,7 @@ const drillDrawerOpen = computed<boolean>({
     24px;
   align-items: center;
   gap: 12px;
-  padding: 8px 14px;
+  padding: 6px 14px 8px;
   background: var(--app-surface-2);
   border-bottom: 1px solid var(--app-border);
   font-family: 'Fira Code', ui-monospace, monospace;
@@ -242,7 +337,14 @@ const drillDrawerOpen = computed<boolean>({
   color: var(--app-text-muted);
 }
 
-.bdt-head__col--qty,
+/* Column-label text alignment mirrors the row data underneath:
+ *   數量 left-aligned (.dec-row__qty defaults to start)
+ *   單價 / 小計 right-aligned (.dec-row__unit / __total are right)
+ *   方式 centered (.dec-row__locked / __seg are center-justified) */
+.bdt-head__col--qty {
+  text-align: left;
+}
+
 .bdt-head__col--unit,
 .bdt-head__col--total {
   text-align: right;
@@ -252,26 +354,66 @@ const drillDrawerOpen = computed<boolean>({
   text-align: center;
 }
 
+/* When each row stacks (≤720px container), the column labels stop matching
+ * the data grid — the labels would imply a single-row layout that the
+ * stacked rows no longer follow. Hide them. */
+@container (max-width: 720px) {
+  .bdt-head {
+    display: none;
+  }
+}
+
+.bdt-columns {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Each group reads as a flat editorial section: title eyebrow + list
+ * of rows, no card chrome. Dropping the outer border / radius / bg
+ * solves the "card-in-card" tell — the receipt above is already the
+ * page's one summary card; stacking another card layer below it pushed
+ * the visual into nested-cards territory.
+ *
+ * `container-type: inline-size` is critical: the row's stacked layout
+ * (`@container (max-width: 720px)` in BomDecisionRow.vue) triggers off
+ * the nearest container ancestor's width. Without this, the row queries
+ * .bom-decision-table (1100+) and stays in the 8-column horizontal
+ * layout even at 540px per group, which collapses the name column to 0. */
 .bdt-group {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  container-type: inline-size;
 }
 
-.bdt-group + .bdt-group {
-  border-top: 1px solid var(--app-border);
+/* Wide viewports: split 完成品 + 材料 into two side-by-side cards so
+ * neither is hidden below a long scroll. The crystals roll-up stays
+ * full-width below. */
+@container (min-width: 1100px) {
+  .bdt-columns {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .bdt-columns > .bdt-group {
+    flex: 1;
+    min-width: 0;
+  }
 }
 
 .bdt-group__header {
   display: flex;
   align-items: baseline;
   gap: 12px;
-  padding: 12px 14px 8px;
-  background: var(--app-surface);
+  padding: 4px 4px 12px;
+  border-bottom: 1px solid var(--app-border);
+  margin-bottom: 0;
 }
 
 .bdt-group__title {
   font-family: 'Noto Serif TC', serif;
-  font-size: 14.5px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--app-text);
   letter-spacing: 0.02em;
@@ -287,13 +429,18 @@ const drillDrawerOpen = computed<boolean>({
   border-bottom: 1px solid var(--app-border);
 }
 
+.bdt-drill--acquisition {
+  /* Acquisition detail has its own internal padding; keep the outer shell
+   * neutral so BomAcquisitionDetail's dashed top border reads cleanly. */
+  background: var(--app-surface);
+}
+
 .bdt-crystals {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 12px;
-  padding: 12px 14px 14px;
+  padding: 14px 4px 4px;
   border-top: 1px solid var(--app-border);
-  background: var(--app-surface);
 }
 
 .bdt-crystals__label {
@@ -333,6 +480,18 @@ const drillDrawerOpen = computed<boolean>({
   text-align: center;
   color: var(--app-text-muted);
   font-size: 13.5px;
+}
+
+.bdt-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 @container (max-width: 720px) {

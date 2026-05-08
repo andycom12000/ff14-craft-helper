@@ -1,6 +1,7 @@
 import { XIVAPI_SHEET_BASE, fetchSheetFields } from '@/api/xivapi'
 import { getItem, getLocale } from '@/services/local-data-source'
 import { sToT } from '@/utils/s2t'
+import { buildMapAssetUrl } from '@/utils/map-coords'
 
 const GARLAND_BROWSE = 'https://garlandtools.org/db/doc/browse/en/2/node.json'
 
@@ -122,8 +123,7 @@ export async function resolveNodeDetails(nodes: GatheringNode[]): Promise<Gather
         const mapStringId = result?.fields?.Id as string | undefined
         const sizeFactor = (result?.fields?.SizeFactor as number) ?? 100
         if (!mapStringId) return null
-        const [folder, sub] = mapStringId.split('/')
-        const assetPath = `ui/map/${folder}/${sub}/${folder}${sub}_m.tex`
+        const assetPath = buildMapAssetUrl(mapStringId)
         return { zoneId: zid, assetPath, sizeFactor }
       }),
     )

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "zones": {
+    "146": {
+      "zoneName": "拉諲西亞低地",
+      "aetherytes": [
+        { "name": "莫拉比造船廠", "x": 28.7, "y": 33.1, "tpCostBase": 213 }
+      ]
+    },
+    "153": {
+      "zoneName": "東拉諲西亞",
+      "aetherytes": [
+        { "name": "葛利達尼亞", "x": 23.6, "y": 18.8, "tpCostBase": 213 }
+      ]
+    },
+    "155": {
+      "zoneName": "庫爾札斯西部高地",
+      "aetherytes": [
+        { "name": "鏡石之間", "x": 26.5, "y": 28.9, "tpCostBase": 425 }
+      ]
+    }
+  }
+}

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useBomStore } from '@/stores/bom'
 import { useSettingsStore } from '@/stores/settings'
 import { getPrice, type AcquisitionSource } from '@/stores/bom'
@@ -22,6 +22,27 @@ interface Props {
 const props = defineProps<Props>()
 const bom = useBomStore()
 const settings = useSettingsStore()
+
+// Local picker-expansion override. When the user clicks the collapsed
+// chip on a settled row, we show the full picker for one decision cycle;
+// after they pick (or click the chip again), we collapse back. This is
+// independent of `bom.expandedRows`, which controls the drill-down panel.
+const pickerExpanded = ref(false)
+
+// Re-collapse the picker whenever the user navigates away (the row
+// re-renders with a different itemId via the v-for key, so this only
+// applies to subsequent toggles within the same row instance).
+watch(
+  () => props.itemId,
+  () => {
+    pickerExpanded.value = false
+  },
+)
+
+const isUserSettled = computed(() => bom.isModeUserSettled(props.itemId))
+const showFullPicker = computed(
+  () => !isUserSettled.value || pickerExpanded.value,
+)
 
 const mode = computed<AcquisitionSource>(() => bom.getEffectiveMode(props.itemId))
 
@@ -86,18 +107,43 @@ async function retryPrice() {
 }
 
 const isExpanded = computed(() => bom.isRowExpanded(props.itemId))
-const isRowToggleable = computed(
-  () => props.isCraftable && mode.value === 'craft' && !props.immutable,
-)
+const isRowToggleable = computed(() => {
+  if (props.immutable) return false
+  if (mode.value === 'craft') return props.isCraftable
+  // npc/gather drill = location detail; market drill = cross-world price table.
+  return mode.value === 'npc' || mode.value === 'gather' || mode.value === 'market'
+})
+
+const emit = defineEmits<{
+  // Auto-expand fired with no focus shift, so SR needs a polite poke.
+  // Parent owns the live region — one queue, one announcement.
+  'announce-expand': [{ modeLabel: string; itemName: string }]
+}>()
 
 function selectMode(m: AcquisitionSource) {
   if (props.immutable) return
-  if (m === mode.value) return
+  const isChanging = m !== mode.value
+  // Always call setAcquisitionMode — on a no-op pick it still marks the
+  // row settled, collapsing the picker back to a chip.
   bom.setAcquisitionMode(props.itemId, m)
-  if (m === 'craft' && !bom.isRowExpanded(props.itemId)) {
+  if (isChanging && isRowToggleable.value && !bom.isRowExpanded(props.itemId)) {
     bom.toggleRowExpanded(props.itemId)
+    const label = segments.value.find((s) => s.value === m)?.label ?? m
+    emit('announce-expand', { modeLabel: label, itemName: props.name })
   }
+  pickerExpanded.value = false
 }
+
+function toggleCollapsedPicker(event: Event) {
+  // Stop the click from bubbling to the row's drill-down toggle. The
+  // chip lives inside `.dec-row__seg`, which already swallows clicks via
+  // @click.stop on the wrapper, but we explicitly stop here too in case
+  // the click hits the chip's edit icon directly.
+  event.stopPropagation()
+  pickerExpanded.value = !pickerExpanded.value
+}
+
+const activeSegment = computed(() => segments.value.find((s) => s.value === mode.value))
 
 function onRowClick() {
   if (!isRowToggleable.value) return
@@ -116,7 +162,7 @@ function onRowClick() {
     :role="isRowToggleable ? 'button' : undefined"
     :tabindex="isRowToggleable ? 0 : undefined"
     :aria-expanded="isRowToggleable ? isExpanded : undefined"
-    :aria-label="isRowToggleable ? (isExpanded ? `收合 ${name} 子配方` : `展開 ${name} 子配方`) : undefined"
+    :aria-label="isRowToggleable ? (isExpanded ? `收合 ${name} 詳細` : `展開 ${name} 詳細`) : undefined"
     @click="onRowClick"
     @keydown.enter.prevent="onRowClick"
     @keydown.space.prevent="onRowClick"
@@ -139,22 +185,44 @@ function onRowClick() {
     <div class="dec-row__filler" aria-hidden="true" />
 
     <div v-if="!immutable" class="dec-row__seg" role="group" aria-label="取得來源" @click.stop>
+      <!-- Settled row, collapsed: show the active mode as a single chip
+           with a small edit affordance. Click anywhere on it to expand
+           the picker; clicking again (or picking a mode) collapses it. -->
       <button
-        v-for="s in segments"
-        :key="s.value"
+        v-if="!showFullPicker && activeSegment"
         type="button"
-        class="dec-seg"
-        :class="{
-          'is-active': mode === s.value,
-          'is-craft': s.value === 'craft' && mode === 'craft',
-        }"
-        :aria-pressed="mode === s.value"
-        :data-mode="s.value"
-        @click.stop="selectMode(s.value)"
+        class="dec-seg dec-seg--collapsed is-active"
+        :class="{ 'is-craft': mode === 'craft' }"
+        :data-mode="mode"
+        :aria-label="`${activeSegment.label} · 點擊更換`"
+        :title="`${activeSegment.label} · 點擊更換`"
+        @click.stop="toggleCollapsedPicker"
       >
-        <span class="dec-seg__icon" aria-hidden="true">{{ s.icon }}</span>
-        <span class="dec-seg__label">{{ s.label }}</span>
+        <span class="dec-seg__icon" aria-hidden="true">{{ activeSegment.icon }}</span>
+        <span class="dec-seg__label">{{ activeSegment.label }}</span>
+        <span class="dec-seg__edit" aria-hidden="true">✎</span>
       </button>
+
+      <!-- Full picker: shown when the row is unsettled (auto-default not
+           yet confirmed) or when the user just clicked the chip to edit. -->
+      <template v-else>
+        <button
+          v-for="s in segments"
+          :key="s.value"
+          type="button"
+          class="dec-seg"
+          :class="{
+            'is-active': mode === s.value,
+            'is-craft': s.value === 'craft' && mode === 'craft',
+          }"
+          :aria-pressed="mode === s.value"
+          :data-mode="s.value"
+          @click.stop="selectMode(s.value)"
+        >
+          <span class="dec-seg__icon" aria-hidden="true">{{ s.icon }}</span>
+          <span class="dec-seg__label">{{ s.label }}</span>
+        </button>
+      </template>
     </div>
     <div v-else class="dec-row__locked">
       <span class="dec-seg dec-seg--locked"><span class="dec-seg__icon">⚒</span><span class="dec-seg__label">自製</span></span>
@@ -203,10 +271,13 @@ function onRowClick() {
     24px;
   align-items: center;
   gap: 12px;
-  padding: 10px 14px;
+  padding: 10px 4px;
   border-bottom: 1px solid var(--app-border);
   min-height: 56px;
-  background: var(--app-surface);
+  /* Transparent bg — the row is a list item, not a card. The panel
+   * dropped its card chrome to avoid card-in-card; matching the row
+   * here keeps the section reading as a flat editorial list. */
+  background: transparent;
   transition: background-color 0.15s var(--ease-out-quart, ease-out);
 }
 
@@ -215,7 +286,7 @@ function onRowClick() {
 }
 
 .dec-row:hover {
-  background: var(--app-surface-hover);
+  background: color-mix(in srgb, var(--app-craft-dim) 8%, transparent);
 }
 
 .dec-row.is-row-toggleable {
@@ -223,7 +294,7 @@ function onRowClick() {
 }
 
 .dec-row.is-row-toggleable:hover {
-  background: color-mix(in srgb, var(--app-craft-dim) 18%, var(--app-surface));
+  background: color-mix(in srgb, var(--app-craft-dim) 14%, transparent);
 }
 
 .dec-row.is-row-toggleable:focus-visible {
@@ -232,15 +303,15 @@ function onRowClick() {
 }
 
 .dec-row.is-expanded {
-  background: color-mix(in srgb, var(--app-craft-dim) 35%, var(--app-surface));
+  background: color-mix(in srgb, var(--app-craft-dim) 22%, transparent);
 }
 
 .dec-row.is-expanded.is-row-toggleable:hover {
-  background: color-mix(in srgb, var(--app-craft-dim) 45%, var(--app-surface));
+  background: color-mix(in srgb, var(--app-craft-dim) 30%, transparent);
 }
 
 .dec-row.is-nested {
-  background: color-mix(in srgb, var(--app-craft-dim) 12%, transparent);
+  background: color-mix(in srgb, var(--app-craft-dim) 10%, transparent);
   padding-left: 36px;
   min-height: 48px;
   font-size: 13.5px;
@@ -358,6 +429,44 @@ function onRowClick() {
   padding: 5px 10px;
 }
 
+/* Collapsed chip — the entire active mode rendered as a single
+ * pseudo-pill with an edit pencil. Clicking it expands the picker.
+ * Looks like an active segment plus a trailing ✎ that fades in on
+ * hover/focus so the resting state stays clean. */
+.dec-seg--collapsed {
+  padding: 5px 10px 5px 12px;
+  /* Slightly tighter gap between label + edit pencil than the standard
+   * icon→label gap, so the pencil reads as an inline affordance, not a
+   * separate token. */
+  gap: 6px;
+}
+
+.dec-seg--collapsed:hover,
+.dec-seg--collapsed:focus-visible {
+  filter: brightness(1.08);
+}
+
+.dec-seg__edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  /* Pad-left so the pencil sits flush-right of the label without a
+   * gap reading as separation. */
+  padding-left: 4px;
+  border-left: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  opacity: 0.7;
+  transition: opacity 0.12s var(--ease-out-quart, ease-out);
+}
+
+.dec-seg--collapsed:hover .dec-seg__edit,
+.dec-seg--collapsed:focus-visible .dec-seg__edit {
+  opacity: 1;
+}
+
 .dec-row__locked {
   display: inline-flex;
   justify-self: center;
@@ -431,22 +540,48 @@ function onRowClick() {
 }
 
 @container (max-width: 720px) {
+  /* Post-1440 split (完成品 + 材料 二欄) lands each pane in this branch
+   * even on a wide viewport. Layout reads as:
+   *   row 1: [icon] [name] ······ [chev]
+   *   row 2: [segmented control spans full width]
+   *   row 3: [單價 ×N]    ············    [總價]
+   * Unit and qty sit adjacent on the bottom-left so the user reads
+   * "200 Gil ×4 = 800" naturally; no diagonal glance to a top-right
+   * qty. Total anchors the bottom-right. */
   .dec-row {
-    grid-template-columns: 28px minmax(0, 1fr) 36px 28px;
+    grid-template-columns: 28px auto auto 1fr auto 28px;
     grid-template-areas:
-      'icon name qty chev'
-      'seg seg seg seg'
-      'unit unit total total';
+      'icon name name name name chev'
+      'seg  seg  seg  seg  seg  seg'
+      '.    unit qty  .    total .';
+    column-gap: 6px;
     row-gap: 8px;
     padding: 12px;
   }
   .dec-row__icon { grid-area: icon; }
   .dec-row__name { grid-area: name; }
-  .dec-row__qty { grid-area: qty; text-align: right; }
+  .dec-row__qty {
+    grid-area: qty;
+    text-align: left;
+    align-self: baseline;
+    justify-self: start;
+    font-size: 12.5px;
+    color: var(--app-text-muted);
+    /* Small breathing room between the price number and "×N". */
+    padding-left: 4px;
+  }
   .dec-row__filler { display: none; }
-  .dec-row__seg, .dec-row__locked { grid-area: seg; }
-  .dec-row__unit { grid-area: unit; text-align: left; }
-  .dec-row__total { grid-area: total; }
+  .dec-row__seg, .dec-row__locked { grid-area: seg; justify-self: start; }
+  .dec-row__unit {
+    grid-area: unit;
+    text-align: left;
+    justify-self: end;
+  }
+  .dec-row__total {
+    grid-area: total;
+    text-align: right;
+    justify-self: end;
+  }
   .dec-row__chev { grid-area: chev; }
 }
 </style>

@@ -130,6 +130,7 @@ onUnmounted(() => {
         <el-menu-item index="/bom">
           <el-icon><List /></el-icon>
           <span>購物清單</span>
+          <span class="menu-badge menu-badge--beta">實驗中</span>
         </el-menu-item>
         <el-menu-item index="/market" disabled>
           <el-icon><TrendCharts /></el-icon>
@@ -200,6 +201,14 @@ onUnmounted(() => {
   --app-success-tint: oklch(0.55 0.16 145 / 0.10);
   --app-success-tint-strong: oklch(0.55 0.16 145 / 0.18);
   --app-success-border: oklch(0.55 0.16 145 / 0.35);
+
+  /* Semantic — warning (bake) */
+  --app-warning: oklch(0.55 0.14 55);
+  --app-warning-tint: oklch(0.55 0.14 55 / 0.10);
+  --app-warning-border: oklch(0.55 0.14 55 / 0.32);
+
+  /* Semantic — danger (singed) */
+  --app-danger: oklch(0.55 0.20 25);
 
   /* Craft condition orbs (good / normal / poor) */
   --state-normal: oklch(0.55 0.02 65);
@@ -293,6 +302,14 @@ onUnmounted(() => {
   --app-success-tint: oklch(0.68 0.16 145 / 0.16);
   --app-success-tint-strong: oklch(0.68 0.16 145 / 0.24);
   --app-success-border: oklch(0.68 0.16 145 / 0.40);
+
+  /* Semantic — warning (bake) — dark: lift L for dark surfaces */
+  --app-warning: oklch(0.78 0.13 55);
+  --app-warning-tint: oklch(0.78 0.13 55 / 0.18);
+  --app-warning-border: oklch(0.78 0.13 55 / 0.40);
+
+  /* Semantic — danger (singed) — dark: lift L for dark surfaces */
+  --app-danger: oklch(0.72 0.18 22);
 
   /* Craft condition orbs */
   --state-normal: oklch(0.65 0.02 65);
@@ -533,6 +550,14 @@ html, body {
   color: var(--app-text);
 }
 
+/* Without this, Element Plus components render in their default
+ * Helvetica/PingFang/Microsoft YaHei chain, which on Windows resolves
+ * to Arial — pulling ~20% of body text away from Noto Sans TC and
+ * breaking the four-track typography contract. */
+:root {
+  --el-font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
 #app {
   height: 100%;
 }
@@ -663,18 +688,36 @@ html, body {
   padding: 28px 32px;
 }
 
+/* Page-level h2 — typography only. Descendant matching (not direct
+ * child) so views that wrap the title in a `.batch-title-row` /
+ * `.page-header` / `.bom-view__header` block still pick up the rule.
+ * Section h2s nested inside flow sections override this with their own
+ * `.section-title` styles, so they don't accidentally inherit the
+ * page-title look. */
 .view-container h2,
 .bom-view h2,
 .market-view h2,
 .settings-view h2 {
   margin-top: 0;
   margin-bottom: 8px;
-  font-size: clamp(18px, 4.5vw, 22px);
+  font-family: 'Noto Serif TC', serif;
+  font-size: clamp(20px, 4.5vw, 24px);
   font-weight: 700;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.01em;
   color: var(--app-text);
-  padding-left: 14px;
-  border-left: 3px solid var(--page-accent);
+}
+
+/* Section titles inside flow sections opt out of the page-h2 rule —
+ * they're H2s for accessibility (h1→h2 hierarchy) but visually read as
+ * subsection headers, smaller and inline with the step badge. */
+.bom-view .section-title,
+.batch-view .section-title,
+.market-view .section-title,
+.settings-view .section-title {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0;
+  margin: 0;
 }
 
 .view-desc {
@@ -1041,6 +1084,15 @@ html, body {
   border: 1px solid var(--app-border);
   border-radius: 999px;
   letter-spacing: 0.5px;
+}
+
+/* Experimental tag — still actively developed and usable, just not stable.
+ * Toast-gold to read as "warm, in progress" rather than the muted
+ * 開發中 chip which means the page literally doesn't work yet. */
+.menu-badge--beta {
+  color: var(--app-toast-gold, oklch(0.78 0.14 78));
+  background: color-mix(in srgb, var(--app-toast-gold, oklch(0.78 0.14 78)) 14%, transparent);
+  border-color: color-mix(in srgb, var(--app-toast-gold, oklch(0.78 0.14 78)) 40%, transparent);
 }
 
 .app-main {

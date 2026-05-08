@@ -279,6 +279,11 @@ describe('useBomStore.applyOptimalDefaults', () => {
 describe('useBomStore.fetchPrices', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    // fetchPrices now short-circuits when neither server nor data-center is
+    // set (avoids producing a `v2//ids` URL that 404s). Give the tests a
+    // valid scope so they exercise the success/failure paths instead.
+    const settings = useSettingsStore()
+    settings.server = 'TestServer'
     vi.mocked(getAggregatedPrices).mockReset()
   })
 

@@ -158,7 +158,10 @@ export async function getRecipe(id: number): Promise<Recipe> {
 // Re-export getItem for callers that need raw item lookup via this module.
 export { getItem }
 
-export const XIVAPI_SHEET_BASE = 'https://beta.xivapi.com/api'
+// xivapi v1 paths require the `/1` version segment for browser fetches;
+// the bare /api path responds without an Access-Control-Allow-Origin header
+// (CORS-blocked) as of 2026-05.
+export const XIVAPI_SHEET_BASE = 'https://beta.xivapi.com/api/1'
 
 export async function fetchSheetFields<T>(
   sheet: string, rows: number[], fields: string,
