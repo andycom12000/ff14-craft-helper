@@ -58,7 +58,7 @@ export const SKILLS: SkillDefinition[] = [
   { id: 'TricksOfTheTrade', nameEn: 'Tricks of the Trade', nameZh: '秘訣', nameJa: '秘訣', category: 'other', level: 13, cp: 0, durability: 0, description: '恢復 20 CP（高品質限定）', iconId: 1990 },
   { id: 'HeartAndSoul', nameEn: 'Heart and Soul', nameZh: '心靈之手', nameJa: '一心不乱', category: 'other', level: 86, cp: 0, durability: 0, description: '下次可用高品質限定技能', iconId: 1996 },
   { id: 'QuickInnovation', nameEn: 'Quick Innovation', nameZh: '快速改革', nameJa: 'クイックイノベーション', category: 'buff', level: 96, cp: 0, durability: 0, description: '免費改革 1 回合', iconId: 1999 },
-  { id: 'TrainedPerfection', nameEn: 'Trained Perfection', nameZh: '工匠的神髓', nameJa: '匠の絶技', category: 'buff', level: 100, cp: 0, durability: 0, description: '下次行動不消耗耐久', iconId: 1926 },
+  { id: 'TrainedPerfection', nameEn: 'Trained Perfection', nameZh: '工匠的絕技', nameJa: '匠の絶技', category: 'buff', level: 100, cp: 0, durability: 0, description: '下次行動不消耗耐久', iconId: 1926 },
 ]
 
 const SKILL_MAP = new Map<string, SkillDefinition>(SKILLS.map(s => [s.id, s]))

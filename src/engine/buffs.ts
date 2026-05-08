@@ -94,7 +94,7 @@ export const BUFF_DEFINITIONS: Record<BuffType, BuffInfo> = {
     description: '品質效率提升 50%，1 回合（專家）',
   },
   TrainedPerfection: {
-    name: '工匠的神髓',
+    name: '工匠的絕技',
     maxDuration: 0,
     maxStacks: 1,
     description: '下次行動不消耗耐久',
