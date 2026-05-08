@@ -427,26 +427,23 @@ onBeforeUnmount(() => {
          so this section drops its inline step badge to keep wayfinding
          single-railed and reclaim the height for the receipt. -->
     <section v-if="calculated && !calculating" ref="sectionResults" class="bom-section bom-section--results">
-      <!-- Wide receipt (in flow). Only shown on the 材料明細 tab — the
-           採買路線 tab is task-focused (check items off) and doesn't
-           need the cost summary repeated above the route map. -->
-      <div ref="receiptEl">
-        <BomTotalsReceipt
-          v-if="!(fetchingPrices && bomStore.prices.size === 0) && bomViewTab === 'detail'"
-          :fetching-prices="fetchingPrices"
-          @refresh-prices="handleRefreshPrices"
-          @send-to-batch="handleSendToBatch"
-        />
-      </div>
-
-      <!-- Sticky band: condensed totals strip (only on 材料明細 tab,
-           and only after the user has scrolled past the receipt) plus
-           the always-visible view tabs. Single sticky element keeps the
-           chrome flush so scroll content never leaks between slabs. -->
+      <!-- Sticky band leads: view tabs (always) + condensed totals
+           strip (only on 材料明細, only when the receipt has scrolled
+           out). Putting tabs at the top of the section gives the user
+           a constant wayfinding rail; the receipt sits below as the
+           tab's primary content. Single sticky element keeps the
+           chrome flush — no scroll content leaks between slabs. -->
       <div
         class="results-sticky"
         :class="{ 'results-sticky--with-strip': stripVisible && bomViewTab === 'detail' }"
       >
+        <el-segmented
+          v-if="!(fetchingPrices && bomStore.prices.size === 0)"
+          v-model="bomViewTab"
+          :options="tabOptions"
+          class="results-tabs"
+        />
+
         <Transition name="strip-fade">
           <div v-if="stripVisible && bomViewTab === 'detail'" class="results-strip">
             <BomTotalsBar
@@ -456,12 +453,17 @@ onBeforeUnmount(() => {
             />
           </div>
         </Transition>
+      </div>
 
-        <el-segmented
-          v-if="!(fetchingPrices && bomStore.prices.size === 0)"
-          v-model="bomViewTab"
-          :options="tabOptions"
-          class="results-tabs"
+      <!-- Wide receipt — only on 材料明細. Lives below the sticky tabs
+           so the tabs stay pinned while the receipt scrolls naturally.
+           The strip above takes over once the receipt is out of view. -->
+      <div ref="receiptEl">
+        <BomTotalsReceipt
+          v-if="!(fetchingPrices && bomStore.prices.size === 0) && bomViewTab === 'detail'"
+          :fetching-prices="fetchingPrices"
+          @refresh-prices="handleRefreshPrices"
+          @send-to-batch="handleSendToBatch"
         />
       </div>
 
@@ -771,11 +773,10 @@ onBeforeUnmount(() => {
   }
 }
 
-/* ── Results sticky stack — only the slim strip + tabs are pinned; the
-   wide receipt sits in flow above. The strip mounts only when the
-   receipt has scrolled out of view (controlled by IntersectionObserver
-   in the script). Single sticky element keeps the chrome flush so no
-   scroll content leaks between slabs. ──────────────────────────────── */
+/* ── Results sticky stack — tabs lead (always pinned at the top of
+   the section), strip joins them only when the receipt has scrolled
+   out of view (driven by IntersectionObserver). Single sticky element
+   keeps the chrome flush so no scroll content leaks between slabs. ─ */
 .results-sticky {
   position: sticky;
   /* `top: -20px` (matching .app-main's 20px padding) pins the wrapper at
@@ -783,27 +784,32 @@ onBeforeUnmount(() => {
    * through the 20px padding band above the wrapper because overflow:auto
    * containers don't clip content out of their padding zone.
    *
-   * The extra padding-top compensates so the inner totals bar sits at
-   * the same visual offset it would with top:0 + padding-top:12. */
+   * Padding-top compensates the negative `top` so the inner tabs sit
+   * at the same visual offset they would with top:0 + padding-top:0
+   * — no extra cream "frame" around the pill bar. */
   top: -20px;
   z-index: 5;
   scroll-margin-top: -20px;
   background: var(--app-bg);
-  padding: 28px 0 8px;
-  margin-bottom: 12px;
+  padding: 20px 0 0;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 /* Only paint the boundary shadow once the strip has materialized — when
  * the receipt is still on-screen, the band is just the tabs and we
  * don't need the heavier "pinned chrome" cue. */
 .results-sticky--with-strip {
+  padding-bottom: 8px;
   box-shadow:
     0 1px 0 var(--app-border),
     0 8px 18px -10px oklch(0.28 0.04 55 / 0.22);
 }
 
 .results-strip {
-  margin-bottom: 8px;
+  /* Inherits gap from .results-sticky's flex */
 }
 
 .strip-fade-enter-active,
@@ -848,7 +854,8 @@ onBeforeUnmount(() => {
 .results-tabs :deep(.el-segmented__item.is-selected) {
   background: var(--app-craft);
   color: var(--app-cream-surface, #faf7f2);
-  box-shadow: 0 1px 3px color-mix(in srgb, var(--app-craft) 25%, transparent);
+  /* No box-shadow — drop shadow under a pill creates a visible "edge"
+   * that can read as a square corner against the rounded container. */
 }
 
 .results-tabs :deep(.el-segmented__item:hover:not(.is-selected)) {
