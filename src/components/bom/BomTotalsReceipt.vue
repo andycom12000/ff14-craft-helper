@@ -541,20 +541,20 @@ function handleShare(action: string) {
   --el-button-bg-color: var(--app-surface);
   --el-button-text-color: var(--app-text);
   --el-button-border-color: var(--app-border);
-  --el-button-hover-bg-color: color-mix(in srgb, var(--app-craft) 6%, var(--app-surface));
+  --el-button-hover-bg-color: color-mix(in oklab, var(--app-craft) 6%, var(--app-surface));
   --el-button-hover-text-color: var(--app-craft);
-  --el-button-hover-border-color: color-mix(in srgb, var(--app-craft) 35%, var(--app-border));
+  --el-button-hover-border-color: color-mix(in oklab, var(--app-craft) 35%, var(--app-border));
 }
 
 .receipt__send-action {
-  background: color-mix(in srgb, var(--app-craft) 9%, var(--app-surface));
-  border-color: color-mix(in srgb, var(--app-craft) 45%, var(--app-border));
+  background: color-mix(in oklab, var(--app-craft) 9%, var(--app-surface));
+  border-color: color-mix(in oklab, var(--app-craft) 45%, var(--app-border));
   color: var(--app-craft);
 }
 
 .receipt__send-action:hover,
 .receipt__send-action:focus-visible {
-  background: color-mix(in srgb, var(--app-craft) 16%, var(--app-surface));
+  background: color-mix(in oklab, var(--app-craft) 16%, var(--app-surface));
   border-color: var(--app-craft);
   color: var(--app-craft);
 }
@@ -607,6 +607,7 @@ function handleShare(action: string) {
   }
   .receipt__actions :deep(.el-button) {
     flex: 1 1 auto;
+    min-height: var(--touch-target-min, 44px);
   }
 }
 </style>

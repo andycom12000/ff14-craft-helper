@@ -114,6 +114,11 @@ const isRowToggleable = computed(() => {
   return mode.value === 'npc' || mode.value === 'gather' || mode.value === 'market'
 })
 
+// Screen-reader live message — selecting a mode that auto-opens the drill
+// triggers no focus shift, so SR users get no signal. Push a polite
+// announcement so they know the panel is now open.
+const srAnnouncement = ref('')
+
 function selectMode(m: AcquisitionSource) {
   if (props.immutable) return
   const isChanging = m !== mode.value
@@ -122,6 +127,8 @@ function selectMode(m: AcquisitionSource) {
   bom.setAcquisitionMode(props.itemId, m)
   if (isChanging && isRowToggleable.value && !bom.isRowExpanded(props.itemId)) {
     bom.toggleRowExpanded(props.itemId)
+    const label = segments.value.find((s) => s.value === m)?.label ?? m
+    srAnnouncement.value = `已切換為${label}，已展開${props.name}詳細`
   }
   pickerExpanded.value = false
 }
@@ -246,6 +253,7 @@ function onRowClick() {
       aria-hidden="true"
     >▾</span>
     <span v-else class="dec-row__chev dec-row__chev--placeholder" aria-hidden="true" />
+    <span class="sr-only" role="status" aria-live="polite">{{ srAnnouncement }}</span>
   </div>
 </template>
 
@@ -292,6 +300,18 @@ function onRowClick() {
 .dec-row.is-row-toggleable:focus-visible {
   outline: 2px solid var(--app-craft);
   outline-offset: -2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .dec-row.is-expanded {

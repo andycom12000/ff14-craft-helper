@@ -307,9 +307,36 @@ watch(receiptEl, (el, prev) => {
   receiptObserver.observe(el)
 })
 
+// Sentinel sits just above .results-sticky; when it scrolls out of the
+// viewport top (offset by .el-main's 20px padding), the band is pinned.
+// Gating backdrop-filter on this state means the GPU isn't blurring an
+// area that has nothing scrolling beneath it.
+const stickySentinel = ref<HTMLElement | null>(null)
+const stickyStuck = ref(false)
+let stickyObserver: IntersectionObserver | null = null
+
+watch(stickySentinel, (el, prev) => {
+  if (prev) stickyObserver?.unobserve(prev)
+  if (!el) {
+    stickyStuck.value = false
+    return
+  }
+  if (!stickyObserver) {
+    stickyObserver = new IntersectionObserver(
+      ([entry]) => {
+        stickyStuck.value = !entry.isIntersecting && entry.boundingClientRect.top < 0
+      },
+      { threshold: 0, rootMargin: '-20px 0 0 0' },
+    )
+  }
+  stickyObserver.observe(el)
+})
+
 onBeforeUnmount(() => {
   receiptObserver?.disconnect()
   receiptObserver = null
+  stickyObserver?.disconnect()
+  stickyObserver = null
 })
 </script>
 
@@ -427,6 +454,7 @@ onBeforeUnmount(() => {
          so this section drops its inline step badge to keep wayfinding
          single-railed and reclaim the height for the receipt. -->
     <section v-if="calculated && !calculating" ref="sectionResults" class="bom-section bom-section--results">
+      <div ref="stickySentinel" class="results-sticky-sentinel" aria-hidden="true" />
       <!-- Sticky band leads: view tabs (always) + condensed totals
            strip (only on 材料明細, only when the receipt has scrolled
            out). Putting tabs at the top of the section gives the user
@@ -435,7 +463,10 @@ onBeforeUnmount(() => {
            chrome flush — no scroll content leaks between slabs. -->
       <div
         class="results-sticky"
-        :class="{ 'results-sticky--with-strip': stripVisible && bomViewTab === 'detail' }"
+        :class="{
+          'results-sticky--with-strip': stripVisible && bomViewTab === 'detail',
+          'is-stuck': stickyStuck,
+        }"
       >
         <el-segmented
           v-if="!(fetchingPrices && bomStore.prices.size === 0)"
@@ -791,6 +822,11 @@ onBeforeUnmount(() => {
  * restores the visible content offset. The viewport-bleed margin/padding
  * pair extends the cream/blur to .el-main's edges instead of stopping at
  * the section column; sidebar's opaque bg masks the left-side bleed. */
+.results-sticky-sentinel {
+  height: 1px;
+  margin-bottom: -1px;
+}
+
 .results-sticky {
   position: sticky;
   top: -20px;
@@ -801,13 +837,19 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
-  background: color-mix(in srgb, var(--app-bg) 10%, transparent);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid color-mix(in srgb, var(--app-craft) 10%, transparent);
+}
+
+/* Frosted cover only when the band is actually pinned — at rest, the
+ * area underneath is the receipt panel and there's nothing to obscure,
+ * so the GPU isn't asked to backdrop-blur for nothing. */
+.results-sticky.is-stuck {
+  background: color-mix(in oklab, var(--app-bg) 10%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid color-mix(in oklab, var(--app-craft) 10%, transparent);
 }
 
 @supports not (backdrop-filter: blur(1px)) {
-  .results-sticky {
+  .results-sticky.is-stuck {
     background: var(--app-bg);
   }
 }
@@ -845,11 +887,11 @@ onBeforeUnmount(() => {
 .results-tabs {
   /* 90% opaque so the band's blur shows faintly through the pill. */
   background: color-mix(
-    in srgb,
-    color-mix(in srgb, var(--app-craft) 6%, var(--app-surface)) 90%,
+    in oklab,
+    color-mix(in oklab, var(--app-craft) 6%, var(--app-surface)) 90%,
     transparent
   );
-  border: 1px solid color-mix(in srgb, var(--app-craft) 22%, var(--app-border));
+  border: 1px solid color-mix(in oklab, var(--app-craft) 22%, var(--app-border));
   padding: 3px;
   border-radius: 999px;
   --el-color-primary: var(--app-craft);
@@ -906,7 +948,8 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 900px) {
-  .results-sticky {
+  .results-sticky,
+  .results-sticky.is-stuck {
     position: static;
     top: auto;
     margin: 0;
@@ -915,6 +958,9 @@ onBeforeUnmount(() => {
     backdrop-filter: none;
     border-bottom: none;
     box-shadow: none;
+  }
+  .results-sticky-sentinel {
+    display: none;
   }
 
   .bom-section {
@@ -954,6 +1000,10 @@ onBeforeUnmount(() => {
   .section-header--clickable {
     padding: 6px 8px;
     margin: 0 -8px 10px;
+  }
+
+  .results-tabs :deep(.el-segmented__item) {
+    min-height: var(--touch-target-min, 44px);
   }
 }
 
