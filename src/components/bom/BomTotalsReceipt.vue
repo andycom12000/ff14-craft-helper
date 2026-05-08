@@ -156,7 +156,7 @@ function handleShare(action: string) {
           比全部市買 {{ formatGil(baseline) }} 多花 {{ formatGil(lossGil) }}。
         </template>
         <template v-else>
-          自製和直購差不多——挑你習慣的方式吧。
+          自製和直購差不多，挑你習慣的方式吧。
         </template>
       </p>
       <p v-else class="receipt__caption receipt__caption--muted">
@@ -179,8 +179,8 @@ function handleShare(action: string) {
             {{ m.label }}<small v-if="m.count > 0">{{ m.count }} 件</small>
           </span>
           <span class="receipt__row-amt">
-            <template v-if="m.cost == null && m.count > 0">—</template>
-            <template v-else-if="m.count === 0">·</template>
+            <template v-if="m.cost == null && m.count > 0">免費</template>
+            <template v-else-if="m.count === 0"></template>
             <template v-else>{{ formatGil(m.cost ?? 0) }}</template>
           </span>
         </li>

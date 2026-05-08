@@ -9,7 +9,7 @@ import { computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh, Share, ArrowRight, ArrowDown, WarningFilled, Setting, MoreFilled } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
-import { useBomStore, getPrice, type AcquisitionSource } from '@/stores/bom'
+import { useBomStore, type AcquisitionSource } from '@/stores/bom'
 import { useSettingsStore } from '@/stores/settings'
 import { buildTeamcraftImportUrl } from '@/services/teamcraft-import'
 import { formatGil } from '@/utils/format'
@@ -64,10 +64,6 @@ const methodCounts = computed<MethodSlice[]>(() => {
   }
   return [slices.craft, slices.market, slices.gather, slices.npc].filter((s) => s.count > 0)
 })
-
-// Reference getPrice so it's not flagged as unused (currently not consumed
-// here but kept for symmetry with Receipt; Vite/TS purge if absent).
-void getPrice
 
 async function copyToClipboard(text: string, successMsg: string) {
   try {
