@@ -818,14 +818,15 @@ onBeforeUnmount(() => {
   transform: translateY(-4px);
 }
 
-/* Tabs honor the Jam-Jar Rule (BOM = crafting → cocoa). Beefed-up size
- * + cocoa-glow inactive wash so the user actually sees they have a
- * choice. The previous low-key segmented control read as decoration. */
+/* Tabs honor the Jam-Jar Rule (BOM = crafting → cocoa). Fully pill-
+ * shaped (999px) on both the container and the active item so the
+ * inner pill's curvature matches the outer frame instead of reading
+ * as a square inside a rounded rectangle. */
 .results-tabs {
   background: color-mix(in srgb, var(--app-craft) 6%, var(--app-surface));
   border: 1px solid color-mix(in srgb, var(--app-craft) 22%, var(--app-border));
-  padding: 4px;
-  border-radius: 12px;
+  padding: 3px;
+  border-radius: 999px;
   --el-color-primary: var(--app-craft);
   display: inline-flex;
   width: auto;
@@ -837,9 +838,9 @@ onBeforeUnmount(() => {
   font-family: 'Noto Serif TC', serif;
   font-size: 15px;
   font-weight: 600;
-  padding: 6px 18px;
+  padding: 6px 20px;
   letter-spacing: 0.02em;
-  border-radius: 8px;
+  border-radius: 999px;
   transition: background-color 0.18s cubic-bezier(0.22, 1, 0.36, 1),
     color 0.18s cubic-bezier(0.22, 1, 0.36, 1);
 }

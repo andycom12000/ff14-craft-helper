@@ -357,9 +357,11 @@ function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
   gap: 16px;
 }
 
-/* Each group is now a self-contained card with its own border, header, and
- * column labels — they read as two distinct sections (完成品 / 材料)
- * rather than two halves of one big table.
+/* Each group reads as a flat editorial section: title eyebrow + list
+ * of rows, no card chrome. Dropping the outer border / radius / bg
+ * solves the "card-in-card" tell — the receipt above is already the
+ * page's one summary card; stacking another card layer below it pushed
+ * the visual into nested-cards territory.
  *
  * `container-type: inline-size` is critical: the row's stacked layout
  * (`@container (max-width: 720px)` in BomDecisionRow.vue) triggers off
@@ -370,10 +372,6 @@ function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: var(--app-surface);
-  border: 1px solid var(--app-border);
-  border-radius: 12px;
-  overflow: hidden;
   container-type: inline-size;
 }
 
@@ -396,13 +394,14 @@ function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
   display: flex;
   align-items: baseline;
   gap: 12px;
-  padding: 12px 14px 8px;
-  background: var(--app-surface);
+  padding: 4px 4px 12px;
+  border-bottom: 1px solid var(--app-border);
+  margin-bottom: 0;
 }
 
 .bdt-group__title {
   font-family: 'Noto Serif TC', serif;
-  font-size: 14.5px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--app-text);
   letter-spacing: 0.02em;
@@ -428,10 +427,8 @@ function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 12px;
-  padding: 12px 14px 14px;
-  background: var(--app-surface);
-  border: 1px solid var(--app-border);
-  border-radius: 12px;
+  padding: 14px 4px 4px;
+  border-top: 1px solid var(--app-border);
 }
 
 .bdt-crystals__label {

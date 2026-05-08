@@ -271,10 +271,13 @@ function onRowClick() {
     24px;
   align-items: center;
   gap: 12px;
-  padding: 10px 14px;
+  padding: 10px 4px;
   border-bottom: 1px solid var(--app-border);
   min-height: 56px;
-  background: var(--app-surface);
+  /* Transparent bg — the row is a list item, not a card. The panel
+   * dropped its card chrome to avoid card-in-card; matching the row
+   * here keeps the section reading as a flat editorial list. */
+  background: transparent;
   transition: background-color 0.15s var(--ease-out-quart, ease-out);
 }
 
@@ -283,7 +286,7 @@ function onRowClick() {
 }
 
 .dec-row:hover {
-  background: var(--app-surface-hover);
+  background: color-mix(in srgb, var(--app-craft-dim) 8%, transparent);
 }
 
 .dec-row.is-row-toggleable {
@@ -291,7 +294,7 @@ function onRowClick() {
 }
 
 .dec-row.is-row-toggleable:hover {
-  background: color-mix(in srgb, var(--app-craft-dim) 18%, var(--app-surface));
+  background: color-mix(in srgb, var(--app-craft-dim) 14%, transparent);
 }
 
 .dec-row.is-row-toggleable:focus-visible {
@@ -300,15 +303,15 @@ function onRowClick() {
 }
 
 .dec-row.is-expanded {
-  background: color-mix(in srgb, var(--app-craft-dim) 35%, var(--app-surface));
+  background: color-mix(in srgb, var(--app-craft-dim) 22%, transparent);
 }
 
 .dec-row.is-expanded.is-row-toggleable:hover {
-  background: color-mix(in srgb, var(--app-craft-dim) 45%, var(--app-surface));
+  background: color-mix(in srgb, var(--app-craft-dim) 30%, transparent);
 }
 
 .dec-row.is-nested {
-  background: color-mix(in srgb, var(--app-craft-dim) 12%, transparent);
+  background: color-mix(in srgb, var(--app-craft-dim) 10%, transparent);
   padding-left: 36px;
   min-height: 48px;
   font-size: 13.5px;
