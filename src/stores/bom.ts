@@ -11,6 +11,7 @@ import {
 import type { ItemLocations } from '@/services/item-locations'
 import { fetchItemLocationsBatch } from '@/services/item-locations'
 import { fetchZoneMetaBulk, fetchNpcNameBulk } from '@/services/zone-meta'
+import { trackEvent } from '@/utils/analytics'
 
 export type PriceFetchStatus = 'ok' | 'failed'
 
@@ -568,6 +569,7 @@ export const useBomStore = defineStore('bom', () => {
     if (fromUser) {
       userTouchedModes.value.add(itemId)
       userTouchedModes.value = new Set(userTouchedModes.value)
+      trackEvent('bom_acquisition_mode_set', { mode })
     }
     recalcFlat()
   }
@@ -691,6 +693,7 @@ export const useBomStore = defineStore('bom', () => {
   function setOptimizeBy(mode: 'gil' | 'hop') {
     if (routeViewPrefs.value.optimizeBy === mode) return
     routeViewPrefs.value = { optimizeBy: mode }
+    trackEvent('bom_route_optimize_set', { mode })
   }
 
   function toggleChecked(itemId: number) {

@@ -19,6 +19,7 @@ import { useLocaleStore } from '@/stores/locale'
 import { loadingState } from '@/services/local-data-source'
 import { buildMaterialTree, flattenMaterialTree } from '@/services/bom-calculator'
 import { getRecipe } from '@/api/xivapi'
+import { trackEvent } from '@/utils/analytics'
 
 const bomStore = useBomStore()
 const batchStore = useBatchStore()
@@ -97,6 +98,11 @@ async function handleCalculate() {
     ElMessage.warning('請先加入至少一個製作目標')
     return
   }
+
+  trackEvent('bom_calculate', {
+    target_count: bomStore.targets.length,
+    non_craftable_count: nonCraftableCount.value,
+  })
 
   calculating.value = true
   // Re-running calc starts a fresh section-collapse state — any "i'd
@@ -177,6 +183,10 @@ async function handleSendToBatch() {
       batchStore.updateQuantity(craftableTargets[i].recipeId, craftableTargets[i].quantity)
     }
     const skipped = bomStore.targets.length - craftableTargets.length
+    trackEvent('bom_send_to_batch', {
+      sent_count: craftableTargets.length,
+      skipped_count: skipped,
+    })
     ElMessage.success(
       skipped > 0
         ? `已送出 ${craftableTargets.length} 筆到批量（${skipped} 筆非製作物品已跳過）`

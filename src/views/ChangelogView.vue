@@ -18,6 +18,21 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: 'v2.11.0',
+    date: '2026-05-09',
+    highlights: [
+      '【採買路線規劃器】購物清單算完後新增「採買路線」分頁：把所有 NPC 商人 / 採集點素材依區域分組，每組顯示傳送水晶 + 區域地圖（高亮所有採集點 / 商人座標），可依「省 gil」或「少跳」兩種策略自動排序組內物品；每筆勾選即時更新進度，跨會話保留打勾與排除狀態',
+      '【素材取得 drill-down 改成自動展開】材料明細選一個取得方式後，drill 面板會自動打開顯示對應細節（自製 → 子配方樹、市場 → 跨服比價、NPC/自採 → 商人地點 + 區域地圖），不用再多按一次列才看得到',
+      '【決策表雙欄並排】≥1100px 容器寬度時，「完成品」與「材料」改為左右並排卡片，配方深的清單不再需要一路捲到底；≤1100px 自動回單欄堆疊',
+      '【收據語感調整】總計列改寫為「全部市買要 X Gil，自製會多花 Y」（從原本的「比全部市買 X 多花 Y」），主詞清楚不像稅務局通知；省 / 多 chip 對稱改成單字 lead（「省 99% · −206」「多 99% · +206」），保留百分比與絕對值兩個決策指標',
+      '【sticky 頁首霧面化】滾過總計後保留採買路線分頁與條列摘要在頂端，背景改成 frosted-cream + backdrop-blur，左右延伸到主區邊緣不再被 max-width 截斷；只在實際 pinned 時開啟 blur，at-rest 不耗 GPU',
+      '【完成品行為一致化】非可製作目標（NPC 商店家具、FATE 獎勵等）的取得方式改變時，drill 面板也會跟著自動展開；之前只有可製作素材有這個行為',
+      '【無障礙】picker 觸發 auto-expand 時新增一條 polite aria-live announce 給螢幕閱讀器；mobile (<900px) 操作按鈕跟 segmented tabs 拉到 44×44 觸控目標尺寸',
+      '【視覺收斂】送往批量按鈕從 cocoa-fill 主動作降為 cocoa-tint ghost，把 hero 「216 Gil」還給總價；採買路線群組卡 / 路線工具列等元件全部對齊吐司工坊設計系統 (Jam-Jar Rule)',
+      '【內部】新增 `services/zone-meta.ts`（區域名稱 + 地圖座標 batch lookup）、`services/route-planner.ts`（兩種排序策略 + 跨組 group 排序）、`composables/useObserverFlag.ts`（IntersectionObserver-driven boolean 狀態抽象）、`composables/useZoneName.ts` / `useNpcName.ts`；`stores/bom.ts` 補 `routeViewSession` / `routeViewPrefs` 含 LRU 持久化；補上 4 個關鍵 GA 事件（`bom_calculate` / `bom_acquisition_mode_set` / `bom_send_to_batch` / `bom_route_optimize_set`）；新增 13 套單元測試覆蓋路線規劃器、區域 meta、map coords、aetherytes data',
+    ],
+  },
+  {
     version: 'v2.10.1',
     date: '2026-05-08',
     highlights: [
