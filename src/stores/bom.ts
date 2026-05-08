@@ -177,6 +177,18 @@ export const useBomStore = defineStore('bom', () => {
   const expandedRows = ref<Set<number>>(new Set())
 
   /**
+   * Item IDs the user has explicitly picked an acquisition mode for. The
+   * decision row collapses the segmented picker into a single "active mode"
+   * chip once the row is touched — the user has made their call and
+   * doesn't need 4 chips of always-on options anymore.
+   *
+   * applyOptimalDefaults does NOT add to this set (auto-defaults shouldn't
+   * count as a user decision); only an explicit setAcquisitionMode call from
+   * the UI does. clearTargets / a fresh calc reset it.
+   */
+  const userTouchedModes = ref<Set<number>>(new Set())
+
+  /**
    * Per-itemId availability (market / gather / NPC). Populated lazily after
    * a calculate by hitting garlandtools. Missing entries fall back to
    * permissive — the row shows every chip until we know better.
@@ -284,6 +296,7 @@ export const useBomStore = defineStore('bom', () => {
     flatMaterials.value = []
     acquisitionMode.value = new Map()
     expandedRows.value = new Set()
+    userTouchedModes.value = new Set()
     acquisitionAvailability.value = new Map()
     priceFetchStatus.value = new Map()
     fetchingPriceIds.value = new Set()
@@ -532,8 +545,13 @@ export const useBomStore = defineStore('bom', () => {
    * Set acquisition mode for an item. When switching to/from 'craft',
    * also flip the tree node's collapsed state so flattenMaterialTree
    * walks the right subtree on the next recalc.
+   *
+   * `fromUser=true` (default) marks the row as user-touched so the
+   * decision row collapses to a single chip. applyOptimalDefaults
+   * passes fromUser=false so auto-picked rows stay open until the
+   * user explicitly chooses.
    */
-  function setAcquisitionMode(itemId: number, mode: AcquisitionSource) {
+  function setAcquisitionMode(itemId: number, mode: AcquisitionSource, fromUser = true) {
     const node = findNode(itemId)
     if (mode === 'craft') {
       if (!node || !node.recipeId || !node.children || node.children.length === 0) {
@@ -547,7 +565,15 @@ export const useBomStore = defineStore('bom', () => {
         node.collapsed = true
       }
     }
+    if (fromUser) {
+      userTouchedModes.value.add(itemId)
+      userTouchedModes.value = new Set(userTouchedModes.value)
+    }
     recalcFlat()
+  }
+
+  function isModeUserSettled(itemId: number): boolean {
+    return userTouchedModes.value.has(itemId)
   }
 
   function toggleRowExpanded(itemId: number) {
@@ -696,6 +722,7 @@ export const useBomStore = defineStore('bom', () => {
     prices,
     acquisitionMode,
     expandedRows,
+    userTouchedModes,
     acquisitionAvailability,
     priceFetchStatus,
     fetchingPriceIds,
@@ -718,6 +745,7 @@ export const useBomStore = defineStore('bom', () => {
     isCraftableInTree,
     getEffectiveMode,
     setAcquisitionMode,
+    isModeUserSettled,
     toggleRowExpanded,
     isRowExpanded,
     // Route planner

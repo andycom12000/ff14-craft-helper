@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useBomStore } from '@/stores/bom'
 import { useSettingsStore } from '@/stores/settings'
 import { getPrice, type AcquisitionSource } from '@/stores/bom'
@@ -22,6 +22,27 @@ interface Props {
 const props = defineProps<Props>()
 const bom = useBomStore()
 const settings = useSettingsStore()
+
+// Local picker-expansion override. When the user clicks the collapsed
+// chip on a settled row, we show the full picker for one decision cycle;
+// after they pick (or click the chip again), we collapse back. This is
+// independent of `bom.expandedRows`, which controls the drill-down panel.
+const pickerExpanded = ref(false)
+
+// Re-collapse the picker whenever the user navigates away (the row
+// re-renders with a different itemId via the v-for key, so this only
+// applies to subsequent toggles within the same row instance).
+watch(
+  () => props.itemId,
+  () => {
+    pickerExpanded.value = false
+  },
+)
+
+const isUserSettled = computed(() => bom.isModeUserSettled(props.itemId))
+const showFullPicker = computed(
+  () => !isUserSettled.value || pickerExpanded.value,
+)
 
 const mode = computed<AcquisitionSource>(() => bom.getEffectiveMode(props.itemId))
 
@@ -95,12 +116,34 @@ const isRowToggleable = computed(() => {
 
 function selectMode(m: AcquisitionSource) {
   if (props.immutable) return
-  if (m === mode.value) return
-  bom.setAcquisitionMode(props.itemId, m)
-  if (m === 'craft' && !bom.isRowExpanded(props.itemId)) {
-    bom.toggleRowExpanded(props.itemId)
+  if (m !== mode.value) {
+    bom.setAcquisitionMode(props.itemId, m)
+    if (m === 'craft' && !bom.isRowExpanded(props.itemId)) {
+      bom.toggleRowExpanded(props.itemId)
+    }
+  } else {
+    // User clicked the already-active mode while the picker was open —
+    // mark as settled so the row collapses to a chip, even though no
+    // change happened. Without this, opening the picker and clicking
+    // away would leave it expanded forever.
+    bom.setAcquisitionMode(props.itemId, m, true)
   }
+  // Always re-collapse after a pick. Settled rows go back to chip view;
+  // unsettled rows that just got their first manual pick now ARE settled
+  // (the store side-effect tagged them) so they also collapse.
+  pickerExpanded.value = false
 }
+
+function toggleCollapsedPicker(event: Event) {
+  // Stop the click from bubbling to the row's drill-down toggle. The
+  // chip lives inside `.dec-row__seg`, which already swallows clicks via
+  // @click.stop on the wrapper, but we explicitly stop here too in case
+  // the click hits the chip's edit icon directly.
+  event.stopPropagation()
+  pickerExpanded.value = !pickerExpanded.value
+}
+
+const activeSegment = computed(() => segments.value.find((s) => s.value === mode.value))
 
 function onRowClick() {
   if (!isRowToggleable.value) return
@@ -142,22 +185,44 @@ function onRowClick() {
     <div class="dec-row__filler" aria-hidden="true" />
 
     <div v-if="!immutable" class="dec-row__seg" role="group" aria-label="取得來源" @click.stop>
+      <!-- Settled row, collapsed: show the active mode as a single chip
+           with a small edit affordance. Click anywhere on it to expand
+           the picker; clicking again (or picking a mode) collapses it. -->
       <button
-        v-for="s in segments"
-        :key="s.value"
+        v-if="!showFullPicker && activeSegment"
         type="button"
-        class="dec-seg"
-        :class="{
-          'is-active': mode === s.value,
-          'is-craft': s.value === 'craft' && mode === 'craft',
-        }"
-        :aria-pressed="mode === s.value"
-        :data-mode="s.value"
-        @click.stop="selectMode(s.value)"
+        class="dec-seg dec-seg--collapsed is-active"
+        :class="{ 'is-craft': mode === 'craft' }"
+        :data-mode="mode"
+        :aria-label="`${activeSegment.label} · 點擊更換`"
+        :title="`${activeSegment.label} · 點擊更換`"
+        @click.stop="toggleCollapsedPicker"
       >
-        <span class="dec-seg__icon" aria-hidden="true">{{ s.icon }}</span>
-        <span class="dec-seg__label">{{ s.label }}</span>
+        <span class="dec-seg__icon" aria-hidden="true">{{ activeSegment.icon }}</span>
+        <span class="dec-seg__label">{{ activeSegment.label }}</span>
+        <span class="dec-seg__edit" aria-hidden="true">✎</span>
       </button>
+
+      <!-- Full picker: shown when the row is unsettled (auto-default not
+           yet confirmed) or when the user just clicked the chip to edit. -->
+      <template v-else>
+        <button
+          v-for="s in segments"
+          :key="s.value"
+          type="button"
+          class="dec-seg"
+          :class="{
+            'is-active': mode === s.value,
+            'is-craft': s.value === 'craft' && mode === 'craft',
+          }"
+          :aria-pressed="mode === s.value"
+          :data-mode="s.value"
+          @click.stop="selectMode(s.value)"
+        >
+          <span class="dec-seg__icon" aria-hidden="true">{{ s.icon }}</span>
+          <span class="dec-seg__label">{{ s.label }}</span>
+        </button>
+      </template>
     </div>
     <div v-else class="dec-row__locked">
       <span class="dec-seg dec-seg--locked"><span class="dec-seg__icon">⚒</span><span class="dec-seg__label">自製</span></span>
@@ -359,6 +424,44 @@ function onRowClick() {
   color: var(--app-craft);
   cursor: default;
   padding: 5px 10px;
+}
+
+/* Collapsed chip — the entire active mode rendered as a single
+ * pseudo-pill with an edit pencil. Clicking it expands the picker.
+ * Looks like an active segment plus a trailing ✎ that fades in on
+ * hover/focus so the resting state stays clean. */
+.dec-seg--collapsed {
+  padding: 5px 10px 5px 12px;
+  /* Slightly tighter gap between label + edit pencil than the standard
+   * icon→label gap, so the pencil reads as an inline affordance, not a
+   * separate token. */
+  gap: 6px;
+}
+
+.dec-seg--collapsed:hover,
+.dec-seg--collapsed:focus-visible {
+  filter: brightness(1.08);
+}
+
+.dec-seg__edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  /* Pad-left so the pencil sits flush-right of the label without a
+   * gap reading as separation. */
+  padding-left: 4px;
+  border-left: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  opacity: 0.7;
+  transition: opacity 0.12s var(--ease-out-quart, ease-out);
+}
+
+.dec-seg--collapsed:hover .dec-seg__edit,
+.dec-seg--collapsed:focus-visible .dec-seg__edit {
+  opacity: 1;
 }
 
 .dec-row__locked {
