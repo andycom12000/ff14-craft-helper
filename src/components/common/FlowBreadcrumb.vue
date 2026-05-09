@@ -161,7 +161,10 @@ function handleClick(i: number, step: FlowStep) {
 
 .flow-step {
   display: flex;
-  align-items: center;
+  /* Baseline so the latin digit "1"/"2" sits on the same text line as
+     the CJK label — `center` centers the geometric box but the digit
+     glyph reads visibly lower than CJK chars at the same em-size. */
+  align-items: baseline;
   gap: 4px;
   padding: 4px 10px;
   border-radius: 6px;
