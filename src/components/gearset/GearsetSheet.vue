@@ -341,6 +341,10 @@ onUnmounted(() => {
   border-radius: 8px;
   overflow: hidden;
   transition: border-color 0.2s var(--ease-out-quart);
+  /* overflow:hidden makes min-height:auto resolve to 0 in flex column,
+     so without this the sheet's max-height can squash this below the
+     trigger/body — clipping the panel content. */
+  flex-shrink: 0;
 }
 .bulk-panel.is-open {
   border-color: color-mix(in srgb, var(--app-accent) 32%, transparent);
