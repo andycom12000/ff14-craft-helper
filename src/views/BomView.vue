@@ -435,12 +435,19 @@ const { targetRef: stickySentinel, flag: stickyStuck } = useObserverFlag(
           'is-stuck': stickyStuck,
         }"
       >
-        <el-segmented
-          v-if="!(fetchingPrices && bomStore.prices.size === 0)"
-          v-model="bomViewTab"
-          :options="tabOptions"
-          class="results-tabs"
-        />
+        <div class="results-tabs-row">
+          <el-segmented
+            v-if="!(fetchingPrices && bomStore.prices.size === 0)"
+            v-model="bomViewTab"
+            :options="tabOptions"
+            class="results-tabs"
+          />
+          <!-- Teleport target. BomRoutePlanner injects the route progress
+               bar here (only when the route tab is active) so progress
+               sits inline with the tabs instead of pushing the stepper
+               row down inside the planner card. -->
+          <div id="route-progress-slot" class="results-tabs-slot" />
+        </div>
 
         <Transition name="strip-fade">
           <div v-if="stripVisible && bomViewTab === 'detail'" class="results-strip">
@@ -846,6 +853,25 @@ const { targetRef: stickySentinel, flag: stickyStuck } = useObserverFlag(
   opacity: 0;
   transform: translateY(-4px);
 }
+
+/* Tabs row holds the segmented control on the left and a teleport
+ * target slot on the right (filled by BomRoutePlanner's progress bar
+ * when the route tab is active). The slot stays at zero width when
+ * empty so the row collapses to just the tabs on 材料明細. */
+.results-tabs-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+.results-tabs-slot {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+.results-tabs-slot:empty { display: none; }
 
 /* Tabs honor the Jam-Jar Rule (BOM = crafting → cocoa). Fully pill-
  * shaped (999px) on both the container and the active item so the

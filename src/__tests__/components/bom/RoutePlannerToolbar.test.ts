@@ -2,38 +2,19 @@ import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import RoutePlannerToolbar from '@/components/bom/RoutePlannerToolbar.vue'
 
+// Pure container — caller provides stepper and right-aligned actions
+// via the default slot. Reset is owned by BomRoutePlanner now (it can
+// react locally without an emit round-trip).
 describe('RoutePlannerToolbar', () => {
-  it('renders progress count', () => {
+  it('renders default slot content', () => {
     const w = mount(RoutePlannerToolbar, {
-      props: { progress: { done: 7, total: 12 } },
+      slots: { default: '<div data-testid="child">stops</div>' },
     })
-    expect(w.find('[data-testid="progress-count"]').text()).toBe('7 / 12')
+    expect(w.find('[data-testid="child"]').exists()).toBe(true)
   })
 
-  it('emits reset on button click', async () => {
-    const w = mount(RoutePlannerToolbar, {
-      props: { progress: { done: 0, total: 5 } },
-    })
-    await w.find('.rpt__btn').trigger('click')
-    expect(w.emitted('reset')).toBeTruthy()
-  })
-
-  it('marks bar as complete via el-progress status when done === total', () => {
-    const w = mount(RoutePlannerToolbar, {
-      props: { progress: { done: 5, total: 5 } },
-    })
-    // Without ElementPlusResolver in vitest config, <el-progress> is a stub
-    // and EP's internal `is-success` class isn't applied. Assert on the
-    // attribute we pass to the component instead.
-    const bar = w.find('[data-testid="progress"]')
-    expect(bar.attributes('status')).toBe('success')
-  })
-
-  it('does not mark complete when total is 0', () => {
-    const w = mount(RoutePlannerToolbar, {
-      props: { progress: { done: 0, total: 0 } },
-    })
-    const bar = w.find('[data-testid="progress"]')
-    expect(bar.attributes('status')).toBe('')
+  it('exposes the route-toolbar test hook', () => {
+    const w = mount(RoutePlannerToolbar)
+    expect(w.find('[data-testid="route-toolbar"]').exists()).toBe(true)
   })
 })
