@@ -105,6 +105,11 @@ const isNarrow = useMediaQuery('(max-width: 767px)')
 const statsDescColumns = computed(() =>
   isVeryNarrow.value ? 1 : isNarrow.value ? 2 : 3,
 )
+
+/* True only at the narrow-rail layout (1100-1360 viewport, rail 220-280):
+   the el-descriptions 3-col table squashes CJK labels into vertical chars
+   at this rail width, so we render a 1-col stacked grid instead. */
+const isRailNarrow = useMediaQuery('(min-width: 1100px) and (max-width: 1360px)')
 </script>
 
 <template>
@@ -135,7 +140,21 @@ const statsDescColumns = computed(() =>
     <!-- Base stats display -->
     <div class="stats-section">
       <h4>基礎能力值</h4>
-      <el-descriptions :column="statsDescColumns" border size="small">
+      <div v-if="isRailNarrow" class="stats-grid">
+        <div class="stat-cell">
+          <span class="stat-label">作業精度</span>
+          <span class="stat-value">{{ baseStats.craftsmanship }}</span>
+        </div>
+        <div class="stat-cell">
+          <span class="stat-label">加工精度</span>
+          <span class="stat-value">{{ baseStats.control }}</span>
+        </div>
+        <div class="stat-cell">
+          <span class="stat-label">CP</span>
+          <span class="stat-value">{{ baseStats.cp }}</span>
+        </div>
+      </div>
+      <el-descriptions v-else :column="statsDescColumns" border size="small">
         <el-descriptions-item label="作業精度">
           {{ baseStats.craftsmanship }}
         </el-descriptions-item>
@@ -283,7 +302,36 @@ const statsDescColumns = computed(() =>
     <!-- Enhanced stats result -->
     <div class="stats-section enhanced">
       <h4>最終能力值</h4>
-      <el-descriptions :column="statsDescColumns" border size="small">
+      <div v-if="isRailNarrow" class="stats-grid">
+        <div class="stat-cell">
+          <span class="stat-label">作業精度</span>
+          <span class="stat-value">
+            <span class="enhanced-value">{{ enhancedStats.craftsmanship }}</span>
+            <span class="stat-diff" v-if="statDiff(baseStats.craftsmanship, enhancedStats.craftsmanship)">
+              {{ statDiff(baseStats.craftsmanship, enhancedStats.craftsmanship) }}
+            </span>
+          </span>
+        </div>
+        <div class="stat-cell">
+          <span class="stat-label">加工精度</span>
+          <span class="stat-value">
+            <span class="enhanced-value">{{ enhancedStats.control }}</span>
+            <span class="stat-diff" v-if="statDiff(baseStats.control, enhancedStats.control)">
+              {{ statDiff(baseStats.control, enhancedStats.control) }}
+            </span>
+          </span>
+        </div>
+        <div class="stat-cell">
+          <span class="stat-label">CP</span>
+          <span class="stat-value">
+            <span class="enhanced-value">{{ enhancedStats.cp }}</span>
+            <span class="stat-diff" v-if="statDiff(baseStats.cp, enhancedStats.cp)">
+              {{ statDiff(baseStats.cp, enhancedStats.cp) }}
+            </span>
+          </span>
+        </div>
+      </div>
+      <el-descriptions v-else :column="statsDescColumns" border size="small">
         <el-descriptions-item label="作業精度">
           <span class="enhanced-value">{{ enhancedStats.craftsmanship }}</span>
           <span class="stat-diff" v-if="statDiff(baseStats.craftsmanship, enhancedStats.craftsmanship)">
@@ -325,6 +373,51 @@ const statsDescColumns = computed(() =>
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/* Stats grid: only rendered at narrow rail (1100-1360 viewport) where the
+   default el-descriptions 3-col table would squash CJK labels into
+   vertical chars. Mirrors el-descriptions border/small look exactly —
+   same Element Plus vars (--el-fill-color-light for label tint,
+   --el-border-color-lighter for cell borders, --el-text-color-regular
+   for label, --el-text-color-primary for value) — so the two layouts
+   read as the same component just stacked instead of horizontal. */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  /* Transparent so the grid blends with the rail surface — the only
+     visible tint is on the label cells, mirroring how el-descriptions
+     looks against the rail in narrow contexts. */
+  border: 0.8px solid var(--el-border-color-lighter);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.stat-cell {
+  display: grid;
+  grid-template-columns: minmax(64px, max-content) 1fr;
+  align-items: baseline;
+  border-bottom: 0.8px solid var(--el-border-color-lighter);
+}
+.stat-cell:last-child { border-bottom: 0; }
+.stat-label,
+.stat-value {
+  font-size: 12px;
+  padding: 4px 7px;
+}
+.stat-label {
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-regular);
+  font-weight: 700;
+  white-space: nowrap;
+  border-right: 0.8px solid var(--el-border-color-lighter);
+}
+.stat-value {
+  color: var(--el-text-color-primary);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+}
+.enhanced .stat-value { color: var(--app-craft, var(--el-color-primary)); }
+.enhanced .stat-value .enhanced-value { font-weight: 700; }
 
 @media (max-width: 480px) {
   .buff-header :deep(.el-switch) {
