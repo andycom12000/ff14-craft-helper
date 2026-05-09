@@ -1798,6 +1798,60 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelInsuf
   .cockpit-body { grid-template-columns: 1fr; }
 }
 
+/* 1100–1360: narrow desktop. Rail shrinks so b-main can host an internal
+   2-col grid — cockpit-body on the left, HQ panels (初期品質 + 最佳手法)
+   on the right — instead of stacking HQ below cockpit-body and forcing a
+   long scroll. Below 1100 we keep the single-col stack since each side
+   would be too narrow for the HQ row controls. */
+@media (min-width: 1100px) and (max-width: 1360px) {
+  .b-page-grid {
+    grid-template-columns: clamp(220px, 22%, 280px) minmax(0, 1fr);
+  }
+  .b-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(240px, 38%, 320px);
+    grid-auto-flow: row;
+    gap: 16px 16px;
+    align-items: start;
+  }
+  /* HUD, gearset banner, and the empty-state pointer span both columns. */
+  .b-main > .b-hud,
+  .b-main > .gearset-banner,
+  .b-main > .empty-pointer { grid-column: 1 / -1; }
+  .b-main > .cockpit-body { grid-column: 1; }
+  .b-main > .cockpit-section--hq { grid-column: 2; align-self: start; }
+}
+
+/* 1361–1720: 2-col page (rail-left | b-main). cockpit-body has its own
+   internal 2-col (tool | sequence-col), and HQ panels would otherwise
+   stack below cockpit-body at full width — leaving a wide empty band
+   below the often-tall sequence-col. Unwrap cockpit-body via
+   display:contents so its children participate directly in b-main's
+   grid: tool sits in col 1, sequence-col spans all the col-1 rows from
+   col 2, and HQ panels slot into col 1 below the tool. */
+@media (min-width: 1361px) and (max-width: 1720px) {
+  .b-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(200px, 32%);
+    column-gap: 16px;
+    row-gap: 20px;
+    align-items: start;
+  }
+  .b-main > .b-hud,
+  .b-main > .gearset-banner,
+  .b-main > .empty-pointer { grid-column: 1 / -1; }
+  .b-main > .cockpit-body { display: contents; }
+  .cockpit-body > .cockpit-section--tool { grid-column: 1; }
+  .cockpit-body > .cockpit-sequence-col { grid-column: 2; grid-row: span 3; }
+  .b-main > .cockpit-section--hq { grid-column: 1; align-self: start; }
+
+  /* display:contents drops cockpit-body's own box, so the .is-blocked
+     overlay (::after + pointer-events on .cockpit-body) no longer
+     anchors. Move pointer-events to children — the gearset banner above
+     already explains why the cockpit is locked. */
+  .cockpit-body.is-blocked > * { pointer-events: none; }
+}
+
 /* < 900: stack everything single-column */
 @media (max-width: 900px) {
   .b-page-grid { grid-template-columns: 1fr; }
