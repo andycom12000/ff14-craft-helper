@@ -1,0 +1,55 @@
+[url=https://andycom12000.github.io/ff14-craft-helper/][b]吐司工坊·FFXIV 製作助手[/b][/url]
+一頁搞定批量製作、材料清單、跨伺服比價與 macro 匯出。
+
+
+打開製作手帳抄下今天要交的籌備清單，再開瀏覽器查料理 buff 哪個划算、再開模擬器一個一個跑 macro，最後切回遊戲對著 NPC 才發現少算了一個藥水。生產職的一輪 routine，常常不是輸在手速，而是輸在跨來跨去的分頁。
+
+這套流程其實可以一次做完。
+
+
+[size=4][b]從一張遊戲截圖到一整套 macro[/b][/size]
+
+吐司工坊主打的「批量製作」頁面，把規劃、跨伺服比價、自製 vs 採購建議、料理藥水推薦、最佳手法求解、macro 匯出，整合在同一個畫面上。一次給它一張籌備清單，它一次把要做什麼、買什麼、用什麼 buff、按什麼鍵全部排好。
+
+接下來四步示範完整流程：
+
+
+[size=4][b][color=#b8762a]Step 1．丟一張遊戲截圖進來[/color][/b][/size]
+
+打開批量製作頁面，點「從截圖匯入」，把你在[b]製作手帳[/b]或[b]籌備任務面板[/b]看到的清單整張截圖直接貼進來。系統會自動辨識文字，再對照配方資料庫把每一行配回正確的配方名稱與數量。OCR 看不準的那幾個會明確標出來讓你手動補，而不是默默漏掉。
+
+[center][img]{{IMG_OCR}}[/img]
+[size=2][color=#7a6651]左邊是你貼進來的截圖，右邊是 OCR 辨識 + 自動配對的結果，已配對的勾選即可一鍵加入清單[/color][/size][/center]
+
+
+[size=4][b][color=#b8762a]Step 2．自製還是採購，跨伺服一眼看完[/color][/b][/size]
+
+清單載入後，批量製作頁會自動到 [b]Universalis[/b] 拉每個材料的市場價，依「哪個伺服器最便宜」分組整理，算出整批最省的採購方案；同時對比[b]只在自家伺服採購[/b]的版本，告訴你跨服到底省了幾趴。HQ 與 NQ 自動分開算量，要哪幾個 HQ 投料、哪幾個 NQ 就夠用都標清楚。
+
+[center][img]{{IMG_MARKET}}[/img]
+[size=2][color=#7a6651]頂部直接告訴你跨服省幾趴，下方依伺服器分組列出要在哪買、買幾個、單價多少[/color][/size][/center]
+
+
+[size=4][b][color=#b8762a]Step 3．每個配方的 macro 一次帶走[/color][/b][/size]
+
+清單上每個配方都會自動跑 [b]Raphael-rs solver[/b]（多執行緒 WASM）算出最佳手法 rotation，再切成可以直接貼進遊戲的 macro。一輪 rotation 通常會拆成兩段宏，每一段都附「複製」按鈕，按一下就丟到剪貼簿、進遊戲貼上即可。整批 6 個配方的全部 macro，一輪點完就帶走。
+
+[center][img]{{IMG_MACRO}}[/img]
+[size=2][color=#7a6651]每個配方一個展開區塊，巨集 1 / 巨集 2 完整 /ac 指令列在裡面，旁邊一鍵複製[/color][/size][/center]
+
+
+[size=4][b][color=#b8762a]Step 4．清單、採購、buff、macro，同一頁[/color][/b][/size]
+
+走完前三步，整個批量製作頁就是你今天的工作中心：上方是配方清單與料理藥水推薦，中段是跨伺服採購表，下方是依製作順序排好的 macro 區。從打開到開做，[b]不必再切換分頁[/b]，所有資訊就在同一個畫面。
+
+[center][img]{{IMG_OVERVIEW}}[/img]
+[size=2][color=#7a6651]批量製作頁全貌：規劃、採購、料理藥水推薦、製作順序與 macro 全部在同一頁[/color][/size][/center]
+
+
+如果你也每天在跑籌備、覺得跨多分頁是個煩人的成本，歡迎來吐司工坊烤一爐看看。個人專案、免費、原始碼開放，有問題或建議都歡迎到 GitHub 提 issue。
+
+
+主站：https://andycom12000.github.io/ff14-craft-helper/
+GitHub：https://github.com/andycom12000/ff14-craft-helper
+
+[size=2][color=#7a6651]依賴這些計畫才能走到這一步：[url=https://github.com/KonaeAkira/raphael-rs]Raphael-rs[/url]（solver 核心）、[url=https://beta.xivapi.com]XIVAPI[/url]（物品圖示）、[url=https://universalis.app]Universalis[/url]（市場價）、[url=https://garlandtools.org]Garland Tools[/url]（採集），以及社群 datamining 維護者。[/color][/size]
