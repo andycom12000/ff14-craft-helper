@@ -219,7 +219,12 @@ function handleShare(action: string) {
 /* ── Hero block ────────────────────────────────────────────── */
 .strip__hero {
   display: inline-flex;
-  align-items: baseline;
+  /* Vertical-center the small "Gil" and saving pill against the big
+     number rather than baseline-aligning them — at this strip's height
+     baseline alignment leaves the small text sitting at the bottom of
+     the digit row, which reads as misaligned next to the centered
+     method-counts and action buttons. */
+  align-items: center;
   gap: 10px;
   flex-shrink: 0;
 }
@@ -276,7 +281,10 @@ function handleShare(action: string) {
 
 .strip__method {
   display: inline-flex;
-  align-items: baseline;
+  /* Center icon + name + count on the same horizontal axis as the
+     hero number and the action buttons. Baseline alignment makes the
+     glyph and the smaller count text sit on different lines. */
+  align-items: center;
   gap: 5px;
 }
 
