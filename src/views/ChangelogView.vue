@@ -18,6 +18,13 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: 'v2.11.1',
+    date: '2026-05-09',
+    highlights: [
+      '【採買路線地圖修正】路線分組卡的區域地圖之前最縮小狀態仍會被裁切（cover + MIN_ZOOM=1 的後遺症），改成 contain 完整顯示整張方圖；同步把採集點 / 商人座標 marker 投影到實際 contain-fit 範圍內，過去掉到 letterbox 黑邊外的標記現在會正確貼齊地圖特徵',
+    ],
+  },
+  {
     version: 'v2.11.0',
     date: '2026-05-09',
     highlights: [
