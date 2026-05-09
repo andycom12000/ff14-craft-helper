@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useBomStore } from '@/stores/bom'
 import { useZoneName } from '@/composables/useZoneName'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import { getZoneMetaSync } from '@/services/zone-meta'
-import { convertToPixel, pixelToPercent } from '@/utils/map-coords'
+import { convertToPixel } from '@/utils/map-coords'
 import type { Group, GroupRow } from '@/services/route-planner'
 import type { FlatMaterial } from '@/stores/bom'
 import ItemName from '@/components/common/ItemName.vue'
@@ -155,6 +155,52 @@ const mapImageUrl = computed(() => {
 const hoveredItemId = ref<number | null>(null)
 
 // ---------------------------------------------------------------------------
+// Container size (drives marker projection — see gameCoordToStagePercent).
+// Tracked via ResizeObserver because the contain-fit letterbox depends on
+// the container's actual aspect ratio at render time, not a CSS-fixed one.
+// ---------------------------------------------------------------------------
+
+const mapContainerRef = ref<HTMLElement | null>(null)
+const containerSize = ref({ w: 0, h: 0 })
+let resizeObserver: ResizeObserver | null = null
+
+watch(mapContainerRef, (el) => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
+  if (!el) return
+  containerSize.value = { w: el.clientWidth, h: el.clientHeight }
+  resizeObserver = new ResizeObserver((entries) => {
+    const r = entries[0].contentRect
+    containerSize.value = { w: r.width, h: r.height }
+  })
+  resizeObserver.observe(el)
+})
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+})
+
+// FF14 maps are square; the image uses object-fit: contain so it fills the
+// smaller container dimension and is centered with letterbox on the other.
+// Markers are positioned as % of the stage (= container), so they must be
+// shifted by the letterbox to land on actual image features. Returns null
+// while the container hasn't been measured yet.
+function gameCoordToStagePercent(rawX: number, rawY: number, sizeFactor: number): { left: string; top: string } | null {
+  const { w, h } = containerSize.value
+  if (w === 0 || h === 0) return null
+  const imageSize = Math.min(w, h)
+  const offsetX = (w - imageSize) / 2
+  const offsetY = (h - imageSize) / 2
+  const { px, py } = convertToPixel({ rawX, rawY, offsetX: 0, offsetY: 0, sizeFactor })
+  const stageX = offsetX + (px / 2048) * imageSize
+  const stageY = offsetY + (py / 2048) * imageSize
+  return {
+    left: `${(stageX / w) * 100}%`,
+    top: `${(stageY / h) * 100}%`,
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Markers
 // ---------------------------------------------------------------------------
 
@@ -174,21 +220,14 @@ const mapMarkers = computed((): MapMarker[] => {
   const sizeFactor = meta?.sizeFactor ?? 100
 
   return props.group.rows.map((row) => {
-    const { px, py } = convertToPixel({
-      rawX: row.source.x,
-      rawY: row.source.y,
-      offsetX: 0,
-      offsetY: 0,
-      sizeFactor,
-    })
-    const { left, top } = pixelToPercent(px, py)
+    const pos = gameCoordToStagePercent(row.source.x, row.source.y, sizeFactor)
     const isDone = bomStore.routeViewSession.checked.has(row.itemId)
     const isHovered = hoveredItemId.value === row.itemId
 
     return {
       itemId: row.itemId,
-      left,
-      top,
+      left: pos?.left ?? '50%',
+      top: pos?.top ?? '50%',
       isNpc: rowIsNpc(row),
       isDone,
       isHovered,
@@ -204,15 +243,9 @@ const aetheryteMarker = computed(() => {
   if (!aeth) return null
   const meta = mapMeta.value
   const sizeFactor = meta?.sizeFactor ?? 100
-  const { px, py } = convertToPixel({
-    rawX: aeth.x,
-    rawY: aeth.y,
-    offsetX: 0,
-    offsetY: 0,
-    sizeFactor,
-  })
-  const { left, top } = pixelToPercent(px, py)
-  return { left, top, name: aeth.name }
+  const pos = gameCoordToStagePercent(aeth.x, aeth.y, sizeFactor)
+  if (!pos) return null
+  return { left: pos.left, top: pos.top, name: aeth.name }
 })
 
 // ---------------------------------------------------------------------------
@@ -372,6 +405,7 @@ function onMapError(e: Event) {
         aria-hidden="true"
       >
         <div
+          ref="mapContainerRef"
           class="rpgc__map-container"
           :class="{ 'is-hero': group.isHero, 'is-zoomed': zoom > 1, 'is-dragging': dragging }"
           @wheel="onMapWheel"
@@ -801,7 +835,7 @@ function onMapError(e: Event) {
 .rpgc__map-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
 }
 
