@@ -136,16 +136,15 @@ function handleShare(action: string) {
       <div class="receipt__eyebrow">本日結算 · 製作總價</div>
       <div class="receipt__hero">
         <div class="receipt__num">
-          {{ formatGil(total) }}<small>Gil</small>
-        </div>
-        <div
-          v-if="baseline > 0 && (hasSaving || hasLoss)"
-          class="receipt__pct"
-          :data-kind="hasSaving ? 'save' : 'loss'"
-        >
-          <span class="receipt__pct-lead">{{ hasSaving ? '省' : '多' }}</span>
-          <strong>{{ Math.min(99, Math.round(Math.abs(savingPct))) }}%</strong>
-          <span class="receipt__pct-tail">·&nbsp;{{ hasSaving ? '−' : '+' }}{{ formatGil(hasSaving ? savingGil : lossGil) }}</span>
+          {{ formatGil(total) }}<small>Gil</small><span
+            v-if="baseline > 0 && (hasSaving || hasLoss)"
+            class="receipt__pct"
+            :data-kind="hasSaving ? 'save' : 'loss'"
+          >
+            <span class="receipt__pct-lead">{{ hasSaving ? '省' : '多' }}</span>
+            <strong>{{ Math.min(99, Math.round(Math.abs(savingPct))) }}%</strong>
+            <span class="receipt__pct-tail">·&nbsp;{{ hasSaving ? '−' : '+' }}{{ formatGil(hasSaving ? savingGil : lossGil) }}</span>
+          </span>
         </div>
       </div>
       <p v-if="baseline > 0" class="receipt__caption">
@@ -345,12 +344,16 @@ function handleShare(action: string) {
   border: 1px solid color-mix(in srgb, var(--app-craft) 26%, transparent);
   border-radius: 999px;
   padding: 4px 11px;
+  margin-left: 14px;
   letter-spacing: 0.02em;
-  align-self: center;
+  /* Pill sits inline next to "Gil" inside .receipt__num — match the
+     small's vertical-align so they share the same horizontal level. */
+  vertical-align: 0.6em;
   display: inline-flex;
   align-items: baseline;
   gap: 5px;
   white-space: nowrap;
+  font-style: normal;
 }
 
 .receipt__pct[data-kind='loss'] {
