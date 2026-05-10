@@ -17,6 +17,8 @@ export type PriceFetchStatus = 'ok' | 'failed'
 
 export type AcquisitionSource = 'market' | 'craft' | 'gather' | 'npc'
 
+export type TargetDefaultMode = Extract<AcquisitionSource, 'craft' | 'market'>
+
 export interface BomTarget {
   itemId: number
   /**
@@ -103,16 +105,24 @@ const ROUTE_KEY_PREFIX = 'bom-route::'
 const ROUTE_LRU_LIMIT = 8
 const WRITE_DEBOUNCE_MS = 500
 
-function readPrefsFromLs(): 'gil' | 'hop' | null {
+interface RoutePrefs {
+  optimizeBy: 'gil' | 'hop'
+  targetDefaultMode: TargetDefaultMode
+}
+
+function readPrefsFromLs(): RoutePrefs | null {
   try {
     const raw = localStorage.getItem(PREFS_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw)
-    return parsed?.optimizeBy === 'hop' ? 'hop' : parsed?.optimizeBy === 'gil' ? 'gil' : null
+    const optimizeBy = parsed?.optimizeBy === 'hop' ? 'hop' : 'gil'
+    const targetDefaultMode: TargetDefaultMode =
+      parsed?.targetDefaultMode === 'market' ? 'market' : 'craft'
+    return { optimizeBy, targetDefaultMode }
   } catch { return null }
 }
 
-function writePrefsToLs(prefs: { optimizeBy: 'gil' | 'hop' }) {
+function writePrefsToLs(prefs: RoutePrefs) {
   try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)) } catch {}
 }
 
@@ -214,9 +224,9 @@ export const useBomStore = defineStore('bom', () => {
   /** Per-itemId location data (NPC vendors + gather nodes). Populated lazily. */
   const itemLocations = ref<Map<number, ItemLocations>>(new Map())
 
-  const routeViewPrefs = ref<{ optimizeBy: 'gil' | 'hop' }>({
-    optimizeBy: readPrefsFromLs() ?? 'gil',
-  })
+  const initialPrefs: RoutePrefs = readPrefsFromLs() ?? { optimizeBy: 'gil', targetDefaultMode: 'craft' }
+  const routeViewPrefs = ref<{ optimizeBy: 'gil' | 'hop' }>({ optimizeBy: initialPrefs.optimizeBy })
+  const targetDefaultMode = ref<TargetDefaultMode>(initialPrefs.targetDefaultMode)
 
   const routeViewSession = ref<{
     excluded: Set<number>
@@ -266,7 +276,14 @@ export const useBomStore = defineStore('bom', () => {
   }, { deep: true, flush: 'sync' })
 
   // Persist prefs immediately on change. Same fake-timer reasoning as above.
-  watch(routeViewPrefs, (next) => writePrefsToLs(next), { deep: true, flush: 'sync' })
+  watch(
+    [routeViewPrefs, targetDefaultMode],
+    () => writePrefsToLs({
+      optimizeBy: routeViewPrefs.value.optimizeBy,
+      targetDefaultMode: targetDefaultMode.value,
+    }),
+    { deep: true, flush: 'sync' },
+  )
 
   function addTarget(target: BomTarget) {
     // Dedupe by itemId — same item shouldn't appear twice even with different
@@ -690,6 +707,13 @@ export const useBomStore = defineStore('bom', () => {
     itemLocations.value = merged
   }
 
+  function setTargetDefaultMode(mode: TargetDefaultMode) {
+    if (targetDefaultMode.value === mode) return
+    targetDefaultMode.value = mode
+    writePrefsToLs({ optimizeBy: routeViewPrefs.value.optimizeBy, targetDefaultMode: mode })
+    trackEvent('bom_target_default_set', { mode })
+  }
+
   function setOptimizeBy(mode: 'gil' | 'hop') {
     if (routeViewPrefs.value.optimizeBy === mode) return
     routeViewPrefs.value = { optimizeBy: mode }
@@ -751,6 +775,9 @@ export const useBomStore = defineStore('bom', () => {
     isModeUserSettled,
     toggleRowExpanded,
     isRowExpanded,
+    // Target default mode
+    targetDefaultMode,
+    setTargetDefaultMode,
     // Route planner
     itemLocations,
     routeViewPrefs,

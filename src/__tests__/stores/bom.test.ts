@@ -356,3 +356,40 @@ describe('useBomStore.fetchPrices', () => {
     expect(bom.priceFetchStatus.get(200)).toBe('ok')
   })
 })
+
+describe('targetDefaultMode persistence', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    localStorage.clear()
+  })
+
+  it('defaults to "craft" when LS is empty', () => {
+    const bom = useBomStore()
+    expect(bom.targetDefaultMode).toBe('craft')
+  })
+
+  it('reads "market" from existing bom-route-prefs LS entry', () => {
+    localStorage.setItem('bom-route-prefs', JSON.stringify({
+      optimizeBy: 'gil',
+      targetDefaultMode: 'market',
+    }))
+    setActivePinia(createPinia())
+    const bom = useBomStore()
+    expect(bom.targetDefaultMode).toBe('market')
+  })
+
+  it('persists changes via setTargetDefaultMode', () => {
+    const bom = useBomStore()
+    bom.setTargetDefaultMode('market')
+    const raw = JSON.parse(localStorage.getItem('bom-route-prefs')!)
+    expect(raw.targetDefaultMode).toBe('market')
+    expect(raw.optimizeBy).toBe('gil')
+  })
+
+  it('falls back to "craft" for invalid LS values', () => {
+    localStorage.setItem('bom-route-prefs', JSON.stringify({ targetDefaultMode: 'lol' }))
+    setActivePinia(createPinia())
+    const bom = useBomStore()
+    expect(bom.targetDefaultMode).toBe('craft')
+  })
+})
