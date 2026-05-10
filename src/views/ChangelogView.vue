@@ -18,6 +18,17 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: 'v2.12.0',
+    date: '2026-05-11',
+    highlights: [
+      '【購物清單「完成品預設」切換】查價設定新增 toggle，可選「自製」（成品自己做，原本行為）或「直購」（成品直接買）。切到直購後，所有可製作的完成品自動翻成 market mode，並抓同 DC 內最便宜的伺服器；非可製作目標（NPC 商店家具、FATE 獎勵、採集類）只要切在 market mode 也吃同樣待遇。設定走 LS 持久化，跨 session 保留',
+      '【完成品列掛 server pill】每筆完成品旁邊顯示「該 DC 最便宜的伺服器」chip：home server 用 toast-gold + 「你」標籤，其他 server 用 strawberry-jam；單價欄直接帶該 server 報價（不是本服價）。點開列：desktop 內嵌、mobile 底部 sheet 都會展開跨服掛單表（每 server 的 NQ / HQ / 數量 / 上架時間，最便宜 row 自動高亮），資料來自計算階段已預抓的 listings — 點開 0 ms，不再重打 Universalis',
+      '【完成品列依 server 分組】列順序改成依 server pill 中文字母序排序：同 server 的所有完成品排在一起，方便逐 server 跑採購；沒 pill 的（craft mode、NPC、採集）一律排到最後',
+      '【跨服查價失敗 per-row 重試】單筆 fetch 失敗（CORS / Universalis rate limit）時 row 上顯示「跨服查價失敗 重試」chip，點下去只重打那一筆；retry 中顯示「跨服查價中…」。對齊既有材料 row 「查價失敗 重試」chip 的視覺',
+      '【內部】`useCrossWorldPricing` data / loading 改成 module-scope singleton，bom store 預抓與 BomMarketDetail onMounted 共用同一份快取（dedupe 讓點開列不再重打 API）；新增 watcher 把 composable cache 投影回 bom store 的 cheapest map 與 fetch status，避免 stale failed status；`fetchingCrossWorldIds` 移除（與 composable loading 重複）；`isTarget` 改成 BomDecisionRow 的 prop，砍掉每列 `bom.targets.some()` 的 O(N) reactive scan；`applyTargetDefault` 改成 batch 一次 commit acquisitionMode + node.collapsed 並只跑一次 `recalcFlat`（22 targets 就少 22 次 tree walk）；spec + plan 留底於 `docs/superpowers/specs|plans/2026-05-10-bom-purchase-mode-toggle*`',
+    ],
+  },
+  {
     version: 'v2.11.4',
     date: '2026-05-10',
     highlights: [
