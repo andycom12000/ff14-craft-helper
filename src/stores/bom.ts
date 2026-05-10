@@ -227,7 +227,7 @@ export const useBomStore = defineStore('bom', () => {
    * For each craftable target, the cheapest world in the user's DC and its
    * price. Populated by fetchCrossWorldBestForTargets when targetDefaultMode
    * is 'market' and settings.crossServer is on. May store the home server
-   * if home is the cheapest — savings then naturally evaluates to 0.
+   * when home itself is the cheapest in the DC.
    */
   const crossWorldBestPriceMap = ref<Map<number, CrossWorldBest>>(new Map())
   const crossWorldFetchStatus = ref<Map<number, PriceFetchStatus>>(new Map())
@@ -620,12 +620,14 @@ export const useBomStore = defineStore('bom', () => {
 
   /**
    * Walk targets and flip every craftable, non-user-touched target according
-   * to the global targetDefaultMode. 'craft' → ensure expanded; 'market' →
-   * collapse via setAcquisitionMode (fromUser=false so we don't taint
-   * userTouchedModes).
+   * to the global targetDefaultMode. Batches mode updates into a single
+   * acquisitionMode replacement and runs recalcFlat once at the end (vs.
+   * the N inner recalcs that would result from looping setAcquisitionMode).
    */
   function applyTargetDefault() {
     const mode = targetDefaultMode.value
+    let nextAcq: Map<number, AcquisitionSource> | null = null
+    let changed = false
     for (const t of targets.value) {
       if (t.recipeId === null) continue
       if (userTouchedModes.value.has(t.itemId)) continue
@@ -635,16 +637,21 @@ export const useBomStore = defineStore('bom', () => {
       if (mode === 'craft') {
         if (node.collapsed) {
           node.collapsed = false
-          acquisitionMode.value.delete(t.itemId)
-          acquisitionMode.value = new Map(acquisitionMode.value)
+          if (!nextAcq) nextAcq = new Map(acquisitionMode.value)
+          nextAcq.delete(t.itemId)
+          changed = true
         }
       } else {
         if (!node.collapsed) {
-          setAcquisitionMode(t.itemId, 'market', false)
+          node.collapsed = true
+          if (!nextAcq) nextAcq = new Map(acquisitionMode.value)
+          nextAcq.set(t.itemId, 'market')
+          changed = true
         }
       }
     }
-    recalcFlat()
+    if (nextAcq) acquisitionMode.value = nextAcq
+    if (changed) recalcFlat()
   }
 
   function toggleRowExpanded(itemId: number) {
@@ -762,7 +769,6 @@ export const useBomStore = defineStore('bom', () => {
   function setTargetDefaultMode(mode: TargetDefaultMode) {
     if (targetDefaultMode.value === mode) return
     targetDefaultMode.value = mode
-    writePrefsToLs({ optimizeBy: routeViewPrefs.value.optimizeBy, targetDefaultMode: mode })
     trackEvent('bom_target_default_set', { mode })
     applyTargetDefault()
     if (mode === 'market' && useSettingsStore().crossServer) {
@@ -772,8 +778,7 @@ export const useBomStore = defineStore('bom', () => {
 
   /**
    * For each craftable target without a cached cross-world entry, fetch
-   * the DC's listings and pick the cheapest world (incl. home — when home
-   * IS the cheapest, savings naturally evaluates to 0).
+   * the DC's listings and pick the cheapest world (incl. home).
    */
   async function fetchCrossWorldBestForTargets() {
     const settings = useSettingsStore()
@@ -820,14 +825,10 @@ export const useBomStore = defineStore('bom', () => {
     }))
 
     if (bestUpdates.size > 0) {
-      const next = new Map(crossWorldBestPriceMap.value)
-      for (const [k, v] of bestUpdates) next.set(k, v)
-      crossWorldBestPriceMap.value = next
+      crossWorldBestPriceMap.value = new Map([...crossWorldBestPriceMap.value, ...bestUpdates])
     }
     if (statusUpdates.size > 0) {
-      const next = new Map(crossWorldFetchStatus.value)
-      for (const [k, v] of statusUpdates) next.set(k, v)
-      crossWorldFetchStatus.value = next
+      crossWorldFetchStatus.value = new Map([...crossWorldFetchStatus.value, ...statusUpdates])
     }
 
     const after = new Set(fetchingCrossWorldIds.value)
@@ -873,44 +874,39 @@ export const useBomStore = defineStore('bom', () => {
     flatMaterials.value = flattenMaterialTree(materialTree.value)
   }
 
-  {
-    const settings = useSettingsStore()
+  // dataCenter change invalidates cache (wrong DC). Re-fetch if still
+  // in market mode + crossServer.
+  watch(
+    () => useSettingsStore().dataCenter,
+    () => {
+      crossWorldBestPriceMap.value = new Map()
+      crossWorldFetchStatus.value = new Map()
+      if (targetDefaultMode.value === 'market' && useSettingsStore().crossServer) {
+        void fetchCrossWorldBestForTargets()
+      }
+    },
+  )
 
-    // dataCenter change invalidates cache (wrong DC). Re-fetch if still
-    // in market mode + crossServer.
-    watch(
-      () => settings.dataCenter,
-      () => {
-        crossWorldBestPriceMap.value = new Map()
-        crossWorldFetchStatus.value = new Map()
-        if (targetDefaultMode.value === 'market' && settings.crossServer) {
-          void fetchCrossWorldBestForTargets()
-        }
-      },
-    )
+  // crossServer ON → fetch. OFF → keep cache; consumers gate visibility on
+  // settings.crossServer, so a flip back ON reuses the warm cache.
+  watch(
+    () => useSettingsStore().crossServer,
+    (on) => {
+      if (on && targetDefaultMode.value === 'market') {
+        void fetchCrossWorldBestForTargets()
+      }
+    },
+  )
 
-    // crossServer ON → fetch. crossServer OFF → keep cache; the breakdown
-    // gates visibility on settings.crossServer === true, so hidden data
-    // doesn't show. If user flips back on we reuse the warm cache.
-    watch(
-      () => settings.crossServer,
-      (on) => {
-        if (on && targetDefaultMode.value === 'market') {
-          void fetchCrossWorldBestForTargets()
-        }
-      },
-    )
-
-    // Target list changes → fetch new targets (covers calculate path).
-    watch(
-      () => targetSig.value,
-      () => {
-        if (targetDefaultMode.value === 'market' && settings.crossServer) {
-          void fetchCrossWorldBestForTargets()
-        }
-      },
-    )
-  }
+  // Target list changes → fetch new targets (covers calculate path).
+  watch(
+    () => targetSig.value,
+    () => {
+      if (targetDefaultMode.value === 'market' && useSettingsStore().crossServer) {
+        void fetchCrossWorldBestForTargets()
+      }
+    },
+  )
 
   return {
     targets,
