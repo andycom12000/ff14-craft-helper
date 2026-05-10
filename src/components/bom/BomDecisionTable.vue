@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import type { FlatMaterial, MaterialNode } from '@/stores/bom'
 import { useBomStore } from '@/stores/bom'
+import { useSettingsStore } from '@/stores/settings'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import BomDecisionRow from '@/components/bom/BomDecisionRow.vue'
 import BomCraftTreeNode from '@/components/bom/BomCraftTreeNode.vue'
@@ -17,6 +18,7 @@ const props = defineProps<{
 }>()
 
 const bom = useBomStore()
+const settings = useSettingsStore()
 
 const CRYSTAL_THRESHOLD = 20
 
@@ -31,16 +33,32 @@ interface RowDescriptor {
 
 const targetSet = computed(() => new Set(props.targetItemIds))
 
-const targetRows = computed<RowDescriptor[]>(() =>
-  props.materialTree.map((root) => ({
+const targetRows = computed<RowDescriptor[]>(() => {
+  const rows = props.materialTree.map((root) => ({
     itemId: root.itemId,
     name: root.name,
     icon: root.icon,
     amount: root.amount,
     isCraftable: !!(root.recipeId && root.children && root.children.length > 0),
     isTarget: true,
-  })),
-)
+  }))
+  // Group by the cheapest cross-DC world the row's pill is showing, so the
+  // user can shop one server at a time. Rows without a visible pill (craft
+  // mode, NPC, missing data) drop to the end.
+  function pillWorld(itemId: number): string | null {
+    if (!settings.crossServer) return null
+    if (bom.getEffectiveMode(itemId) !== 'market') return null
+    return bom.crossWorldBestPriceMap.get(itemId)?.worldName ?? null
+  }
+  return rows.sort((a, b) => {
+    const wa = pillWorld(a.itemId)
+    const wb = pillWorld(b.itemId)
+    if (wa && !wb) return -1
+    if (!wa && wb) return 1
+    if (wa && wb && wa !== wb) return wa.localeCompare(wb)
+    return 0
+  })
+})
 
 const materialRows = computed<RowDescriptor[]>(() => {
   const out: RowDescriptor[] = []
@@ -97,11 +115,12 @@ const isCockpitMobile = useMediaQuery('(max-width: 900px)')
 const drillTargetItemId = computed<number | null>(() => {
   if (!isCockpitMobile.value) return null
   // expandedRows is iteration-ordered (Set keeps insertion order); the
-  // last entry that's still in 'craft' mode wins.
+  // last entry that's in 'craft' or 'market' mode wins. NPC/gather rows
+  // open a ZoneMapSheet via their inline buttons, not this drawer.
   let chosen: number | null = null
   for (const id of bom.expandedRows) {
-    const node = bom.findNode(id)
-    if (node?.recipeId && node.children?.length && !node.collapsed) chosen = id
+    const mode = bom.getEffectiveMode(id)
+    if (mode === 'craft' || mode === 'market') chosen = id
   }
   return chosen
 })
@@ -109,6 +128,12 @@ const drillTargetItemId = computed<number | null>(() => {
 const drillNode = computed<MaterialNode | null>(() =>
   drillTargetItemId.value !== null ? bom.findNode(drillTargetItemId.value) : null,
 )
+
+const drillMode = computed<'craft' | 'market' | null>(() => {
+  if (drillTargetItemId.value === null) return null
+  const m = bom.getEffectiveMode(drillTargetItemId.value)
+  return m === 'craft' || m === 'market' ? m : null
+})
 
 const drillDrawerOpen = computed<boolean>({
   get: () => drillTargetItemId.value !== null,
@@ -152,7 +177,17 @@ function onAnnounceExpand(detail: { modeLabel: string; itemName: string }) {
     <div v-if="targetRows.length > 0" class="bdt-group bdt-group--targets">
       <div class="bdt-group__header">
         <span class="bdt-group__title">完成品</span>
-        <span class="bdt-group__hint">這些是你要做出來的東西，自製是預設選擇</span>
+        <span class="bdt-group__hint">
+          <template v-if="bom.targetDefaultMode === 'craft'">
+            這些是你要做出來的東西，自製是預設選擇
+          </template>
+          <template v-else-if="settings.crossServer">
+            直購：自動挑同 DC 最便宜的伺服器
+          </template>
+          <template v-else>
+            直購：使用本服市場價
+          </template>
+        </span>
       </div>
       <div class="bdt-head">
         <div class="bdt-head__col bdt-head__col--icon" />
@@ -171,16 +206,24 @@ function onAnnounceExpand(detail: { modeLabel: string; itemName: string }) {
           :icon="row.icon"
           :amount="row.amount"
           :is-craftable="row.isCraftable"
-          :immutable="row.isCraftable"
+          :immutable="false"
           @announce-expand="onAnnounceExpand"
         />
-        <!-- Non-craftable targets (NPC vendors, gatherables, market-only items
-             imported from Teamcraft) get the same drill content as material
-             rows so the player can still see vendor / location / price detail
-             for the item they're trying to procure. -->
-        <template v-if="!row.isCraftable && !isCockpitMobile && bom.isRowExpanded(row.itemId)">
+        <!-- Targets get the same drill content as material rows: craft tree
+             when crafting, vendor/location detail for NPC/gather, cross-DC
+             price table for market. -->
+        <template v-if="!isCockpitMobile && bom.isRowExpanded(row.itemId)">
           <div
-            v-if="bom.getEffectiveMode(row.itemId) === 'npc' || bom.getEffectiveMode(row.itemId) === 'gather'"
+            v-if="bom.getEffectiveMode(row.itemId) === 'craft' && row.isCraftable"
+            class="bdt-drill"
+          >
+            <BomCraftTreeNode
+              v-if="getNodeForRow(row.itemId)"
+              :parent="getNodeForRow(row.itemId)!"
+            />
+          </div>
+          <div
+            v-else-if="bom.getEffectiveMode(row.itemId) === 'npc' || bom.getEffectiveMode(row.itemId) === 'gather'"
             class="bdt-drill bdt-drill--acquisition"
           >
             <BomAcquisitionDetail
@@ -293,7 +336,12 @@ function onAnnounceExpand(detail: { modeLabel: string; itemName: string }) {
     <div class="bdt-drill-sheet__handle" aria-hidden="true" />
     <div v-if="drillNode" class="bdt-drill-sheet__body">
       <span class="bdt-drill-sheet__name">{{ drillNode.name }}</span>
-      <BomCraftTreeNode :parent="drillNode" />
+      <BomCraftTreeNode v-if="drillMode === 'craft'" :parent="drillNode" />
+      <BomMarketDetail
+        v-else-if="drillMode === 'market'"
+        :item-id="drillNode.itemId"
+        :item-name="drillNode.name"
+      />
     </div>
   </el-drawer>
 </template>

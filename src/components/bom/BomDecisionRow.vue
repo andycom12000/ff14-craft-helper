@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { ElSkeletonItem } from 'element-plus'
 import { useBomStore } from '@/stores/bom'
 import { useSettingsStore } from '@/stores/settings'
 import { getPrice, type AcquisitionSource } from '@/stores/bom'
@@ -70,11 +71,32 @@ const marketPrice = computed<number | null>(() => {
 
 const npcPrice = computed<number | null>(() => availability.value?.npcPrice ?? null)
 
+const isTarget = computed(() => bom.targets.some((t) => t.itemId === props.itemId))
+const showCrossWorld = computed(
+  () =>
+    isTarget.value &&
+    mode.value === 'market' &&
+    settings.crossServer,
+)
+const crossWorldEntry = computed(() => bom.crossWorldBestPriceMap.get(props.itemId))
+const crossWorldStatus = computed(() => bom.crossWorldFetchStatus.get(props.itemId))
+const crossWorldFetching = computed(() => bom.fetchingCrossWorldIds.has(props.itemId))
+const isHomeServer = computed(
+  () => crossWorldEntry.value?.worldName === settings.server,
+)
+
 const unitPrice = computed<number | null>(() => {
+  if (showCrossWorld.value && crossWorldEntry.value) {
+    return crossWorldEntry.value.minPrice
+  }
   if (mode.value === 'market') return marketPrice.value
   if (mode.value === 'npc') return npcPrice.value
   return null
 })
+
+async function onRetryCrossWorld() {
+  await bom.retryCrossWorldFetch(props.itemId)
+}
 
 const lineTotal = computed<number | null>(() => {
   if (mode.value === 'gather') return 0
@@ -178,6 +200,38 @@ function onRowClick() {
 
     <div class="dec-row__name">
       <ItemName :item-id="itemId" :fallback="name" />
+      <span
+        v-if="showCrossWorld && crossWorldEntry"
+        class="bdr__cross-pill"
+        :class="{ 'is-home': isHomeServer }"
+        data-testid="cross-world-pill"
+      >
+        {{ crossWorldEntry.worldName }}<small v-if="isHomeServer">你</small>
+      </span>
+      <span
+        v-else-if="showCrossWorld && crossWorldStatus === 'failed'"
+        class="bdr__cross-retry"
+        role="button"
+        tabindex="0"
+        :aria-label="`重試跨服查價：${name}`"
+        :aria-disabled="crossWorldFetching || undefined"
+        data-testid="cross-world-retry"
+        @click.stop="onRetryCrossWorld"
+        @keydown.enter.stop="onRetryCrossWorld"
+      >
+        {{ crossWorldFetching ? '跨服查價中…' : '跨服查價失敗 重試' }}
+      </span>
+      <ElSkeletonItem
+        v-else-if="showCrossWorld && crossWorldFetching"
+        variant="text"
+        class="bdr__cross-skel"
+      />
+      <span
+        v-else-if="showCrossWorld && crossWorldStatus === 'ok' && !crossWorldEntry"
+        class="bdr__cross-empty"
+      >
+        跨服無掛單
+      </span>
     </div>
 
     <div class="dec-row__qty">×{{ amount }}</div>
@@ -583,5 +637,62 @@ function onRowClick() {
     justify-self: end;
   }
   .dec-row__chev { grid-area: chev; }
+}
+
+.bdr__cross-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: oklch(0.58 0.20 15);
+  background: transparent;
+  border: 1px solid oklch(0.58 0.20 15 / 0.35);
+}
+
+.bdr__cross-pill.is-home {
+  color: var(--app-text);
+  border-color: oklch(0.65 0.18 65 / 0.4);
+  font-weight: 600;
+}
+
+.bdr__cross-pill small {
+  font-size: 9.5px;
+  padding: 1px 4px;
+  border-radius: 999px;
+  background: oklch(0.65 0.18 65 / 0.2);
+  color: oklch(0.65 0.18 65);
+  letter-spacing: 0.05em;
+}
+
+.bdr__cross-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--app-craft);
+  background: transparent;
+  border: 1px dashed var(--app-craft);
+  cursor: pointer;
+}
+
+.bdr__cross-skel {
+  display: inline-block;
+  width: 4em;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.bdr__cross-empty {
+  margin-left: 8px;
+  font-size: 11px;
+  color: var(--app-text-muted);
+  font-style: italic;
 }
 </style>

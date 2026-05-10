@@ -1,13 +1,21 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
+import { flushPromises } from '@vue/test-utils'
 import { useBomStore, getPrice } from '@/stores/bom'
 import { useSettingsStore } from '@/stores/settings'
+import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
 import type { PriceInfo, MaterialNode } from '@/stores/bom'
 
 vi.mock('@/api/universalis', () => ({
   getAggregatedPrices: vi.fn(),
+  getMarketDataByDC: vi.fn(),
+  aggregateByWorld: vi.fn(),
 }))
-import { getAggregatedPrices } from '@/api/universalis'
+import {
+  getAggregatedPrices,
+  getMarketDataByDC,
+  aggregateByWorld,
+} from '@/api/universalis'
 
 function priceInfo(itemId: number, nq: number, hq = nq): PriceInfo {
   return {
@@ -354,5 +362,299 @@ describe('useBomStore.fetchPrices', () => {
     )
     await bom.fetchPrices([200])
     expect(bom.priceFetchStatus.get(200)).toBe('ok')
+  })
+})
+
+describe('targetDefaultMode persistence', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    localStorage.clear()
+  })
+
+  it('defaults to "craft" when LS is empty', () => {
+    const bom = useBomStore()
+    expect(bom.targetDefaultMode).toBe('craft')
+  })
+
+  it('reads "market" from existing bom-route-prefs LS entry', () => {
+    localStorage.setItem('bom-route-prefs', JSON.stringify({
+      optimizeBy: 'gil',
+      targetDefaultMode: 'market',
+    }))
+    setActivePinia(createPinia())
+    const bom = useBomStore()
+    expect(bom.targetDefaultMode).toBe('market')
+  })
+
+  it('persists changes via setTargetDefaultMode', () => {
+    const bom = useBomStore()
+    bom.setTargetDefaultMode('market')
+    const raw = JSON.parse(localStorage.getItem('bom-route-prefs')!)
+    expect(raw.targetDefaultMode).toBe('market')
+    expect(raw.optimizeBy).toBe('gil')
+  })
+
+  it('falls back to "craft" for invalid LS values', () => {
+    localStorage.setItem('bom-route-prefs', JSON.stringify({ targetDefaultMode: 'lol' }))
+    setActivePinia(createPinia())
+    const bom = useBomStore()
+    expect(bom.targetDefaultMode).toBe('craft')
+  })
+})
+
+describe('crossWorldBestPriceMap state', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    localStorage.clear()
+  })
+
+  it('initializes empty', () => {
+    const bom = useBomStore()
+    expect(bom.crossWorldBestPriceMap.size).toBe(0)
+    expect(bom.crossWorldFetchStatus.size).toBe(0)
+    expect(bom.fetchingCrossWorldIds.size).toBe(0)
+  })
+
+  it('exposes CrossWorldBest entries with worldName + minPrice + fetchedAt', () => {
+    const bom = useBomStore()
+    bom.crossWorldBestPriceMap.set(123, {
+      worldName: 'Tonberry',
+      minPrice: 1500,
+      fetchedAt: Date.now(),
+    })
+    const entry = bom.crossWorldBestPriceMap.get(123)
+    expect(entry?.worldName).toBe('Tonberry')
+    expect(entry?.minPrice).toBe(1500)
+  })
+})
+
+describe('applyTargetDefault', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    localStorage.clear()
+  })
+
+  it('craft mode: keeps craftable targets expanded', () => {
+    const bom = useBomStore()
+    const tree: MaterialNode[] = [
+      {
+        itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001,
+        children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
+      },
+    ]
+    bom.materialTree = tree
+    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.setTargetDefaultMode('craft')
+    bom.applyTargetDefault()
+    expect(tree[0].collapsed).toBeFalsy()
+    expect(bom.getEffectiveMode(100)).toBe('craft')
+  })
+
+  it('market mode: collapses untouched craftable targets', () => {
+    const bom = useBomStore()
+    const tree: MaterialNode[] = [
+      {
+        itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001,
+        children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
+      },
+    ]
+    bom.materialTree = tree
+    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.setTargetDefaultMode('market')
+    bom.applyTargetDefault()
+    expect(tree[0].collapsed).toBe(true)
+    expect(bom.getEffectiveMode(100)).toBe('market')
+  })
+
+  it('market mode: leaves user-touched targets alone', () => {
+    const bom = useBomStore()
+    const tree: MaterialNode[] = [
+      {
+        itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001,
+        children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
+      },
+    ]
+    bom.materialTree = tree
+    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.setAcquisitionMode(100, 'craft', true)
+    bom.setTargetDefaultMode('market')
+    bom.applyTargetDefault()
+    expect(tree[0].collapsed).toBeFalsy()
+    expect(bom.getEffectiveMode(100)).toBe('craft')
+  })
+
+  it('non-craftable targets are unaffected by targetDefaultMode', () => {
+    const bom = useBomStore()
+    const tree: MaterialNode[] = [
+      { itemId: 200, name: 'npc-only', icon: '', amount: 1 },
+    ]
+    bom.materialTree = tree
+    bom.targets = [{ itemId: 200, recipeId: null, name: 'npc-only', icon: '', quantity: 1 }]
+    bom.setTargetDefaultMode('market')
+    bom.applyTargetDefault()
+    expect(bom.getEffectiveMode(200)).toBe('market')
+  })
+})
+
+describe('fetchCrossWorldBestForTargets', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    localStorage.clear()
+    vi.mocked(getMarketDataByDC).mockReset()
+    vi.mocked(aggregateByWorld).mockReset()
+    useCrossWorldPricing().invalidateCrossWorldCache()
+  })
+
+  it('writes the cheapest world (incl. home) into crossWorldBestPriceMap', async () => {
+    vi.mocked(getMarketDataByDC).mockResolvedValue({ listings: [] } as never)
+    vi.mocked(aggregateByWorld).mockReturnValue([
+      { worldName: 'Tonberry', minPriceNQ: 1500, minPriceHQ: 0, avgPriceNQ: 1600, avgPriceHQ: 0, lastUploadTime: 0, listingCount: 1 },
+      { worldName: 'Mandragora', minPriceNQ: 2000, minPriceHQ: 0, avgPriceNQ: 2100, avgPriceHQ: 0, lastUploadTime: 0, listingCount: 1 },
+    ])
+    const bom = useBomStore()
+    const settings = useSettingsStore()
+    settings.dataCenter = 'Materia'
+    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.materialTree = [{
+      itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001,
+      children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
+    }]
+
+    await bom.fetchCrossWorldBestForTargets()
+
+    const entry = bom.crossWorldBestPriceMap.get(100)
+    expect(entry?.worldName).toBe('Tonberry')
+    expect(entry?.minPrice).toBe(1500)
+    expect(bom.crossWorldFetchStatus.get(100)).toBe('ok')
+  })
+
+  it('marks status="ok" but writes no entry when no NQ listings exist', async () => {
+    vi.mocked(getMarketDataByDC).mockResolvedValue({ listings: [] } as never)
+    vi.mocked(aggregateByWorld).mockReturnValue([
+      { worldName: 'Mandragora', minPriceNQ: 0, minPriceHQ: 0, avgPriceNQ: 0, avgPriceHQ: 0, lastUploadTime: 0, listingCount: 0 },
+    ])
+    const bom = useBomStore()
+    const settings = useSettingsStore()
+    settings.dataCenter = 'Materia'
+    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.materialTree = [{
+      itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001,
+      children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
+    }]
+
+    await bom.fetchCrossWorldBestForTargets()
+
+    expect(bom.crossWorldBestPriceMap.has(100)).toBe(false)
+    expect(bom.crossWorldFetchStatus.get(100)).toBe('ok')
+  })
+
+  it('marks status="failed" on API error', async () => {
+    vi.mocked(getMarketDataByDC).mockRejectedValue(new Error('boom'))
+    const bom = useBomStore()
+    const settings = useSettingsStore()
+    settings.dataCenter = 'Materia'
+    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.materialTree = [{
+      itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001,
+      children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
+    }]
+
+    await bom.fetchCrossWorldBestForTargets()
+
+    expect(bom.crossWorldFetchStatus.get(100)).toBe('failed')
+    expect(bom.crossWorldBestPriceMap.has(100)).toBe(false)
+  })
+
+  it('skips items already in the cache', async () => {
+    const bom = useBomStore()
+    const settings = useSettingsStore()
+    settings.dataCenter = 'Materia'
+    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.materialTree = [{
+      itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001,
+      children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
+    }]
+    bom.crossWorldBestPriceMap.set(100, { worldName: 'Tonberry', minPrice: 1500, fetchedAt: 1 })
+
+    await bom.fetchCrossWorldBestForTargets()
+
+    expect(vi.mocked(getMarketDataByDC)).not.toHaveBeenCalled()
+  })
+
+  it('retryCrossWorldFetch clears status and refetches a single item', async () => {
+    vi.mocked(getMarketDataByDC).mockResolvedValue({ listings: [] } as never)
+    vi.mocked(aggregateByWorld).mockReturnValue([
+      { worldName: 'Tonberry', minPriceNQ: 1500, minPriceHQ: 0, avgPriceNQ: 1600, avgPriceHQ: 0, lastUploadTime: 0, listingCount: 1 },
+    ])
+    const bom = useBomStore()
+    const settings = useSettingsStore()
+    settings.dataCenter = 'Materia'
+    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.materialTree = [{
+      itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001,
+      children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
+    }]
+    bom.crossWorldFetchStatus.set(100, 'failed')
+
+    await bom.retryCrossWorldFetch(100)
+
+    expect(bom.crossWorldBestPriceMap.get(100)?.minPrice).toBe(1500)
+    expect(bom.crossWorldFetchStatus.get(100)).toBe('ok')
+  })
+})
+
+describe('cross-world reactivity', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    localStorage.clear()
+    vi.mocked(getMarketDataByDC).mockReset()
+    vi.mocked(aggregateByWorld).mockReset()
+    useCrossWorldPricing().invalidateCrossWorldCache()
+  })
+
+  it('clears crossWorldBestPriceMap when dataCenter changes', async () => {
+    const bom = useBomStore()
+    const settings = useSettingsStore()
+    settings.dataCenter = 'Materia'
+    bom.crossWorldBestPriceMap.set(100, { worldName: 'Tonberry', minPrice: 1500, fetchedAt: 1 })
+
+    settings.dataCenter = 'Mana'
+    await flushPromises()
+
+    expect(bom.crossWorldBestPriceMap.has(100)).toBe(false)
+  })
+
+  it('keeps crossWorldBestPriceMap when crossServer flips off', async () => {
+    const bom = useBomStore()
+    const settings = useSettingsStore()
+    settings.crossServer = true
+    bom.crossWorldBestPriceMap.set(100, { worldName: 'Tonberry', minPrice: 1500, fetchedAt: 1 })
+
+    settings.crossServer = false
+    await flushPromises()
+
+    expect(bom.crossWorldBestPriceMap.has(100)).toBe(true)
+  })
+
+  it('triggers fetch when targets change while in market mode + crossServer', async () => {
+    vi.mocked(getMarketDataByDC).mockResolvedValue({ listings: [] } as never)
+    vi.mocked(aggregateByWorld).mockReturnValue([
+      { worldName: 'Tonberry', minPriceNQ: 1500, minPriceHQ: 0, avgPriceNQ: 1600, avgPriceHQ: 0, lastUploadTime: 0, listingCount: 1 },
+    ])
+    const bom = useBomStore()
+    const settings = useSettingsStore()
+    settings.crossServer = true
+    settings.dataCenter = 'Materia'
+    bom.setTargetDefaultMode('market')
+
+    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.materialTree = [{
+      itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001,
+      children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
+    }]
+    await flushPromises()
+
+    expect(vi.mocked(getMarketDataByDC)).toHaveBeenCalled()
+    expect(bom.crossWorldBestPriceMap.get(100)?.minPrice).toBe(1500)
   })
 })

@@ -1,9 +1,31 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
+import { useBomStore, type TargetDefaultMode } from '@/stores/bom'
 import { useIsMobile } from '@/composables/useMediaQuery'
 
 const settings = useSettingsStore()
+const bom = useBomStore()
 const isMobile = useIsMobile()
+
+const hasCraftableTarget = computed(() =>
+  bom.targets.some((t) => t.recipeId !== null),
+)
+
+type HintKind = 'no-target' | 'craft' | 'market-cross' | 'market-home'
+const hintKind = computed<HintKind>(() => {
+  if (!hasCraftableTarget.value) return 'no-target'
+  if (bom.targetDefaultMode === 'craft') return 'craft'
+  return settings.crossServer ? 'market-cross' : 'market-home'
+})
+
+function onTargetDefaultChange(value: TargetDefaultMode) {
+  bom.setTargetDefaultMode(value)
+}
+
+function enableCrossServer() {
+  settings.crossServer = true
+}
 </script>
 
 <template>
@@ -20,6 +42,32 @@ const isMobile = useIsMobile()
         </div>
         <span v-if="settings.crossServer" class="bom-settings__hint">
           {{ settings.dataCenter || '所有伺服器' }} 同 DC 比價
+        </span>
+      </div>
+
+      <div class="bom-settings__row">
+        <div class="bom-settings__cell">
+          <span class="bom-settings__label">完成品預設</span>
+          <el-radio-group
+            :model-value="bom.targetDefaultMode"
+            size="small"
+            :disabled="!hasCraftableTarget"
+            @change="onTargetDefaultChange"
+          >
+            <el-radio-button value="craft">自製</el-radio-button>
+            <el-radio-button value="market">直購</el-radio-button>
+          </el-radio-group>
+        </div>
+        <span class="bom-settings__hint">
+          <template v-if="hintKind === 'no-target'">目前清單無可製作的完成品</template>
+          <template v-else-if="hintKind === 'craft'">完成品預設自己做，材料逐筆比價</template>
+          <template v-else-if="hintKind === 'market-cross'">完成品預設買成品，自動找同 DC 最便宜的伺服器</template>
+          <template v-else>
+            完成品預設買成品，目前用本服價
+            <button type="button" class="bom-settings__inline-action" @click="enableCrossServer">
+              啟用跨服採購
+            </button>
+          </template>
         </span>
       </div>
 
@@ -125,6 +173,31 @@ const isMobile = useIsMobile()
             { label: '自採', value: 'gather' },
           ]"
           size="small"
+        />
+      </div>
+
+      <div class="m-cell">
+        <span class="m-cell-icon" aria-hidden="true">🥖</span>
+        <div class="m-cell-body">
+          <div class="m-cell-title">完成品預設</div>
+          <div class="m-cell-sub">
+            <template v-if="hintKind === 'no-target'">清單無可製作的完成品</template>
+            <template v-else-if="hintKind === 'craft'">完成品預設自己做</template>
+            <template v-else-if="hintKind === 'market-cross'">買成品，找同 DC 最便宜</template>
+            <template v-else>
+              買成品（本服價，可<a class="m-inline-action" @click="enableCrossServer">啟用跨服</a>）
+            </template>
+          </div>
+        </div>
+        <el-segmented
+          :model-value="bom.targetDefaultMode"
+          :options="[
+            { label: '自製', value: 'craft' },
+            { label: '直購', value: 'market' },
+          ]"
+          size="small"
+          :disabled="!hasCraftableTarget"
+          @update:model-value="(v: TargetDefaultMode) => onTargetDefaultChange(v)"
         />
       </div>
 
@@ -239,5 +312,27 @@ const isMobile = useIsMobile()
   font-size: 11.5px;
   color: var(--app-text-muted);
   margin-top: 2px;
+}
+
+.bom-settings__inline-action {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 4px;
+  color: var(--app-craft);
+  cursor: pointer;
+  font-size: 11.5px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.bom-settings__inline-action:hover {
+  color: var(--app-craft-strong, var(--app-craft));
+}
+
+.m-inline-action {
+  color: var(--app-craft);
+  text-decoration: underline;
+  cursor: pointer;
 }
 </style>

@@ -12,10 +12,19 @@ import type { ItemLocations } from '@/services/item-locations'
 import { fetchItemLocationsBatch } from '@/services/item-locations'
 import { fetchZoneMetaBulk, fetchNpcNameBulk } from '@/services/zone-meta'
 import { trackEvent } from '@/utils/analytics'
+import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
 
 export type PriceFetchStatus = 'ok' | 'failed'
 
+export interface CrossWorldBest {
+  worldName: string
+  minPrice: number
+  fetchedAt: number
+}
+
 export type AcquisitionSource = 'market' | 'craft' | 'gather' | 'npc'
+
+export type TargetDefaultMode = Extract<AcquisitionSource, 'craft' | 'market'>
 
 export interface BomTarget {
   itemId: number
@@ -103,16 +112,24 @@ const ROUTE_KEY_PREFIX = 'bom-route::'
 const ROUTE_LRU_LIMIT = 8
 const WRITE_DEBOUNCE_MS = 500
 
-function readPrefsFromLs(): 'gil' | 'hop' | null {
+interface RoutePrefs {
+  optimizeBy: 'gil' | 'hop'
+  targetDefaultMode: TargetDefaultMode
+}
+
+function readPrefsFromLs(): RoutePrefs | null {
   try {
     const raw = localStorage.getItem(PREFS_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw)
-    return parsed?.optimizeBy === 'hop' ? 'hop' : parsed?.optimizeBy === 'gil' ? 'gil' : null
+    const optimizeBy = parsed?.optimizeBy === 'hop' ? 'hop' : 'gil'
+    const targetDefaultMode: TargetDefaultMode =
+      parsed?.targetDefaultMode === 'market' ? 'market' : 'craft'
+    return { optimizeBy, targetDefaultMode }
   } catch { return null }
 }
 
-function writePrefsToLs(prefs: { optimizeBy: 'gil' | 'hop' }) {
+function writePrefsToLs(prefs: RoutePrefs) {
   try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)) } catch {}
 }
 
@@ -207,6 +224,16 @@ export const useBomStore = defineStore('bom', () => {
   const priceFetchStatus = ref<Map<number, PriceFetchStatus>>(new Map())
   const fetchingPriceIds = ref<Set<number>>(new Set())
 
+  /**
+   * For each craftable target, the cheapest world in the user's DC and its
+   * price. Populated by fetchCrossWorldBestForTargets when targetDefaultMode
+   * is 'market' and settings.crossServer is on. May store the home server
+   * when home itself is the cheapest in the DC.
+   */
+  const crossWorldBestPriceMap = ref<Map<number, CrossWorldBest>>(new Map())
+  const crossWorldFetchStatus = ref<Map<number, PriceFetchStatus>>(new Map())
+  const fetchingCrossWorldIds = ref<Set<number>>(new Set())
+
   // ---------------------------------------------------------------------------
   // Route planner state
   // ---------------------------------------------------------------------------
@@ -214,9 +241,9 @@ export const useBomStore = defineStore('bom', () => {
   /** Per-itemId location data (NPC vendors + gather nodes). Populated lazily. */
   const itemLocations = ref<Map<number, ItemLocations>>(new Map())
 
-  const routeViewPrefs = ref<{ optimizeBy: 'gil' | 'hop' }>({
-    optimizeBy: readPrefsFromLs() ?? 'gil',
-  })
+  const initialPrefs: RoutePrefs = readPrefsFromLs() ?? { optimizeBy: 'gil', targetDefaultMode: 'craft' }
+  const routeViewPrefs = ref<{ optimizeBy: 'gil' | 'hop' }>({ optimizeBy: initialPrefs.optimizeBy })
+  const targetDefaultMode = ref<TargetDefaultMode>(initialPrefs.targetDefaultMode)
 
   const routeViewSession = ref<{
     excluded: Set<number>
@@ -266,7 +293,14 @@ export const useBomStore = defineStore('bom', () => {
   }, { deep: true, flush: 'sync' })
 
   // Persist prefs immediately on change. Same fake-timer reasoning as above.
-  watch(routeViewPrefs, (next) => writePrefsToLs(next), { deep: true, flush: 'sync' })
+  watch(
+    [routeViewPrefs, targetDefaultMode],
+    () => writePrefsToLs({
+      optimizeBy: routeViewPrefs.value.optimizeBy,
+      targetDefaultMode: targetDefaultMode.value,
+    }),
+    { deep: true, flush: 'sync' },
+  )
 
   function addTarget(target: BomTarget) {
     // Dedupe by itemId — same item shouldn't appear twice even with different
@@ -301,6 +335,10 @@ export const useBomStore = defineStore('bom', () => {
     acquisitionAvailability.value = new Map()
     priceFetchStatus.value = new Map()
     fetchingPriceIds.value = new Set()
+    crossWorldBestPriceMap.value = new Map()
+    crossWorldFetchStatus.value = new Map()
+    fetchingCrossWorldIds.value = new Set()
+    useCrossWorldPricing().invalidateCrossWorldCache()
   }
 
   /**
@@ -448,17 +486,20 @@ export const useBomStore = defineStore('bom', () => {
       }
 
       if (isTarget && isCraftable) {
-        // Craftable target stays on craft regardless of cost — that's the
-        // whole point of putting it in the BOM. Non-craftable targets fall
-        // through to the same cheapest-mode logic as a normal leaf so the
-        // user sees market vs NPC up front.
-        const cost = Number.isFinite(craftCost)
-          ? craftCost
-          : Number.isFinite(marketCost)
-            ? marketCost
-            : 0
-        costCache.set(node.itemId, cost)
-        return cost
+        // When targetDefaultMode is 'craft', a craftable target stays on
+        // craft regardless of cost — that's the whole point of putting it
+        // in the BOM. When mode is 'market', we let it fall through to the
+        // cheapest-mode logic below so applyOptimalDefaults can flip it
+        // alongside other rows.
+        if (targetDefaultMode.value === 'craft') {
+          const cost = Number.isFinite(craftCost)
+            ? craftCost
+            : Number.isFinite(marketCost)
+              ? marketCost
+              : 0
+          costCache.set(node.itemId, cost)
+          return cost
+        }
       }
 
       // Honor the "原料準備" setting: when the user has chosen 自採 as the
@@ -500,6 +541,7 @@ export const useBomStore = defineStore('bom', () => {
     for (const u of collapsedUpdates) u.node.collapsed = u.collapsed
     acquisitionMode.value = newModeMap
     recalcFlat()
+    applyTargetDefault()
   }
 
   /**
@@ -576,6 +618,42 @@ export const useBomStore = defineStore('bom', () => {
 
   function isModeUserSettled(itemId: number): boolean {
     return userTouchedModes.value.has(itemId)
+  }
+
+  /**
+   * Walk targets and flip every craftable, non-user-touched target according
+   * to the global targetDefaultMode. Batches mode updates into a single
+   * acquisitionMode replacement and runs recalcFlat once at the end (vs.
+   * the N inner recalcs that would result from looping setAcquisitionMode).
+   */
+  function applyTargetDefault() {
+    const mode = targetDefaultMode.value
+    let nextAcq: Map<number, AcquisitionSource> | null = null
+    let changed = false
+    for (const t of targets.value) {
+      if (t.recipeId === null) continue
+      if (userTouchedModes.value.has(t.itemId)) continue
+      const node = findNode(t.itemId)
+      if (!node || !node.recipeId || !node.children || node.children.length === 0) continue
+
+      if (mode === 'craft') {
+        if (node.collapsed) {
+          node.collapsed = false
+          if (!nextAcq) nextAcq = new Map(acquisitionMode.value)
+          nextAcq.delete(t.itemId)
+          changed = true
+        }
+      } else {
+        if (!node.collapsed) {
+          node.collapsed = true
+          if (!nextAcq) nextAcq = new Map(acquisitionMode.value)
+          nextAcq.set(t.itemId, 'market')
+          changed = true
+        }
+      }
+    }
+    if (nextAcq) acquisitionMode.value = nextAcq
+    if (changed) recalcFlat()
   }
 
   function toggleRowExpanded(itemId: number) {
@@ -690,6 +768,97 @@ export const useBomStore = defineStore('bom', () => {
     itemLocations.value = merged
   }
 
+  function setTargetDefaultMode(mode: TargetDefaultMode) {
+    if (targetDefaultMode.value === mode) return
+    targetDefaultMode.value = mode
+    trackEvent('bom_target_default_set', { mode })
+    applyTargetDefault()
+    if (mode === 'market' && useSettingsStore().crossServer) {
+      void fetchCrossWorldBestForTargets()
+    }
+  }
+
+  /**
+   * For every target row (craftable or not) without a cached cross-world
+   * entry, fetch the DC's listings and pick the cheapest world (incl. home).
+   * Non-craftable targets benefit from the same pill — once they default
+   * to market they're a direct-purchase decision just like craftable ones.
+   */
+  async function fetchCrossWorldBestForTargets() {
+    const settings = useSettingsStore()
+    if (!settings.dataCenter) return
+
+    const targetIds = targets.value
+      .map((t) => t.itemId)
+      .filter((id) => !crossWorldBestPriceMap.value.has(id))
+      .filter((id) => !fetchingCrossWorldIds.value.has(id))
+
+    if (targetIds.length === 0) return
+
+    const inflight = new Set(fetchingCrossWorldIds.value)
+    for (const id of targetIds) inflight.add(id)
+    fetchingCrossWorldIds.value = inflight
+
+    // Collect into local maps then commit ONCE — assigning .value inside
+    // each Promise.allSettled closure races: each closure captures the
+    // current .value at write time, so concurrent writes lose entries.
+    // Mirrors the fetchPrices pattern.
+    const bestUpdates = new Map<number, CrossWorldBest>()
+    const statusUpdates = new Map<number, PriceFetchStatus>()
+
+    const { fetchCrossWorldData, crossWorldData } = useCrossWorldPricing()
+
+    // Go through the composable so its dedupe/loading state is shared with
+    // BomMarketDetail. If the user expands a row mid-fetch, the composable's
+    // `loading.has(id)` short-circuits the redundant call.
+    await Promise.allSettled(
+      targetIds.map((id) => fetchCrossWorldData(id, undefined, { silent: true })),
+    )
+
+    // Composable swallows errors and just leaves data unset. Treat
+    // missing-after-fetch as failure for the row's retry chip.
+    for (const itemId of targetIds) {
+      const rows = crossWorldData.value.get(itemId)
+      if (!rows) {
+        statusUpdates.set(itemId, 'failed')
+        continue
+      }
+      // aggregateByWorld returns rows sorted by minPriceNQ ascending;
+      // first non-zero row IS the cheapest.
+      const cheapest = rows.find((r) => r.minPriceNQ > 0)
+      if (cheapest) {
+        bestUpdates.set(itemId, {
+          worldName: cheapest.worldName,
+          minPrice: cheapest.minPriceNQ,
+          fetchedAt: Date.now(),
+        })
+      }
+      statusUpdates.set(itemId, 'ok')
+    }
+
+    if (bestUpdates.size > 0) {
+      crossWorldBestPriceMap.value = new Map([...crossWorldBestPriceMap.value, ...bestUpdates])
+    }
+    if (statusUpdates.size > 0) {
+      crossWorldFetchStatus.value = new Map([...crossWorldFetchStatus.value, ...statusUpdates])
+    }
+
+    const after = new Set(fetchingCrossWorldIds.value)
+    for (const id of targetIds) after.delete(id)
+    fetchingCrossWorldIds.value = after
+  }
+
+  async function retryCrossWorldFetch(itemId: number) {
+    const next = new Map(crossWorldBestPriceMap.value)
+    next.delete(itemId)
+    crossWorldBestPriceMap.value = next
+    const status = new Map(crossWorldFetchStatus.value)
+    status.delete(itemId)
+    crossWorldFetchStatus.value = status
+    useCrossWorldPricing().invalidateCrossWorldCache(itemId)
+    await fetchCrossWorldBestForTargets()
+  }
+
   function setOptimizeBy(mode: 'gil' | 'hop') {
     if (routeViewPrefs.value.optimizeBy === mode) return
     routeViewPrefs.value = { optimizeBy: mode }
@@ -717,6 +886,41 @@ export const useBomStore = defineStore('bom', () => {
   function recalcFlat() {
     flatMaterials.value = flattenMaterialTree(materialTree.value)
   }
+
+  // dataCenter change invalidates cache (wrong DC). Re-fetch if still
+  // in market mode + crossServer.
+  watch(
+    () => useSettingsStore().dataCenter,
+    () => {
+      crossWorldBestPriceMap.value = new Map()
+      crossWorldFetchStatus.value = new Map()
+      useCrossWorldPricing().invalidateCrossWorldCache()
+      if (targetDefaultMode.value === 'market' && useSettingsStore().crossServer) {
+        void fetchCrossWorldBestForTargets()
+      }
+    },
+  )
+
+  // crossServer ON → fetch. OFF → keep cache; consumers gate visibility on
+  // settings.crossServer, so a flip back ON reuses the warm cache.
+  watch(
+    () => useSettingsStore().crossServer,
+    (on) => {
+      if (on && targetDefaultMode.value === 'market') {
+        void fetchCrossWorldBestForTargets()
+      }
+    },
+  )
+
+  // Target list changes → fetch new targets (covers calculate path).
+  watch(
+    () => targetSig.value,
+    () => {
+      if (targetDefaultMode.value === 'market' && useSettingsStore().crossServer) {
+        void fetchCrossWorldBestForTargets()
+      }
+    },
+  )
 
   return {
     targets,
@@ -751,6 +955,16 @@ export const useBomStore = defineStore('bom', () => {
     isModeUserSettled,
     toggleRowExpanded,
     isRowExpanded,
+    // Target default mode
+    targetDefaultMode,
+    setTargetDefaultMode,
+    applyTargetDefault,
+    // Cross-world price state
+    crossWorldBestPriceMap,
+    crossWorldFetchStatus,
+    fetchingCrossWorldIds,
+    fetchCrossWorldBestForTargets,
+    retryCrossWorldFetch,
     // Route planner
     itemLocations,
     routeViewPrefs,
