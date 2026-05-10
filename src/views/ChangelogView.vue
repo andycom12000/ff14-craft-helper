@@ -18,6 +18,13 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: 'v2.11.4',
+    date: '2026-05-10',
+    highlights: [
+      '【遊戲資料更新】例行重抓 datamining 上游 commit：zh-TW 換成 andycom12000/ffxiv-datamining-tw fork（之前 b22ac69 切換的設定，這次跟著工作流的產出寫進 manifest），zh-CN 與 en / ja 各 bump 到最新 commit；recipes / items / RLT / worlds 等資料檔同步重產',
+    ],
+  },
+  {
     version: 'v2.11.3',
     date: '2026-05-10',
     highlights: [
