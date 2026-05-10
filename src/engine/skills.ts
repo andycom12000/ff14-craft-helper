@@ -40,7 +40,7 @@ export const SKILLS: SkillDefinition[] = [
   { id: 'Reflect', nameEn: 'Reflect', nameZh: '閒靜', nameJa: '静心', category: 'quality', level: 69, cp: 6, durability: 10, description: '300% 效率（首步限定），IQ+2', iconId: 1982 },
   { id: 'TrainedEye', nameEn: 'Trained Eye', nameZh: '工匠的神速技巧', nameJa: '匠の早業', category: 'quality', level: 80, cp: 250, durability: 10, description: '品質拉滿（首步限定）', iconId: 1981 },
   { id: 'RefinedTouch', nameEn: 'Refined Touch', nameZh: '精煉加工', nameJa: '洗練加工', category: 'quality', level: 92, cp: 24, durability: 10, description: '100% 效率，IQ+2（加工連段後）', iconId: 1522 },
-  { id: 'DaringTouch', nameEn: 'Daring Touch', nameZh: '大膽加工', nameJa: '大胆加工', category: 'quality', level: 96, cp: 0, durability: 10, description: '150% 效率 (60% 成功率)', iconId: 1998 },
+  { id: 'DaringTouch', nameEn: 'Daring Touch', nameZh: '冒進', nameJa: '大胆加工', category: 'quality', level: 96, cp: 0, durability: 10, description: '150% 效率 (60% 成功率)', iconId: 1998 },
 
   // Buff
   { id: 'WasteNot', nameEn: 'Waste Not', nameZh: '儉約', nameJa: '倹約', category: 'buff', level: 15, cp: 56, durability: 0, description: '耐久消耗減半，4 回合', iconId: 1992 },
@@ -56,7 +56,7 @@ export const SKILLS: SkillDefinition[] = [
   { id: 'ImmaculateMend', nameEn: 'Immaculate Mend', nameZh: '巧奪天工', nameJa: 'マスターズメンドII', category: 'repair', level: 98, cp: 112, durability: 0, description: '耐久恢復至上限', iconId: 1950 },
   { id: 'Observe', nameEn: 'Observe', nameZh: '觀察', nameJa: '経過観察', category: 'other', level: 13, cp: 7, durability: 0, description: '等待一回合', iconId: 1954 },
   { id: 'TricksOfTheTrade', nameEn: 'Tricks of the Trade', nameZh: '秘訣', nameJa: '秘訣', category: 'other', level: 13, cp: 0, durability: 0, description: '恢復 20 CP（高品質限定）', iconId: 1990 },
-  { id: 'HeartAndSoul', nameEn: 'Heart and Soul', nameZh: '心靈之手', nameJa: '一心不乱', category: 'other', level: 86, cp: 0, durability: 0, description: '下次可用高品質限定技能', iconId: 1996 },
+  { id: 'HeartAndSoul', nameEn: 'Heart and Soul', nameZh: '專心致志', nameJa: '一心不乱', category: 'other', level: 86, cp: 0, durability: 0, description: '下次可用高品質限定技能', iconId: 1996 },
   { id: 'QuickInnovation', nameEn: 'Quick Innovation', nameZh: '快速改革', nameJa: 'クイックイノベーション', category: 'buff', level: 96, cp: 0, durability: 0, description: '免費改革 1 回合', iconId: 1999 },
   { id: 'TrainedPerfection', nameEn: 'Trained Perfection', nameZh: '工匠的絕技', nameJa: '匠の絶技', category: 'buff', level: 100, cp: 0, durability: 0, description: '下次行動不消耗耐久', iconId: 1926 },
 ]

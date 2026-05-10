@@ -1789,7 +1789,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelInsuf
 }
 
 /* < 1360: collapse the cockpit-body to a single column so the four
-   skill-toggle chips (工匠的神速技巧 / 掌握 / 心靈之手 / 快速改革) stay
+   skill-toggle chips (工匠的神速技巧 / 掌握 / 專心致志 / 快速改革) stay
    on one line. Below ~460px tool-column width they wrap, which makes the
    row feel like two unrelated chunks. The page-grid stays 2-col here —
    only the inner cockpit collapses. Solver/skill panel stacks above
