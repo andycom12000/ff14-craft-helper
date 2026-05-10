@@ -99,11 +99,12 @@ const isCockpitMobile = useMediaQuery('(max-width: 900px)')
 const drillTargetItemId = computed<number | null>(() => {
   if (!isCockpitMobile.value) return null
   // expandedRows is iteration-ordered (Set keeps insertion order); the
-  // last entry that's still in 'craft' mode wins.
+  // last entry that's in 'craft' or 'market' mode wins. NPC/gather rows
+  // open a ZoneMapSheet via their inline buttons, not this drawer.
   let chosen: number | null = null
   for (const id of bom.expandedRows) {
-    const node = bom.findNode(id)
-    if (node?.recipeId && node.children?.length && !node.collapsed) chosen = id
+    const mode = bom.getEffectiveMode(id)
+    if (mode === 'craft' || mode === 'market') chosen = id
   }
   return chosen
 })
@@ -111,6 +112,12 @@ const drillTargetItemId = computed<number | null>(() => {
 const drillNode = computed<MaterialNode | null>(() =>
   drillTargetItemId.value !== null ? bom.findNode(drillTargetItemId.value) : null,
 )
+
+const drillMode = computed<'craft' | 'market' | null>(() => {
+  if (drillTargetItemId.value === null) return null
+  const m = bom.getEffectiveMode(drillTargetItemId.value)
+  return m === 'craft' || m === 'market' ? m : null
+})
 
 const drillDrawerOpen = computed<boolean>({
   get: () => drillTargetItemId.value !== null,
@@ -313,7 +320,12 @@ function onAnnounceExpand(detail: { modeLabel: string; itemName: string }) {
     <div class="bdt-drill-sheet__handle" aria-hidden="true" />
     <div v-if="drillNode" class="bdt-drill-sheet__body">
       <span class="bdt-drill-sheet__name">{{ drillNode.name }}</span>
-      <BomCraftTreeNode :parent="drillNode" />
+      <BomCraftTreeNode v-if="drillMode === 'craft'" :parent="drillNode" />
+      <BomMarketDetail
+        v-else-if="drillMode === 'market'"
+        :item-id="drillNode.itemId"
+        :item-name="drillNode.name"
+      />
     </div>
   </el-drawer>
 </template>
