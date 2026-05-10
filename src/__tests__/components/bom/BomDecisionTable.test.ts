@@ -132,3 +132,39 @@ describe('BomDecisionTable — BomAcquisitionDetail panel', () => {
     expect(w.find('[data-bom-acquisition-detail]').exists()).toBe(true)
   })
 })
+
+describe('BomDecisionTable — target row unlock', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    _isMobileRef.value = false
+  })
+
+  it('does not lock craftable target rows (immutable=false)', async () => {
+    const bom = useBomStore()
+    const ITEM = 100
+    const targetNode: MaterialNode = {
+      itemId: ITEM,
+      name: 'Target Item',
+      icon: '',
+      amount: 1,
+      recipeId: 9001,
+      children: [{ itemId: 50, name: 'Mat', icon: '', amount: 1 }],
+      collapsed: false,
+    }
+    vi.spyOn(bom, 'isCraftableInTree').mockReturnValue(true)
+    vi.spyOn(bom, 'findNode').mockReturnValue(targetNode)
+
+    const w = mount(BomDecisionTable, {
+      props: {
+        materials: [],
+        materialTree: [targetNode],
+        targetItemIds: [ITEM],
+      },
+    })
+    await flushPromises()
+
+    const decisionRow = w.findComponent({ name: 'BomDecisionRow' })
+    expect(decisionRow.exists()).toBe(true)
+    expect(decisionRow.props('immutable')).toBe(false)
+  })
+})

@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import type { FlatMaterial, MaterialNode } from '@/stores/bom'
 import { useBomStore } from '@/stores/bom'
+import { useSettingsStore } from '@/stores/settings'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import BomDecisionRow from '@/components/bom/BomDecisionRow.vue'
 import BomCraftTreeNode from '@/components/bom/BomCraftTreeNode.vue'
@@ -17,6 +18,7 @@ const props = defineProps<{
 }>()
 
 const bom = useBomStore()
+const settings = useSettingsStore()
 
 const CRYSTAL_THRESHOLD = 20
 
@@ -152,7 +154,17 @@ function onAnnounceExpand(detail: { modeLabel: string; itemName: string }) {
     <div v-if="targetRows.length > 0" class="bdt-group bdt-group--targets">
       <div class="bdt-group__header">
         <span class="bdt-group__title">完成品</span>
-        <span class="bdt-group__hint">這些是你要做出來的東西，自製是預設選擇</span>
+        <span class="bdt-group__hint">
+          <template v-if="bom.targetDefaultMode === 'craft'">
+            這些是你要做出來的東西，自製是預設選擇
+          </template>
+          <template v-else-if="settings.crossServer">
+            直購：自動挑同 DC 最便宜的伺服器
+          </template>
+          <template v-else>
+            直購：使用本服市場價
+          </template>
+        </span>
       </div>
       <div class="bdt-head">
         <div class="bdt-head__col bdt-head__col--icon" />
@@ -171,7 +183,7 @@ function onAnnounceExpand(detail: { modeLabel: string; itemName: string }) {
           :icon="row.icon"
           :amount="row.amount"
           :is-craftable="row.isCraftable"
-          :immutable="row.isCraftable"
+          :immutable="false"
           @announce-expand="onAnnounceExpand"
         />
         <!-- Non-craftable targets (NPC vendors, gatherables, market-only items
