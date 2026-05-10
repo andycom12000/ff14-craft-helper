@@ -412,7 +412,6 @@ describe('crossWorldBestPriceMap state', () => {
     const bom = useBomStore()
     expect(bom.crossWorldBestPriceMap.size).toBe(0)
     expect(bom.crossWorldFetchStatus.size).toBe(0)
-    expect(bom.fetchingCrossWorldIds.size).toBe(0)
   })
 
   it('exposes CrossWorldBest entries with worldName + minPrice + fetchedAt', () => {

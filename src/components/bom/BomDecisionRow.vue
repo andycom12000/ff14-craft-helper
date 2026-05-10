@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { ElSkeletonItem } from 'element-plus'
 import { useBomStore } from '@/stores/bom'
 import { useSettingsStore } from '@/stores/settings'
+import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
 import { getPrice, type AcquisitionSource } from '@/stores/bom'
 import ItemName from '@/components/common/ItemName.vue'
 import GilDisplay from '@/components/common/GilDisplay.vue'
@@ -14,6 +15,12 @@ interface Props {
   amount: number
   /** True if this row corresponds to a node with a recipe (i.e. craftable). */
   isCraftable: boolean
+  /**
+   * True when this row is a finished-goods (target) row. The parent
+   * (BomDecisionTable) already maintains the target Set, so children
+   * shouldn't re-derive it via `bom.targets.some(...)` per render.
+   */
+  isTarget?: boolean
   /** True if this row sits inside a drill-down panel (offset visuals). */
   nested?: boolean
   /** Hide the segmented control (used for target/finished-goods rows). */
@@ -71,16 +78,17 @@ const marketPrice = computed<number | null>(() => {
 
 const npcPrice = computed<number | null>(() => availability.value?.npcPrice ?? null)
 
-const isTarget = computed(() => bom.targets.some((t) => t.itemId === props.itemId))
 const showCrossWorld = computed(
   () =>
-    isTarget.value &&
+    !!props.isTarget &&
     mode.value === 'market' &&
     settings.crossServer,
 )
 const crossWorldEntry = computed(() => bom.crossWorldBestPriceMap.get(props.itemId))
 const crossWorldStatus = computed(() => bom.crossWorldFetchStatus.get(props.itemId))
-const crossWorldFetching = computed(() => bom.fetchingCrossWorldIds.has(props.itemId))
+const crossWorldFetching = computed(
+  () => useCrossWorldPricing().crossWorldLoading.value.has(props.itemId),
+)
 const isHomeServer = computed(
   () => crossWorldEntry.value?.worldName === settings.server,
 )

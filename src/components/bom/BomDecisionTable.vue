@@ -206,6 +206,7 @@ function onAnnounceExpand(detail: { modeLabel: string; itemName: string }) {
           :icon="row.icon"
           :amount="row.amount"
           :is-craftable="row.isCraftable"
+          :is-target="true"
           :immutable="false"
           @announce-expand="onAnnounceExpand"
         />

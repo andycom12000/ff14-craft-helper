@@ -36,6 +36,7 @@ function makeProps(overrides: Partial<{
   icon: string
   amount: number
   isCraftable: boolean
+  isTarget: boolean
   immutable: boolean
 }> = {}) {
   return {
@@ -44,6 +45,7 @@ function makeProps(overrides: Partial<{
     icon: overrides.icon ?? '',
     amount: overrides.amount ?? 5,
     isCraftable: overrides.isCraftable ?? false,
+    isTarget: overrides.isTarget,
     immutable: overrides.immutable,
   }
 }
@@ -146,7 +148,7 @@ describe('BomDecisionRow — target market-mode visuals', () => {
     bom.crossWorldBestPriceMap.set(100, { worldName: 'Mandragora', minPrice: 800, fetchedAt: 1 })
     bom.setTargetDefaultMode('market')
 
-    const w = mount(BomDecisionRow, { props: makeProps({ itemId: 100, isCraftable: true }) })
+    const w = mount(BomDecisionRow, { props: makeProps({ itemId: 100, isCraftable: true, isTarget: true }) })
     await w.vm.$nextTick()
 
     const pill = w.find('[data-testid="cross-world-pill"]')
@@ -167,7 +169,7 @@ describe('BomDecisionRow — target market-mode visuals', () => {
     bom.crossWorldBestPriceMap.set(100, { worldName: 'Tonberry', minPrice: 800, fetchedAt: 1 })
     bom.setTargetDefaultMode('market')
 
-    const w = mount(BomDecisionRow, { props: makeProps({ itemId: 100, isCraftable: true }) })
+    const w = mount(BomDecisionRow, { props: makeProps({ itemId: 100, isCraftable: true, isTarget: true }) })
     await w.vm.$nextTick()
 
     const pill = w.find('[data-testid="cross-world-pill"]')
@@ -185,7 +187,7 @@ describe('BomDecisionRow — target market-mode visuals', () => {
     bom.crossWorldFetchStatus.set(100, 'failed')
     bom.setTargetDefaultMode('market')
 
-    const w = mount(BomDecisionRow, { props: makeProps({ itemId: 100, isCraftable: true }) })
+    const w = mount(BomDecisionRow, { props: makeProps({ itemId: 100, isCraftable: true, isTarget: true }) })
     await w.vm.$nextTick()
 
     const retry = w.find('[data-testid="cross-world-retry"]')

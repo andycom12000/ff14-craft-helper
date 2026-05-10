@@ -232,7 +232,6 @@ export const useBomStore = defineStore('bom', () => {
    */
   const crossWorldBestPriceMap = ref<Map<number, CrossWorldBest>>(new Map())
   const crossWorldFetchStatus = ref<Map<number, PriceFetchStatus>>(new Map())
-  const fetchingCrossWorldIds = ref<Set<number>>(new Set())
 
   // ---------------------------------------------------------------------------
   // Route planner state
@@ -337,7 +336,6 @@ export const useBomStore = defineStore('bom', () => {
     fetchingPriceIds.value = new Set()
     crossWorldBestPriceMap.value = new Map()
     crossWorldFetchStatus.value = new Map()
-    fetchingCrossWorldIds.value = new Set()
     useCrossWorldPricing().invalidateCrossWorldCache()
   }
 
@@ -780,9 +778,10 @@ export const useBomStore = defineStore('bom', () => {
 
   /**
    * For every target row (craftable or not) without a cached cross-world
-   * entry, fetch the DC's listings and pick the cheapest world (incl. home).
-   * Non-craftable targets benefit from the same pill — once they default
-   * to market they're a direct-purchase decision just like craftable ones.
+   * entry, ask useCrossWorldPricing to fetch the DC's listings and project
+   * the cheapest world into the bom store's caches. The composable handles
+   * dedupe + in-flight tracking + the actual network call; this function
+   * just batches per-target calls and computes the cheapest projection.
    */
   async function fetchCrossWorldBestForTargets() {
     const settings = useSettingsStore()
@@ -791,32 +790,20 @@ export const useBomStore = defineStore('bom', () => {
     const targetIds = targets.value
       .map((t) => t.itemId)
       .filter((id) => !crossWorldBestPriceMap.value.has(id))
-      .filter((id) => !fetchingCrossWorldIds.value.has(id))
 
     if (targetIds.length === 0) return
 
-    const inflight = new Set(fetchingCrossWorldIds.value)
-    for (const id of targetIds) inflight.add(id)
-    fetchingCrossWorldIds.value = inflight
-
-    // Collect into local maps then commit ONCE — assigning .value inside
-    // each Promise.allSettled closure races: each closure captures the
-    // current .value at write time, so concurrent writes lose entries.
-    // Mirrors the fetchPrices pattern.
-    const bestUpdates = new Map<number, CrossWorldBest>()
-    const statusUpdates = new Map<number, PriceFetchStatus>()
-
     const { fetchCrossWorldData, crossWorldData } = useCrossWorldPricing()
-
-    // Go through the composable so its dedupe/loading state is shared with
-    // BomMarketDetail. If the user expands a row mid-fetch, the composable's
-    // `loading.has(id)` short-circuits the redundant call.
     await Promise.allSettled(
       targetIds.map((id) => fetchCrossWorldData(id, undefined, { silent: true })),
     )
 
-    // Composable swallows errors and just leaves data unset. Treat
-    // missing-after-fetch as failure for the row's retry chip.
+    // Collect updates locally then commit once — concurrent writes via
+    // .value on each closure would race. Composable swallows errors and
+    // just leaves data unset, so missing-after-fetch === failure for the
+    // row's retry chip.
+    const bestUpdates = new Map<number, CrossWorldBest>()
+    const statusUpdates = new Map<number, PriceFetchStatus>()
     for (const itemId of targetIds) {
       const rows = crossWorldData.value.get(itemId)
       if (!rows) {
@@ -842,10 +829,6 @@ export const useBomStore = defineStore('bom', () => {
     if (statusUpdates.size > 0) {
       crossWorldFetchStatus.value = new Map([...crossWorldFetchStatus.value, ...statusUpdates])
     }
-
-    const after = new Set(fetchingCrossWorldIds.value)
-    for (const id of targetIds) after.delete(id)
-    fetchingCrossWorldIds.value = after
   }
 
   async function retryCrossWorldFetch(itemId: number) {
@@ -886,6 +869,39 @@ export const useBomStore = defineStore('bom', () => {
   function recalcFlat() {
     flatMaterials.value = flattenMaterialTree(materialTree.value)
   }
+
+  // Sync composable cache → store projection. BomMarketDetail's onMounted
+  // fetches via the composable too; without this watcher, a successful
+  // mid-render fetch would leave the bom store's stale 'failed' status
+  // intact and the retry chip would stay visible despite data existing.
+  watch(
+    () => useCrossWorldPricing().crossWorldData.value,
+    (data) => {
+      let mapChanged = false
+      let statusChanged = false
+      const nextMap = new Map(crossWorldBestPriceMap.value)
+      const nextStatus = new Map(crossWorldFetchStatus.value)
+      for (const [itemId, rows] of data) {
+        if (!nextMap.has(itemId)) {
+          const cheapest = rows.find((r) => r.minPriceNQ > 0)
+          if (cheapest) {
+            nextMap.set(itemId, {
+              worldName: cheapest.worldName,
+              minPrice: cheapest.minPriceNQ,
+              fetchedAt: Date.now(),
+            })
+            mapChanged = true
+          }
+        }
+        if (nextStatus.get(itemId) === 'failed') {
+          nextStatus.set(itemId, 'ok')
+          statusChanged = true
+        }
+      }
+      if (mapChanged) crossWorldBestPriceMap.value = nextMap
+      if (statusChanged) crossWorldFetchStatus.value = nextStatus
+    },
+  )
 
   // dataCenter change invalidates cache (wrong DC). Re-fetch if still
   // in market mode + crossServer.
@@ -962,7 +978,6 @@ export const useBomStore = defineStore('bom', () => {
     // Cross-world price state
     crossWorldBestPriceMap,
     crossWorldFetchStatus,
-    fetchingCrossWorldIds,
     fetchCrossWorldBestForTargets,
     retryCrossWorldFetch,
     // Route planner
