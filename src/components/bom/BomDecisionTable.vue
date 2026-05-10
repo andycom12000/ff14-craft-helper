@@ -33,16 +33,32 @@ interface RowDescriptor {
 
 const targetSet = computed(() => new Set(props.targetItemIds))
 
-const targetRows = computed<RowDescriptor[]>(() =>
-  props.materialTree.map((root) => ({
+const targetRows = computed<RowDescriptor[]>(() => {
+  const rows = props.materialTree.map((root) => ({
     itemId: root.itemId,
     name: root.name,
     icon: root.icon,
     amount: root.amount,
     isCraftable: !!(root.recipeId && root.children && root.children.length > 0),
     isTarget: true,
-  })),
-)
+  }))
+  // Group by the cheapest cross-DC world the row's pill is showing, so the
+  // user can shop one server at a time. Rows without a visible pill (craft
+  // mode, NPC, missing data) drop to the end.
+  function pillWorld(itemId: number): string | null {
+    if (!settings.crossServer) return null
+    if (bom.getEffectiveMode(itemId) !== 'market') return null
+    return bom.crossWorldBestPriceMap.get(itemId)?.worldName ?? null
+  }
+  return rows.sort((a, b) => {
+    const wa = pillWorld(a.itemId)
+    const wb = pillWorld(b.itemId)
+    if (wa && !wb) return -1
+    if (!wa && wb) return 1
+    if (wa && wb && wa !== wb) return wa.localeCompare(wb)
+    return 0
+  })
+})
 
 const materialRows = computed<RowDescriptor[]>(() => {
   const out: RowDescriptor[] = []
