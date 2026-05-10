@@ -18,6 +18,19 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: 'v2.11.2',
+    date: '2026-05-10',
+    highlights: [
+      '【模擬器窄 desktop 不再要往下捲】1100–1360px 改成 b-main 內部雙欄（cockpit-body | HQ stack），「初期品質 / 最佳手法」不再堆在 cockpit-body 下方；1361–1720px 用 display:contents 把 cockpit-body 拆解到 b-main grid，HQ 改進 col 1（tool 下方），不再被技能序列擠出無意義空白',
+      '【模擬器窄 rail 數字不再排成直式】食藥區「基礎 / 最終能力值」在 1100–1360px 窄 rail 改成單欄堆疊的 stat-grid（label–value 並排），CJK 標籤「作業精度 / 加工精度 / CP」不再因欄位過窄被斷成直式字',
+      '【配裝抽屜批次調整能完整展開】窄 viewport 下「調整配裝」抽屜內展開「批次調整」會被 flex-shrink 擠到只剩 trigger 高度（overflow:hidden 把 min-height 解析成 0），加上 flex-shrink: 0 後完整顯示輸入欄位 + 套用全部按鈕',
+      '【購物清單採買路線工具列】進度條 teleport 到 segmented control 同列右側；工具列本身改為 1fr auto 1fr 三欄：上一站 ‹ 在最左、01/02/03 數字 chip 永遠正中、下一站 › + ⌫ 重設 在最右；上/下站做循環，01 往前跳到最後一站、最後往後跳回 01',
+      '【購物清單收據對齊】hero 數字旁的「省 X% · -Y」省% pill 改用 inline 結構（vertical-align: 0.6em），跟「Gil」superscript 同高；sticky「材料明細」頂部 strip 內所有 icon / 數字 / pill / 按鈕改用 align-items: center，不再因 baseline 對齊讓小字沉到 row 底部',
+      '【FlowBreadcrumb 數字置中】桌面流程列 "1 配方 / 2 模式 / 3 食藥…" 的拉丁數字字形視覺上比 CJK 偏下，改用 align-items: baseline 跟「配方 / 模式 / 食藥」標籤共用同一條基線',
+      '【內部】重複 percent 計算改用 `percentOf` util；BomRoutePlanner 的 gotoPrev/gotoNext 合成單一 gotoStep(delta)；多檔長篇 narrative 註解改寫成只保留 WHY 一行',
+    ],
+  },
+  {
     version: 'v2.11.1',
     date: '2026-05-09',
     highlights: [
