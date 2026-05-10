@@ -49,7 +49,7 @@ function enableCrossServer() {
         <div class="bom-settings__cell">
           <span class="bom-settings__label">完成品預設</span>
           <el-radio-group
-            v-model="bom.targetDefaultMode"
+            :model-value="bom.targetDefaultMode"
             size="small"
             :disabled="!hasCraftableTarget"
             @change="onTargetDefaultChange"
