@@ -44,6 +44,14 @@ const hasSaving = computed(() => savingPct.value > 0.5)
 const hasLoss = computed(() => savingPct.value < -0.5)
 const failedCount = computed(() => bom.failedPriceCount)
 
+const breakdown = computed(() => bom.effectiveGrandTotalBreakdown)
+const showCrossSavings = computed(
+  () =>
+    bom.targetDefaultMode === 'market' &&
+    settings.crossServer === true &&
+    breakdown.value.savings > 0,
+)
+
 interface MethodSlice {
   source: AcquisitionSource
   glyph: string
@@ -123,6 +131,9 @@ function handleShare(action: string) {
         ·
         {{ hasSaving ? '−' : '+' }}{{ formatGil(hasSaving ? savingGil : lossGil) }}
       </span>
+    </div>
+    <div v-if="showCrossSavings" class="strip__sub">
+      省 {{ formatGil(breakdown.savings) }}g（vs 本服 {{ formatGil(breakdown.home) }}g）
     </div>
 
     <!-- Method counts trail. Hidden when no methods picked yet (would be
@@ -388,5 +399,16 @@ function handleShare(action: string) {
   }
   .strip__hero { gap: 8px; }
   .strip__actions { gap: 4px; }
+}
+
+.strip__sub {
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--app-success);
+  margin-top: 2px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>
