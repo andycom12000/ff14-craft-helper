@@ -419,3 +419,71 @@ describe('crossWorldBestPriceMap state', () => {
     expect(entry?.minPrice).toBe(1500)
   })
 })
+
+describe('applyTargetDefault', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    localStorage.clear()
+  })
+
+  it('craft mode: keeps craftable targets expanded', () => {
+    const bom = useBomStore()
+    const tree: MaterialNode[] = [
+      {
+        itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001,
+        children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
+      },
+    ]
+    bom.materialTree = tree
+    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.setTargetDefaultMode('craft')
+    bom.applyTargetDefault()
+    expect(tree[0].collapsed).toBeFalsy()
+    expect(bom.getEffectiveMode(100)).toBe('craft')
+  })
+
+  it('market mode: collapses untouched craftable targets', () => {
+    const bom = useBomStore()
+    const tree: MaterialNode[] = [
+      {
+        itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001,
+        children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
+      },
+    ]
+    bom.materialTree = tree
+    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.setTargetDefaultMode('market')
+    bom.applyTargetDefault()
+    expect(tree[0].collapsed).toBe(true)
+    expect(bom.getEffectiveMode(100)).toBe('market')
+  })
+
+  it('market mode: leaves user-touched targets alone', () => {
+    const bom = useBomStore()
+    const tree: MaterialNode[] = [
+      {
+        itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001,
+        children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
+      },
+    ]
+    bom.materialTree = tree
+    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.setAcquisitionMode(100, 'craft', true)
+    bom.setTargetDefaultMode('market')
+    bom.applyTargetDefault()
+    expect(tree[0].collapsed).toBeFalsy()
+    expect(bom.getEffectiveMode(100)).toBe('craft')
+  })
+
+  it('non-craftable targets are unaffected by targetDefaultMode', () => {
+    const bom = useBomStore()
+    const tree: MaterialNode[] = [
+      { itemId: 200, name: 'npc-only', icon: '', amount: 1 },
+    ]
+    bom.materialTree = tree
+    bom.targets = [{ itemId: 200, recipeId: null, name: 'npc-only', icon: '', quantity: 1 }]
+    bom.setTargetDefaultMode('market')
+    bom.applyTargetDefault()
+    expect(bom.getEffectiveMode(200)).toBe('market')
+  })
+})

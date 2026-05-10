@@ -481,17 +481,20 @@ export const useBomStore = defineStore('bom', () => {
       }
 
       if (isTarget && isCraftable) {
-        // Craftable target stays on craft regardless of cost — that's the
-        // whole point of putting it in the BOM. Non-craftable targets fall
-        // through to the same cheapest-mode logic as a normal leaf so the
-        // user sees market vs NPC up front.
-        const cost = Number.isFinite(craftCost)
-          ? craftCost
-          : Number.isFinite(marketCost)
-            ? marketCost
-            : 0
-        costCache.set(node.itemId, cost)
-        return cost
+        // When targetDefaultMode is 'craft', a craftable target stays on
+        // craft regardless of cost — that's the whole point of putting it
+        // in the BOM. When mode is 'market', we let it fall through to the
+        // cheapest-mode logic below so applyOptimalDefaults can flip it
+        // alongside other rows.
+        if (targetDefaultMode.value === 'craft') {
+          const cost = Number.isFinite(craftCost)
+            ? craftCost
+            : Number.isFinite(marketCost)
+              ? marketCost
+              : 0
+          costCache.set(node.itemId, cost)
+          return cost
+        }
       }
 
       // Honor the "原料準備" setting: when the user has chosen 自採 as the
@@ -533,6 +536,7 @@ export const useBomStore = defineStore('bom', () => {
     for (const u of collapsedUpdates) u.node.collapsed = u.collapsed
     acquisitionMode.value = newModeMap
     recalcFlat()
+    applyTargetDefault()
   }
 
   /**
@@ -609,6 +613,35 @@ export const useBomStore = defineStore('bom', () => {
 
   function isModeUserSettled(itemId: number): boolean {
     return userTouchedModes.value.has(itemId)
+  }
+
+  /**
+   * Walk targets and flip every craftable, non-user-touched target according
+   * to the global targetDefaultMode. 'craft' → ensure expanded; 'market' →
+   * collapse via setAcquisitionMode (fromUser=false so we don't taint
+   * userTouchedModes).
+   */
+  function applyTargetDefault() {
+    const mode = targetDefaultMode.value
+    for (const t of targets.value) {
+      if (t.recipeId === null) continue
+      if (userTouchedModes.value.has(t.itemId)) continue
+      const node = findNode(t.itemId)
+      if (!node || !node.recipeId || !node.children || node.children.length === 0) continue
+
+      if (mode === 'craft') {
+        if (node.collapsed) {
+          node.collapsed = false
+          acquisitionMode.value.delete(t.itemId)
+          acquisitionMode.value = new Map(acquisitionMode.value)
+        }
+      } else {
+        if (!node.collapsed) {
+          setAcquisitionMode(t.itemId, 'market', false)
+        }
+      }
+    }
+    recalcFlat()
   }
 
   function toggleRowExpanded(itemId: number) {
@@ -728,7 +761,16 @@ export const useBomStore = defineStore('bom', () => {
     targetDefaultMode.value = mode
     writePrefsToLs({ optimizeBy: routeViewPrefs.value.optimizeBy, targetDefaultMode: mode })
     trackEvent('bom_target_default_set', { mode })
+    applyTargetDefault()
+    if (mode === 'market' && useSettingsStore().crossServer) {
+      void fetchCrossWorldBestForTargets()
+    }
   }
+
+  // Stub — replaced with the real implementation in Task 4. Function
+  // declaration so hoisting lets setTargetDefaultMode reference it above.
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  async function fetchCrossWorldBestForTargets() {}
 
   function setOptimizeBy(mode: 'gil' | 'hop') {
     if (routeViewPrefs.value.optimizeBy === mode) return
@@ -794,10 +836,12 @@ export const useBomStore = defineStore('bom', () => {
     // Target default mode
     targetDefaultMode,
     setTargetDefaultMode,
+    applyTargetDefault,
     // Cross-world price state
     crossWorldBestPriceMap,
     crossWorldFetchStatus,
     fetchingCrossWorldIds,
+    fetchCrossWorldBestForTargets,
     // Route planner
     itemLocations,
     routeViewPrefs,
