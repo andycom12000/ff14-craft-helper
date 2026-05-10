@@ -4,7 +4,7 @@
   "locales": ["zh-TW", "zh-CN", "en", "ja"],
   "defaultLocale": "zh-TW",
   "sources": {
-    "zh-TW": { "repo": "harukaxxxx/ffxiv-datamining-tw", "commit": "fixture0000000000000000000000000000000000" },
+    "zh-TW": { "repo": "andycom12000/ffxiv-datamining-tw", "commit": "fixture0000000000000000000000000000000000" },
     "zh-CN": { "repo": "thewakingsands/ffxiv-datamining-cn", "commit": "fixture0000000000000000000000000000000000" },
     "en": { "repo": "xivapi/ffxiv-datamining", "commit": "fixture0000000000000000000000000000000000" },
     "ja": { "repo": "xivapi/ffxiv-datamining", "commit": "fixture0000000000000000000000000000000000" }

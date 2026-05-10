@@ -104,7 +104,7 @@ The UI itself stays in 繁體中文 for now. Language preference is remembered i
 
 Game data (items, recipes, recipe-level tables) is extracted at build time from public community datamining repositories:
 
-- [**harukaxxxx/ffxiv-datamining-tw**](https://github.com/harukaxxxx/ffxiv-datamining-tw) — 繁體中文 client dump
+- [**andycom12000/ffxiv-datamining-tw**](https://github.com/andycom12000/ffxiv-datamining-tw) — 繁體中文 client dump (self-maintained; dumped per-patch from the live TW client via SaintCoinach + dumpcsv)
 - [**thewakingsands/ffxiv-datamining-cn**](https://github.com/thewakingsands/ffxiv-datamining-cn) — 简体中文 client dump
 - [**xivapi/ffxiv-datamining**](https://github.com/xivapi/ffxiv-datamining) — English / Japanese client dump, recipe structures
 

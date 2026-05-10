@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "_note": "手動覆寫資料來源 (harukaxxxx/ffxiv-datamining-tw) 中與台服客戶端不符的 zh-TW 名稱。鍵為物品 id，值為繁中台服遊戲內實際顯示名稱。",
+  "_note": "手動覆寫 SaintCoinach rawexd dump (andycom12000/ffxiv-datamining-tw) 中與台服客戶端 UI 顯示不符的 zh-TW 名稱。鍵為物品 id，值為繁中台服遊戲內實際顯示名稱。",
   "overrides": {
     "3317": "草布下身",
     "3363": "棉絨下身",

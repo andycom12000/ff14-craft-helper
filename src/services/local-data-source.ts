@@ -184,9 +184,9 @@ type ItemOverridesFile = {
   overrides: Record<string, string>
 }
 
-// zh-TW datamining upstream (harukaxxxx/ffxiv-datamining-tw) sometimes ships
-// names that don't match the actual TW client (e.g. 「打底褲」 where the game
-// says 「下身」). Loaded alongside zh-TW items and applied as a name patch.
+// SaintCoinach rawexd dumps sometimes carry zh-TW names that don't match
+// what the TW client actually renders in-game (e.g. CSV says 「打底褲」 but
+// the UI says 「下身」). Loaded alongside zh-TW items and applied as a name patch.
 async function loadZhTwOverrides(): Promise<Map<number, string>> {
   try {
     const data = await fetchJson<ItemOverridesFile>(dataUrl('/data/items/zh-TW-overrides.json'))

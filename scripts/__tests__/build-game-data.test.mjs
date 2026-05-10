@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { parseCsv, normalizeWorldsBundle } from '../build-game-data.mjs'
 
 test('parseCsv: SaintCoinach rawexd format uses header row 1 (names)', () => {
-  // Mimic harukaxxxx/ffxiv-datamining-tw rawexd shape.
+  // Mimic SaintCoinach rawexd shape (the format used by ffxiv-datamining-tw).
   const csv = [
     'key,0,1,2,3',
     '#,Singular,Level{Item},CanBeHq,Icon',
