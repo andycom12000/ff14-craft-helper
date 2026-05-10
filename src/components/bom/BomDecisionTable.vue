@@ -186,13 +186,21 @@ function onAnnounceExpand(detail: { modeLabel: string; itemName: string }) {
           :immutable="false"
           @announce-expand="onAnnounceExpand"
         />
-        <!-- Non-craftable targets (NPC vendors, gatherables, market-only items
-             imported from Teamcraft) get the same drill content as material
-             rows so the player can still see vendor / location / price detail
-             for the item they're trying to procure. -->
-        <template v-if="!row.isCraftable && !isCockpitMobile && bom.isRowExpanded(row.itemId)">
+        <!-- Targets get the same drill content as material rows: craft tree
+             when crafting, vendor/location detail for NPC/gather, cross-DC
+             price table for market. -->
+        <template v-if="!isCockpitMobile && bom.isRowExpanded(row.itemId)">
           <div
-            v-if="bom.getEffectiveMode(row.itemId) === 'npc' || bom.getEffectiveMode(row.itemId) === 'gather'"
+            v-if="bom.getEffectiveMode(row.itemId) === 'craft' && row.isCraftable"
+            class="bdt-drill"
+          >
+            <BomCraftTreeNode
+              v-if="getNodeForRow(row.itemId)"
+              :parent="getNodeForRow(row.itemId)!"
+            />
+          </div>
+          <div
+            v-else-if="bom.getEffectiveMode(row.itemId) === 'npc' || bom.getEffectiveMode(row.itemId) === 'gather'"
             class="bdt-drill bdt-drill--acquisition"
           >
             <BomAcquisitionDetail
