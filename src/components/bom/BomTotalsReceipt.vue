@@ -23,20 +23,6 @@ const emit = defineEmits<{
 
 const total = computed(() => bom.effectiveGrandTotal)
 const baseline = computed(() => bom.marketBaselineTotal)
-const breakdown = computed(() => bom.effectiveGrandTotalBreakdown)
-const showCrossWorldSegment = computed(() =>
-  bom.targetDefaultMode === 'market' &&
-  settings.crossServer === true &&
-  bom.crossWorldBestPriceMap.size > 0 &&
-  breakdown.value.savings > 0,
-)
-const crossServerCheapestWorlds = computed(() => {
-  const worlds = new Set<string>()
-  for (const entry of bom.crossWorldBestPriceMap.values()) {
-    worlds.add(entry.worldName)
-  }
-  return Array.from(worlds).slice(0, 5).join(', ')
-})
 const savingPct = computed(() => bom.savingPercent)
 const savingGil = computed(() => Math.max(0, baseline.value - total.value))
 const lossGil = computed(() => Math.max(0, total.value - baseline.value))
@@ -206,21 +192,6 @@ function handleShare(action: string) {
         <div v-if="baseline > 0" class="receipt__totals-line receipt__totals-line--muted">
           <span>vs 全部市買基準</span>
           <s>{{ formatGil(baseline) }} Gil</s>
-        </div>
-        <div
-          v-if="showCrossWorldSegment"
-          class="receipt__totals-line receipt__totals-line--xworld"
-          :title="`由 ${bom.crossWorldBestPriceMap.size} 個目標跨服比價得到。最低 server: ${crossServerCheapestWorlds}`"
-        >
-          <span>跨服最佳</span>
-          <b>{{ formatGil(breakdown.crossWorldBest) }} Gil</b>
-        </div>
-        <div
-          v-if="showCrossWorldSegment"
-          class="receipt__totals-line receipt__totals-line--saving"
-        >
-          <span>跨服可省</span>
-          <b>{{ formatGil(breakdown.savings) }} Gil</b>
         </div>
       </div>
     </div>
@@ -641,13 +612,5 @@ function handleShare(action: string) {
     flex: 1 1 auto;
     min-height: var(--touch-target-min, 44px);
   }
-}
-
-.receipt__totals-line--xworld b {
-  color: oklch(0.58 0.20 15);
-}
-
-.receipt__totals-line--saving b {
-  color: var(--app-success);
 }
 </style>
