@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
+import { flushPromises } from '@vue/test-utils'
 import { useBomStore, getPrice } from '@/stores/bom'
 import { useSettingsStore } from '@/stores/settings'
 import type { PriceInfo, MaterialNode } from '@/stores/bom'
@@ -674,5 +675,60 @@ describe('effectiveGrandTotalBreakdown', () => {
     bom.setTargetDefaultMode('market')
 
     expect(bom.effectiveGrandTotalBreakdown.savings).toBe(0)
+  })
+})
+
+describe('cross-world reactivity', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    localStorage.clear()
+    vi.mocked(getMarketDataByDC).mockReset()
+    vi.mocked(aggregateByWorld).mockReset()
+  })
+
+  it('clears crossWorldBestPriceMap when dataCenter changes', async () => {
+    const bom = useBomStore()
+    const settings = useSettingsStore()
+    settings.dataCenter = 'Materia'
+    bom.crossWorldBestPriceMap.set(100, { worldName: 'Tonberry', minPrice: 1500, fetchedAt: 1 })
+
+    settings.dataCenter = 'Mana'
+    await flushPromises()
+
+    expect(bom.crossWorldBestPriceMap.has(100)).toBe(false)
+  })
+
+  it('keeps crossWorldBestPriceMap when crossServer flips off', async () => {
+    const bom = useBomStore()
+    const settings = useSettingsStore()
+    settings.crossServer = true
+    bom.crossWorldBestPriceMap.set(100, { worldName: 'Tonberry', minPrice: 1500, fetchedAt: 1 })
+
+    settings.crossServer = false
+    await flushPromises()
+
+    expect(bom.crossWorldBestPriceMap.has(100)).toBe(true)
+  })
+
+  it('triggers fetch when targets change while in market mode + crossServer', async () => {
+    vi.mocked(getMarketDataByDC).mockResolvedValue({ listings: [] } as never)
+    vi.mocked(aggregateByWorld).mockReturnValue([
+      { worldName: 'Tonberry', minPriceNQ: 1500, minPriceHQ: 0, avgPriceNQ: 1600, avgPriceHQ: 0, lastUploadTime: 0, listingCount: 1 },
+    ])
+    const bom = useBomStore()
+    const settings = useSettingsStore()
+    settings.crossServer = true
+    settings.dataCenter = 'Materia'
+    bom.setTargetDefaultMode('market')
+
+    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.materialTree = [{
+      itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001,
+      children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
+    }]
+    await flushPromises()
+
+    expect(vi.mocked(getMarketDataByDC)).toHaveBeenCalled()
+    expect(bom.crossWorldBestPriceMap.get(100)?.minPrice).toBe(1500)
   })
 })

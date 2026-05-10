@@ -917,6 +917,45 @@ export const useBomStore = defineStore('bom', () => {
     flatMaterials.value = flattenMaterialTree(materialTree.value)
   }
 
+  {
+    const settings = useSettingsStore()
+
+    // dataCenter change invalidates cache (wrong DC). Re-fetch if still
+    // in market mode + crossServer.
+    watch(
+      () => settings.dataCenter,
+      () => {
+        crossWorldBestPriceMap.value = new Map()
+        crossWorldFetchStatus.value = new Map()
+        if (targetDefaultMode.value === 'market' && settings.crossServer) {
+          void fetchCrossWorldBestForTargets()
+        }
+      },
+    )
+
+    // crossServer ON → fetch. crossServer OFF → keep cache; the breakdown
+    // gates visibility on settings.crossServer === true, so hidden data
+    // doesn't show. If user flips back on we reuse the warm cache.
+    watch(
+      () => settings.crossServer,
+      (on) => {
+        if (on && targetDefaultMode.value === 'market') {
+          void fetchCrossWorldBestForTargets()
+        }
+      },
+    )
+
+    // Target list changes → fetch new targets (covers calculate path).
+    watch(
+      () => targetSig.value,
+      () => {
+        if (targetDefaultMode.value === 'market' && settings.crossServer) {
+          void fetchCrossWorldBestForTargets()
+        }
+      },
+    )
+  }
+
   return {
     targets,
     materialTree,
