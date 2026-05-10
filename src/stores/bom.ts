@@ -700,6 +700,50 @@ export const useBomStore = defineStore('bom', () => {
   })
 
   /**
+   * Three-way breakdown for the receipt: 'home' uses the user's server
+   * for every row (the existing total). 'crossWorldBest' swaps in cross-DC
+   * cheapest for craftable targets when targetDefaultMode === 'market' and
+   * settings.crossServer === true. 'savings' = max(0, home - crossWorldBest).
+   *
+   * Computed as a delta from `effectiveGrandTotal`: only the rows that
+   * actually swap contribute. Uses flatMaterials.totalAmount rather than
+   * target.quantity because a target may also appear as a sub-material
+   * elsewhere in the tree, in which case totalAmount is the combined
+   * count and target.quantity would under-charge the swap.
+   */
+  const effectiveGrandTotalBreakdown = computed(() => {
+    const settings = useSettingsStore()
+    const home = effectiveGrandTotal.value
+    const useSwap =
+      targetDefaultMode.value === 'market' &&
+      settings.crossServer === true
+    if (!useSwap) {
+      return { home, crossWorldBest: home, savings: 0 }
+    }
+
+    const craftableTargetIds = new Set(
+      targets.value.filter((t) => t.recipeId !== null).map((t) => t.itemId),
+    )
+    let delta = 0
+    for (const mat of flatMaterials.value) {
+      if (!craftableTargetIds.has(mat.itemId)) continue
+      if (getEffectiveMode(mat.itemId) !== 'market') continue
+      const cw = crossWorldBestPriceMap.value.get(mat.itemId)
+      if (!cw) continue
+      const p = prices.value.get(mat.itemId)
+      const homeUnit = p ? getPrice(p, settings.priceDisplayMode) : 0
+      delta += (cw.minPrice - homeUnit) * mat.totalAmount
+    }
+
+    const crossWorldBest = home + delta
+    return {
+      home,
+      crossWorldBest,
+      savings: Math.max(0, home - crossWorldBest),
+    }
+  })
+
+  /**
    * Baseline = price of buying every target finished item directly from the market.
    * Used to compute "estimated saving %" against the user's chosen acquisition mix.
    */
@@ -887,6 +931,7 @@ export const useBomStore = defineStore('bom', () => {
     failedPriceCount,
     totalCost,
     effectiveGrandTotal,
+    effectiveGrandTotalBreakdown,
     marketBaselineTotal,
     savingPercent,
     addTarget,
