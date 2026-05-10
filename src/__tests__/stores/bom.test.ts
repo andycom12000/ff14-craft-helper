@@ -6,8 +6,14 @@ import type { PriceInfo, MaterialNode } from '@/stores/bom'
 
 vi.mock('@/api/universalis', () => ({
   getAggregatedPrices: vi.fn(),
+  getMarketDataByDC: vi.fn(),
+  aggregateByWorld: vi.fn(),
 }))
-import { getAggregatedPrices } from '@/api/universalis'
+import {
+  getAggregatedPrices,
+  getMarketDataByDC,
+  aggregateByWorld,
+} from '@/api/universalis'
 
 function priceInfo(itemId: number, nq: number, hq = nq): PriceInfo {
   return {
@@ -485,5 +491,111 @@ describe('applyTargetDefault', () => {
     bom.setTargetDefaultMode('market')
     bom.applyTargetDefault()
     expect(bom.getEffectiveMode(200)).toBe('market')
+  })
+})
+
+describe('fetchCrossWorldBestForTargets', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    localStorage.clear()
+    vi.mocked(getMarketDataByDC).mockReset()
+    vi.mocked(aggregateByWorld).mockReset()
+  })
+
+  it('writes the cheapest world (incl. home) into crossWorldBestPriceMap', async () => {
+    vi.mocked(getMarketDataByDC).mockResolvedValue({ listings: [] } as never)
+    vi.mocked(aggregateByWorld).mockReturnValue([
+      { worldName: 'Tonberry', minPriceNQ: 1500, minPriceHQ: 0, avgPriceNQ: 1600, avgPriceHQ: 0, lastUploadTime: 0, listingCount: 1 },
+      { worldName: 'Mandragora', minPriceNQ: 2000, minPriceHQ: 0, avgPriceNQ: 2100, avgPriceHQ: 0, lastUploadTime: 0, listingCount: 1 },
+    ])
+    const bom = useBomStore()
+    const settings = useSettingsStore()
+    settings.dataCenter = 'Materia'
+    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.materialTree = [{
+      itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001,
+      children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
+    }]
+
+    await bom.fetchCrossWorldBestForTargets()
+
+    const entry = bom.crossWorldBestPriceMap.get(100)
+    expect(entry?.worldName).toBe('Tonberry')
+    expect(entry?.minPrice).toBe(1500)
+    expect(bom.crossWorldFetchStatus.get(100)).toBe('ok')
+  })
+
+  it('marks status="ok" but writes no entry when no NQ listings exist', async () => {
+    vi.mocked(getMarketDataByDC).mockResolvedValue({ listings: [] } as never)
+    vi.mocked(aggregateByWorld).mockReturnValue([
+      { worldName: 'Mandragora', minPriceNQ: 0, minPriceHQ: 0, avgPriceNQ: 0, avgPriceHQ: 0, lastUploadTime: 0, listingCount: 0 },
+    ])
+    const bom = useBomStore()
+    const settings = useSettingsStore()
+    settings.dataCenter = 'Materia'
+    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.materialTree = [{
+      itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001,
+      children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
+    }]
+
+    await bom.fetchCrossWorldBestForTargets()
+
+    expect(bom.crossWorldBestPriceMap.has(100)).toBe(false)
+    expect(bom.crossWorldFetchStatus.get(100)).toBe('ok')
+  })
+
+  it('marks status="failed" on API error', async () => {
+    vi.mocked(getMarketDataByDC).mockRejectedValue(new Error('boom'))
+    const bom = useBomStore()
+    const settings = useSettingsStore()
+    settings.dataCenter = 'Materia'
+    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.materialTree = [{
+      itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001,
+      children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
+    }]
+
+    await bom.fetchCrossWorldBestForTargets()
+
+    expect(bom.crossWorldFetchStatus.get(100)).toBe('failed')
+    expect(bom.crossWorldBestPriceMap.has(100)).toBe(false)
+  })
+
+  it('skips items already in the cache', async () => {
+    const bom = useBomStore()
+    const settings = useSettingsStore()
+    settings.dataCenter = 'Materia'
+    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.materialTree = [{
+      itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001,
+      children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
+    }]
+    bom.crossWorldBestPriceMap.set(100, { worldName: 'Tonberry', minPrice: 1500, fetchedAt: 1 })
+
+    await bom.fetchCrossWorldBestForTargets()
+
+    expect(vi.mocked(getMarketDataByDC)).not.toHaveBeenCalled()
+  })
+
+  it('retryCrossWorldFetch clears status and refetches a single item', async () => {
+    vi.mocked(getMarketDataByDC).mockResolvedValue({ listings: [] } as never)
+    vi.mocked(aggregateByWorld).mockReturnValue([
+      { worldName: 'Tonberry', minPriceNQ: 1500, minPriceHQ: 0, avgPriceNQ: 1600, avgPriceHQ: 0, lastUploadTime: 0, listingCount: 1 },
+    ])
+    const bom = useBomStore()
+    const settings = useSettingsStore()
+    settings.dataCenter = 'Materia'
+    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.materialTree = [{
+      itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001,
+      children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
+    }]
+    bom.crossWorldFetchStatus.set(100, 'failed')
+
+    await bom.retryCrossWorldFetch(100)
+
+    expect(bom.crossWorldBestPriceMap.get(100)?.minPrice).toBe(1500)
+    expect(bom.crossWorldFetchStatus.get(100)).toBe('ok')
   })
 })

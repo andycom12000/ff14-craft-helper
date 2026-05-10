@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
 import type { PriceDisplayMode } from '@/stores/settings'
 import { flattenMaterialTree } from '@/services/bom-calculator'
-import { getAggregatedPrices } from '@/api/universalis'
+import { getAggregatedPrices, getMarketDataByDC, aggregateByWorld } from '@/api/universalis'
 import {
   fetchItemAcquisitionBatch,
   type ItemAcquisition,
@@ -334,6 +334,9 @@ export const useBomStore = defineStore('bom', () => {
     acquisitionAvailability.value = new Map()
     priceFetchStatus.value = new Map()
     fetchingPriceIds.value = new Set()
+    crossWorldBestPriceMap.value = new Map()
+    crossWorldFetchStatus.value = new Map()
+    fetchingCrossWorldIds.value = new Set()
   }
 
   /**
@@ -767,10 +770,80 @@ export const useBomStore = defineStore('bom', () => {
     }
   }
 
-  // Stub — replaced with the real implementation in Task 4. Function
-  // declaration so hoisting lets setTargetDefaultMode reference it above.
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
-  async function fetchCrossWorldBestForTargets() {}
+  /**
+   * For each craftable target without a cached cross-world entry, fetch
+   * the DC's listings and pick the cheapest world (incl. home — when home
+   * IS the cheapest, savings naturally evaluates to 0).
+   */
+  async function fetchCrossWorldBestForTargets() {
+    const settings = useSettingsStore()
+    if (!settings.dataCenter) return
+
+    const targetIds = targets.value
+      .filter((t) => t.recipeId !== null)
+      .map((t) => t.itemId)
+      .filter((id) => !crossWorldBestPriceMap.value.has(id))
+      .filter((id) => !fetchingCrossWorldIds.value.has(id))
+
+    if (targetIds.length === 0) return
+
+    const inflight = new Set(fetchingCrossWorldIds.value)
+    for (const id of targetIds) inflight.add(id)
+    fetchingCrossWorldIds.value = inflight
+
+    // Collect into local maps then commit ONCE — assigning .value inside
+    // each Promise.allSettled closure races: each closure captures the
+    // current .value at write time, so concurrent writes lose entries.
+    // Mirrors the fetchPrices pattern.
+    const bestUpdates = new Map<number, CrossWorldBest>()
+    const statusUpdates = new Map<number, PriceFetchStatus>()
+
+    await Promise.allSettled(targetIds.map(async (itemId) => {
+      try {
+        const md = await getMarketDataByDC(settings.dataCenter, itemId)
+        const rows = aggregateByWorld(md.listings)
+        // aggregateByWorld returns rows sorted by minPriceNQ ascending;
+        // first non-zero row IS the cheapest.
+        const cheapest = rows.find((r) => r.minPriceNQ > 0)
+        if (cheapest) {
+          bestUpdates.set(itemId, {
+            worldName: cheapest.worldName,
+            minPrice: cheapest.minPriceNQ,
+            fetchedAt: Date.now(),
+          })
+        }
+        statusUpdates.set(itemId, 'ok')
+      } catch (err) {
+        console.error('[BOM] cross-world fetch failed:', err)
+        statusUpdates.set(itemId, 'failed')
+      }
+    }))
+
+    if (bestUpdates.size > 0) {
+      const next = new Map(crossWorldBestPriceMap.value)
+      for (const [k, v] of bestUpdates) next.set(k, v)
+      crossWorldBestPriceMap.value = next
+    }
+    if (statusUpdates.size > 0) {
+      const next = new Map(crossWorldFetchStatus.value)
+      for (const [k, v] of statusUpdates) next.set(k, v)
+      crossWorldFetchStatus.value = next
+    }
+
+    const after = new Set(fetchingCrossWorldIds.value)
+    for (const id of targetIds) after.delete(id)
+    fetchingCrossWorldIds.value = after
+  }
+
+  async function retryCrossWorldFetch(itemId: number) {
+    const next = new Map(crossWorldBestPriceMap.value)
+    next.delete(itemId)
+    crossWorldBestPriceMap.value = next
+    const status = new Map(crossWorldFetchStatus.value)
+    status.delete(itemId)
+    crossWorldFetchStatus.value = status
+    await fetchCrossWorldBestForTargets()
+  }
 
   function setOptimizeBy(mode: 'gil' | 'hop') {
     if (routeViewPrefs.value.optimizeBy === mode) return
@@ -842,6 +915,7 @@ export const useBomStore = defineStore('bom', () => {
     crossWorldFetchStatus,
     fetchingCrossWorldIds,
     fetchCrossWorldBestForTargets,
+    retryCrossWorldFetch,
     // Route planner
     itemLocations,
     routeViewPrefs,
