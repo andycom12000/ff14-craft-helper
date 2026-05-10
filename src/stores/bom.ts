@@ -779,15 +779,16 @@ export const useBomStore = defineStore('bom', () => {
   }
 
   /**
-   * For each craftable target without a cached cross-world entry, fetch
-   * the DC's listings and pick the cheapest world (incl. home).
+   * For every target row (craftable or not) without a cached cross-world
+   * entry, fetch the DC's listings and pick the cheapest world (incl. home).
+   * Non-craftable targets benefit from the same pill — once they default
+   * to market they're a direct-purchase decision just like craftable ones.
    */
   async function fetchCrossWorldBestForTargets() {
     const settings = useSettingsStore()
     if (!settings.dataCenter) return
 
     const targetIds = targets.value
-      .filter((t) => t.recipeId !== null)
       .map((t) => t.itemId)
       .filter((id) => !crossWorldBestPriceMap.value.has(id))
       .filter((id) => !fetchingCrossWorldIds.value.has(id))

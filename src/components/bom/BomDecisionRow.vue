@@ -76,8 +76,7 @@ const showCrossWorld = computed(
   () =>
     isTarget.value &&
     mode.value === 'market' &&
-    settings.crossServer &&
-    props.isCraftable,
+    settings.crossServer,
 )
 const crossWorldEntry = computed(() => bom.crossWorldBestPriceMap.get(props.itemId))
 const crossWorldStatus = computed(() => bom.crossWorldFetchStatus.get(props.itemId))
