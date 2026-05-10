@@ -214,11 +214,13 @@ function onRowClick() {
         class="bdr__cross-retry"
         role="button"
         tabindex="0"
+        :aria-label="`重試跨服查價：${name}`"
+        :aria-disabled="crossWorldFetching || undefined"
         data-testid="cross-world-retry"
         @click.stop="onRetryCrossWorld"
         @keydown.enter.stop="onRetryCrossWorld"
       >
-        跨服查價失敗 ↻
+        {{ crossWorldFetching ? '跨服查價中…' : '跨服查價失敗 重試' }}
       </span>
       <ElSkeletonItem
         v-else-if="showCrossWorld && crossWorldFetching"
