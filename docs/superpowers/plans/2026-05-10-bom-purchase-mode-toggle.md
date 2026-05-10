@@ -81,10 +81,10 @@ Expected: FAIL — `bom.targetDefaultMode is undefined` and `bom.setTargetDefaul
 
 - [ ] **Step 3: Add TargetDefaultMode type and extend LS prefs**
 
-In `src/stores/bom.ts`, add the type next to `AcquisitionSource` (around line 18):
+In `src/stores/bom.ts`, add the type next to `AcquisitionSource` (around line 18). Derive it so future `AcquisitionSource` changes propagate:
 
 ```ts
-export type TargetDefaultMode = 'craft' | 'market'
+export type TargetDefaultMode = Extract<AcquisitionSource, 'craft' | 'market'>
 ```
 
 Replace `readPrefsFromLs` (around line 106) with:
@@ -384,7 +384,7 @@ In `src/stores/bom.ts`, after `setAcquisitionMode` (around line 575), add:
   }
 ```
 
-Update `setTargetDefaultMode` (added in Task 1) to call it:
+Update `setTargetDefaultMode` (added in Task 1) to call `applyTargetDefault` and trigger a fetch when switching to market:
 
 ```ts
 function setTargetDefaultMode(mode: TargetDefaultMode) {
@@ -393,8 +393,13 @@ function setTargetDefaultMode(mode: TargetDefaultMode) {
   writePrefsToLs({ optimizeBy: routeViewPrefs.value.optimizeBy, targetDefaultMode: mode })
   trackEvent('bom_target_default_set', { mode })
   applyTargetDefault()
+  if (mode === 'market' && useSettingsStore().crossServer) {
+    void fetchCrossWorldBestForTargets()
+  }
 }
 ```
+
+(The fetch import is already in scope from Task 4.)
 
 Add to store's `return` block:
 
@@ -616,31 +621,44 @@ Inside `useBomStore`, after `applyTargetDefault` (added in Task 3), add:
     for (const id of targetIds) inflight.add(id)
     fetchingCrossWorldIds.value = inflight
 
+    // Collect into local maps then commit ONCE — assigning .value inside
+    // each Promise.allSettled closure races: each closure captures the
+    // current .value at write time, so concurrent writes lose entries.
+    // Mirrors the fetchPrices pattern (bom.ts:347-362).
+    const bestUpdates = new Map<number, CrossWorldBest>()
+    const statusUpdates = new Map<number, PriceFetchStatus>()
+
     await Promise.allSettled(targetIds.map(async (itemId) => {
       try {
         const md = await getMarketDataByDC(settings.dataCenter, itemId)
         const rows = aggregateByWorld(md.listings)
-        const candidates = rows.filter((r) => r.minPriceNQ > 0)
-        if (candidates.length > 0) {
-          const cheapest = candidates.reduce((a, b) => (b.minPriceNQ < a.minPriceNQ ? b : a))
-          const next = new Map(crossWorldBestPriceMap.value)
-          next.set(itemId, {
+        // aggregateByWorld already sorts by minPriceNQ ascending
+        // (universalis.ts:227-231). First non-zero row IS the cheapest.
+        const cheapest = rows.find((r) => r.minPriceNQ > 0)
+        if (cheapest) {
+          bestUpdates.set(itemId, {
             worldName: cheapest.worldName,
             minPrice: cheapest.minPriceNQ,
             fetchedAt: Date.now(),
           })
-          crossWorldBestPriceMap.value = next
         }
-        const status = new Map(crossWorldFetchStatus.value)
-        status.set(itemId, 'ok')
-        crossWorldFetchStatus.value = status
+        statusUpdates.set(itemId, 'ok')
       } catch (err) {
         console.error('[BOM] cross-world fetch failed:', err)
-        const status = new Map(crossWorldFetchStatus.value)
-        status.set(itemId, 'failed')
-        crossWorldFetchStatus.value = status
+        statusUpdates.set(itemId, 'failed')
       }
     }))
+
+    if (bestUpdates.size > 0) {
+      const next = new Map(crossWorldBestPriceMap.value)
+      for (const [k, v] of bestUpdates) next.set(k, v)
+      crossWorldBestPriceMap.value = next
+    }
+    if (statusUpdates.size > 0) {
+      const next = new Map(crossWorldFetchStatus.value)
+      for (const [k, v] of statusUpdates) next.set(k, v)
+      crossWorldFetchStatus.value = next
+    }
 
     const after = new Set(fetchingCrossWorldIds.value)
     for (const id of targetIds) after.delete(id)
@@ -807,8 +825,14 @@ In `src/stores/bom.ts`, after `effectiveGrandTotal` (around line 645), add:
    * cheapest for craftable targets when targetDefaultMode === 'market' and
    * settings.crossServer === true. 'savings' = max(0, home - crossWorldBest).
    *
-   * In craft mode, or when crossServer is off, all three fall to:
-   * home, home, 0.
+   * Computed as a delta from `effectiveGrandTotal`: only the rows that
+   * actually swap (craftable targets in market mode with a cross-world
+   * cache hit) contribute. Uses flatMaterials.totalAmount rather than
+   * target.quantity because a target may also appear as a sub-material
+   * elsewhere in the tree, in which case totalAmount is the combined
+   * count and target.quantity would under-charge the swap.
+   *
+   * In craft mode or with crossServer off, all three fall to home, home, 0.
    */
   const effectiveGrandTotalBreakdown = computed(() => {
     const settings = useSettingsStore()
@@ -820,31 +844,21 @@ In `src/stores/bom.ts`, after `effectiveGrandTotal` (around line 645), add:
       return { home, crossWorldBest: home, savings: 0 }
     }
 
-    const targetSet = new Set(targets.value.filter(t => t.recipeId !== null).map(t => t.itemId))
-    let crossWorldBest = 0
+    const craftableTargetIds = new Set(
+      targets.value.filter(t => t.recipeId !== null).map(t => t.itemId),
+    )
+    let delta = 0
     for (const mat of flatMaterials.value) {
-      if (!mat.isRaw) continue
-      const isCraftableTarget = targetSet.has(mat.itemId)
-      if (isCraftableTarget) {
-        const cw = crossWorldBestPriceMap.value.get(mat.itemId)
-        if (cw) {
-          crossWorldBest += cw.minPrice * mat.totalAmount
-          continue
-        }
-        // No cross-world entry: fall back to home unit price for this row
-      }
-      // Same logic as effectiveGrandTotal for non-target rows
-      const mode = getEffectiveMode(mat.itemId)
-      if (mode === 'gather') continue
-      if (mode === 'npc') {
-        const npc = acquisitionAvailability.value.get(mat.itemId)?.npcPrice
-        if (npc != null) crossWorldBest += npc * mat.totalAmount
-        continue
-      }
+      if (!craftableTargetIds.has(mat.itemId)) continue
+      if (getEffectiveMode(mat.itemId) !== 'market') continue
+      const cw = crossWorldBestPriceMap.value.get(mat.itemId)
+      if (!cw) continue
       const p = prices.value.get(mat.itemId)
-      if (p) crossWorldBest += getPrice(p, settings.priceDisplayMode) * mat.totalAmount
+      const homeUnit = p ? getPrice(p, settings.priceDisplayMode) : 0
+      delta += (cw.minPrice - homeUnit) * mat.totalAmount
     }
 
+    const crossWorldBest = home + delta
     return {
       home,
       crossWorldBest,
@@ -876,13 +890,18 @@ home when targetDefaultMode is craft or crossServer is off."
 
 ---
 
-## Task 6: Watch crossServer & dataCenter changes
+## Task 6: Watchers for dataCenter / crossServer / targets
 
 **Files:**
 - Modify: `src/stores/bom.ts`
 - Test: `src/__tests__/stores/bom.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+Three reactive triggers feed `fetchCrossWorldBestForTargets`:
+- `dataCenter` change → cache is now wrong DC; clear and re-fetch
+- `crossServer` ON → fetch (when in market mode); OFF → keep cache (still valid for same DC, just hidden by `effectiveGrandTotalBreakdown`)
+- `targetSig` change → new targets need fetch (this replaces an explicit hook in the calculate path)
+
+- [ ] **Step 1: Write the failing tests**
 
 Append:
 
@@ -907,7 +926,7 @@ describe('cross-world reactivity', () => {
     expect(bom.crossWorldBestPriceMap.has(100)).toBe(false)
   })
 
-  it('clears crossWorldBestPriceMap when crossServer turns off', async () => {
+  it('keeps crossWorldBestPriceMap when crossServer flips off', async () => {
     const bom = useBomStore()
     const settings = useSettingsStore()
     settings.crossServer = true
@@ -916,7 +935,31 @@ describe('cross-world reactivity', () => {
     settings.crossServer = false
     await flushPromises()
 
-    expect(bom.crossWorldBestPriceMap.has(100)).toBe(false)
+    // Cache is hidden by breakdown's gating, not invalidated. Flip back ON
+    // and the data is immediately usable.
+    expect(bom.crossWorldBestPriceMap.has(100)).toBe(true)
+  })
+
+  it('triggers fetch when targets change while in market mode + crossServer', async () => {
+    vi.mocked(getMarketDataByDC).mockResolvedValue({ listings: [] } as never)
+    vi.mocked(aggregateByWorld).mockReturnValue([
+      { worldName: 'Tonberry', minPriceNQ: 1500, minPriceHQ: 0, avgPriceNQ: 1600, avgPriceHQ: 0, lastUploadTime: 0, listingCount: 1 },
+    ])
+    const bom = useBomStore()
+    const settings = useSettingsStore()
+    settings.crossServer = true
+    settings.dataCenter = 'Materia'
+    bom.setTargetDefaultMode('market')
+
+    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.materialTree = [{
+      itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001,
+      children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
+    }]
+    await flushPromises()
+
+    expect(vi.mocked(getMarketDataByDC)).toHaveBeenCalled()
+    expect(bom.crossWorldBestPriceMap.get(100)?.minPrice).toBe(1500)
   })
 })
 ```
@@ -930,40 +973,51 @@ import { flushPromises } from '@vue/test-utils'
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `npm test -- bom.test`
-Expected: FAIL — map keeps entry.
+Expected: FAIL — no watchers wired.
 
 - [ ] **Step 3: Add watchers**
 
 In `src/stores/bom.ts`, near the bottom of `useBomStore` (before `return`), add:
 
 ```ts
-  // Reactive cleanup: stale cross-DC entries die when the user changes
-  // their DC or turns off cross-server pricing. Re-fetching is cheap; serving
-  // a price from the wrong DC is misleading.
-  const _settingsForWatch = useSettingsStore()
-  watch(
-    () => _settingsForWatch.dataCenter,
-    () => {
-      if (crossWorldBestPriceMap.value.size > 0) {
+  {
+    const settings = useSettingsStore()
+
+    // dataCenter change invalidates cache (wrong DC). Re-fetch if still
+    // in market mode + crossServer.
+    watch(
+      () => settings.dataCenter,
+      () => {
         crossWorldBestPriceMap.value = new Map()
         crossWorldFetchStatus.value = new Map()
-      }
-      if (targetDefaultMode.value === 'market' && _settingsForWatch.crossServer) {
-        void fetchCrossWorldBestForTargets()
-      }
-    },
-  )
-  watch(
-    () => _settingsForWatch.crossServer,
-    (on) => {
-      if (!on) {
-        crossWorldBestPriceMap.value = new Map()
-        crossWorldFetchStatus.value = new Map()
-      } else if (targetDefaultMode.value === 'market') {
-        void fetchCrossWorldBestForTargets()
-      }
-    },
-  )
+        if (targetDefaultMode.value === 'market' && settings.crossServer) {
+          void fetchCrossWorldBestForTargets()
+        }
+      },
+    )
+
+    // crossServer ON → fetch. crossServer OFF → keep cache; the breakdown
+    // gates visibility on settings.crossServer === true, so hidden data
+    // doesn't show. If user flips back on we reuse the warm cache.
+    watch(
+      () => settings.crossServer,
+      (on) => {
+        if (on && targetDefaultMode.value === 'market') {
+          void fetchCrossWorldBestForTargets()
+        }
+      },
+    )
+
+    // Target list changes → fetch new targets (covers calculate path).
+    watch(
+      () => targetSig.value,
+      () => {
+        if (targetDefaultMode.value === 'market' && settings.crossServer) {
+          void fetchCrossWorldBestForTargets()
+        }
+      },
+    )
+  }
 ```
 
 - [ ] **Step 4: Run tests**
@@ -975,10 +1029,11 @@ Expected: PASS.
 
 ```bash
 git add src/stores/bom.ts src/__tests__/stores/bom.test.ts
-git commit -m "feat(bom): clear cross-world cache on DC/crossServer change
+git commit -m "feat(bom): cross-world fetch reactivity
 
-Stale DC pricing is misleading. Watcher clears the map and re-fetches
-when targetDefaultMode === 'market' is still active."
+Three watchers: dataCenter (invalidate + refetch), crossServer (refetch
+on ON, keep cache on OFF), targetSig (refetch on calculate). Replaces
+explicit fetch trigger from the calculate path."
 ```
 
 ---
@@ -1007,15 +1062,9 @@ In `src/components/bom/BomSettingsCard.vue`, add a new row inside the `el-card` 
           </el-radio-group>
         </div>
         <span class="bom-settings__hint">
-          <template v-if="!hasCraftableTarget">
-            目前清單無可製作的完成品
-          </template>
-          <template v-else-if="bom.targetDefaultMode === 'craft'">
-            完成品預設自己做，材料逐筆比價
-          </template>
-          <template v-else-if="settings.crossServer">
-            完成品預設買成品，自動找同 DC 最便宜的伺服器
-          </template>
+          <template v-if="hintKind === 'no-target'">目前清單無可製作的完成品</template>
+          <template v-else-if="hintKind === 'craft'">完成品預設自己做，材料逐筆比價</template>
+          <template v-else-if="hintKind === 'market-cross'">完成品預設買成品，自動找同 DC 最便宜的伺服器</template>
           <template v-else>
             完成品預設買成品，目前用本服價
             <button type="button" class="bom-settings__inline-action" @click="enableCrossServer">
@@ -1045,18 +1094,22 @@ const hasCraftableTarget = computed(() =>
   bom.targets.some((t) => t.recipeId !== null),
 )
 
+type HintKind = 'no-target' | 'craft' | 'market-cross' | 'market-home'
+const hintKind = computed<HintKind>(() => {
+  if (!hasCraftableTarget.value) return 'no-target'
+  if (bom.targetDefaultMode === 'craft') return 'craft'
+  return settings.crossServer ? 'market-cross' : 'market-home'
+})
+
 function onTargetDefaultChange(value: TargetDefaultMode) {
+  // setTargetDefaultMode triggers the fetch internally when needed (Task 3 + 4).
   bom.setTargetDefaultMode(value)
-  if (value === 'market' && settings.crossServer) {
-    void bom.fetchCrossWorldBestForTargets()
-  }
 }
 
 function enableCrossServer() {
+  // The crossServer watcher in bom store fires fetchCrossWorldBestForTargets
+  // on its own when this flips true (Task 6).
   settings.crossServer = true
-  if (bom.targetDefaultMode === 'market') {
-    void bom.fetchCrossWorldBestForTargets()
-  }
 }
 </script>
 ```
@@ -1071,15 +1124,9 @@ After the existing `<div class="m-cell">…原料準備</div>` block in the mobi
         <div class="m-cell-body">
           <div class="m-cell-title">完成品預設</div>
           <div class="m-cell-sub">
-            <template v-if="!hasCraftableTarget">
-              清單無可製作的完成品
-            </template>
-            <template v-else-if="bom.targetDefaultMode === 'craft'">
-              完成品預設自己做
-            </template>
-            <template v-else-if="settings.crossServer">
-              買成品，找同 DC 最便宜
-            </template>
+            <template v-if="hintKind === 'no-target'">清單無可製作的完成品</template>
+            <template v-else-if="hintKind === 'craft'">完成品預設自己做</template>
+            <template v-else-if="hintKind === 'market-cross'">買成品，找同 DC 最便宜</template>
             <template v-else>
               買成品（本服價，可<a class="m-inline-action" @click="enableCrossServer">啟用跨服</a>）
             </template>
@@ -1341,7 +1388,7 @@ Expected: FAIL — pill doesn't exist.
 
 - [ ] **Step 3: Update the script for cross-world derived state**
 
-In `src/components/bom/BomDecisionRow.vue` script section, after the existing `marketPrice` computed (around line 64), add:
+In `src/components/bom/BomDecisionRow.vue`, add `ElSkeletonItem` to the element-plus import at the top (sibling files like `BomAcquisitionDetail.vue:3` already follow this pattern). Then after the existing `marketPrice` computed (around line 64), add:
 
 ```ts
 const isTarget = computed(() => bom.targets.some(t => t.itemId === props.itemId))
@@ -1402,10 +1449,10 @@ Find the row that renders the item name (it uses `<ItemName>` somewhere in the t
 >
   跨服查價失敗 ↻
 </span>
-<span
+<el-skeleton-item
   v-else-if="showCrossWorld && crossWorldFetching"
+  variant="text"
   class="bdr__cross-skel"
-  aria-hidden="true"
 />
 <span
   v-else-if="showCrossWorld && crossWorldStatus === 'ok' && !crossWorldEntry"
@@ -1466,22 +1513,8 @@ At the end of `<style scoped>`:
 .bdr__cross-skel {
   display: inline-block;
   width: 4em;
-  height: 14px;
   margin-left: 8px;
-  background: linear-gradient(
-    90deg,
-    var(--app-cream-hover, oklch(0.94 0.025 85)) 0%,
-    var(--app-border) 50%,
-    var(--app-cream-hover, oklch(0.94 0.025 85)) 100%
-  );
-  background-size: 200% 100%;
-  animation: bdr-skel 1.2s ease-in-out infinite;
-  border-radius: 4px;
-}
-
-@keyframes bdr-skel {
-  0%   { background-position: 100% 0; }
-  100% { background-position: -100% 0; }
+  vertical-align: middle;
 }
 
 .bdr__cross-empty {
@@ -1658,27 +1691,15 @@ when market mode + crossServer + measurable savings."
 
 ---
 
-## Task 12: Hook into calculate flow
+## Task 12: Verify calculate path triggers fetch
 
 **Files:**
-- Modify: `src/views/BomView.vue`
+- Verify: `src/views/BomView.vue`, `src/stores/bom.ts` (Task 6 watcher)
 - Test: smoke only
 
-The calculate path triggers `bomStore.applyOptimalDefaults()` at `BomView.vue:126`. After it, we want the cross-world fetch to run automatically when the global toggle wants it.
+No code changes — the `targetSig` watcher added in Task 6 already fires `fetchCrossWorldBestForTargets` when the calculate path repopulates `targets`. This task just confirms it works end-to-end.
 
-- [ ] **Step 1: Add the auto-fetch**
-
-In `src/views/BomView.vue`, after line 126 (`bomStore.applyOptimalDefaults()`), insert:
-
-```ts
-if (bomStore.targetDefaultMode === 'market' && settingsStore.crossServer) {
-  void bomStore.fetchCrossWorldBestForTargets()
-}
-```
-
-(If `settingsStore` is named differently in this file — `settings` is also common — match the local variable name. Check the existing imports at the top.)
-
-- [ ] **Step 2: Run all tests + type check**
+- [ ] **Step 1: Run all tests + type check**
 
 ```
 npm test
@@ -1687,26 +1708,19 @@ npx vue-tsc --noEmit
 
 Expected: all green.
 
-- [ ] **Step 4: Manual end-to-end smoke**
+- [ ] **Step 2: Manual end-to-end smoke**
 
 `npm run dev`:
 1. Add a craftable target to BOM (e.g., a 50-level recipe)
 2. Toggle 完成品預設 to 直購
 3. Confirm row pill, unit price, receipt segment, cockpit subtitle all populate
-4. Toggle crossServer off → segment + subtitle disappear, pill disappears
-5. Reload page → 直購 mode persists
-6. Refresh prices → cross-world map repopulates
+4. Toggle crossServer off → segment + subtitle hidden (cache retained behind the scenes); pill on row hidden
+5. Toggle crossServer back on → segment + subtitle reappear instantly without refetch (warm cache)
+6. Change dataCenter → cache wiped, refetch fires
+7. Reload page → 直購 mode persists
+8. Add another craftable target while in market mode → targetSig watcher fires fetch for the new id only
 
-- [ ] **Step 5: Commit**
-
-```bash
-git add src/views/BomView.vue
-git commit -m "feat(bom): auto-fetch cross-world after calculate
-
-When the global toggle is set to '直購' and crossServer is on, a
-calculate triggers fetchCrossWorldBestForTargets without a separate
-button press."
-```
+No commit (no code changes in this task).
 
 ---
 
