@@ -10,6 +10,7 @@ import type { Locale } from '@/services/local-data-source.types'
 import RoutePlannerToolbar from '@/components/bom/RoutePlannerToolbar.vue'
 import RoutePlannerGroupCard from '@/components/bom/RoutePlannerGroupCard.vue'
 import ZoneMapSheet from '@/components/bom/ZoneMapSheet.vue'
+import { percentOf } from '@/utils/format'
 
 // ── Module-level aetherytes cache ─────────────────────────────────────────────
 
@@ -121,11 +122,7 @@ const progress = computed(() => {
   return { done, total }
 })
 
-const pct = computed(() => {
-  if (progress.value.total === 0) return 0
-  return Math.round((progress.value.done / progress.value.total) * 100)
-})
-
+const pct = computed(() => percentOf(progress.value.done, progress.value.total))
 const isComplete = computed(
   () => progress.value.total > 0 && progress.value.done >= progress.value.total,
 )
@@ -164,15 +161,10 @@ function onOpenMapSheet(zoneId: number, coords: { x: number; y: number }) {
   sheetOpen.value = true
 }
 
-// ── Teleport target presence ─────────────────────────────────────────────
-// Only render the teleported progress block once we've confirmed the
-// `#route-progress-slot` host exists in the DOM. In production BomView
-// always renders the slot, so this resolves on mount; in unit tests
-// (which mount BomRoutePlanner standalone) the slot is absent and the
-// Teleport is skipped instead of warning/crashing.
-
+// Skip the Teleport when the host slot isn't in the DOM (unit tests
+// mount BomRoutePlanner standalone). Production BomView always renders
+// the slot, so this resolves on first mount.
 const teleportTargetReady = ref(false)
-
 onMounted(() => {
   teleportTargetReady.value = !!document.getElementById('route-progress-slot')
 })
@@ -206,15 +198,11 @@ function gotoStop(idx: number) {
   currentStopIdx.value = idx
 }
 
-/** Cyclic prev/next — wraps around so the user can keep tapping in one
- *  direction without hitting a dead end at either end of the route. */
-function gotoPrev() {
-  if (totalStops.value === 0) return
-  currentStopIdx.value = (currentStopIdx.value - 1 + totalStops.value) % totalStops.value
-}
-function gotoNext() {
-  if (totalStops.value === 0) return
-  currentStopIdx.value = (currentStopIdx.value + 1) % totalStops.value
+/** Cyclic step — wraps around so tapping in one direction never dead-ends. */
+function gotoStep(delta: number) {
+  const n = totalStops.value
+  if (n === 0) return
+  currentStopIdx.value = (currentStopIdx.value + delta + n) % n
 }
 
 // Auto-advance to the next unfinished stop after a card's last item gets
@@ -250,10 +238,9 @@ watch(
       <div class="brp-empty__rule" />
     </div>
 
-    <!-- 3. Normal — toolbar carries the stepper + reset; the progress bar
-         is teleported up into BomView's tabs row so it sits beside the
-         材料明細 / 採買路線 segmented control. -->
     <template v-else>
+      <!-- Progress bar lives in BomView's tabs row (beside the segmented
+           control) so it doesn't push the stepper down a row. -->
       <Teleport v-if="teleportTargetReady" to="#route-progress-slot">
         <div class="rpt-progress" data-testid="route-toolbar">
           <el-progress
@@ -270,16 +257,13 @@ watch(
       </Teleport>
 
       <RoutePlannerToolbar>
-        <!-- Col 1 — 上一站. Anchored at the left edge of the toolbar so
-             it mirrors the right-side action cluster's anchor. -->
         <button
           v-if="totalStops > 1"
           type="button"
           class="brp-stepper__nav"
           aria-label="上一站"
-          @click="gotoPrev"
+          @click="gotoStep(-1)"
         >‹</button>
-        <!-- Col 2 — stepper numbers, centered horizontally. -->
         <nav v-if="totalStops > 1" class="brp-stepper" aria-label="採買路線進度">
           <ol class="brp-stepper__track">
             <li
@@ -301,15 +285,13 @@ watch(
             </li>
           </ol>
         </nav>
-        <!-- Col 3 — 下一站 + 重設. Forward-leaning actions clustered at
-             the right edge. -->
         <div class="brp-actions">
           <button
             v-if="totalStops > 1"
             type="button"
             class="brp-stepper__nav"
             aria-label="下一站"
-            @click="gotoNext"
+            @click="gotoStep(1)"
           >›</button>
           <button type="button" class="brp-actions__reset" @click="onReset" aria-label="重設勾選">
             ⌫ 重設
@@ -363,9 +345,8 @@ watch(
   min-width: 0;
 }
 
-/* Prev/next nav buttons. Cyclic — tapping ‹ from 01 wraps to the last
- * stop, › from the last wraps to 01 — so the user can scrub through
- * stops with one finger. Sit outside the scrollable track. */
+/* Prev/next chips wrap cyclically (‹ from 01 → last, › from last → 01)
+ * so one-handed scrubbing never dead-ends. */
 .brp-stepper__nav {
   flex-shrink: 0;
   width: 26px;
@@ -485,8 +466,6 @@ watch(
   color: var(--app-cream-surface, #faf7f2);
 }
 
-/* Right-aligned action group: 下一站 (›) and 重設 sit together so the
- * "advance + reset" cluster reads as one wayfinding endpoint. */
 .brp-actions {
   display: inline-flex;
   align-items: center;
@@ -512,10 +491,8 @@ watch(
   outline-offset: 2px;
 }
 
-/* Teleported progress block (lives in BomView's tabs row beside the
- * 材料明細 / 採買路線 segmented control). Scoped CSS reaches the
- * teleport target because Vue 3.4+ propagates the parent's data-v
- * attribute through <Teleport>. */
+/* Teleport target lives in BomView's tabs row. Scoped CSS still reaches
+ * it because Vue propagates the parent's data-v attribute through. */
 .rpt-progress {
   display: flex;
   align-items: center;

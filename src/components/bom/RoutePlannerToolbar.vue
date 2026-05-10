@@ -1,12 +1,7 @@
 <script setup lang="ts">
-// Pure container. Caller provides up to three children that are mapped
-// to fixed columns:
-//   :first-child  → col 1 (上一站, left-aligned)
-//   :nth-child(2) → col 2 (stepper numbers, centered)
-//   :last-child   → col 3 (action group, right-aligned)
-// With fewer children the rules collapse via CSS specificity (last
-// wins): a single child anchors to col 3 right, two children fill col
-// 1 + col 3.
+// Pure container. Caller is expected to pass up to three direct
+// children: prev-button, stepper, action-group — mapped to col 1 / 2 / 3
+// by the position selectors below.
 </script>
 
 <template>

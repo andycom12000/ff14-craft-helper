@@ -346,8 +346,8 @@ function handleShare(action: string) {
   padding: 4px 11px;
   margin-left: 14px;
   letter-spacing: 0.02em;
-  /* Pill sits inline next to "Gil" inside .receipt__num — match the
-     small's vertical-align so they share the same horizontal level. */
+  /* Match the sibling <small>'s vertical-align so the pill rides at the
+     same height as the "Gil" superscript. */
   vertical-align: 0.6em;
   display: inline-flex;
   align-items: baseline;

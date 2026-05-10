@@ -106,9 +106,9 @@ const statsDescColumns = computed(() =>
   isVeryNarrow.value ? 1 : isNarrow.value ? 2 : 3,
 )
 
-/* True only at the narrow-rail layout (1100-1360 viewport, rail 220-280):
-   the el-descriptions 3-col table squashes CJK labels into vertical chars
-   at this rail width, so we render a 1-col stacked grid instead. */
+// At narrow-rail (rail 220-280px) the el-descriptions 3-col table
+// squashes 4-char CJK labels into vertical characters; swap to a stacked
+// grid for that range only.
 const isRailNarrow = useMediaQuery('(min-width: 1100px) and (max-width: 1360px)')
 </script>
 
@@ -374,13 +374,8 @@ const isRailNarrow = useMediaQuery('(min-width: 1100px) and (max-width: 1360px)'
   gap: 8px;
 }
 
-/* Stats grid: only rendered at narrow rail (1100-1360 viewport) where the
-   default el-descriptions 3-col table would squash CJK labels into
-   vertical chars. Mirrors el-descriptions border/small look exactly —
-   same Element Plus vars (--el-fill-color-light for label tint,
-   --el-border-color-lighter for cell borders, --el-text-color-regular
-   for label, --el-text-color-primary for value) — so the two layouts
-   read as the same component just stacked instead of horizontal. */
+/* Mirrors el-descriptions border/small visuals (same EP tokens) so the
+ * narrow-rail stack reads as the same component, rotated. */
 .stats-grid {
   display: grid;
   grid-template-columns: 1fr;
