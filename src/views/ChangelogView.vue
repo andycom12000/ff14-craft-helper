@@ -18,6 +18,13 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: 'v2.11.3',
+    date: '2026-05-10',
+    highlights: [
+      '【繁中技能 / buff 名稱對齊遊戲內用詞】比對 ffxiv-datamining-tw CSV 與遊戲實際顯示，修正模擬器與批量製作頁面的兩個技能名稱：HeartAndSoul「心靈之手 → 專心致志」、DaringTouch「大膽加工 → 冒進」；同時把 7 個誤存成簡中字形的 buff 名稱改回繁中（內靜、儉約、長期儉約、闊步、最終確認、堅信、專心致志）',
+    ],
+  },
+  {
     version: 'v2.11.2',
     date: '2026-05-10',
     highlights: [
