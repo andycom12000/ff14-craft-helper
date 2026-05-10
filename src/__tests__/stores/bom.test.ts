@@ -3,6 +3,7 @@ import { setActivePinia, createPinia } from 'pinia'
 import { flushPromises } from '@vue/test-utils'
 import { useBomStore, getPrice } from '@/stores/bom'
 import { useSettingsStore } from '@/stores/settings'
+import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
 import type { PriceInfo, MaterialNode } from '@/stores/bom'
 
 vi.mock('@/api/universalis', () => ({
@@ -501,6 +502,7 @@ describe('fetchCrossWorldBestForTargets', () => {
     localStorage.clear()
     vi.mocked(getMarketDataByDC).mockReset()
     vi.mocked(aggregateByWorld).mockReset()
+    useCrossWorldPricing().invalidateCrossWorldCache()
   })
 
   it('writes the cheapest world (incl. home) into crossWorldBestPriceMap', async () => {
@@ -607,6 +609,7 @@ describe('cross-world reactivity', () => {
     localStorage.clear()
     vi.mocked(getMarketDataByDC).mockReset()
     vi.mocked(aggregateByWorld).mockReset()
+    useCrossWorldPricing().invalidateCrossWorldCache()
   })
 
   it('clears crossWorldBestPriceMap when dataCenter changes', async () => {

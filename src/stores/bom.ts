@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
 import type { PriceDisplayMode } from '@/stores/settings'
 import { flattenMaterialTree } from '@/services/bom-calculator'
-import { getAggregatedPrices, getMarketDataByDC, aggregateByWorld } from '@/api/universalis'
+import { getAggregatedPrices } from '@/api/universalis'
 import {
   fetchItemAcquisitionBatch,
   type ItemAcquisition,
@@ -12,6 +12,7 @@ import type { ItemLocations } from '@/services/item-locations'
 import { fetchItemLocationsBatch } from '@/services/item-locations'
 import { fetchZoneMetaBulk, fetchNpcNameBulk } from '@/services/zone-meta'
 import { trackEvent } from '@/utils/analytics'
+import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
 
 export type PriceFetchStatus = 'ok' | 'failed'
 
@@ -337,6 +338,7 @@ export const useBomStore = defineStore('bom', () => {
     crossWorldBestPriceMap.value = new Map()
     crossWorldFetchStatus.value = new Map()
     fetchingCrossWorldIds.value = new Set()
+    useCrossWorldPricing().invalidateCrossWorldCache()
   }
 
   /**
@@ -803,26 +805,35 @@ export const useBomStore = defineStore('bom', () => {
     const bestUpdates = new Map<number, CrossWorldBest>()
     const statusUpdates = new Map<number, PriceFetchStatus>()
 
-    await Promise.allSettled(targetIds.map(async (itemId) => {
-      try {
-        const md = await getMarketDataByDC(settings.dataCenter, itemId)
-        const rows = aggregateByWorld(md.listings)
-        // aggregateByWorld returns rows sorted by minPriceNQ ascending;
-        // first non-zero row IS the cheapest.
-        const cheapest = rows.find((r) => r.minPriceNQ > 0)
-        if (cheapest) {
-          bestUpdates.set(itemId, {
-            worldName: cheapest.worldName,
-            minPrice: cheapest.minPriceNQ,
-            fetchedAt: Date.now(),
-          })
-        }
-        statusUpdates.set(itemId, 'ok')
-      } catch (err) {
-        console.error('[BOM] cross-world fetch failed:', err)
+    const { fetchCrossWorldData, crossWorldData } = useCrossWorldPricing()
+
+    // Go through the composable so its dedupe/loading state is shared with
+    // BomMarketDetail. If the user expands a row mid-fetch, the composable's
+    // `loading.has(id)` short-circuits the redundant call.
+    await Promise.allSettled(
+      targetIds.map((id) => fetchCrossWorldData(id, undefined, { silent: true })),
+    )
+
+    // Composable swallows errors and just leaves data unset. Treat
+    // missing-after-fetch as failure for the row's retry chip.
+    for (const itemId of targetIds) {
+      const rows = crossWorldData.value.get(itemId)
+      if (!rows) {
         statusUpdates.set(itemId, 'failed')
+        continue
       }
-    }))
+      // aggregateByWorld returns rows sorted by minPriceNQ ascending;
+      // first non-zero row IS the cheapest.
+      const cheapest = rows.find((r) => r.minPriceNQ > 0)
+      if (cheapest) {
+        bestUpdates.set(itemId, {
+          worldName: cheapest.worldName,
+          minPrice: cheapest.minPriceNQ,
+          fetchedAt: Date.now(),
+        })
+      }
+      statusUpdates.set(itemId, 'ok')
+    }
 
     if (bestUpdates.size > 0) {
       crossWorldBestPriceMap.value = new Map([...crossWorldBestPriceMap.value, ...bestUpdates])
@@ -843,6 +854,7 @@ export const useBomStore = defineStore('bom', () => {
     const status = new Map(crossWorldFetchStatus.value)
     status.delete(itemId)
     crossWorldFetchStatus.value = status
+    useCrossWorldPricing().invalidateCrossWorldCache(itemId)
     await fetchCrossWorldBestForTargets()
   }
 
@@ -881,6 +893,7 @@ export const useBomStore = defineStore('bom', () => {
     () => {
       crossWorldBestPriceMap.value = new Map()
       crossWorldFetchStatus.value = new Map()
+      useCrossWorldPricing().invalidateCrossWorldCache()
       if (targetDefaultMode.value === 'market' && useSettingsStore().crossServer) {
         void fetchCrossWorldBestForTargets()
       }
