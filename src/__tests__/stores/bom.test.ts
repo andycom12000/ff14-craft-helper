@@ -393,3 +393,29 @@ describe('targetDefaultMode persistence', () => {
     expect(bom.targetDefaultMode).toBe('craft')
   })
 })
+
+describe('crossWorldBestPriceMap state', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    localStorage.clear()
+  })
+
+  it('initializes empty', () => {
+    const bom = useBomStore()
+    expect(bom.crossWorldBestPriceMap.size).toBe(0)
+    expect(bom.crossWorldFetchStatus.size).toBe(0)
+    expect(bom.fetchingCrossWorldIds.size).toBe(0)
+  })
+
+  it('exposes CrossWorldBest entries with worldName + minPrice + fetchedAt', () => {
+    const bom = useBomStore()
+    bom.crossWorldBestPriceMap.set(123, {
+      worldName: 'Tonberry',
+      minPrice: 1500,
+      fetchedAt: Date.now(),
+    })
+    const entry = bom.crossWorldBestPriceMap.get(123)
+    expect(entry?.worldName).toBe('Tonberry')
+    expect(entry?.minPrice).toBe(1500)
+  })
+})

@@ -15,6 +15,12 @@ import { trackEvent } from '@/utils/analytics'
 
 export type PriceFetchStatus = 'ok' | 'failed'
 
+export interface CrossWorldBest {
+  worldName: string
+  minPrice: number
+  fetchedAt: number
+}
+
 export type AcquisitionSource = 'market' | 'craft' | 'gather' | 'npc'
 
 export type TargetDefaultMode = Extract<AcquisitionSource, 'craft' | 'market'>
@@ -216,6 +222,16 @@ export const useBomStore = defineStore('bom', () => {
    */
   const priceFetchStatus = ref<Map<number, PriceFetchStatus>>(new Map())
   const fetchingPriceIds = ref<Set<number>>(new Set())
+
+  /**
+   * For each craftable target, the cheapest world in the user's DC and its
+   * price. Populated by fetchCrossWorldBestForTargets when targetDefaultMode
+   * is 'market' and settings.crossServer is on. May store the home server
+   * if home is the cheapest — savings then naturally evaluates to 0.
+   */
+  const crossWorldBestPriceMap = ref<Map<number, CrossWorldBest>>(new Map())
+  const crossWorldFetchStatus = ref<Map<number, PriceFetchStatus>>(new Map())
+  const fetchingCrossWorldIds = ref<Set<number>>(new Set())
 
   // ---------------------------------------------------------------------------
   // Route planner state
@@ -778,6 +794,10 @@ export const useBomStore = defineStore('bom', () => {
     // Target default mode
     targetDefaultMode,
     setTargetDefaultMode,
+    // Cross-world price state
+    crossWorldBestPriceMap,
+    crossWorldFetchStatus,
+    fetchingCrossWorldIds,
     // Route planner
     itemLocations,
     routeViewPrefs,
