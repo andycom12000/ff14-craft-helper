@@ -72,12 +72,6 @@ const suggestionsCount = computed(() => {
   )
 })
 
-const hasSelfCraftOrNpc = computed(() => {
-  const r = batchStore.results
-  if (!r) return false
-  return r.selfCraftCandidates.length > 0 || r.npcPurchaseCandidates.length > 0
-})
-
 // 3-step flow: 0=prepare, 1=shopping, 2=todo, 3=all done (overflow → all dots ✓).
 // Calculation is a transient state, surfaced via `pending` instead of a step slot.
 const currentStep = computed(() => {
