@@ -25,15 +25,27 @@ const npcName = useNpcName(npcId)
 
 async function copyTp() {
   if (!props.candidate) return
-  await navigator.clipboard.writeText(buildTpCommand(zoneName.value))
-  ElMessage({ message: `已複製 /tp ${zoneName.value}`, type: 'success', duration: 1500 })
+  // `/tp` needs an aetheryte name, not the zone PlaceName. Fall back to the
+  // zone name only if the aetheryte table didn't cover this zone — the in-game
+  // command would fail in that case, but at least the user sees what was attempted.
+  const target = props.candidate.aetheryteName ?? zoneName.value
+  try {
+    await navigator.clipboard.writeText(buildTpCommand(target))
+    ElMessage({ message: `已複製：/tp ${target}`, type: 'success', duration: 1500 })
+  } catch {
+    ElMessage({ message: '複製失敗', type: 'error', duration: 1500 })
+  }
 }
 
 async function copyFlag() {
   if (!props.candidate) return
   const { x, y } = props.candidate.coords
-  await navigator.clipboard.writeText(buildMapFlagLink(zoneName.value, x, y))
-  ElMessage({ message: '已複製地圖座標', type: 'success', duration: 1500 })
+  try {
+    await navigator.clipboard.writeText(buildMapFlagLink(zoneName.value, x, y))
+    ElMessage({ message: '已複製地圖座標', type: 'success', duration: 1500 })
+  } catch {
+    ElMessage({ message: '複製失敗', type: 'error', duration: 1500 })
+  }
 }
 </script>
 

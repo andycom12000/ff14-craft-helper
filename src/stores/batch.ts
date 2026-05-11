@@ -101,6 +101,12 @@ export interface NpcPurchaseCandidate {
   npcId: number                // chosen vendor (cheapest, tiebreak by major city)
   zoneId: number
   coords: { x: number; y: number }
+  /**
+   * Aetheryte name for `/tp` command. Resolved from public/data/aetherytes.json
+   * (zh-TW only — FFXIV client accepts zh-TW aetheryte strings regardless of
+   * UI locale). Null when the zone has no aetheryte entry in the data file.
+   */
+  aetheryteName: string | null
   isFinishedProduct: boolean   // material vs finished good (different tag in UI)
 }
 

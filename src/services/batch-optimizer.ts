@@ -14,6 +14,8 @@ import { evaluateBuffRecommendation, getBuffItemIds } from '@/services/buff-reco
 import { produceSelfCraftCandidates } from '@/services/self-craft-candidates'
 import { fetchItemAcquisitionBatch } from '@/services/item-acquisition'
 import { fetchItemLocationsBatch } from '@/services/item-locations'
+import { fetchZoneMetaBulk, fetchNpcNameBulk } from '@/services/zone-meta'
+import { loadAetherytes, getNearestAetheryte } from '@/services/aetherytes'
 import type { NpcPurchaseCandidate } from '@/stores/batch'
 
 export interface RecipeOptimizeResult {
@@ -256,6 +258,24 @@ export async function runBatchOptimization(
   const [acquisitionMap, locationsMap] = await Promise.all([
     fetchItemAcquisitionBatch([...allMaterialIds]),
     fetchItemLocationsBatch([...allMaterialIds]),
+  ])
+
+  // === Phase 4b: Resolve zone & NPC names + load aetheryte table ===
+  // Without this, useZoneName/useNpcName render `#zone:XXX` / `#npc:XXX`
+  // placeholders and `/tp` clipboard payloads are garbage. The aetheryte
+  // table is needed because `/tp` requires aetheryte names, not zone names.
+  const zoneIdsForNames = new Set<number>()
+  const npcIdsForNames = new Set<number>()
+  for (const [, info] of locationsMap) {
+    for (const v of info.npcVendors) {
+      zoneIdsForNames.add(v.zoneId)
+      npcIdsForNames.add(v.npcId)
+    }
+  }
+  const [, , aetherytesData] = await Promise.all([
+    zoneIdsForNames.size > 0 ? fetchZoneMetaBulk([...zoneIdsForNames]) : Promise.resolve(),
+    npcIdsForNames.size > 0 ? fetchNpcNameBulk([...npcIdsForNames]) : Promise.resolve(),
+    loadAetherytes().catch(() => null),
   ])
 
   // === Phase 4.5: Compare craft cost vs buy price per recipe ===
@@ -508,6 +528,9 @@ export async function runBatchOptimization(
     const sorted = [...vendors].sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity))
     const chosenVendor = sorted[0]
     if (!chosenVendor) continue
+    const aetheryte = aetherytesData
+      ? getNearestAetheryte(aetherytesData, chosenVendor.zoneId, chosenVendor.x, chosenVendor.y)
+      : null
     npcPurchaseCandidates.push({
       itemId: item.itemId,
       name: item.name,
@@ -520,6 +543,7 @@ export async function runBatchOptimization(
       npcId: chosenVendor.npcId,
       zoneId: chosenVendor.zoneId,
       coords: { x: chosenVendor.x, y: chosenVendor.y },
+      aetheryteName: aetheryte?.name ?? null,
       isFinishedProduct: false,
     })
   }
@@ -537,6 +561,9 @@ export async function runBatchOptimization(
     const sorted = [...vendors].sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity))
     const chosenVendor = sorted[0]
     if (!chosenVendor) continue
+    const aetheryte = aetherytesData
+      ? getNearestAetheryte(aetherytesData, chosenVendor.zoneId, chosenVendor.x, chosenVendor.y)
+      : null
     npcPurchaseCandidates.push({
       itemId,
       name: bf.recipe.name,
@@ -549,6 +576,7 @@ export async function runBatchOptimization(
       npcId: chosenVendor.npcId,
       zoneId: chosenVendor.zoneId,
       coords: { x: chosenVendor.x, y: chosenVendor.y },
+      aetheryteName: aetheryte?.name ?? null,
       isFinishedProduct: true,
     })
   }
@@ -616,6 +644,21 @@ async function runQuickBuy(
     fetchItemLocationsBatch(qbMatIds),
   ])
 
+  // === Phase 4b: Resolve zone & NPC names + aetheryte table ===
+  const qbZoneIds = new Set<number>()
+  const qbNpcIds = new Set<number>()
+  for (const [, info] of qbLocationsMap) {
+    for (const v of info.npcVendors) {
+      qbZoneIds.add(v.zoneId)
+      qbNpcIds.add(v.npcId)
+    }
+  }
+  const [, , qbAetherytesData] = await Promise.all([
+    qbZoneIds.size > 0 ? fetchZoneMetaBulk([...qbZoneIds]) : Promise.resolve(),
+    qbNpcIds.size > 0 ? fetchNpcNameBulk([...qbNpcIds]) : Promise.resolve(),
+    loadAetherytes().catch(() => null),
+  ])
+
   onProgress({ current: 0, total: 0, name: '整理材料清單', phase: 'aggregating', solverPercent: 0 })
 
   const aggregated = Array.from(matMap.values())
@@ -675,6 +718,9 @@ async function runQuickBuy(
     const sorted = [...vendors].sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity))
     const chosenVendor = sorted[0]
     if (!chosenVendor) continue
+    const aetheryte = qbAetherytesData
+      ? getNearestAetheryte(qbAetherytesData, chosenVendor.zoneId, chosenVendor.x, chosenVendor.y)
+      : null
     qbNpcCandidates.push({
       itemId: m.itemId,
       name: m.name,
@@ -687,6 +733,7 @@ async function runQuickBuy(
       npcId: chosenVendor.npcId,
       zoneId: chosenVendor.zoneId,
       coords: { x: chosenVendor.x, y: chosenVendor.y },
+      aetheryteName: aetheryte?.name ?? null,
       isFinishedProduct: false,
     })
   }
