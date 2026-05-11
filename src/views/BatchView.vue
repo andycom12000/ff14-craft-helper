@@ -12,6 +12,7 @@ import BatchList from '@/components/batch/BatchList.vue'
 import BatchSettings from '@/components/batch/BatchSettings.vue'
 import BatchProgress from '@/components/batch/BatchProgress.vue'
 import ShoppingList from '@/components/batch/ShoppingList.vue'
+import SelfCraftSuggestions from '@/components/batch/SelfCraftSuggestions.vue'
 import VendorRoster from '@/components/batch/VendorRoster.vue'
 import TodoList from '@/components/batch/TodoList.vue'
 import ExceptionList from '@/components/batch/ExceptionList.vue'
@@ -50,6 +51,41 @@ function toggleSection(sectionStep: number) {
   }
   expandedSections.value = next
 }
+
+// Sub-section toggle state under step 2 (採購建議 / 採購清單).
+type SubKey = 'suggestions' | 'shopping'
+const collapsedSubsections = ref<Set<SubKey>>(new Set())
+
+function isSubsectionCollapsed(key: SubKey) {
+  return collapsedSubsections.value.has(key)
+}
+
+function toggleSubsection(key: SubKey) {
+  const next = new Set(collapsedSubsections.value)
+  if (next.has(key)) next.delete(key)
+  else next.add(key)
+  collapsedSubsections.value = next
+}
+
+const hasSuggestions = computed(() => {
+  const r = batchStore.results
+  if (!r) return false
+  return (
+    r.npcPurchaseCandidates.length > 0 ||
+    r.selfCraftCandidates.length > 0 ||
+    !!r.buffRecommendation
+  )
+})
+
+const suggestionsCount = computed(() => {
+  const r = batchStore.results
+  if (!r) return 0
+  return (
+    r.npcPurchaseCandidates.length +
+    r.selfCraftCandidates.length +
+    (r.buffRecommendation ? 1 : 0)
+  )
+})
 
 // 3-step flow: 0=prepare, 1=shopping, 2=todo, 3=all done (overflow → all dots ✓).
 // Calculation is a transient state, surfaced via `pending` instead of a step slot.
@@ -323,19 +359,6 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
       </template>
     </FlowBreadcrumb>
 
-    <CostSummaryPanel
-      v-if="batchStore.results"
-      :grand-total="batchStore.effectiveGrandTotal"
-      :saving-percent="savingPercent"
-      :single-server-total="singleServerTotal"
-      :server="settings.server"
-    />
-
-    <BuffRecommendationCard
-      v-if="batchStore.results?.buffRecommendation"
-      :recommendation="batchStore.results.buffRecommendation"
-    />
-
     <!-- Section 1: 準備清單 -->
     <section ref="sectionPrepare" class="batch-section" :class="{ 'batch-section--collapsed': isSectionCollapsed(0) }">
       <component
@@ -442,6 +465,15 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
       </component>
 
       <template v-if="!isSectionCollapsed(1)">
+        <!-- Cost banner — covers the whole step 2 so the total reads as the
+             closing summary for "採購材料". -->
+        <CostSummaryPanel
+          :grand-total="batchStore.effectiveGrandTotal"
+          :saving-percent="savingPercent"
+          :single-server-total="singleServerTotal"
+          :server="settings.server"
+        />
+
         <div
           v-if="batchStore.results.exceptions.length > 0"
           class="exception-block"
@@ -455,16 +487,60 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
           <ExceptionList :exceptions="batchStore.results.exceptions" />
         </div>
 
-        <VendorRoster :candidates="batchStore.results.npcPurchaseCandidates" />
+        <!-- Sub-section 2.1: 採購建議 -->
+        <section class="batch-subsection" :class="{ 'batch-subsection--collapsed': isSubsectionCollapsed('suggestions') }">
+          <button
+            type="button"
+            class="subsection-header"
+            :aria-expanded="!isSubsectionCollapsed('suggestions')"
+            @click="toggleSubsection('suggestions')"
+          >
+            <span class="subsection-step" aria-hidden="true">2.1</span>
+            <h4 class="subsection-title">採購建議</h4>
+            <span class="subsection-desc">
+              {{ hasSuggestions ? `${suggestionsCount} 項可採納` : '此次計算沒有可採納的建議' }}
+            </span>
+            <span class="subsection-toggle">{{ isSubsectionCollapsed('suggestions') ? '展開' : '收起' }}</span>
+          </button>
+          <div v-if="!isSubsectionCollapsed('suggestions')" class="subsection-body">
+            <template v-if="hasSuggestions">
+              <BuffRecommendationCard
+                v-if="batchStore.results.buffRecommendation"
+                :recommendation="batchStore.results.buffRecommendation"
+              />
+              <VendorRoster :candidates="batchStore.results.npcPurchaseCandidates" />
+              <SelfCraftSuggestions :candidates="batchStore.results.selfCraftCandidates" />
+            </template>
+            <p v-else class="subsection-empty">
+              此次計算沒有可採納的建議——當前的市場價、巨集與配裝已經是最佳組合。
+            </p>
+          </div>
+        </section>
 
-        <ShoppingList
-          :crystals="batchStore.finalCrystals"
-          :server-groups="batchStore.results.serverGroups"
-          :self-craft-candidates="batchStore.results.selfCraftCandidates"
-          :buy-finished-items="batchStore.results.buyFinishedItems"
-          :grand-total="batchStore.effectiveGrandTotal"
-          :cross-world-cache="batchStore.results.crossWorldCache"
-        />
+        <!-- Sub-section 2.2: 採購清單 -->
+        <section class="batch-subsection" :class="{ 'batch-subsection--collapsed': isSubsectionCollapsed('shopping') }">
+          <button
+            type="button"
+            class="subsection-header"
+            :aria-expanded="!isSubsectionCollapsed('shopping')"
+            @click="toggleSubsection('shopping')"
+          >
+            <span class="subsection-step" aria-hidden="true">2.2</span>
+            <h4 class="subsection-title">採購清單</h4>
+            <span class="subsection-desc">{{ batchStore.shoppingItemCount }} 項素材 · 按伺服器分組</span>
+            <span class="subsection-toggle">{{ isSubsectionCollapsed('shopping') ? '展開' : '收起' }}</span>
+          </button>
+          <div v-if="!isSubsectionCollapsed('shopping')" class="subsection-body">
+            <ShoppingList
+              :crystals="batchStore.finalCrystals"
+              :server-groups="batchStore.results.serverGroups"
+              :self-craft-candidates="batchStore.results.selfCraftCandidates"
+              :buy-finished-items="batchStore.results.buyFinishedItems"
+              :grand-total="batchStore.effectiveGrandTotal"
+              :cross-world-cache="batchStore.results.crossWorldCache"
+            />
+          </div>
+        </section>
       </template>
     </section>
 
@@ -670,6 +746,132 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
   font-size: 12px;
   color: var(--el-text-color-secondary);
   flex-shrink: 0;
+}
+
+/* === Sub-section (step 2.1 / 2.2) === */
+.batch-subsection {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--el-border-color-lighter);
+}
+
+.batch-subsection:first-of-type {
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.batch-subsection--collapsed {
+  padding-bottom: 0;
+}
+
+.subsection-header {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  padding: 6px 8px;
+  margin: 0 -8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  flex-wrap: wrap;
+  transition: background-color 0.15s;
+}
+
+.subsection-header:hover {
+  background: var(--el-fill-color-light);
+}
+
+.subsection-header:focus-visible {
+  outline: 2px solid var(--page-accent, var(--accent-gold));
+  outline-offset: 2px;
+}
+
+.batch-subsection--collapsed .subsection-header {
+  margin-bottom: 0;
+}
+
+.subsection-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 11px;
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  background: var(--el-fill-color-light);
+  color: var(--app-text-muted);
+  border: 1.5px solid var(--el-border-color);
+  flex-shrink: 0;
+}
+
+.subsection-title {
+  margin: 0;
+  font-family: 'Noto Serif TC', serif;
+  font-size: 15.5px;
+  font-weight: 600;
+  color: var(--app-text);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.subsection-desc {
+  font-size: 12.5px;
+  color: var(--el-text-color-secondary);
+  min-width: 0;
+}
+
+.subsection-toggle {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  flex-shrink: 0;
+}
+
+.subsection-body {
+  /* Children (BuffRecommendationCard / VendorRoster / SelfCraftSuggestions /
+     ShoppingList) carry their own margins; subsection wrapper just provides
+     the toggle chrome above. */
+}
+
+.subsection-empty {
+  margin: 6px 4px 12px;
+  padding: 14px 16px;
+  background: color-mix(in srgb, var(--app-craft-dim) 22%, transparent);
+  border-radius: 10px;
+  border: 1px dashed color-mix(in srgb, var(--app-craft) 25%, transparent);
+  font-size: 13.5px;
+  color: var(--app-text-muted);
+  line-height: 1.6;
+  max-width: 620px;
+}
+
+@media (max-width: 640px) {
+  .batch-subsection {
+    margin-top: 14px;
+    padding-top: 10px;
+  }
+
+  .subsection-title {
+    font-size: 14.5px;
+  }
+
+  .subsection-toggle {
+    flex-basis: 100%;
+    margin-left: 38px;
+    padding: 8px 0;
+    font-size: 13px;
+    text-align: left;
+  }
 }
 
 /* Transient calculation panel — visually distinct from numbered nav steps */

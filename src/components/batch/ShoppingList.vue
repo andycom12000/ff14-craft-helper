@@ -11,7 +11,6 @@ import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
 import { useIsMobile } from '@/composables/useMediaQuery'
 import CrossWorldPriceDetail, { type WorldPriceRow } from '@/components/common/CrossWorldPriceDetail.vue'
 import ItemName from '@/components/common/ItemName.vue'
-import SelfCraftSuggestions from './SelfCraftSuggestions.vue'
 import NqhqSplitTip from './NqhqSplitTip.vue'
 import { formatGil } from '@/utils/format'
 
@@ -175,8 +174,6 @@ function isRowChecked(row: MaterialWithPrice): boolean {
 
 <template>
   <div class="shopping-list">
-    <SelfCraftSuggestions :candidates="selfCraftCandidates" />
-
     <!-- Crystals -->
     <div v-if="crystals.length > 0" class="crystal-section">
       <el-text size="small" type="info" tag="div" class="section-label">水晶（不計入費用）</el-text>

@@ -13,6 +13,7 @@
 ### Commit Convention
 - 使用 conventional commits 格式（feat/fix/refactor/docs/chore）
 - Commit message 用英文
+- 明確要求commit前不要commit
 
 ## WASM Build
 - wasm-pack 路徑：需加 `/c/Users/andyc/.cargo/bin` 到 PATH
