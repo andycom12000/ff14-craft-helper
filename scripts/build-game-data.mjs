@@ -259,6 +259,11 @@ async function ensureRepo(spec, noClone, verbose) {
   } else {
     log(verbose, `[${spec.dir}] pulling latest ...`)
     try {
+      const currentUrl = runGit(['remote', 'get-url', 'origin'], target)
+      if (currentUrl !== spec.url) {
+        log(verbose, `[${spec.dir}] origin url changed (${currentUrl} -> ${spec.url}), updating`)
+        runGit(['remote', 'set-url', 'origin', spec.url], target)
+      }
       runGit(['fetch', '--depth=1', 'origin'], target)
       // Reset to fetched HEAD to avoid merge/rebase surprises on a cache repo.
       const branch = runGit(['rev-parse', '--abbrev-ref', 'HEAD'], target)
