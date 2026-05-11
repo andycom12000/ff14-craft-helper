@@ -140,6 +140,8 @@ export const useBatchStore = defineStore('batch', () => {
   const checkedShoppingKeys = ref(new Set<string>())
   const selectedSelfCraftIds = ref<Set<number>>(new Set())
   const doneSelfCraftIds = ref<Set<number>>(new Set())
+  const selectedNpcIds = ref<Set<number>>(new Set())
+  const doneNpcIds = ref<Set<number>>(new Set())
 
   const foodId = ref<number | null>(null)
   const foodIsHq = ref(true)
@@ -235,6 +237,8 @@ export const useBatchStore = defineStore('batch', () => {
     checkedShoppingKeys.value = new Set()
     selectedSelfCraftIds.value = new Set()
     doneSelfCraftIds.value = new Set()
+    selectedNpcIds.value = new Set()
+    doneNpcIds.value = new Set()
   }
 
   const finalShoppingItems = computed(() => {
@@ -253,6 +257,23 @@ export const useBatchStore = defineStore('batch', () => {
       else merged.set(k, { ...item })
     }
 
+    // Build a quick lookup for NPC-selected candidates
+    const npcCandidateMap = new Map<number, NpcPurchaseCandidate>()
+    for (const c of results.value.npcPurchaseCandidates) {
+      if (selectedNpcIds.value.has(c.itemId)) npcCandidateMap.set(c.itemId, c)
+    }
+
+    const applyNpcOverrides = (items: ShoppingItem[]) => {
+      for (const item of items) {
+        const candidate = npcCandidateMap.get(item.itemId)
+        if (candidate) {
+          item.unitPrice = candidate.npcPrice
+          item.server = 'NPC'
+          item.source = 'npc'
+        }
+      }
+    }
+
     // Quick-buy mode: project quickBuyMaterials through current quality overrides.
     // Materials without market data at the effective quality are skipped so
     // the row count matches what the pricing pipeline actually found.
@@ -267,7 +288,9 @@ export const useBatchStore = defineStore('batch', () => {
           unitPrice: priced.unitPrice, server: priced.server,
         })
       }
-      return Array.from(merged.values())
+      const rows = Array.from(merged.values())
+      applyNpcOverrides(rows)
+      return rows
     }
 
     for (const g of results.value.serverGroups) {
@@ -284,7 +307,9 @@ export const useBatchStore = defineStore('batch', () => {
         push(raw)
       }
     }
-    return Array.from(merged.values())
+    const rows = Array.from(merged.values())
+    applyNpcOverrides(rows)
+    return rows
   })
 
   // In quick-buy mode serverGroups/grandTotal are computed view-side from
@@ -368,6 +393,31 @@ export const useBatchStore = defineStore('batch', () => {
     doneSelfCraftIds.value = next
   }
 
+  function toggleNpcPurchase(itemId: number) {
+    const next = new Set(selectedNpcIds.value)
+    if (next.has(itemId)) next.delete(itemId)
+    else next.add(itemId)
+    selectedNpcIds.value = next
+  }
+
+  function selectAllNpcPurchases() {
+    if (!results.value) return
+    selectedNpcIds.value = new Set(
+      results.value.npcPurchaseCandidates.map(c => c.itemId),
+    )
+  }
+
+  function clearNpcPurchaseSelection() {
+    selectedNpcIds.value = new Set()
+  }
+
+  function markNpcPurchaseDone(itemId: number, done: boolean) {
+    const next = new Set(doneNpcIds.value)
+    if (done) next.add(itemId)
+    else next.delete(itemId)
+    doneNpcIds.value = next
+  }
+
   function setCalcMode(mode: 'macro' | 'quick-buy') {
     calcMode.value = mode
   }
@@ -405,6 +455,8 @@ export const useBatchStore = defineStore('batch', () => {
     checkedShoppingKeys.value = new Set()
     selectedSelfCraftIds.value = new Set()
     doneSelfCraftIds.value = new Set()
+    selectedNpcIds.value = new Set()
+    doneNpcIds.value = new Set()
     foodId.value = null
     foodIsHq.value = true
     medicineId.value = null
@@ -445,6 +497,8 @@ export const useBatchStore = defineStore('batch', () => {
     isShoppingChecked,
     selectedSelfCraftIds,
     doneSelfCraftIds,
+    selectedNpcIds,
+    doneNpcIds,
     finalShoppingItems,
     finalCrystals,
     effectiveGrandTotal,
@@ -453,6 +507,10 @@ export const useBatchStore = defineStore('batch', () => {
     selectAllSelfCraft,
     clearSelfCraftSelection,
     markSelfCraftDone,
+    toggleNpcPurchase,
+    selectAllNpcPurchases,
+    clearNpcPurchaseSelection,
+    markNpcPurchaseDone,
     setCalcMode,
     toggleSelfMake,
     setBulkQuality,
