@@ -68,8 +68,9 @@ function apply() {
 <template>
   <details class="sug sug-buff" :open="!isApplied">
     <summary class="sug-head">
-      <span class="sug-chev" aria-hidden="true">▸</span>
-      <span class="sug-kind">食藥</span>
+      <svg class="sug-chev" viewBox="0 0 10 10" aria-hidden="true">
+        <path d="M3.5 2 L7 5 L3.5 8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
       <span class="sug-title">{{ hasEnabledRecipes ? '食物推薦' : '省錢小提示' }}</span>
       <span class="sug-summary">{{ buffLabel }}</span>
       <div class="sug-stats">
@@ -131,12 +132,7 @@ function apply() {
 <style scoped>
 /* === Shared <details class="sug"> vocabulary ============================ */
 .sug {
-  padding: 12px 0 14px;
-  border-top: 1px dashed color-mix(in oklch, var(--app-border) 60%, transparent);
-}
-.sug:first-of-type {
-  padding-top: 6px;
-  border-top: 0;
+  padding: 4px 0 6px;
 }
 
 .sug-head {
@@ -151,38 +147,24 @@ function apply() {
 .sug-head::-webkit-details-marker { display: none; }
 
 .sug-chev {
-  width: 16px;
+  width: 10px;
+  height: 10px;
   flex-shrink: 0;
-  font-size: 10px;
-  color: var(--app-text-muted);
-  transition: transform 140ms ease-out;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transform: translateY(2px);
+  color: var(--buff-info, oklch(0.50 0.13 70));
+  opacity: 0.75;
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translateY(1px);
 }
 .sug[open] > .sug-head .sug-chev {
-  transform: translateY(2px) rotate(90deg);
-}
-
-.sug-kind {
-  font-family: 'Fira Code', ui-monospace, monospace;
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.16em;
-  padding: 2px 7px;
-  border-radius: 3px;
-  flex-shrink: 0;
-  transform: translateY(-1px);
-  color: var(--buff-info, oklch(0.50 0.13 70));
-  background: color-mix(in oklch, var(--buff-info, oklch(0.50 0.13 70)) 12%, transparent);
+  transform: translateY(1px) rotate(90deg);
 }
 
 .sug-title {
   font-family: 'Noto Serif TC', serif;
   font-weight: 700;
-  font-size: 15px;
-  color: var(--app-text);
+  font-size: 15.5px;
+  color: var(--buff-info, oklch(0.50 0.13 70));
+  letter-spacing: 0.005em;
 }
 .sug-summary {
   font-size: 12.5px;
@@ -237,9 +219,12 @@ function apply() {
 /* === Buff-specific ====================================================== */
 .buff-lead {
   margin: 0;
-  font-size: 13px;
+  font-family: 'Noto Serif TC', serif;
+  font-size: 14.5px;
+  font-weight: 400;
   color: var(--app-text);
-  line-height: 1.6;
+  line-height: 1.85;
+  max-width: 65ch;
 }
 .buff-name {
   color: var(--buff-info, oklch(0.50 0.13 70));

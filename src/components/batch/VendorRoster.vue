@@ -99,11 +99,12 @@ function stallSelectedCount(stall: VendorStall): number {
 <template>
   <details v-if="stalls.length > 0" class="sug sug-npc" open>
     <summary class="sug-head">
-      <span class="sug-chev" aria-hidden="true">▸</span>
-      <span class="sug-kind">NPC</span>
+      <svg class="sug-chev" viewBox="0 0 10 10" aria-hidden="true">
+        <path d="M3.5 2 L7 5 L3.5 8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
       <span class="sug-title">NPC 採購建議</span>
       <span class="sug-summary">
-        {{ candidates.length }} 項 · {{ stalls.length }} 個 NPC
+        {{ candidates.length }} 項素材 · {{ stalls.length }} 處攤位
       </span>
       <div class="sug-stats">
         <span v-if="anySelected" class="sug-saved">
@@ -371,12 +372,7 @@ export const NpcMobileStall = defineComponent({
 <style scoped>
 /* === Shared <details class="sug"> vocabulary ============================ */
 .sug {
-  padding: 12px 0 14px;
-  border-top: 1px dashed color-mix(in oklch, var(--app-border) 60%, transparent);
-}
-.sug:first-of-type {
-  padding-top: 6px;
-  border-top: 0;
+  padding: 4px 0 6px;
 }
 
 .sug-head {
@@ -391,38 +387,24 @@ export const NpcMobileStall = defineComponent({
 .sug-head::-webkit-details-marker { display: none; }
 
 .sug-chev {
-  width: 16px;
+  width: 10px;
+  height: 10px;
   flex-shrink: 0;
-  font-size: 10px;
-  color: var(--app-text-muted);
-  transition: transform 140ms ease-out;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transform: translateY(2px);
+  color: var(--app-craft);
+  opacity: 0.75;
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translateY(1px);
 }
 .sug[open] > .sug-head .sug-chev {
-  transform: translateY(2px) rotate(90deg);
-}
-
-.sug-kind {
-  font-family: 'Fira Code', ui-monospace, monospace;
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.16em;
-  padding: 2px 7px;
-  border-radius: 3px;
-  flex-shrink: 0;
-  transform: translateY(-1px);
-  color: var(--app-craft);
-  background: color-mix(in oklch, var(--app-craft) 14%, transparent);
+  transform: translateY(1px) rotate(90deg);
 }
 
 .sug-title {
   font-family: 'Noto Serif TC', serif;
   font-weight: 700;
-  font-size: 15px;
-  color: var(--app-text);
+  font-size: 15.5px;
+  color: var(--app-craft);
+  letter-spacing: 0.005em;
 }
 .sug-summary {
   font-size: 12.5px;
@@ -448,20 +430,22 @@ export const NpcMobileStall = defineComponent({
 .sug-saved .num { font-variant-numeric: tabular-nums; }
 
 .sug-btn {
-  font-size: 11.5px;
-  padding: 4px 10px;
-  border-radius: 4px;
-  background: var(--app-surface);
-  border: 1px solid var(--app-border);
-  color: var(--app-text);
-  cursor: pointer;
   font-family: 'Noto Sans TC', sans-serif;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: var(--app-surface-hover, var(--app-surface));
+  border: 0;
+  color: var(--app-text-muted);
+  cursor: pointer;
+  transition: background 160ms cubic-bezier(0.22, 1, 0.36, 1), color 160ms;
 }
 .sug-btn:hover {
-  background: color-mix(in oklch, var(--app-craft) 5%, var(--app-surface));
+  background: color-mix(in oklch, var(--accent-gold) 18%, transparent);
+  color: var(--app-text);
 }
 .sug-btn:focus-visible {
-  outline: 2px solid var(--app-craft);
+  outline: 2px solid var(--accent-gold);
   outline-offset: 2px;
 }
 

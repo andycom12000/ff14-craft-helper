@@ -481,20 +481,28 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
         <!-- 採購建議: parent <details> wraps the three suggestion sections.
              Three child <details class="sug"> for food/selfcraft/NPC share
              a vocabulary; layout flips to 2-col grid at wide viewports so
-             selfcraft and NPC sit side-by-side. -->
-        <details v-if="hasSuggestions" class="sug-parent" open>
+             food spans the top row, selfcraft + NPC sit side-by-side below. -->
+        <details class="sug-parent" :open="hasSuggestions">
           <summary class="sug-parent-head">
-            <span class="sug-parent-chev" aria-hidden="true">▸</span>
+            <svg class="sug-parent-chev" viewBox="0 0 10 10" aria-hidden="true">
+              <path d="M3.5 2 L7 5 L3.5 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
             <h4 class="sug-parent-title">採購建議</h4>
-            <span class="sug-parent-desc">{{ suggestionsCount }} 項可採納</span>
+            <span class="sug-parent-desc">
+              {{ hasSuggestions ? `${suggestionsCount} 項可採納` : '今天沒有更省的路線' }}
+            </span>
           </summary>
           <div class="sug-parent-body">
-            <BuffRecommendationCard
-              v-if="batchStore.results.buffRecommendation"
-              :recommendation="batchStore.results.buffRecommendation"
-              @apply="startOptimization"
-            />
-            <div v-if="hasSelfCraftOrNpc" class="sug-grid">
+            <p v-if="!hasSuggestions" class="sug-empty">
+              當前的市場價、巨集與配裝已經是最佳組合，直接買就好。
+            </p>
+            <div v-else class="sug-grid">
+              <BuffRecommendationCard
+                v-if="batchStore.results.buffRecommendation"
+                class="sug-grid__full"
+                :recommendation="batchStore.results.buffRecommendation"
+                @apply="startOptimization"
+              />
               <SelfCraftSuggestions
                 v-if="batchStore.results.selfCraftCandidates.length > 0"
                 :candidates="batchStore.results.selfCraftCandidates"
@@ -724,9 +732,9 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
 
 /* === Parent <details> wrapper for the three suggestion sections === */
 .sug-parent {
-  margin: 18px 0 4px;
-  padding-top: 14px;
-  border-top: 1px dashed var(--el-border-color-lighter);
+  margin: 24px 0 8px;
+  padding-top: 18px;
+  border-top: 1px solid var(--app-border, var(--el-border-color-lighter));
 }
 
 .sug-parent-head {
@@ -734,75 +742,93 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
   cursor: pointer;
   display: flex;
   align-items: baseline;
-  gap: 10px;
-  padding: 4px 0;
-  margin-bottom: 4px;
+  gap: 12px;
+  padding: 6px 0;
+  margin-bottom: 10px;
   flex-wrap: wrap;
+  border-radius: 4px;
 }
 .sug-parent-head::-webkit-details-marker { display: none; }
 .sug-parent-head:focus-visible {
   outline: 2px solid var(--page-accent, var(--accent-gold));
   outline-offset: 4px;
-  border-radius: 4px;
 }
 
 .sug-parent-chev {
-  width: 16px;
-  font-size: 11px;
+  width: 11px;
+  height: 11px;
   color: var(--app-text-muted);
-  transition: transform 140ms ease-out;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  opacity: 0.7;
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
   flex-shrink: 0;
-  transform: translateY(1px);
+  transform: translateY(2px);
 }
 .sug-parent[open] > .sug-parent-head .sug-parent-chev {
-  transform: translateY(1px) rotate(90deg);
+  transform: translateY(2px) rotate(90deg);
 }
 
 .sug-parent-title {
   margin: 0;
   font-family: 'Noto Serif TC', serif;
-  font-size: 15.5px;
-  font-weight: 600;
+  font-size: 18.5px;
+  font-weight: 700;
   color: var(--app-text);
-  letter-spacing: 0.01em;
+  letter-spacing: 0.005em;
   white-space: nowrap;
 }
 
 .sug-parent-desc {
-  font-size: 12.5px;
-  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  color: var(--app-text-muted, var(--el-text-color-secondary));
 }
 
 .sug-parent-body {
-  padding: 4px 0 8px;
+  padding: 6px 0 8px;
 }
 
-/* === Wide-viewport grid: selfcraft + NPC side-by-side when both present;
- * single column when only one (no orphan whitespace on ultra-wide). === */
+.sug-empty {
+  margin: 6px 0 14px;
+  padding: 14px 18px;
+  font-family: 'Noto Serif TC', serif;
+  font-size: 14.5px;
+  line-height: 1.85;
+  color: var(--app-text-muted);
+  background: color-mix(in oklch, var(--app-craft) 5%, transparent);
+  border-radius: 10px;
+  max-width: 60ch;
+}
+
+/* === Wide-viewport grid: food spans full row 1; selfcraft + NPC sit in
+ * row 2 side-by-side. Auto-fit collapses to single column when only one of
+ * the two row-2 cards is present (no orphan whitespace). === */
 .sug-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
-  gap: 4px 32px;
+  gap: 22px 36px;
   align-items: start;
+}
+
+.sug-grid__full {
+  grid-column: 1 / -1;
 }
 
 @media (max-width: 1000px) {
   .sug-grid {
     grid-template-columns: 1fr;
-    gap: 0;
+    gap: 14px;
   }
 }
 
 @media (max-width: 640px) {
   .sug-parent {
-    margin-top: 14px;
-    padding-top: 10px;
+    margin-top: 18px;
+    padding-top: 14px;
   }
   .sug-parent-title {
-    font-size: 14.5px;
+    font-size: 17px;
+  }
+  .sug-grid {
+    gap: 10px;
   }
 }
 
