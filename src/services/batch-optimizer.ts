@@ -395,25 +395,48 @@ export async function runBatchOptimization(
 
   console.log(`[bperf] ◆ Phase 4.5 done · ${(performance.now() - _bperfPhase45T0).toFixed(1)}ms · craft=${recipesToCraft.length} buyFinished=${buyFinishedItems.length}`)
 
-  // === Phase 4.6-buff: Evaluate food/medicine recommendation ===
-  let buffRecommendation: BuffRecommendation | undefined
-  const _bperfBuffT0 = performance.now()
-  if (noBuffSelected && !isCancelled()) {
+  // === Phase 4.6: buff recommendation + self-craft candidates (parallel) ===
+  const _bperfPhase46T0 = performance.now()
+
+  const buffPromise: Promise<BuffRecommendation | undefined> = (async () => {
+    if (!noBuffSelected || isCancelled()) return undefined
     const buyFinishedIds = new Set(buyFinishedItems.map(bf => bf.recipe.id))
     const hasDeficit = recipesToCraft.some(r => !r.isDoubleMax && r.recipe.canHq)
     const hasUnachievable = qualityUnachievableResults.length > 0
-    if (hasDeficit || hasUnachievable) {
-      onProgress({ current: 0, total: 0, name: '', phase: 'evaluating-buffs', solverPercent: 0 })
-      const recommendation = await evaluateBuffRecommendation(
-        recipesToCraft, buyFinishedIds, getGearset as (job: string) => GearsetStats | null,
-        priceMap, isCancelled,
-        (info) => onProgress({ current: info.current, total: info.total, name: '', phase: 'evaluating-buffs', solverPercent: 0 }),
-        qualityUnachievableResults,
-      )
-      if (recommendation) buffRecommendation = recommendation
+    if (!hasDeficit && !hasUnachievable) return undefined
+    onProgress({ current: 0, total: 0, name: '', phase: 'evaluating-buffs', solverPercent: 0 })
+    const rec = await evaluateBuffRecommendation(
+      recipesToCraft, buyFinishedIds, getGearset as (job: string) => GearsetStats | null,
+      priceMap, isCancelled,
+      (info) => onProgress({ current: info.current, total: info.total, name: '', phase: 'evaluating-buffs', solverPercent: 0 }),
+      qualityUnachievableResults,
+    )
+    return rec ?? undefined
+  })()
+
+  const selfCraftPromise: Promise<SelfCraftCandidate[]> = (async () => {
+    if (!settings.recursivePricing || isCancelled()) return []
+    try {
+      return await produceSelfCraftCandidates({
+        recipesToCraft, priceMap, priceSource,
+        crossServer: settings.crossServer, server: settings.server,
+        getGearset: getGearset as (job: string) => GearsetStats | null,
+        maxDepth: settings.maxRecursionDepth, buffs, optimizeRecipe,
+        onProgress: (info) => onProgress({
+          current: info.current, total: info.total, name: info.name,
+          phase: 'evaluating-self-craft', solverPercent: 0,
+        }),
+        isCancelled,
+      })
+    } catch (err) {
+      console.warn('[batch-optimizer] self-craft candidate production failed:', err)
+      return []
     }
-  }
-  console.log(`[bperf] ◆ Phase 4.6-buff done · ${(performance.now() - _bperfBuffT0).toFixed(1)}ms · recommendation=${buffRecommendation ? 'yes' : 'no'}`)
+  })()
+
+  const [buffRecommendation, selfCraftCandidates] = await Promise.all([buffPromise, selfCraftPromise])
+  console.log(`[bperf] ◆ Phase 4.6 (parallel) done · ${(performance.now() - _bperfPhase46T0).toFixed(1)}ms · ` +
+    `buff=${buffRecommendation ? 'yes' : 'no'} candidates=${selfCraftCandidates.length}`)
 
   // === Phase 5: Aggregate materials (only for recipes still being crafted) ===
   const _bperfPhase5T0 = performance.now()
@@ -447,33 +470,6 @@ export async function runBatchOptimization(
   }
   const aggregated = Array.from(matMap.values())
   const { crystals, nonCrystals } = separateCrystals(aggregated)
-
-  // === Phase 4.6: Produce self-craft candidates ===
-  let selfCraftCandidates: SelfCraftCandidate[] = []
-  const _bperfSelfT0 = performance.now()
-  if (settings.recursivePricing && !isCancelled()) {
-    try {
-      selfCraftCandidates = await produceSelfCraftCandidates({
-        recipesToCraft,
-        priceMap,
-        priceSource,
-        crossServer: settings.crossServer,
-        server: settings.server,
-        getGearset: getGearset as (job: string) => GearsetStats | null,
-        maxDepth: settings.maxRecursionDepth,
-        buffs,
-        optimizeRecipe,
-        onProgress: (info) => onProgress({
-          current: info.current, total: info.total, name: info.name,
-          phase: 'evaluating-self-craft', solverPercent: 0,
-        }),
-        isCancelled,
-      })
-    } catch (err) {
-      console.warn('[batch-optimizer] self-craft candidate production failed:', err)
-    }
-  }
-  console.log(`[bperf] ◆ Phase 4.6 self-craft done · ${(performance.now() - _bperfSelfT0).toFixed(1)}ms · candidates=${selfCraftCandidates.length}`)
 
   // === Phase 5.5: Price materials + add buy-finished items to shopping list ===
   onProgress({ current: 0, total: 0, name: '分組採購清單', phase: 'aggregating', solverPercent: 0 })

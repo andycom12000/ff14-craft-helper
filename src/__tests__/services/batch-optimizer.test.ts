@@ -406,3 +406,37 @@ describe('runBatchOptimization buff recommendation', () => {
     expect(result.buffRecommendation).toBeUndefined()
   })
 })
+
+describe('runBatchOptimization · Phase 4.6 concurrency', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('invokes buff + self-craft concurrently', async () => {
+    vi.mocked(solveCraft).mockResolvedValue({ actions: [], progress: 3500, quality: 5000, steps: 0 })
+    vi.mocked(simulateCraft).mockResolvedValue(qualityDeficitSim as any)
+    const { evaluateBuffRecommendation } = await import('@/services/buff-recommender')
+    const { produceSelfCraftCandidates } = await import('@/services/self-craft-candidates')
+
+    let buffStarted = false, selfStarted = false, bothActive = false
+    vi.mocked(evaluateBuffRecommendation).mockImplementation(async () => {
+      buffStarted = true
+      if (selfStarted) bothActive = true
+      await new Promise(r => setTimeout(r, 10))
+      return null
+    })
+    vi.mocked(produceSelfCraftCandidates).mockImplementation(async () => {
+      selfStarted = true
+      if (buffStarted) bothActive = true
+      await new Promise(r => setTimeout(r, 10))
+      return []
+    })
+
+    await runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 1 }],
+      () => mockGearset,
+      { crossServer: false, recursivePricing: true, maxRecursionDepth: 2,
+        exceptionStrategy: 'skip', server: 'S', dataCenter: 'DC', autoEvaluateBuffs: true },
+      () => {}, () => false,
+    )
+    expect(bothActive).toBe(true)
+  })
+})
