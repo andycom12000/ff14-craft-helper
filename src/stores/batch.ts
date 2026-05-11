@@ -89,6 +89,21 @@ export interface BuffRecommendation {
   enabledRecipes: Array<{ id: number; name: string }>
 }
 
+export interface NpcPurchaseCandidate {
+  itemId: number
+  name: string
+  icon: string
+  amount: number
+  marketPrice: number          // per unit, baseline for comparison
+  npcPrice: number             // per unit, NPC one-shot price
+  savings: number              // (marketPrice - npcPrice) * amount
+  savingsRatio: number         // savings / (marketPrice * amount), 0..1
+  npcId: number                // chosen vendor (cheapest, tiebreak by major city)
+  zoneId: number
+  coords: { x: number; y: number }
+  isFinishedProduct: boolean   // material vs finished good (different tag in UI)
+}
+
 export interface BatchResults {
   serverGroups: ServerGroup[]
   crystals: CrystalSummary[]
@@ -105,6 +120,7 @@ export interface BatchResults {
    * without re-running the pipeline.
    */
   quickBuyMaterials?: QuickBuyMaterial[]
+  npcPurchaseCandidates: NpcPurchaseCandidate[]
 }
 
 const defaultProgress = () => ({

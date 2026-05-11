@@ -13,6 +13,7 @@ export interface MaterialWithPrice extends MaterialBase {
   server?: string
   isFinishedProduct?: boolean
   craftCostComparison?: { craftCost: number; buyPrice: number }
+  source?: 'market' | 'npc'   // view-time effective source; pipeline leaves undefined (= market by default)
 }
 
 export interface CrystalSummary {

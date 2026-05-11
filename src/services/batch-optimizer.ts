@@ -483,7 +483,7 @@ export async function runBatchOptimization(
     hqAmounts: r.hqAmounts, isSemiFinished: false, done: false,
   }))
 
-  return { serverGroups, crystals, selfCraftCandidates, todoList, exceptions, buyFinishedItems, grandTotal, crossWorldCache, buffRecommendation }
+  return { serverGroups, crystals, selfCraftCandidates, todoList, exceptions, buyFinishedItems, grandTotal, crossWorldCache, buffRecommendation, npcPurchaseCandidates: [] }
 }
 
 /**
@@ -530,6 +530,7 @@ async function runQuickBuy(
       todoList: [], exceptions: [], buyFinishedItems: [],
       grandTotal: 0, crossWorldCache: markRaw(new Map()),
       quickBuyMaterials: [],
+      npcPurchaseCandidates: [],
     }
   }
 
@@ -596,5 +597,6 @@ async function runQuickBuy(
     grandTotal: 0,
     crossWorldCache,
     quickBuyMaterials,
+    npcPurchaseCandidates: [],
   }
 }
