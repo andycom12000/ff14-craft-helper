@@ -18,6 +18,20 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: 'v2.13.0',
+    date: '2026-05-11',
+    highlights: [
+      '【批量採購多了一條「跟 NPC 買」路線】算完批量後新增「NPC 採購建議」區：把所有可向 NPC 商人購入、且比市場便宜的素材撈出來，依「攤位（同一個 NPC）」分組成花名冊，每攤顯示「N 項素材 · 共省 X gil」與商人座標。逐項或整攤勾選後，被勾的素材會從原本的市場群組移走，改放進採購清單最上方的「NPC 攤位」分組，總計即時扣掉省下的 gil（不必重跑計算）',
+      '【NPC 攤位列在採購清單最上方】被選中的 NPC 採購素材以攤位卡形式釘在採購清單頂端：標題列顯示 NPC 名稱 + 區域 + 座標 + 距離最近的乙太傳送點，桌面版直接內嵌區域地圖（標出商人位置），手機版開抽屜檢視；每張攤位卡含「複製 /tp 指令」與「複製座標旗標」兩顆快速動作鍵，把採購當場執行的所有資訊收在同一個卡片',
+      '【採購清單列改用 el-table 統一樣式】NPC 攤位內的素材列改成跟既有伺服器表格同一套 el-table（同樣 row 高、同樣展開、同樣 hover），不再因為走自製 grid 而在桌面 / 手機混排時看起來有兩種行高',
+      '【Step 2 拆成 2.1 採購建議 / 2.2 採購清單】之前「採購材料」step 把建議卡（料理藥水推薦、自製建議、NPC 採購建議）跟採購清單擠在同一階。改成兩個子段：2.1 集中所有「決策建議」、2.2 是執行用的清單。三張建議卡共用 `<details class=sug>` 同一套語彙（標題列 · 摘要 · 已省/可省 chip · 展開按鈕），桌面寬版以 grid 並排呈現，視覺重心一致',
+      '【料理藥水建議卡改可摺疊】BuffRecommendationCard 重寫成 `<details>` 形式，跟自製 / NPC 建議卡同一個外殼；展開後底部新增「套用建議」按鈕，一鍵把推薦的食藥 + 啟用對象配方寫進設定，省去自己滑下去找開關',
+      '【配方搜尋過濾器修好了】之前過濾器（職業 / 等級）是套在 SEARCH_LIMIT cap 之後才篩，導致搜出來只剩前 N 筆再被過濾，常常零結果。改成在 capping 之前先套過濾器，現在改職業 / 等級會重新查詢並把過濾條件帶進 query，結果跟預期一致',
+      '【遊戲資料更新】例行重抓 datamining 上游：zh-TW（aaa607e → 04977ee）跟 Universalis worlds 列表同步重產；`build-game-data.mjs` 修了一個 cache 行為 — 之前切換 datamining repo 來源（例如官方 → fork）後 cached repo 仍指向舊 origin，現在偵測到 origin url 變動會自動更新',
+      '【內部】新增 `services/aetherytes.ts` 處理「給座標找最近乙太」的查表；`types/acquisition.ts` 抽出 `AcquisitionSource` 與 `NpcPurchaseCandidate` 型別；`batch-optimizer.ts` 新增 Phase 4a / 4b：並行抓 NPC availability + locations、批次解析 zone / NPC 名稱與乙太資料，避免 `useZoneName` / `useNpcName` 渲染 `#zone:XXX` placeholder；`stores/batch.ts` 新增 `selectedNpcIds` / `doneNpcIds` 狀態 + `finalShoppingItems` 套用 NPC commit override，總計改從 `finalShoppingItems` 一致推導（同時涵蓋 quick-buy quality toggle 與 NPC commit）；`shopping-list.ts` 新增 `isNpcServer` helper + `npc:<id>` server tag 慣例；`composables/useRecipeSearch.ts` 把 RecipeSearch / RecipeSearchSidebar 兩處的 query + filter + debounce + onComplete tracking 抽成共用 hook',
+    ],
+  },
+  {
     version: 'v2.12.0',
     date: '2026-05-11',
     highlights: [
