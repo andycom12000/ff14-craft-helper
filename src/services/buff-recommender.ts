@@ -222,7 +222,7 @@ export async function evaluateBuffRecommendation(
   getGearset: (job: string) => GearsetStats | null,
   priceMap: Map<number, MarketData>,
   isCancelled: () => boolean,
-  onProgress?: (info: { current: number; total: number }) => void,
+  onProgress?: (info: { completed: number; total: number }) => void,
   unachievableRecipes: RecipeOptimizeResult[] = [],
 ): Promise<BuffRecommendation | null> {
   const _bperfT0 = performance.now()
@@ -295,7 +295,7 @@ export async function evaluateBuffRecommendation(
   // Step 2.5 + Step 3 + Step 4: try combos cheapest-first
   for (let i = 0; i < candidates.length; i++) {
     if (isCancelled()) return null
-    onProgress?.({ current: i + 1, total: candidates.length })
+    onProgress?.({ completed: i + 1, total: candidates.length })
     const candidate = candidates[i]
     const combo: BuffCombo = { food: candidate.food, medicine: candidate.medicine }
 

@@ -22,13 +22,13 @@ const percentage = computed(() => {
   const [start, end] = range
 
   if (p.phase === 'solving' && p.total > 0) {
-    const completedPortion = (p.current - 1) / p.total
+    const completedPortion = (p.completed - 1) / p.total
     const currentPortion = (p.solverPercent / 100) / p.total
     return Math.round(start + (completedPortion + currentPortion) * (end - start))
   }
 
   if ((p.phase === 'pricing' || p.phase === 'evaluating-buffs') && p.total > 0) {
-    return Math.round(start + (p.current / p.total) * (end - start))
+    return Math.round(start + (p.completed / p.total) * (end - start))
   }
 
   return start
@@ -40,12 +40,12 @@ const statusText = computed(() => {
     case 'solving':
       return `正在求解：${p.currentName}`
     case 'pricing':
-      return p.total > 0 && p.current < p.total
-        ? `正在查詢市場價格 (${p.current}/${p.total})...`
+      return p.total > 0 && p.completed < p.total
+        ? `正在查詢市場價格 (${p.completed}/${p.total})...`
         : '正在查詢市場價格...'
     case 'evaluating-buffs':
       return p.total > 0
-        ? `正在評估食藥組合 (${p.current}/${p.total})...`
+        ? `正在評估食藥組合 (${p.completed}/${p.total})...`
         : '正在評估食藥組合...'
     case 'evaluating-self-craft':
       return '評估自製建議'
@@ -75,7 +75,7 @@ const showCounter = computed(() => {
           <strong>{{ statusText }}</strong>
         </el-text>
         <el-text v-if="showCounter" size="small" type="info">
-          {{ batchStore.progress.current }} / {{ batchStore.progress.total }}
+          {{ batchStore.progress.completed }} / {{ batchStore.progress.total }}
         </el-text>
       </div>
       <el-progress :percentage="percentage" :stroke-width="8" />

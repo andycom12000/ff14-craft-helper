@@ -379,7 +379,7 @@ describe('runBatchOptimization', () => {
       [{ recipe: mockRecipe, quantity: 1 }, { recipe: { ...mockRecipe, id: 2 }, quantity: 1 }],
       () => mockGearset,
       defaultSettings,
-      (info) => { if (info.current >= 1 && info.phase === 'solving' && info.solverPercent === 0) cancelled = true },
+      (info) => { if (info.completed >= 1 && info.phase === 'solving' && info.solverPercent === 0) cancelled = true },
       () => cancelled,
     )).rejects.toThrow(SOLVE_CANCELLED)
   })

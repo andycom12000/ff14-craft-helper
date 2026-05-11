@@ -209,7 +209,7 @@ interface ProduceArgs {
   maxDepth: number
   buffs: { food: FoodBuff | null; medicine: FoodBuff | null } | undefined
   optimizeRecipe: OptimizeRecipeFn  // injected to avoid circular import
-  onProgress: (info: { current: number; total: number; name: string }) => void
+  onProgress: (info: { completed: number; total: number; name: string }) => void
   isCancelled: () => boolean
 }
 
@@ -340,7 +340,7 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
   for (let i = 0; i < withRecipes.length; i++) {
     if (isCancelled()) return candidates
     const { decision, node, recipe, job } = withRecipes[i]
-    onProgress({ current: i + 1, total: withRecipes.length, name: recipe.name })
+    onProgress({ completed: i + 1, total: withRecipes.length, name: recipe.name })
 
     const gs = getGearset(job)
     if (!gs) continue

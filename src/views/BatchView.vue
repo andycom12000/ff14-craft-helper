@@ -243,7 +243,7 @@ async function startOptimization() {
       },
       (info) => {
         batchStore.progress = {
-          current: info.current,
+          completed: info.completed,
           total: info.total,
           currentName: info.name,
           phase: info.phase,

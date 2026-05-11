@@ -150,7 +150,7 @@ export async function runBatchOptimization(
     selfMakeOverrides?: Record<number, boolean>
   },
   onProgress: (info: {
-    current: number
+    completed: number
     total: number
     name: string
     phase: 'solving' | 'pricing' | 'evaluating-buffs' | 'evaluating-self-craft' | 'aggregating' | 'done'
@@ -198,7 +198,7 @@ export async function runBatchOptimization(
     if (isCancelled()) break
     const target = targets[i]
     const report = (phase: 'solving' | 'pricing' | 'done', solverPercent = 0) =>
-      onProgress({ current: i + 1, total: targets.length, name: target.recipe.name, phase, solverPercent })
+      onProgress({ completed: i + 1, total: targets.length, name: target.recipe.name, phase, solverPercent })
     report('solving', 0)
 
     const gearset = getGearset(target.recipe.job)
@@ -260,7 +260,7 @@ export async function runBatchOptimization(
 
   // === Phase 4: Early price query (materials + finished products) ===
   const _bperfPhase4T0 = performance.now()
-  onProgress({ current: 0, total: 0, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
+  onProgress({ completed: 0, total: 0, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
 
   // Collect all material itemIds (excluding crystals) + finished product itemIds
   const allMaterialIds = new Set<number>()
@@ -296,7 +296,7 @@ export async function runBatchOptimization(
 
   const _bperfPriceT0 = performance.now()
   const priceMap = await getAggregatedPrices(priceSource, [...allMaterialIds], (done, total) => {
-    onProgress({ current: done, total, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
+    onProgress({ completed: done, total, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
   })
   console.log(`[bperf]   · getAggregatedPrices ids=${allMaterialIds.size} dur=${(performance.now() - _bperfPriceT0).toFixed(1)}ms`)
 
@@ -404,11 +404,11 @@ export async function runBatchOptimization(
     const hasDeficit = recipesToCraft.some(r => !r.isDoubleMax && r.recipe.canHq)
     const hasUnachievable = qualityUnachievableResults.length > 0
     if (!hasDeficit && !hasUnachievable) return undefined
-    onProgress({ current: 0, total: 0, name: '', phase: 'evaluating-buffs', solverPercent: 0 })
+    onProgress({ completed: 0, total: 0, name: '', phase: 'evaluating-buffs', solverPercent: 0 })
     const rec = await evaluateBuffRecommendation(
       recipesToCraft, buyFinishedIds, getGearset as (job: string) => GearsetStats | null,
       priceMap, isCancelled,
-      (info) => onProgress({ current: info.current, total: info.total, name: '', phase: 'evaluating-buffs', solverPercent: 0 }),
+      (info) => onProgress({ completed: info.current, total: info.total, name: '', phase: 'evaluating-buffs', solverPercent: 0 }),
       qualityUnachievableResults,
     )
     return rec ?? undefined
@@ -440,7 +440,7 @@ export async function runBatchOptimization(
 
   // === Phase 5: Aggregate materials (only for recipes still being crafted) ===
   const _bperfPhase5T0 = performance.now()
-  onProgress({ current: 0, total: 0, name: '整理材料清單', phase: 'aggregating', solverPercent: 0 })
+  onProgress({ completed: 0, total: 0, name: '整理材料清單', phase: 'aggregating', solverPercent: 0 })
   const allTypedMaterials: TypedMaterial[] = []
 
   for (const r of recipesToCraft) {
@@ -472,7 +472,7 @@ export async function runBatchOptimization(
   const { crystals, nonCrystals } = separateCrystals(aggregated)
 
   // === Phase 5.5: Price materials + add buy-finished items to shopping list ===
-  onProgress({ current: 0, total: 0, name: '分組採購清單', phase: 'aggregating', solverPercent: 0 })
+  onProgress({ completed: 0, total: 0, name: '分組採購清單', phase: 'aggregating', solverPercent: 0 })
   let pricedMaterials: MaterialWithPrice[]
   let dcPriceMap: Map<number, MarketData> | null = null
 
@@ -647,7 +647,7 @@ async function runQuickBuy(
   onProgress: Parameters<typeof runBatchOptimization>[3],
   isCancelled: () => boolean,
 ): Promise<BatchResults> {
-  onProgress({ current: 0, total: 0, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
+  onProgress({ completed: 0, total: 0, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
 
   // Aggregate materials by itemId only (no matType split).
   interface QBMat { itemId: number; name: string; icon: string; amount: number; canHq: boolean }
@@ -684,7 +684,7 @@ async function runQuickBuy(
 
   const priceSource = settings.crossServer ? settings.dataCenter : settings.server
   const priceMap = await getAggregatedPrices(priceSource, [...matMap.keys()], (done, total) => {
-    onProgress({ current: done, total, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
+    onProgress({ completed: done, total, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
   })
 
   // === Phase 4a: Fetch NPC availability + locations (parallel) ===
@@ -709,7 +709,7 @@ async function runQuickBuy(
     loadAetherytes().catch(() => null),
   ])
 
-  onProgress({ current: 0, total: 0, name: '整理材料清單', phase: 'aggregating', solverPercent: 0 })
+  onProgress({ completed: 0, total: 0, name: '整理材料清單', phase: 'aggregating', solverPercent: 0 })
 
   const aggregated = Array.from(matMap.values())
   const { crystals, nonCrystals } = separateCrystals(aggregated)
@@ -788,7 +788,7 @@ async function runQuickBuy(
     })
   }
 
-  onProgress({ current: 1, total: 1, name: '', phase: 'done', solverPercent: 0 })
+  onProgress({ completed: 1, total: 1, name: '', phase: 'done', solverPercent: 0 })
 
   // serverGroups / grandTotal left empty here — the ShoppingList view
   // computes them reactively from quickBuyMaterials + current
