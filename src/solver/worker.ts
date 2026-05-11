@@ -1,6 +1,7 @@
 /**
  * Main-thread wrapper for the solver Web Worker.
  * Provides a Promise-based API for solving crafts.
+ * Uses a 2-slot worker pool with FIFO queue for concurrent requests.
  */
 
 import type { SolverConfig, SolverResult, SolverResponse, SimulateResult, SimulateDetailResult } from './raphael'
@@ -9,7 +10,18 @@ import { classifyGearBucket } from '@/utils/gear-bucket'
 
 export const SOLVE_CANCELLED = '求解已取消'
 
-let worker: Worker | null = null
+const POOL_SIZE = 2
+
+interface WorkerSlot { worker: Worker; busy: boolean }
+
+const slots: WorkerSlot[] = []
+let readySlotCount = 0
+const taskQueue: Array<{
+  type: 'solve' | 'simulate' | 'simulate-detail'
+  payload: Record<string, unknown>
+  requestId: number
+}> = []
+
 let wasmStatus: 'loading' | 'ready' | 'error' = 'loading'
 let wasmErrorMessage: string | null = null
 // Multiple components (SolverPanel, CraftRecommendation, …) can call
@@ -28,61 +40,97 @@ const pendingRequests = new Map<number, {
   onProgress?: (pct: number) => void
 }>()
 
-function getWorker(): Worker {
-  if (!worker) {
-    worker = new Worker(new URL('./solver-worker.ts', import.meta.url), { type: 'module' })
+function ensurePool(): void {
+  if (slots.length === POOL_SIZE) return
+  for (let i = slots.length; i < POOL_SIZE; i++) {
+    const w = new Worker(new URL('./solver-worker.ts', import.meta.url), { type: 'module' })
+    const slot: WorkerSlot = { worker: w, busy: false }
+    slots.push(slot)
     wasmStatus = 'loading'
 
-    // Single message handler for all responses
-    worker.addEventListener('message', (e: MessageEvent<SolverResponse>) => {
+    w.addEventListener('message', (e: MessageEvent<SolverResponse>) => {
       const data = e.data
-      if (data.type === 'ready') {
-        wasmStatus = 'ready'
-        const waiters = wasmReadyWaiters.splice(0)
-        wasmErrorWaiters.length = 0
-        for (const cb of waiters) cb()
-      } else if (data.type === 'init-error') {
-        wasmStatus = 'error'
-        wasmErrorMessage = data.error ?? 'WASM 初始化失敗'
-        trackEvent('wasm_load_failed', {
-          reason: wasmErrorMessage,
-          fallback_used: false,
-        })
-        trackError(`WASM init failed: ${wasmErrorMessage}`)
-        const waiters = wasmErrorWaiters.splice(0)
-        wasmReadyWaiters.length = 0
-        for (const cb of waiters) cb(wasmErrorMessage)
-      } else if (data.requestId !== undefined) {
-        const pending = pendingRequests.get(data.requestId)
-        if (data.type === 'progress' && data.progress !== undefined) {
-          pending?.onProgress?.(data.progress)
-          return
-        }
-        if (!pending) return
-        if (data.type === 'result' && data.result) {
-          pendingRequests.delete(data.requestId)
-          pending.resolve(data.result)
-        } else if (data.type === 'simulate-result' && data.simulateResult) {
-          pendingRequests.delete(data.requestId)
-          pending.resolve(data.simulateResult)
-        } else if (data.type === 'simulate-detail-result' && data.simulateDetailResult) {
-          pendingRequests.delete(data.requestId)
-          pending.resolve(data.simulateDetailResult)
-        } else if (data.type === 'error') {
-          pendingRequests.delete(data.requestId)
-          pending.reject(new Error(data.error ?? '求解器發生未知錯誤'))
-        }
-      }
+      if (data.type === 'ready') return onSlotReady()
+      if (data.type === 'init-error') return onSlotInitError(data.error ?? 'WASM 初始化失敗')
+      if (data.requestId === undefined) return
+      handleRoutedResponse(slot, data)
     })
   }
-  return worker
+}
+
+function onSlotReady(): void {
+  readySlotCount++
+  if (readySlotCount === POOL_SIZE) {
+    wasmStatus = 'ready'
+    const waiters = wasmReadyWaiters.splice(0)
+    wasmErrorWaiters.length = 0
+    for (const cb of waiters) cb()
+  }
+}
+
+function onSlotInitError(message: string): void {
+  wasmStatus = 'error'
+  wasmErrorMessage = message
+  trackEvent('wasm_load_failed', { reason: message, fallback_used: false })
+  trackError(`WASM init failed: ${message}`)
+  const waiters = wasmErrorWaiters.splice(0)
+  wasmReadyWaiters.length = 0
+  for (const cb of waiters) cb(message)
+}
+
+function handleRoutedResponse(slot: WorkerSlot, data: SolverResponse): void {
+  if (data.requestId === undefined) return
+  const pending = pendingRequests.get(data.requestId)
+  if (data.type === 'progress' && data.progress !== undefined) {
+    pending?.onProgress?.(data.progress)
+    return
+  }
+  if (!pending) return
+
+  let terminal = true
+  if (data.type === 'result' && data.result) pending.resolve(data.result)
+  else if (data.type === 'simulate-result' && data.simulateResult) pending.resolve(data.simulateResult)
+  else if (data.type === 'simulate-detail-result' && data.simulateDetailResult) pending.resolve(data.simulateDetailResult)
+  else if (data.type === 'error') pending.reject(new Error(data.error ?? '求解器發生未知錯誤'))
+  else terminal = false
+
+  if (terminal) {
+    pendingRequests.delete(data.requestId)
+    slot.busy = false
+    drainQueue()
+  }
+}
+
+function drainQueue(): void {
+  while (taskQueue.length > 0) {
+    const idle = slots.find(s => !s.busy)
+    if (!idle) return
+    const task = taskQueue.shift()!
+    idle.busy = true
+    idle.worker.postMessage({ type: task.type, ...task.payload, requestId: task.requestId })
+  }
+}
+
+function dispatchOrQueue(
+  type: 'solve' | 'simulate' | 'simulate-detail',
+  payload: Record<string, unknown>,
+  requestId: number,
+): void {
+  ensurePool()
+  const idle = slots.find(s => !s.busy)
+  if (idle) {
+    idle.busy = true
+    idle.worker.postMessage({ type, ...payload, requestId })
+  } else {
+    taskQueue.push({ type, payload, requestId })
+  }
 }
 
 /**
  * Wait for WASM to be ready. Returns immediately if already ready.
  */
 export function waitForWasm(): Promise<void> {
-  getWorker()
+  ensurePool()
   if (wasmStatus === 'ready') return Promise.resolve()
   if (wasmStatus === 'error') return Promise.reject(new Error(wasmErrorMessage ?? 'WASM 初始化失敗'))
 
@@ -96,7 +144,7 @@ export function waitForWasm(): Promise<void> {
  * Get the current WASM initialization status.
  */
 export function getWasmStatus(): { status: 'loading' | 'ready' | 'error'; error?: string } {
-  getWorker() // ensure worker is created
+  ensurePool()
   return {
     status: wasmStatus,
     error: wasmErrorMessage ?? undefined,
@@ -114,7 +162,6 @@ export function solveCraft(
   config: SolverConfig,
   onProgress?: (percent: number) => void,
 ): Promise<SolverResult> {
-  const w = getWorker()
   const requestId = nextRequestId++
   const startedAt = performance.now()
   trackEvent('solver_start', {
@@ -138,7 +185,7 @@ export function solveCraft(
         reject(err)
       },
     })
-    w.postMessage({ type: 'solve', config: { ...config }, requestId })
+    dispatchOrQueue('solve', { config: { ...config } }, requestId)
   })
 }
 
@@ -150,19 +197,14 @@ export function simulateCraft(
   actions: string[],
   conditions?: string[],
 ): Promise<SimulateResult> {
-  const w = getWorker()
   const requestId = nextRequestId++
-
   return new Promise<SimulateResult>((resolve, reject) => {
     pendingRequests.set(requestId, { resolve, reject })
-    // Spread to strip Vue reactive proxies
-    w.postMessage({
-      type: 'simulate',
+    dispatchOrQueue('simulate', {
       config: { ...config },
       actions: [...actions],
       conditions: conditions ? [...conditions] : undefined,
-      requestId,
-    })
+    }, requestId)
   })
 }
 
@@ -174,48 +216,46 @@ export function simulateCraftDetail(
   actions: string[],
   conditions?: string[],
 ): Promise<SimulateDetailResult> {
-  const w = getWorker()
   const requestId = nextRequestId++
-
   return new Promise<SimulateDetailResult>((resolve, reject) => {
     pendingRequests.set(requestId, { resolve, reject })
-    // Spread to strip Vue reactive proxies
-    w.postMessage({
-      type: 'simulate-detail',
+    dispatchOrQueue('simulate-detail', {
       config: { ...config },
       actions: [...actions],
       conditions: conditions ? [...conditions] : undefined,
-      requestId,
-    })
+    }, requestId)
   })
 }
 
 /**
- * Cancel any in-progress solve by terminating and recreating the worker.
- * No-op when nothing is in flight, so callers that optimistically cancel
+ * Cancel any in-progress solve by terminating and recreating the worker pool.
+ * No-op when nothing is in flight or queued, so callers that optimistically cancel
  * (e.g. batchStore.resetAll after a finished batch) don't pay an extra
  * WASM re-init on the next solve.
  */
 export function cancelSolve(): void {
-  if (pendingRequests.size === 0) return
-  if (worker) { worker.terminate(); worker = null }
+  if (pendingRequests.size === 0 && taskQueue.length === 0) return
+  for (const slot of slots) slot.worker.terminate()
+  slots.length = 0
+  readySlotCount = 0
   wasmStatus = 'loading'
   wasmErrorMessage = null
   for (const [, pending] of pendingRequests) pending.reject(new Error(SOLVE_CANCELLED))
   pendingRequests.clear()
+  taskQueue.length = 0
 }
 
 /**
- * Clean up the worker. Call this when the component is unmounted.
+ * Clean up the worker pool. Call this when the component is unmounted.
  */
 export function disposeWorker(): void {
-  if (worker) {
-    worker.terminate()
-    worker = null
-  }
+  for (const slot of slots) slot.worker.terminate()
+  slots.length = 0
+  readySlotCount = 0
   wasmStatus = 'loading'
   wasmErrorMessage = null
   pendingRequests.clear()
+  taskQueue.length = 0
   wasmReadyWaiters.length = 0
   wasmErrorWaiters.length = 0
 }
