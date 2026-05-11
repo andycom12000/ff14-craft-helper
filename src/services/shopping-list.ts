@@ -98,6 +98,12 @@ export function sortServerGroupsHomeLast(
   groups: ServerGroup[],
   homeServer: string,
 ): ServerGroup[] {
+  const hasNpc = groups.some(g => g.server === 'NPC')
+  const hasHome = !!homeServer && groups.some(g => g.server === homeServer)
+  // Preserve input identity when there's nothing to reorder — callers may rely
+  // on reference equality to short-circuit downstream work (e.g. reactivity).
+  if (!hasNpc && !hasHome) return groups
+
   let npc: ServerGroup | undefined
   let home: ServerGroup | undefined
   const others: ServerGroup[] = []

@@ -12,8 +12,8 @@ import { separateCrystals, groupByServer, calculateBestPurchase, findCheapestSer
 import { applyFoodBuff, applyMedicineBuff, resolveBuff, COMMON_FOODS, COMMON_MEDICINES, type FoodBuff } from '@/engine/food-medicine'
 import { evaluateBuffRecommendation, getBuffItemIds } from '@/services/buff-recommender'
 import { produceSelfCraftCandidates } from '@/services/self-craft-candidates'
-import { fetchItemAcquisitionBatch, type ItemAcquisition } from '@/services/item-acquisition'
-import { fetchItemLocationsBatch, type ItemLocations } from '@/services/item-locations'
+import { fetchItemAcquisitionBatch } from '@/services/item-acquisition'
+import { fetchItemLocationsBatch } from '@/services/item-locations'
 import type { NpcPurchaseCandidate } from '@/stores/batch'
 
 export interface RecipeOptimizeResult {

@@ -91,7 +91,7 @@ describe('batch store self-craft selection', () => {
     const store = useBatchStore()
     store.results = {
       serverGroups: [], crystals: [], todoList: [], exceptions: [],
-      buyFinishedItems: [], grandTotal: 0,
+      buyFinishedItems: [], grandTotal: 0, npcPurchaseCandidates: [],
       crossWorldCache: new Map(),
       selfCraftCandidates: [
         { itemId: 1 }, { itemId: 2 }, { itemId: 3 },
@@ -135,7 +135,7 @@ describe('batch store finalShoppingItems', () => {
         hqRequired: false, depth: 1,
       }],
       todoList: [],
-      exceptions: [], buyFinishedItems: [], grandTotal: 0,
+      exceptions: [], buyFinishedItems: [], grandTotal: 0, npcPurchaseCandidates: [],
       crossWorldCache: new Map(),
     }
 
@@ -188,7 +188,7 @@ describe('batch store finalShoppingItems', () => {
         },
       ],
       todoList: [],
-      exceptions: [], buyFinishedItems: [], grandTotal: 0,
+      exceptions: [], buyFinishedItems: [], grandTotal: 0, npcPurchaseCandidates: [],
       crossWorldCache: new Map(),
     }
 
@@ -224,7 +224,7 @@ describe('batch store finalShoppingItems', () => {
         hqRequired: false, depth: 1,
       }],
       todoList: [],
-      exceptions: [], buyFinishedItems: [], grandTotal: 0,
+      exceptions: [], buyFinishedItems: [], grandTotal: 0, npcPurchaseCandidates: [],
       crossWorldCache: new Map(),
     }
 
@@ -264,7 +264,7 @@ describe('batch store finalTodoList', () => {
         recipe: parentRecipe as any, quantity: 1, actions: ['careful_synthesis'],
         hqAmounts: [], isSemiFinished: false, done: false,
       }],
-      exceptions: [], buyFinishedItems: [], grandTotal: 0,
+      exceptions: [], buyFinishedItems: [], grandTotal: 0, npcPurchaseCandidates: [],
       crossWorldCache: new Map(),
     }
 
@@ -295,7 +295,7 @@ describe('batch store finalTodoList', () => {
         rawMaterials: [], hqRequired: false, depth: 1,
       }],
       todoList: [],
-      exceptions: [], buyFinishedItems: [], grandTotal: 0,
+      exceptions: [], buyFinishedItems: [], grandTotal: 0, npcPurchaseCandidates: [],
       crossWorldCache: new Map(),
     }
 
