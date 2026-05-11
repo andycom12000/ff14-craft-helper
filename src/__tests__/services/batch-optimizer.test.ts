@@ -407,6 +407,32 @@ describe('runBatchOptimization buff recommendation', () => {
   })
 })
 
+describe('runBatchOptimization · Phase 1 cancel', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('propagates SOLVE_CANCELLED through Promise.allSettled', async () => {
+    let firstResolve: ((v: any) => void) | undefined
+    vi.mocked(solveCraft).mockImplementationOnce(() => new Promise(r => { firstResolve = r }))
+    vi.mocked(solveCraft).mockRejectedValueOnce(new Error(SOLVE_CANCELLED))
+    vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
+
+    const targets = [
+      { recipe: mockRecipe, quantity: 1 },
+      { recipe: { ...mockRecipe, id: 2 }, quantity: 1 },
+    ]
+    const run = runBatchOptimization(
+      targets, () => mockGearset,
+      { crossServer: false, recursivePricing: false, maxRecursionDepth: 2,
+        exceptionStrategy: 'skip', server: 'S', dataCenter: 'DC', autoEvaluateBuffs: false },
+      () => {}, () => false,
+    )
+    await new Promise(r => setTimeout(r, 10))
+    firstResolve?.({ actions: [], progress: 3500, quality: 7200, steps: 0 })
+
+    await expect(run).rejects.toThrow(SOLVE_CANCELLED)
+  })
+})
+
 describe('runBatchOptimization · Phase 4.6 concurrency', () => {
   beforeEach(() => vi.clearAllMocks())
 

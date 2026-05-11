@@ -194,64 +194,70 @@ export async function runBatchOptimization(
   const _bperfPhase1T0 = performance.now()
   let _bperfSolveCount = 0
   let _bperfSolveTotalMs = 0
-  for (let i = 0; i < targets.length; i++) {
-    if (isCancelled()) break
-    const target = targets[i]
-    const report = (phase: 'solving' | 'pricing' | 'done', solverPercent = 0) =>
-      onProgress({ completed: i + 1, total: targets.length, name: target.recipe.name, phase, solverPercent })
-    report('solving', 0)
-
+  let completedCount = 0
+  const phase1Settled = await Promise.allSettled(targets.map(async (target, i) => {
+    if (isCancelled()) throw new Error(SOLVE_CANCELLED)
     const gearset = getGearset(target.recipe.job)
     if (!gearset || gearset.level < target.recipe.level) {
-      exceptions.push({
-        type: 'level-insufficient',
-        recipe: target.recipe,
-        quantity: target.quantity,
-        message: '職業等級不足',
-        details: `你的 ${target.recipe.job} 等級 ${gearset?.level ?? 0} 不足以製作「${target.recipe.name}」（需要等級 ${target.recipe.level}）`,
-        action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
-      })
-      continue
+      return { kind: 'level-insufficient' as const, target, gearset }
     }
-
+    const _bperfR0 = performance.now()
     try {
-      const _bperfR0 = performance.now()
-      const result = await optimizeRecipe(target.recipe, gearset, (pct) => report('solving', pct), buffs)
+      const result = await optimizeRecipe(target.recipe, gearset, (pct) => {
+        onProgress({ completed: completedCount, total: targets.length, name: target.recipe.name, phase: 'solving', solverPercent: pct })
+      }, buffs)
       const _bperfRDur = performance.now() - _bperfR0
       _bperfSolveCount++
       _bperfSolveTotalMs += _bperfRDur
       console.log(`[bperf]   · optimizeRecipe[${i}] "${target.recipe.name}" lvl=${target.recipe.level} dur=${_bperfRDur.toFixed(1)}ms doubleMax=${result.isDoubleMax} hqOk=${result.hqAmounts.length > 0}`)
-      // target.quantity = output items the user wants. amountResult is how many
-      // items each craft produces (3 for most food/medicine). result.quantity
-      // therefore tracks # of crafts, while outputAmount tracks # of items.
-      const yieldPerCraft = Math.max(1, target.recipe.amountResult)
-      result.outputAmount = target.quantity
-      result.quantity = Math.ceil(target.quantity / yieldPerCraft)
-
-      if (!result.isDoubleMax && result.hqAmounts.length === 0) {
-        // Save for buff recommendation evaluation (food/medicine may fix this)
-        if (result.recipe.canHq) {
-          qualityUnachievableResults.push(result)
-        }
-        exceptions.push({
-          type: 'quality-unachievable',
-          recipe: target.recipe,
-          quantity: target.quantity,
-          message: '無法達成雙滿',
-          details: `「${target.recipe.name}」即使使用全部 HQ 素材仍無法達成品質上限`,
-          action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
-        })
-        continue
-      }
-      recipeResults.push(result)
+      completedCount++
+      onProgress({ completed: completedCount, total: targets.length, name: '', phase: 'solving', solverPercent: 0 })
+      return { kind: 'ok' as const, target, result }
     } catch (err) {
       if (err instanceof Error && err.message === SOLVE_CANCELLED) throw err
+      completedCount++
+      return { kind: 'failed' as const, target, error: err }
+    }
+  }))
+
+  for (const settled of phase1Settled) {
+    if (settled.status === 'rejected') {
+      if (settled.reason instanceof Error && settled.reason.message === SOLVE_CANCELLED) throw settled.reason
+      continue
+    }
+    const v = settled.value
+    if (v.kind === 'level-insufficient') {
       exceptions.push({
-        type: 'quality-unachievable', recipe: target.recipe,
-        message: '計算失敗', details: `「${target.recipe.name}」計算過程發生錯誤：${err}`,
+        type: 'level-insufficient', recipe: v.target.recipe, quantity: v.target.quantity,
+        message: '職業等級不足',
+        details: `你的 ${v.target.recipe.job} 等級 ${v.gearset?.level ?? 0} 不足以製作「${v.target.recipe.name}」（需要等級 ${v.target.recipe.level}）`,
+        action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
+      })
+      continue
+    }
+    if (v.kind === 'failed') {
+      exceptions.push({
+        type: 'quality-unachievable', recipe: v.target.recipe,
+        message: '計算失敗', details: `「${v.target.recipe.name}」計算過程發生錯誤：${v.error}`,
         action: 'skipped',
       })
+      continue
     }
+    const result = v.result
+    const yieldPerCraft = Math.max(1, v.target.recipe.amountResult)
+    result.outputAmount = v.target.quantity
+    result.quantity = Math.ceil(v.target.quantity / yieldPerCraft)
+    if (!result.isDoubleMax && result.hqAmounts.length === 0) {
+      if (result.recipe.canHq) qualityUnachievableResults.push(result)
+      exceptions.push({
+        type: 'quality-unachievable', recipe: v.target.recipe, quantity: v.target.quantity,
+        message: '無法達成雙滿',
+        details: `「${v.target.recipe.name}」即使使用全部 HQ 素材仍無法達成品質上限`,
+        action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
+      })
+      continue
+    }
+    recipeResults.push(result)
   }
 
   console.log(`[bperf] ◆ Phase 1 done · ${(performance.now() - _bperfPhase1T0).toFixed(1)}ms · solves=${_bperfSolveCount} solveTotal=${_bperfSolveTotalMs.toFixed(1)}ms avg=${_bperfSolveCount ? (_bperfSolveTotalMs / _bperfSolveCount).toFixed(1) : 0}ms · accepted=${recipeResults.length} unachievable=${qualityUnachievableResults.length} excepted=${exceptions.length}`)
@@ -423,7 +429,7 @@ export async function runBatchOptimization(
         getGearset: getGearset as (job: string) => GearsetStats | null,
         maxDepth: settings.maxRecursionDepth, buffs, optimizeRecipe,
         onProgress: (info) => onProgress({
-          current: info.current, total: info.total, name: info.name,
+          completed: info.current, total: info.total, name: info.name,
           phase: 'evaluating-self-craft', solverPercent: 0,
         }),
         isCancelled,
