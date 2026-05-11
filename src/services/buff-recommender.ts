@@ -5,7 +5,7 @@ import type { FoodBuff, EnhancedStats } from '@/engine/food-medicine'
 import type { BuffRecommendation, BuffPriceInfo } from '@/stores/batch'
 import {
   COMMON_FOODS, COMMON_MEDICINES,
-  resolveBuff, applyFoodBuff, applyMedicineBuff,
+  resolveBuff, applyBuffsToStats,
 } from '@/engine/food-medicine'
 import { solveCraft, simulateCraft } from '@/solver/worker'
 import { craftParamsToSolverConfig, recipeToCraftParams } from '@/solver/config'
@@ -49,8 +49,10 @@ export function applyCombo(
   baseStats: EnhancedStats,
   combo: BuffCombo,
 ): EnhancedStats {
-  const afterFood = applyFoodBuff(baseStats, combo.food?.buff ?? null)
-  return applyMedicineBuff(afterFood, combo.medicine?.buff ?? null)
+  return applyBuffsToStats(baseStats, {
+    food: combo.food?.buff ?? null,
+    medicine: combo.medicine?.buff ?? null,
+  })
 }
 
 /**
