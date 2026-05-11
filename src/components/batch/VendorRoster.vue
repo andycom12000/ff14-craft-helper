@@ -10,6 +10,7 @@ import { buildTpCommand } from '@/utils/ff14-map-link'
 import { ElMessage } from 'element-plus'
 import ItemName from '@/components/common/ItemName.vue'
 import ZoneMapSheet from '@/components/bom/ZoneMapSheet.vue'
+import ZoneMapInline from '@/components/common/ZoneMapInline.vue'
 
 const props = defineProps<{ candidates: NpcPurchaseCandidate[] }>()
 const batch = useBatchStore()
@@ -107,17 +108,31 @@ function stallSelectedCount(stall: VendorStall): number {
   return stall.items.filter(c => batch.selectedNpcIds.has(c.itemId)).length
 }
 
-// Map drawer
-const mapOpen = ref(false)
-const mapZoneId = ref<number | null>(null)
-const mapCoords = ref<{ x: number; y: number } | null>(null)
-const mapAetheryte = ref<string | null>(null)
+// Per-stall inline map state on desktop; mobile uses the drawer below.
+const inlineMapNpcIds = ref<Set<number>>(new Set())
 
-function openMap(stall: VendorStall) {
-  mapZoneId.value = stall.zoneId
-  mapCoords.value = stall.coords
-  mapAetheryte.value = stall.aetheryteName
-  mapOpen.value = true
+function toggleInlineMap(stall: VendorStall) {
+  const next = new Set(inlineMapNpcIds.value)
+  if (next.has(stall.npcId)) next.delete(stall.npcId)
+  else next.add(stall.npcId)
+  inlineMapNpcIds.value = next
+}
+
+function isMapOpen(stall: VendorStall) {
+  return inlineMapNpcIds.value.has(stall.npcId)
+}
+
+// Mobile drawer state (separate from inline — phones get the full-screen sheet)
+const mobileMapOpen = ref(false)
+const mobileMapZoneId = ref<number | null>(null)
+const mobileMapCoords = ref<{ x: number; y: number } | null>(null)
+const mobileMapAetheryte = ref<string | null>(null)
+
+function openMobileMap(stall: VendorStall) {
+  mobileMapZoneId.value = stall.zoneId
+  mobileMapCoords.value = stall.coords
+  mobileMapAetheryte.value = stall.aetheryteName
+  mobileMapOpen.value = true
 }
 
 async function copyTp(aetheryteName: string | null) {
@@ -172,8 +187,9 @@ async function copyTp(aetheryteName: string | null) {
         <NpcStallHeader
           :stall="stall"
           :selected-count="stallSelectedCount(stall)"
+          :map-open="isMapOpen(stall)"
           @toggle-all="toggleStall(stall)"
-          @open-map="openMap(stall)"
+          @toggle-map="toggleInlineMap(stall)"
           @copy-tp="copyTp(stall.aetheryteName)"
         />
         <NpcItemRow
@@ -183,10 +199,17 @@ async function copyTp(aetheryteName: string | null) {
           :checked="isChecked(row.itemId)"
           @toggle="toggle(row.itemId)"
         />
+        <div v-if="isMapOpen(stall)" class="npc-inline-map" role="region" :aria-label="`地圖：NPC ${stall.npcId}`">
+          <ZoneMapInline
+            :zone-id="stall.zoneId"
+            :highlight-coords="stall.coords"
+          />
+        </div>
       </template>
     </div>
 
-    <!-- Mobile: stall card stack -->
+    <!-- Mobile: stall card stack (uses ZoneMapSheet drawer because the
+         small-screen viewport can't host an inline map well) -->
     <ul v-else class="npc-mobile" role="list">
       <NpcMobileStall
         v-for="stall in stalls"
@@ -195,16 +218,17 @@ async function copyTp(aetheryteName: string | null) {
         :selected-count="stallSelectedCount(stall)"
         @toggle-item="toggle"
         @toggle-stall="toggleStall(stall)"
-        @open-map="openMap(stall)"
+        @open-map="openMobileMap(stall)"
         @copy-tp="copyTp(stall.aetheryteName)"
       />
     </ul>
 
     <ZoneMapSheet
-      v-model="mapOpen"
-      :zone-id="mapZoneId"
-      :highlight-coords="mapCoords ?? undefined"
-      :aetheryte-name="mapAetheryte ?? undefined"
+      v-if="isMobile"
+      v-model="mobileMapOpen"
+      :zone-id="mobileMapZoneId"
+      :highlight-coords="mobileMapCoords ?? undefined"
+      :aetheryte-name="mobileMapAetheryte ?? undefined"
     />
   </section>
 </template>
@@ -228,8 +252,9 @@ export const NpcStallHeader = defineComponent({
   props: {
     stall: { type: Object as PropType<VendorStallType>, required: true },
     selectedCount: { type: Number, required: true },
+    mapOpen: { type: Boolean, default: false },
   },
-  emits: ['toggle-all', 'open-map', 'copy-tp'],
+  emits: ['toggle-all', 'toggle-map', 'copy-tp'],
   setup(props, { emit }) {
     const npcName = useNpcName(vueComputed(() => props.stall.npcId))
     const zoneName = useZoneName(vueComputed(() => props.stall.zoneId))
@@ -241,11 +266,10 @@ export const NpcStallHeader = defineComponent({
       return h(
         'div',
         {
-          class: ['npc-stall', { 'is-engaged': props.selectedCount > 0 }],
+          class: ['npc-stall', { 'is-engaged': props.selectedCount > 0, 'is-map-open': props.mapOpen }],
           role: 'rowheader',
         },
         [
-          h('span', { class: 'npc-stall__icon', 'aria-hidden': 'true' }, '⛟'),
           h('button', {
             type: 'button',
             class: 'npc-stall__select',
@@ -254,6 +278,7 @@ export const NpcStallHeader = defineComponent({
             onClick: () => emit('toggle-all'),
           }, [
             h('span', { class: ['npc-stall__select-box', { 'is-on': allOn, 'is-partial': partial }] }),
+            h('span', { class: 'npc-stall__npc-label' }, 'NPC'),
             h('span', { class: 'npc-stall__name' }, npcName.value),
             h('span', { class: 'npc-stall__sep', 'aria-hidden': 'true' }, '·'),
             h('span', { class: 'npc-stall__zone' }, zoneName.value),
@@ -280,8 +305,7 @@ export const NpcStallHeader = defineComponent({
               },
             },
             [
-              h('span', { 'aria-hidden': 'true', class: 'npc-stall__tp-glyph' }, '⎘'),
-              h('span', { class: 'npc-stall__tp-cmd' }, '/tp'),
+              h('span', { class: 'npc-stall__tp-cmd' }, '複製 /tp'),
               hasAeth
                 ? h('span', { class: 'npc-stall__tp-name' }, props.stall.aetheryteName as string)
                 : null,
@@ -291,14 +315,15 @@ export const NpcStallHeader = defineComponent({
             'button',
             {
               type: 'button',
-              class: 'npc-stall__map',
-              'aria-label': `查看 ${zoneName.value} 地圖`,
+              class: ['npc-stall__map', { 'is-open': props.mapOpen }],
+              'aria-label': props.mapOpen ? `收起 ${zoneName.value} 地圖` : `展開 ${zoneName.value} 地圖`,
+              'aria-expanded': props.mapOpen,
               onClick: (e: Event) => {
                 e.stopPropagation()
-                emit('open-map')
+                emit('toggle-map')
               },
             },
-            [h('span', { 'aria-hidden': 'true' }, '⊞'), ' 地圖'],
+            [props.mapOpen ? '收起地圖' : '展開地圖'],
           ),
         ],
       )
@@ -584,7 +609,7 @@ export const NpcMobileStall = defineComponent({
 /* === Stall header === */
 :deep(.npc-stall) {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 10px;
   padding: 9px 14px;
@@ -598,18 +623,21 @@ export const NpcMobileStall = defineComponent({
   border-top: none;
 }
 
-:deep(.npc-stall__icon) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: color-mix(in oklch, var(--app-craft) 16%, transparent);
+:deep(.npc-stall.is-map-open) {
+  background: color-mix(in oklch, var(--app-craft) 10%, var(--app-surface));
+}
+
+:deep(.npc-stall__npc-label) {
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
   color: var(--app-craft);
-  font-family: 'Apple Symbols', 'Segoe UI Symbol', 'Noto Sans Symbols 2',
-    'Symbola', ui-monospace, monospace;
-  font-size: 12px;
+  background: color-mix(in oklch, var(--app-craft) 14%, transparent);
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-right: 4px;
+  transform: translateY(-1px);
 }
 
 :deep(.npc-stall__select) {
@@ -743,17 +771,24 @@ export const NpcMobileStall = defineComponent({
   opacity: 0.75;
 }
 
-:deep(.npc-stall__tp-glyph) {
-  font-family: 'Apple Symbols', 'Segoe UI Symbol', 'Symbola', ui-monospace, monospace;
-  font-size: 11px;
-  opacity: 0.85;
-}
-
 :deep(.npc-stall__tp-cmd) {
   font-family: 'Fira Code', ui-monospace, monospace;
   font-size: 11px;
   letter-spacing: 0.04em;
   opacity: 0.78;
+}
+
+:deep(.npc-stall__map.is-open) {
+  background: color-mix(in oklch, var(--app-craft) 18%, transparent);
+  border-color: color-mix(in oklch, var(--app-craft) 60%, transparent);
+}
+
+/* Inline map row — sits below the stall's items, full-width within the
+ * table card. Cocoa wash to belong to the stall above. */
+.npc-inline-map {
+  padding: 12px 14px 14px;
+  background: color-mix(in oklch, var(--app-craft) 6%, var(--app-surface));
+  border-top: 1px dashed color-mix(in oklch, var(--app-craft) 25%, transparent);
 }
 
 /* === Item row === */

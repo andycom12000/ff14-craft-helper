@@ -1,10 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useZoneName } from '@/composables/useZoneName'
-import { getZoneMetaSync } from '@/services/zone-meta'
-import { convertToPixel, pixelToPercent } from '@/utils/map-coords'
 import { buildTpCommand } from '@/utils/ff14-map-link'
+import ZoneMapInline from '@/components/common/ZoneMapInline.vue'
 
 const props = defineProps<{
   modelValue: boolean
@@ -20,7 +18,6 @@ const props = defineProps<{
 const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
 
 const zoneName = useZoneName(() => props.zoneId ?? 0)
-const meta = computed(() => (props.zoneId ? getZoneMetaSync(props.zoneId) : null))
 
 async function copyTp() {
   if (!props.aetheryteName) return
@@ -31,25 +28,6 @@ async function copyTp() {
     ElMessage({ message: '複製失敗', type: 'error', duration: 1500 })
   }
 }
-const mapUrl = computed(() => {
-  const m = meta.value
-  if (!m?.mapAssetUrl) return ''
-  // xivapi.com v1 stopped serving the raw .tex path; route through the beta
-  // asset endpoint (same pattern used by NodeMinimap / icon-url).
-  return `https://beta.xivapi.com/api/1/asset/${m.mapAssetUrl}?format=png`
-})
-
-const markerStyle = computed(() => {
-  if (!props.highlightCoords || !meta.value) return null
-  const px = convertToPixel({
-    rawX: props.highlightCoords.x,
-    rawY: props.highlightCoords.y,
-    offsetX: 0,
-    offsetY: 0,
-    sizeFactor: meta.value.sizeFactor,
-  })
-  return pixelToPercent(px.px, px.py)
-})
 </script>
 
 <template>
@@ -78,23 +56,11 @@ const markerStyle = computed(() => {
           <span class="zms__tp-name">{{ aetheryteName }}</span>
         </button>
       </div>
-      <div class="zms__canvas" data-testid="zone-map-canvas">
-        <img
-          v-if="mapUrl"
-          :src="mapUrl"
-          :alt="`${zoneName} 地圖`"
-          loading="lazy"
-          decoding="async"
-          class="zms__bg"
-        />
-        <div
-          v-if="markerStyle"
-          class="zms__marker"
-          :style="markerStyle"
-          aria-hidden="true"
-          data-testid="zone-map-marker"
-        />
-      </div>
+      <ZoneMapInline
+        class="zms__map"
+        :zone-id="zoneId"
+        :highlight-coords="highlightCoords"
+      />
     </div>
   </el-drawer>
 </template>
@@ -171,37 +137,10 @@ const markerStyle = computed(() => {
   font-weight: 500;
 }
 
-.zms__canvas {
-  position: relative;
+.zms__map {
   flex: 1;
   min-height: 0;
-  aspect-ratio: 16 / 11;
-  width: 100%;
   max-height: 100%;
-  background: var(--app-cream-emphasis);
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid var(--app-border);
-}
-
-.zms__bg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.zms__marker {
-  position: absolute;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: var(--app-craft);
-  border: 3px solid var(--app-cream-surface);
-  outline: 3px solid var(--app-toast-gold);
-  transform: translate(-50%, -50%);
-  box-shadow: 0 2px 8px oklch(0.28 0.04 55 / 0.4);
 }
 </style>
 
