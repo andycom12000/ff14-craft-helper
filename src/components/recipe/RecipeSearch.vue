@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, watch, onUnmounted } from 'vue'
+import { ref } from 'vue'
 import { Search } from '@element-plus/icons-vue'
-import { searchRecipes, type RecipeSearchResult } from '@/api/xivapi'
+import { type RecipeSearchResult } from '@/api/xivapi'
+import { useRecipeSearch } from '@/composables/useRecipeSearch'
 import ItemName from '@/components/common/ItemName.vue'
 import { trackEvent } from '@/utils/analytics'
 
@@ -12,55 +13,23 @@ const emit = defineEmits<{
 }>()
 
 const query = ref('')
-const results = ref<RecipeSearchResult[]>([])
-const loading = ref(false)
 const selectedJob = ref('')
 const levelMin = ref<number | undefined>(undefined)
 const levelMax = ref<number | undefined>(undefined)
 
-let debounceTimer: ReturnType<typeof setTimeout> | null = null
-let searchSeq = 0
-
-watch(
-  [query, selectedJob, levelMin, levelMax],
-  ([value]) => {
-    if (debounceTimer) clearTimeout(debounceTimer)
-
-    const trimmed = String(value).trim()
-    if (!trimmed) {
-      results.value = []
-      return
-    }
-
-    const seq = ++searchSeq
-    debounceTimer = setTimeout(async () => {
-      loading.value = true
-      try {
-        const res = await searchRecipes(trimmed, {
-          job: selectedJob.value || undefined,
-          rlvMin: levelMin.value ?? undefined,
-          rlvMax: levelMax.value ?? undefined,
-        })
-        // Drop stale responses if a newer search has been queued.
-        if (seq !== searchSeq) return
-        results.value = res
-      } catch {
-        if (seq === searchSeq) results.value = []
-      } finally {
-        if (seq === searchSeq) {
-          loading.value = false
-          trackEvent('search_query', {
-            query: trimmed,
-            result_count: results.value.length,
-            source: 'recipe',
-          })
-        }
-      }
-    }, 200)
+const { results, loading } = useRecipeSearch({
+  query,
+  job: selectedJob,
+  levelMin,
+  levelMax,
+  onComplete: (res, q) => {
+    trackEvent('search_query', {
+      query: q,
+      result_count: res.length,
+      source: 'recipe',
+    })
   },
-)
-
-onUnmounted(() => { if (debounceTimer) clearTimeout(debounceTimer) })
+})
 
 function handleRowClick(row: RecipeSearchResult) {
   emit('select', row.id)

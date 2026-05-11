@@ -60,8 +60,10 @@ export async function searchRecipes(
     })
 
     // Need iconId for each result — batch-load items map and look up.
-    const items = await loadItems(getLocale())
-    const fallbackItems = await loadItems('zh-TW')
+    const [items, fallbackItems] = await Promise.all([
+      loadItems(getLocale()),
+      loadItems('zh-TW'),
+    ])
 
     return results.map((r) => {
       const item = items.get(r.itemId) ?? fallbackItems.get(r.itemId)

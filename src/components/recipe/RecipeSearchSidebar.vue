@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import type { InputInstance } from 'element-plus'
 import { Search, Close } from '@element-plus/icons-vue'
-import { searchRecipes, getRecipe, type RecipeSearchResult } from '@/api/xivapi'
+import { getRecipe, type RecipeSearchResult } from '@/api/xivapi'
+import { useRecipeSearch } from '@/composables/useRecipeSearch'
 import type { Recipe } from '@/stores/recipe'
 import ItemName from '@/components/common/ItemName.vue'
 
@@ -15,14 +16,19 @@ const emit = defineEmits<{
 }>()
 
 const query = ref('')
-const results = ref<RecipeSearchResult[]>([])
-const loading = ref(false)
 const addingIds = ref(new Set<number>())
 const selectedJob = ref('')
 const levelMin = ref<number | undefined>(undefined)
 const levelMax = ref<number | undefined>(undefined)
 const searchInputRef = ref<InputInstance>()
 const panelRef = ref<HTMLElement>()
+
+const { results, loading } = useRecipeSearch({
+  query,
+  job: selectedJob,
+  levelMin,
+  levelMax,
+})
 
 watch(() => props.modelValue, (open) => {
   if (open) nextTick(() => searchInputRef.value?.focus())
@@ -55,40 +61,6 @@ function onDialogKeydown(e: KeyboardEvent) {
     first.focus()
   }
 }
-
-let debounceTimer: ReturnType<typeof setTimeout> | null = null
-let searchSeq = 0
-
-watch(
-  [query, selectedJob, levelMin, levelMax],
-  ([value]) => {
-    if (debounceTimer) clearTimeout(debounceTimer)
-    const trimmed = String(value).trim()
-    if (!trimmed) {
-      results.value = []
-      return
-    }
-    const seq = ++searchSeq
-    debounceTimer = setTimeout(async () => {
-      loading.value = true
-      try {
-        const res = await searchRecipes(trimmed, {
-          job: selectedJob.value || undefined,
-          rlvMin: levelMin.value ?? undefined,
-          rlvMax: levelMax.value ?? undefined,
-        })
-        if (seq !== searchSeq) return
-        results.value = res
-      } catch {
-        if (seq === searchSeq) results.value = []
-      } finally {
-        if (seq === searchSeq) loading.value = false
-      }
-    }, 200)
-  },
-)
-
-onUnmounted(() => { if (debounceTimer) clearTimeout(debounceTimer) })
 
 async function addRecipe(row: RecipeSearchResult) {
   if (addingIds.value.has(row.id)) return
