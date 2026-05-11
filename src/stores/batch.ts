@@ -263,28 +263,16 @@ export const useBatchStore = defineStore('batch', () => {
       else merged.set(k, { ...item })
     }
 
-    // Build a quick lookup for NPC-selected candidates
-    const npcCandidateMap = new Map<number, NpcPurchaseCandidate>()
-    for (const c of results.value.npcPurchaseCandidates) {
-      if (selectedNpcIds.value.has(c.itemId)) npcCandidateMap.set(c.itemId, c)
-    }
-
-    const applyNpcOverrides = (items: ShoppingItem[]) => {
-      for (const item of items) {
-        const candidate = npcCandidateMap.get(item.itemId)
-        if (candidate) {
-          item.unitPrice = candidate.npcPrice
-          item.server = 'NPC'
-          item.source = 'npc'
-        }
-      }
-    }
+    // Items committed to NPC purchase are owned by VendorRoster and must NOT
+    // appear in the market shopping list at all. Filter their itemIds out.
+    const npcSkip = selectedNpcIds.value
 
     // Quick-buy mode: project quickBuyMaterials through current quality overrides.
     // Materials without market data at the effective quality are skipped so
     // the row count matches what the pricing pipeline actually found.
     if (results.value.quickBuyMaterials) {
       for (const m of results.value.quickBuyMaterials) {
+        if (npcSkip.has(m.itemId)) continue
         const wantHq = !!m.canHq && (qualityOverrides.value[m.itemId] ?? bulkQualityMode.value) === 'hq'
         const priced = wantHq ? m.hq : m.nq
         if (!priced) continue
@@ -294,14 +282,14 @@ export const useBatchStore = defineStore('batch', () => {
           unitPrice: priced.unitPrice, server: priced.server,
         })
       }
-      const rows = Array.from(merged.values())
-      applyNpcOverrides(rows)
-      return rows
+      return Array.from(merged.values())
     }
 
     for (const g of results.value.serverGroups) {
       for (const item of g.items) {
-        if (!selected.has(item.itemId)) push(item)
+        if (selected.has(item.itemId)) continue
+        if (npcSkip.has(item.itemId)) continue
+        push(item)
       }
     }
 
@@ -310,25 +298,21 @@ export const useBatchStore = defineStore('batch', () => {
       if (!selected.has(c.itemId)) continue
       for (const raw of c.rawMaterials) {
         if (isCrystal(raw.itemId)) continue
+        if (npcSkip.has(raw.itemId)) continue
         push(raw)
       }
     }
-    const rows = Array.from(merged.values())
-    applyNpcOverrides(rows)
-    return rows
+    return Array.from(merged.values())
   })
 
-  // In quick-buy mode serverGroups/grandTotal are computed view-side from
-  // finalShoppingItems so the user can toggle NQ/HQ without re-running.
-  // Macro mode falls through to the pre-computed results.grandTotal.
+  // Always derive from finalShoppingItems so quick-buy quality toggles AND
+  // macro-mode NPC commits (which remove items from the market shopping list)
+  // both reflect in the total without re-running the pipeline.
   const effectiveGrandTotal = computed(() => {
     if (!results.value) return 0
-    if (results.value.quickBuyMaterials) {
-      return finalShoppingItems.value.reduce(
-        (sum, it) => sum + it.unitPrice * it.amount, 0,
-      )
-    }
-    return results.value.grandTotal
+    return finalShoppingItems.value.reduce(
+      (sum, it) => sum + it.unitPrice * it.amount, 0,
+    )
   })
 
   const finalCrystals = computed<CrystalSummary[]>(() => {

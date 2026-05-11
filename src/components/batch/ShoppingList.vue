@@ -4,7 +4,7 @@ import { ElMessage } from 'element-plus'
 import type { CrystalSummary, ServerGroup, MaterialWithPrice } from '@/services/shopping-list'
 import { sortServerGroupsHomeLast } from '@/services/shopping-list'
 import type { WorldPriceSummary } from '@/api/universalis'
-import type { BuyFinishedDecision, SelfCraftCandidate, NpcPurchaseCandidate } from '@/stores/batch'
+import type { BuyFinishedDecision, SelfCraftCandidate } from '@/stores/batch'
 import { useBatchStore } from '@/stores/batch'
 import { useSettingsStore } from '@/stores/settings'
 import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
@@ -12,8 +12,6 @@ import { useIsMobile } from '@/composables/useMediaQuery'
 import CrossWorldPriceDetail, { type WorldPriceRow } from '@/components/common/CrossWorldPriceDetail.vue'
 import ItemName from '@/components/common/ItemName.vue'
 import SelfCraftSuggestions from './SelfCraftSuggestions.vue'
-import NpcPurchaseSuggestions from './NpcPurchaseSuggestions.vue'
-import NpcShoppingSection from './NpcShoppingSection.vue'
 import NqhqSplitTip from './NqhqSplitTip.vue'
 import { formatGil } from '@/utils/format'
 
@@ -27,7 +25,6 @@ const props = defineProps<{
   buyFinishedItems: BuyFinishedDecision[]
   grandTotal: number
   crossWorldCache?: Map<number, WorldPriceSummary[]>
-  npcPurchaseCandidates: NpcPurchaseCandidate[]
 }>()
 
 const batchStore = useBatchStore()
@@ -47,8 +44,11 @@ function regroupFinalItems(items: typeof batchStore.finalShoppingItems): ServerG
 }
 
 const effectiveServerGroups = computed<ServerGroup[]>(() => {
-  const items = batchStore.finalShoppingItems
-  const groups = items.length === 0 ? props.serverGroups : regroupFinalItems(items)
+  // Always derive from finalShoppingItems — it's the authoritative view-model
+  // (already accounts for selfCraft + NPC commits). Empty is a legitimate
+  // state (e.g. when every material was claimed by VendorRoster) and must
+  // render as no server groups, not fall back to the raw pipeline output.
+  const groups = regroupFinalItems(batchStore.finalShoppingItems)
   return sortServerGroupsHomeLast(groups, settingsStore.server)
 })
 
@@ -176,7 +176,6 @@ function isRowChecked(row: MaterialWithPrice): boolean {
 <template>
   <div class="shopping-list">
     <SelfCraftSuggestions :candidates="selfCraftCandidates" />
-    <NpcPurchaseSuggestions :candidates="npcPurchaseCandidates" />
 
     <!-- Crystals -->
     <div v-if="crystals.length > 0" class="crystal-section">
@@ -231,13 +230,9 @@ function isRowChecked(row: MaterialWithPrice): boolean {
     <!-- First-time tip explaining same-itemId NQ + HQ pairs -->
     <NqhqSplitTip :items="allShoppingItems" />
 
-    <!-- Server groups -->
+    <!-- Server groups (NPC commits go through VendorRoster, not here) -->
     <div class="server-grid">
     <div v-for="group in effectiveServerGroups" :key="group.server" class="server-group">
-      <template v-if="group.server === 'NPC'">
-        <NpcShoppingSection :group="group" :candidates="npcPurchaseCandidates" />
-      </template>
-      <template v-else>
         <div class="server-header">
           <div class="server-info">
             <el-tag v-if="!isMobile" type="primary" size="small">{{ group.server }}</el-tag>
@@ -431,7 +426,6 @@ function isRowChecked(row: MaterialWithPrice): boolean {
             </div>
           </li>
         </ul>
-      </template>
     </div>
 
     </div>
