@@ -63,6 +63,7 @@ function toggleAll() {
     </summary>
 
     <div class="sug-body">
+      <div class="sc-list" role="table">
       <div
         v-for="row in candidates"
         :key="row.itemId"
@@ -99,6 +100,7 @@ function toggleAll() {
           <span class="sc-row__craft">{{ formatGil(row.craftCost) }}</span>
         </span>
         <span class="sc-row__savings">−{{ Math.round(row.savingsRatio * 100) }}%</span>
+      </div>
       </div>
     </div>
   </details>
@@ -188,7 +190,15 @@ function toggleAll() {
 
 .sug-body {
   padding-top: 6px;
-  padding-left: 24px;
+}
+
+/* === Card surface (matches VendorRoster .npc-list) =================== */
+.sc-list {
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--app-surface);
+  box-shadow: 0 1px 2px oklch(0.40 0.05 60 / 0.04);
 }
 
 /* === Row ============================================================= */
@@ -196,14 +206,14 @@ function toggleAll() {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 0;
-  border-top: 1px solid color-mix(in oklch, var(--app-border) 50%, transparent);
+  padding: 7px 14px;
+  border-top: 1px solid var(--app-border);
+  background: var(--app-surface);
   cursor: pointer;
   transition: background 140ms ease-out;
 }
 .sc-row:first-child {
   border-top: 0;
-  padding-top: 3px;
 }
 .sc-row:hover {
   background: color-mix(in oklch, var(--app-craft) 6%, var(--app-surface));
