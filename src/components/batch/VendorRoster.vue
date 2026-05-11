@@ -179,6 +179,7 @@ async function copyTp(aetheryteName: string | null) {
         <span class="th-icon" />
         <span class="th-name" role="columnheader">素材</span>
         <span class="th-qty" role="columnheader">數量</span>
+        <span class="th-filler" aria-hidden="true" />
         <span class="th-compare" role="columnheader">市場 → NPC</span>
         <span class="th-savings" role="columnheader">省</span>
       </div>
@@ -381,6 +382,7 @@ export const NpcItemRow = defineComponent({
               : null,
           ]),
           h('span', { class: 'npc-row__qty' }, `×${props.row.amount}`),
+          h('span', { class: 'npc-row__filler', 'aria-hidden': 'true' }),
           h('span', { class: 'npc-row__compare' }, [
             h(
               'span',
@@ -518,7 +520,9 @@ export const NpcMobileStall = defineComponent({
 <style scoped>
 .npc-block {
   margin-bottom: 20px;
-  max-width: 1080px;
+  /* Match SelfCraftSuggestions visual mass (data is sparse — wider card
+     reads as empty on ultra-wide viewports). */
+  max-width: 880px;
 }
 
 /* === Header (matches SelfCraftSuggestions block-header rhythm) === */
@@ -587,11 +591,26 @@ export const NpcMobileStall = defineComponent({
   box-shadow: 0 1px 2px oklch(0.40 0.05 60 / 0.04);
 }
 
-.npc-thead {
+/* Grid columns shared with .npc-row so headers, items, and totals line up.
+ * Name uses auto-width (hugs content), filler absorbs slack — same pattern
+ * as BomDecisionRow. Total content width on a 1-row sample stays under 700px,
+ * which is why .npc-block caps at 880px (avoids the "empty bay" effect). */
+.npc-thead,
+:deep(.npc-row) {
   display: grid;
-  grid-template-columns: 36px 32px minmax(0, 1fr) 56px 200px 64px;
+  grid-template-columns:
+    32px                      /* checkbox */
+    28px                      /* icon */
+    minmax(140px, max-content) /* name (hugs content, min 140px) */
+    56px                      /* qty */
+    minmax(0, 1fr)            /* filler */
+    140px                     /* cost-compare */
+    56px;                     /* savings */
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+}
+
+.npc-thead {
   padding: 8px 14px;
   background: oklch(0.955 0.028 80);
   border-bottom: 1px solid var(--app-border);
@@ -602,6 +621,7 @@ export const NpcMobileStall = defineComponent({
 }
 
 .th-qty,
+.th-compare,
 .th-savings {
   text-align: right;
 }
@@ -792,12 +812,9 @@ export const NpcMobileStall = defineComponent({
 }
 
 /* === Item row === */
+/* (Grid columns inherited from the shared .npc-thead, :deep(.npc-row) block above.) */
 :deep(.npc-row) {
-  display: grid;
-  grid-template-columns: 36px 32px minmax(0, 1fr) 56px 200px 64px;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 14px;
+  padding: 7px 14px;
   border-top: 1px solid var(--app-border);
   background: var(--app-surface);
   cursor: pointer;
