@@ -55,6 +55,25 @@ function ensurePool(): void {
       if (data.requestId === undefined) return
       handleRoutedResponse(slot, data)
     })
+
+    w.addEventListener('error', (e: Event) => {
+      if (!(e instanceof ErrorEvent)) return
+      const message = e.message || 'Solver worker crashed'
+      trackError(`solver_worker_error: ${message}`)
+      // Catastrophic failure: tear down pool and reject everything in flight.
+      // Next call to ensurePool will rebuild from scratch.
+      const slotsSnapshot = slots.slice()
+      for (const s of slotsSnapshot) {
+        try { s.worker.terminate() } catch { /* ignore */ }
+      }
+      slots.length = 0
+      readySlotCount = 0
+      wasmStatus = 'loading'
+      wasmErrorMessage = message
+      for (const [, pending] of pendingRequests) pending.reject(new Error(message))
+      pendingRequests.clear()
+      taskQueue.length = 0
+    })
   }
 }
 
