@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "buildTime": "2026-05-10T10:21:51.331Z",
+  "buildTime": "2026-05-11T15:07:37.414Z",
   "locales": [
     "zh-TW",
     "zh-CN",
@@ -11,7 +11,7 @@
   "sources": {
     "zh-TW": {
       "repo": "andycom12000/ffxiv-datamining-tw",
-      "commit": "aaa607eef22a14cf1dc69857a9c80b9daf7d68df"
+      "commit": "04977eeeb72cdb48bcab510c650c403b4c173f57"
     },
     "zh-CN": {
       "repo": "thewakingsands/ffxiv-datamining-cn",
