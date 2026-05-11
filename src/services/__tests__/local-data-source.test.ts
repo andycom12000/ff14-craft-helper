@@ -497,4 +497,59 @@ describe('local-data-source: searchRecipesByName', () => {
     expect(results.length).toBeLessThanOrEqual(50)
     expect(results.length).toBe(50)
   })
+
+  it('applies filters before the SEARCH_LIMIT cap', async () => {
+    const mod = await freshModule()
+    const items: ItemTuple[] = []
+    const recipes: unknown[] = []
+    // 80 items starting with "ore". Highest-level 50 items get low rlv;
+    // lower-level 30 items get high rlv. Without server-side filtering the
+    // first 50 results would all fail an rlv>=300 filter and return [].
+    for (let i = 0; i < 80; i++) {
+      const id = 10000 + i
+      items.push([id, `ore-${i}`, 500 - i, 1, 1])
+      recipes.push({
+        id: 50000 + i,
+        itemResult: id,
+        amountResult: 1,
+        craftType: i % 8, // spread across all 8 jobs
+        rlv: i < 50 ? 100 : 500, // top-50 by item.level have rlv=100
+        canHq: true,
+        materialQualityFactor: 50,
+        difficultyFactor: 100,
+        qualityFactor: 100,
+        durabilityFactor: 100,
+        ingredients: [],
+      })
+    }
+    const { impl } = makeFetchMock({
+      items: { en: makeItemsFile(items) },
+      recipes,
+    })
+    vi.spyOn(globalThis, 'fetch').mockImplementation(impl)
+
+    // rlvMin filter — the matches sit past the first 50 candidates by level,
+    // so this only works if filtering happens before the cap.
+    const highRlv = await mod.searchRecipesByName('ore', 'en', { rlvMin: 300 })
+    expect(highRlv.length).toBe(30)
+    expect(highRlv.every((r) => r.rlv >= 300)).toBe(true)
+
+    // rlvMax filter
+    const lowRlv = await mod.searchRecipesByName('ore', 'en', { rlvMax: 200 })
+    expect(lowRlv.every((r) => r.rlv <= 200)).toBe(true)
+    expect(lowRlv.length).toBe(50) // still capped
+
+    // Job filter
+    const crpOnly = await mod.searchRecipesByName('ore', 'en', { job: 'CRP' })
+    expect(crpOnly.every((r) => r.job === 'CRP')).toBe(true)
+    // 80 / 8 = 10 CRP recipes
+    expect(crpOnly.length).toBe(10)
+
+    // Combined filters
+    const combined = await mod.searchRecipesByName('ore', 'en', {
+      job: 'CRP',
+      rlvMin: 300,
+    })
+    expect(combined.every((r) => r.job === 'CRP' && r.rlv >= 300)).toBe(true)
+  })
 })

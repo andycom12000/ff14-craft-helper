@@ -8,7 +8,16 @@ import {
   searchRecipesByName,
 } from '@/services/local-data-source'
 import { getIconUrl } from '@/utils/icon-url'
-import { CRAFT_TYPE_TO_JOB } from '@/utils/jobs'
+import { CRAFT_TYPE_TO_JOB, JOB_ABBR } from '@/utils/jobs'
+
+export interface RecipeSearchOptions {
+  /** Chinese short-form job name (e.g. '木工') or DoH abbreviation ('CRP'). */
+  job?: string
+  /** Inclusive minimum recipe level (rlv). */
+  rlvMin?: number
+  /** Inclusive maximum recipe level (rlv). */
+  rlvMax?: number
+}
 
 // Chinese short-form job names (matching what the legacy tnze API returned).
 // Components filter on these strings, so we must preserve them in searchRecipes output.
@@ -38,9 +47,17 @@ export interface RecipeSearchResult {
 
 export async function searchRecipes(
   query: string,
+  options?: RecipeSearchOptions,
 ): Promise<RecipeSearchResult[]> {
   try {
-    const results = await searchRecipesByName(query, getLocale())
+    const jobAbbr = options?.job
+      ? (JOB_ABBR[options.job] ?? options.job)
+      : undefined
+    const results = await searchRecipesByName(query, getLocale(), {
+      job: jobAbbr,
+      rlvMin: options?.rlvMin,
+      rlvMax: options?.rlvMax,
+    })
 
     // Need iconId for each result — batch-load items map and look up.
     const items = await loadItems(getLocale())

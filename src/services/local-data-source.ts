@@ -357,9 +357,19 @@ interface Candidate {
   level: number
 }
 
+export interface RecipeSearchFilters {
+  /** DoH job abbreviation, e.g. 'CRP'. */
+  job?: string
+  /** Inclusive minimum recipe level (rlv). */
+  rlvMin?: number
+  /** Inclusive maximum recipe level (rlv). */
+  rlvMax?: number
+}
+
 export async function searchRecipesByName(
   query: string,
   locale?: Locale,
+  filters?: RecipeSearchFilters,
 ): Promise<RecipeSearchResult[]> {
   const q = normalize(query)
   if (!q) return []
@@ -367,7 +377,14 @@ export async function searchRecipesByName(
   const loc = locale ?? getLocale()
   const [items, recipes] = await Promise.all([loadItems(loc), loadRecipes()])
 
-  const maxCandidates = SEARCH_LIMIT * 3
+  const jobFilter = filters?.job
+  const rlvMin = filters?.rlvMin
+  const rlvMax = filters?.rlvMax
+
+  // Walk every matching item, then sort. Filters apply per-recipe further down,
+  // so we can't cap candidates early — a narrow filter would otherwise hide
+  // matches that live past the cap. With items in the low thousands this is
+  // still cheap enough to run on every keystroke.
   const candidates: Candidate[] = []
 
   for (const [id, item] of items) {
@@ -376,7 +393,6 @@ export async function searchRecipesByName(
     const includes = !starts && normName.includes(q)
     if (!starts && !includes) continue
     candidates.push({ itemId: id, name: item.name, startsWith: starts, level: item.level })
-    if (candidates.length >= maxCandidates) break
   }
 
   candidates.sort((a, b) => {
@@ -397,11 +413,15 @@ export async function searchRecipesByName(
     const rs = recipesByResult.get(cand.itemId)
     if (!rs || rs.length === 0) continue
     for (const recipe of rs) {
+      const job = CRAFT_TYPE_TO_JOB[recipe.craftType] ?? 'CRP'
+      if (jobFilter && job !== jobFilter) continue
+      if (rlvMin != null && recipe.rlv < rlvMin) continue
+      if (rlvMax != null && recipe.rlv > rlvMax) continue
       results.push({
         id: recipe.id,
         itemId: cand.itemId,
         name: cand.name,
-        job: CRAFT_TYPE_TO_JOB[recipe.craftType] ?? 'CRP',
+        job,
         rlv: recipe.rlv,
         canHq: recipe.canHq,
         materialQualityFactor: recipe.materialQualityFactor,

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from 'vue'
+import { ref, watch, onUnmounted } from 'vue'
 import { Search } from '@element-plus/icons-vue'
 import { searchRecipes, type RecipeSearchResult } from '@/api/xivapi'
 import ItemName from '@/components/common/ItemName.vue'
@@ -12,55 +12,53 @@ const emit = defineEmits<{
 }>()
 
 const query = ref('')
-const allResults = ref<RecipeSearchResult[]>([])
+const results = ref<RecipeSearchResult[]>([])
 const loading = ref(false)
 const selectedJob = ref('')
 const levelMin = ref<number | undefined>(undefined)
 const levelMax = ref<number | undefined>(undefined)
 
-const filteredResults = computed(() => {
-  let list = allResults.value
-  if (selectedJob.value) {
-    list = list.filter(r => r.job === selectedJob.value)
-  }
-  if (levelMin.value != null) {
-    list = list.filter(r => r.level >= levelMin.value!)
-  }
-  if (levelMax.value != null) {
-    list = list.filter(r => r.level <= levelMax.value!)
-  }
-  return list
-})
-
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
+let searchSeq = 0
 
-watch(query, (value) => {
-  if (debounceTimer) {
-    clearTimeout(debounceTimer)
-  }
+watch(
+  [query, selectedJob, levelMin, levelMax],
+  ([value]) => {
+    if (debounceTimer) clearTimeout(debounceTimer)
 
-  const trimmed = value.trim()
-  if (!trimmed) {
-    allResults.value = []
-    return
-  }
-
-  debounceTimer = setTimeout(async () => {
-    loading.value = true
-    try {
-      allResults.value = await searchRecipes(trimmed)
-    } catch {
-      allResults.value = []
-    } finally {
-      loading.value = false
-      trackEvent('search_query', {
-        query: trimmed,
-        result_count: filteredResults.value.length,
-        source: 'recipe',
-      })
+    const trimmed = String(value).trim()
+    if (!trimmed) {
+      results.value = []
+      return
     }
-  }, 200)
-})
+
+    const seq = ++searchSeq
+    debounceTimer = setTimeout(async () => {
+      loading.value = true
+      try {
+        const res = await searchRecipes(trimmed, {
+          job: selectedJob.value || undefined,
+          rlvMin: levelMin.value ?? undefined,
+          rlvMax: levelMax.value ?? undefined,
+        })
+        // Drop stale responses if a newer search has been queued.
+        if (seq !== searchSeq) return
+        results.value = res
+      } catch {
+        if (seq === searchSeq) results.value = []
+      } finally {
+        if (seq === searchSeq) {
+          loading.value = false
+          trackEvent('search_query', {
+            query: trimmed,
+            result_count: results.value.length,
+            source: 'recipe',
+          })
+        }
+      }
+    }, 200)
+  },
+)
 
 onUnmounted(() => { if (debounceTimer) clearTimeout(debounceTimer) })
 
@@ -90,7 +88,7 @@ function handleRowClick(row: RecipeSearchResult) {
     </div>
 
     <el-skeleton
-      v-if="loading && allResults.length === 0"
+      v-if="loading && results.length === 0"
       :rows="5"
       animated
       style="margin-top: 12px"
@@ -98,7 +96,7 @@ function handleRowClick(row: RecipeSearchResult) {
     <el-table
       v-else
       v-loading="loading"
-      :data="filteredResults"
+      :data="results"
       style="width: 100%; margin-top: 12px"
       highlight-current-row
       @row-click="handleRowClick"
