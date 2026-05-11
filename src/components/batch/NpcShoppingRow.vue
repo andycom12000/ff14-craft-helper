@@ -4,7 +4,7 @@ import type { MaterialWithPrice } from '@/services/shopping-list'
 import type { NpcPurchaseCandidate } from '@/stores/batch'
 import { useZoneName } from '@/composables/useZoneName'
 import { useNpcName } from '@/composables/useNpcName'
-import { buildTpCommand, buildMapFlagLink } from '@/utils/ff14-map-link'
+import { buildTpCommand } from '@/utils/ff14-map-link'
 import { formatGil } from '@/utils/format'
 import ItemName from '@/components/common/ItemName.vue'
 
@@ -15,7 +15,10 @@ const props = defineProps<{
   done: boolean     // in batchStore.doneNpcIds
 }>()
 
-const emit = defineEmits<{ 'toggle-done': [itemId: number] }>()
+const emit = defineEmits<{
+  'toggle-done': [itemId: number]
+  'open-map': [zoneId: number, coords: { x: number; y: number }]
+}>()
 
 const zoneId = () => props.candidate?.zoneId ?? 0
 const npcId = () => props.candidate?.npcId ?? 0
@@ -37,15 +40,10 @@ async function copyTp() {
   }
 }
 
-async function copyFlag() {
+function openMap() {
   if (!props.candidate) return
   const { x, y } = props.candidate.coords
-  try {
-    await navigator.clipboard.writeText(buildMapFlagLink(zoneName.value, x, y))
-    ElMessage({ message: '已複製地圖座標', type: 'success', duration: 1500 })
-  } catch {
-    ElMessage({ message: '複製失敗', type: 'error', duration: 1500 })
-  }
+  emit('open-map', props.candidate.zoneId, { x, y })
 }
 </script>
 
@@ -98,7 +96,7 @@ async function copyFlag() {
         <button type="button" class="npc-action-btn" :aria-label="`複製 /tp 指令：${zoneName}`" @click.stop="copyTp">
           <span aria-hidden="true" class="npc-action-btn__icon">⌘</span> 複製 /tp
         </button>
-        <button type="button" class="npc-action-btn" aria-label="複製地圖座標" @click.stop="copyFlag">
+        <button type="button" class="npc-action-btn" aria-label="開啟地圖" @click.stop="openMap">
           <span aria-hidden="true" class="npc-action-btn__icon">⌖</span> 地圖
         </button>
       </template>

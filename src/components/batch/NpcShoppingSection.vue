@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { ServerGroup, MaterialWithPrice } from '@/services/shopping-list'
 import type { NpcPurchaseCandidate } from '@/stores/batch'
 import { useBatchStore } from '@/stores/batch'
 import { formatGil } from '@/utils/format'
 import NpcShoppingRow from './NpcShoppingRow.vue'
+import ZoneMapSheet from '@/components/bom/ZoneMapSheet.vue'
 
 const props = defineProps<{
   group: ServerGroup
@@ -37,6 +38,17 @@ function handleToggleDone(itemId: number) {
   const wasDone = batchStore.doneNpcIds.has(itemId)
   batchStore.markNpcPurchaseDone(itemId, !wasDone)
 }
+
+// Map sheet — one drawer shared across all rows in this section
+const mapSheetOpen = ref(false)
+const mapSheetZoneId = ref<number | null>(null)
+const mapSheetCoords = ref<{ x: number; y: number } | null>(null)
+
+function handleOpenMap(zoneId: number, coords: { x: number; y: number }) {
+  mapSheetZoneId.value = zoneId
+  mapSheetCoords.value = coords
+  mapSheetOpen.value = true
+}
 </script>
 
 <template>
@@ -61,8 +73,15 @@ function handleToggleDone(itemId: number) {
         :merged="isMergedWithPrev(i)"
         :done="isDone(row)"
         @toggle-done="handleToggleDone"
+        @open-map="handleOpenMap"
       />
     </ul>
+
+    <ZoneMapSheet
+      v-model="mapSheetOpen"
+      :zone-id="mapSheetZoneId"
+      :highlight-coords="mapSheetCoords ?? undefined"
+    />
   </div>
 </template>
 
