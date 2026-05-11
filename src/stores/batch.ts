@@ -251,35 +251,52 @@ export const useBatchStore = defineStore('batch', () => {
     if (!results.value) return [] as ShoppingItem[]
     const selected = selectedSelfCraftIds.value
 
+    // Build a fast lookup for NPC-committed candidates so we can override the
+    // shopping row's server / source / price / vendor info as we push.
+    const npcCommitMap = new Map<number, NpcPurchaseCandidate>()
+    for (const c of results.value.npcPurchaseCandidates) {
+      if (selectedNpcIds.value.has(c.itemId)) npcCommitMap.set(c.itemId, c)
+    }
+
     // Aggregate by (itemId, type, server) so the same material needed by
     // multiple selected candidates (or by candidates + remaining targets)
     // shows as one row with a summed amount.
     const merged = new Map<string, ShoppingItem>()
     const key = (i: ShoppingItem) => `${i.itemId}|${i.type}|${i.server ?? ''}`
-    const push = (item: ShoppingItem) => {
+    const push = (raw: ShoppingItem) => {
+      // Apply NPC commit override before merging so committed items land in
+      // their own per-vendor group (`server = 'npc:<id>'`).
+      const candidate = npcCommitMap.get(raw.itemId)
+      const item: ShoppingItem = candidate
+        ? {
+            ...raw,
+            unitPrice: candidate.npcPrice,
+            server: `npc:${candidate.npcId}`,
+            source: 'npc',
+            npcId: candidate.npcId,
+            zoneId: candidate.zoneId,
+            aetheryteName: candidate.aetheryteName,
+            coords: candidate.coords,
+          }
+        : { ...raw }
       const k = key(item)
       const existing = merged.get(k)
       if (existing) existing.amount += item.amount
-      else merged.set(k, { ...item })
+      else merged.set(k, item)
     }
-
-    // Items committed to NPC purchase are owned by VendorRoster and must NOT
-    // appear in the market shopping list at all. Filter their itemIds out.
-    const npcSkip = selectedNpcIds.value
 
     // Quick-buy mode: project quickBuyMaterials through current quality overrides.
     // Materials without market data at the effective quality are skipped so
     // the row count matches what the pricing pipeline actually found.
     if (results.value.quickBuyMaterials) {
       for (const m of results.value.quickBuyMaterials) {
-        if (npcSkip.has(m.itemId)) continue
         const wantHq = !!m.canHq && (qualityOverrides.value[m.itemId] ?? bulkQualityMode.value) === 'hq'
         const priced = wantHq ? m.hq : m.nq
-        if (!priced) continue
+        if (!priced && !npcCommitMap.has(m.itemId)) continue
         push({
           itemId: m.itemId, name: m.name, icon: m.icon, amount: m.amount,
           type: wantHq ? 'hq' : 'nq',
-          unitPrice: priced.unitPrice, server: priced.server,
+          unitPrice: priced?.unitPrice ?? 0, server: priced?.server,
         })
       }
       return Array.from(merged.values())
@@ -288,7 +305,6 @@ export const useBatchStore = defineStore('batch', () => {
     for (const g of results.value.serverGroups) {
       for (const item of g.items) {
         if (selected.has(item.itemId)) continue
-        if (npcSkip.has(item.itemId)) continue
         push(item)
       }
     }
@@ -298,7 +314,6 @@ export const useBatchStore = defineStore('batch', () => {
       if (!selected.has(c.itemId)) continue
       for (const raw of c.rawMaterials) {
         if (isCrystal(raw.itemId)) continue
-        if (npcSkip.has(raw.itemId)) continue
         push(raw)
       }
     }
