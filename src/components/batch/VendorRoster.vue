@@ -97,61 +97,59 @@ function stallSelectedCount(stall: VendorStall): number {
 </script>
 
 <template>
-  <section v-if="stalls.length > 0" class="npc-block" aria-label="NPC 採購建議">
-    <header class="block-header">
-      <div class="block-title">
-        <span class="block-label">NPC 採購建議</span>
-        <span class="block-hint">
-          這些素材去 NPC 那邊買比較便宜，勾起來，下面購物清單會跟著少掉這幾項。
-        </span>
-      </div>
-      <div class="block-stats">
-        <span v-if="anySelected" class="block-saved">
+  <details v-if="stalls.length > 0" class="sug sug-npc" open>
+    <summary class="sug-head">
+      <span class="sug-chev" aria-hidden="true">▸</span>
+      <span class="sug-kind">NPC</span>
+      <span class="sug-title">NPC 採購建議</span>
+      <span class="sug-summary">
+        {{ candidates.length }} 項 · {{ stalls.length }} 個 NPC
+      </span>
+      <div class="sug-stats">
+        <span v-if="anySelected" class="sug-saved">
           已省 <span class="num">{{ formatGil(selectedSavings) }}</span>
-          <span class="block-saved__total"> / 共可省 {{ formatGil(totalPotentialSavings) }}</span>
         </span>
-        <span v-else class="block-saved block-saved--latent">
-          潛在可省 <span class="num">{{ formatGil(totalPotentialSavings) }}</span>
+        <span v-else class="sug-saved sug-saved--latent">
+          可省 <span class="num">{{ formatGil(totalPotentialSavings) }}</span>
         </span>
-        <el-button size="small" @click="toggleAll">
+        <button type="button" class="sug-btn" @click.stop="toggleAll">
           {{ allSelected ? '全部取消' : '全選' }}
-        </el-button>
+        </button>
       </div>
-    </header>
+    </summary>
 
-    <!-- Desktop: NPC-grouped flat list. No thead — columns are self-explanatory
-         (icon · name · ×N · market→NPC · −%); a thead row above the stall
-         header competed with it for visual ownership of the columns and
-         clobbered the grouping. -->
-    <div v-if="!isMobile" class="npc-list" role="table">
-      <template v-for="stall in stalls" :key="stall.npcId">
-        <NpcStallHeader
+    <div class="sug-body">
+      <!-- Desktop: NPC-grouped flat list -->
+      <div v-if="!isMobile" class="npc-list" role="table">
+        <template v-for="stall in stalls" :key="stall.npcId">
+          <NpcStallHeader
+            :stall="stall"
+            :selected-count="stallSelectedCount(stall)"
+            @toggle-all="toggleStall(stall)"
+          />
+          <NpcItemRow
+            v-for="row in stall.items"
+            :key="row.itemId"
+            :row="row"
+            :checked="isChecked(row.itemId)"
+            @toggle="toggle(row.itemId)"
+          />
+        </template>
+      </div>
+
+      <!-- Mobile: stall card stack -->
+      <ul v-else class="npc-mobile" role="list">
+        <NpcMobileStall
+          v-for="stall in stalls"
+          :key="stall.npcId"
           :stall="stall"
           :selected-count="stallSelectedCount(stall)"
-          @toggle-all="toggleStall(stall)"
+          @toggle-item="toggle"
+          @toggle-stall="toggleStall(stall)"
         />
-        <NpcItemRow
-          v-for="row in stall.items"
-          :key="row.itemId"
-          :row="row"
-          :checked="isChecked(row.itemId)"
-          @toggle="toggle(row.itemId)"
-        />
-      </template>
+      </ul>
     </div>
-
-    <!-- Mobile: stall card stack -->
-    <ul v-else class="npc-mobile" role="list">
-      <NpcMobileStall
-        v-for="stall in stalls"
-        :key="stall.npcId"
-        :stall="stall"
-        :selected-count="stallSelectedCount(stall)"
-        @toggle-item="toggle"
-        @toggle-stall="toggleStall(stall)"
-      />
-    </ul>
-  </section>
+  </details>
 </template>
 
 <script lang="ts">
@@ -371,69 +369,103 @@ export const NpcMobileStall = defineComponent({
 </script>
 
 <style scoped>
-.npc-block {
-  margin-bottom: 20px;
-  /* Match SelfCraftSuggestions visual mass (data is sparse — wider card
-     reads as empty on ultra-wide viewports). */
-  max-width: 880px;
+/* === Shared <details class="sug"> vocabulary ============================ */
+.sug {
+  padding: 12px 0 14px;
+  border-top: 1px dashed color-mix(in oklch, var(--app-border) 60%, transparent);
+}
+.sug:first-of-type {
+  padding-top: 6px;
+  border-top: 0;
 }
 
-/* === Header (matches SelfCraftSuggestions block-header rhythm) === */
-.block-header {
+.sug-head {
+  list-style: none;
+  cursor: pointer;
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
+  align-items: baseline;
   gap: 10px;
+  padding: 4px 0;
+  flex-wrap: wrap;
+}
+.sug-head::-webkit-details-marker { display: none; }
+
+.sug-chev {
+  width: 16px;
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--app-text-muted);
+  transition: transform 140ms ease-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(2px);
+}
+.sug[open] > .sug-head .sug-chev {
+  transform: translateY(2px) rotate(90deg);
 }
 
-.block-title {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+.sug-kind {
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  padding: 2px 7px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  transform: translateY(-1px);
+  color: var(--app-craft);
+  background: color-mix(in oklch, var(--app-craft) 14%, transparent);
 }
 
-.block-label {
+.sug-title {
   font-family: 'Noto Serif TC', serif;
-  font-size: 15px;
   font-weight: 700;
+  font-size: 15px;
   color: var(--app-text);
-  letter-spacing: 0.02em;
 }
-
-.block-hint {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-  line-height: 1.5;
+.sug-summary {
+  font-size: 12.5px;
+  color: var(--app-text-muted);
 }
-
-.block-stats {
+.sug-stats {
+  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.block-saved {
-  font-size: 13px;
-  color: var(--app-success);
-  font-weight: 600;
-}
-
-.block-saved .num {
+.sug-saved {
   font-family: 'Fira Code', ui-monospace, monospace;
-  font-variant-numeric: tabular-nums;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--app-success);
+}
+.sug-saved--latent {
+  color: var(--app-text-muted);
+  font-weight: 500;
+}
+.sug-saved .num { font-variant-numeric: tabular-nums; }
+
+.sug-btn {
+  font-size: 11.5px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  color: var(--app-text);
+  cursor: pointer;
+  font-family: 'Noto Sans TC', sans-serif;
+}
+.sug-btn:hover {
+  background: color-mix(in oklch, var(--app-craft) 5%, var(--app-surface));
+}
+.sug-btn:focus-visible {
+  outline: 2px solid var(--app-craft);
+  outline-offset: 2px;
 }
 
-.block-saved--latent {
-  color: var(--app-text-muted);
-}
-
-.block-saved__total {
-  font-weight: 400;
-  color: var(--app-text-muted);
-}
+.sug-body { padding-top: 6px; }
 
 /* === Desktop list === */
 .npc-list {
@@ -952,36 +984,22 @@ export const NpcMobileStall = defineComponent({
 }
 
 @media (max-width: 640px) {
-  .npc-block {
-    margin-bottom: 18px;
-  }
-
-  .block-header {
-    flex-direction: column;
-    align-items: stretch;
-    margin-bottom: 8px;
-  }
-
-  .block-stats {
-    justify-content: space-between;
-  }
+  .sug-head { gap: 8px; }
+  .sug-summary { flex-basis: 100%; margin-left: 24px; }
+  .sug-stats { flex-basis: 100%; margin-left: 24px; }
 }
 </style>
 
 <style>
-[data-theme="dark"] .npc-thead {
-  background: var(--app-surface-2);
-}
-
-[data-theme="dark"] .npc-block :deep(.npc-stall) {
+[data-theme="dark"] .sug-npc :deep(.npc-stall) {
   background: color-mix(in oklch, var(--app-craft) 12%, var(--app-surface));
 }
 
-[data-theme="dark"] .npc-block :deep(.npc-row.is-checked) {
+[data-theme="dark"] .sug-npc :deep(.npc-row.is-checked) {
   background: color-mix(in oklch, var(--app-craft) 10%, var(--app-surface));
 }
 
-[data-theme="dark"] .npc-block :deep(.npc-row:hover) {
+[data-theme="dark"] .sug-npc :deep(.npc-row:hover) {
   background: color-mix(in oklch, var(--app-craft) 16%, var(--app-surface));
 }
 </style>

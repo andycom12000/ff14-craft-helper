@@ -52,21 +52,6 @@ function toggleSection(sectionStep: number) {
   expandedSections.value = next
 }
 
-// Sub-section toggle state under step 2 (採購建議 / 採購清單).
-type SubKey = 'suggestions' | 'shopping'
-const collapsedSubsections = ref<Set<SubKey>>(new Set())
-
-function isSubsectionCollapsed(key: SubKey) {
-  return collapsedSubsections.value.has(key)
-}
-
-function toggleSubsection(key: SubKey) {
-  const next = new Set(collapsedSubsections.value)
-  if (next.has(key)) next.delete(key)
-  else next.add(key)
-  collapsedSubsections.value = next
-}
-
 const hasSuggestions = computed(() => {
   const r = batchStore.results
   if (!r) return false
@@ -85,6 +70,12 @@ const suggestionsCount = computed(() => {
     r.selfCraftCandidates.length +
     (r.buffRecommendation ? 1 : 0)
   )
+})
+
+const hasSelfCraftOrNpc = computed(() => {
+  const r = batchStore.results
+  if (!r) return false
+  return r.selfCraftCandidates.length > 0 || r.npcPurchaseCandidates.length > 0
 })
 
 // 3-step flow: 0=prepare, 1=shopping, 2=todo, 3=all done (overflow → all dots ✓).
@@ -487,61 +478,43 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
           <ExceptionList :exceptions="batchStore.results.exceptions" />
         </div>
 
-        <!-- Sub-section 2.1: 採購建議 -->
-        <section class="batch-subsection" :class="{ 'batch-subsection--collapsed': isSubsectionCollapsed('suggestions') }">
-          <button
-            type="button"
-            class="subsection-header"
-            :aria-expanded="!isSubsectionCollapsed('suggestions')"
-            @click="toggleSubsection('suggestions')"
-          >
-            <span class="subsection-step" aria-hidden="true">2.1</span>
-            <h4 class="subsection-title">採購建議</h4>
-            <span class="subsection-desc">
-              {{ hasSuggestions ? `${suggestionsCount} 項可採納` : '此次計算沒有可採納的建議' }}
-            </span>
-            <span class="subsection-toggle">{{ isSubsectionCollapsed('suggestions') ? '展開' : '收起' }}</span>
-          </button>
-          <div v-if="!isSubsectionCollapsed('suggestions')" class="subsection-body">
-            <template v-if="hasSuggestions">
-              <BuffRecommendationCard
-                v-if="batchStore.results.buffRecommendation"
-                :recommendation="batchStore.results.buffRecommendation"
-                @apply="startOptimization"
-              />
-              <VendorRoster :candidates="batchStore.results.npcPurchaseCandidates" />
-              <SelfCraftSuggestions :candidates="batchStore.results.selfCraftCandidates" />
-            </template>
-            <p v-else class="subsection-empty">
-              此次計算沒有可採納的建議，當前的市場價、巨集與配裝已經是最佳組合。
-            </p>
-          </div>
-        </section>
-
-        <!-- Sub-section 2.2: 採購清單 -->
-        <section class="batch-subsection" :class="{ 'batch-subsection--collapsed': isSubsectionCollapsed('shopping') }">
-          <button
-            type="button"
-            class="subsection-header"
-            :aria-expanded="!isSubsectionCollapsed('shopping')"
-            @click="toggleSubsection('shopping')"
-          >
-            <span class="subsection-step" aria-hidden="true">2.2</span>
-            <h4 class="subsection-title">採購清單</h4>
-            <span class="subsection-desc">{{ batchStore.shoppingItemCount }} 項素材 · 按伺服器分組</span>
-            <span class="subsection-toggle">{{ isSubsectionCollapsed('shopping') ? '展開' : '收起' }}</span>
-          </button>
-          <div v-if="!isSubsectionCollapsed('shopping')" class="subsection-body">
-            <ShoppingList
-              :crystals="batchStore.finalCrystals"
-              :server-groups="batchStore.results.serverGroups"
-              :self-craft-candidates="batchStore.results.selfCraftCandidates"
-              :buy-finished-items="batchStore.results.buyFinishedItems"
-              :grand-total="batchStore.effectiveGrandTotal"
-              :cross-world-cache="batchStore.results.crossWorldCache"
+        <!-- 採購建議: parent <details> wraps the three suggestion sections.
+             Three child <details class="sug"> for food/selfcraft/NPC share
+             a vocabulary; layout flips to 2-col grid at wide viewports so
+             selfcraft and NPC sit side-by-side. -->
+        <details v-if="hasSuggestions" class="sug-parent" open>
+          <summary class="sug-parent-head">
+            <span class="sug-parent-chev" aria-hidden="true">▸</span>
+            <h4 class="sug-parent-title">採購建議</h4>
+            <span class="sug-parent-desc">{{ suggestionsCount }} 項可採納</span>
+          </summary>
+          <div class="sug-parent-body">
+            <BuffRecommendationCard
+              v-if="batchStore.results.buffRecommendation"
+              :recommendation="batchStore.results.buffRecommendation"
+              @apply="startOptimization"
             />
+            <div v-if="hasSelfCraftOrNpc" class="sug-grid">
+              <SelfCraftSuggestions
+                v-if="batchStore.results.selfCraftCandidates.length > 0"
+                :candidates="batchStore.results.selfCraftCandidates"
+              />
+              <VendorRoster
+                v-if="batchStore.results.npcPurchaseCandidates.length > 0"
+                :candidates="batchStore.results.npcPurchaseCandidates"
+              />
+            </div>
           </div>
-        </section>
+        </details>
+
+        <ShoppingList
+          :crystals="batchStore.finalCrystals"
+          :server-groups="batchStore.results.serverGroups"
+          :self-craft-candidates="batchStore.results.selfCraftCandidates"
+          :buy-finished-items="batchStore.results.buyFinishedItems"
+          :grand-total="batchStore.effectiveGrandTotal"
+          :cross-world-cache="batchStore.results.crossWorldCache"
+        />
       </template>
     </section>
 
@@ -749,73 +722,46 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
   flex-shrink: 0;
 }
 
-/* === Sub-section (step 2.1 / 2.2) === */
-.batch-subsection {
-  margin-top: 18px;
+/* === Parent <details> wrapper for the three suggestion sections === */
+.sug-parent {
+  margin: 18px 0 4px;
   padding-top: 14px;
   border-top: 1px dashed var(--el-border-color-lighter);
 }
 
-.batch-subsection:first-of-type {
-  margin-top: 12px;
-  padding-top: 12px;
-}
-
-.batch-subsection--collapsed {
-  padding-bottom: 0;
-}
-
-.subsection-header {
-  appearance: none;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  background: transparent;
-  border: 0;
-  padding: 6px 8px;
-  margin: 0 -8px 10px;
-  border-radius: 6px;
+.sug-parent-head {
+  list-style: none;
   cursor: pointer;
-  text-align: left;
-  font: inherit;
-  color: inherit;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 0;
+  margin-bottom: 4px;
   flex-wrap: wrap;
-  transition: background-color 0.15s;
 }
-
-.subsection-header:hover {
-  background: var(--el-fill-color-light);
-}
-
-.subsection-header:focus-visible {
+.sug-parent-head::-webkit-details-marker { display: none; }
+.sug-parent-head:focus-visible {
   outline: 2px solid var(--page-accent, var(--accent-gold));
-  outline-offset: 2px;
+  outline-offset: 4px;
+  border-radius: 4px;
 }
 
-.batch-subsection--collapsed .subsection-header {
-  margin-bottom: 0;
-}
-
-.subsection-step {
+.sug-parent-chev {
+  width: 16px;
+  font-size: 11px;
+  color: var(--app-text-muted);
+  transition: transform 140ms ease-out;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 28px;
-  height: 22px;
-  padding: 0 7px;
-  border-radius: 11px;
-  font-family: 'Fira Code', ui-monospace, monospace;
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  background: var(--el-fill-color-light);
-  color: var(--app-text-muted);
-  border: 1.5px solid var(--el-border-color);
   flex-shrink: 0;
+  transform: translateY(1px);
+}
+.sug-parent[open] > .sug-parent-head .sug-parent-chev {
+  transform: translateY(1px) rotate(90deg);
 }
 
-.subsection-title {
+.sug-parent-title {
   margin: 0;
   font-family: 'Noto Serif TC', serif;
   font-size: 15.5px;
@@ -825,53 +771,37 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
   white-space: nowrap;
 }
 
-.subsection-desc {
+.sug-parent-desc {
   font-size: 12.5px;
   color: var(--el-text-color-secondary);
-  min-width: 0;
 }
 
-.subsection-toggle {
-  margin-left: auto;
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-  flex-shrink: 0;
+.sug-parent-body {
+  padding: 4px 0 8px;
 }
 
-.subsection-body {
-  /* Children (BuffRecommendationCard / VendorRoster / SelfCraftSuggestions /
-     ShoppingList) carry their own margins; subsection wrapper just provides
-     the toggle chrome above. */
+/* === Wide-viewport grid: selfcraft + NPC side-by-side, food spans top === */
+.sug-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 32px;
+  align-items: start;
 }
 
-.subsection-empty {
-  margin: 6px 4px 12px;
-  padding: 14px 16px;
-  background: color-mix(in oklch, var(--app-craft) 6%, transparent);
-  border-radius: 10px;
-  border: 1px dashed color-mix(in oklch, var(--app-craft) 28%, transparent);
-  font-size: 13.5px;
-  color: var(--app-text-muted);
-  line-height: 1.6;
-  max-width: 620px;
+@media (max-width: 1000px) {
+  .sug-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
 }
 
 @media (max-width: 640px) {
-  .batch-subsection {
+  .sug-parent {
     margin-top: 14px;
     padding-top: 10px;
   }
-
-  .subsection-title {
+  .sug-parent-title {
     font-size: 14.5px;
-  }
-
-  .subsection-toggle {
-    flex-basis: 100%;
-    margin-left: 38px;
-    padding: 8px 0;
-    font-size: 13px;
-    text-align: left;
   }
 }
 
