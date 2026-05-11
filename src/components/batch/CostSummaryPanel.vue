@@ -6,6 +6,7 @@ defineProps<{
   savingPercent: number | null
   singleServerTotal: number | null
   server: string
+  npcSavings?: number
 }>()
 </script>
 
@@ -20,6 +21,10 @@ defineProps<{
       <div v-if="savingPercent != null && savingPercent > 0" class="cost-compare">
         不跨服（{{ server }}）：{{ formatGil(singleServerTotal!) }} Gil，跨服省
         <span class="cost-saving">{{ savingPercent }}%</span>
+      </div>
+      <div v-if="(npcSavings ?? 0) > 0" class="cost-compare cost-compare--npc">
+        <span class="cost-npc-icon" aria-hidden="true">⛟</span>
+        NPC 採購省 <span class="cost-saving">{{ formatGil(npcSavings!) }}</span> Gil
       </div>
     </div>
   </div>
@@ -90,6 +95,17 @@ defineProps<{
 .cost-saving {
   color: var(--app-success);
   font-weight: 600;
+}
+
+.cost-compare--npc {
+  color: var(--toast-crust, var(--el-text-color-secondary));
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cost-npc-icon {
+  font-size: 13px;
 }
 
 @media (max-width: 768px) {

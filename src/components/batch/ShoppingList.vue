@@ -4,7 +4,7 @@ import { ElMessage } from 'element-plus'
 import type { CrystalSummary, ServerGroup, MaterialWithPrice } from '@/services/shopping-list'
 import { sortServerGroupsHomeLast } from '@/services/shopping-list'
 import type { WorldPriceSummary } from '@/api/universalis'
-import type { BuyFinishedDecision, SelfCraftCandidate } from '@/stores/batch'
+import type { BuyFinishedDecision, SelfCraftCandidate, NpcPurchaseCandidate } from '@/stores/batch'
 import { useBatchStore } from '@/stores/batch'
 import { useSettingsStore } from '@/stores/settings'
 import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
@@ -12,6 +12,8 @@ import { useIsMobile } from '@/composables/useMediaQuery'
 import CrossWorldPriceDetail, { type WorldPriceRow } from '@/components/common/CrossWorldPriceDetail.vue'
 import ItemName from '@/components/common/ItemName.vue'
 import SelfCraftSuggestions from './SelfCraftSuggestions.vue'
+import NpcPurchaseSuggestions from './NpcPurchaseSuggestions.vue'
+import NpcShoppingSection from './NpcShoppingSection.vue'
 import NqhqSplitTip from './NqhqSplitTip.vue'
 import { formatGil } from '@/utils/format'
 
@@ -25,6 +27,7 @@ const props = defineProps<{
   buyFinishedItems: BuyFinishedDecision[]
   grandTotal: number
   crossWorldCache?: Map<number, WorldPriceSummary[]>
+  npcPurchaseCandidates: NpcPurchaseCandidate[]
 }>()
 
 const batchStore = useBatchStore()
@@ -173,6 +176,7 @@ function isRowChecked(row: MaterialWithPrice): boolean {
 <template>
   <div class="shopping-list">
     <SelfCraftSuggestions :candidates="selfCraftCandidates" />
+    <NpcPurchaseSuggestions :candidates="npcPurchaseCandidates" />
 
     <!-- Crystals -->
     <div v-if="crystals.length > 0" class="crystal-section">
@@ -230,199 +234,204 @@ function isRowChecked(row: MaterialWithPrice): boolean {
     <!-- Server groups -->
     <div class="server-grid">
     <div v-for="group in effectiveServerGroups" :key="group.server" class="server-group">
-      <div class="server-header">
-        <div class="server-info">
-          <el-tag v-if="!isMobile" type="primary" size="small">{{ group.server }}</el-tag>
-          <span v-else class="server-name">{{ group.server }}</span>
-          <el-text size="small" type="info">{{ group.items.length }} 項</el-text>
+      <template v-if="group.server === 'NPC'">
+        <NpcShoppingSection :group="group" :candidates="npcPurchaseCandidates" />
+      </template>
+      <template v-else>
+        <div class="server-header">
+          <div class="server-info">
+            <el-tag v-if="!isMobile" type="primary" size="small">{{ group.server }}</el-tag>
+            <span v-else class="server-name">{{ group.server }}</span>
+            <el-text size="small" type="info">{{ group.items.length }} 項</el-text>
+          </div>
+          <span class="server-subtotal">{{ formatGil(group.subtotal) }} Gil</span>
         </div>
-        <span class="server-subtotal">{{ formatGil(group.subtotal) }} Gil</span>
-      </div>
-      <el-table v-if="!isMobile" :data="group.items" size="small" class="material-table clickable-rows" :row-key="getRowKey" :row-class-name="rowClassName" @expand-change="handleExpand" @row-click="copyName">
-        <el-table-column type="expand">
-          <template #default="{ row }">
-            <div class="expanded-controls">
-              <!-- Quality toggle: quick-buy only -->
-              <div v-if="batchStore.calcMode === 'quick-buy' && !row.isFinishedProduct" class="quality-toggle" role="tablist" aria-label="切換品質">
-                <button
-                  type="button"
-                  class="quality-toggle-pill"
-                  :class="{ 'quality-toggle-pill--active': effectiveQuality(row) === 'nq' }"
-                  @click.stop="batchStore.setQualityOverride(row.itemId, 'nq')"
-                >NQ</button>
-                <button
-                  type="button"
-                  class="quality-toggle-pill quality-toggle-pill--hq"
-                  :class="{ 'quality-toggle-pill--active': effectiveQuality(row) === 'hq' }"
-                  @click.stop="batchStore.setQualityOverride(row.itemId, 'hq')"
-                >HQ</button>
-              </div>
+        <el-table v-if="!isMobile" :data="group.items" size="small" class="material-table clickable-rows" :row-key="getRowKey" :row-class-name="rowClassName" @expand-change="handleExpand" @row-click="copyName">
+          <el-table-column type="expand">
+            <template #default="{ row }">
+              <div class="expanded-controls">
+                <!-- Quality toggle: quick-buy only -->
+                <div v-if="batchStore.calcMode === 'quick-buy' && !row.isFinishedProduct" class="quality-toggle" role="tablist" aria-label="切換品質">
+                  <button
+                    type="button"
+                    class="quality-toggle-pill"
+                    :class="{ 'quality-toggle-pill--active': effectiveQuality(row) === 'nq' }"
+                    @click.stop="batchStore.setQualityOverride(row.itemId, 'nq')"
+                  >NQ</button>
+                  <button
+                    type="button"
+                    class="quality-toggle-pill quality-toggle-pill--hq"
+                    :class="{ 'quality-toggle-pill--active': effectiveQuality(row) === 'hq' }"
+                    @click.stop="batchStore.setQualityOverride(row.itemId, 'hq')"
+                  >HQ</button>
+                </div>
 
-              <!-- Self-make toggle: only when optimizer downgraded this finished product to buy -->
-              <div v-if="row.isFinishedProduct" class="self-make-toggle" @click.stop>
-                <el-switch
-                  :model-value="!!batchStore.selfMakeOverrides[row.itemId]"
-                  size="small"
-                  inline-prompt
-                  @change="batchStore.toggleSelfMake(row.itemId)"
-                />
-                <span class="settings-text">改為自製</span>
+                <!-- Self-make toggle: only when optimizer downgraded this finished product to buy -->
+                <div v-if="row.isFinishedProduct" class="self-make-toggle" @click.stop>
+                  <el-switch
+                    :model-value="!!batchStore.selfMakeOverrides[row.itemId]"
+                    size="small"
+                    inline-prompt
+                    @change="batchStore.toggleSelfMake(row.itemId)"
+                  />
+                  <span class="settings-text">改為自製</span>
+                </div>
               </div>
-            </div>
-            <CrossWorldPriceDetail
-              :data="recommendedRowsFor(row)"
-              :loading="crossWorldLoading.has(row.itemId)"
-              show-listing-count
-            />
-          </template>
-        </el-table-column>
-        <el-table-column label="" width="44" align="center">
-          <template #default="{ row }">
-            <div @click.stop>
-              <el-checkbox
-                :model-value="batchStore.isShoppingChecked(row.itemId, row.type, row.isFinishedProduct)"
-                :aria-label="`標記已採購：${row.name}`"
-                @change="() => batchStore.toggleShoppingItem(row.itemId, row.type, row.isFinishedProduct)"
+              <CrossWorldPriceDetail
+                :data="recommendedRowsFor(row)"
+                :loading="crossWorldLoading.has(row.itemId)"
+                show-listing-count
               />
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="" width="36">
-          <template #default="{ row }">
-            <img v-if="row.icon" :src="row.icon" alt="" aria-hidden="true" loading="lazy" decoding="async" class="material-icon" />
-          </template>
-        </el-table-column>
-        <el-table-column label="素材" min-width="120">
-          <template #default="{ row }">
-            <span class="material-name-wrap" :title="rowAriaLabel(row)">
-              <span class="material-name">
-                <ItemName :item-id="row.itemId" :fallback="row.name" />
-              </span>
-              <button
-                type="button"
-                class="copy-btn"
-                :aria-label="`複製品名：${row.name}`"
-                @click.stop="doCopy(row)"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-              </button>
-            </span>
-            <template v-if="row.isFinishedProduct">
-              <el-tag size="small" type="success" class="finished-badge">直購成品</el-tag>
-              <div v-if="row.craftCostComparison" class="craft-compare-hint">
-                <template v-if="Number.isFinite(row.craftCostComparison.craftCost)">
-                  自製需 {{ formatGil(row.craftCostComparison.craftCost) }} Gil，省 {{ formatGil(row.craftCostComparison.craftCost - row.craftCostComparison.buyPrice) }} Gil
-                </template>
-                <template v-else>
-                  無法自製
-                </template>
+            </template>
+          </el-table-column>
+          <el-table-column label="" width="44" align="center">
+            <template #default="{ row }">
+              <div @click.stop>
+                <el-checkbox
+                  :model-value="batchStore.isShoppingChecked(row.itemId, row.type, row.isFinishedProduct)"
+                  :aria-label="`標記已採購：${row.name}`"
+                  @change="() => batchStore.toggleShoppingItem(row.itemId, row.type, row.isFinishedProduct)"
+                />
               </div>
             </template>
-          </template>
-        </el-table-column>
-        <el-table-column label="類型" width="55">
-          <template #default="{ row }">
-            <el-tag
-              size="small"
-              :type="row.type === 'hq' ? 'warning' : 'info'"
-              :class="['quality-tag', row.type === 'hq' ? 'quality-tag--hq' : 'quality-tag--nq']"
-            >
-              {{ row.type.toUpperCase() }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="數量" prop="amount" width="50" />
-        <el-table-column label="單價" width="70" align="right">
-          <template #default="{ row }">{{ formatGil(row.unitPrice) }}</template>
-        </el-table-column>
-        <el-table-column label="小計" width="80" align="right">
-          <template #default="{ row }">
-            <el-text type="warning">{{ formatGil(row.unitPrice * row.amount) }}</el-text>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <!-- Mobile card layout: single-column stack, tap body to expand -->
-      <ul v-else class="material-cards">
-        <li
-          v-for="row in group.items"
-          :key="getRowKey(row)"
-          class="material-card"
-          :class="{ 'material-card--checked': isRowChecked(row), 'material-card--expanded': isMobileExpanded(row) }"
-        >
-          <div class="material-card__row" @click="toggleMobileExpand(row)">
-            <label class="material-card__check" @click.stop>
-              <el-checkbox
-                :model-value="isRowChecked(row)"
-                :aria-label="`標記已採購：${row.name}`"
-                @change="() => batchStore.toggleShoppingItem(row.itemId, row.type, row.isFinishedProduct)"
-              />
-            </label>
-            <img v-if="row.icon" :src="row.icon" alt="" aria-hidden="true" loading="lazy" decoding="async" class="material-card__icon" />
-            <div class="material-card__body">
-              <div class="material-card__line1">
-                <span class="material-card__name">
+          </el-table-column>
+          <el-table-column label="" width="36">
+            <template #default="{ row }">
+              <img v-if="row.icon" :src="row.icon" alt="" aria-hidden="true" loading="lazy" decoding="async" class="material-icon" />
+            </template>
+          </el-table-column>
+          <el-table-column label="素材" min-width="120">
+            <template #default="{ row }">
+              <span class="material-name-wrap" :title="rowAriaLabel(row)">
+                <span class="material-name">
                   <ItemName :item-id="row.itemId" :fallback="row.name" />
                 </span>
-                <el-tag
-                  size="small"
-                  :type="row.type === 'hq' ? 'warning' : 'info'"
-                  :class="['material-card__type', 'quality-tag', row.type === 'hq' ? 'quality-tag--hq' : 'quality-tag--nq']"
+                <button
+                  type="button"
+                  class="copy-btn"
+                  :aria-label="`複製品名：${row.name}`"
+                  @click.stop="doCopy(row)"
                 >
-                  {{ row.type.toUpperCase() }}
-                </el-tag>
-                <el-tag v-if="row.isFinishedProduct" size="small" type="success">直購</el-tag>
-              </div>
-              <div class="material-card__line2">
-                <span class="material-card__qty">× {{ row.amount }}</span>
-                <span class="material-card__price">{{ formatGil(row.unitPrice) }}</span>
-                <strong class="material-card__subtotal">{{ formatGil(row.unitPrice * row.amount) }}</strong>
-              </div>
-              <div v-if="row.isFinishedProduct && row.craftCostComparison" class="material-card__hint">
-                <template v-if="Number.isFinite(row.craftCostComparison.craftCost)">
-                  自製需 {{ formatGil(row.craftCostComparison.craftCost) }}，省 {{ formatGil(row.craftCostComparison.craftCost - row.craftCostComparison.buyPrice) }}
-                </template>
-                <template v-else>無法自製</template>
-              </div>
-            </div>
-            <span class="material-card__chev" aria-hidden="true">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-            </span>
-          </div>
-          <div v-if="isMobileExpanded(row)" class="material-card__detail" @click.stop>
-            <div class="expanded-controls">
-              <div v-if="batchStore.calcMode === 'quick-buy' && !row.isFinishedProduct" class="quality-toggle" role="tablist" aria-label="切換品質">
-                <button
-                  type="button"
-                  class="quality-toggle-pill"
-                  :class="{ 'quality-toggle-pill--active': effectiveQuality(row) === 'nq' }"
-                  @click.stop="batchStore.setQualityOverride(row.itemId, 'nq')"
-                >NQ</button>
-                <button
-                  type="button"
-                  class="quality-toggle-pill quality-toggle-pill--hq"
-                  :class="{ 'quality-toggle-pill--active': effectiveQuality(row) === 'hq' }"
-                  @click.stop="batchStore.setQualityOverride(row.itemId, 'hq')"
-                >HQ</button>
-              </div>
-              <div v-if="row.isFinishedProduct" class="self-make-toggle">
-                <el-switch
-                  :model-value="!!batchStore.selfMakeOverrides[row.itemId]"
-                  size="small"
-                  inline-prompt
-                  @change="batchStore.toggleSelfMake(row.itemId)"
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                </button>
+              </span>
+              <template v-if="row.isFinishedProduct">
+                <el-tag size="small" type="success" class="finished-badge">直購成品</el-tag>
+                <div v-if="row.craftCostComparison" class="craft-compare-hint">
+                  <template v-if="Number.isFinite(row.craftCostComparison.craftCost)">
+                    自製需 {{ formatGil(row.craftCostComparison.craftCost) }} Gil，省 {{ formatGil(row.craftCostComparison.craftCost - row.craftCostComparison.buyPrice) }} Gil
+                  </template>
+                  <template v-else>
+                    無法自製
+                  </template>
+                </div>
+              </template>
+            </template>
+          </el-table-column>
+          <el-table-column label="類型" width="55">
+            <template #default="{ row }">
+              <el-tag
+                size="small"
+                :type="row.type === 'hq' ? 'warning' : 'info'"
+                :class="['quality-tag', row.type === 'hq' ? 'quality-tag--hq' : 'quality-tag--nq']"
+              >
+                {{ row.type.toUpperCase() }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="數量" prop="amount" width="50" />
+          <el-table-column label="單價" width="70" align="right">
+            <template #default="{ row }">{{ formatGil(row.unitPrice) }}</template>
+          </el-table-column>
+          <el-table-column label="小計" width="80" align="right">
+            <template #default="{ row }">
+              <el-text type="warning">{{ formatGil(row.unitPrice * row.amount) }}</el-text>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <!-- Mobile card layout: single-column stack, tap body to expand -->
+        <ul v-else class="material-cards">
+          <li
+            v-for="row in group.items"
+            :key="getRowKey(row)"
+            class="material-card"
+            :class="{ 'material-card--checked': isRowChecked(row), 'material-card--expanded': isMobileExpanded(row) }"
+          >
+            <div class="material-card__row" @click="toggleMobileExpand(row)">
+              <label class="material-card__check" @click.stop>
+                <el-checkbox
+                  :model-value="isRowChecked(row)"
+                  :aria-label="`標記已採購：${row.name}`"
+                  @change="() => batchStore.toggleShoppingItem(row.itemId, row.type, row.isFinishedProduct)"
                 />
-                <span class="settings-text">改為自製</span>
+              </label>
+              <img v-if="row.icon" :src="row.icon" alt="" aria-hidden="true" loading="lazy" decoding="async" class="material-card__icon" />
+              <div class="material-card__body">
+                <div class="material-card__line1">
+                  <span class="material-card__name">
+                    <ItemName :item-id="row.itemId" :fallback="row.name" />
+                  </span>
+                  <el-tag
+                    size="small"
+                    :type="row.type === 'hq' ? 'warning' : 'info'"
+                    :class="['material-card__type', 'quality-tag', row.type === 'hq' ? 'quality-tag--hq' : 'quality-tag--nq']"
+                  >
+                    {{ row.type.toUpperCase() }}
+                  </el-tag>
+                  <el-tag v-if="row.isFinishedProduct" size="small" type="success">直購</el-tag>
+                </div>
+                <div class="material-card__line2">
+                  <span class="material-card__qty">× {{ row.amount }}</span>
+                  <span class="material-card__price">{{ formatGil(row.unitPrice) }}</span>
+                  <strong class="material-card__subtotal">{{ formatGil(row.unitPrice * row.amount) }}</strong>
+                </div>
+                <div v-if="row.isFinishedProduct && row.craftCostComparison" class="material-card__hint">
+                  <template v-if="Number.isFinite(row.craftCostComparison.craftCost)">
+                    自製需 {{ formatGil(row.craftCostComparison.craftCost) }}，省 {{ formatGil(row.craftCostComparison.craftCost - row.craftCostComparison.buyPrice) }}
+                  </template>
+                  <template v-else>無法自製</template>
+                </div>
               </div>
+              <span class="material-card__chev" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </span>
             </div>
-            <CrossWorldPriceDetail
-              :data="recommendedRowsFor(row)"
-              :loading="crossWorldLoading.has(row.itemId)"
-              show-listing-count
-            />
-          </div>
-        </li>
-      </ul>
+            <div v-if="isMobileExpanded(row)" class="material-card__detail" @click.stop>
+              <div class="expanded-controls">
+                <div v-if="batchStore.calcMode === 'quick-buy' && !row.isFinishedProduct" class="quality-toggle" role="tablist" aria-label="切換品質">
+                  <button
+                    type="button"
+                    class="quality-toggle-pill"
+                    :class="{ 'quality-toggle-pill--active': effectiveQuality(row) === 'nq' }"
+                    @click.stop="batchStore.setQualityOverride(row.itemId, 'nq')"
+                  >NQ</button>
+                  <button
+                    type="button"
+                    class="quality-toggle-pill quality-toggle-pill--hq"
+                    :class="{ 'quality-toggle-pill--active': effectiveQuality(row) === 'hq' }"
+                    @click.stop="batchStore.setQualityOverride(row.itemId, 'hq')"
+                  >HQ</button>
+                </div>
+                <div v-if="row.isFinishedProduct" class="self-make-toggle">
+                  <el-switch
+                    :model-value="!!batchStore.selfMakeOverrides[row.itemId]"
+                    size="small"
+                    inline-prompt
+                    @change="batchStore.toggleSelfMake(row.itemId)"
+                  />
+                  <span class="settings-text">改為自製</span>
+                </div>
+              </div>
+              <CrossWorldPriceDetail
+                :data="recommendedRowsFor(row)"
+                :loading="crossWorldLoading.has(row.itemId)"
+                show-listing-count
+              />
+            </div>
+          </li>
+        </ul>
+      </template>
     </div>
 
     </div>

@@ -92,6 +92,16 @@ const savingPercent = computed(() => {
   return Math.round((1 - gt / single) * 100)
 })
 
+const npcSavings = computed(() => {
+  if (!batchStore.results) return 0
+  const selected = batchStore.selectedNpcIds
+  let total = 0
+  for (const c of batchStore.results.npcPurchaseCandidates) {
+    if (selected.has(c.itemId)) total += c.savings
+  }
+  return total
+})
+
 function navigateToStep(step: number) {
   const sections = [sectionPrepare, sectionShopping, sectionTodo]
   const target = sections[step]
@@ -327,6 +337,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
       :saving-percent="savingPercent"
       :single-server-total="singleServerTotal"
       :server="settings.server"
+      :npc-savings="npcSavings"
     />
 
     <BuffRecommendationCard
@@ -460,6 +471,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
           :buy-finished-items="batchStore.results.buyFinishedItems"
           :grand-total="batchStore.effectiveGrandTotal"
           :cross-world-cache="batchStore.results.crossWorldCache"
+          :npc-purchase-candidates="batchStore.results.npcPurchaseCandidates"
         />
       </template>
     </section>
