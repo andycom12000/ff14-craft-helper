@@ -336,26 +336,27 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
   const candidates: SelfCraftCandidate[] = []
   let _bperfSolveCount = 0, _bperfSolveTotal = 0
   let _bperfTemplateHits = 0, _bperfPrefilterRejects = 0
+  let completedCount = 0
 
-  for (let i = 0; i < withRecipes.length; i++) {
-    if (isCancelled()) return candidates
-    const { decision, node, recipe, job } = withRecipes[i]
-    onProgress({ completed: i + 1, total: withRecipes.length, name: recipe.name })
-
+  const settled = await Promise.allSettled(withRecipes.map(async ({ decision, node, recipe, job }, i) => {
+    if (isCancelled()) throw new Error('cancelled')
     const gs = getGearset(job)
-    if (!gs) continue
+    if (!gs) return null
     const hqRequired = hqRequiredMap.get(decision.itemId) === true
 
     const validated = hqRequired
       ? await validateHQ(recipe, gs, buffs, optimizeRecipe)
       : await validateNQ(recipe, gs, buffs, optimizeRecipe)
 
+    completedCount++
+    onProgress({ completed: completedCount, total: withRecipes.length, name: recipe.name })
+
     if (validated.kind === 'prefilter-rejected') {
       _bperfPrefilterRejects++
       console.log(`[bperf-self]   prefilter-rejected[${i}] "${recipe.name}" lvl=${recipe.level}`)
-      continue
+      return null
     }
-    if (validated.kind === 'failed') continue
+    if (validated.kind === 'failed') return null
 
     if (validated.via === 'template') _bperfTemplateHits++
     else {
@@ -366,7 +367,7 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
       (validated.via === 'solver' ? `dur=${(validated.solveDur ?? 0).toFixed(1)}ms ` : '') +
       `hqRequired=${hqRequired}`)
 
-    candidates.push({
+    return {
       itemId: decision.itemId,
       name: decision.name,
       icon: decision.icon,
@@ -382,7 +383,11 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
       rawMaterials: computeRawMaterials(node.childNodes, priceMap, crossServer, server),
       hqRequired,
       depth: node.depth,
-    })
+    } as SelfCraftCandidate
+  }))
+
+  for (const s of settled) {
+    if (s.status === 'fulfilled' && s.value !== null) candidates.push(s.value)
   }
 
   console.log(`[bperf-self] done · dur=${(performance.now() - _bperfT0).toFixed(1)}ms · ` +
