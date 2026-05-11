@@ -12,6 +12,8 @@ import BatchList from '@/components/batch/BatchList.vue'
 import BatchSettings from '@/components/batch/BatchSettings.vue'
 import BatchProgress from '@/components/batch/BatchProgress.vue'
 import ShoppingList from '@/components/batch/ShoppingList.vue'
+import SelfCraftSuggestions from '@/components/batch/SelfCraftSuggestions.vue'
+import VendorRoster from '@/components/batch/VendorRoster.vue'
 import TodoList from '@/components/batch/TodoList.vue'
 import ExceptionList from '@/components/batch/ExceptionList.vue'
 import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
@@ -49,6 +51,32 @@ function toggleSection(sectionStep: number) {
   }
   expandedSections.value = next
 }
+
+const hasSuggestions = computed(() => {
+  const r = batchStore.results
+  if (!r) return false
+  return (
+    r.npcPurchaseCandidates.length > 0 ||
+    r.selfCraftCandidates.length > 0 ||
+    !!r.buffRecommendation
+  )
+})
+
+const suggestionsCount = computed(() => {
+  const r = batchStore.results
+  if (!r) return 0
+  return (
+    r.npcPurchaseCandidates.length +
+    r.selfCraftCandidates.length +
+    (r.buffRecommendation ? 1 : 0)
+  )
+})
+
+const hasSelfCraftOrNpc = computed(() => {
+  const r = batchStore.results
+  if (!r) return false
+  return r.selfCraftCandidates.length > 0 || r.npcPurchaseCandidates.length > 0
+})
 
 // 3-step flow: 0=prepare, 1=shopping, 2=todo, 3=all done (overflow → all dots ✓).
 // Calculation is a transient state, surfaced via `pending` instead of a step slot.
@@ -91,6 +119,7 @@ const savingPercent = computed(() => {
   if (!single || single === 0 || gt === 0) return null
   return Math.round((1 - gt / single) * 100)
 })
+
 
 function navigateToStep(step: number) {
   const sections = [sectionPrepare, sectionShopping, sectionTodo]
@@ -321,19 +350,6 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
       </template>
     </FlowBreadcrumb>
 
-    <CostSummaryPanel
-      v-if="batchStore.results"
-      :grand-total="batchStore.effectiveGrandTotal"
-      :saving-percent="savingPercent"
-      :single-server-total="singleServerTotal"
-      :server="settings.server"
-    />
-
-    <BuffRecommendationCard
-      v-if="batchStore.results?.buffRecommendation"
-      :recommendation="batchStore.results.buffRecommendation"
-    />
-
     <!-- Section 1: 準備清單 -->
     <section ref="sectionPrepare" class="batch-section" :class="{ 'batch-section--collapsed': isSectionCollapsed(0) }">
       <component
@@ -440,6 +456,15 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
       </component>
 
       <template v-if="!isSectionCollapsed(1)">
+        <!-- Cost banner — covers the whole step 2 so the total reads as the
+             closing summary for "採購材料". -->
+        <CostSummaryPanel
+          :grand-total="batchStore.effectiveGrandTotal"
+          :saving-percent="savingPercent"
+          :single-server-total="singleServerTotal"
+          :server="settings.server"
+        />
+
         <div
           v-if="batchStore.results.exceptions.length > 0"
           class="exception-block"
@@ -452,6 +477,43 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
           </div>
           <ExceptionList :exceptions="batchStore.results.exceptions" />
         </div>
+
+        <!-- 採購建議: parent <details> wraps the three suggestion sections.
+             Three child <details class="sug"> for food/selfcraft/NPC share
+             a vocabulary; layout flips to 2-col grid at wide viewports so
+             food spans the top row, selfcraft + NPC sit side-by-side below. -->
+        <details class="sug-parent" :open="hasSuggestions">
+          <summary class="sug-parent-head">
+            <svg class="sug-parent-chev" viewBox="0 0 10 10" aria-hidden="true">
+              <path d="M3.5 2 L7 5 L3.5 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <h4 class="sug-parent-title">採購建議</h4>
+            <span class="sug-parent-desc">
+              {{ hasSuggestions ? `${suggestionsCount} 項可採納` : '今天沒有更省的路線' }}
+            </span>
+          </summary>
+          <div class="sug-parent-body">
+            <p v-if="!hasSuggestions" class="sug-empty">
+              當前的市場價、巨集與配裝已經是最佳組合，直接買就好。
+            </p>
+            <div v-else class="sug-grid">
+              <BuffRecommendationCard
+                v-if="batchStore.results.buffRecommendation"
+                class="sug-grid__full"
+                :recommendation="batchStore.results.buffRecommendation"
+                @apply="startOptimization"
+              />
+              <SelfCraftSuggestions
+                v-if="batchStore.results.selfCraftCandidates.length > 0"
+                :candidates="batchStore.results.selfCraftCandidates"
+              />
+              <VendorRoster
+                v-if="batchStore.results.npcPurchaseCandidates.length > 0"
+                :candidates="batchStore.results.npcPurchaseCandidates"
+              />
+            </div>
+          </div>
+        </details>
 
         <ShoppingList
           :crystals="batchStore.finalCrystals"
@@ -668,6 +730,108 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
   flex-shrink: 0;
 }
 
+/* === Parent <details> wrapper for the three suggestion sections === */
+.sug-parent {
+  margin: 24px 0 8px;
+  padding-top: 18px;
+  border-top: 1px solid var(--app-border, var(--el-border-color-lighter));
+}
+
+.sug-parent-head {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 6px 0;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  border-radius: 4px;
+}
+.sug-parent-head::-webkit-details-marker { display: none; }
+.sug-parent-head:focus-visible {
+  outline: 2px solid var(--page-accent, var(--accent-gold));
+  outline-offset: 4px;
+}
+
+.sug-parent-chev {
+  width: 11px;
+  height: 11px;
+  color: var(--app-text-muted);
+  opacity: 0.7;
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+  flex-shrink: 0;
+  transform: translateY(2px);
+}
+.sug-parent[open] > .sug-parent-head .sug-parent-chev {
+  transform: translateY(2px) rotate(90deg);
+}
+
+.sug-parent-title {
+  margin: 0;
+  font-family: 'Noto Serif TC', serif;
+  font-size: 18.5px;
+  font-weight: 700;
+  color: var(--app-text);
+  letter-spacing: 0.005em;
+  white-space: nowrap;
+}
+
+.sug-parent-desc {
+  font-size: 13px;
+  color: var(--app-text-muted, var(--el-text-color-secondary));
+}
+
+.sug-parent-body {
+  padding: 6px 0 8px;
+}
+
+.sug-empty {
+  margin: 6px 0 14px;
+  padding: 14px 18px;
+  font-family: 'Noto Serif TC', serif;
+  font-size: 14.5px;
+  line-height: 1.85;
+  color: var(--app-text-muted);
+  background: color-mix(in oklch, var(--app-craft) 5%, transparent);
+  border-radius: 10px;
+  max-width: 60ch;
+}
+
+/* === Wide-viewport grid: food spans full row 1; selfcraft + NPC sit in
+ * row 2 side-by-side. Auto-fit collapses to single column when only one of
+ * the two row-2 cards is present (no orphan whitespace). === */
+.sug-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+  gap: 22px 36px;
+  align-items: start;
+}
+
+.sug-grid__full {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 1000px) {
+  .sug-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}
+
+@media (max-width: 640px) {
+  .sug-parent {
+    margin-top: 18px;
+    padding-top: 14px;
+  }
+  .sug-parent-title {
+    font-size: 17px;
+  }
+  .sug-grid {
+    gap: 10px;
+  }
+}
+
 /* Transient calculation panel — visually distinct from numbered nav steps */
 .batch-section--transient {
   border-top-style: dashed;
@@ -702,23 +866,19 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
   margin-bottom: 16px;
 }
 
-/* Exception block — flat, no nested card */
+/* Exception block — flat, full border + tinted bg (no side-stripe border) */
 .exception-block {
   margin-bottom: 16px;
   padding: 12px 14px;
-  border: 1px solid var(--el-color-danger-light-5, rgba(245, 108, 108, 0.25));
-  border-left: 3px solid var(--el-color-danger, #F56C6C);
-  border-radius: 6px;
-  background: rgba(245, 108, 108, 0.06);
+  border: 1px solid color-mix(in oklch, var(--app-danger) 32%, transparent);
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--app-danger) 8%, transparent);
 }
 
 @media (max-width: 640px) {
   .exception-block {
-    background: transparent;
-    border: none;
-    border-left: 3px solid var(--el-color-danger, #F56C6C);
-    border-radius: 0;
-    padding: 4px 0 10px 12px;
+    border-radius: 6px;
+    padding: 10px 12px;
   }
 }
 

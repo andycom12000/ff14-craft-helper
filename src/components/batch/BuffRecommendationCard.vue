@@ -1,12 +1,16 @@
 <script setup lang="ts">
-import type { BuffRecommendation } from '@/stores/batch'
-import { formatGil } from '@/utils/format'
 import { computed } from 'vue'
 import { ElMessage } from 'element-plus'
+import type { BuffRecommendation } from '@/stores/batch'
+import { useBatchStore } from '@/stores/batch'
+import { formatGil } from '@/utils/format'
 
 const props = defineProps<{
   recommendation: BuffRecommendation
 }>()
+const emit = defineEmits<{ apply: [] }>()
+
+const batchStore = useBatchStore()
 
 const netSavings = computed(() =>
   props.recommendation.hqMaterialSavings - props.recommendation.buffCost,
@@ -28,6 +32,19 @@ const buffLabel = computed(() => {
   return parts.join(' + ')
 })
 
+/** True when the user already has this recommendation's food + medicine
+ *  committed in BatchSettings (so re-applying would be a no-op). */
+const isApplied = computed(() => {
+  const rec = props.recommendation
+  const foodMatch =
+    (rec.food?.buff.id ?? null) === batchStore.foodId &&
+    (rec.food?.isHq ?? true) === batchStore.foodIsHq
+  const medMatch =
+    (rec.medicine?.buff.id ?? null) === batchStore.medicineId &&
+    (rec.medicine?.isHq ?? true) === batchStore.medicineIsHq
+  return foodMatch && medMatch
+})
+
 async function copyName(name: string) {
   const cleanName = name.replace(' HQ', '')
   try {
@@ -37,214 +54,244 @@ async function copyName(name: string) {
     ElMessage.error('複製失敗')
   }
 }
+
+function apply() {
+  const rec = props.recommendation
+  batchStore.foodId = rec.food?.buff.id ?? null
+  batchStore.foodIsHq = rec.food?.isHq ?? true
+  batchStore.medicineId = rec.medicine?.buff.id ?? null
+  batchStore.medicineIsHq = rec.medicine?.isHq ?? true
+  emit('apply')
+}
 </script>
 
 <template>
-  <div class="buff-recommendation">
-    <span class="buff-icon" aria-hidden="true">💡</span>
-    <div class="buff-body">
-      <div class="buff-title">{{ hasEnabledRecipes ? '食物推薦' : '省錢小提示' }}</div>
-
-      <div v-if="hasEnabledRecipes" class="buff-main">
-        使用 <strong class="buff-name">{{ buffLabel }}</strong>
-        可讓 {{ recommendation.enabledRecipes.length }} 個配方達成 HQ 品質
-        <span v-if="hasAffectedRecipes">，並讓 {{ recommendation.affectedRecipes.length }} 個配方免用 HQ 材料</span>
+  <details class="sug sug-buff" :open="!isApplied">
+    <summary class="sug-head">
+      <svg class="sug-chev" viewBox="0 0 10 10" aria-hidden="true">
+        <path d="M3.5 2 L7 5 L3.5 8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="sug-title">{{ hasEnabledRecipes ? '食物推薦' : '省錢小提示' }}</span>
+      <span class="sug-summary">{{ buffLabel }}</span>
+      <div class="sug-stats">
+        <span v-if="isApplied" class="sug-applied">✓ 已套用</span>
+        <button
+          v-else
+          type="button"
+          class="sug-apply"
+          @click.stop="apply"
+        >套用到本批次</button>
       </div>
-      <div v-else class="buff-main">
-        使用 <strong class="buff-name">{{ buffLabel }}</strong>
-        可讓 {{ recommendation.affectedRecipes.length }} 個配方免用 HQ 材料
-      </div>
+    </summary>
 
-      <div class="buff-items">
+    <div class="sug-body">
+      <p class="buff-lead">
+        <template v-if="hasEnabledRecipes">
+          使用 <strong class="buff-name">{{ buffLabel }}</strong>
+          可讓 {{ recommendation.enabledRecipes.length }} 個配方達成 HQ 品質<template v-if="hasAffectedRecipes">，並讓 {{ recommendation.affectedRecipes.length }} 個配方免用 HQ 材料</template>
+          <template v-if="hasSavings">；以 {{ formatGil(recommendation.buffCost) }} G 換 {{ formatGil(recommendation.hqMaterialSavings) }} G 的 HQ 材料省下，<span class="buff-savings">淨省 {{ formatGil(netSavings) }} Gil</span></template>。
+        </template>
+        <template v-else>
+          使用 <strong class="buff-name">{{ buffLabel }}</strong>
+          可讓 {{ recommendation.affectedRecipes.length }} 個配方免用 HQ 材料。<template v-if="hasSavings">以 {{ formatGil(recommendation.buffCost) }} G 換 {{ formatGil(recommendation.hqMaterialSavings) }} G 的 HQ 材料省下，<span class="buff-savings">淨省 {{ formatGil(netSavings) }} Gil</span>。</template>
+        </template>
+      </p>
+
+      <div class="buff-chip-row">
         <button
           v-if="recommendation.food"
           type="button"
-          class="buff-item"
+          class="buff-chip"
           :aria-label="`複製食物名稱：${buffName(recommendation.food)}`"
-          @click="copyName(recommendation.food.buff.name)"
+          @click.stop="copyName(recommendation.food.buff.name)"
         >
-          <span class="buff-item-label">食物</span>
-          <span class="buff-item-name">{{ buffName(recommendation.food) }}</span>
-          <span v-if="recommendation.foodPrice?.server" class="buff-item-server">{{ recommendation.foodPrice.server }}</span>
-          <span v-if="recommendation.foodPrice" class="buff-item-price">{{ formatGil(recommendation.foodPrice.price) }} Gil</span>
-          <span class="buff-item-copy" aria-hidden="true">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          </span>
+          <span class="buff-chip__label">食物</span>
+          <span class="buff-chip__name">{{ buffName(recommendation.food) }}</span>
+          <span v-if="recommendation.foodPrice?.server" class="buff-chip__server">{{ recommendation.foodPrice.server }}</span>
+          <span v-if="recommendation.foodPrice" class="buff-chip__price">{{ formatGil(recommendation.foodPrice.price) }} G</span>
+          <span class="buff-chip__copy" aria-hidden="true">⎘</span>
         </button>
         <button
           v-if="recommendation.medicine"
           type="button"
-          class="buff-item"
+          class="buff-chip"
           :aria-label="`複製藥水名稱：${buffName(recommendation.medicine)}`"
-          @click="copyName(recommendation.medicine.buff.name)"
+          @click.stop="copyName(recommendation.medicine.buff.name)"
         >
-          <span class="buff-item-label">藥水</span>
-          <span class="buff-item-name">{{ buffName(recommendation.medicine) }}</span>
-          <span v-if="recommendation.medicinePrice?.server" class="buff-item-server">{{ recommendation.medicinePrice.server }}</span>
-          <span v-if="recommendation.medicinePrice" class="buff-item-price">{{ formatGil(recommendation.medicinePrice.price) }} Gil</span>
-          <span class="buff-item-copy" aria-hidden="true">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          </span>
+          <span class="buff-chip__label">藥水</span>
+          <span class="buff-chip__name">{{ buffName(recommendation.medicine) }}</span>
+          <span v-if="recommendation.medicinePrice?.server" class="buff-chip__server">{{ recommendation.medicinePrice.server }}</span>
+          <span v-if="recommendation.medicinePrice" class="buff-chip__price">{{ formatGil(recommendation.medicinePrice.price) }} G</span>
+          <span class="buff-chip__copy" aria-hidden="true">⎘</span>
         </button>
       </div>
-
-      <div v-if="hasEnabledRecipes" class="buff-enabled-list">
-        可 HQ 製作：<span v-for="(r, i) in recommendation.enabledRecipes" :key="r.id">{{ r.name }}<span v-if="i < recommendation.enabledRecipes.length - 1">、</span></span>
-      </div>
-
-      <div v-if="hasSavings" class="buff-detail">
-        <span>總成本：<strong>{{ formatGil(recommendation.buffCost) }} Gil</strong></span>
-        <span>節省 HQ 材料：<strong class="buff-savings">{{ formatGil(recommendation.hqMaterialSavings) }} Gil</strong></span>
-        <span>淨省：<strong class="buff-savings">{{ formatGil(netSavings) }} Gil</strong></span>
-      </div>
-      <div v-else class="buff-detail">
-        <span>總成本：<strong>{{ formatGil(recommendation.buffCost) }} Gil</strong></span>
-      </div>
     </div>
-  </div>
+  </details>
 </template>
 
 <style scoped>
-.buff-recommendation {
+/* === Shared <details class="sug"> vocabulary ============================ */
+.sug {
+  padding: 4px 0 6px;
+}
+
+.sug-head {
+  list-style: none;
+  cursor: pointer;
   display: flex;
-  align-items: flex-start;
+  align-items: baseline;
   gap: 10px;
-  background: var(--buff-info-bg);
-  border: 1px solid var(--buff-info-border);
-  border-radius: 8px;
-  padding: 14px 18px;
-  margin-bottom: 20px;
+  padding: 4px 0;
+  flex-wrap: wrap;
 }
+.sug-head::-webkit-details-marker { display: none; }
 
-.buff-icon {
-  font-size: 20px;
+.sug-chev {
+  width: 10px;
+  height: 10px;
   flex-shrink: 0;
-  margin-top: 1px;
+  color: var(--buff-info, oklch(0.50 0.13 70));
+  opacity: 0.75;
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translateY(1px);
+}
+.sug[open] > .sug-head .sug-chev {
+  transform: translateY(1px) rotate(90deg);
 }
 
-.buff-body {
-  flex: 1;
-  min-width: 0;
+.sug-title {
+  font-family: 'Noto Serif TC', serif;
+  font-weight: 700;
+  font-size: 15.5px;
+  color: var(--buff-info, oklch(0.50 0.13 70));
+  letter-spacing: 0.005em;
 }
-
-.buff-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--buff-info);
-  margin-bottom: 4px;
+.sug-summary {
+  font-size: 12.5px;
+  color: var(--app-text-muted);
 }
-
-.buff-main {
-  font-size: 13px;
-  color: var(--el-text-color-primary);
-}
-
-.buff-name {
-  color: var(--accent-gold);
-}
-
-.buff-items {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.buff-item {
+.sug-stats {
+  margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 10px;
+  gap: 10px;
+}
+
+.sug-apply {
+  appearance: none;
+  border: 1px solid var(--accent-gold);
+  background: var(--accent-gold);
+  color: var(--app-surface);
+  font-family: 'Noto Sans TC', sans-serif;
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 4px 12px;
   border-radius: 6px;
-  background: var(--el-fill-color-lighter);
-  border: 1px solid var(--el-border-color-light);
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease;
-  font-size: 13px;
-  font-family: inherit;
-  color: inherit;
-  text-align: left;
-  min-height: 36px;
+  transition: background 140ms ease-out, transform 120ms ease-out;
 }
-
-.buff-item:hover {
-  background: var(--app-accent-glow);
-  border-color: var(--app-accent);
+.sug-apply:hover {
+  background: color-mix(in oklch, var(--accent-gold) 88%, white);
+  transform: translateY(-1px);
 }
-
-.buff-item:focus-visible {
-  outline: 2px solid var(--app-accent);
+.sug-apply:focus-visible {
+  outline: 2px solid var(--accent-gold);
   outline-offset: 2px;
 }
 
-.buff-item-label {
-  color: var(--el-text-color-secondary);
+.sug-applied {
+  font-family: 'Fira Code', ui-monospace, monospace;
   font-size: 12px;
-  min-width: 28px;
-}
-
-.buff-item-name {
-  color: var(--accent-gold);
-  font-weight: 500;
-}
-
-.buff-item-server {
-  font-size: 11px;
-  color: var(--app-accent-light);
-  background: var(--app-accent-glow);
-  padding: 1px 6px;
+  font-weight: 600;
+  color: var(--app-success);
+  padding: 2px 8px;
   border-radius: 4px;
-  white-space: nowrap;
+  background: color-mix(in oklch, var(--app-success) 10%, transparent);
 }
 
-.buff-item-price {
-  color: var(--el-text-color-regular);
-  font-size: 12px;
-  margin-left: auto;
-}
-
-.buff-item-copy {
-  color: var(--el-text-color-placeholder);
-  opacity: 0;
-  transition: opacity 0.15s ease;
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-}
-
-.buff-item:hover .buff-item-copy,
-.buff-item:focus-visible .buff-item-copy {
-  opacity: 1;
-}
-
-.buff-detail {
-  font-size: 13px;
-  color: var(--el-text-color-secondary);
-  margin-top: 8px;
+.sug-body {
+  padding: 6px 0 0 24px;
   display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
+  flex-direction: column;
+  gap: 8px;
 }
 
+/* === Buff-specific ====================================================== */
+.buff-lead {
+  margin: 0;
+  font-family: 'Noto Serif TC', serif;
+  font-size: 14.5px;
+  font-weight: 400;
+  color: var(--app-text);
+  line-height: 1.85;
+  max-width: 65ch;
+}
+.buff-name {
+  color: var(--buff-info, oklch(0.50 0.13 70));
+  font-weight: 600;
+}
 .buff-savings {
   color: var(--app-success);
+  font-weight: 600;
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 12.5px;
 }
 
-.buff-enabled-list {
-  font-size: 13px;
-  color: var(--app-success);
-  margin-top: 6px;
+.buff-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.buff-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 10px 6px 8px;
+  background: color-mix(in oklch, var(--buff-info, oklch(0.50 0.13 70)) 6%, var(--app-surface));
+  border: 1px solid color-mix(in oklch, var(--buff-info, oklch(0.50 0.13 70)) 30%, transparent);
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-family: 'Noto Sans TC', sans-serif;
+  color: var(--app-text);
+  cursor: pointer;
+  transition: background 140ms ease-out, border-color 140ms ease-out;
+}
+.buff-chip:hover {
+  background: color-mix(in oklch, var(--buff-info, oklch(0.50 0.13 70)) 12%, var(--app-surface));
+  border-color: color-mix(in oklch, var(--buff-info, oklch(0.50 0.13 70)) 50%, transparent);
+}
+.buff-chip:focus-visible {
+  outline: 2px solid var(--buff-info, oklch(0.50 0.13 70));
+  outline-offset: 2px;
+}
+.buff-chip__label {
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  color: var(--buff-info, oklch(0.50 0.13 70));
+  opacity: 0.85;
+}
+.buff-chip__name {
+  font-weight: 500;
+}
+.buff-chip__server {
+  font-size: 11px;
+  color: var(--app-text-muted);
+}
+.buff-chip__price {
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 11.5px;
+  color: var(--app-text);
+}
+.buff-chip__copy {
+  font-size: 11px;
+  color: var(--buff-info, oklch(0.50 0.13 70));
+  opacity: 0.7;
 }
 
-@media (max-width: 768px) {
-  .buff-detail {
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .buff-item-copy {
-    opacity: 1;
-  }
+@media (max-width: 640px) {
+  .sug-head { gap: 8px; }
+  .sug-summary { flex-basis: 100%; margin-left: 24px; }
+  .sug-stats { flex-basis: 100%; margin-left: 24px; }
 }
 </style>

@@ -2,13 +2,15 @@
 import { computed } from 'vue'
 import { useBatchStore } from '@/stores/batch'
 import type { SelfCraftCandidate } from '@/stores/batch'
-import { useIsMobile } from '@/composables/useMediaQuery'
 import { formatGil } from '@/utils/format'
 import ItemName from '@/components/common/ItemName.vue'
 
 const props = defineProps<{ candidates: SelfCraftCandidate[] }>()
 const batch = useBatchStore()
-const isMobile = useIsMobile()
+
+const totalPotentialSavings = computed(() =>
+  props.candidates.reduce((acc, c) => acc + c.savings, 0),
+)
 
 const selectedSavings = computed(() => {
   let total = 0
@@ -17,6 +19,8 @@ const selectedSavings = computed(() => {
   }
   return total
 })
+
+const anySelected = computed(() => selectedSavings.value > 0)
 
 const allSelected = computed(() =>
   props.candidates.length > 0 &&
@@ -38,32 +42,41 @@ function toggleAll() {
 </script>
 
 <template>
-  <section v-if="candidates.length > 0" class="self-craft-block" aria-label="自製建議">
-    <header class="block-header">
-      <div class="block-title">
-        <span class="block-label">自製建議</span>
-        <span class="block-hint">勾選要改為自製的素材，購物清單與製作步驟會自動更新</span>
-      </div>
-      <div class="block-stats">
-        <span class="block-saved">已省下 {{ formatGil(selectedSavings) }}</span>
-        <el-button size="small" @click="toggleAll">
+  <details v-if="candidates.length > 0" class="sug sug-craft" open>
+    <summary class="sug-head">
+      <svg class="sug-chev" viewBox="0 0 10 10" aria-hidden="true">
+        <path d="M3.5 2 L7 5 L3.5 8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="sug-title">自製建議</span>
+      <span class="sug-summary">{{ candidates.length }} 項素材可自製</span>
+      <div class="sug-stats">
+        <span v-if="anySelected" class="sug-saved">
+          已省 <span class="num">{{ formatGil(selectedSavings) }}</span>
+        </span>
+        <span v-else class="sug-saved sug-saved--latent">
+          可省 <span class="num">{{ formatGil(totalPotentialSavings) }}</span>
+        </span>
+        <button type="button" class="sug-btn" @click.stop="toggleAll">
           {{ allSelected ? '全部取消' : '全選' }}
-        </el-button>
+        </button>
       </div>
-    </header>
+    </summary>
 
-    <ul v-if="isMobile" class="suggestions-cards" role="list">
-      <li
+    <div class="sug-body">
+      <div class="sc-list" role="table">
+      <div
         v-for="row in candidates"
         :key="row.itemId"
-        class="suggestion-card"
-        :class="{ 'suggestion-card--checked': isChecked(row.itemId) }"
+        class="sc-row"
+        :class="{ 'is-checked': isChecked(row.itemId) }"
+        @click="toggle(row.itemId)"
       >
-        <label class="suggestion-card__check" @click.stop>
-          <el-checkbox
-            :model-value="isChecked(row.itemId)"
+        <label class="sc-row__check" @click.stop>
+          <input
+            type="checkbox"
+            :checked="isChecked(row.itemId)"
             :aria-label="`改為自製：${row.name}`"
-            @change="() => toggle(row.itemId)"
+            @change="toggle(row.itemId)"
           />
         </label>
         <img
@@ -73,259 +86,240 @@ function toggleAll() {
           aria-hidden="true"
           loading="lazy"
           decoding="async"
-          class="suggestion-card__icon"
+          class="sc-row__icon"
         />
-        <div class="suggestion-card__body">
-          <div class="suggestion-card__line1">
-            <span class="suggestion-card__name">
-              <ItemName :item-id="row.itemId" :fallback="row.name" />
-            </span>
-            <el-tag v-if="row.hqRequired" size="small" type="warning" class="suggestion-card__hq">需 HQ</el-tag>
-          </div>
-          <div class="suggestion-card__line2">
-            <span class="suggestion-card__qty">×{{ row.amount }}</span>
-            <span class="suggestion-card__compare">
-              {{ formatGil(row.buyCost) }} → {{ formatGil(row.craftCost) }}
-            </span>
-          </div>
-        </div>
-        <span class="suggestion-card__savings">−{{ Math.round(row.savingsRatio * 100) }}%</span>
-      </li>
-    </ul>
-
-    <el-table v-else :data="candidates" size="small" class="suggestions-table">
-      <el-table-column label="" width="44" align="center">
-        <template #default="{ row }">
-          <el-checkbox
-            :model-value="isChecked(row.itemId)"
-            :aria-label="`改為自製：${row.name}`"
-            @change="() => toggle(row.itemId)"
-          />
-        </template>
-      </el-table-column>
-      <el-table-column label="" width="36">
-        <template #default="{ row }">
-          <img v-if="row.icon" :src="row.icon" alt="" aria-hidden="true" loading="lazy" decoding="async" class="row-icon" />
-        </template>
-      </el-table-column>
-      <el-table-column label="素材">
-        <template #default="{ row }">
+        <span class="sc-row__name">
           <ItemName :item-id="row.itemId" :fallback="row.name" />
-          <el-tag v-if="row.hqRequired" size="small" type="warning" style="margin-left: 4px">需 HQ</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="數量" prop="amount" width="60" align="right" />
-      <el-table-column label="購買成本" width="96" align="right">
-        <template #default="{ row }">{{ formatGil(row.buyCost) }}</template>
-      </el-table-column>
-      <el-table-column label="自製成本" width="96" align="right">
-        <template #default="{ row }">{{ formatGil(row.craftCost) }}</template>
-      </el-table-column>
-      <el-table-column label="省" width="80" align="right">
-        <template #default="{ row }">
-          <span class="savings-badge">
-            −{{ Math.round(row.savingsRatio * 100) }}%
-          </span>
-        </template>
-      </el-table-column>
-    </el-table>
-  </section>
+          <span v-if="row.hqRequired" class="sc-row__tag sc-row__tag--hq">需 HQ</span>
+        </span>
+        <span class="sc-row__qty">×{{ row.amount }}</span>
+        <span class="sc-row__filler" aria-hidden="true" />
+        <span class="sc-row__compare">
+          <span class="sc-row__buy">{{ formatGil(row.buyCost) }}</span>
+          <span class="sc-row__arrow" aria-hidden="true">→</span>
+          <span class="sc-row__craft">{{ formatGil(row.craftCost) }}</span>
+        </span>
+        <span class="sc-row__savings">−{{ Math.round(row.savingsRatio * 100) }}%</span>
+      </div>
+      </div>
+    </div>
+  </details>
 </template>
 
 <style scoped>
-.self-craft-block {
-  margin-bottom: 20px;
-  /* No outer container chrome — section header is just typography,
-   * the table below carries its own boundary. Avoids nested cards.
-   * max-width caps the desktop el-table on ultra-wide viewports
-   * (2100px batch-view) so each row doesn't stretch full width. */
-  max-width: 1080px;
+/* === Shared <details class="sug"> vocabulary ============================ */
+.sug {
+  padding: 4px 0 6px;
 }
 
-.block-header {
+.sug-head {
+  list-style: none;
+  cursor: pointer;
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
+  align-items: baseline;
   gap: 10px;
+  padding: 4px 0;
+  flex-wrap: wrap;
+}
+.sug-head::-webkit-details-marker { display: none; }
+
+.sug-chev {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  color: var(--app-craft);
+  opacity: 0.75;
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translateY(1px);
+}
+.sug[open] > .sug-head .sug-chev {
+  transform: translateY(1px) rotate(90deg);
 }
 
-.block-title {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.block-label {
+.sug-title {
   font-family: 'Noto Serif TC', serif;
-  font-size: 15px;
   font-weight: 700;
-  color: var(--app-text);
-  letter-spacing: 0.02em;
+  font-size: 15.5px;
+  color: var(--app-craft);
+  letter-spacing: 0.005em;
 }
-
-.block-hint {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
+.sug-summary {
+  font-size: 12.5px;
+  color: var(--app-text-muted);
 }
-
-.block-stats {
+.sug-stats {
+  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.block-saved {
-  font-size: 13px;
-  color: var(--app-success);
+.sug-saved {
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 12.5px;
   font-weight: 600;
+  color: var(--app-success);
+}
+.sug-saved--latent {
+  color: var(--app-text-muted);
+  font-weight: 500;
+}
+.sug-saved .num {
   font-variant-numeric: tabular-nums;
 }
 
-.suggestions-table {
-  /* Table IS the data block — surface fill, soft border, rounded edge.
-   * No outer container needed (avoids nested-card anti-pattern). */
-  --el-table-bg-color: var(--app-surface);
-  --el-table-tr-bg-color: var(--app-surface);
-  --el-table-header-bg-color: oklch(0.955 0.028 80);
-  --el-table-row-hover-bg-color: oklch(0.65 0.18 65 / 0.05);
-  --el-table-border-color: var(--app-border);
+.sug-btn {
+  font-family: 'Noto Sans TC', sans-serif;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: var(--app-surface-hover, var(--app-surface));
+  border: 0;
+  color: var(--app-text-muted);
+  cursor: pointer;
+  transition: background 160ms cubic-bezier(0.22, 1, 0.36, 1), color 160ms;
+}
+.sug-btn:hover {
+  background: color-mix(in oklch, var(--accent-gold) 18%, transparent);
+  color: var(--app-text);
+}
+.sug-btn:focus-visible {
+  outline: 2px solid var(--accent-gold);
+  outline-offset: 2px;
+}
+
+.sug-body {
+  padding-top: 6px;
+}
+
+/* === Card surface (matches VendorRoster .npc-list) =================== */
+.sc-list {
   border: 1px solid var(--app-border);
   border-radius: 10px;
   overflow: hidden;
+  background: var(--app-surface);
   box-shadow: 0 1px 2px oklch(0.40 0.05 60 / 0.04);
 }
 
-.row-icon {
-  width: 20px;
-  height: 20px;
-  border-radius: 2px;
-}
-
-.savings-badge {
-  color: var(--app-success);
-  font-weight: 600;
-  font-size: 12.5px;
-  font-variant-numeric: tabular-nums;
-}
-
-@media (max-width: 640px) {
-  .self-craft-block {
-    margin-bottom: 18px;
-  }
-
-  .block-header {
-    flex-direction: column;
-    align-items: stretch;
-    margin-bottom: 8px;
-  }
-
-  .block-stats {
-    justify-content: space-between;
-  }
-}
-
-.suggestions-cards {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border-top: 1px solid var(--el-border-color-lighter);
-}
-
-.suggestion-card {
-  display: grid;
-  grid-template-columns: 36px 28px 1fr auto;
+/* === Row ============================================================= */
+.sc-row {
+  display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--el-border-color-lighter);
-  transition: opacity 0.15s;
+  padding: 7px 14px;
+  border-top: 1px solid var(--app-border);
+  background: var(--app-surface);
+  cursor: pointer;
+  transition: background 140ms ease-out;
+}
+.sc-row:first-child {
+  border-top: 0;
+}
+.sc-row:hover {
+  background: color-mix(in oklch, var(--app-craft) 6%, var(--app-surface));
+}
+.sc-row.is-checked {
+  background: color-mix(in oklch, var(--app-craft) 4%, var(--app-surface));
 }
 
-.suggestion-card:last-child {
-  border-bottom: none;
-}
-
-.suggestion-card--checked {
-  background: color-mix(in oklch, var(--accent-gold) 5%, transparent);
-}
-
-.suggestion-card__check {
+.sc-row__check {
+  width: 44px;
+  height: 44px;
+  margin-left: -10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  height: var(--touch-target-min);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.sc-row__check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--app-craft);
+  cursor: pointer;
 }
 
-.suggestion-card__icon {
-  width: 26px;
-  height: 26px;
+.sc-row__icon {
+  width: 22px;
+  height: 22px;
   border-radius: 3px;
+  flex-shrink: 0;
 }
 
-.suggestion-card__body {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.suggestion-card__line1 {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
+.sc-row__name {
   font-size: 13.5px;
-  font-weight: 500;
-  color: var(--el-text-color-primary);
-}
-
-.suggestion-card__name {
+  color: var(--app-text);
+  min-width: 100px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  min-width: 0;
+}
+
+.sc-row__tag {
+  font-size: 10.5px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+}
+.sc-row__tag--hq {
+  background: color-mix(in oklch, var(--app-warning) 14%, transparent);
+  color: var(--app-warning);
+}
+
+.sc-row__qty {
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--app-text-muted);
+  width: 36px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.sc-row__filler {
   flex: 1;
 }
 
-.suggestion-card__hq {
-  flex-shrink: 0;
-}
-
-.suggestion-card__line2 {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
+.sc-row__compare {
+  font-family: 'Fira Code', ui-monospace, monospace;
   font-size: 12px;
-  color: var(--el-text-color-secondary);
-  font-variant-numeric: tabular-nums;
+  width: 110px;
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.sc-row__buy {
+  color: var(--app-text-muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in oklch, var(--app-text-muted) 50%, transparent);
+}
+.sc-row__arrow { color: var(--app-text-muted); opacity: 0.45; }
+.sc-row__craft {
+  color: var(--app-craft);
+  font-weight: 600;
 }
 
-.suggestion-card__qty {
+.sc-row__savings {
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--app-success);
+  width: 52px;
+  text-align: right;
   flex-shrink: 0;
 }
 
-.suggestion-card__compare {
-  color: var(--el-text-color-placeholder);
-}
-
-.suggestion-card__savings {
-  color: var(--app-success);
-  font-weight: 700;
-  font-size: 13.5px;
-  font-variant-numeric: tabular-nums;
-  padding-left: 4px;
-}
-</style>
-
-<!-- Dark mode: hard-coded cream header / faint gold hover wash out on dark.
-     Unscoped because [data-theme="dark"] is on <html> (outside scope). -->
-<style>
-[data-theme="dark"] .suggestions-table {
-  --el-table-header-bg-color: var(--app-surface-2);
-  --el-table-row-hover-bg-color: var(--app-accent-soft);
+@media (max-width: 640px) {
+  .sug-head { gap: 8px; }
+  .sug-summary { flex-basis: 100%; margin-left: 24px; }
+  .sug-stats { flex-basis: 100%; margin-left: 24px; }
+  .sug-body { padding-left: 0; }
+  .sc-row__name { min-width: 0; flex: 1; }
+  .sc-row__filler { display: none; }
 }
 </style>

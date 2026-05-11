@@ -13,6 +13,7 @@ import { fetchItemLocationsBatch } from '@/services/item-locations'
 import { fetchZoneMetaBulk, fetchNpcNameBulk } from '@/services/zone-meta'
 import { trackEvent } from '@/utils/analytics'
 import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
+import type { AcquisitionSource } from '@/types/acquisition'
 
 export type PriceFetchStatus = 'ok' | 'failed'
 
@@ -22,7 +23,7 @@ export interface CrossWorldBest {
   fetchedAt: number
 }
 
-export type AcquisitionSource = 'market' | 'craft' | 'gather' | 'npc'
+export type { AcquisitionSource }
 
 export type TargetDefaultMode = Extract<AcquisitionSource, 'craft' | 'market'>
 

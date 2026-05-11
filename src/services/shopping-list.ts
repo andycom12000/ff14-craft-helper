@@ -13,6 +13,31 @@ export interface MaterialWithPrice extends MaterialBase {
   server?: string
   isFinishedProduct?: boolean
   craftCostComparison?: { craftCost: number; buyPrice: number }
+  source?: 'market' | 'npc'   // view-time effective source; pipeline leaves undefined (= market by default)
+  /** NPC purchase info (only set when source === 'npc'). Carried from
+   *  NpcPurchaseCandidate so ShoppingList can render stall header + /tp +
+   *  map without doing its own candidate lookup. */
+  npcId?: number
+  npcName?: string
+  zoneId?: number
+  zoneName?: string
+  aetheryteName?: string | null
+  coords?: { x: number; y: number }
+}
+
+/**
+ * NPC server-group sentinel: the `server` field is set to `npc:<npcId>` for
+ * items committed to NPC purchase. This lets `groupByServer` produce one group
+ * per NPC vendor (vs one giant 'NPC' bucket).
+ */
+export const NPC_SERVER_PREFIX = 'npc:'
+
+export function isNpcServer(server: string | undefined): boolean {
+  return !!server && server.startsWith(NPC_SERVER_PREFIX)
+}
+
+export function buildNpcServerKey(npcId: number): string {
+  return `${NPC_SERVER_PREFIX}${npcId}`
 }
 
 export interface CrystalSummary {
@@ -88,23 +113,32 @@ export function groupByServer(materials: MaterialWithPrice[]): ServerGroup[] {
 }
 
 /**
- * Move the home-server group to the end so cross-server runs surface first
- * (player typically wants the "trips needed" servers up top, then their home
- * server as the residual local-pickup). Returns input unchanged if homeServer
- * is empty/missing from the list.
+ * Order server groups: NPC groups first (one per vendor, sorted by subtotal
+ * descending so the highest-savings stops surface first), then market server
+ * groups, with home server last. Returns input unchanged if there's nothing
+ * to reorder so callers relying on reference equality can short-circuit.
  */
 export function sortServerGroupsHomeLast(
   groups: ServerGroup[],
   homeServer: string,
 ): ServerGroup[] {
-  if (!homeServer) return groups
-  const others: ServerGroup[] = []
+  const hasNpc = groups.some(g => isNpcServer(g.server))
+  const hasHome = !!homeServer && groups.some(g => g.server === homeServer)
+  if (!hasNpc && !hasHome) return groups
+
+  const npcGroups: ServerGroup[] = []
   let home: ServerGroup | undefined
+  const others: ServerGroup[] = []
   for (const g of groups) {
-    if (g.server === homeServer) home = g
+    if (isNpcServer(g.server)) npcGroups.push(g)
+    else if (homeServer && g.server === homeServer) home = g
     else others.push(g)
   }
-  return home ? [...others, home] : groups
+  // Within NPC groups, biggest subtotal first (highest-savings vendor surfaces).
+  npcGroups.sort((a, b) => b.subtotal - a.subtotal)
+  const result: ServerGroup[] = [...npcGroups, ...others]
+  if (home) result.push(home)
+  return result
 }
 
 export interface PurchaseResult {

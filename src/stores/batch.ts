@@ -89,6 +89,27 @@ export interface BuffRecommendation {
   enabledRecipes: Array<{ id: number; name: string }>
 }
 
+export interface NpcPurchaseCandidate {
+  itemId: number
+  name: string
+  icon: string
+  amount: number
+  marketPrice: number          // per unit, baseline for comparison
+  npcPrice: number             // per unit, NPC one-shot price
+  savings: number              // (marketPrice - npcPrice) * amount
+  savingsRatio: number         // savings / (marketPrice * amount), 0..1
+  npcId: number                // chosen vendor (cheapest, tiebreak by major city)
+  zoneId: number
+  coords: { x: number; y: number }
+  /**
+   * Aetheryte name for `/tp` command. Resolved from public/data/aetherytes.json
+   * (zh-TW only — FFXIV client accepts zh-TW aetheryte strings regardless of
+   * UI locale). Null when the zone has no aetheryte entry in the data file.
+   */
+  aetheryteName: string | null
+  isFinishedProduct: boolean   // material vs finished good (different tag in UI)
+}
+
 export interface BatchResults {
   serverGroups: ServerGroup[]
   crystals: CrystalSummary[]
@@ -105,6 +126,7 @@ export interface BatchResults {
    * without re-running the pipeline.
    */
   quickBuyMaterials?: QuickBuyMaterial[]
+  npcPurchaseCandidates: NpcPurchaseCandidate[]
 }
 
 const defaultProgress = () => ({
@@ -124,6 +146,8 @@ export const useBatchStore = defineStore('batch', () => {
   const checkedShoppingKeys = ref(new Set<string>())
   const selectedSelfCraftIds = ref<Set<number>>(new Set())
   const doneSelfCraftIds = ref<Set<number>>(new Set())
+  const selectedNpcIds = ref<Set<number>>(new Set())
+  const doneNpcIds = ref<Set<number>>(new Set())
 
   const foodId = ref<number | null>(null)
   const foodIsHq = ref(true)
@@ -219,22 +243,46 @@ export const useBatchStore = defineStore('batch', () => {
     checkedShoppingKeys.value = new Set()
     selectedSelfCraftIds.value = new Set()
     doneSelfCraftIds.value = new Set()
+    selectedNpcIds.value = new Set()
+    doneNpcIds.value = new Set()
   }
 
   const finalShoppingItems = computed(() => {
     if (!results.value) return [] as ShoppingItem[]
     const selected = selectedSelfCraftIds.value
 
+    // Build a fast lookup for NPC-committed candidates so we can override the
+    // shopping row's server / source / price / vendor info as we push.
+    const npcCommitMap = new Map<number, NpcPurchaseCandidate>()
+    for (const c of results.value.npcPurchaseCandidates) {
+      if (selectedNpcIds.value.has(c.itemId)) npcCommitMap.set(c.itemId, c)
+    }
+
     // Aggregate by (itemId, type, server) so the same material needed by
     // multiple selected candidates (or by candidates + remaining targets)
     // shows as one row with a summed amount.
     const merged = new Map<string, ShoppingItem>()
     const key = (i: ShoppingItem) => `${i.itemId}|${i.type}|${i.server ?? ''}`
-    const push = (item: ShoppingItem) => {
+    const push = (raw: ShoppingItem) => {
+      // Apply NPC commit override before merging so committed items land in
+      // their own per-vendor group (`server = 'npc:<id>'`).
+      const candidate = npcCommitMap.get(raw.itemId)
+      const item: ShoppingItem = candidate
+        ? {
+            ...raw,
+            unitPrice: candidate.npcPrice,
+            server: `npc:${candidate.npcId}`,
+            source: 'npc',
+            npcId: candidate.npcId,
+            zoneId: candidate.zoneId,
+            aetheryteName: candidate.aetheryteName,
+            coords: candidate.coords,
+          }
+        : { ...raw }
       const k = key(item)
       const existing = merged.get(k)
       if (existing) existing.amount += item.amount
-      else merged.set(k, { ...item })
+      else merged.set(k, item)
     }
 
     // Quick-buy mode: project quickBuyMaterials through current quality overrides.
@@ -244,11 +292,11 @@ export const useBatchStore = defineStore('batch', () => {
       for (const m of results.value.quickBuyMaterials) {
         const wantHq = !!m.canHq && (qualityOverrides.value[m.itemId] ?? bulkQualityMode.value) === 'hq'
         const priced = wantHq ? m.hq : m.nq
-        if (!priced) continue
+        if (!priced && !npcCommitMap.has(m.itemId)) continue
         push({
           itemId: m.itemId, name: m.name, icon: m.icon, amount: m.amount,
           type: wantHq ? 'hq' : 'nq',
-          unitPrice: priced.unitPrice, server: priced.server,
+          unitPrice: priced?.unitPrice ?? 0, server: priced?.server,
         })
       }
       return Array.from(merged.values())
@@ -256,7 +304,8 @@ export const useBatchStore = defineStore('batch', () => {
 
     for (const g of results.value.serverGroups) {
       for (const item of g.items) {
-        if (!selected.has(item.itemId)) push(item)
+        if (selected.has(item.itemId)) continue
+        push(item)
       }
     }
 
@@ -271,17 +320,14 @@ export const useBatchStore = defineStore('batch', () => {
     return Array.from(merged.values())
   })
 
-  // In quick-buy mode serverGroups/grandTotal are computed view-side from
-  // finalShoppingItems so the user can toggle NQ/HQ without re-running.
-  // Macro mode falls through to the pre-computed results.grandTotal.
+  // Always derive from finalShoppingItems so quick-buy quality toggles AND
+  // macro-mode NPC commits (which remove items from the market shopping list)
+  // both reflect in the total without re-running the pipeline.
   const effectiveGrandTotal = computed(() => {
     if (!results.value) return 0
-    if (results.value.quickBuyMaterials) {
-      return finalShoppingItems.value.reduce(
-        (sum, it) => sum + it.unitPrice * it.amount, 0,
-      )
-    }
-    return results.value.grandTotal
+    return finalShoppingItems.value.reduce(
+      (sum, it) => sum + it.unitPrice * it.amount, 0,
+    )
   })
 
   const finalCrystals = computed<CrystalSummary[]>(() => {
@@ -352,6 +398,31 @@ export const useBatchStore = defineStore('batch', () => {
     doneSelfCraftIds.value = next
   }
 
+  function toggleNpcPurchase(itemId: number) {
+    const next = new Set(selectedNpcIds.value)
+    if (next.has(itemId)) next.delete(itemId)
+    else next.add(itemId)
+    selectedNpcIds.value = next
+  }
+
+  function selectAllNpcPurchases() {
+    if (!results.value) return
+    selectedNpcIds.value = new Set(
+      results.value.npcPurchaseCandidates.map(c => c.itemId),
+    )
+  }
+
+  function clearNpcPurchaseSelection() {
+    selectedNpcIds.value = new Set()
+  }
+
+  function markNpcPurchaseDone(itemId: number, done: boolean) {
+    const next = new Set(doneNpcIds.value)
+    if (done) next.add(itemId)
+    else next.delete(itemId)
+    doneNpcIds.value = next
+  }
+
   function setCalcMode(mode: 'macro' | 'quick-buy') {
     calcMode.value = mode
   }
@@ -389,6 +460,8 @@ export const useBatchStore = defineStore('batch', () => {
     checkedShoppingKeys.value = new Set()
     selectedSelfCraftIds.value = new Set()
     doneSelfCraftIds.value = new Set()
+    selectedNpcIds.value = new Set()
+    doneNpcIds.value = new Set()
     foodId.value = null
     foodIsHq.value = true
     medicineId.value = null
@@ -429,6 +502,8 @@ export const useBatchStore = defineStore('batch', () => {
     isShoppingChecked,
     selectedSelfCraftIds,
     doneSelfCraftIds,
+    selectedNpcIds,
+    doneNpcIds,
     finalShoppingItems,
     finalCrystals,
     effectiveGrandTotal,
@@ -437,6 +512,10 @@ export const useBatchStore = defineStore('batch', () => {
     selectAllSelfCraft,
     clearSelfCraftSelection,
     markSelfCraftDone,
+    toggleNpcPurchase,
+    selectAllNpcPurchases,
+    clearNpcPurchaseSelection,
+    markNpcPurchaseDone,
     setCalcMode,
     toggleSelfMake,
     setBulkQuality,
