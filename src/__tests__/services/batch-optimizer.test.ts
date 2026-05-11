@@ -10,7 +10,6 @@ vi.mock('@/solver/worker', () => ({
 }))
 vi.mock('@/api/universalis', () => ({
   getAggregatedPrices: vi.fn().mockResolvedValue(new Map()),
-  getMarketData: vi.fn().mockResolvedValue({ minPriceNQ: 5000, minPriceHQ: 8000 }),
   aggregateByWorld: vi.fn().mockReturnValue([]),
 }))
 vi.mock('@/services/bom-calculator', () => ({
@@ -29,7 +28,6 @@ vi.mock('@/services/self-craft-candidates', () => ({
 
 import { optimizeRecipe, runBatchOptimization } from '@/services/batch-optimizer'
 import { solveCraft, simulateCraft, SOLVE_CANCELLED } from '@/solver/worker'
-import { getMarketData } from '@/api/universalis'
 
 const mockRecipe: Recipe = {
   id: 1, itemId: 100, name: 'Test', icon: '', job: 'CRP',
@@ -118,7 +116,10 @@ describe('runBatchOptimization', () => {
   })
 
   it('queries buy price when exception strategy is buy', async () => {
-    vi.mocked(getMarketData).mockResolvedValue({ minPriceNQ: 12000, minPriceHQ: 15000 } as any)
+    const { getAggregatedPrices } = await import('@/api/universalis')
+    vi.mocked(getAggregatedPrices).mockResolvedValue(new Map([
+      [mockRecipe.itemId, { minPriceNQ: 12000, minPriceHQ: 15000, listings: [] } as any],
+    ]))
     const result = await runBatchOptimization(
       [{ recipe: mockRecipe, quantity: 1 }],
       () => ({ level: 50, craftsmanship: 1000, control: 1000, cp: 300 }),
@@ -127,6 +128,7 @@ describe('runBatchOptimization', () => {
     )
     expect(result.exceptions[0].action).toBe('buy-finished')
     expect(result.exceptions[0].buyPrice).toBe(15000) // HQ price for canHq recipe
+    expect(result.exceptions[0].buyServer).toBe('Chocobo')
   })
 
   it('downgrades recipe to buy-finished when buying is cheaper than crafting', async () => {
@@ -242,7 +244,10 @@ describe('runBatchOptimization', () => {
   })
 
   it('buy-finished via level-insufficient exception preserves target quantity', async () => {
-    vi.mocked(getMarketData).mockResolvedValue({ minPriceNQ: 5000, minPriceHQ: 8000 } as any)
+    const { getAggregatedPrices } = await import('@/api/universalis')
+    vi.mocked(getAggregatedPrices).mockResolvedValue(new Map([
+      [mockRecipe.itemId, { minPriceNQ: 5000, minPriceHQ: 8000, listings: [] } as any],
+    ]))
     const lowGearset: GearsetStats = { level: 50, craftsmanship: 1000, control: 1000, cp: 300 }
     const result = await runBatchOptimization(
       [{ recipe: mockRecipe, quantity: 9 }],
@@ -255,6 +260,38 @@ describe('runBatchOptimization', () => {
     const allItems = result.serverGroups.flatMap(g => g.items)
     const finishedRow = allItems.find(i => i.isFinishedProduct)
     expect(finishedRow?.amount).toBe(9)
+  })
+
+  it('buy-finished via exception picks cheapest DC server when crossServer is on', async () => {
+    // Regression: exception-driven buy-finished used to single-server query
+    // (settings.server) and always landed on home, regardless of crossServer.
+    // Now it should reuse the DC-wide priceMap + findCheapestServerPurchase.
+    const { getAggregatedPrices } = await import('@/api/universalis')
+    vi.mocked(getAggregatedPrices).mockResolvedValue(new Map([
+      [mockRecipe.itemId, {
+        minPriceNQ: 0, minPriceHQ: 7000,
+        listings: [
+          // Home server: pricey
+          { pricePerUnit: 12000, quantity: 3, total: 36000, hq: true, worldName: 'Chocobo' },
+          // Other server in same DC: strictly cheaper total even after stack rounding
+          { pricePerUnit: 7000, quantity: 3, total: 21000, hq: true, worldName: 'Atomos' },
+        ],
+      } as any],
+    ]))
+    const lowGearset: GearsetStats = { level: 50, craftsmanship: 1000, control: 1000, cp: 300 }
+    const result = await runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 3 }],
+      () => lowGearset,
+      { ...defaultSettings, exceptionStrategy: 'buy', crossServer: true },
+      () => {}, () => false,
+    )
+    expect(result.buyFinishedItems).toHaveLength(1)
+    expect(result.buyFinishedItems[0].buyServer).toBe('Atomos')
+    expect(result.buyFinishedItems[0].buyPrice).toBe(7000)
+    expect(result.exceptions[0].buyServer).toBe('Atomos')
+    // The shopping list row must end up in the Atomos server group, not Chocobo.
+    const atomosGroup = result.serverGroups.find(g => g.server === 'Atomos')
+    expect(atomosGroup?.items.some(i => i.isFinishedProduct)).toBe(true)
   })
 
   it('selfMakeOverrides forces craft even when buying would be cheaper', async () => {

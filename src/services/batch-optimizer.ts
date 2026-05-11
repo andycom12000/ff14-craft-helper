@@ -6,7 +6,7 @@ import { markRaw } from 'vue'
 import { solveCraft, simulateCraft, waitForWasm, SOLVE_CANCELLED } from '@/solver/worker'
 import { craftParamsToSolverConfig, recipeToCraftParams } from '@/solver/config'
 import { findOptimalHqCombinations } from '@/services/hq-optimizer'
-import { getAggregatedPrices, getMarketData, aggregateByWorld } from '@/api/universalis'
+import { getAggregatedPrices, aggregateByWorld } from '@/api/universalis'
 import type { MarketData, WorldPriceSummary } from '@/api/universalis'
 import { separateCrystals, groupByServer, calculateBestPurchase, findCheapestServerPurchase } from '@/services/shopping-list'
 import { applyFoodBuff, applyMedicineBuff, resolveBuff, COMMON_FOODS, COMMON_MEDICINES, type FoodBuff } from '@/engine/food-medicine'
@@ -91,6 +91,33 @@ interface TypedMaterial extends MaterialBase {
   matType: 'hq' | 'nq'
 }
 
+/**
+ * Resolve a finished-product buy price + source server from a DC-wide priceMap.
+ * Cross-server picks the cheapest world that can fulfill `quantity`; otherwise
+ * falls back to home-server min price. Returns `buyServer: undefined` when
+ * cross-server has listings but no world can fulfill — that signals the caller
+ * to skip (no usable price).
+ */
+function priceFinishedProduct(
+  md: MarketData | undefined,
+  quantity: number,
+  hq: boolean,
+  crossServer: boolean,
+  homeServer: string,
+): { buyPrice: number; buyServer?: string } {
+  if (crossServer && md?.listings?.length) {
+    const result = findCheapestServerPurchase(md.listings, quantity, hq, homeServer)
+    if (result.bestCost < Infinity) {
+      return { buyPrice: Math.round(result.bestCost / quantity), buyServer: result.bestServer }
+    }
+    return { buyPrice: 0 }
+  }
+  return {
+    buyPrice: (hq ? md?.minPriceHQ : md?.minPriceNQ) ?? 0,
+    buyServer: homeServer,
+  }
+}
+
 /** Full batch pipeline: solve → HQ optimize → aggregate → price → group → todo */
 export async function runBatchOptimization(
   targets: BatchTarget[],
@@ -157,21 +184,13 @@ export async function runBatchOptimization(
 
     const gearset = getGearset(target.recipe.job)
     if (!gearset || gearset.level < target.recipe.level) {
-      const exc: BatchException = {
+      exceptions.push({
         type: 'level-insufficient',
         recipe: target.recipe,
         message: '職業等級不足',
         details: `你的 ${target.recipe.job} 等級 ${gearset?.level ?? 0} 不足以製作「${target.recipe.name}」（需要等級 ${target.recipe.level}）`,
         action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
-      }
-      if (settings.exceptionStrategy === 'buy') {
-        try {
-          const md = await getMarketData(settings.server, target.recipe.itemId)
-          exc.buyPrice = target.recipe.canHq ? md.minPriceHQ : md.minPriceNQ
-          exc.buyServer = settings.server
-        } catch { /* buyPrice stays undefined */ }
-      }
-      exceptions.push(exc)
+      })
       continue
     }
 
@@ -189,21 +208,13 @@ export async function runBatchOptimization(
         if (result.recipe.canHq) {
           qualityUnachievableResults.push(result)
         }
-        const exc: BatchException = {
+        exceptions.push({
           type: 'quality-unachievable',
           recipe: target.recipe,
           message: '無法達成雙滿',
           details: `「${target.recipe.name}」即使使用全部 HQ 素材仍無法達成品質上限`,
           action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
-        }
-        if (settings.exceptionStrategy === 'buy') {
-          try {
-            const md = await getMarketData(settings.server, target.recipe.itemId)
-            exc.buyPrice = target.recipe.canHq ? md.minPriceHQ : md.minPriceNQ
-            exc.buyServer = settings.server
-          } catch { /* ignore */ }
-        }
-        exceptions.push(exc)
+        })
         continue
       }
       recipeResults.push(result)
@@ -237,6 +248,10 @@ export async function runBatchOptimization(
     for (const m of r.materials) {
       if (m.itemId >= 20) allMaterialIds.add(m.itemId)
     }
+  }
+  // Exception buy-finished items need their finished-product itemIds priced too.
+  for (const exc of exceptions) {
+    if (exc.action === 'buy-finished') finishedProductIds.add(exc.recipe.itemId)
   }
   // Merge into single query
   for (const id of finishedProductIds) allMaterialIds.add(id)
@@ -301,22 +316,10 @@ export async function runBatchOptimization(
     const yieldPerCraft = Math.max(1, r.recipe.amountResult)
     const craftCostPerUnit = craftCostPerBatch / yieldPerCraft
 
-    // Get finished product buy price (HQ for items that can be HQ)
-    const finishedMd = priceMap.get(r.recipe.itemId)
-    const buyHq = r.recipe.canHq
-    let buyPrice = 0
-    let buyServer: string | undefined
-
-    if (settings.crossServer && finishedMd?.listings?.length) {
-      const result = findCheapestServerPurchase(finishedMd.listings, r.outputAmount, buyHq, settings.server)
-      if (result.bestCost < Infinity) {
-        buyPrice = Math.round(result.bestCost / r.outputAmount)
-        buyServer = result.bestServer
-      }
-    } else {
-      buyPrice = (buyHq ? finishedMd?.minPriceHQ : finishedMd?.minPriceNQ) ?? 0
-      buyServer = settings.server
-    }
+    const { buyPrice, buyServer } = priceFinishedProduct(
+      priceMap.get(r.recipe.itemId), r.outputAmount, r.recipe.canHq,
+      settings.crossServer, settings.server,
+    )
 
     // User-forced self-make: keep crafting regardless of price.
     if (selfMakeOverrides[r.recipe.itemId]) {
@@ -334,18 +337,25 @@ export async function runBatchOptimization(
     }
   }
 
-  // Add exception-based buy-finished items to the shopping list
   for (const exc of exceptions) {
-    if (exc.action === 'buy-finished' && exc.buyPrice) {
-      const target = targets.find(t => t.recipe.id === exc.recipe.id)
-      buyFinishedItems.push({
-        recipe: exc.recipe,
-        quantity: target?.quantity ?? 1,
-        craftCost: Infinity,
-        buyPrice: exc.buyPrice,
-        buyServer: exc.buyServer,
-      })
-    }
+    if (exc.action !== 'buy-finished') continue
+    const target = targets.find(t => t.recipe.id === exc.recipe.id)
+    const quantity = target?.quantity ?? 1
+    const { buyPrice, buyServer } = priceFinishedProduct(
+      priceMap.get(exc.recipe.itemId), quantity, exc.recipe.canHq,
+      settings.crossServer, settings.server,
+    )
+    if (buyPrice <= 0) continue
+    // Surface price + server back on the exception so ExceptionList shows them.
+    exc.buyPrice = buyPrice
+    exc.buyServer = buyServer
+    buyFinishedItems.push({
+      recipe: exc.recipe,
+      quantity,
+      craftCost: Infinity,
+      buyPrice,
+      buyServer,
+    })
   }
 
   // === Phase 4.6-buff: Evaluate food/medicine recommendation ===
