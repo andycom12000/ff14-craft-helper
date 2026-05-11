@@ -15,7 +15,7 @@ const emit = defineEmits<{
 }>()
 
 const query = ref('')
-const allResults = ref<RecipeSearchResult[]>([])
+const results = ref<RecipeSearchResult[]>([])
 const loading = ref(false)
 const addingIds = ref(new Set<number>())
 const selectedJob = ref('')
@@ -56,40 +56,37 @@ function onDialogKeydown(e: KeyboardEvent) {
   }
 }
 
-const filteredResults = computed(() => {
-  let list = allResults.value
-  if (selectedJob.value) {
-    list = list.filter(r => r.job === selectedJob.value)
-  }
-  if (levelMin.value != null) {
-    list = list.filter(r => r.level >= levelMin.value!)
-  }
-  if (levelMax.value != null) {
-    list = list.filter(r => r.level <= levelMax.value!)
-  }
-  return list
-})
-
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
+let searchSeq = 0
 
-watch(query, (value) => {
-  if (debounceTimer) clearTimeout(debounceTimer)
-  const trimmed = value.trim()
-  if (!trimmed) {
-    allResults.value = []
-    return
-  }
-  debounceTimer = setTimeout(async () => {
-    loading.value = true
-    try {
-      allResults.value = await searchRecipes(trimmed)
-    } catch {
-      allResults.value = []
-    } finally {
-      loading.value = false
+watch(
+  [query, selectedJob, levelMin, levelMax],
+  ([value]) => {
+    if (debounceTimer) clearTimeout(debounceTimer)
+    const trimmed = String(value).trim()
+    if (!trimmed) {
+      results.value = []
+      return
     }
-  }, 200)
-})
+    const seq = ++searchSeq
+    debounceTimer = setTimeout(async () => {
+      loading.value = true
+      try {
+        const res = await searchRecipes(trimmed, {
+          job: selectedJob.value || undefined,
+          rlvMin: levelMin.value ?? undefined,
+          rlvMax: levelMax.value ?? undefined,
+        })
+        if (seq !== searchSeq) return
+        results.value = res
+      } catch {
+        if (seq === searchSeq) results.value = []
+      } finally {
+        if (seq === searchSeq) loading.value = false
+      }
+    }, 200)
+  },
+)
 
 onUnmounted(() => { if (debounceTimer) clearTimeout(debounceTimer) })
 
@@ -109,7 +106,7 @@ async function addRecipe(row: RecipeSearchResult) {
 function close() {
   emit('update:modelValue', false)
   query.value = ''
-  allResults.value = []
+  results.value = []
 }
 
 // ====== Drag-to-dismiss (mobile only) ======
@@ -272,13 +269,13 @@ const overlayStyle = computed(() => {
 
           <div class="dialog-results" v-loading="loading">
             <el-skeleton
-              v-if="loading && allResults.length === 0"
+              v-if="loading && results.length === 0"
               :rows="5"
               animated
             />
             <template v-else>
               <div
-                v-for="row in filteredResults"
+                v-for="row in results"
                 :key="row.id"
                 class="search-result-row"
               >
@@ -296,7 +293,7 @@ const overlayStyle = computed(() => {
                   @click="addRecipe(row)"
                 >+</el-button>
               </div>
-              <el-empty v-if="!loading && filteredResults.length === 0 && query.trim()" description="沒有找到配方" />
+              <el-empty v-if="!loading && results.length === 0 && query.trim()" description="沒有找到配方" />
               <el-empty v-if="!loading && !query.trim()" description="輸入關鍵字搜尋配方" />
             </template>
           </div>
