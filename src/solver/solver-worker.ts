@@ -163,17 +163,17 @@ self.onmessage = async (e: MessageEvent) => {
 
   if (type === 'solve') {
     try {
-      const progressUpdate: SolverResponse = { type: 'progress', progress: 10 }
+      const progressUpdate: SolverResponse = { type: 'progress', progress: 10, requestId }
       self.postMessage(progressUpdate)
 
       const settings = configToWasmSettings(config)
 
-      const progressUpdate2: SolverResponse = { type: 'progress', progress: 30 }
+      const progressUpdate2: SolverResponse = { type: 'progress', progress: 30, requestId }
       self.postMessage(progressUpdate2)
 
       const wasmResult = wasmSolve!(settings)
 
-      const progressUpdate3: SolverResponse = { type: 'progress', progress: 90 }
+      const progressUpdate3: SolverResponse = { type: 'progress', progress: 90, requestId }
       self.postMessage(progressUpdate3)
 
       // Map raphael action names to our skill IDs
@@ -193,13 +193,14 @@ self.onmessage = async (e: MessageEvent) => {
         steps: mappedActions.length,
       }
 
-      const resultResponse: SolverResponse = { type: 'result', result }
+      const resultResponse: SolverResponse = { type: 'result', result, requestId }
       self.postMessage(resultResponse)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       const errorResponse: SolverResponse = {
         type: 'error',
         error: msg === 'NoSolution' ? '找不到可行的製作方案，請確認裝備數值與配方是否正確' : msg,
+        requestId,
       }
       self.postMessage(errorResponse)
     }
