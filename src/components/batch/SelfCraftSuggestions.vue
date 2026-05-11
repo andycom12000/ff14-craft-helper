@@ -190,7 +190,9 @@ function toggleAll() {
   --el-table-bg-color: var(--app-surface);
   --el-table-tr-bg-color: var(--app-surface);
   --el-table-header-bg-color: oklch(0.955 0.028 80);
-  --el-table-row-hover-bg-color: oklch(0.65 0.18 65 / 0.05);
+  /* Crafting register hover uses cocoa, not gold (gold is reserved for primary
+     CTA / focus / active). Matches VendorRoster + Jam-Jar Rule. */
+  --el-table-row-hover-bg-color: color-mix(in srgb, var(--app-craft-dim) 30%, transparent);
   --el-table-border-color: var(--app-border);
   border: 1px solid var(--app-border);
   border-radius: 10px;

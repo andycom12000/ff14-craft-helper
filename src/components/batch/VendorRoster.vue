@@ -15,6 +15,45 @@ const props = defineProps<{ candidates: NpcPurchaseCandidate[] }>()
 const batch = useBatchStore()
 const isMobile = useIsMobile()
 
+/**
+ * Group candidates by `npcId` so the same NPC isn't listed once per item.
+ * A vendor is a single physical spot; "go to 喬西" once buys everything.
+ * Groups sort by total savings (most-rewarding trip first).
+ */
+interface VendorStall {
+  npcId: number
+  zoneId: number
+  coords: { x: number; y: number }
+  aetheryteName: string | null
+  items: NpcPurchaseCandidate[]
+  totalSavings: number
+}
+
+const stalls = computed<VendorStall[]>(() => {
+  const byNpc = new Map<number, VendorStall>()
+  for (const c of props.candidates) {
+    let s = byNpc.get(c.npcId)
+    if (!s) {
+      s = {
+        npcId: c.npcId,
+        zoneId: c.zoneId,
+        coords: c.coords,
+        aetheryteName: c.aetheryteName,
+        items: [],
+        totalSavings: 0,
+      }
+      byNpc.set(c.npcId, s)
+    }
+    s.items.push(c)
+    s.totalSavings += c.savings
+  }
+  return [...byNpc.values()].sort((a, b) => b.totalSavings - a.totalSavings)
+})
+
+const totalPotentialSavings = computed(() =>
+  props.candidates.reduce((acc, c) => acc + c.savings, 0),
+)
+
 const selectedSavings = computed(() => {
   let total = 0
   for (const c of props.candidates) {
@@ -22,6 +61,8 @@ const selectedSavings = computed(() => {
   }
   return total
 })
+
+const anySelected = computed(() => selectedSavings.value > 0)
 
 const allSelected = computed(() =>
   props.candidates.length > 0 &&
@@ -32,13 +73,38 @@ function isChecked(id: number) {
   return batch.selectedNpcIds.has(id)
 }
 
+/** First time the user toggles in this session, drop a one-shot hint so the
+ *  cause-and-effect (item leaves the market list below) isn't a silent surprise. */
+let migrationHintShown = false
 function toggle(id: number) {
+  const willCheck = !batch.selectedNpcIds.has(id)
   batch.toggleNpcPurchase(id)
+  if (willCheck && !migrationHintShown) {
+    ElMessage({
+      message: '已轉到 NPC 採購，購物清單會跟著少掉這幾項',
+      type: 'info',
+      duration: 2200,
+    })
+    migrationHintShown = true
+  }
 }
 
 function toggleAll() {
   if (allSelected.value) batch.clearNpcPurchaseSelection()
   else batch.selectAllNpcPurchases()
+}
+
+function toggleStall(stall: VendorStall) {
+  const allOn = stall.items.every(c => batch.selectedNpcIds.has(c.itemId))
+  for (const c of stall.items) {
+    const on = batch.selectedNpcIds.has(c.itemId)
+    if (allOn && on) batch.toggleNpcPurchase(c.itemId)
+    else if (!allOn && !on) batch.toggleNpcPurchase(c.itemId)
+  }
+}
+
+function stallSelectedCount(stall: VendorStall): number {
+  return stall.items.filter(c => batch.selectedNpcIds.has(c.itemId)).length
 }
 
 // Map drawer
@@ -47,21 +113,21 @@ const mapZoneId = ref<number | null>(null)
 const mapCoords = ref<{ x: number; y: number } | null>(null)
 const mapAetheryte = ref<string | null>(null)
 
-function openMap(c: NpcPurchaseCandidate) {
-  mapZoneId.value = c.zoneId
-  mapCoords.value = c.coords
-  mapAetheryte.value = c.aetheryteName
+function openMap(stall: VendorStall) {
+  mapZoneId.value = stall.zoneId
+  mapCoords.value = stall.coords
+  mapAetheryte.value = stall.aetheryteName
   mapOpen.value = true
 }
 
-async function copyTp(c: NpcPurchaseCandidate) {
-  if (!c.aetheryteName) {
+async function copyTp(aetheryteName: string | null) {
+  if (!aetheryteName) {
     ElMessage({ message: '此 NPC 附近沒有傳送點資料', type: 'info', duration: 1500 })
     return
   }
   try {
-    await navigator.clipboard.writeText(buildTpCommand(c.aetheryteName))
-    ElMessage({ message: `已複製：/tp ${c.aetheryteName}`, type: 'success', duration: 1500 })
+    await navigator.clipboard.writeText(buildTpCommand(aetheryteName))
+    ElMessage({ message: `已複製：/tp ${aetheryteName}`, type: 'success', duration: 1500 })
   } catch {
     ElMessage({ message: '複製失敗', type: 'error', duration: 1500 })
   }
@@ -69,92 +135,70 @@ async function copyTp(c: NpcPurchaseCandidate) {
 </script>
 
 <template>
-  <section v-if="candidates.length > 0" class="npc-block" aria-label="NPC 採購建議">
+  <section v-if="stalls.length > 0" class="npc-block" aria-label="NPC 採購建議">
     <header class="block-header">
       <div class="block-title">
-        <span class="block-label">⛟ NPC 採購建議</span>
-        <span class="block-hint">勾選想跟 NPC 買的素材，購物清單會自動移除這些項目</span>
+        <span class="block-label">NPC 採購建議</span>
+        <span class="block-hint">
+          這些素材去 NPC 那邊買比較便宜，勾起來，下面購物清單會跟著少掉這幾項。
+        </span>
       </div>
       <div class="block-stats">
-        <span class="block-saved">已省 {{ formatGil(selectedSavings) }}</span>
+        <span v-if="anySelected" class="block-saved">
+          已省 <span class="num">{{ formatGil(selectedSavings) }}</span>
+          <span class="block-saved__total"> / 共可省 {{ formatGil(totalPotentialSavings) }}</span>
+        </span>
+        <span v-else class="block-saved block-saved--latent">
+          潛在可省 <span class="num">{{ formatGil(totalPotentialSavings) }}</span>
+        </span>
         <el-button size="small" @click="toggleAll">
           {{ allSelected ? '全部取消' : '全選' }}
         </el-button>
       </div>
     </header>
 
-    <!-- Mobile: stacked cards -->
-    <ul v-if="isMobile" class="npc-cards" role="list">
-      <NpcRowMobile
-        v-for="row in candidates"
-        :key="row.itemId"
-        :row="row"
-        :checked="isChecked(row.itemId)"
-        @toggle="toggle"
-        @visit="openMap"
-        @tp="copyTp"
+    <!-- Desktop: NPC-grouped flat list -->
+    <div v-if="!isMobile" class="npc-list" role="table">
+      <div class="npc-thead" role="row">
+        <span class="th-check" />
+        <span class="th-icon" />
+        <span class="th-name" role="columnheader">素材</span>
+        <span class="th-qty" role="columnheader">數量</span>
+        <span class="th-compare" role="columnheader">市場 → NPC</span>
+        <span class="th-savings" role="columnheader">省</span>
+      </div>
+
+      <template v-for="stall in stalls" :key="stall.npcId">
+        <NpcStallHeader
+          :stall="stall"
+          :selected-count="stallSelectedCount(stall)"
+          @toggle-all="toggleStall(stall)"
+          @open-map="openMap(stall)"
+          @copy-tp="copyTp(stall.aetheryteName)"
+        />
+        <NpcItemRow
+          v-for="row in stall.items"
+          :key="row.itemId"
+          :row="row"
+          :checked="isChecked(row.itemId)"
+          @toggle="toggle(row.itemId)"
+        />
+      </template>
+    </div>
+
+    <!-- Mobile: stall card stack -->
+    <ul v-else class="npc-mobile" role="list">
+      <NpcMobileStall
+        v-for="stall in stalls"
+        :key="stall.npcId"
+        :stall="stall"
+        :selected-count="stallSelectedCount(stall)"
+        @toggle-item="toggle"
+        @toggle-stall="toggleStall(stall)"
+        @open-map="openMap(stall)"
+        @copy-tp="copyTp(stall.aetheryteName)"
       />
     </ul>
-
-    <!-- Desktop: el-table with expand row showing the NPC detail strip -->
-    <el-table
-      v-else
-      :data="candidates"
-      size="small"
-      class="npc-table"
-      row-key="itemId"
-    >
-      <el-table-column type="expand">
-        <template #default="{ row }">
-          <NpcDetailStrip
-            :row="row"
-            @visit="openMap"
-            @tp="copyTp"
-          />
-        </template>
-      </el-table-column>
-      <el-table-column label="" width="44" align="center">
-        <template #default="{ row }">
-          <el-checkbox
-            :model-value="isChecked(row.itemId)"
-            :aria-label="`NPC 採購：${row.name}`"
-            @change="() => toggle(row.itemId)"
-          />
-        </template>
-      </el-table-column>
-      <el-table-column label="" width="36">
-        <template #default="{ row }">
-          <img v-if="row.icon" :src="row.icon" alt="" aria-hidden="true" loading="lazy" decoding="async" class="row-icon" />
-        </template>
-      </el-table-column>
-      <el-table-column label="素材">
-        <template #default="{ row }">
-          <ItemName :item-id="row.itemId" :fallback="row.name" />
-          <el-tag v-if="row.isFinishedProduct" size="small" type="info" style="margin-left: 4px">成品</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="數量" prop="amount" width="60" align="right" />
-      <el-table-column label="市場成本" width="96" align="right">
-        <template #default="{ row }">
-          <span class="mono-num strike">{{ formatGil(row.marketPrice * row.amount) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="NPC 成本" width="96" align="right">
-        <template #default="{ row }">
-          <span class="mono-num npc-cost">{{ formatGil(row.npcPrice * row.amount) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="省" width="72" align="right">
-        <template #default="{ row }">
-          <span class="savings-badge">−{{ Math.round(row.savingsRatio * 100) }}%</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="NPC" min-width="160">
-        <template #default="{ row }">
-          <NpcCellInline :npc-id="row.npcId" :zone-id="row.zoneId" />
-        </template>
-      </el-table-column>
-    </el-table>
 
     <ZoneMapSheet
       v-model="mapOpen"
@@ -168,116 +212,130 @@ async function copyTp(c: NpcPurchaseCandidate) {
 <script lang="ts">
 import { defineComponent, h, computed as vueComputed, type PropType } from 'vue'
 
-// Tiny inline cell: NPC name + zone, locale-aware. Lives in this file so the
-// el-table slot can render per-row composable lookups without per-row wrappers
-// at call-site.
-export const NpcCellInline = defineComponent({
-  name: 'NpcCellInline',
-  props: {
-    npcId: { type: Number, required: true },
-    zoneId: { type: Number, required: true },
-  },
-  setup(props) {
-    const npcName = useNpcName(vueComputed(() => props.npcId))
-    const zoneName = useZoneName(vueComputed(() => props.zoneId))
-    return () =>
-      h('span', { class: 'npc-cell' }, [
-        h('span', { class: 'npc-cell__name' }, npcName.value),
-        h('span', { class: 'npc-cell__zone' }, zoneName.value),
-      ])
-  },
-})
+interface VendorStallType {
+  npcId: number
+  zoneId: number
+  coords: { x: number; y: number }
+  aetheryteName: string | null
+  items: NpcPurchaseCandidate[]
+  totalSavings: number
+}
 
-// Detail strip shown when a row expands. Mirrors BOM BomAcquisitionDetail
-// source-row layout: ⛟ icon · NPC name → zone → X,Y · aetheryte chip · map button.
-export const NpcDetailStrip = defineComponent({
-  name: 'NpcDetailStrip',
+/** Stall sub-header: declares the NPC once for its block of items.
+ *  Carries the route-actionable controls (/tp + map) at vendor level. */
+export const NpcStallHeader = defineComponent({
+  name: 'NpcStallHeader',
   props: {
-    row: { type: Object as PropType<NpcPurchaseCandidate>, required: true },
+    stall: { type: Object as PropType<VendorStallType>, required: true },
+    selectedCount: { type: Number, required: true },
   },
-  emits: ['visit', 'tp'],
+  emits: ['toggle-all', 'open-map', 'copy-tp'],
   setup(props, { emit }) {
-    const npcName = useNpcName(vueComputed(() => props.row.npcId))
-    const zoneName = useZoneName(vueComputed(() => props.row.zoneId))
-    return () =>
-      h('div', { class: 'npc-strip', 'data-source-row': '' }, [
-        h('span', { class: 'npc-strip__icon', 'aria-hidden': 'true' }, '⛟'),
-        h('div', { class: 'npc-strip__info' }, [
-          h('span', { class: 'npc-strip__name' }, npcName.value),
-          h('span', { class: 'npc-strip__zone' }, zoneName.value),
-          h('span', { class: 'npc-strip__coords' }, [
-            'X:',
-            props.row.coords.x.toFixed(1),
-            '  Y:',
-            props.row.coords.y.toFixed(1),
-          ]),
-          props.row.aetheryteName
-            ? h('span', { class: 'npc-strip__aeth' }, [
-                h('span', { class: 'npc-strip__aeth-name' }, [
-                  h('span', { 'aria-hidden': 'true' }, '◉ '),
-                  props.row.aetheryteName,
-                ]),
-                h(
-                  'button',
-                  {
-                    type: 'button',
-                    class: 'npc-strip__tp',
-                    'aria-label': `複製傳送指令到 ${props.row.aetheryteName}`,
-                    onClick: (e: Event) => {
-                      e.stopPropagation()
-                      emit('tp', props.row)
-                    },
-                  },
-                  '⎘ /tp',
-                ),
-              ])
-            : null,
-        ]),
-        h(
-          'button',
-          {
+    const npcName = useNpcName(vueComputed(() => props.stall.npcId))
+    const zoneName = useZoneName(vueComputed(() => props.stall.zoneId))
+    return () => {
+      const total = props.stall.items.length
+      const partial = props.selectedCount > 0 && props.selectedCount < total
+      const allOn = props.selectedCount === total
+      const hasAeth = !!props.stall.aetheryteName
+      return h(
+        'div',
+        {
+          class: ['npc-stall', { 'is-engaged': props.selectedCount > 0 }],
+          role: 'rowheader',
+        },
+        [
+          h('span', { class: 'npc-stall__icon', 'aria-hidden': 'true' }, '⛟'),
+          h('button', {
             type: 'button',
-            class: 'npc-strip__map',
-            'aria-label': '查看地圖',
-            onClick: (e: Event) => {
-              e.stopPropagation()
-              emit('visit', props.row)
+            class: 'npc-stall__select',
+            'aria-label': allOn ? `取消 ${npcName.value} 的全部素材` : `加入 ${npcName.value} 的全部素材`,
+            'aria-pressed': allOn,
+            onClick: () => emit('toggle-all'),
+          }, [
+            h('span', { class: ['npc-stall__select-box', { 'is-on': allOn, 'is-partial': partial }] }),
+            h('span', { class: 'npc-stall__name' }, npcName.value),
+            h('span', { class: 'npc-stall__sep', 'aria-hidden': 'true' }, '·'),
+            h('span', { class: 'npc-stall__zone' }, zoneName.value),
+            h('span', { class: 'npc-stall__coords' }, [
+              props.stall.coords.x.toFixed(1),
+              ', ',
+              props.stall.coords.y.toFixed(1),
+            ]),
+            h('span', { class: 'npc-stall__count' }, `共 ${total} 項`),
+          ]),
+          h(
+            'button',
+            {
+              type: 'button',
+              class: ['npc-stall__tp', { 'is-disabled': !hasAeth }],
+              disabled: !hasAeth,
+              'aria-label': hasAeth
+                ? `複製 /tp ${props.stall.aetheryteName}`
+                : '此 NPC 附近無傳送點',
+              title: hasAeth ? undefined : '此 NPC 附近無傳送點',
+              onClick: (e: Event) => {
+                e.stopPropagation()
+                emit('copy-tp')
+              },
             },
-          },
-          [h('span', { 'aria-hidden': 'true' }, '⊞ '), '地圖'],
-        ),
-      ])
+            [
+              h('span', { 'aria-hidden': 'true', class: 'npc-stall__tp-glyph' }, '⎘'),
+              h('span', { class: 'npc-stall__tp-cmd' }, '/tp'),
+              hasAeth
+                ? h('span', { class: 'npc-stall__tp-name' }, props.stall.aetheryteName as string)
+                : null,
+            ],
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'npc-stall__map',
+              'aria-label': `查看 ${zoneName.value} 地圖`,
+              onClick: (e: Event) => {
+                e.stopPropagation()
+                emit('open-map')
+              },
+            },
+            [h('span', { 'aria-hidden': 'true' }, '⊞'), ' 地圖'],
+          ),
+        ],
+      )
+    }
   },
 })
 
-// Mobile row: stack layout (no el-table on phone).
-export const NpcRowMobile = defineComponent({
-  name: 'NpcRowMobile',
+/** Single-item row under a stall header. Flat, no expand — vendor info
+ *  already lives at the header above. The row is just the buying decision
+ *  (check), the visualization (cost compare), and the value tag (savings %). */
+export const NpcItemRow = defineComponent({
+  name: 'NpcItemRow',
   props: {
     row: { type: Object as PropType<NpcPurchaseCandidate>, required: true },
     checked: { type: Boolean, required: true },
   },
-  emits: ['toggle', 'visit', 'tp'],
+  emits: ['toggle'],
   setup(props, { emit }) {
-    const npcName = useNpcName(vueComputed(() => props.row.npcId))
-    const zoneName = useZoneName(vueComputed(() => props.row.zoneId))
     return () =>
       h(
-        'li',
+        'div',
         {
-          class: ['npc-card', { 'npc-card--checked': props.checked }],
+          class: ['npc-row', { 'is-checked': props.checked }],
+          role: 'row',
+          onClick: () => emit('toggle'),
         },
         [
           h(
             'label',
-            { class: 'npc-card__check', onClick: (e: Event) => e.stopPropagation() },
+            { class: 'npc-row__check', onClick: (e: Event) => e.stopPropagation() },
             [
               h('input', {
                 type: 'checkbox',
-                class: 'npc-card__checkbox',
+                class: 'npc-row__checkbox',
                 checked: props.checked,
                 'aria-label': `NPC 採購：${props.row.name}`,
-                onChange: () => emit('toggle', props.row.itemId),
+                onChange: () => emit('toggle'),
               }),
             ],
           ),
@@ -288,72 +346,146 @@ export const NpcRowMobile = defineComponent({
                 'aria-hidden': 'true',
                 loading: 'lazy',
                 decoding: 'async',
-                class: 'npc-card__icon',
+                class: 'npc-row__icon',
               })
-            : null,
-          h('div', { class: 'npc-card__body' }, [
-            h('div', { class: 'npc-card__line1' }, [
-              h('span', { class: 'npc-card__name' }, props.row.name),
-              props.row.isFinishedProduct
-                ? h(
-                    'span',
-                    { class: 'npc-card__tag' },
-                    '成品',
-                  )
-                : null,
-            ]),
-            h('div', { class: 'npc-card__line2' }, [
-              h('span', { class: 'npc-card__qty' }, `×${props.row.amount}`),
-              h('span', { class: 'npc-card__compare' }, [
-                h('span', { class: 'mono-num strike' }, formatGil(props.row.marketPrice * props.row.amount)),
-                ' → ',
-                h('span', { class: 'mono-num npc-cost' }, formatGil(props.row.npcPrice * props.row.amount)),
-              ]),
-            ]),
-            h('div', { class: 'npc-card__line3' }, [
-              h('span', { class: 'npc-card__npc' }, [
-                h('span', { 'aria-hidden': 'true' }, '⛟ '),
-                npcName.value,
-              ]),
-              h('span', { class: 'npc-card__sep', 'aria-hidden': 'true' }, '·'),
-              h('span', { class: 'npc-card__zone' }, zoneName.value),
-            ]),
-            h('div', { class: 'npc-card__actions' }, [
-              props.row.aetheryteName
-                ? h(
-                    'button',
-                    {
-                      type: 'button',
-                      class: 'npc-card__tp',
-                      onClick: (e: Event) => {
-                        e.stopPropagation()
-                        emit('tp', props.row)
-                      },
-                    },
-                    `⎘ /tp ${props.row.aetheryteName}`,
-                  )
-                : null,
-              h(
-                'button',
-                {
-                  type: 'button',
-                  class: 'npc-card__map',
-                  onClick: (e: Event) => {
-                    e.stopPropagation()
-                    emit('visit', props.row)
-                  },
-                },
-                '⊞ 地圖',
-              ),
-            ]),
+            : h('span', { class: 'npc-row__icon' }),
+          h('span', { class: 'npc-row__name' }, [
+            h(ItemName, { itemId: props.row.itemId, fallback: props.row.name }),
+            props.row.isFinishedProduct
+              ? h('span', { class: 'npc-row__fp' }, '成品')
+              : null,
+          ]),
+          h('span', { class: 'npc-row__qty' }, `×${props.row.amount}`),
+          h('span', { class: 'npc-row__compare' }, [
+            h(
+              'span',
+              { class: 'npc-row__market' },
+              formatGil(props.row.marketPrice * props.row.amount),
+            ),
+            h('span', { class: 'npc-row__arrow', 'aria-hidden': 'true' }, '→'),
+            h(
+              'span',
+              { class: 'npc-row__npc' },
+              formatGil(props.row.npcPrice * props.row.amount),
+            ),
           ]),
           h(
             'span',
-            { class: 'npc-card__savings' },
+            { class: 'npc-row__savings' },
             `−${Math.round(props.row.savingsRatio * 100)}%`,
           ),
         ],
       )
+  },
+})
+
+/** Mobile stall card: one collapsed card per NPC, items stacked inside.
+ *  Same NPC information surfaced once, /tp / map always-on. */
+export const NpcMobileStall = defineComponent({
+  name: 'NpcMobileStall',
+  props: {
+    stall: { type: Object as PropType<VendorStallType>, required: true },
+    selectedCount: { type: Number, required: true },
+  },
+  emits: ['toggle-item', 'toggle-stall', 'open-map', 'copy-tp'],
+  setup(props, { emit }) {
+    const npcName = useNpcName(vueComputed(() => props.stall.npcId))
+    const zoneName = useZoneName(vueComputed(() => props.stall.zoneId))
+    return () => {
+      const total = props.stall.items.length
+      const allOn = props.selectedCount === total
+      const partial = props.selectedCount > 0 && !allOn
+      const hasAeth = !!props.stall.aetheryteName
+      return h('li', { class: ['npc-mobile-stall', { 'is-engaged': props.selectedCount > 0 }] }, [
+        // Stall head
+        h('button', {
+          type: 'button',
+          class: 'npc-mobile-stall__head',
+          onClick: () => emit('toggle-stall'),
+          'aria-label': allOn ? `取消 ${npcName.value}` : `全部加入 ${npcName.value}`,
+        }, [
+          h('span', { class: ['npc-mobile-stall__box', { 'is-on': allOn, 'is-partial': partial }] }),
+          h('div', { class: 'npc-mobile-stall__id' }, [
+            h('span', { class: 'npc-mobile-stall__name' }, npcName.value),
+            h('span', { class: 'npc-mobile-stall__zone' }, zoneName.value),
+          ]),
+          h('span', { class: 'npc-mobile-stall__count' }, `${total} 項`),
+        ]),
+        // Stall actions
+        h('div', { class: 'npc-mobile-stall__actions' }, [
+          h(
+            'button',
+            {
+              type: 'button',
+              class: ['npc-mobile-stall__tp', { 'is-disabled': !hasAeth }],
+              disabled: !hasAeth,
+              onClick: (e: Event) => {
+                e.stopPropagation()
+                emit('copy-tp')
+              },
+            },
+            hasAeth ? `⎘ /tp ${props.stall.aetheryteName}` : '無傳送點',
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'npc-mobile-stall__map',
+              onClick: (e: Event) => {
+                e.stopPropagation()
+                emit('open-map')
+              },
+            },
+            '⊞ 地圖',
+          ),
+        ]),
+        // Items
+        h('ul', { class: 'npc-mobile-stall__items', role: 'list' },
+          props.stall.items.map(item =>
+            h('li', { class: 'npc-mobile-item', key: item.itemId }, [
+              h(
+                'label',
+                {
+                  class: 'npc-mobile-item__check',
+                  onClick: (e: Event) => e.stopPropagation(),
+                },
+                [
+                  h('input', {
+                    type: 'checkbox',
+                    class: 'npc-mobile-item__checkbox',
+                    checked: useBatchStore().selectedNpcIds.has(item.itemId),
+                    'aria-label': `NPC 採購：${item.name}`,
+                    onChange: () => emit('toggle-item', item.itemId),
+                  }),
+                ],
+              ),
+              item.icon
+                ? h('img', {
+                    src: item.icon,
+                    class: 'npc-mobile-item__icon',
+                    alt: '',
+                    'aria-hidden': 'true',
+                    loading: 'lazy',
+                  })
+                : null,
+              h('div', { class: 'npc-mobile-item__body' }, [
+                h('div', { class: 'npc-mobile-item__line1' }, [
+                  h('span', { class: 'npc-mobile-item__name' }, item.name),
+                  h('span', { class: 'npc-mobile-item__qty' }, `×${item.amount}`),
+                ]),
+                h('div', { class: 'npc-mobile-item__line2' }, [
+                  h('span', { class: 'npc-mobile-item__market' }, formatGil(item.marketPrice * item.amount)),
+                  h('span', { class: 'npc-mobile-item__arrow', 'aria-hidden': 'true' }, ' → '),
+                  h('span', { class: 'npc-mobile-item__npc' }, formatGil(item.npcPrice * item.amount)),
+                ]),
+              ]),
+              h('span', { class: 'npc-mobile-item__savings' },
+                `−${Math.round(item.savingsRatio * 100)}%`),
+            ]),
+          ),
+        ),
+      ])
+    }
   },
 })
 </script>
@@ -364,7 +496,7 @@ export const NpcRowMobile = defineComponent({
   max-width: 1080px;
 }
 
-/* Header — matches SelfCraftSuggestions exactly */
+/* === Header (matches SelfCraftSuggestions block-header rhythm) === */
 .block-header {
   display: flex;
   justify-content: space-between;
@@ -392,6 +524,7 @@ export const NpcRowMobile = defineComponent({
 .block-hint {
   font-size: 12px;
   color: var(--el-text-color-secondary);
+  line-height: 1.5;
 }
 
 .block-stats {
@@ -404,306 +537,519 @@ export const NpcRowMobile = defineComponent({
   font-size: 13px;
   color: var(--app-success);
   font-weight: 600;
+}
+
+.block-saved .num {
+  font-family: 'Fira Code', ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
 }
 
-/* Table — same chrome as SelfCraftSuggestions, hover wash uses craft cocoa
-   (this is the crafting register's NPC-sub-flow) */
-.npc-table {
-  --el-table-bg-color: var(--app-surface);
-  --el-table-tr-bg-color: var(--app-surface);
-  --el-table-header-bg-color: oklch(0.955 0.028 80);
-  --el-table-row-hover-bg-color: color-mix(in srgb, var(--app-craft-dim) 30%, transparent);
-  --el-table-border-color: var(--app-border);
-  --el-table-expanded-cell-bg-color: color-mix(in srgb, var(--app-craft-dim) 18%, transparent);
+.block-saved--latent {
+  color: var(--app-text-muted);
+}
+
+.block-saved__total {
+  font-weight: 400;
+  color: var(--app-text-muted);
+}
+
+/* === Desktop list === */
+.npc-list {
   border: 1px solid var(--app-border);
   border-radius: 10px;
   overflow: hidden;
+  background: var(--app-surface);
   box-shadow: 0 1px 2px oklch(0.40 0.05 60 / 0.04);
 }
 
-.row-icon {
-  width: 20px;
-  height: 20px;
-  border-radius: 2px;
-}
-
-.mono-num {
-  font-family: 'Fira Code', ui-monospace, monospace;
-  font-size: 12.5px;
-  font-variant-numeric: tabular-nums;
-}
-
-.strike {
-  color: var(--app-text-muted);
-  text-decoration: line-through;
-  text-decoration-color: color-mix(in srgb, var(--app-text-muted) 50%, transparent);
-}
-
-.npc-cost {
-  color: var(--app-craft);
-  font-weight: 600;
-}
-
-.savings-badge {
-  color: var(--app-success);
-  font-weight: 600;
-  font-size: 12.5px;
-  font-variant-numeric: tabular-nums;
-}
-
-/* NPC cell inline (collapsed) */
-:deep(.npc-cell) {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-  min-width: 0;
-  font-size: 13px;
-}
-
-:deep(.npc-cell__name) {
-  color: var(--app-craft);
-  font-weight: 500;
-}
-
-:deep(.npc-cell__name)::before {
-  content: '⛟  ';
-  font-size: 11px;
-  opacity: 0.7;
-}
-
-:deep(.npc-cell__zone) {
-  color: var(--app-text-muted);
-  font-size: 11.5px;
-}
-
-/* Detail strip (expanded) — mirrors BomAcquisitionDetail .bad__source-row */
-:deep(.npc-strip) {
-  display: flex;
-  align-items: flex-start;
+.npc-thead {
+  display: grid;
+  grid-template-columns: 36px 32px minmax(0, 1fr) 56px 200px 64px;
+  align-items: center;
   gap: 12px;
-  padding: 8px 12px;
+  padding: 8px 14px;
+  background: oklch(0.955 0.028 80);
+  border-bottom: 1px solid var(--app-border);
+  font-size: 11.5px;
+  color: var(--app-text-muted);
+  font-weight: 500;
+  letter-spacing: 0.04em;
 }
 
-:deep(.npc-strip__icon) {
+.th-qty,
+.th-savings {
+  text-align: right;
+}
+
+/* === Stall header === */
+:deep(.npc-stall) {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  background: color-mix(in oklch, var(--app-craft) 5%, var(--app-surface));
+  border-top: 1px solid var(--app-border);
+  font-size: 13.5px;
+}
+
+:deep(.npc-list > template:first-of-type .npc-stall),
+:deep(.npc-stall:first-of-type) {
+  border-top: none;
+}
+
+:deep(.npc-stall__icon) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--app-craft) 14%, transparent);
+  background: color-mix(in oklch, var(--app-craft) 16%, transparent);
   color: var(--app-craft);
   font-family: 'Apple Symbols', 'Segoe UI Symbol', 'Noto Sans Symbols 2',
-    'Symbola', 'Fira Code', ui-monospace, monospace;
+    'Symbola', ui-monospace, monospace;
   font-size: 12px;
-  flex-shrink: 0;
-  margin-top: 2px;
 }
 
-:deep(.npc-strip__info) {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+:deep(.npc-stall__select) {
+  appearance: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  background: transparent;
+  border: 0;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--app-text);
+  text-align: left;
   min-width: 0;
-  flex: 1;
+  transition: background 140ms ease-out;
 }
 
-:deep(.npc-strip__name) {
+:deep(.npc-stall__select:hover) {
+  background: color-mix(in oklch, var(--app-craft) 8%, transparent);
+}
+
+:deep(.npc-stall__select:focus-visible) {
+  outline: 2px solid var(--app-craft);
+  outline-offset: 2px;
+}
+
+:deep(.npc-stall__select-box) {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1.5px solid color-mix(in oklch, var(--app-craft) 50%, var(--app-border));
+  flex-shrink: 0;
+  position: relative;
+  transition: background 140ms ease-out, border-color 140ms ease-out;
+  transform: translateY(2px);
+}
+
+:deep(.npc-stall__select-box.is-on) {
+  background: var(--app-craft);
+  border-color: var(--app-craft);
+}
+
+:deep(.npc-stall__select-box.is-on)::after {
+  content: '';
+  position: absolute;
+  inset: 2px 3px 3px 2px;
+  border-right: 2px solid var(--app-surface);
+  border-bottom: 2px solid var(--app-surface);
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+
+:deep(.npc-stall__select-box.is-partial) {
+  background: color-mix(in oklch, var(--app-craft) 50%, transparent);
+  border-color: var(--app-craft);
+}
+
+:deep(.npc-stall__select-box.is-partial)::after {
+  content: '';
+  position: absolute;
+  inset: 5px 2px 5px 2px;
+  background: var(--app-surface);
+}
+
+:deep(.npc-stall__name) {
   font-family: 'Noto Serif TC', serif;
   font-weight: 600;
-  font-size: 14px;
   color: var(--app-text);
 }
 
-:deep(.npc-strip__zone) {
-  font-size: 12.5px;
+:deep(.npc-stall__sep) {
   color: var(--app-text-muted);
+  opacity: 0.5;
 }
 
-:deep(.npc-strip__coords) {
+:deep(.npc-stall__zone) {
+  color: var(--app-text-muted);
+  font-size: 12.5px;
+}
+
+:deep(.npc-stall__coords) {
   font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--app-craft);
+  opacity: 0.78;
+  margin-left: 6px;
+}
+
+:deep(.npc-stall__count) {
   font-size: 11.5px;
   color: var(--app-text-muted);
-  letter-spacing: 0.02em;
+  margin-left: 8px;
+  font-family: 'Fira Code', ui-monospace, monospace;
 }
 
-:deep(.npc-strip__aeth) {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 4px;
-  flex-wrap: wrap;
-}
-
-:deep(.npc-strip__aeth-name) {
-  font-size: 12.5px;
-  color: var(--app-craft);
-  font-weight: 500;
-}
-
-:deep(.npc-strip__tp),
-:deep(.npc-strip__map) {
+:deep(.npc-stall__tp),
+:deep(.npc-stall__map) {
   appearance: none;
   display: inline-flex;
-  align-items: center;
-  border: 1px solid color-mix(in srgb, var(--app-craft) 35%, transparent);
+  align-items: baseline;
+  gap: 5px;
+  border: 1px solid color-mix(in oklch, var(--app-craft) 35%, transparent);
   background: transparent;
   color: var(--app-craft);
-  font-family: 'Fira Code', ui-monospace, monospace;
-  font-size: 11.5px;
-  letter-spacing: 0.02em;
-  padding: 3px 8px;
-  border-radius: 4px;
+  font-family: 'Noto Sans TC', sans-serif;
+  font-size: 12.5px;
+  padding: 4px 9px;
+  border-radius: 5px;
   cursor: pointer;
   white-space: nowrap;
   transition: background 140ms ease-out, border-color 140ms ease-out;
 }
 
-:deep(.npc-strip__tp:hover),
-:deep(.npc-strip__map:hover) {
-  background: color-mix(in srgb, var(--app-craft) 12%, transparent);
-  border-color: color-mix(in srgb, var(--app-craft) 55%, transparent);
+:deep(.npc-stall__tp:hover:not(:disabled)),
+:deep(.npc-stall__map:hover) {
+  background: color-mix(in oklch, var(--app-craft) 12%, transparent);
+  border-color: color-mix(in oklch, var(--app-craft) 55%, transparent);
 }
 
-:deep(.npc-strip__map) {
-  margin-top: 2px;
-  align-self: flex-start;
-  flex-shrink: 0;
+:deep(.npc-stall__tp:focus-visible),
+:deep(.npc-stall__map:focus-visible) {
+  outline: 2px solid var(--app-craft);
+  outline-offset: 2px;
 }
 
-/* Mobile cards */
-.npc-cards {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border-top: 1px solid var(--el-border-color-lighter);
+:deep(.npc-stall__tp.is-disabled) {
+  color: var(--app-text-muted);
+  border-color: color-mix(in oklch, var(--app-text-muted) 24%, transparent);
+  cursor: not-allowed;
+  opacity: 0.75;
 }
 
-:deep(.npc-card) {
+:deep(.npc-stall__tp-glyph) {
+  font-family: 'Apple Symbols', 'Segoe UI Symbol', 'Symbola', ui-monospace, monospace;
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+:deep(.npc-stall__tp-cmd) {
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  opacity: 0.78;
+}
+
+/* === Item row === */
+:deep(.npc-row) {
   display: grid;
-  grid-template-columns: 36px 28px 1fr auto;
+  grid-template-columns: 36px 32px minmax(0, 1fr) 56px 200px 64px;
   align-items: center;
-  gap: 10px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--el-border-color-lighter);
+  gap: 12px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--app-border);
+  background: var(--app-surface);
+  cursor: pointer;
+  transition: background 140ms ease-out;
 }
 
-:deep(.npc-card:last-child) {
-  border-bottom: none;
+:deep(.npc-row:hover) {
+  background: color-mix(in oklch, var(--app-craft) 6%, var(--app-surface));
 }
 
-:deep(.npc-card--checked) {
-  background: color-mix(in srgb, var(--app-craft-dim) 22%, transparent);
+:deep(.npc-row.is-checked) {
+  background: color-mix(in oklch, var(--app-craft) 4%, var(--app-surface));
 }
 
-:deep(.npc-card__check) {
+:deep(.npc-row__check) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  height: var(--touch-target-min);
+  cursor: pointer;
 }
 
-:deep(.npc-card__checkbox) {
+:deep(.npc-row__checkbox) {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--app-craft);
+  cursor: pointer;
+}
+
+:deep(.npc-row__icon) {
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+}
+
+:deep(.npc-row__name) {
+  font-size: 13.5px;
+  color: var(--app-text);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:deep(.npc-row__fp) {
+  font-size: 10.5px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--app-craft) 16%, transparent);
+  color: var(--app-craft);
+}
+
+:deep(.npc-row__qty) {
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--app-text-muted);
+  text-align: right;
+}
+
+:deep(.npc-row__compare) {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  justify-content: flex-end;
+}
+
+:deep(.npc-row__market) {
+  color: var(--app-text-muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in oklch, var(--app-text-muted) 50%, transparent);
+}
+
+:deep(.npc-row__arrow) {
+  color: var(--app-text-muted);
+  opacity: 0.45;
+}
+
+:deep(.npc-row__npc) {
+  color: var(--app-craft);
+  font-weight: 600;
+}
+
+:deep(.npc-row__savings) {
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--app-success);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* === Mobile === */
+.npc-mobile {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+:deep(.npc-mobile-stall) {
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  background: var(--app-surface);
+  overflow: hidden;
+}
+
+:deep(.npc-mobile-stall.is-engaged) {
+  border-color: color-mix(in oklch, var(--app-craft) 35%, var(--app-border));
+}
+
+:deep(.npc-mobile-stall__head) {
+  appearance: none;
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px 10px;
+  background: color-mix(in oklch, var(--app-craft) 6%, var(--app-surface));
+  border: 0;
+  border-bottom: 1px solid var(--app-border);
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+:deep(.npc-mobile-stall__box) {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1.5px solid color-mix(in oklch, var(--app-craft) 50%, var(--app-border));
+  position: relative;
+}
+
+:deep(.npc-mobile-stall__box.is-on) {
+  background: var(--app-craft);
+  border-color: var(--app-craft);
+}
+
+:deep(.npc-mobile-stall__box.is-on)::after {
+  content: '';
+  position: absolute;
+  inset: 2px 3px 3px 2px;
+  border-right: 2px solid var(--app-surface);
+  border-bottom: 2px solid var(--app-surface);
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+
+:deep(.npc-mobile-stall__box.is-partial) {
+  background: color-mix(in oklch, var(--app-craft) 50%, transparent);
+  border-color: var(--app-craft);
+}
+
+:deep(.npc-mobile-stall__id) {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+:deep(.npc-mobile-stall__name) {
+  font-family: 'Noto Serif TC', serif;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--app-text);
+}
+
+:deep(.npc-mobile-stall__zone) {
+  font-size: 12px;
+  color: var(--app-text-muted);
+}
+
+:deep(.npc-mobile-stall__count) {
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 11.5px;
+  color: var(--app-craft);
+}
+
+:deep(.npc-mobile-stall__actions) {
+  display: flex;
+  gap: 8px;
+  padding: 8px 14px;
+  background: color-mix(in oklch, var(--app-craft) 3%, var(--app-surface));
+  border-bottom: 1px solid var(--app-border);
+}
+
+:deep(.npc-mobile-stall__tp),
+:deep(.npc-mobile-stall__map) {
+  appearance: none;
+  flex: 1;
+  border: 1px solid color-mix(in oklch, var(--app-craft) 35%, transparent);
+  background: transparent;
+  color: var(--app-craft);
+  font-family: 'Noto Sans TC', sans-serif;
+  font-size: 13px;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+:deep(.npc-mobile-stall__tp.is-disabled) {
+  color: var(--app-text-muted);
+  border-color: color-mix(in oklch, var(--app-text-muted) 24%, transparent);
+  opacity: 0.7;
+}
+
+:deep(.npc-mobile-stall__items) {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+:deep(.npc-mobile-item) {
+  display: grid;
+  grid-template-columns: 32px 26px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+:deep(.npc-mobile-item:last-child) {
+  border-bottom: none;
+}
+
+:deep(.npc-mobile-item__check) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+:deep(.npc-mobile-item__checkbox) {
   width: 18px;
   height: 18px;
   accent-color: var(--app-craft);
 }
 
-:deep(.npc-card__icon) {
-  width: 26px;
-  height: 26px;
+:deep(.npc-mobile-item__icon) {
+  width: 24px;
+  height: 24px;
   border-radius: 3px;
 }
 
-:deep(.npc-card__body) {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-:deep(.npc-card__line1) {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13.5px;
-  color: var(--el-text-color-primary);
-}
-
-:deep(.npc-card__name) {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
+:deep(.npc-mobile-item__body) {
   min-width: 0;
 }
 
-:deep(.npc-card__tag) {
-  flex-shrink: 0;
-  font-size: 11px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--app-craft) 14%, transparent);
-  color: var(--app-craft);
-}
-
-:deep(.npc-card__line2) {
+:deep(.npc-mobile-item__line1) {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
+  font-size: 13.5px;
+  color: var(--app-text);
 }
 
-:deep(.npc-card__line3) {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  font-size: 12px;
-  margin-top: 2px;
-}
-
-:deep(.npc-card__npc) {
-  color: var(--app-craft);
-  font-weight: 500;
-}
-
-:deep(.npc-card__sep) {
-  color: var(--el-text-color-placeholder);
-}
-
-:deep(.npc-card__zone) {
+:deep(.npc-mobile-item__qty) {
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 11.5px;
   color: var(--app-text-muted);
 }
 
-:deep(.npc-card__actions) {
-  display: flex;
-  gap: 6px;
-  margin-top: 6px;
-  flex-wrap: wrap;
-}
-
-:deep(.npc-card__tp),
-:deep(.npc-card__map) {
-  appearance: none;
-  border: 1px solid color-mix(in srgb, var(--app-craft) 30%, transparent);
-  background: transparent;
-  color: var(--app-craft);
+:deep(.npc-mobile-item__line2) {
   font-family: 'Fira Code', ui-monospace, monospace;
   font-size: 11.5px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  cursor: pointer;
+  margin-top: 2px;
 }
 
-:deep(.npc-card__savings) {
-  color: var(--app-success);
+:deep(.npc-mobile-item__market) {
+  color: var(--app-text-muted);
+  text-decoration: line-through;
+}
+
+:deep(.npc-mobile-item__npc) {
+  color: var(--app-craft);
+  font-weight: 600;
+}
+
+:deep(.npc-mobile-item__savings) {
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 13px;
   font-weight: 700;
-  font-size: 13.5px;
-  font-variant-numeric: tabular-nums;
-  padding-left: 4px;
+  color: var(--app-success);
 }
 
 @media (max-width: 640px) {
@@ -724,9 +1070,19 @@ export const NpcRowMobile = defineComponent({
 </style>
 
 <style>
-/* Dark mode — same shade adjustment as SelfCraftSuggestions */
-[data-theme="dark"] .npc-table {
-  --el-table-header-bg-color: var(--app-surface-2);
-  --el-table-row-hover-bg-color: color-mix(in srgb, var(--app-craft-dim) 36%, transparent);
+[data-theme="dark"] .npc-thead {
+  background: var(--app-surface-2);
+}
+
+[data-theme="dark"] .npc-block :deep(.npc-stall) {
+  background: color-mix(in oklch, var(--app-craft) 12%, var(--app-surface));
+}
+
+[data-theme="dark"] .npc-block :deep(.npc-row.is-checked) {
+  background: color-mix(in oklch, var(--app-craft) 10%, var(--app-surface));
+}
+
+[data-theme="dark"] .npc-block :deep(.npc-row:hover) {
+  background: color-mix(in oklch, var(--app-craft) 16%, var(--app-surface));
 }
 </style>
