@@ -12,6 +12,9 @@ import { separateCrystals, groupByServer, calculateBestPurchase, findCheapestSer
 import { applyFoodBuff, applyMedicineBuff, resolveBuff, COMMON_FOODS, COMMON_MEDICINES, type FoodBuff } from '@/engine/food-medicine'
 import { evaluateBuffRecommendation, getBuffItemIds } from '@/services/buff-recommender'
 import { produceSelfCraftCandidates } from '@/services/self-craft-candidates'
+import { fetchItemAcquisitionBatch, type ItemAcquisition } from '@/services/item-acquisition'
+import { fetchItemLocationsBatch, type ItemLocations } from '@/services/item-locations'
+import type { NpcPurchaseCandidate } from '@/stores/batch'
 
 export interface RecipeOptimizeResult {
   recipe: Recipe
@@ -249,6 +252,12 @@ export async function runBatchOptimization(
     onProgress({ current: done, total, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
   })
 
+  // === Phase 4a: Fetch NPC availability + locations (parallel) ===
+  const [acquisitionMap, locationsMap] = await Promise.all([
+    fetchItemAcquisitionBatch([...allMaterialIds]),
+    fetchItemLocationsBatch([...allMaterialIds]),
+  ])
+
   // === Phase 4.5: Compare craft cost vs buy price per recipe ===
   const recipesToCraft: RecipeOptimizeResult[] = []
   const buyFinishedItems: BuyFinishedDecision[] = []
@@ -483,7 +492,68 @@ export async function runBatchOptimization(
     hqAmounts: r.hqAmounts, isSemiFinished: false, done: false,
   }))
 
-  return { serverGroups, crystals, selfCraftCandidates, todoList, exceptions, buyFinishedItems, grandTotal, crossWorldCache, buffRecommendation, npcPurchaseCandidates: [] }
+  // === Phase 5.6: Build NPC purchase candidates ===
+  const npcPurchaseCandidates: NpcPurchaseCandidate[] = []
+
+  // From priced materials (non-crystal materials)
+  for (const item of pricedMaterials) {
+    if (item.itemId < 20) continue
+    if (item.isFinishedProduct) continue // handled separately below
+    const acq = acquisitionMap.get(item.itemId)
+    if (!acq?.canNpc || !acq.npcPrice) continue
+    const marketPrice = item.unitPrice
+    if (acq.npcPrice >= marketPrice) continue
+    const locs = locationsMap.get(item.itemId)
+    const vendors = locs?.npcVendors ?? []
+    const sorted = [...vendors].sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity))
+    const chosenVendor = sorted[0]
+    if (!chosenVendor) continue
+    npcPurchaseCandidates.push({
+      itemId: item.itemId,
+      name: item.name,
+      icon: item.icon,
+      amount: item.amount,
+      marketPrice,
+      npcPrice: acq.npcPrice,
+      savings: (marketPrice - acq.npcPrice) * item.amount,
+      savingsRatio: 1 - acq.npcPrice / marketPrice,
+      npcId: chosenVendor.npcId,
+      zoneId: chosenVendor.zoneId,
+      coords: { x: chosenVendor.x, y: chosenVendor.y },
+      isFinishedProduct: false,
+    })
+  }
+
+  // From buy-finished items (finished products purchased from market)
+  for (const bf of buyFinishedItems) {
+    const itemId = bf.recipe.itemId
+    if (itemId < 20) continue
+    const acq = acquisitionMap.get(itemId)
+    if (!acq?.canNpc || !acq.npcPrice) continue
+    const marketPrice = bf.buyPrice
+    if (acq.npcPrice >= marketPrice) continue
+    const locs = locationsMap.get(itemId)
+    const vendors = locs?.npcVendors ?? []
+    const sorted = [...vendors].sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity))
+    const chosenVendor = sorted[0]
+    if (!chosenVendor) continue
+    npcPurchaseCandidates.push({
+      itemId,
+      name: bf.recipe.name,
+      icon: bf.recipe.icon,
+      amount: bf.quantity,
+      marketPrice,
+      npcPrice: acq.npcPrice,
+      savings: (marketPrice - acq.npcPrice) * bf.quantity,
+      savingsRatio: 1 - acq.npcPrice / marketPrice,
+      npcId: chosenVendor.npcId,
+      zoneId: chosenVendor.zoneId,
+      coords: { x: chosenVendor.x, y: chosenVendor.y },
+      isFinishedProduct: true,
+    })
+  }
+
+  return { serverGroups, crystals, selfCraftCandidates, todoList, exceptions, buyFinishedItems, grandTotal, crossWorldCache, buffRecommendation, npcPurchaseCandidates }
 }
 
 /**
@@ -539,6 +609,13 @@ async function runQuickBuy(
     onProgress({ current: done, total, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
   })
 
+  // === Phase 4a: Fetch NPC availability + locations (parallel) ===
+  const qbMatIds = [...matMap.keys()]
+  const [qbAcquisitionMap, qbLocationsMap] = await Promise.all([
+    fetchItemAcquisitionBatch(qbMatIds),
+    fetchItemLocationsBatch(qbMatIds),
+  ])
+
   onProgress({ current: 0, total: 0, name: '整理材料清單', phase: 'aggregating', solverPercent: 0 })
 
   const aggregated = Array.from(matMap.values())
@@ -582,6 +659,38 @@ async function runQuickBuy(
     }
   }
 
+  // === Build NPC purchase candidates for quick-buy ===
+  const qbNpcCandidates: NpcPurchaseCandidate[] = []
+  for (const m of quickBuyMaterials) {
+    if (m.itemId < 20) continue
+    const acq = qbAcquisitionMap.get(m.itemId)
+    if (!acq?.canNpc || !acq.npcPrice) continue
+    // Use NQ price as the market baseline (NPC sells NQ); skip HQ-only items
+    const nqPricing = m.nq
+    if (!nqPricing) continue
+    const marketPrice = nqPricing.unitPrice
+    if (acq.npcPrice >= marketPrice) continue
+    const locs = qbLocationsMap.get(m.itemId)
+    const vendors = locs?.npcVendors ?? []
+    const sorted = [...vendors].sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity))
+    const chosenVendor = sorted[0]
+    if (!chosenVendor) continue
+    qbNpcCandidates.push({
+      itemId: m.itemId,
+      name: m.name,
+      icon: m.icon,
+      amount: m.amount,
+      marketPrice,
+      npcPrice: acq.npcPrice,
+      savings: (marketPrice - acq.npcPrice) * m.amount,
+      savingsRatio: 1 - acq.npcPrice / marketPrice,
+      npcId: chosenVendor.npcId,
+      zoneId: chosenVendor.zoneId,
+      coords: { x: chosenVendor.x, y: chosenVendor.y },
+      isFinishedProduct: false,
+    })
+  }
+
   onProgress({ current: 1, total: 1, name: '', phase: 'done', solverPercent: 0 })
 
   // serverGroups / grandTotal left empty here — the ShoppingList view
@@ -597,6 +706,6 @@ async function runQuickBuy(
     grandTotal: 0,
     crossWorldCache,
     quickBuyMaterials,
-    npcPurchaseCandidates: [],
+    npcPurchaseCandidates: qbNpcCandidates,
   }
 }
