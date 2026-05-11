@@ -375,7 +375,6 @@ export const NpcItemRow = defineComponent({
               : null,
           ]),
           h('span', { class: 'npc-row__qty' }, `×${props.row.amount}`),
-          h('span', { class: 'npc-row__filler', 'aria-hidden': 'true' }),
           h('span', { class: 'npc-row__compare' }, [
             h(
               'span',
@@ -584,20 +583,12 @@ export const NpcMobileStall = defineComponent({
   box-shadow: 0 1px 2px oklch(0.40 0.05 60 / 0.04);
 }
 
-/* Item row grid — name hugs content (max-content), filler eats slack. */
-:deep(.npc-row) {
-  display: grid;
-  grid-template-columns:
-    32px                      /* checkbox */
-    24px                      /* icon */
-    minmax(120px, max-content) /* name */
-    40px                      /* qty (×N is short) */
-    minmax(0, 1fr)            /* filler */
-    110px                     /* cost-compare */
-    52px;                     /* savings */
-  align-items: center;
-  gap: 10px;
-}
+/* Item row — flex, packed left. Sparse data shouldn't be stretched across the
+ * full table width with a filler column (that produces a visible empty bay in
+ * the middle of every row). Trailing whitespace lives at the right edge
+ * outside the visual cluster, which reads as "row ends here" instead of
+ * "row is broken in half". Column widths live on the per-element rules below
+ * so they survive the cascade from later rule blocks. */
 
 /* === Stall header === */
 :deep(.npc-stall) {
@@ -785,8 +776,10 @@ export const NpcMobileStall = defineComponent({
 }
 
 /* === Item row === */
-/* (Grid columns inherited from the shared .npc-thead, :deep(.npc-row) block above.) */
 :deep(.npc-row) {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 7px 14px;
   border-top: 1px solid var(--app-border);
   background: var(--app-surface);
@@ -807,6 +800,8 @@ export const NpcMobileStall = defineComponent({
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  width: 24px;
+  flex-shrink: 0;
 }
 
 :deep(.npc-row__checkbox) {
@@ -820,6 +815,7 @@ export const NpcMobileStall = defineComponent({
   width: 24px;
   height: 24px;
   border-radius: 3px;
+  flex-shrink: 0;
 }
 
 :deep(.npc-row__name) {
@@ -828,7 +824,8 @@ export const NpcMobileStall = defineComponent({
   display: inline-flex;
   align-items: baseline;
   gap: 6px;
-  min-width: 0;
+  min-width: 140px;
+  flex-shrink: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -847,6 +844,8 @@ export const NpcMobileStall = defineComponent({
   font-size: 12px;
   color: var(--app-text-muted);
   text-align: right;
+  width: 40px;
+  flex-shrink: 0;
 }
 
 :deep(.npc-row__compare) {
@@ -857,6 +856,8 @@ export const NpcMobileStall = defineComponent({
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   justify-content: flex-end;
+  width: 110px;
+  flex-shrink: 0;
 }
 
 :deep(.npc-row__market) {
@@ -882,6 +883,8 @@ export const NpcMobileStall = defineComponent({
   color: var(--app-success);
   font-variant-numeric: tabular-nums;
   text-align: right;
+  width: 52px;
+  flex-shrink: 0;
 }
 
 /* === Mobile === */
