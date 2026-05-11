@@ -187,6 +187,7 @@ export async function runBatchOptimization(
       exceptions.push({
         type: 'level-insufficient',
         recipe: target.recipe,
+        quantity: target.quantity,
         message: '職業等級不足',
         details: `你的 ${target.recipe.job} 等級 ${gearset?.level ?? 0} 不足以製作「${target.recipe.name}」（需要等級 ${target.recipe.level}）`,
         action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
@@ -211,6 +212,7 @@ export async function runBatchOptimization(
         exceptions.push({
           type: 'quality-unachievable',
           recipe: target.recipe,
+          quantity: target.quantity,
           message: '無法達成雙滿',
           details: `「${target.recipe.name}」即使使用全部 HQ 素材仍無法達成品質上限`,
           action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
@@ -339,10 +341,8 @@ export async function runBatchOptimization(
 
   for (const exc of exceptions) {
     if (exc.action !== 'buy-finished') continue
-    const target = targets.find(t => t.recipe.id === exc.recipe.id)
-    const quantity = target?.quantity ?? 1
     const { buyPrice, buyServer } = priceFinishedProduct(
-      priceMap.get(exc.recipe.itemId), quantity, exc.recipe.canHq,
+      priceMap.get(exc.recipe.itemId), exc.quantity, exc.recipe.canHq,
       settings.crossServer, settings.server,
     )
     if (buyPrice <= 0) continue
@@ -351,7 +351,7 @@ export async function runBatchOptimization(
     exc.buyServer = buyServer
     buyFinishedItems.push({
       recipe: exc.recipe,
-      quantity,
+      quantity: exc.quantity,
       craftCost: Infinity,
       buyPrice,
       buyServer,
