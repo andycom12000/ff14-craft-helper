@@ -9,7 +9,11 @@ import { getAggregatedPrices, type MarketData } from '@/api/universalis'
 import { findRecipesByItemName, getRecipe } from '@/api/xivapi'
 import type { RecipeOptimizeResult } from '@/services/batch-optimizer'
 import type { FoodBuff } from '@/engine/food-medicine'
+import { applyBuffsToStats } from '@/engine/food-medicine'
 import type { SelfCraftCandidate } from '@/stores/batch'
+import { simulateCraft } from '@/solver/worker'
+import { canReachHQQuality } from '@/services/feasibility-prefilter'
+import { craftParamsToSolverConfig, recipeToCraftParams } from '@/solver/config'
 
 export interface PrelimCandidate {
   itemId: number
@@ -120,6 +124,80 @@ type OptimizeRecipeFn = (
   onSolverProgress?: (pct: number) => void,
   buffs?: { food: FoodBuff | null; medicine: FoodBuff | null },
 ) => Promise<RecipeOptimizeResult>
+
+function nqTemplate(level: number): string[] {
+  if (level < 54) return new Array(15).fill('BasicSynthesis')
+  if (level <= 70) return ['MuscleMemory', ...new Array(10).fill('BasicSynthesis')]
+  if (level <= 90) return ['MuscleMemory', ...new Array(8).fill('CarefulSynthesis')]
+  return ['MuscleMemory', 'Veneration', ...new Array(7).fill('CarefulSynthesis')]
+}
+
+type ValidateOutcome =
+  | { kind: 'accepted'; via: 'template' | 'solver'; actions: string[]; hqAmounts: number[]; solveDur?: number }
+  | { kind: 'failed' }
+  | { kind: 'prefilter-rejected' }
+
+async function validateNQ(
+  recipe: Recipe,
+  gearset: GearsetStats,
+  buffs: { food: FoodBuff | null; medicine: FoodBuff | null } | undefined,
+  optimizeRecipe: OptimizeRecipeFn,
+): Promise<ValidateOutcome> {
+  const enhanced = applyBuffsToStats(
+    { craftsmanship: gearset.craftsmanship, control: gearset.control, cp: gearset.cp },
+    buffs,
+  )
+  const params = recipeToCraftParams(recipe, { ...gearset, ...enhanced })
+  const config = craftParamsToSolverConfig(params)
+  const template = nqTemplate(recipe.level)
+
+  try {
+    const sim = await simulateCraft(config, template)
+    if (sim.progress >= sim.max_progress) {
+      return { kind: 'accepted', via: 'template', actions: template, hqAmounts: [] }
+    }
+  } catch (err) {
+    console.warn(`[self-craft] simulate failed for ${recipe.name}, falling back to solver`, err)
+  }
+
+  const t0 = performance.now()
+  try {
+    const opt = await optimizeRecipe(recipe, gearset, undefined, buffs)
+    if (!opt.isDoubleMax && opt.hqAmounts.length === 0) return { kind: 'failed' }
+    return {
+      kind: 'accepted', via: 'solver',
+      actions: opt.actions, hqAmounts: opt.hqAmounts,
+      solveDur: performance.now() - t0,
+    }
+  } catch (err) {
+    console.warn(`[self-craft] solver failed for ${recipe.name}:`, err)
+    return { kind: 'failed' }
+  }
+}
+
+async function validateHQ(
+  recipe: Recipe,
+  gearset: GearsetStats,
+  buffs: { food: FoodBuff | null; medicine: FoodBuff | null } | undefined,
+  optimizeRecipe: OptimizeRecipeFn,
+): Promise<ValidateOutcome> {
+  if (!canReachHQQuality(recipe, gearset, buffs)) {
+    return { kind: 'prefilter-rejected' }
+  }
+  const t0 = performance.now()
+  try {
+    const opt = await optimizeRecipe(recipe, gearset, undefined, buffs)
+    if (!opt.isDoubleMax) return { kind: 'failed' }
+    return {
+      kind: 'accepted', via: 'solver',
+      actions: opt.actions, hqAmounts: opt.hqAmounts,
+      solveDur: performance.now() - t0,
+    }
+  } catch (err) {
+    console.warn(`[self-craft] solver failed for ${recipe.name}:`, err)
+    return { kind: 'failed' }
+  }
+}
 
 interface ProduceArgs {
   recipesToCraft: RecipeOptimizeResult[]
@@ -257,6 +335,8 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
 
   const candidates: SelfCraftCandidate[] = []
   let _bperfSolveCount = 0, _bperfSolveTotal = 0
+  let _bperfTemplateHits = 0, _bperfPrefilterRejects = 0
+
   for (let i = 0; i < withRecipes.length; i++) {
     if (isCancelled()) return candidates
     const { decision, node, recipe, job } = withRecipes[i]
@@ -266,25 +346,25 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
     if (!gs) continue
     const hqRequired = hqRequiredMap.get(decision.itemId) === true
 
-    let optResult: RecipeOptimizeResult
-    const _bperfSolveT0 = performance.now()
-    try {
-      optResult = await optimizeRecipe(recipe, gs, undefined, buffs)
-    } catch (err) {
-      console.warn(`[self-craft] solver failed for ${recipe.name}:`, err)
+    const validated = hqRequired
+      ? await validateHQ(recipe, gs, buffs, optimizeRecipe)
+      : await validateNQ(recipe, gs, buffs, optimizeRecipe)
+
+    if (validated.kind === 'prefilter-rejected') {
+      _bperfPrefilterRejects++
+      console.log(`[bperf-self]   prefilter-rejected[${i}] "${recipe.name}" lvl=${recipe.level}`)
       continue
     }
-    const _bperfSolveDur = performance.now() - _bperfSolveT0
-    _bperfSolveCount++; _bperfSolveTotal += _bperfSolveDur
-    console.log(`[bperf-self]   solver[${i}] "${recipe.name}" lvl=${recipe.level} dur=${_bperfSolveDur.toFixed(1)}ms doubleMax=${optResult.isDoubleMax} hqRequired=${hqRequired}`)
+    if (validated.kind === 'failed') continue
 
-    // optimizeRecipe does NOT throw when progress is unreachable; it returns whatever
-    // the solver found. Signals: isDoubleMax=true means both progress and quality are
-    // maxed; !isDoubleMax with hqAmounts.length===0 is batch-optimizer's "unachievable"
-    // signal (no HQ combination closes the quality gap). Mirror that here so crafts the
-    // solver could not complete aren't offered as self-craft candidates.
-    if (!optResult.isDoubleMax && optResult.hqAmounts.length === 0) continue
-    if (hqRequired && !optResult.isDoubleMax) continue
+    if (validated.via === 'template') _bperfTemplateHits++
+    else {
+      _bperfSolveCount++
+      _bperfSolveTotal += validated.solveDur ?? 0
+    }
+    console.log(`[bperf-self]   ${validated.via}[${i}] "${recipe.name}" lvl=${recipe.level} ` +
+      (validated.via === 'solver' ? `dur=${(validated.solveDur ?? 0).toFixed(1)}ms ` : '') +
+      `hqRequired=${hqRequired}`)
 
     candidates.push({
       itemId: decision.itemId,
@@ -297,14 +377,17 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
       craftCost: decision.craftCost,
       savings: decision.buyCost - decision.craftCost,
       savingsRatio: decision.savingsRatio,
-      actions: optResult.actions,
-      hqAmounts: optResult.hqAmounts,
+      actions: validated.actions,
+      hqAmounts: validated.hqAmounts,
       rawMaterials: computeRawMaterials(node.childNodes, priceMap, crossServer, server),
       hqRequired,
       depth: node.depth,
     })
   }
 
-  console.log(`[bperf-self] done · dur=${(performance.now() - _bperfT0).toFixed(1)}ms · solverRuns=${_bperfSolveCount} solverTotal=${_bperfSolveTotal.toFixed(0)}ms avg=${_bperfSolveCount ? (_bperfSolveTotal / _bperfSolveCount).toFixed(1) : 0}ms · accepted=${candidates.length}`)
+  console.log(`[bperf-self] done · dur=${(performance.now() - _bperfT0).toFixed(1)}ms · ` +
+    `solverRuns=${_bperfSolveCount} (${_bperfSolveTotal.toFixed(0)}ms) ` +
+    `templateHits=${_bperfTemplateHits} prefilterRejects=${_bperfPrefilterRejects} ` +
+    `accepted=${candidates.length}`)
   return candidates
 }
