@@ -16,7 +16,9 @@ const meta = computed(() => (props.zoneId ? getZoneMetaSync(props.zoneId) : null
 const mapUrl = computed(() => {
   const m = meta.value
   if (!m?.mapAssetUrl) return ''
-  return `https://xivapi.com/${m.mapAssetUrl}`
+  // xivapi.com v1 stopped serving the raw .tex path; route through the beta
+  // asset endpoint (same pattern used by NodeMinimap / icon-url).
+  return `https://beta.xivapi.com/api/1/asset/${m.mapAssetUrl}?format=png`
 })
 
 const markerStyle = computed(() => {
