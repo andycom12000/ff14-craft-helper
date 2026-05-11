@@ -796,11 +796,16 @@ export const NpcMobileStall = defineComponent({
 }
 
 :deep(.npc-row__check) {
+  /* WCAG 2.5.5 AAA: touch target ≥ 44×44. Visible checkbox stays 16px;
+   * the label wrapper carries the full hit area. */
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  width: 24px;
+  width: 44px;
+  height: 44px;
+  margin-left: -10px;   /* tuck the wider label into row padding so the row's
+                           visual left gutter stays narrow */
   flex-shrink: 0;
 }
 
@@ -1010,10 +1015,10 @@ export const NpcMobileStall = defineComponent({
 
 :deep(.npc-mobile-item) {
   display: grid;
-  grid-template-columns: 32px 26px 1fr auto;
+  grid-template-columns: 44px 26px 1fr auto;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 6px 14px;  /* trimmed so 44px touch target wrapper drives row height */
   border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
@@ -1022,9 +1027,14 @@ export const NpcMobileStall = defineComponent({
 }
 
 :deep(.npc-mobile-item__check) {
+  /* WCAG 2.5.5 AAA touch target. Visible box stays 18px. */
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-left: -10px;
+  cursor: pointer;
 }
 
 :deep(.npc-mobile-item__checkbox) {

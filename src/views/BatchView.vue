@@ -512,7 +512,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
               <SelfCraftSuggestions :candidates="batchStore.results.selfCraftCandidates" />
             </template>
             <p v-else class="subsection-empty">
-              此次計算沒有可採納的建議——當前的市場價、巨集與配裝已經是最佳組合。
+              此次計算沒有可採納的建議，當前的市場價、巨集與配裝已經是最佳組合。
             </p>
           </div>
         </section>
@@ -846,9 +846,9 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
 .subsection-empty {
   margin: 6px 4px 12px;
   padding: 14px 16px;
-  background: color-mix(in srgb, var(--app-craft-dim) 22%, transparent);
+  background: color-mix(in oklch, var(--app-craft) 6%, transparent);
   border-radius: 10px;
-  border: 1px dashed color-mix(in srgb, var(--app-craft) 25%, transparent);
+  border: 1px dashed color-mix(in oklch, var(--app-craft) 28%, transparent);
   font-size: 13.5px;
   color: var(--app-text-muted);
   line-height: 1.6;
@@ -908,23 +908,19 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
   margin-bottom: 16px;
 }
 
-/* Exception block — flat, no nested card */
+/* Exception block — flat, full border + tinted bg (no side-stripe border) */
 .exception-block {
   margin-bottom: 16px;
   padding: 12px 14px;
-  border: 1px solid var(--el-color-danger-light-5, rgba(245, 108, 108, 0.25));
-  border-left: 3px solid var(--el-color-danger, #F56C6C);
-  border-radius: 6px;
-  background: rgba(245, 108, 108, 0.06);
+  border: 1px solid color-mix(in oklch, var(--app-danger) 32%, transparent);
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--app-danger) 8%, transparent);
 }
 
 @media (max-width: 640px) {
   .exception-block {
-    background: transparent;
-    border: none;
-    border-left: 3px solid var(--el-color-danger, #F56C6C);
-    border-radius: 0;
-    padding: 4px 0 10px 12px;
+    border-radius: 6px;
+    padding: 10px 12px;
   }
 }
 
