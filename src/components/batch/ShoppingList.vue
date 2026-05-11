@@ -2,7 +2,8 @@
 import { ref, watch, triggerRef, computed, nextTick, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { CrystalSummary, ServerGroup, MaterialWithPrice } from '@/services/shopping-list'
-import { sortServerGroupsHomeLast } from '@/services/shopping-list'
+import { sortServerGroupsHomeLast, isNpcServer } from '@/services/shopping-list'
+import NpcShoppingGroup from './NpcShoppingGroup.vue'
 import type { WorldPriceSummary } from '@/api/universalis'
 import type { BuyFinishedDecision, SelfCraftCandidate } from '@/stores/batch'
 import { useBatchStore } from '@/stores/batch'
@@ -227,9 +228,14 @@ function isRowChecked(row: MaterialWithPrice): boolean {
     <!-- First-time tip explaining same-itemId NQ + HQ pairs -->
     <NqhqSplitTip :items="allShoppingItems" />
 
-    <!-- Server groups (NPC commits go through VendorRoster, not here) -->
+    <!-- Server groups — NPC vendors get their own stall-card layout,
+         everything else falls through to the standard server table. -->
     <div class="server-grid">
     <div v-for="group in effectiveServerGroups" :key="group.server" class="server-group">
+      <template v-if="isNpcServer(group.server)">
+        <NpcShoppingGroup :group="group" />
+      </template>
+      <template v-else>
         <div class="server-header">
           <div class="server-info">
             <el-tag v-if="!isMobile" type="primary" size="small">{{ group.server }}</el-tag>
@@ -423,6 +429,7 @@ function isRowChecked(row: MaterialWithPrice): boolean {
             </div>
           </li>
         </ul>
+      </template>
     </div>
 
     </div>
