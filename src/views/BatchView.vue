@@ -507,6 +507,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
               <BuffRecommendationCard
                 v-if="batchStore.results.buffRecommendation"
                 :recommendation="batchStore.results.buffRecommendation"
+                @apply="startOptimization"
               />
               <VendorRoster :candidates="batchStore.results.npcPurchaseCandidates" />
               <SelfCraftSuggestions :candidates="batchStore.results.selfCraftCandidates" />
