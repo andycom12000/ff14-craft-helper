@@ -172,18 +172,11 @@ async function copyTp(aetheryteName: string | null) {
       </div>
     </header>
 
-    <!-- Desktop: NPC-grouped flat list -->
+    <!-- Desktop: NPC-grouped flat list. No thead — columns are self-explanatory
+         (icon · name · ×N · market→NPC · −%); a thead row above the stall
+         header competed with it for visual ownership of the columns and
+         clobbered the grouping. -->
     <div v-if="!isMobile" class="npc-list" role="table">
-      <div class="npc-thead" role="row">
-        <span class="th-check" />
-        <span class="th-icon" />
-        <span class="th-name" role="columnheader">素材</span>
-        <span class="th-qty" role="columnheader">數量</span>
-        <span class="th-filler" aria-hidden="true" />
-        <span class="th-compare" role="columnheader">市場 → NPC</span>
-        <span class="th-savings" role="columnheader">省</span>
-      </div>
-
       <template v-for="stall in stalls" :key="stall.npcId">
         <NpcStallHeader
           :stall="stall"
@@ -591,39 +584,19 @@ export const NpcMobileStall = defineComponent({
   box-shadow: 0 1px 2px oklch(0.40 0.05 60 / 0.04);
 }
 
-/* Grid columns shared with .npc-row so headers, items, and totals line up.
- * Name uses auto-width (hugs content), filler absorbs slack — same pattern
- * as BomDecisionRow. Total content width on a 1-row sample stays under 700px,
- * which is why .npc-block caps at 880px (avoids the "empty bay" effect). */
-.npc-thead,
+/* Item row grid — name hugs content (max-content), filler eats slack. */
 :deep(.npc-row) {
   display: grid;
   grid-template-columns:
     32px                      /* checkbox */
-    28px                      /* icon */
-    minmax(140px, max-content) /* name (hugs content, min 140px) */
-    56px                      /* qty */
+    24px                      /* icon */
+    minmax(120px, max-content) /* name */
+    40px                      /* qty (×N is short) */
     minmax(0, 1fr)            /* filler */
-    140px                     /* cost-compare */
-    56px;                     /* savings */
+    110px                     /* cost-compare */
+    52px;                     /* savings */
   align-items: center;
   gap: 10px;
-}
-
-.npc-thead {
-  padding: 8px 14px;
-  background: oklch(0.955 0.028 80);
-  border-bottom: 1px solid var(--app-border);
-  font-size: 11.5px;
-  color: var(--app-text-muted);
-  font-weight: 500;
-  letter-spacing: 0.04em;
-}
-
-.th-qty,
-.th-compare,
-.th-savings {
-  text-align: right;
 }
 
 /* === Stall header === */
