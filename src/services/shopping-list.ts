@@ -89,23 +89,28 @@ export function groupByServer(materials: MaterialWithPrice[]): ServerGroup[] {
 }
 
 /**
- * Move the home-server group to the end so cross-server runs surface first
- * (player typically wants the "trips needed" servers up top, then their home
- * server as the residual local-pickup). Returns input unchanged if homeServer
+ * Order server groups: NPC first (if present), then others, then home server last.
+ * This surfaces NPC purchases at the top, other cross-server runs in the middle,
+ * and home-server local-pickup at the bottom. Returns input unchanged if homeServer
  * is empty/missing from the list.
  */
 export function sortServerGroupsHomeLast(
   groups: ServerGroup[],
   homeServer: string,
 ): ServerGroup[] {
-  if (!homeServer) return groups
-  const others: ServerGroup[] = []
+  let npc: ServerGroup | undefined
   let home: ServerGroup | undefined
+  const others: ServerGroup[] = []
   for (const g of groups) {
-    if (g.server === homeServer) home = g
+    if (g.server === 'NPC') npc = g
+    else if (homeServer && g.server === homeServer) home = g
     else others.push(g)
   }
-  return home ? [...others, home] : groups
+  const result: ServerGroup[] = []
+  if (npc) result.push(npc)
+  result.push(...others)
+  if (home) result.push(home)
+  return result
 }
 
 export interface PurchaseResult {
