@@ -780,10 +780,11 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
   padding: 4px 0 8px;
 }
 
-/* === Wide-viewport grid: selfcraft + NPC side-by-side, food spans top === */
+/* === Wide-viewport grid: selfcraft + NPC side-by-side when both present;
+ * single column when only one (no orphan whitespace on ultra-wide). === */
 .sug-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
   gap: 4px 32px;
   align-items: start;
 }
