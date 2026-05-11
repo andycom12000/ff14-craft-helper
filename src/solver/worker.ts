@@ -10,7 +10,6 @@ import { classifyGearBucket } from '@/utils/gear-bucket'
 export const SOLVE_CANCELLED = '求解已取消'
 
 let worker: Worker | null = null
-let currentReject: ((reason: Error) => void) | null = null
 let wasmStatus: 'loading' | 'ready' | 'error' = 'loading'
 let wasmErrorMessage: string | null = null
 // Multiple components (SolverPanel, CraftRecommendation, …) can call
@@ -26,6 +25,7 @@ let nextRequestId = 0
 const pendingRequests = new Map<number, {
   resolve: (value: any) => void
   reject: (reason: Error) => void
+  onProgress?: (pct: number) => void
 }>()
 
 function getWorker(): Worker {
@@ -53,10 +53,16 @@ function getWorker(): Worker {
         wasmReadyWaiters.length = 0
         for (const cb of waiters) cb(wasmErrorMessage)
       } else if (data.requestId !== undefined) {
-        // Routed response for simulate/simulate-detail
         const pending = pendingRequests.get(data.requestId)
+        if (data.type === 'progress' && data.progress !== undefined) {
+          pending?.onProgress?.(data.progress)
+          return
+        }
         if (!pending) return
-        if (data.type === 'simulate-result' && data.simulateResult) {
+        if (data.type === 'result' && data.result) {
+          pendingRequests.delete(data.requestId)
+          pending.resolve(data.result)
+        } else if (data.type === 'simulate-result' && data.simulateResult) {
           pendingRequests.delete(data.requestId)
           pending.resolve(data.simulateResult)
         } else if (data.type === 'simulate-detail-result' && data.simulateDetailResult) {
@@ -64,7 +70,7 @@ function getWorker(): Worker {
           pending.resolve(data.simulateDetailResult)
         } else if (data.type === 'error') {
           pendingRequests.delete(data.requestId)
-          pending.reject(new Error(data.error ?? '模擬失敗'))
+          pending.reject(new Error(data.error ?? '求解器發生未知錯誤'))
         }
       }
     })
@@ -108,59 +114,31 @@ export function solveCraft(
   config: SolverConfig,
   onProgress?: (percent: number) => void,
 ): Promise<SolverResult> {
+  const w = getWorker()
+  const requestId = nextRequestId++
+  const startedAt = performance.now()
+  trackEvent('solver_start', {
+    crafter_level: config.crafter_level, recipe_level: config.recipe_level,
+    hq_target: config.hq_target,
+    gear_bucket: classifyGearBucket(config.crafter_level, config.craftsmanship, config.control),
+  })
   return new Promise<SolverResult>((resolve, reject) => {
-    const w = getWorker()
-    currentReject = reject
-    const startedAt = performance.now()
-    trackEvent('solver_start', {
-      crafter_level: config.crafter_level,
-      recipe_level: config.recipe_level,
-      hq_target: config.hq_target,
-      gear_bucket: classifyGearBucket(
-        config.crafter_level,
-        config.craftsmanship,
-        config.control,
-      ),
-    })
-
-    // Solve still uses onmessage (only one solve at a time)
-    const prevHandler = w.onmessage
-    w.onmessage = (e: MessageEvent<SolverResponse>) => {
-      const data = e.data
-
-      // Skip init messages and routed messages
-      if (data.type === 'ready' || data.type === 'init-error') return
-      if (data.requestId !== undefined) return
-
-      if (data.type === 'progress' && data.progress !== undefined) {
-        onProgress?.(data.progress)
-      } else if (data.type === 'result' && data.result) {
-        currentReject = null
-        w.onmessage = prevHandler
+    pendingRequests.set(requestId, {
+      onProgress,
+      resolve: (r: SolverResult) => {
         trackEvent('solver_complete', {
           duration_ms: Math.round(performance.now() - startedAt),
-          action_count: data.result.actions.length,
-          steps: data.result.steps,
+          action_count: r.actions.length, steps: r.steps,
         })
-        resolve(data.result)
-      } else if (data.type === 'error') {
-        currentReject = null
-        w.onmessage = prevHandler
-        const message = data.error ?? '求解器發生未知錯誤'
-        trackEvent('solver_failed', { reason: message })
-        trackError(`solver_failed: ${message}`)
-        reject(new Error(message))
-      }
-    }
-
-    w.onerror = (err) => {
-      currentReject = null
-      trackError(`solver_worker_error: ${err.message}`)
-      reject(new Error(`Worker error: ${err.message}`))
-    }
-
-    // Spread config to strip Vue reactive proxy
-    w.postMessage({ type: 'solve', config: { ...config } })
+        resolve(r)
+      },
+      reject: (err: Error) => {
+        trackEvent('solver_failed', { reason: err.message })
+        trackError(`solver_failed: ${err.message}`)
+        reject(err)
+      },
+    })
+    w.postMessage({ type: 'solve', config: { ...config }, requestId })
   })
 }
 
@@ -219,22 +197,12 @@ export function simulateCraftDetail(
  * WASM re-init on the next solve.
  */
 export function cancelSolve(): void {
-  if (currentReject === null && pendingRequests.size === 0) return
-
-  if (worker) {
-    worker.terminate()
-    worker = null
-  }
+  if (pendingRequests.size === 0) return
+  if (worker) { worker.terminate(); worker = null }
   wasmStatus = 'loading'
   wasmErrorMessage = null
-  for (const [, pending] of pendingRequests) {
-    pending.reject(new Error(SOLVE_CANCELLED))
-  }
+  for (const [, pending] of pendingRequests) pending.reject(new Error(SOLVE_CANCELLED))
   pendingRequests.clear()
-  if (currentReject) {
-    currentReject(new Error(SOLVE_CANCELLED))
-    currentReject = null
-  }
 }
 
 /**
@@ -247,10 +215,7 @@ export function disposeWorker(): void {
   }
   wasmStatus = 'loading'
   wasmErrorMessage = null
-  currentReject = null
   pendingRequests.clear()
-  // Drop pending waiters; the next getWorker() will spin up a fresh
-  // 'ready' lifecycle and any new caller will register against that.
   wasmReadyWaiters.length = 0
   wasmErrorWaiters.length = 0
 }
