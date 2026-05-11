@@ -223,11 +223,16 @@ export async function evaluateBuffRecommendation(
   onProgress?: (info: { current: number; total: number }) => void,
   unachievableRecipes: RecipeOptimizeResult[] = [],
 ): Promise<BuffRecommendation | null> {
+  const _bperfT0 = performance.now()
+  let _bperfSimCount = 0, _bperfSimTotal = 0
+  let _bperfSolveCount = 0, _bperfSolveTotal = 0
+
   // Step 1: collect deficit recipes (exclude buy-finished and canHq=false)
   const deficitRecipes = recipeResults.filter(
     r => !r.isDoubleMax && r.recipe.canHq && !buyFinishedIds.has(r.recipe.id),
   )
   if (deficitRecipes.length === 0 && unachievableRecipes.length === 0) return null
+  console.log(`[bperf-buff] start · deficit=${deficitRecipes.length} unachievable=${unachievableRecipes.length}`)
 
   const unachievableIds = new Set(unachievableRecipes.map(r => r.recipe.id))
 
@@ -259,23 +264,28 @@ export async function evaluateBuffRecommendation(
       bestCeilingCombo = combo
     }
   }
+  const _bperfCeilT0 = performance.now()
   const ceilingSimPass = await simulateWithBuffedStats(
     ceilingTarget.recipe, ceilingGearset, bestCeilingCombo, ceilingTarget.actions,
   )
+  _bperfSimCount++; _bperfSimTotal += performance.now() - _bperfCeilT0
   if (!ceilingSimPass) {
+    const _bperfCeilSolveT0 = performance.now()
     const ceilingSolvePass = await solveWithBuffedStats(
       ceilingTarget.recipe, ceilingGearset, bestCeilingCombo,
     )
+    _bperfSolveCount++; _bperfSolveTotal += performance.now() - _bperfCeilSolveT0
     if (!ceilingSolvePass) {
-      // If we were checking an unachievable recipe and it failed, no recommendation possible
-      // If we were checking a deficit recipe, also give up (original behavior)
+      console.log(`[bperf-buff] ceiling check failed · giving up · dur=${(performance.now() - _bperfT0).toFixed(1)}ms`)
       return null
     }
   }
+  console.log(`[bperf-buff]   ceiling check dur=${(performance.now() - _bperfCeilT0).toFixed(1)}ms simPass=${ceilingSimPass}`)
 
   // Step 2: generate, dedup, sort by price
   const candidates = dedupCombos(allCombos, baseStats, priceMap)
   if (candidates.length === 0) return null
+  console.log(`[bperf-buff]   candidates after dedup=${candidates.length} (from ${allCombos.length})`)
 
   // All recipes to evaluate (unachievable + deficit)
   const allCandidateRecipes = [...unachievableRecipes, ...deficitRecipes]
@@ -289,18 +299,27 @@ export async function evaluateBuffRecommendation(
 
     // Step 4: test each recipe with this combo (partial pass)
     const passedRecipes: RecipeOptimizeResult[] = []
+    const _bperfComboT0 = performance.now()
+    let _bperfComboSims = 0, _bperfComboSolves = 0
     for (const r of allCandidateRecipes) {
       if (isCancelled()) return null
       const gs = getGearset(r.recipe.job)
       if (!gs) continue
 
+      const _bperfSimT0 = performance.now()
       let passes = await simulateWithBuffedStats(r.recipe, gs, combo, r.actions)
+      const _bperfSimDur = performance.now() - _bperfSimT0
+      _bperfSimCount++; _bperfSimTotal += _bperfSimDur; _bperfComboSims++
       if (!passes) {
         if (isCancelled()) return null
+        const _bperfSolveT0 = performance.now()
         passes = await solveWithBuffedStats(r.recipe, gs, combo)
+        const _bperfSolveDur = performance.now() - _bperfSolveT0
+        _bperfSolveCount++; _bperfSolveTotal += _bperfSolveDur; _bperfComboSolves++
       }
       if (passes) passedRecipes.push(r)
     }
+    console.log(`[bperf-buff]   combo[${i}] price=${candidate.price} dur=${(performance.now() - _bperfComboT0).toFixed(1)}ms sims=${_bperfComboSims} solves=${_bperfComboSolves} passed=${passedRecipes.length}/${allCandidateRecipes.length}`)
 
     // Step 5: evaluate results
     const passedEnabled = passedRecipes.filter(r => unachievableIds.has(r.recipe.id))
@@ -312,6 +331,7 @@ export async function evaluateBuffRecommendation(
 
     if (passedEnabled.length > 0) {
       // Enables previously-unachievable recipes → always recommend
+      console.log(`[bperf-buff] ✔ recommendation found (enables ${passedEnabled.length}) · total dur=${(performance.now() - _bperfT0).toFixed(1)}ms · sims=${_bperfSimCount} (${_bperfSimTotal.toFixed(0)}ms) solves=${_bperfSolveCount} (${_bperfSolveTotal.toFixed(0)}ms)`)
       const { foodPrice, medicinePrice } = getComboPriceInfo(combo, priceMap)
       return {
         food: combo.food,
@@ -329,6 +349,7 @@ export async function evaluateBuffRecommendation(
     if (passedDeficit.length < deficitRecipes.length) continue
     if (candidate.price >= hqSavings) continue
 
+    console.log(`[bperf-buff] ✔ deficit recommendation found · total dur=${(performance.now() - _bperfT0).toFixed(1)}ms · sims=${_bperfSimCount} (${_bperfSimTotal.toFixed(0)}ms) solves=${_bperfSolveCount} (${_bperfSolveTotal.toFixed(0)}ms)`)
     const { foodPrice, medicinePrice } = getComboPriceInfo(combo, priceMap)
     return {
       food: combo.food,
@@ -342,5 +363,6 @@ export async function evaluateBuffRecommendation(
     }
   }
 
+  console.log(`[bperf-buff] ✘ no recommendation · total dur=${(performance.now() - _bperfT0).toFixed(1)}ms · sims=${_bperfSimCount} (${_bperfSimTotal.toFixed(0)}ms) solves=${_bperfSolveCount} (${_bperfSolveTotal.toFixed(0)}ms)`)
   return null
 }

@@ -147,8 +147,10 @@ function collectTreeItemIds(tree: MaterialNode[]): Set<number> {
 
 export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<SelfCraftCandidate[]> {
   const { recipesToCraft, priceMap, priceSource, crossServer, server, getGearset, maxDepth, buffs, optimizeRecipe, onProgress, isCancelled } = args
+  const _bperfT0 = performance.now()
 
   if (recipesToCraft.length === 0) return []
+  console.log(`[bperf-self] start · roots=${recipesToCraft.length} maxDepth=${maxDepth}`)
 
   // Step 1: Collect BOM targets — one per recipesToCraft entry.
   // bomTargets[].quantity is "# of finished items the user wants" — buildMaterialTree
@@ -165,7 +167,9 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
   }
 
   // Step 2: Build the tree
+  const _bperfTreeT0 = performance.now()
   const tree = await buildMaterialTree(bomTargets, maxDepth)
+  console.log(`[bperf-self]   buildMaterialTree dur=${(performance.now() - _bperfTreeT0).toFixed(1)}ms`)
   if (isCancelled()) return []
 
   // Step 3: Backfill prices for BOM-expanded descendants (grand-children and deeper)
@@ -174,12 +178,16 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
   const missingIds: number[] = []
   for (const id of treeItemIds) if (!priceMap.has(id)) missingIds.push(id)
   if (missingIds.length > 0) {
+    const _bperfBackfillT0 = performance.now()
     try {
       const extra = await getAggregatedPrices(priceSource, missingIds)
       for (const [id, md] of extra) priceMap.set(id, md)
+      console.log(`[bperf-self]   price backfill ${missingIds.length} ids dur=${(performance.now() - _bperfBackfillT0).toFixed(1)}ms`)
     } catch (err) {
       console.warn('[self-craft] price backfill failed:', err)
     }
+  } else {
+    console.log(`[bperf-self]   no price backfill needed`)
   }
   if (isCancelled()) return []
 
@@ -234,6 +242,7 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
     withRecipes.push({ decision, node, recipe, job: first.job })
   }
 
+  console.log(`[bperf-self]   viableDecisions=${viableDecisions.length} → withRecipes=${withRecipes.length} (after level + recipe lookup)`)
   if (withRecipes.length === 0) return []
   if (isCancelled()) return []
 
@@ -247,6 +256,7 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
   }
 
   const candidates: SelfCraftCandidate[] = []
+  let _bperfSolveCount = 0, _bperfSolveTotal = 0
   for (let i = 0; i < withRecipes.length; i++) {
     if (isCancelled()) return candidates
     const { decision, node, recipe, job } = withRecipes[i]
@@ -257,12 +267,16 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
     const hqRequired = hqRequiredMap.get(decision.itemId) === true
 
     let optResult: RecipeOptimizeResult
+    const _bperfSolveT0 = performance.now()
     try {
       optResult = await optimizeRecipe(recipe, gs, undefined, buffs)
     } catch (err) {
       console.warn(`[self-craft] solver failed for ${recipe.name}:`, err)
       continue
     }
+    const _bperfSolveDur = performance.now() - _bperfSolveT0
+    _bperfSolveCount++; _bperfSolveTotal += _bperfSolveDur
+    console.log(`[bperf-self]   solver[${i}] "${recipe.name}" lvl=${recipe.level} dur=${_bperfSolveDur.toFixed(1)}ms doubleMax=${optResult.isDoubleMax} hqRequired=${hqRequired}`)
 
     // optimizeRecipe does NOT throw when progress is unreachable; it returns whatever
     // the solver found. Signals: isDoubleMax=true means both progress and quality are
@@ -291,5 +305,6 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
     })
   }
 
+  console.log(`[bperf-self] done · dur=${(performance.now() - _bperfT0).toFixed(1)}ms · solverRuns=${_bperfSolveCount} solverTotal=${_bperfSolveTotal.toFixed(0)}ms avg=${_bperfSolveCount ? (_bperfSolveTotal / _bperfSolveCount).toFixed(1) : 0}ms · accepted=${candidates.length}`)
   return candidates
 }

@@ -158,6 +158,20 @@ export async function runBatchOptimization(
   }) => void,
   isCancelled: () => boolean,
 ): Promise<BatchResults> {
+  // [bperf] Temporary perf instrumentation — remove before commit
+  const _bperfT0 = performance.now()
+  const _bperfMark = (label: string, extra?: Record<string, unknown>) => {
+    const ms = (performance.now() - _bperfT0).toFixed(1)
+    console.log(`[bperf] ${label} t=${ms}ms`, extra ?? '')
+  }
+  console.log(`[bperf] ▶ runBatchOptimization start · ${targets.length} targets`, {
+    crossServer: settings.crossServer,
+    recursivePricing: settings.recursivePricing,
+    maxRecursionDepth: settings.maxRecursionDepth,
+    foodSelected: !!settings.foodId,
+    medicineSelected: !!settings.medicineId,
+  })
+
   const recipeResults: RecipeOptimizeResult[] = []
   const exceptions: BatchException[] = []
   const qualityUnachievableResults: RecipeOptimizeResult[] = []
@@ -172,9 +186,14 @@ export async function runBatchOptimization(
     return runQuickBuy(targets, settings, onProgress, isCancelled)
   }
 
+  const _bperfWasmT0 = performance.now()
   await waitForWasm()
+  console.log(`[bperf] waitForWasm took ${(performance.now() - _bperfWasmT0).toFixed(1)}ms`)
 
   // === Phase 1-3: Per-recipe solve + HQ optimize ===
+  const _bperfPhase1T0 = performance.now()
+  let _bperfSolveCount = 0
+  let _bperfSolveTotalMs = 0
   for (let i = 0; i < targets.length; i++) {
     if (isCancelled()) break
     const target = targets[i]
@@ -196,7 +215,12 @@ export async function runBatchOptimization(
     }
 
     try {
+      const _bperfR0 = performance.now()
       const result = await optimizeRecipe(target.recipe, gearset, (pct) => report('solving', pct), buffs)
+      const _bperfRDur = performance.now() - _bperfR0
+      _bperfSolveCount++
+      _bperfSolveTotalMs += _bperfRDur
+      console.log(`[bperf]   · optimizeRecipe[${i}] "${target.recipe.name}" lvl=${target.recipe.level} dur=${_bperfRDur.toFixed(1)}ms doubleMax=${result.isDoubleMax} hqOk=${result.hqAmounts.length > 0}`)
       // target.quantity = output items the user wants. amountResult is how many
       // items each craft produces (3 for most food/medicine). result.quantity
       // therefore tracks # of crafts, while outputAmount tracks # of items.
@@ -230,9 +254,12 @@ export async function runBatchOptimization(
     }
   }
 
+  console.log(`[bperf] ◆ Phase 1 done · ${(performance.now() - _bperfPhase1T0).toFixed(1)}ms · solves=${_bperfSolveCount} solveTotal=${_bperfSolveTotalMs.toFixed(1)}ms avg=${_bperfSolveCount ? (_bperfSolveTotalMs / _bperfSolveCount).toFixed(1) : 0}ms · accepted=${recipeResults.length} unachievable=${qualityUnachievableResults.length} excepted=${exceptions.length}`)
+
   if (isCancelled()) throw new Error(SOLVE_CANCELLED)
 
   // === Phase 4: Early price query (materials + finished products) ===
+  const _bperfPhase4T0 = performance.now()
   onProgress({ current: 0, total: 0, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
 
   // Collect all material itemIds (excluding crystals) + finished product itemIds
@@ -267,15 +294,19 @@ export async function runBatchOptimization(
     for (const id of getBuffItemIds()) allMaterialIds.add(id)
   }
 
+  const _bperfPriceT0 = performance.now()
   const priceMap = await getAggregatedPrices(priceSource, [...allMaterialIds], (done, total) => {
     onProgress({ current: done, total, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
   })
+  console.log(`[bperf]   · getAggregatedPrices ids=${allMaterialIds.size} dur=${(performance.now() - _bperfPriceT0).toFixed(1)}ms`)
 
   // === Phase 4a: Fetch NPC availability + locations (parallel) ===
+  const _bperfAcqT0 = performance.now()
   const [acquisitionMap, locationsMap] = await Promise.all([
     fetchItemAcquisitionBatch([...allMaterialIds]),
     fetchItemLocationsBatch([...allMaterialIds]),
   ])
+  console.log(`[bperf]   · acquisition+locations dur=${(performance.now() - _bperfAcqT0).toFixed(1)}ms`)
 
   // === Phase 4b: Resolve zone & NPC names + load aetheryte table ===
   // Without this, useZoneName/useNpcName render `#zone:XXX` / `#npc:XXX`
@@ -289,13 +320,17 @@ export async function runBatchOptimization(
       npcIdsForNames.add(v.npcId)
     }
   }
+  const _bperfMetaT0 = performance.now()
   const [, , aetherytesData] = await Promise.all([
     zoneIdsForNames.size > 0 ? fetchZoneMetaBulk([...zoneIdsForNames]) : Promise.resolve(),
     npcIdsForNames.size > 0 ? fetchNpcNameBulk([...npcIdsForNames]) : Promise.resolve(),
     loadAetherytes().catch(() => null),
   ])
+  console.log(`[bperf]   · zone+npc+aetheryte dur=${(performance.now() - _bperfMetaT0).toFixed(1)}ms zones=${zoneIdsForNames.size} npcs=${npcIdsForNames.size}`)
+  console.log(`[bperf] ◆ Phase 4 done · ${(performance.now() - _bperfPhase4T0).toFixed(1)}ms`)
 
   // === Phase 4.5: Compare craft cost vs buy price per recipe ===
+  const _bperfPhase45T0 = performance.now()
   const recipesToCraft: RecipeOptimizeResult[] = []
   const buyFinishedItems: BuyFinishedDecision[] = []
   const selfMakeOverrides = settings.selfMakeOverrides ?? {}
@@ -358,8 +393,11 @@ export async function runBatchOptimization(
     })
   }
 
+  console.log(`[bperf] ◆ Phase 4.5 done · ${(performance.now() - _bperfPhase45T0).toFixed(1)}ms · craft=${recipesToCraft.length} buyFinished=${buyFinishedItems.length}`)
+
   // === Phase 4.6-buff: Evaluate food/medicine recommendation ===
   let buffRecommendation: BuffRecommendation | undefined
+  const _bperfBuffT0 = performance.now()
   if (noBuffSelected && !isCancelled()) {
     const buyFinishedIds = new Set(buyFinishedItems.map(bf => bf.recipe.id))
     const hasDeficit = recipesToCraft.some(r => !r.isDoubleMax && r.recipe.canHq)
@@ -375,8 +413,10 @@ export async function runBatchOptimization(
       if (recommendation) buffRecommendation = recommendation
     }
   }
+  console.log(`[bperf] ◆ Phase 4.6-buff done · ${(performance.now() - _bperfBuffT0).toFixed(1)}ms · recommendation=${buffRecommendation ? 'yes' : 'no'}`)
 
   // === Phase 5: Aggregate materials (only for recipes still being crafted) ===
+  const _bperfPhase5T0 = performance.now()
   onProgress({ current: 0, total: 0, name: '整理材料清單', phase: 'aggregating', solverPercent: 0 })
   const allTypedMaterials: TypedMaterial[] = []
 
@@ -410,6 +450,7 @@ export async function runBatchOptimization(
 
   // === Phase 4.6: Produce self-craft candidates ===
   let selfCraftCandidates: SelfCraftCandidate[] = []
+  const _bperfSelfT0 = performance.now()
   if (settings.recursivePricing && !isCancelled()) {
     try {
       selfCraftCandidates = await produceSelfCraftCandidates({
@@ -432,6 +473,7 @@ export async function runBatchOptimization(
       console.warn('[batch-optimizer] self-craft candidate production failed:', err)
     }
   }
+  console.log(`[bperf] ◆ Phase 4.6 self-craft done · ${(performance.now() - _bperfSelfT0).toFixed(1)}ms · candidates=${selfCraftCandidates.length}`)
 
   // === Phase 5.5: Price materials + add buy-finished items to shopping list ===
   onProgress({ current: 0, total: 0, name: '分組採購清單', phase: 'aggregating', solverPercent: 0 })
@@ -591,6 +633,8 @@ export async function runBatchOptimization(
     })
   }
 
+  console.log(`[bperf] ◆ Phase 5+ aggregate/npc done · ${(performance.now() - _bperfPhase5T0).toFixed(1)}ms`)
+  _bperfMark('✔ runBatchOptimization COMPLETE')
   return { serverGroups, crystals, selfCraftCandidates, todoList, exceptions, buyFinishedItems, grandTotal, crossWorldCache, buffRecommendation, npcPurchaseCandidates }
 }
 
