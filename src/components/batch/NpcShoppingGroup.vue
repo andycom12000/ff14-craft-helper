@@ -271,7 +271,7 @@ function toggleChecked(row: MaterialWithPrice) {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 7px 14px;
+  padding: 2px 14px;
   border-top: 1px solid var(--app-border);
 }
 
@@ -283,29 +283,29 @@ function toggleChecked(row: MaterialWithPrice) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  margin-left: -10px;
+  width: 32px;
+  height: 32px;
+  margin-left: -8px;
   cursor: pointer;
   flex-shrink: 0;
 }
 
 .npc-shop__check input {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   accent-color: var(--app-craft);
   cursor: pointer;
 }
 
 .npc-shop__icon {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border-radius: 3px;
   flex-shrink: 0;
 }
 
 .npc-shop__item-name {
-  font-size: 13.5px;
+  font-size: 13px;
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -348,6 +348,20 @@ function toggleChecked(row: MaterialWithPrice) {
     flex-basis: 100%;
     margin-left: 0;
     justify-content: flex-end;
+  }
+
+  /* Mobile: restore comfortable 44×44 hit area on row checkbox. */
+  .npc-shop__row {
+    padding: 4px 12px;
+  }
+  .npc-shop__check {
+    width: 44px;
+    height: 44px;
+    margin-left: -10px;
+  }
+  .npc-shop__check input {
+    width: 16px;
+    height: 16px;
   }
 }
 
