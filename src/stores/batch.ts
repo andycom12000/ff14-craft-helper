@@ -18,6 +18,7 @@ export interface BatchTarget {
 export interface BatchException {
   type: 'level-insufficient' | 'quality-unachievable'
   recipe: Recipe
+  quantity: number
   message: string
   details: string
   action: 'skipped' | 'buy-finished'
