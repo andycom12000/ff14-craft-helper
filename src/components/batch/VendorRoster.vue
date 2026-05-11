@@ -1,16 +1,12 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import type { NpcPurchaseCandidate } from '@/stores/batch'
 import { useBatchStore } from '@/stores/batch'
 import { useIsMobile } from '@/composables/useMediaQuery'
 import { useZoneName } from '@/composables/useZoneName'
 import { useNpcName } from '@/composables/useNpcName'
 import { formatGil } from '@/utils/format'
-import { buildTpCommand } from '@/utils/ff14-map-link'
-import { ElMessage } from 'element-plus'
 import ItemName from '@/components/common/ItemName.vue'
-import ZoneMapSheet from '@/components/bom/ZoneMapSheet.vue'
-import ZoneMapInline from '@/components/common/ZoneMapInline.vue'
 
 const props = defineProps<{ candidates: NpcPurchaseCandidate[] }>()
 const batch = useBatchStore()
@@ -74,20 +70,8 @@ function isChecked(id: number) {
   return batch.selectedNpcIds.has(id)
 }
 
-/** First time the user toggles in this session, drop a one-shot hint so the
- *  cause-and-effect (item leaves the market list below) isn't a silent surprise. */
-let migrationHintShown = false
 function toggle(id: number) {
-  const willCheck = !batch.selectedNpcIds.has(id)
   batch.toggleNpcPurchase(id)
-  if (willCheck && !migrationHintShown) {
-    ElMessage({
-      message: '已轉到 NPC 採購，購物清單會跟著少掉這幾項',
-      type: 'info',
-      duration: 2200,
-    })
-    migrationHintShown = true
-  }
 }
 
 function toggleAll() {
@@ -108,45 +92,8 @@ function stallSelectedCount(stall: VendorStall): number {
   return stall.items.filter(c => batch.selectedNpcIds.has(c.itemId)).length
 }
 
-// Per-stall inline map state on desktop; mobile uses the drawer below.
-const inlineMapNpcIds = ref<Set<number>>(new Set())
-
-function toggleInlineMap(stall: VendorStall) {
-  const next = new Set(inlineMapNpcIds.value)
-  if (next.has(stall.npcId)) next.delete(stall.npcId)
-  else next.add(stall.npcId)
-  inlineMapNpcIds.value = next
-}
-
-function isMapOpen(stall: VendorStall) {
-  return inlineMapNpcIds.value.has(stall.npcId)
-}
-
-// Mobile drawer state (separate from inline — phones get the full-screen sheet)
-const mobileMapOpen = ref(false)
-const mobileMapZoneId = ref<number | null>(null)
-const mobileMapCoords = ref<{ x: number; y: number } | null>(null)
-const mobileMapAetheryte = ref<string | null>(null)
-
-function openMobileMap(stall: VendorStall) {
-  mobileMapZoneId.value = stall.zoneId
-  mobileMapCoords.value = stall.coords
-  mobileMapAetheryte.value = stall.aetheryteName
-  mobileMapOpen.value = true
-}
-
-async function copyTp(aetheryteName: string | null) {
-  if (!aetheryteName) {
-    ElMessage({ message: '此 NPC 附近沒有傳送點資料', type: 'info', duration: 1500 })
-    return
-  }
-  try {
-    await navigator.clipboard.writeText(buildTpCommand(aetheryteName))
-    ElMessage({ message: `已複製：/tp ${aetheryteName}`, type: 'success', duration: 1500 })
-  } catch {
-    ElMessage({ message: '複製失敗', type: 'error', duration: 1500 })
-  }
-}
+// VendorRoster is a planning surface (decide what to NPC-buy). Vendor /tp +
+// map actions live on the execution surface (ShoppingList NpcShoppingGroup).
 </script>
 
 <template>
@@ -181,10 +128,7 @@ async function copyTp(aetheryteName: string | null) {
         <NpcStallHeader
           :stall="stall"
           :selected-count="stallSelectedCount(stall)"
-          :map-open="isMapOpen(stall)"
           @toggle-all="toggleStall(stall)"
-          @toggle-map="toggleInlineMap(stall)"
-          @copy-tp="copyTp(stall.aetheryteName)"
         />
         <NpcItemRow
           v-for="row in stall.items"
@@ -193,17 +137,10 @@ async function copyTp(aetheryteName: string | null) {
           :checked="isChecked(row.itemId)"
           @toggle="toggle(row.itemId)"
         />
-        <div v-if="isMapOpen(stall)" class="npc-inline-map" role="region" :aria-label="`地圖：NPC ${stall.npcId}`">
-          <ZoneMapInline
-            :zone-id="stall.zoneId"
-            :highlight-coords="stall.coords"
-          />
-        </div>
       </template>
     </div>
 
-    <!-- Mobile: stall card stack (uses ZoneMapSheet drawer because the
-         small-screen viewport can't host an inline map well) -->
+    <!-- Mobile: stall card stack -->
     <ul v-else class="npc-mobile" role="list">
       <NpcMobileStall
         v-for="stall in stalls"
@@ -212,18 +149,8 @@ async function copyTp(aetheryteName: string | null) {
         :selected-count="stallSelectedCount(stall)"
         @toggle-item="toggle"
         @toggle-stall="toggleStall(stall)"
-        @open-map="openMobileMap(stall)"
-        @copy-tp="copyTp(stall.aetheryteName)"
       />
     </ul>
-
-    <ZoneMapSheet
-      v-if="isMobile"
-      v-model="mobileMapOpen"
-      :zone-id="mobileMapZoneId"
-      :highlight-coords="mobileMapCoords ?? undefined"
-      :aetheryte-name="mobileMapAetheryte ?? undefined"
-    />
   </section>
 </template>
 
@@ -246,9 +173,8 @@ export const NpcStallHeader = defineComponent({
   props: {
     stall: { type: Object as PropType<VendorStallType>, required: true },
     selectedCount: { type: Number, required: true },
-    mapOpen: { type: Boolean, default: false },
   },
-  emits: ['toggle-all', 'toggle-map', 'copy-tp'],
+  emits: ['toggle-all'],
   setup(props, { emit }) {
     const npcName = useNpcName(vueComputed(() => props.stall.npcId))
     const zoneName = useZoneName(vueComputed(() => props.stall.zoneId))
@@ -256,11 +182,10 @@ export const NpcStallHeader = defineComponent({
       const total = props.stall.items.length
       const partial = props.selectedCount > 0 && props.selectedCount < total
       const allOn = props.selectedCount === total
-      const hasAeth = !!props.stall.aetheryteName
       return h(
         'div',
         {
-          class: ['npc-stall', { 'is-engaged': props.selectedCount > 0, 'is-map-open': props.mapOpen }],
+          class: ['npc-stall', { 'is-engaged': props.selectedCount > 0 }],
           role: 'rowheader',
         },
         [
@@ -283,42 +208,6 @@ export const NpcStallHeader = defineComponent({
             ]),
             h('span', { class: 'npc-stall__count' }, `共 ${total} 項`),
           ]),
-          h(
-            'button',
-            {
-              type: 'button',
-              class: ['npc-stall__tp', { 'is-disabled': !hasAeth }],
-              disabled: !hasAeth,
-              'aria-label': hasAeth
-                ? `複製 /tp ${props.stall.aetheryteName}`
-                : '此 NPC 附近無傳送點',
-              title: hasAeth ? undefined : '此 NPC 附近無傳送點',
-              onClick: (e: Event) => {
-                e.stopPropagation()
-                emit('copy-tp')
-              },
-            },
-            [
-              h('span', { class: 'npc-stall__tp-cmd' }, '複製 /tp'),
-              hasAeth
-                ? h('span', { class: 'npc-stall__tp-name' }, props.stall.aetheryteName as string)
-                : null,
-            ],
-          ),
-          h(
-            'button',
-            {
-              type: 'button',
-              class: ['npc-stall__map', { 'is-open': props.mapOpen }],
-              'aria-label': props.mapOpen ? `收起 ${zoneName.value} 地圖` : `展開 ${zoneName.value} 地圖`,
-              'aria-expanded': props.mapOpen,
-              onClick: (e: Event) => {
-                e.stopPropagation()
-                emit('toggle-map')
-              },
-            },
-            [props.mapOpen ? '收起地圖' : '展開地圖'],
-          ),
         ],
       )
     }
@@ -398,15 +287,16 @@ export const NpcItemRow = defineComponent({
   },
 })
 
-/** Mobile stall card: one collapsed card per NPC, items stacked inside.
- *  Same NPC information surfaced once, /tp / map always-on. */
+/** Mobile stall card: one card per NPC, items stacked inside. /tp + map
+ *  actions removed — they live on the ShoppingList NpcShoppingGroup card,
+ *  the execution surface. This roster card is the planning surface. */
 export const NpcMobileStall = defineComponent({
   name: 'NpcMobileStall',
   props: {
     stall: { type: Object as PropType<VendorStallType>, required: true },
     selectedCount: { type: Number, required: true },
   },
-  emits: ['toggle-item', 'toggle-stall', 'open-map', 'copy-tp'],
+  emits: ['toggle-item', 'toggle-stall'],
   setup(props, { emit }) {
     const npcName = useNpcName(vueComputed(() => props.stall.npcId))
     const zoneName = useZoneName(vueComputed(() => props.stall.zoneId))
@@ -414,7 +304,6 @@ export const NpcMobileStall = defineComponent({
       const total = props.stall.items.length
       const allOn = props.selectedCount === total
       const partial = props.selectedCount > 0 && !allOn
-      const hasAeth = !!props.stall.aetheryteName
       return h('li', { class: ['npc-mobile-stall', { 'is-engaged': props.selectedCount > 0 }] }, [
         // Stall head
         h('button', {
@@ -429,34 +318,6 @@ export const NpcMobileStall = defineComponent({
             h('span', { class: 'npc-mobile-stall__zone' }, zoneName.value),
           ]),
           h('span', { class: 'npc-mobile-stall__count' }, `${total} 項`),
-        ]),
-        // Stall actions
-        h('div', { class: 'npc-mobile-stall__actions' }, [
-          h(
-            'button',
-            {
-              type: 'button',
-              class: ['npc-mobile-stall__tp', { 'is-disabled': !hasAeth }],
-              disabled: !hasAeth,
-              onClick: (e: Event) => {
-                e.stopPropagation()
-                emit('copy-tp')
-              },
-            },
-            hasAeth ? `⎘ /tp ${props.stall.aetheryteName}` : '無傳送點',
-          ),
-          h(
-            'button',
-            {
-              type: 'button',
-              class: 'npc-mobile-stall__map',
-              onClick: (e: Event) => {
-                e.stopPropagation()
-                emit('open-map')
-              },
-            },
-            '⊞ 地圖',
-          ),
         ]),
         // Items
         h('ul', { class: 'npc-mobile-stall__items', role: 'list' },
