@@ -19,18 +19,16 @@ const emit = defineEmits<{
 const recipeStore = useRecipeStore()
 const recipe = computed(() => recipeStore.currentRecipe)
 
-// Local hqAmounts shadows prop hqAmounts; see TODO in #issue (rename to internalHqAmounts).
-// eslint-disable-next-line vue/no-dupe-keys
-const hqAmounts = ref<number[]>([])
+const internalHqAmounts = ref<number[]>([])
 
 // Reset HQ amounts when recipe changes
 watch(
   () => recipe.value,
   (newRecipe) => {
     if (newRecipe) {
-      hqAmounts.value = newRecipe.ingredients.map(() => 0)
+      internalHqAmounts.value = newRecipe.ingredients.map(() => 0)
     } else {
-      hqAmounts.value = []
+      internalHqAmounts.value = []
     }
   },
   { immediate: true },
@@ -42,14 +40,14 @@ watch(
   (next) => {
     if (!next || !recipe.value) return
     if (next.length !== recipe.value.ingredients.length) return
-    if (next.every((v, i) => v === hqAmounts.value[i])) return
-    hqAmounts.value = [...next]
+    if (next.every((v, i) => v === internalHqAmounts.value[i])) return
+    internalHqAmounts.value = [...next]
   },
 )
 
 // Emit upward whenever internal state shifts so the parent can persist it
 // (used to round-trip across apply-hq → re-solve).
-watch(hqAmounts, (val) => {
+watch(internalHqAmounts, (val) => {
   emit('update:hqAmounts', [...val])
 }, { deep: true })
 
@@ -58,7 +56,7 @@ const initialQuality = computed(() => {
 
   const ingredients = recipe.value.ingredients.map((ing, i) => ({
     amount: ing.amount,
-    hqAmount: hqAmounts.value[i] ?? 0,
+    hqAmount: internalHqAmounts.value[i] ?? 0,
     level: ing.level,
     canHq: ing.canHq,
   }))
@@ -78,28 +76,28 @@ watch(initialQuality, (val) => {
 
 function setAllHq() {
   if (!recipe.value) return
-  hqAmounts.value = recipe.value.ingredients.map((ing) => ing.canHq ? ing.amount : 0)
+  internalHqAmounts.value = recipe.value.ingredients.map((ing) => ing.canHq ? ing.amount : 0)
 }
 
 function clearAllHq() {
   if (!recipe.value) return
-  hqAmounts.value = recipe.value.ingredients.map(() => 0)
+  internalHqAmounts.value = recipe.value.ingredients.map(() => 0)
 }
 
 function incrementHq(index: number) {
   if (!recipe.value) return
   const ing = recipe.value.ingredients[index]
   if (!ing.canHq) return
-  const current = hqAmounts.value[index] ?? 0
+  const current = internalHqAmounts.value[index] ?? 0
   if (current < ing.amount) {
-    hqAmounts.value[index] = current + 1
+    internalHqAmounts.value[index] = current + 1
   }
 }
 
 function decrementHq(index: number) {
-  const current = hqAmounts.value[index] ?? 0
+  const current = internalHqAmounts.value[index] ?? 0
   if (current > 0) {
-    hqAmounts.value[index] = current - 1
+    internalHqAmounts.value[index] = current - 1
   }
 }
 </script>
@@ -134,19 +132,19 @@ function decrementHq(index: number) {
             <template v-if="ing.canHq">
               <el-button-group>
                 <el-button
-                  :disabled="(hqAmounts[index] ?? 0) <= 0"
+                  :disabled="(internalHqAmounts[index] ?? 0) <= 0"
                   @click="decrementHq(index)"
                   class="hq-btn nq-btn"
                 >
-                  NQ {{ ing.amount - (hqAmounts[index] ?? 0) }}
+                  NQ {{ ing.amount - (internalHqAmounts[index] ?? 0) }}
                 </el-button>
                 <el-button
                   type="primary"
-                  :disabled="(hqAmounts[index] ?? 0) >= ing.amount"
+                  :disabled="(internalHqAmounts[index] ?? 0) >= ing.amount"
                   @click="incrementHq(index)"
                   class="hq-btn"
                 >
-                  HQ {{ hqAmounts[index] ?? 0 }}
+                  HQ {{ internalHqAmounts[index] ?? 0 }}
                 </el-button>
               </el-button-group>
             </template>
