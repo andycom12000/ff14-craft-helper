@@ -1,0 +1,103 @@
+{
+  "name": "dataset-2-mixed-lv94-100",
+  "recipes": [
+    {
+      "label": "相思木符杖",
+      "recipeId": 5906,
+      "quantity": 1,
+      "rlvl": 675,
+      "progress": 5760,
+      "quality": 10680,
+      "durability": 80,
+      "craftsmanship": 5000,
+      "control": 5000,
+      "cp": 600,
+      "level": 100,
+      "manipulation": true
+    },
+    {
+      "label": "卡扎納爾手鋸",
+      "recipeId": 6118,
+      "quantity": 1,
+      "rlvl": 690,
+      "progress": 6600,
+      "quality": 12000,
+      "durability": 80,
+      "craftsmanship": 5000,
+      "control": 5000,
+      "cp": 600,
+      "level": 100,
+      "manipulation": true
+    },
+    {
+      "label": "粉綠柱石詠咒半指手套",
+      "recipeId": 5878,
+      "quantity": 1,
+      "rlvl": 660,
+      "progress": 4860,
+      "quality": 9480,
+      "durability": 80,
+      "craftsmanship": 5000,
+      "control": 5000,
+      "cp": 600,
+      "level": 100,
+      "manipulation": true
+    },
+    {
+      "label": "卡岡圖亞革禦敵軟甲褲",
+      "recipeId": 6003,
+      "quantity": 1,
+      "rlvl": 685,
+      "progress": 6360,
+      "quality": 11520,
+      "durability": 80,
+      "craftsmanship": 5000,
+      "control": 5000,
+      "cp": 600,
+      "level": 100,
+      "manipulation": true
+    },
+    {
+      "label": "薄絹禦敵腿套",
+      "recipeId": 5849,
+      "quantity": 1,
+      "rlvl": 665,
+      "progress": 5160,
+      "quality": 9880,
+      "durability": 80,
+      "craftsmanship": 5000,
+      "control": 5000,
+      "cp": 600,
+      "level": 100,
+      "manipulation": true
+    },
+    {
+      "label": "智力之寶藥",
+      "recipeId": 5665,
+      "quantity": 1,
+      "rlvl": 690,
+      "progress": 6600,
+      "quality": 12000,
+      "durability": 80,
+      "craftsmanship": 5000,
+      "control": 5000,
+      "cp": 600,
+      "level": 100,
+      "manipulation": true
+    },
+    {
+      "label": "奶油熱巧克力",
+      "recipeId": 5605,
+      "quantity": 1,
+      "rlvl": 670,
+      "progress": 5460,
+      "quality": 10280,
+      "durability": 80,
+      "craftsmanship": 5000,
+      "control": 5000,
+      "cp": 600,
+      "level": 100,
+      "manipulation": true
+    }
+  ]
+}

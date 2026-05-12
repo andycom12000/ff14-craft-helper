@@ -1,0 +1,89 @@
+{
+  "name": "dataset-1-軍需品-lv94-99",
+  "recipes": [
+    {
+      "label": "相思木砂輪機",
+      "recipeId": 6111,
+      "quantity": 1,
+      "rlvl": 675,
+      "progress": 5760,
+      "quality": 10680,
+      "durability": 80,
+      "craftsmanship": 5000,
+      "control": 5000,
+      "cp": 600,
+      "level": 100,
+      "manipulation": true
+    },
+    {
+      "label": "鈷鎢禦敵坎肩",
+      "recipeId": 5847,
+      "quantity": 1,
+      "rlvl": 665,
+      "progress": 5160,
+      "quality": 9880,
+      "durability": 80,
+      "craftsmanship": 5000,
+      "control": 5000,
+      "cp": 600,
+      "level": 100,
+      "manipulation": true
+    },
+    {
+      "label": "粉綠柱石詠咒半指手套",
+      "recipeId": 5878,
+      "quantity": 1,
+      "rlvl": 660,
+      "progress": 4860,
+      "quality": 9480,
+      "durability": 80,
+      "craftsmanship": 5000,
+      "control": 5000,
+      "cp": 600,
+      "level": 100,
+      "manipulation": true
+    },
+    {
+      "label": "卡岡圖亞革制敵軟甲褲",
+      "recipeId": 6008,
+      "quantity": 1,
+      "rlvl": 685,
+      "progress": 6360,
+      "quality": 11520,
+      "durability": 80,
+      "craftsmanship": 5000,
+      "control": 5000,
+      "cp": 600,
+      "level": 100,
+      "manipulation": true
+    },
+    {
+      "label": "薄絹巧匠工作帽",
+      "recipeId": 6149,
+      "quantity": 1,
+      "rlvl": 660,
+      "progress": 4860,
+      "quality": 9480,
+      "durability": 80,
+      "craftsmanship": 5000,
+      "control": 5000,
+      "cp": 600,
+      "level": 100,
+      "manipulation": true
+    },
+    {
+      "label": "鮭魚乾",
+      "recipeId": 5609,
+      "quantity": 1,
+      "rlvl": 675,
+      "progress": 5760,
+      "quality": 10680,
+      "durability": 80,
+      "craftsmanship": 5000,
+      "control": 5000,
+      "cp": 600,
+      "level": 100,
+      "manipulation": true
+    }
+  ]
+}
