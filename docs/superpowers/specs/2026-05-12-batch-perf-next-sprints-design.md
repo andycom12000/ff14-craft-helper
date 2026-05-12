@@ -304,6 +304,16 @@ Fallback lenient 是「prefilter false negative」safety net；unit test 鎖 0 f
 - PR β：revert console.debug 加的 line（純觀測 zero behavior）
 - PR γ：revert 後 `optimizeRecipe` 回到 single lenient call
 
+#### 7.5.8 Outcome — PR γ rejected (2026-05-12)
+
+PR F + PR G + BenchPanel preset switcher 落地（commits `5083ada`, `40d2b1a`, `ea5cc74`）。**PR H K=23 calibration shipped and reverted at `943d1a0`**。失敗 root cause：
+
+校準 ground truth 用「`actual_reached`」當訊號，但這個訊號和「strict probe 是否真的比 lenient 快」**不等價**。實測 ds3 Stored 全 8 recipe 都 `actual_reached=false`、formula-separable on K=23、但 strict probe wasmDur ≈ lenient × 2 — raphael 即使最終 NoSolution，搜尋過程仍貴。等於把 PR D 的 perf 問題用更聰明的 gate 包了一次，但 gate 認知錯了。
+
+PR D 觀察過 only 「巧力之寶藥（ratio 9.97）」這種「rlvl-690 max_q-12000 + 極低 CP」極端組合才會 strict NoSolution 早退（-25%）。K=23 把這層細微區別洗掉了。
+
+**重啟條件**：需要 BenchPanel 加 strict-vs-lenient A/B mode（每 recipe 兩路徑都跑、量 wasmDur 差），拿到「真 strict 贏者名單」後重做 calibration。當前 telemetry 留下 `[bperf-prefilter]` log + BenchPanel preset switcher + dataset-1/2/3 fixtures，下次重啟可直接從 A/B mode 切入，不用再補基建。
+
 ---
 
 ## 8. Sprint 3 — Per-Solve Timer

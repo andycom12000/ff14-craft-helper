@@ -1551,13 +1551,16 @@ Week 2
   Day 3+  ── PR D 觸發 §7.5 fallback → PR F/G/H below
 
 Week 3 (§7.5 fallback — branch perf/hq-feasibility-prefilter)
-  Day 1   ── PR F · datasets (T10) — dataset-1.json + dataset-2.json
-  Day 1   ── PR G · shadow log (T11) — [bperf-prefilter] + BenchPanel CSV 3 cols
-  Day 1-2 ── user BenchPanel 3 dataset → 21-recipe shadow CSV
-  Day 2   ── controller analysis → 校準方向
-  Day 2-3 ── PR H · calibrate + enable (T12) — canReachHQQualityStrict + gated probe
-  Day 3   ── user BenchPanel dataset-3 wall ≤ lenient default、0 false negative
+  Day 1   ── PR F · datasets (T10) ✓ shipped (5083ada)
+  Day 1   ── PR G · shadow log (T11) ✓ shipped (40d2b1a)
+  Day 1   ── BenchPanel gearset preset switcher（plan 外加，ea5cc74）
+  Day 1   ── controller 跑 3 dataset × 3 preset = 57 datapoints
+  Day 1   ── separability analysis → K=23 (in gap 20.59-26.21)
+  Day 1   ── PR H · calibrate + enable (T12) ✗ shipped then reverted (f5e8f88 → 943d1a0)
+  Day 1   ── §7.5 rejected：ground truth (actual_reached) ≠ strict probe winner
 ```
+
+§7.5 後續詳見 spec §7.5.8（重啟條件：BenchPanel 加 strict-vs-lenient A/B mode）。
 
 > **PR 順序刻意把 PR E 排在 PR D 之前**：Sprint 3 timer 可在 Sprint 2 動工前就量到 PR C 改動的真實 wasmDur，把 contention 修正與 strict probe 收益分開觀察。
 >
