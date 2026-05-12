@@ -5,12 +5,11 @@
  */
 
 import type { SolverConfig, SolverResult, SolverResponse, SimulateResult, SimulateDetailResult } from './raphael'
+import { POOL_SIZE } from './pool-config'
 import { trackEvent, trackError } from '@/utils/analytics'
 import { classifyGearBucket } from '@/utils/gear-bucket'
 
 export const SOLVE_CANCELLED = '求解已取消'
-
-const POOL_SIZE = 2
 
 interface WorkerSlot { worker: Worker; busy: boolean }
 
