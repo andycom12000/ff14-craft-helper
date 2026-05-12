@@ -31,7 +31,6 @@
 - In-app BenchPanel：`npm run dev` 後到 `/#/batch?bench=1`，按「Run dataset-N」跑真實 worker pool benchmark，輸出 wall-clock + wasmDur（PR E 之後）CSV。
   - 用途：跨 PR perf 對比；比 raphael-cli native bench 多了 worker pool contention
   - 不會出現在 production build（route query gating 但不擋頁面，建議 staging 也別開）
-- `localStorage.__bperfForceLenient = '1'`（DevTools console）→ batch-optimizer skip strict probe，所有 recipe 走 lenient solve。配合 BenchPanel 跑兩次（toggle on / off）即可拿 strict 收益對比，**免 git stash 切版本**。
 
 ## Tech Stack
 - Vue 3 + Pinia + Element Plus + Vite + TypeScript

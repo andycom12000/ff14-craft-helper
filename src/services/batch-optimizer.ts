@@ -4,7 +4,6 @@ import type { BatchException, BatchTarget, BatchResults, TodoItem, BuyFinishedDe
 import type { MaterialWithPrice, MaterialBase, QuickBuyMaterial, QuickBuyMaterialPricing } from '@/services/shopping-list'
 import { markRaw } from 'vue'
 import { solveCraft, simulateCraft, waitForWasm, SOLVE_CANCELLED } from '@/solver/worker'
-import { isNoSolutionError } from '@/solver/raphael'
 import { craftParamsToSolverConfig, recipeToCraftParams } from '@/solver/config'
 import { findOptimalHqCombinations } from '@/services/hq-optimizer'
 import { getAggregatedPrices, aggregateByWorld } from '@/api/universalis'
@@ -34,15 +33,6 @@ export interface RecipeOptimizeResult {
   qualityDeficit: number
 }
 
-// Dev escape hatch: skip the strict probe entirely so a single build can
-// produce both lenient and strict-probe timings via DevTools toggling.
-// Read inside the function (not at module load) so toggling is hot.
-function shouldForceLenient(): boolean {
-  try {
-    return typeof localStorage !== 'undefined' && localStorage.getItem('__bperfForceLenient') === '1'
-  } catch { return false }
-}
-
 export async function optimizeRecipe(
   recipe: Recipe,
   gearset: GearsetStats,
@@ -61,25 +51,7 @@ export async function optimizeRecipe(
     craftParams.cp = enhanced.cp
   }
   const solverConfig = craftParamsToSolverConfig(craftParams)
-  // Strict probe: if recipe is HQ-eligible and we're targeting HQ, ask the
-  // solver to return NoSolution if target is unreachable. raphael-rs skips
-  // expensive precompute on unachievable cases (upstream PR #337), so the
-  // probe is fast on HQ-impossible recipes and equivalent on achievable ones.
-  let solverResult
-  const useStrict = recipe.canHq && solverConfig.hq_target && !shouldForceLenient()
-  if (useStrict) {
-    try {
-      solverResult = await solveCraft({ ...solverConfig, strict_quality: true }, onSolverProgress)
-    } catch (err) {
-      if (isNoSolutionError(err)) {
-        solverResult = await solveCraft(solverConfig, onSolverProgress)
-      } else {
-        throw err
-      }
-    }
-  } else {
-    solverResult = await solveCraft(solverConfig, onSolverProgress)
-  }
+  const solverResult = await solveCraft(solverConfig, onSolverProgress)
   if (solverResult.wasmDur !== undefined) {
     console.debug(
       `[bperf] solve ${recipe.name} wasmDur=${solverResult.wasmDur.toFixed(0)}ms steps=${solverResult.actions.length}`
