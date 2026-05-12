@@ -37,3 +37,38 @@ export function canReachHQQuality(
   const maxAchievable = baseQuality * QUALITY_PHASE_UPPER_BOUND_MULTIPLIER * maxQualitySteps * MARGIN
   return maxAchievable >= recipe.recipeLevelTable.quality
 }
+
+/**
+ * Strict separation factor for `canReachHQQualityStrict`. Calibrated against
+ * a 57-row prediction-vs-actual matrix (19 recipes × 3 gearsets) collected
+ * via BenchPanel in May 2026. See:
+ *   src/__tests__/fixtures/prefilter-fixture.json
+ *   docs/superpowers/specs/2026-05-12-batch-perf-next-sprints-design.md §7.5
+ *
+ * Reached datapoints had `maxAchievable / recipe.quality ≥ 26.21`.
+ * Unreached datapoints had `maxAchievable / recipe.quality ≤ 20.59`.
+ * K=23 sits in the gap with ~12% margin on both sides.
+ */
+export const STRICT_CALIBRATION_FACTOR = 23
+
+/**
+ * Tighter version of canReachHQQuality used as a gate before raphael's
+ * strict_quality probe. Predicting false here means "we believe HQ is
+ * unachievable, so paying the strict-mode search cost is worthwhile because
+ * raphael will NoSolution out early." Calibrated for 0 false negatives on
+ * the 57-row fixture; future formula drift caught by the unit test.
+ */
+export function canReachHQQualityStrict(
+  recipe: Recipe,
+  gearset: GearsetStats,
+  buffs?: { food: FoodBuff | null; medicine: FoodBuff | null },
+): boolean {
+  const stats = applyBuffsToStats(
+    { craftsmanship: gearset.craftsmanship, control: gearset.control, cp: gearset.cp },
+    buffs,
+  )
+  const baseQuality = computeBaseQuality(stats.control, gearset.level, recipe.recipeLevelTable)
+  const maxQualitySteps = Math.floor(stats.cp / AVG_QUALITY_CP_COST)
+  const maxAchievable = baseQuality * QUALITY_PHASE_UPPER_BOUND_MULTIPLIER * maxQualitySteps * MARGIN
+  return maxAchievable >= recipe.recipeLevelTable.quality * STRICT_CALIBRATION_FACTOR
+}
