@@ -45,10 +45,11 @@ export function simulate_detail(config_js) {
 
 /**
  * @param {any} config_js
+ * @param {Function | null} [progress_callback]
  * @returns {any}
  */
-export function solve(config_js) {
-    const ret = wasm.solve(config_js);
+export function solve(config_js, progress_callback) {
+    const ret = wasm.solve(config_js, isLikeNone(progress_callback) ? 0 : addToExternrefTable0(progress_callback));
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -183,6 +184,10 @@ function __wbg_get_imports(memory) {
         __wbg___wbindgen_throw_6ddd609b62940d55: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
         },
+        __wbg_call_2d781c1f4d5c0ef8: function() { return handleError(function (arg0, arg1, arg2) {
+            const ret = arg0.call(arg1, arg2);
+            return ret;
+        }, arguments); },
         __wbg_call_e133b57c9155d22c: function() { return handleError(function (arg0, arg1) {
             const ret = arg0.call(arg1);
             return ret;
@@ -286,6 +291,10 @@ function __wbg_get_imports(memory) {
         }, arguments); },
         __wbg_next_e01a967809d1aa68: function(arg0) {
             const ret = arg0.next;
+            return ret;
+        },
+        __wbg_now_16f0c993d5dd6c27: function() {
+            const ret = Date.now();
             return ret;
         },
         __wbg_now_e7c6795a7f81e10f: function(arg0) {
