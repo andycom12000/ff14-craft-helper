@@ -47,6 +47,7 @@ function ensurePool(): void {
     const slot: WorkerSlot = { worker: w, busy: false }
     slots.push(slot)
     wasmStatus = 'loading'
+    wasmErrorMessage = null
 
     w.addEventListener('message', (e: MessageEvent<SolverResponse>) => {
       const data = e.data
@@ -68,11 +69,15 @@ function ensurePool(): void {
       }
       slots.length = 0
       readySlotCount = 0
-      wasmStatus = 'loading'
+      wasmStatus = 'error'
       wasmErrorMessage = message
       for (const [, pending] of pendingRequests) pending.reject(new Error(message))
       pendingRequests.clear()
       taskQueue.length = 0
+      // Drain any waitForWasm() callers so they don't hang
+      const errorWaiters = wasmErrorWaiters.splice(0)
+      wasmReadyWaiters.length = 0
+      for (const cb of errorWaiters) cb(message)
     })
   }
 }
