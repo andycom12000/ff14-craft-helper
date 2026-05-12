@@ -30,10 +30,23 @@ interface BenchRow {
   error?: string
 }
 
+interface GearsetPreset {
+  label: string
+  override: GearsetStats | null
+}
+
+const GEARSET_PRESETS: GearsetPreset[] = [
+  { label: 'Stored (real)', override: null },
+  { label: 'Strong lv100 (5500/5500/700)', override: { level: 100, craftsmanship: 5500, control: 5500, cp: 700 } },
+  { label: 'Mid lv100 (4500/4500/600)', override: { level: 100, craftsmanship: 4500, control: 4500, cp: 600 } },
+  { label: 'Boundary lv100 (5000/5000/620)', override: { level: 100, craftsmanship: 5000, control: 5000, cp: 620 } },
+]
+
 const running = ref(false)
 const currentDataset = ref('')
 const rows = ref<BenchRow[]>([])
 const totalMs = ref(0)
+const gearsetPresetIdx = ref(0)
 
 async function runDataset(name: string) {
   if (running.value) return
@@ -83,17 +96,23 @@ async function runDataset(name: string) {
         rows.value.push({ label: entry.label, wallMs: -1, error: `getRecipe ${entry.recipeId}: ${String(err)}` })
         return
       }
-      const jobAbbr = CRAFT_TYPE_TO_JOB[recipe.craftType] ?? 'CRP'
-      const stored = gearsetsStore.getGearsetForJob(jobAbbr)
-      if (!stored) {
-        rows.value.push({ label: entry.label, wallMs: -1, error: `no gearset for ${jobAbbr}` })
-        return
-      }
-      const gearset: GearsetStats = {
-        level: stored.level,
-        craftsmanship: stored.craftsmanship,
-        control: stored.control,
-        cp: stored.cp,
+      const preset = GEARSET_PRESETS[gearsetPresetIdx.value]
+      let gearset: GearsetStats
+      if (preset.override) {
+        gearset = { ...preset.override }
+      } else {
+        const jobAbbr = CRAFT_TYPE_TO_JOB[recipe.craftType] ?? 'CRP'
+        const stored = gearsetsStore.getGearsetForJob(jobAbbr)
+        if (!stored) {
+          rows.value.push({ label: entry.label, wallMs: -1, error: `no gearset for ${jobAbbr}` })
+          return
+        }
+        gearset = {
+          level: stored.level,
+          craftsmanship: stored.craftsmanship,
+          control: stored.control,
+          cp: stored.cp,
+        }
       }
       try {
         await optimizeRecipe(recipe, gearset)
@@ -125,7 +144,7 @@ function toCsv(): string {
   const lines = rows.value.map(r =>
     `${r.label},${Math.round(r.wallMs)},${r.wasmDurMs !== undefined ? Math.round(r.wasmDurMs) : ''},${r.steps ?? ''},${r.predicted === undefined ? '' : r.predicted},${r.actualReached === undefined ? '' : r.actualReached},${r.finalOverMax === undefined ? '' : r.finalOverMax.toFixed(4)},${r.error ?? ''}`
   )
-  return [`# dataset: ${currentDataset.value}`, `# total_ms: ${Math.round(totalMs.value)}`, header, ...lines].join('\n')
+  return [`# dataset: ${currentDataset.value}`, `# gearset: ${GEARSET_PRESETS[gearsetPresetIdx.value].label}`, `# total_ms: ${Math.round(totalMs.value)}`, header, ...lines].join('\n')
 }
 
 async function copyCsv() {
@@ -137,6 +156,14 @@ async function copyCsv() {
   <div class="bench-panel">
     <h3>Batch Perf BenchPanel</h3>
     <p>Dev-only · sources <code>scripts/dev/datasets/dataset-N.json</code></p>
+    <div class="controls">
+      <label>
+        Gearset:
+        <select v-model.number="gearsetPresetIdx" :disabled="running">
+          <option v-for="(p, i) in GEARSET_PRESETS" :key="i" :value="i">{{ p.label }}</option>
+        </select>
+      </label>
+    </div>
     <div class="controls">
       <button :disabled="running" @click="runDataset('dataset-1')">Run dataset-1</button>
       <button :disabled="running" @click="runDataset('dataset-2')">Run dataset-2</button>
