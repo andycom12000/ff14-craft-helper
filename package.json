@@ -13,7 +13,9 @@
     "test:watch": "vitest",
     "build-game-data": "node scripts/build-game-data.mjs",
     "patch-wasm": "node scripts/patch-wasm-rayon-init.mjs",
-    "sync-tesseract": "node scripts/sync-tesseract-worker.mjs"
+    "sync-tesseract": "node scripts/sync-tesseract-worker.mjs",
+    "bench:solver": "node scripts/dev/bench-solver.mjs --dataset=dataset-3 --csv",
+    "bench:solver:single": "node scripts/dev/bench-solver.mjs --dataset=dataset-3 --threads=1"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.0",

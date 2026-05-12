@@ -21,6 +21,14 @@
 - 建置完務必跑一次 `npm run patch-wasm`：修掉 `wasm-bindgen-rayon` 1.3.0 在 `workerHelpers.no-bundler.js` 用 positional 參數呼叫 `pkg.default()` 的 deprecation warning（每個 rayon worker 各噴一次）。腳本 idempotent，重跑無害。
 - WASM 檔案放在 `public/solver-wasm/`（不是 `src/`）
 
+## Dev Benchmarks
+
+- `npm run bench:solver` — 跑 `scripts/dev/datasets/dataset-3.json` 過 `raphael-cli`，輸出 wall-time CSV 到 `.tmp/bench/`
+- 用途：upstream bump 行為對拍、`--threads` 限縮行為驗證、native vs WASM timing 對照
+- **重要**：CLI native 比 WASM 快 ~2-3×、沒 worker pool contention，**絕對數字不可當效能目標**，只能比對「相對行為」
+- 不進 CI、不進 `npm test`、不做 action-sequence snapshot
+- 首次執行 `cargo build --release` 約 2-5 分鐘
+
 ## Tech Stack
 - Vue 3 + Pinia + Element Plus + Vite + TypeScript
 - Raphael-rs WASM solver（多執行緒，需 SharedArrayBuffer / COOP+COEP）
