@@ -204,9 +204,105 @@ await pkg.init_threads(threadsPerWorker)
 2. 3 個 dataset 跑 batch，[bperf] log 比對 Phase 1 總時間
 3. Achievable 配方的 action sequence 跟 Sprint 0 一致（regression test）
 
-### 7.5 Fallback（路徑 2-A，僅備）
+### 7.5 Fallback — hand-rolled prefilter shadow → enable（觸發）
 
-若 §7.4 step 2 顯示 strict 模式對 unachievable 配方沒有明顯早退（< 30% 時間節省），切回 hand-rolled prefilter 路徑：套用 `src/services/feasibility-prefilter.ts` 到 Phase 1，先 shadow mode 驗證 0 false negative，再啟用。詳細 protocol 略，需要時再寫。
+**觸發背景**：§7.2 路徑 2-B 實作為 PR D，但在 user 實裝 dataset-3 跑出 **net -47% wall**（89.5s vs lenient 61.1s）—— strict 模式逼 raphael 搜「真的達 max_quality」的解空間，achievable recipe 平均慢 1.7×。8 個 recipe 只有「巧力之寶藥」這 1 個真實 unreachable 受益（-25% wasmDur）。PR D commit `be19e8a` revert，但留下 wrapper field、`strict_quality?` TS flag、`NO_SOLUTION_MESSAGE` const、`isNoSolutionError` helper 等基建供本 fallback 復用。
+
+**目標**：把「strict probe 對哪些 recipe 有益」從「全 HQ-required 都試」改成「只對 prefilter 預測 unachievable 的試」，避免在 achievable recipe 上付 strict mode 搜尋代價。
+
+成功定義：
+- dataset-3 batch wall ≤ lenient default（user 跑 BenchPanel 驗）
+- 「巧力之寶藥」型 unreachable recipe 仍享 strict probe 早退（~25% wasmDur）
+- Prefilter **0 false negative**（不能漏真實 HQ-achievable，否則 BatchException 量會增）
+
+**現況**：`src/services/feasibility-prefilter.ts:canReachHQQuality` 已存在但公式 `baseQuality × 25 × maxQualitySteps × 1.10` 太寬鬆 —— perf-benchmarks.md 3 dataset **0 命中**。本 sprint 不重設計公式拓樸，只調 multiplier × margin。
+
+#### 7.5.1 三階段 PR 拆分
+
+| PR | 內容 | gate |
+|---|---|---|
+| **α** | 補 dataset-1.json + dataset-2.json（perf-benchmarks.md 有 recipe 名單） | `npm run bench:solver --dataset=dataset-1/2` 跑得過 |
+| **β** | `optimizeRecipe` 加 `[bperf-prefilter]` shadow log + BenchPanel CSV 多 3 欄 | User 跑 BenchPanel 3 dataset 收 21 筆 prediction vs actual |
+| **γ** | 校準係數 + unit test 鎖 21 筆 ground truth + prefilter-gated strict probe enable | dataset-3 wall ≤ lenient default、0 false negative |
+
+PR β 結束後 user 上傳 shadow CSV，**spec 由 controller 看數據決定 PR γ 校準方向**，PR β commit 前不要預測係數該訂多少。
+
+#### 7.5.2 Shadow log 格式（PR β）
+
+`src/services/batch-optimizer.ts:optimizeRecipe` 在 `await solveCraft(...)` 之後、`[bperf]` log 之前插入：
+
+```ts
+if (recipe.canHq && solverConfig.hq_target) {
+  const predicted = canReachHQQuality(recipe, gearset, buffs)
+  const actualReached = simResult.quality >= simResult.max_quality
+  console.debug(
+    `[bperf-prefilter] recipe=${recipe.name} predicted=${predicted} ` +
+    `actual_reached=${actualReached} max_q=${simResult.max_quality} ` +
+    `final_q=${simResult.quality} cp=${gearset.cp}`
+  )
+}
+```
+
+BenchPanel 在 `wasmDurByLabel` map 之後同步加 `prefilterByLabel` map 抓 `[bperf-prefilter]` log，CSV 多 3 欄：`predicted`, `actual_reached`, `final_quality_over_max`（即 `final_q / max_q` 比例）。
+
+**False negative 定義**：`predicted === false && actualReached === true` — prefilter 預測達不到 HQ 但 solver 實際達到。**這是要消滅的目標**。
+
+**False positive 定義**：`predicted === true && actualReached === false` — prefilter 過度樂觀，仍跑 lenient solver，浪費一次 strict probe 機會。無害。
+
+#### 7.5.3 校準 protocol（PR γ）
+
+User 提供 shadow CSV 後 controller：
+
+1. 統計 21 筆 (predicted, actual_reached) 矩陣
+2. 若 false negative > 0：放寬 MARGIN 或調 multiplier 直到 0 false negative
+3. 若 false negative = 0 且 false positive > 0：嘗試「同步降 multiplier 與 maxQualitySteps 估算」找出能擋住 false positive 的最緊係數
+4. 寫 `feasibility-prefilter.test.ts` 跑 21 筆 ground truth fixture 鎖住校準結果，未來公式漂移 CI 立刻 fail
+
+#### 7.5.4 Enable 改動（PR γ）
+
+`optimizeRecipe` 在 `recipe.canHq && solverConfig.hq_target` 分支：
+
+```ts
+const predicted = canReachHQQualityStrict(recipe, gearset, buffs)
+let solverResult
+if (!predicted) {
+  try {
+    solverResult = await solveCraft({ ...solverConfig, strict_quality: true }, onSolverProgress)
+  } catch (err) {
+    if (isNoSolutionError(err)) {
+      solverResult = await solveCraft(solverConfig, onSolverProgress)
+    } else { throw err }
+  }
+} else {
+  solverResult = await solveCraft(solverConfig, onSolverProgress)
+}
+```
+
+- Achievable recipe（predicted=true）：1 個 lenient solve，零 strict 損失
+- Unachievable recipe（predicted=false）：strict probe → 失敗 fallback lenient
+
+Fallback lenient 是「prefilter false negative」safety net；unit test 鎖 0 false negative 後此分支不會 fire，但保留以防未來公式漂移。
+
+#### 7.5.5 既有 caller 隔離
+
+`canReachHQQuality` 目前的 callers：`buff-recommender.ts`、`self-craft-candidates.ts`。它們是「always true gate」（公式太寬鬆造成）。PR γ 改公式會擴散影響面。
+
+**保守做法**：PR γ 把新緊公式 export 為 **`canReachHQQualityStrict`**，舊 `canReachHQQuality` 保留不動。`optimizeRecipe` 用新名，其他 caller 不動。未來若要統一可開 follow-up。
+
+#### 7.5.6 驗證
+
+- PR α：bench:solver 跑 dataset-1 / dataset-2 拿到 wall + steps + final_quality
+- PR β：跑 3 dataset 拿 21 筆 shadow CSV；確認 BenchPanel 顯示 prediction 欄位
+- PR γ：
+  - 397 + new unit test pass
+  - dataset-3 BenchPanel wall ≤ lenient default
+  - `[bperf-prefilter]` log 在 enable 後仍 emit（可後續監控公式漂移）
+
+#### 7.5.7 Rollback
+
+- PR α：刪 dataset JSON
+- PR β：revert console.debug 加的 line（純觀測 zero behavior）
+- PR γ：revert 後 `optimizeRecipe` 回到 single lenient call
 
 ---
 
