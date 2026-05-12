@@ -3,6 +3,7 @@
  */
 
 import type { SolverConfig, SolverResult, SolverResponse, SimulateConfig } from './raphael'
+import { NO_SOLUTION_MESSAGE } from './raphael'
 import { deriveRayonThreads } from './pool-config'
 
 /* ---------- WASM initialization ---------- */
@@ -116,6 +117,7 @@ function configToWasmSettings(config: SolverConfig) {
     use_trained_eye: config.use_trained_eye,
     backload_progress: false,
     adversarial: false,
+    allow_non_max_quality_solutions: !config.strict_quality,
   }
 }
 
@@ -203,7 +205,7 @@ self.onmessage = async (e: MessageEvent) => {
       const msg = err instanceof Error ? err.message : String(err)
       const errorResponse: SolverResponse = {
         type: 'error',
-        error: msg === 'NoSolution' ? '找不到可行的製作方案，請確認裝備數值與配方是否正確' : msg,
+        error: msg === 'NoSolution' ? NO_SOLUTION_MESSAGE : msg,
         requestId,
       }
       self.postMessage(errorResponse)

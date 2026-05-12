@@ -24,6 +24,12 @@ export interface SolverConfig {
   use_heart_and_soul: boolean
   use_quick_innovation: boolean
   use_trained_eye: boolean
+  /**
+   * When true, instructs raphael-rs to return NoSolution if target quality is
+   * unachievable (instead of best-effort sub-target solution). Used by Phase 1
+   * HQ feasibility probe in batch-optimizer. Defaults to false (lenient mode).
+   */
+  strict_quality?: boolean
 }
 
 export interface SolverResult {
@@ -131,4 +137,16 @@ export interface SolverResponse {
   requestId?: number
   /** Wall time spent inside wasmSolve() in ms. Only set on 'result' messages. */
   wasmDur?: number
+}
+
+/**
+ * Localised message emitted by the worker when raphael returns NoSolution.
+ * Exported so callers (batch-optimizer) can detect this case without
+ * pattern-matching arbitrary upstream Debug strings.
+ */
+export const NO_SOLUTION_MESSAGE = '找不到可行的製作方案，請確認裝備數值與配方是否正確'
+
+export function isNoSolutionError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err)
+  return msg === NO_SOLUTION_MESSAGE || msg.includes('NoSolution')
 }
