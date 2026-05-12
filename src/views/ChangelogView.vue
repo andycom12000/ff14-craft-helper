@@ -18,6 +18,18 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: 'v2.14.0',
+    date: '2026-05-13',
+    highlights: [
+      '【批量計算明顯變快】啟用 2 個 worker 同時跑求解（worker pool + FIFO queue），同時 Phase 1（逐配方求解）與 Phase 4.6（buff 套用與自製驗證）各自內部也改成並行；同一份配方清單相較 v2.13.0 通常快 1.5–2×。空閒桌面（hwc≥4）受益最大，低核心數機器自動退回 serial 不會變慢',
+      '【混 lv90+ 配方組合不再倒退】先前 8 配方混 lv94–lv100 的批次組合在 worker pool 啟用後反而比單 worker 還慢 1.5×（rayon 兩個 worker 內部各開滿 thread 互搶 CPU）；現在限制每個 worker 的 rayon thread = hwc / pool size，contention 完全消除。內部 ABTest（Boundary preset · hwc=20 · 同一 commit 純切 thread 上限）：dataset-3 從 38.9 s 砍到 22.1 s（−43% · 1.76× faster），三個 dataset 一致 1.59–1.76× 改善',
+      '【進度條跟得上實際進度】之前進度條是「假動畫」（每秒固定推進），跟求解器真實工作量無關；現在接通 raphael 求解器內部的 processed_nodes 計數，每 50 ms 更新一次。簡單配方 1 秒推到底、深搜索配方 (lv100 expert) 進度條會在 50-90% 區段慢下來，符合人對「正在思考」的直覺',
+      '【solver 不再 silent fail】Worker 內崩潰（OOM、panic）以前會讓進度條停在某個百分比、永遠不結束；現在 main thread 攔截 onerror 把所有 in-flight 計算 reject 並重建 pool，使用者馬上看到錯誤訊息可重試',
+      '【HQ 可行性預檢】批量計算前先用啟發式（craftsmanship / control / cp 餘量加總 vs 配方 quality 需求）篩出「以當前裝備幾乎不可能達到 HQ」的配方，跳過 full solve 直接走 NQ 模板；上游真正需要 HQ 的配方仍走完整求解，命中率夠高就省掉一大塊計算時間',
+      '【內部】`src/solver/worker.ts` 從單 worker 改為 2-slot pool + FIFO queue + requestId 多工器；`solver-worker.ts` rayon thread cap = `deriveRayonThreads(hwc)`；新增 `pool-config.ts` 集中 POOL_SIZE 與 thread 換算；raphael-wasm-wrapper 暴露 `init_threads(N)` 與 `progress_callback`（50 ms throttle、`MacroSolverStats` 走 serde shim 攤平到 solve envelope）；`batch-optimizer.ts` Phase 1 用 `Promise.allSettled` 取代 sequential for、Phase 4.6 的 buff 對拍與 self-craft 候選驗證改 `Promise.all`；新增 dev-only `/batch?bench=1` BenchPanel（gearset preset 切換 + dataset-1/2/3 fixtures + [bperf] CSV 輸出）+ `npm run bench:solver` raphael-cli native baseline 對拍；spec/plan 留底於 `docs/superpowers/specs|plans/2026-05-12-*` 與 `docs/superpowers/specs/2026-05-12-rayon-contention-investigation-design.md`（後者 §9 含 ABTest 完整驗證表）',
+    ],
+  },
+  {
     version: 'v2.13.0',
     date: '2026-05-11',
     highlights: [
