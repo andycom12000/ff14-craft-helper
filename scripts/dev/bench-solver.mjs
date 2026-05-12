@@ -20,7 +20,7 @@ const TAG = '[bench]'
 // path from the wrapper's Cargo.lock and run `cargo run -p raphael-cli` there.
 async function resolveRaphaelWorkspace() {
   const lock = await readFile(resolve(WRAPPER_DIR, 'Cargo.lock'), 'utf8')
-  const m = lock.match(/git\+https:\/\/github\.com\/KonaeAkira\/raphael-rs#([0-9a-f]{40})/)
+  const m = lock.match(/git\+https:\/\/github\.com\/KonaeAkira\/raphael-rs(?:\?[^#]*)?#([0-9a-f]{40})/)
   if (!m) throw new Error('raphael-rs git source not found in Cargo.lock')
   const fullSha = m[1]
   const shortSha = fullSha.slice(0, 7)
