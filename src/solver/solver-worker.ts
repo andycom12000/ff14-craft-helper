@@ -173,7 +173,9 @@ self.onmessage = async (e: MessageEvent) => {
       const progressUpdate2: SolverResponse = { type: 'progress', progress: 30, requestId }
       self.postMessage(progressUpdate2)
 
+      const solveStart = performance.now()
       const wasmResult = wasmSolve!(settings)
+      const wasmDur = performance.now() - solveStart
 
       const progressUpdate3: SolverResponse = { type: 'progress', progress: 90, requestId }
       self.postMessage(progressUpdate3)
@@ -195,7 +197,7 @@ self.onmessage = async (e: MessageEvent) => {
         steps: mappedActions.length,
       }
 
-      const resultResponse: SolverResponse = { type: 'result', result, requestId }
+      const resultResponse: SolverResponse = { type: 'result', result, requestId, wasmDur }
       self.postMessage(resultResponse)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)

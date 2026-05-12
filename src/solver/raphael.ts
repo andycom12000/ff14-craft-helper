@@ -120,4 +120,6 @@ export interface SolverResponse {
   progress?: number
   /** Request ID for multiplexed simulate calls */
   requestId?: number
+  /** Wall time spent inside wasmSolve() in ms. Only set on 'result' messages. */
+  wasmDur?: number
 }
