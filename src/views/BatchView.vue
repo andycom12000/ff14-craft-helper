@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useBatchStore } from '@/stores/batch'
 import { useSettingsStore } from '@/stores/settings'
@@ -21,12 +22,16 @@ import BuffRecommendationCard from '@/components/batch/BuffRecommendationCard.vu
 import FlowBreadcrumb from '@/components/common/FlowBreadcrumb.vue'
 import ConfirmNewBatch from '@/components/batch/ConfirmNewBatch.vue'
 import GearsetSheet from '@/components/gearset/GearsetSheet.vue'
+import BenchPanel from '@/components/batch/BenchPanel.vue'
 import { useStickyToolbarHeight } from '@/composables/useStickyToolbarHeight'
 import { JOB_NAMES } from '@/utils/jobs'
 
 const batchStore = useBatchStore()
 const settings = useSettingsStore()
 const gearsets = useGearsetsStore()
+
+const route = useRoute()
+const showBenchPanel = computed(() => route.query.bench === '1')
 
 const sidebarOpen = ref(false)
 
@@ -314,6 +319,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
 </script>
 
 <template>
+  <BenchPanel v-if="showBenchPanel" />
   <div class="view-container batch-view" :style="{ '--batch-flow-h': `${flowHeight}px` }">
     <div class="batch-title-row">
       <div class="batch-title-block">

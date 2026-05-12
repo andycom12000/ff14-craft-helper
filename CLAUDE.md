@@ -28,6 +28,9 @@
 - **重要**：CLI native 比 WASM 快 ~2-3×、沒 worker pool contention，**絕對數字不可當效能目標**，只能比對「相對行為」
 - 不進 CI、不進 `npm test`、不做 action-sequence snapshot
 - 首次執行 `cargo build --release` 約 2-5 分鐘
+- In-app BenchPanel：`npm run dev` 後到 `/#/batch?bench=1`，按「Run dataset-N」跑真實 worker pool benchmark，輸出 wall-clock + wasmDur（PR E 之後）CSV。
+  - 用途：跨 PR perf 對比；比 raphael-cli native bench 多了 worker pool contention
+  - 不會出現在 production build（route query gating 但不擋頁面，建議 staging 也別開）
 
 ## Tech Stack
 - Vue 3 + Pinia + Element Plus + Vite + TypeScript
