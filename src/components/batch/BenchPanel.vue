@@ -24,6 +24,9 @@ interface BenchRow {
   wallMs: number
   wasmDurMs?: number
   steps?: number
+  predicted?: boolean
+  actualReached?: boolean
+  finalOverMax?: number
   error?: string
 }
 
@@ -42,11 +45,21 @@ async function runDataset(name: string) {
   // Intercept [bperf] console.debug to capture wasmDur per recipe label.
   // Falls through to the real console.debug so DevTools still shows them.
   const wasmDurByLabel = new Map<string, { wasmDur: number; steps: number }>()
+  const prefilterByLabel = new Map<string, { predicted: boolean; actualReached: boolean; finalOverMax: number }>()
   const origDebug = console.debug
   console.debug = (...args: unknown[]) => {
     const msg = args.map(a => String(a)).join(' ')
     const m = /\[bperf\] solve (.+?) wasmDur=(\d+(?:\.\d+)?)ms steps=(\d+)/.exec(msg)
     if (m) wasmDurByLabel.set(m[1], { wasmDur: Number(m[2]), steps: Number(m[3]) })
+    const p = /\[bperf-prefilter\] recipe=(.+?) predicted=(true|false) actual_reached=(true|false) max_q=(\d+) final_q=(\d+) /.exec(msg)
+    if (p) {
+      const max = Number(p[4]), final = Number(p[5])
+      prefilterByLabel.set(p[1], {
+        predicted: p[2] === 'true',
+        actualReached: p[3] === 'true',
+        finalOverMax: max > 0 ? final / max : 1,
+      })
+    }
     origDebug.apply(console, args as [])
   }
 
@@ -86,7 +99,16 @@ async function runDataset(name: string) {
         await optimizeRecipe(recipe, gearset)
         const wallMs = performance.now() - start
         const wasm = wasmDurByLabel.get(recipe.name)
-        rows.value.push({ label: entry.label, wallMs, wasmDurMs: wasm?.wasmDur, steps: wasm?.steps })
+        const pf = prefilterByLabel.get(recipe.name)
+        rows.value.push({
+          label: entry.label,
+          wallMs,
+          wasmDurMs: wasm?.wasmDur,
+          steps: wasm?.steps,
+          predicted: pf?.predicted,
+          actualReached: pf?.actualReached,
+          finalOverMax: pf?.finalOverMax,
+        })
       } catch (err) {
         rows.value.push({ label: entry.label, wallMs: performance.now() - start, error: String(err) })
       }
@@ -99,9 +121,9 @@ async function runDataset(name: string) {
 }
 
 function toCsv(): string {
-  const header = 'label,wall_ms,wasm_dur_ms,steps,error'
+  const header = 'label,wall_ms,wasm_dur_ms,steps,predicted,actual_reached,final_over_max,error'
   const lines = rows.value.map(r =>
-    `${r.label},${Math.round(r.wallMs)},${r.wasmDurMs !== undefined ? Math.round(r.wasmDurMs) : ''},${r.steps ?? ''},${r.error ?? ''}`
+    `${r.label},${Math.round(r.wallMs)},${r.wasmDurMs !== undefined ? Math.round(r.wasmDurMs) : ''},${r.steps ?? ''},${r.predicted === undefined ? '' : r.predicted},${r.actualReached === undefined ? '' : r.actualReached},${r.finalOverMax === undefined ? '' : r.finalOverMax.toFixed(4)},${r.error ?? ''}`
   )
   return [`# dataset: ${currentDataset.value}`, `# total_ms: ${Math.round(totalMs.value)}`, header, ...lines].join('\n')
 }
@@ -124,13 +146,16 @@ async function copyCsv() {
     <div v-if="rows.length" class="results">
       <p>Total wall: {{ Math.round(totalMs) }} ms · {{ rows.length }} recipes</p>
       <table>
-        <thead><tr><th>Recipe</th><th>Wall (ms)</th><th>WasmDur (ms)</th><th>Steps</th><th>Error</th></tr></thead>
+        <thead><tr><th>Recipe</th><th>Wall (ms)</th><th>WasmDur (ms)</th><th>Steps</th><th>Predicted</th><th>Reached</th><th>Final/Max</th><th>Error</th></tr></thead>
         <tbody>
           <tr v-for="r in rows" :key="r.label">
             <td>{{ r.label }}</td>
             <td>{{ Math.round(r.wallMs) }}</td>
             <td>{{ r.wasmDurMs !== undefined ? Math.round(r.wasmDurMs) : '—' }}</td>
             <td>{{ r.steps ?? '—' }}</td>
+            <td>{{ r.predicted === undefined ? '—' : (r.predicted ? '✓' : '✗') }}</td>
+            <td>{{ r.actualReached === undefined ? '—' : (r.actualReached ? '✓' : '✗') }}</td>
+            <td>{{ r.finalOverMax === undefined ? '—' : (r.finalOverMax * 100).toFixed(1) + '%' }}</td>
             <td>{{ r.error ?? '' }}</td>
           </tr>
         </tbody>
