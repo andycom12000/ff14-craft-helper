@@ -246,7 +246,7 @@ export async function runBatchOptimization(
     }
     if (v.kind === 'failed') {
       exceptions.push({
-        type: 'quality-unachievable', recipe: v.target.recipe,
+        type: 'quality-unachievable', recipe: v.target.recipe, quantity: v.target.quantity,
         message: '計算失敗', details: `「${v.target.recipe.name}」計算過程發生錯誤：${v.error}`,
         action: 'skipped',
       })
@@ -408,7 +408,7 @@ export async function runBatchOptimization(
     const rec = await evaluateBuffRecommendation(
       recipesToCraft, buyFinishedIds, getGearset as (job: string) => GearsetStats | null,
       priceMap, isCancelled,
-      (info) => onProgress({ completed: info.current, total: info.total, name: '', phase: 'evaluating-buffs', solverPercent: 0 }),
+      (info) => onProgress({ completed: info.completed, total: info.total, name: '', phase: 'evaluating-buffs', solverPercent: 0 }),
       qualityUnachievableResults,
     )
     return rec ?? undefined
@@ -423,7 +423,7 @@ export async function runBatchOptimization(
         getGearset: getGearset as (job: string) => GearsetStats | null,
         maxDepth: settings.maxRecursionDepth, buffs, optimizeRecipe,
         onProgress: (info) => onProgress({
-          completed: info.current, total: info.total, name: info.name,
+          completed: info.completed, total: info.total, name: info.name,
           phase: 'evaluating-self-craft', solverPercent: 0,
         }),
         isCancelled,

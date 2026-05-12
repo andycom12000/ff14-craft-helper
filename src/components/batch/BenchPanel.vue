@@ -2,7 +2,6 @@
 import { ref } from 'vue'
 import { getRecipe } from '@/api/xivapi'
 import { useGearsetsStore, type GearsetStats } from '@/stores/gearsets'
-import { CRAFT_TYPE_TO_JOB } from '@/utils/jobs'
 import { optimizeRecipe } from '@/services/batch-optimizer'
 import { waitForWasm } from '@/solver/worker'
 
@@ -101,10 +100,9 @@ async function runDataset(name: string) {
       if (preset.override) {
         gearset = { ...preset.override }
       } else {
-        const jobAbbr = CRAFT_TYPE_TO_JOB[recipe.craftType] ?? 'CRP'
-        const stored = gearsetsStore.getGearsetForJob(jobAbbr)
+        const stored = gearsetsStore.getGearsetForJob(recipe.job)
         if (!stored) {
-          rows.value.push({ label: entry.label, wallMs: -1, error: `no gearset for ${jobAbbr}` })
+          rows.value.push({ label: entry.label, wallMs: -1, error: `no gearset for ${recipe.job}` })
           return
         }
         gearset = {

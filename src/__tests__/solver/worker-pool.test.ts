@@ -36,7 +36,7 @@ describe('solver worker pool', () => {
     await waitForWasm()
     const p1 = solveCraft({ progress: 100 } as any)
     const p2 = solveCraft({ progress: 200 } as any)
-    await new Promise(r => queueMicrotask(r))
+    await new Promise<void>(resolve => queueMicrotask(() => resolve()))
 
     expect(FakeWorker.instances).toHaveLength(2)
     const slot0Solves = FakeWorker.instances[0].postedMessages.filter(m => m.type === 'solve')
@@ -57,7 +57,7 @@ describe('solver worker pool', () => {
     const p1 = solveCraft({ progress: 100 } as any)
     const p2 = solveCraft({ progress: 200 } as any)
     const p3 = solveCraft({ progress: 300 } as any)
-    await new Promise(r => queueMicrotask(r))
+    await new Promise<void>(resolve => queueMicrotask(() => resolve()))
 
     const dispatched = FakeWorker.instances.flatMap(w => w.postedMessages.filter(m => m.type === 'solve'))
     expect(dispatched).toHaveLength(2)
@@ -78,7 +78,7 @@ describe('solver worker pool', () => {
     const p1 = solveCraft({ progress: 100 } as any).catch(e => e.message)
     const p2 = solveCraft({ progress: 200 } as any).catch(e => e.message)
     const p3 = solveCraft({ progress: 300 } as any).catch(e => e.message)
-    await new Promise(r => queueMicrotask(r))
+    await new Promise<void>(resolve => queueMicrotask(() => resolve()))
 
     cancelSolve()
     const results = await Promise.all([p1, p2, p3])

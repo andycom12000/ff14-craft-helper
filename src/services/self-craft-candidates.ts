@@ -327,7 +327,7 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
   const candidates: SelfCraftCandidate[] = []
   let completedCount = 0
 
-  const settled = await Promise.allSettled(withRecipes.map(async ({ decision, node, recipe, job }, i) => {
+  const settled = await Promise.allSettled(withRecipes.map(async ({ decision, node, recipe, job }) => {
     if (isCancelled()) throw new Error('cancelled')
     const gs = getGearset(job)
     if (!gs) return null
