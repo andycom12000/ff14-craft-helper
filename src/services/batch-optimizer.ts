@@ -12,6 +12,7 @@ import { separateCrystals, groupByServer, calculateBestPurchase, findCheapestSer
 import { applyFoodBuff, applyMedicineBuff, resolveBuff, COMMON_FOODS, COMMON_MEDICINES, type FoodBuff } from '@/engine/food-medicine'
 import { evaluateBuffRecommendation, getBuffItemIds } from '@/services/buff-recommender'
 import { produceSelfCraftCandidates } from '@/services/self-craft-candidates'
+import { canReachHQQuality } from '@/services/feasibility-prefilter'
 import { fetchItemAcquisitionBatch } from '@/services/item-acquisition'
 import { fetchItemLocationsBatch } from '@/services/item-locations'
 import { fetchZoneMetaBulk, fetchNpcNameBulk } from '@/services/zone-meta'
@@ -58,6 +59,16 @@ export async function optimizeRecipe(
     )
   }
   const simResult = await simulateCraft(solverConfig, solverResult.actions)
+
+  if (recipe.canHq && solverConfig.hq_target) {
+    const predicted = canReachHQQuality(recipe, gearset, buffs)
+    const actualReached = simResult.quality >= simResult.max_quality
+    console.debug(
+      `[bperf-prefilter] recipe=${recipe.name} predicted=${predicted} ` +
+      `actual_reached=${actualReached} max_q=${simResult.max_quality} ` +
+      `final_q=${simResult.quality} cp=${gearset.cp}`
+    )
+  }
 
   const isDoubleMax =
     simResult.progress >= simResult.max_progress &&

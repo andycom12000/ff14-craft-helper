@@ -16,17 +16,20 @@
 
 新增：
 - `scripts/dev/bench-solver.mjs` — raphael-cli wrapper，餵 dataset、量 wall time、輸出 CSV
-- `scripts/dev/datasets/dataset-3.json` — 8-recipe mixed lv53-100 benchmark dataset（dataset 1/2 視需要追加）
-- `src/components/batch/BenchPanel.vue` — `?bench=1` 才渲染的 in-app benchmark UI，跑 batch + 收 wall-clock/wasmDur + 輸出 CSV
+- `scripts/dev/datasets/dataset-3.json` — 8-recipe mixed lv53-100 benchmark dataset
+- `scripts/dev/datasets/dataset-1.json` — 6-recipe 軍需品 dataset（§7.5 PR F）
+- `scripts/dev/datasets/dataset-2.json` — 7-recipe mixed lv94-100 dataset（§7.5 PR F）
+- `src/components/batch/BenchPanel.vue` — `?bench=1` 才渲染的 in-app benchmark UI，跑 batch + 收 wall-clock/wasmDur + 輸出 CSV；§7.5 PR G 加 prefilter shadow 3 欄
 - `src/solver/pool-config.ts` — `POOL_SIZE` 常數獨立檔，供 `worker.ts` + `solver-worker.ts` 共用
 
 修改：
 - `raphael-wasm-wrapper/Cargo.toml` — git dep pin `rev = "aafcbb0"`（Sprint 0）
-- `raphael-wasm-wrapper/src/lib.rs` — `SolveConfig` 加 `allow_non_max_quality_solutions` field（Sprint 2）
-- `src/solver/raphael.ts` — `SolverConfig` 加 `strict_quality?: boolean`（Sprint 2）
+- `raphael-wasm-wrapper/src/lib.rs` — `SolveConfig` 加 `allow_non_max_quality_solutions` field（Sprint 2，保留供 §7.5 PR H 用）
+- `src/solver/raphael.ts` — `SolverConfig` 加 `strict_quality?: boolean`、`NO_SOLUTION_MESSAGE` const、`isNoSolutionError` helper（Sprint 2，保留）
 - `src/solver/solver-worker.ts` — (1) `init_threads(hwc / POOL_SIZE)`（Sprint 1）；(2) 透傳 `strict_quality`（Sprint 2）；(3) 量 `wasmDur` 並 post 回主執行緒（Sprint 3）
 - `src/solver/worker.ts` — import `POOL_SIZE`；`SolverResponse` 帶 `wasmDur`；`solveCraft` 解 promise 時轉手給 caller
-- `src/services/batch-optimizer.ts` — `optimizeRecipe` 在 HQ-required 配方先跑 strict probe（Sprint 2，`localStorage.__bperfForceLenient === '1'` 時 skip）；解 promise 時記 `wasmDur` 到 console（Sprint 3）
+- `src/services/batch-optimizer.ts` — Sprint 3 記 `wasmDur` log；§7.5 PR G 加 `[bperf-prefilter]` shadow log；§7.5 PR H 加 `canReachHQQualityStrict`-gated strict probe（Sprint 2 strict probe 已 revert）
+- `src/services/feasibility-prefilter.ts` — §7.5 PR H 加 `canReachHQQualityStrict` 新 export（既有 `canReachHQQuality` 不動）
 - `src/views/BatchView.vue` — `?bench=1` 時掛載 `BenchPanel`（Task 0.5）
 - `CLAUDE.md` — 新增「Dev Benchmarks」小節，含 BenchPanel 用法
 - `package.json` — 加 `bench:solver` script
@@ -43,11 +46,15 @@
 | **C** Sprint 1 — rayon thread limit | T3, T4 | 2 tasks | 改回 `init_threads(navigator.hardwareConcurrency \|\| 4)` 一行 |
 | **D** Sprint 2 — strict-mode HQ feasibility | T5, T6, T7 | 3 tasks | wrapper field optional + JS 不傳即恢復舊行為 |
 | **E** Sprint 3 — per-solve timer | T8, T9 | 2 tasks | 純觀測，無業務影響；解 message 改回不讀 `wasmDur` |
+| **F** §7.5 fallback — datasets | T10 | 1 task | 刪 dataset-1.json + dataset-2.json |
+| **G** §7.5 fallback — shadow log | T11 | 1 task | revert `[bperf-prefilter]` 兩行 console.debug |
+| **H** §7.5 fallback — calibrate + enable | T12 | 1 task | revert 後 `optimizeRecipe` 回 single lenient call |
 
 **每 PR 結束前 user 必跑的驗證**（subagent 不能代跑）：
 1. **BenchPanel** 跑 3 個 dataset 拿 wall time CSV 對比上一 PR baseline（PR A T0.5 提供 UI，`npm run dev` → `/#/batch?bench=1`）
 2. `npm run bench:solver`（PR A T0 提供）拿 native CSV 對拍 — 偵測上游 raphael 行為差異
-3. PR D 額外加：`__bperfForceLenient` toggle 對拍 strict probe 收益
+3. PR D 額外加：`__bperfForceLenient` toggle 對拍 strict probe 收益（已 revert，不再需要）
+4. PR G 額外加：BenchPanel CSV 多 3 欄（predicted / actual_reached / final_quality_over_max），user 跑完 3 dataset 上傳給 controller 校準
 
 ---
 
@@ -1213,22 +1220,351 @@ LV100 recipes 的 wasm_dur_ms 應 > LV9X 的 ~2-3×。
 
 ---
 
+## Task 10 — §7.5 datasets-1/2 補檔（PR F）
+
+**Branch:** `perf/hq-feasibility-prefilter`（已從 main 切，main 含 PR A-E + revert）
+**Spec:** `docs/superpowers/specs/2026-05-12-batch-perf-next-sprints-design.md` §7.5.1
+
+**Files:**
+- Create: `scripts/dev/datasets/dataset-1.json` (6 recipes from perf-benchmarks.md lines 10-19)
+- Create: `scripts/dev/datasets/dataset-2.json` (7 recipes from perf-benchmarks.md lines 73-81)
+
+**Pre-flight context:**
+- `scripts/dev/datasets/dataset-3.json` 已存在 (PR A T0)，schema 為「`recipeId` + `rlvl/progress/quality/durability` + 5000/5000/600 placeholder gearset 欄位 + `manipulation: true`」
+- Dataset-1 / -2 沿用 schema；gearset placeholder 欄位 raphael-cli 才用，BenchPanel 改用 stored gearset（PR A 後 fix `f6c1170`）
+- Recipe ID 查表方式（同 PR A T0 Step 1）：`public/data/items/zh-TW.json` → 找 item ID → `public/data/recipes.json` 比對 itemResult → 取 id/rlv/factors → `public/data/rlt.json` 取 base + 套 factors
+
+- [ ] **Step 1: 建 dataset-1.json**
+
+6 recipes（perf-benchmarks.md `## Dataset 1`）：
+- 相思木砂輪機 (lv97 木工)
+- 鈷鎢禦敵坎肩 (lv95 甲冑)
+- 粉綠柱石詠咒半指手套 (lv94 金工)
+- 卡岡圖亞革製敵軟甲褲 (lv99 皮革)
+- 薄絹巧匠工作帽 (lv94 裁縫)
+- 鮭魚乾 (lv97 烹調)
+
+Schema 同 dataset-3.json：`name`, `recipes: [{label, recipeId, quantity, rlvl, progress, quality, durability, craftsmanship, control, cp, level, manipulation}, ...]`
+
+- [ ] **Step 2: 建 dataset-2.json**
+
+7 recipes：相思木符杖 (lv97) / 卡扎納爾手鋸 (lv100) / 粉綠柱石詠咒半指手套 (lv94) / 卡岡圖亞革禦敵軟甲褲 (lv99) / 薄絹禦敵腿套 (lv95) / 智力之寶藥 (lv100) / 奶油熱巧克力 (lv96)
+
+注意「卡扎納爾手鋸 / 智力之寶藥」與 dataset-3 重疊 recipe，可從 dataset-3.json 直接複製對應 row 換 quantity。「粉綠柱石詠咒半指手套」與 dataset-1 重疊同理。
+
+- [ ] **Step 3: bench:solver smoke**
+
+```bash
+npm run bench:solver -- --dataset=dataset-1
+npm run bench:solver -- --dataset=dataset-2
+```
+
+Expected：所有 recipe 跑得過、無 cli error；wall time 順序與 perf-benchmarks.md lines 100-109 / 215-227 的相對形狀一致（lv100 重，lv94-95 輕）。
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add scripts/dev/datasets/dataset-1.json scripts/dev/datasets/dataset-2.json
+git commit -m "feat(dev): dataset-1 + dataset-2 fixtures for prefilter shadow"
+```
+
+- [ ] **Step 5: PR F gate**
+
+回報：「PR F (datasets) ready. bench:solver dataset-1 + dataset-2 PASS. Awaiting user: BenchPanel 跑 dataset-1 / dataset-2 確認 8 row + 7 row render OK.」
+
+---
+
+## Task 11 — §7.5 shadow log（PR G）
+
+**Spec:** §7.5.2
+
+**Files:**
+- Modify: `src/services/batch-optimizer.ts:optimizeRecipe` — 加 `[bperf-prefilter]` console.debug
+- Modify: `src/components/batch/BenchPanel.vue` — monkey-patch 抓 `[bperf-prefilter]`，CSV 多 3 欄
+
+**Pre-flight context:**
+- `canReachHQQuality` import from `@/services/feasibility-prefilter` 已存在（被 `buff-recommender` 等用）
+- `simResult` 在 `optimizeRecipe` 中已有 (`await simulateCraft`)，可直接讀 `simResult.quality` / `simResult.max_quality`
+- BenchPanel 已有 `wasmDurByLabel` map 模式，加 `prefilterByLabel` 並行抓
+
+- [ ] **Step 1: 改 optimizeRecipe**
+
+在 `const simResult = await simulateCraft(...)` 之後、`[bperf]` log 之前（PR E 後該 log 在 `[bperf-prefilter]` 之上）插入：
+
+```ts
+if (recipe.canHq && solverConfig.hq_target) {
+  const predicted = canReachHQQuality(recipe, gearset, buffs)
+  const actualReached = simResult.quality >= simResult.max_quality
+  console.debug(
+    `[bperf-prefilter] recipe=${recipe.name} predicted=${predicted} ` +
+    `actual_reached=${actualReached} max_q=${simResult.max_quality} ` +
+    `final_q=${simResult.quality} cp=${gearset.cp}`
+  )
+}
+```
+
+Import：`import { canReachHQQuality } from '@/services/feasibility-prefilter'`（檔頭加；若已存在不重複）。
+
+- [ ] **Step 2: 改 BenchPanel.vue**
+
+`BenchPanel.vue:script setup` 在 `wasmDurByLabel` 宣告附近加：
+
+```ts
+const prefilterByLabel = new Map<string, { predicted: boolean; actualReached: boolean; finalOverMax: number }>()
+```
+
+`console.debug` monkey-patch 區塊裡，現有 `[bperf]` regex 之後加：
+
+```ts
+const p = /\[bperf-prefilter\] recipe=(.+?) predicted=(true|false) actual_reached=(true|false) max_q=(\d+) final_q=(\d+) /.exec(msg)
+if (p) {
+  const max = Number(p[4]), final = Number(p[5])
+  prefilterByLabel.set(p[1], {
+    predicted: p[2] === 'true',
+    actualReached: p[3] === 'true',
+    finalOverMax: max > 0 ? final / max : 1,
+  })
+}
+```
+
+`BenchRow` interface 加 3 optional 欄位：`predicted?: boolean`, `actualReached?: boolean`, `finalOverMax?: number`。
+
+`rows.value.push({...})` block 從 `prefilterByLabel.get(recipe.name)` 拿值並合進 row。
+
+Table thead 加 3 個 `<th>`（`Predicted` / `Reached` / `Final/Max`），tbody 對應 `<td>`：
+
+```vue
+<td>{{ r.predicted === undefined ? '—' : (r.predicted ? '✓' : '✗') }}</td>
+<td>{{ r.actualReached === undefined ? '—' : (r.actualReached ? '✓' : '✗') }}</td>
+<td>{{ r.finalOverMax === undefined ? '—' : (r.finalOverMax * 100).toFixed(1) + '%' }}</td>
+```
+
+`toCsv()` header 改：
+
+```
+'label,wall_ms,wasm_dur_ms,steps,predicted,actual_reached,final_over_max,error'
+```
+
+每 row 對應加 3 欄。
+
+- [ ] **Step 3: Type-check**
+
+```bash
+npx vue-tsc -b
+```
+
+Expected：7 pre-existing errors only。
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add src/services/batch-optimizer.ts src/components/batch/BenchPanel.vue
+git commit -m "feat(batch): shadow log canReachHQQuality prediction for §7.5
+
+Adds [bperf-prefilter] console.debug emitting (predicted, actual_reached,
+max_q, final_q, cp) per HQ-targeted recipe. BenchPanel captures the
+log into 3 new CSV columns. Pure observation, no behaviour change.
+
+Used to gather 21-recipe prediction-vs-actual matrix for calibrating
+canReachHQQualityStrict in PR H."
+```
+
+- [ ] **Step 5: PR G gate**
+
+回報：
+
+```
+PR G (shadow log) ready:
+- npx vue-tsc -b: 7 pre-existing errors only
+- type-check confirmed [bperf-prefilter] format matches BenchPanel regex
+Awaiting user:
+1. npm run dev → /#/batch?bench=1
+2. Run dataset-1, copy CSV → ds1.csv
+3. Run dataset-2, copy CSV → ds2.csv
+4. Run dataset-3, copy CSV → ds3.csv
+5. Hand 3 CSVs back; controller will analyse 21 (predicted, actual_reached) rows.
+```
+
+---
+
+## Task 12 — §7.5 calibrate + enable（PR H）
+
+**Spec:** §7.5.3 / §7.5.4 / §7.5.5
+
+**Files:**
+- Modify: `src/services/feasibility-prefilter.ts` — 加 `canReachHQQualityStrict` (new function, not replacing existing one)
+- Create: `src/__tests__/services/feasibility-prefilter.test.ts` extension — 21-recipe ground truth fixture
+- Modify: `src/services/batch-optimizer.ts:optimizeRecipe` — prefilter-gated strict probe
+
+**Pre-flight context:**
+- PR G shadow CSV 由 controller 看過、係數 + 公式拓樸已決定（具體數值待 controller fill in）
+- 既有 `canReachHQQuality` 不動（buff-recommender / self-craft-candidates 還用），新 `canReachHQQualityStrict` 是並行 export
+- PR D 留下的 `strict_quality?` flag + `isNoSolutionError` helper + `NO_SOLUTION_MESSAGE` 全部復用
+
+- [ ] **Step 1: 加 canReachHQQualityStrict**
+
+`src/services/feasibility-prefilter.ts` 加新 export（公式由 controller PR G gate 後決定，subagent **不要先猜係數**，等 controller 把具體數值傳下來）：
+
+```ts
+// Tighter formula calibrated against 21-recipe shadow data (PR G).
+// See docs/superpowers/specs/2026-05-12-batch-perf-next-sprints-design.md §7.5.3.
+export const QUALITY_PHASE_UPPER_BOUND_MULTIPLIER_STRICT = <CONTROLLER_TO_FILL>
+export const MARGIN_STRICT = <CONTROLLER_TO_FILL>
+
+export function canReachHQQualityStrict(
+  recipe: Recipe,
+  gearset: GearsetStats,
+  buffs?: { food: FoodBuff | null; medicine: FoodBuff | null },
+): boolean {
+  const stats = applyBuffsToStats(
+    { craftsmanship: gearset.craftsmanship, control: gearset.control, cp: gearset.cp },
+    buffs,
+  )
+  const baseQuality = computeBaseQuality(stats.control, gearset.level, recipe.recipeLevelTable)
+  const maxQualitySteps = Math.floor(stats.cp / AVG_QUALITY_CP_COST)
+  const maxAchievable = baseQuality * QUALITY_PHASE_UPPER_BOUND_MULTIPLIER_STRICT * maxQualitySteps * MARGIN_STRICT
+  return maxAchievable >= recipe.recipeLevelTable.quality
+}
+```
+
+> `<CONTROLLER_TO_FILL>` 是 placeholder，subagent BLOCKED 若 controller 沒在 task prompt 給數值。
+
+- [ ] **Step 2: 21-recipe ground truth unit test**
+
+在 `src/__tests__/services/feasibility-prefilter.test.ts` 既有測試之後加：
+
+```ts
+describe('canReachHQQualityStrict — 21-recipe ground truth', () => {
+  // Fixture: each row is (recipe params, gearset, expected_predicted)
+  // Source: shadow CSV from PR G, dataset-1/2/3 × real-gearset
+  // Bake-in: any future formula change that flips a row fails CI.
+  const cases: Array<{ name: string; rlvl: number; progress: number; quality: number; durability: number; cp: number; control: number; craftsmanship: number; level: number; expected: boolean }> = [
+    // controller fills 21 rows from shadow CSV
+  ]
+
+  for (const c of cases) {
+    it(`predicts ${c.expected} for ${c.name}`, () => {
+      // build minimal Recipe + GearsetStats stub
+      // call canReachHQQualityStrict
+      // expect result === c.expected
+    })
+  }
+})
+```
+
+**21 rows 由 controller 在 task prompt 中提供**（從 PR G shadow CSV 整理過後），subagent 不要自己生 fixture。
+
+- [ ] **Step 3: optimizeRecipe 加 prefilter-gated strict probe**
+
+`src/services/batch-optimizer.ts:optimizeRecipe`：
+
+加 imports：
+
+```ts
+import { canReachHQQualityStrict } from '@/services/feasibility-prefilter'
+import { isNoSolutionError } from '@/solver/raphael'
+```
+
+把現有 `const solverResult = await solveCraft(solverConfig, onSolverProgress)` 換成：
+
+```ts
+let solverResult
+if (recipe.canHq && solverConfig.hq_target) {
+  const predicted = canReachHQQualityStrict(recipe, gearset, buffs)
+  if (!predicted) {
+    try {
+      solverResult = await solveCraft({ ...solverConfig, strict_quality: true }, onSolverProgress)
+    } catch (err) {
+      if (isNoSolutionError(err)) {
+        solverResult = await solveCraft(solverConfig, onSolverProgress)
+      } else { throw err }
+    }
+  } else {
+    solverResult = await solveCraft(solverConfig, onSolverProgress)
+  }
+} else {
+  solverResult = await solveCraft(solverConfig, onSolverProgress)
+}
+```
+
+Shadow log（PR G 加的 `[bperf-prefilter]`）**保留不刪** — enable 後仍可監控公式漂移。
+
+- [ ] **Step 4: 跑全測試 + type-check**
+
+```bash
+npm test
+npx vue-tsc -b
+```
+
+Expected：397 + 新 21 個 prefilter test 全 pass；type-check 7 pre-existing errors only。
+
+**Fail handling**：若新 unit test 某 row fail，代表 PR G CSV 與校準公式對不上，**STATUS BLOCKED**，回報哪幾 row fail + 公式套出來的 `maxAchievable` 數值，controller 重校。
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/services/feasibility-prefilter.ts src/__tests__/services/feasibility-prefilter.test.ts src/services/batch-optimizer.ts
+git commit -m "perf(batch): gate strict probe on canReachHQQualityStrict prefilter
+
+PR D strict probe was net -47% wall because every HQ-targeted recipe paid
+the strict-mode search cost, but only the truly-unreachable ones benefited
+from the early-exit. PR G shadow data over 21 recipes showed which
+recipes raphael actually fails to HQ for the user's real gearset.
+
+This PR calibrates canReachHQQualityStrict to 0 false negative against
+that fixture, then only invokes strict probe when the prefilter predicts
+unachievable. Achievable recipes go straight to lenient (zero strict
+tax). Unachievable recipes still benefit from raphael's PR #337
+skip-precompute fast path. NoSolution from strict probe falls back to
+lenient as safety net for future formula drift."
+```
+
+- [ ] **Step 6: PR H gate**
+
+回報：
+
+```
+PR H (calibrate + enable) ready:
+- npm test: PASS (397 + 21 new)
+- npx vue-tsc -b: 7 pre-existing errors only
+Awaiting user:
+1. BenchPanel /#/batch?bench=1 → Run dataset-3
+2. Confirm dataset-3 wall ≤ previous lenient default (68.9s @ commit 6444a17)
+3. Inspect [bperf-prefilter] log emissions: confirm predicted column still
+   matches actual_reached row-by-row (0 false negative live verification)
+```
+
+---
+
 ## Schedule（呼應 spec §10）
 
 ```
 Week 1
-  Day 0   ── PR A · dev benchmark harness (T0 CLI + T0.5 BenchPanel)
-  Day 1   ── PR B · Sprint 0 upgrade (T1-T2) + user 跑 BenchPanel 3 dataset → baseline
-  Day 2   ── PR C · Sprint 1 rayon limit (T3-T4) + user 跑 BenchPanel 3 dataset
-  Day 3-4 ── PR E · Sprint 3 timer (T8-T9) + user 跑 BenchPanel 拿 wasm_dur_ms
+  Day 0   ── PR A · dev benchmark harness (T0 CLI + T0.5 BenchPanel) ✓ done
+  Day 1   ── PR B · Sprint 0 upgrade (T1-T2) + user BenchPanel ✓ done
+  Day 2   ── PR C · Sprint 1 rayon limit (T3-T4) + user BenchPanel ✓ done
+  Day 3-4 ── PR E · Sprint 3 timer (T8-T9) + user BenchPanel wasm_dur_ms ✓ done
 
 Week 2
-  Day 1   ── PR D · Sprint 2 strict probe (T5-T7)
-  Day 2   ── PR D benchmark：BenchPanel + __bperfForceLenient toggle
-  Day 3+  ── 若 PR D 收益不到 30%，切 spec §7.5 hand-rolled prefilter fallback
+  Day 1   ── PR D · Sprint 2 strict probe (T5-T7) ✓ shipped then reverted (-47% wall)
+  Day 2   ── PR D benchmark：dataset-3 strict 89.5s vs lenient 68.9s → revert Task 7
+  Day 3+  ── PR D 觸發 §7.5 fallback → PR F/G/H below
+
+Week 3 (§7.5 fallback — branch perf/hq-feasibility-prefilter)
+  Day 1   ── PR F · datasets (T10) ✓ shipped (5083ada)
+  Day 1   ── PR G · shadow log (T11) ✓ shipped (40d2b1a)
+  Day 1   ── BenchPanel gearset preset switcher（plan 外加，ea5cc74）
+  Day 1   ── controller 跑 3 dataset × 3 preset = 57 datapoints
+  Day 1   ── separability analysis → K=23 (in gap 20.59-26.21)
+  Day 1   ── PR H · calibrate + enable (T12) ✗ shipped then reverted (f5e8f88 → 943d1a0)
+  Day 1   ── §7.5 rejected：ground truth (actual_reached) ≠ strict probe winner
 ```
 
-> **PR 順序刻意把 PR E 排在 PR D 之前**：Sprint 3 timer 可在 Sprint 2 動工前就量到 PR C 改動的真實 wasmDur，把 contention 修正與 strict probe 收益分開觀察。Spec §10 schedule 也是這個順序。
+§7.5 後續詳見 spec §7.5.8（重啟條件：BenchPanel 加 strict-vs-lenient A/B mode）。
+
+> **PR 順序刻意把 PR E 排在 PR D 之前**：Sprint 3 timer 可在 Sprint 2 動工前就量到 PR C 改動的真實 wasmDur，把 contention 修正與 strict probe 收益分開觀察。
+>
+> **PR D 後切 §7.5 而非繼續硬調 strict probe**：實測證實 strict 對全 achievable dataset net negative，硬調沒有出路。改走 prefilter-gated 路徑，讓 strict 只服務真實 unreachable recipe。Sprint 2 留下的 wrapper field + TS infra 在 PR H 全部復用。
 
 ---
 
@@ -1238,6 +1574,10 @@ Week 2
 - **PR C 低 hwc 機器未驗**：`deriveRayonThreads(2) === 1`，rayon 退化為 serial 路徑未實機 smoke。PR C commit message 須明標此限制；4-core 機 dataset 1 若退步 >10%，調整路徑：擴充 `pool-config.ts:deriveRayonThreads` 加 hwc-aware heuristic（不要散在 worker 內）。
 - **PR D strict probe 對 achievable recipe 變慢**：spec §7.3 列為已知風險，緩解依賴 PR B 已含 PR #337。若實測 ds1 變慢 >10%，**寫 follow-up spec 設計 stat-margin heuristic**（不在本計畫範圍硬塞），或直接走 spec §7.5 hand-rolled prefilter fallback。
 - **PR E 量測點失真**：Task 8 Step 3 已 grep 驗證 `wasmSolve` 為 sync binding。若 grep 印出 `async`，subagent BLOCKED 回報，**不要嘗試 await 包裝** —— async binding 的耗時需用其他 instrumentation（例如 wrapper 內側 `performance.now()`，要動 Rust）。
+- **PR F dataset 抓錯**：dataset-1/2 部分 recipe 已在 dataset-3.json，可直接複製 row 避免重複查表。Smoke gate 是 `npm run bench:solver --dataset=dataset-X` 全 8 + 7 recipe 跑得過。
+- **PR G 邏輯滲漏**：shadow log block 在 simulate 之後、`[bperf]` 之前，**不要動 simResult 之後的 hqAmounts / qualityDeficit 計算**。BenchPanel monkey-patch 加 prefilter regex 要與既有 `[bperf]` regex 並存，**先試新 regex 再 fall through 既有**。
+- **PR H 21-row fixture 由 controller 提供**：subagent 不要自己生 ground truth 數據，PR G 用 user 真實 gearset 跑出來的 CSV 是唯一可信來源。若 PR G CSV 與校準公式對不上某 row，**BLOCKED 回報該 row + 公式 maxAchievable 數值**，controller 重校。
+- **PR H 既有 caller 隔離**：`canReachHQQualityStrict` 是 **新 export**，舊 `canReachHQQuality` 不動。Subagent 改動限定於 `optimizeRecipe`；任何同 commit 觸碰 `buff-recommender.ts` / `self-craft-candidates.ts` 視為 scope creep，spec review reject。
 
 ---
 
