@@ -195,6 +195,17 @@ export async function runBatchOptimization(
   let _bperfSolveCount = 0
   let _bperfSolveTotalMs = 0
   let completedCount = 0
+  const recipePercents = new Array(targets.length).fill(0)
+  const emitAggregateProgress = (name: string) => {
+    const aggregate = recipePercents.reduce((s, p) => s + p, 0) / targets.length
+    onProgress({
+      completed: completedCount,
+      total: targets.length,
+      name,
+      phase: 'solving',
+      solverPercent: aggregate,
+    })
+  }
   const phase1Settled = await Promise.allSettled(targets.map(async (target, i) => {
     if (isCancelled()) throw new Error(SOLVE_CANCELLED)
     const gearset = getGearset(target.recipe.job)
@@ -204,14 +215,16 @@ export async function runBatchOptimization(
     const _bperfR0 = performance.now()
     try {
       const result = await optimizeRecipe(target.recipe, gearset, (pct) => {
-        onProgress({ completed: completedCount, total: targets.length, name: target.recipe.name, phase: 'solving', solverPercent: pct })
+        recipePercents[i] = pct
+        emitAggregateProgress(target.recipe.name)
       }, buffs)
       const _bperfRDur = performance.now() - _bperfR0
       _bperfSolveCount++
       _bperfSolveTotalMs += _bperfRDur
       console.log(`[bperf]   · optimizeRecipe[${i}] "${target.recipe.name}" lvl=${target.recipe.level} dur=${_bperfRDur.toFixed(1)}ms doubleMax=${result.isDoubleMax} hqOk=${result.hqAmounts.length > 0}`)
       completedCount++
-      onProgress({ completed: completedCount, total: targets.length, name: '', phase: 'solving', solverPercent: 0 })
+      recipePercents[i] = 100
+      emitAggregateProgress('')
       return { kind: 'ok' as const, target, result }
     } catch (err) {
       if (err instanceof Error && err.message === SOLVE_CANCELLED) throw err
