@@ -54,8 +54,12 @@ export async function optimizeRecipe(
   const solverConfig = craftParamsToSolverConfig(craftParams)
   const solverResult = await solveCraft(solverConfig, onSolverProgress)
   if (solverResult.wasmDur !== undefined) {
+    const stats = solverResult.runtimeStats
+    const statsTail = stats
+      ? ` nodes=${stats.search_processed_nodes} inserted=${stats.search_inserted_nodes}`
+      : ''
     console.debug(
-      `[bperf] solve ${recipe.name} wasmDur=${solverResult.wasmDur.toFixed(0)}ms steps=${solverResult.actions.length}`
+      `[bperf] solve ${recipe.name} wasmDur=${solverResult.wasmDur.toFixed(0)}ms steps=${solverResult.actions.length}${statsTail}`
     )
   }
   const simResult = await simulateCraft(solverConfig, solverResult.actions)
