@@ -23,6 +23,8 @@ interface BenchRow {
   wallMs: number
   wasmDurMs?: number
   steps?: number
+  nodes?: number
+  inserted?: number
   predicted?: boolean
   actualReached?: boolean
   finalOverMax?: number
@@ -56,13 +58,20 @@ async function runDataset(name: string) {
 
   // Intercept [bperf] console.debug to capture wasmDur per recipe label.
   // Falls through to the real console.debug so DevTools still shows them.
-  const wasmDurByLabel = new Map<string, { wasmDur: number; steps: number }>()
+  const wasmDurByLabel = new Map<string, { wasmDur: number; steps: number; nodes?: number; inserted?: number }>()
   const prefilterByLabel = new Map<string, { predicted: boolean; actualReached: boolean; finalOverMax: number }>()
   const origDebug = console.debug
   console.debug = (...args: unknown[]) => {
     const msg = args.map(a => String(a)).join(' ')
-    const m = /\[bperf\] solve (.+?) wasmDur=(\d+(?:\.\d+)?)ms steps=(\d+)/.exec(msg)
-    if (m) wasmDurByLabel.set(m[1], { wasmDur: Number(m[2]), steps: Number(m[3]) })
+    const m = /\[bperf\] solve (.+?) wasmDur=(\d+(?:\.\d+)?)ms steps=(\d+)(?: nodes=(\d+) inserted=(\d+))?/.exec(msg)
+    if (m) {
+      wasmDurByLabel.set(m[1], {
+        wasmDur: Number(m[2]),
+        steps: Number(m[3]),
+        nodes: m[4] !== undefined ? Number(m[4]) : undefined,
+        inserted: m[5] !== undefined ? Number(m[5]) : undefined,
+      })
+    }
     const p = /\[bperf-prefilter\] recipe=(.+?) predicted=(true|false) actual_reached=(true|false) max_q=(\d+) final_q=(\d+) /.exec(msg)
     if (p) {
       const max = Number(p[4]), final = Number(p[5])
@@ -122,6 +131,8 @@ async function runDataset(name: string) {
           wallMs,
           wasmDurMs: wasm?.wasmDur,
           steps: wasm?.steps,
+          nodes: wasm?.nodes,
+          inserted: wasm?.inserted,
           predicted: pf?.predicted,
           actualReached: pf?.actualReached,
           finalOverMax: pf?.finalOverMax,
@@ -138,9 +149,9 @@ async function runDataset(name: string) {
 }
 
 function toCsv(): string {
-  const header = 'label,wall_ms,wasm_dur_ms,steps,predicted,actual_reached,final_over_max,error'
+  const header = 'label,wall_ms,wasm_dur_ms,steps,nodes,inserted,predicted,actual_reached,final_over_max,error'
   const lines = rows.value.map(r =>
-    `${r.label},${Math.round(r.wallMs)},${r.wasmDurMs !== undefined ? Math.round(r.wasmDurMs) : ''},${r.steps ?? ''},${r.predicted === undefined ? '' : r.predicted},${r.actualReached === undefined ? '' : r.actualReached},${r.finalOverMax === undefined ? '' : r.finalOverMax.toFixed(4)},${r.error ?? ''}`
+    `${r.label},${Math.round(r.wallMs)},${r.wasmDurMs !== undefined ? Math.round(r.wasmDurMs) : ''},${r.steps ?? ''},${r.nodes ?? ''},${r.inserted ?? ''},${r.predicted === undefined ? '' : r.predicted},${r.actualReached === undefined ? '' : r.actualReached},${r.finalOverMax === undefined ? '' : r.finalOverMax.toFixed(4)},${r.error ?? ''}`
   )
   return [`# dataset: ${currentDataset.value}`, `# gearset: ${GEARSET_PRESETS[gearsetPresetIdx.value].label}`, `# total_ms: ${Math.round(totalMs.value)}`, header, ...lines].join('\n')
 }
@@ -171,13 +182,15 @@ async function copyCsv() {
     <div v-if="rows.length" class="results">
       <p>Total wall: {{ Math.round(totalMs) }} ms · {{ rows.length }} recipes</p>
       <table>
-        <thead><tr><th>Recipe</th><th>Wall (ms)</th><th>WasmDur (ms)</th><th>Steps</th><th>Predicted</th><th>Reached</th><th>Final/Max</th><th>Error</th></tr></thead>
+        <thead><tr><th>Recipe</th><th>Wall (ms)</th><th>WasmDur (ms)</th><th>Steps</th><th>Nodes</th><th>Inserted</th><th>Predicted</th><th>Reached</th><th>Final/Max</th><th>Error</th></tr></thead>
         <tbody>
           <tr v-for="r in rows" :key="r.label">
             <td>{{ r.label }}</td>
             <td>{{ Math.round(r.wallMs) }}</td>
             <td>{{ r.wasmDurMs !== undefined ? Math.round(r.wasmDurMs) : '—' }}</td>
             <td>{{ r.steps ?? '—' }}</td>
+            <td>{{ r.nodes ?? '—' }}</td>
+            <td>{{ r.inserted ?? '—' }}</td>
             <td>{{ r.predicted === undefined ? '—' : (r.predicted ? '✓' : '✗') }}</td>
             <td>{{ r.actualReached === undefined ? '—' : (r.actualReached ? '✓' : '✗') }}</td>
             <td>{{ r.finalOverMax === undefined ? '—' : (r.finalOverMax * 100).toFixed(1) + '%' }}</td>

@@ -40,12 +40,32 @@ export interface SolverResult {
 }
 
 /**
- * Internal extension carrying timing data from the worker.
- * Only used by batch-optimizer's [bperf] log; not part of the public solver
- * contract — keep wasmDur off SolverResult so simulator UI etc. aren't coupled.
+ * Per-solve telemetry projected from `raphael_solver::MacroSolverStats`.
+ * Field names mirror the Rust wrapper's `RuntimeStats` (snake_case).
+ * Stable enough to log/CSV but considered diagnostic — not for product logic.
+ */
+export interface SolverRuntimeStats {
+  search_inserted_nodes: number
+  search_processed_nodes: number
+  finish_states: number
+  finish_values: number
+  quality_ub_states_main: number
+  quality_ub_states_shards: number
+  quality_ub_values: number
+  step_lb_states_main: number
+  step_lb_states_shards: number
+  step_lb_values: number
+}
+
+/**
+ * Internal extension carrying timing + stats data from the worker.
+ * Only consumed by batch-optimizer's [bperf] log and BenchPanel; not part of
+ * the public solver contract — keep these fields off SolverResult so simulator
+ * UI etc. aren't coupled.
  */
 export interface SolverResultWithTiming extends SolverResult {
   wasmDur?: number
+  runtimeStats?: SolverRuntimeStats
 }
 
 export type SolverStatus = 'idle' | 'solving' | 'done' | 'error' | 'cancelled'
@@ -137,6 +157,8 @@ export interface SolverResponse {
   requestId?: number
   /** Wall time spent inside wasmSolve() in ms. Only set on 'result' messages. */
   wasmDur?: number
+  /** Raphael runtime stats. Only set on 'result' messages. */
+  runtimeStats?: SolverRuntimeStats
 }
 
 /**

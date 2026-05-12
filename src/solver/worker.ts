@@ -111,7 +111,7 @@ function handleRoutedResponse(slot: WorkerSlot, data: SolverResponse): void {
   if (!pending) return
 
   let terminal = true
-  if (data.type === 'result' && data.result) pending.resolve({ ...data.result, wasmDur: data.wasmDur })
+  if (data.type === 'result' && data.result) pending.resolve({ ...data.result, wasmDur: data.wasmDur, runtimeStats: data.runtimeStats })
   else if (data.type === 'simulate-result' && data.simulateResult) pending.resolve(data.simulateResult)
   else if (data.type === 'simulate-detail-result' && data.simulateDetailResult) pending.resolve(data.simulateDetailResult)
   else if (data.type === 'error') pending.reject(new Error(data.error ?? '求解器發生未知錯誤'))

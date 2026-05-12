@@ -40,6 +40,23 @@ fn default_true() -> bool { true }
 #[derive(Serialize)]
 struct SolveResult {
     actions: Vec<String>,
+    runtime_stats: RuntimeStats,
+}
+
+/// Telemetry projection of `raphael_solver::MacroSolverStats` into a JS-serialisable shape.
+/// Lives in the wrapper because upstream stats structs do not derive `serde::Serialize`.
+#[derive(Serialize, Default)]
+struct RuntimeStats {
+    search_inserted_nodes: usize,
+    search_processed_nodes: usize,
+    finish_states: usize,
+    finish_values: usize,
+    quality_ub_states_main: usize,
+    quality_ub_states_shards: usize,
+    quality_ub_values: usize,
+    step_lb_states_main: usize,
+    step_lb_states_shards: usize,
+    step_lb_values: usize,
 }
 
 fn build_settings(config: &SolveConfig) -> Settings {
@@ -113,8 +130,14 @@ fn parse_action(name: &str) -> Result<Action, String> {
     }
 }
 
+/// Minimum gap between consecutive `progress_callback` JS invocations.
+/// MacroSolver fires the callback once per search batch — for large recipes that
+/// can be hundreds of times per second. Throttling here keeps Rust→JS marshalling
+/// and the resulting `postMessage` traffic bounded; UI smoothing is JS-side.
+const PROGRESS_CALLBACK_MIN_INTERVAL_MS: f64 = 50.0;
+
 #[wasm_bindgen]
-pub fn solve(config_js: JsValue) -> Result<JsValue, JsValue> {
+pub fn solve(config_js: JsValue, progress_callback: Option<js_sys::Function>) -> Result<JsValue, JsValue> {
     let config: SolveConfig =
         serde_wasm_bindgen::from_value(config_js).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
@@ -127,10 +150,27 @@ pub fn solve(config_js: JsValue) -> Result<JsValue, JsValue> {
 
     let interrupt_signal = AtomicFlag::new();
 
+    // Capture the JS function inside a throttled Rust closure. The closure swallows
+    // any JS-side throw so a buggy callback can't poison the solve.
+    let progress_cb: Box<dyn Fn(usize)> = match progress_callback {
+        Some(js_fn) => {
+            let last_emit = std::cell::Cell::new(f64::NEG_INFINITY);
+            Box::new(move |processed: usize| {
+                let now = js_sys::Date::now();
+                if now - last_emit.get() < PROGRESS_CALLBACK_MIN_INTERVAL_MS {
+                    return;
+                }
+                last_emit.set(now);
+                let _ = js_fn.call1(&JsValue::NULL, &JsValue::from_f64(processed as f64));
+            })
+        }
+        None => Box::new(|_processed: usize| {}),
+    };
+
     let mut solver = MacroSolver::new(
         solver_settings,
         Box::new(|_actions: &[Action]| {}),
-        Box::new(|_progress: usize| {}),
+        progress_cb,
         interrupt_signal,
     );
 
@@ -138,8 +178,21 @@ pub fn solve(config_js: JsValue) -> Result<JsValue, JsValue> {
         .solve()
         .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
 
+    let stats = solver.runtime_stats();
     let result = SolveResult {
         actions: actions.iter().map(|a| format!("{:?}", a)).collect(),
+        runtime_stats: RuntimeStats {
+            search_inserted_nodes: stats.search_queue_stats.inserted_nodes,
+            search_processed_nodes: stats.search_queue_stats.processed_nodes,
+            finish_states: stats.finish_solver_stats.states,
+            finish_values: stats.finish_solver_stats.values,
+            quality_ub_states_main: stats.quality_ub_stats.states_on_main,
+            quality_ub_states_shards: stats.quality_ub_stats.states_on_shards,
+            quality_ub_values: stats.quality_ub_stats.values,
+            step_lb_states_main: stats.step_lb_stats.states_on_main,
+            step_lb_states_shards: stats.step_lb_stats.states_on_shards,
+            step_lb_values: stats.step_lb_stats.values,
+        },
     };
 
     serde_wasm_bindgen::to_value(&result).map_err(|e| JsValue::from_str(&e.to_string()))

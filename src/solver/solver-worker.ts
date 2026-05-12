@@ -2,7 +2,7 @@
  * Web Worker script for running the raphael-rs WASM craft solver off the main thread.
  */
 
-import type { SolverConfig, SolverResult, SolverResponse, SimulateConfig } from './raphael'
+import type { SolverConfig, SolverResult, SolverResponse, SimulateConfig, SolverRuntimeStats } from './raphael'
 import { NO_SOLUTION_MESSAGE } from './raphael'
 import { deriveRayonThreads } from './pool-config'
 
@@ -15,7 +15,8 @@ const wasmJsUrl = new URL(`${base}solver-wasm/raphael_wasm_wrapper.js`, self.loc
 
 let wasmReady = false
 let wasmError: string | null = null
-let wasmSolve: ((config: unknown) => { actions: string[] }) | null = null
+type WasmSolveResult = { actions: string[]; runtime_stats: SolverRuntimeStats }
+let wasmSolve: ((config: unknown, progressCallback?: ((processed: number) => void) | null) => WasmSolveResult) | null = null
 let wasmSimulate: ((config: unknown) => unknown) | null = null
 let wasmSimulateDetail: ((config: unknown) => unknown) | null = null
 
@@ -167,23 +168,31 @@ self.onmessage = async (e: MessageEvent) => {
 
   if (type === 'solve') {
     try {
-      const progressUpdate: SolverResponse = { type: 'progress', progress: 10, requestId }
-      self.postMessage(progressUpdate)
-
       const settings = configToWasmSettings(config)
 
-      const progressUpdate2: SolverResponse = { type: 'progress', progress: 30, requestId }
-      self.postMessage(progressUpdate2)
+      // Initial kickoff so the UI shows movement before raphael's first batch lands.
+      const kickoff: SolverResponse = { type: 'progress', progress: 5, requestId }
+      self.postMessage(kickoff)
+
+      // Translate raphael's monotonic processed-node counter into a 5–95 percent
+      // band via a saturating rational curve. No upstream total exists, so the
+      // half-life K is calibrated empirically: typical batch solves land in the
+      // 50k–500k node range. Cap at 95 to leave headroom for the 'result' message
+      // to push the UI to 100.
+      const PROGRESS_HALF_LIFE_NODES = 100_000
+      const onProgressFromWasm = (processed: number): void => {
+        const ratio = processed / (processed + PROGRESS_HALF_LIFE_NODES)
+        const pct = Math.min(95, Math.max(5, 5 + 90 * ratio))
+        const progressMsg: SolverResponse = { type: 'progress', progress: pct, requestId }
+        self.postMessage(progressMsg)
+      }
 
       const solveStart = performance.now()
-      const wasmResult = wasmSolve!(settings)
+      const wasmResult = wasmSolve!(settings, onProgressFromWasm)
       const wasmDur = performance.now() - solveStart
 
-      const progressUpdate3: SolverResponse = { type: 'progress', progress: 90, requestId }
-      self.postMessage(progressUpdate3)
-
       // Map raphael action names to our skill IDs
-      const mappedActions = (wasmResult.actions as string[]).map(name => {
+      const mappedActions = wasmResult.actions.map(name => {
         const mapped = ACTION_MAP[name]
         if (!mapped) {
           console.warn(`Unknown raphael action: ${name}`)
@@ -199,7 +208,13 @@ self.onmessage = async (e: MessageEvent) => {
         steps: mappedActions.length,
       }
 
-      const resultResponse: SolverResponse = { type: 'result', result, requestId, wasmDur }
+      const resultResponse: SolverResponse = {
+        type: 'result',
+        result,
+        requestId,
+        wasmDur,
+        runtimeStats: wasmResult.runtime_stats,
+      }
       self.postMessage(resultResponse)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
