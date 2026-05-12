@@ -22,9 +22,8 @@ const percentage = computed(() => {
   const [start, end] = range
 
   if (p.phase === 'solving' && p.total > 0) {
-    const completedPortion = (p.completed - 1) / p.total
-    const currentPortion = (p.solverPercent / 100) / p.total
-    return Math.round(start + (completedPortion + currentPortion) * (end - start))
+    const completedPortion = p.completed / p.total
+    return Math.max(0, Math.round(start + completedPortion * (end - start)))
   }
 
   if ((p.phase === 'pricing' || p.phase === 'evaluating-buffs') && p.total > 0) {
