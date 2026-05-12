@@ -1,6 +1,6 @@
 // Simplified Chinese → Traditional Chinese character mapping
 // Subset covering FF14 zone/place names. Not a full CJK table.
-/* eslint-disable */
+ 
 const S2T_MAP: Record<string, string> = {
   '万':'萬','与':'與','专':'專','业':'業','丝':'絲','个':'個','丰':'豐',
   '临':'臨','义':'義','乐':'樂','习':'習','乡':'鄉','书':'書','云':'雲',
@@ -57,7 +57,7 @@ const S2T_MAP: Record<string, string> = {
   '织':'織','纺':'紡','绸':'綢','缎':'緞','绒':'絨','脏':'臟','肠':'腸',
   '肾':'腎','胆':'膽','喷':'噴',
 }
-/* eslint-enable */
+ 
 
 export function sToT(text: string): string {
   let result = ''

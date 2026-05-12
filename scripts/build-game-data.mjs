@@ -165,12 +165,6 @@ function toInt(v, def = 0) {
   return Number.isFinite(n) ? Math.trunc(n) : def
 }
 
-function toNum(v, def = 0) {
-  if (v === undefined || v === null || v === '') return def
-  const n = Number(v)
-  return Number.isFinite(n) ? n : def
-}
-
 /** Find a column name from a list of candidates. Return the first match. */
 function pickHeader(headers, candidates) {
   const set = new Set(headers)

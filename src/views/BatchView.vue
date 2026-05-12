@@ -485,7 +485,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
         <details class="sug-parent" :open="hasSuggestions">
           <summary class="sug-parent-head">
             <svg class="sug-parent-chev" viewBox="0 0 10 10" aria-hidden="true">
-              <path d="M3.5 2 L7 5 L3.5 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M3.5 2 L7 5 L3.5 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
             <h4 class="sug-parent-title">採購建議</h4>
             <span class="sug-parent-desc">

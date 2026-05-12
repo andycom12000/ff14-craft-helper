@@ -100,7 +100,7 @@ function stallSelectedCount(stall: VendorStall): number {
   <details v-if="stalls.length > 0" class="sug sug-npc" open>
     <summary class="sug-head">
       <svg class="sug-chev" viewBox="0 0 10 10" aria-hidden="true">
-        <path d="M3.5 2 L7 5 L3.5 8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M3.5 2 L7 5 L3.5 8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
       </svg>
       <span class="sug-title">NPC 採購建議</span>
       <span class="sug-summary">

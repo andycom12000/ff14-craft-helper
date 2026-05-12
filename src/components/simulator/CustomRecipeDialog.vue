@@ -524,7 +524,7 @@ const primaryLabel = computed(() =>
                   class="cr-json-input"
                   rows="8"
                   spellcheck="false"
-                  placeholder='貼上 RecipeLevelTable JSON，例如：&#10;{&#10;  "classJobLevel": 100,&#10;  "stars": 4,&#10;  "difficulty": 9000,&#10;  "quality": 40000,&#10;  "durability": 80,&#10;  "progressDivider": 180,&#10;  "qualityDivider": 180,&#10;  "progressModifier": 80,&#10;  "qualityModifier": 70&#10;}'
+                  placeholder="貼上 RecipeLevelTable JSON，例如：&#10;{&#10;  &quot;classJobLevel&quot;: 100,&#10;  &quot;stars&quot;: 4,&#10;  &quot;difficulty&quot;: 9000,&#10;  &quot;quality&quot;: 40000,&#10;  &quot;durability&quot;: 80,&#10;  &quot;progressDivider&quot;: 180,&#10;  &quot;qualityDivider&quot;: 180,&#10;  &quot;progressModifier&quot;: 80,&#10;  &quot;qualityModifier&quot;: 70&#10;}"
                 />
                 <div class="cr-json-actions">
                   <span v-if="jsonError" class="cr-err cr-json-err">{{ jsonError }}</span>

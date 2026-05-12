@@ -19,7 +19,8 @@ const emit = defineEmits<{
 const recipeStore = useRecipeStore()
 const recipe = computed(() => recipeStore.currentRecipe)
 
-// Track HQ amounts for each ingredient by index
+// Local hqAmounts shadows prop hqAmounts; see TODO in #issue (rename to internalHqAmounts).
+// eslint-disable-next-line vue/no-dupe-keys
 const hqAmounts = ref<number[]>([])
 
 // Reset HQ amounts when recipe changes
