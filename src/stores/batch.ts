@@ -131,7 +131,7 @@ export interface BatchResults {
 }
 
 const defaultProgress = () => ({
-  current: 0,
+  completed: 0,
   total: 0,
   currentName: '',
   phase: 'idle' as 'idle' | 'solving' | 'pricing' | 'evaluating-buffs' | 'evaluating-self-craft' | 'aggregating' | 'done',

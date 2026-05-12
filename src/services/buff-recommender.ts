@@ -5,7 +5,7 @@ import type { FoodBuff, EnhancedStats } from '@/engine/food-medicine'
 import type { BuffRecommendation, BuffPriceInfo } from '@/stores/batch'
 import {
   COMMON_FOODS, COMMON_MEDICINES,
-  resolveBuff, applyFoodBuff, applyMedicineBuff,
+  resolveBuff, applyBuffsToStats,
 } from '@/engine/food-medicine'
 import { solveCraft, simulateCraft } from '@/solver/worker'
 import { craftParamsToSolverConfig, recipeToCraftParams } from '@/solver/config'
@@ -49,8 +49,10 @@ export function applyCombo(
   baseStats: EnhancedStats,
   combo: BuffCombo,
 ): EnhancedStats {
-  const afterFood = applyFoodBuff(baseStats, combo.food?.buff ?? null)
-  return applyMedicineBuff(afterFood, combo.medicine?.buff ?? null)
+  return applyBuffsToStats(baseStats, {
+    food: combo.food?.buff ?? null,
+    medicine: combo.medicine?.buff ?? null,
+  })
 }
 
 /**
@@ -220,7 +222,7 @@ export async function evaluateBuffRecommendation(
   getGearset: (job: string) => GearsetStats | null,
   priceMap: Map<number, MarketData>,
   isCancelled: () => boolean,
-  onProgress?: (info: { current: number; total: number }) => void,
+  onProgress?: (info: { completed: number; total: number }) => void,
   unachievableRecipes: RecipeOptimizeResult[] = [],
 ): Promise<BuffRecommendation | null> {
   // Step 1: collect deficit recipes (exclude buy-finished and canHq=false)
@@ -267,8 +269,6 @@ export async function evaluateBuffRecommendation(
       ceilingTarget.recipe, ceilingGearset, bestCeilingCombo,
     )
     if (!ceilingSolvePass) {
-      // If we were checking an unachievable recipe and it failed, no recommendation possible
-      // If we were checking a deficit recipe, also give up (original behavior)
       return null
     }
   }
@@ -283,7 +283,7 @@ export async function evaluateBuffRecommendation(
   // Step 2.5 + Step 3 + Step 4: try combos cheapest-first
   for (let i = 0; i < candidates.length; i++) {
     if (isCancelled()) return null
-    onProgress?.({ current: i + 1, total: candidates.length })
+    onProgress?.({ completed: i + 1, total: candidates.length })
     const candidate = candidates[i]
     const combo: BuffCombo = { food: candidate.food, medicine: candidate.medicine }
 

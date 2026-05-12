@@ -66,7 +66,7 @@ describe('useBatchStore', () => {
   it('tracks running state and progress', () => {
     const store = useBatchStore()
     expect(store.isRunning).toBe(false)
-    expect(store.progress).toEqual({ current: 0, total: 0, currentName: '', phase: 'idle', solverPercent: 0 })
+    expect(store.progress).toEqual({ completed: 0, total: 0, currentName: '', phase: 'idle', solverPercent: 0 })
   })
 })
 

@@ -52,6 +52,11 @@ export async function optimizeRecipe(
   }
   const solverConfig = craftParamsToSolverConfig(craftParams)
   const solverResult = await solveCraft(solverConfig, onSolverProgress)
+  if (solverResult.wasmDur !== undefined) {
+    console.debug(
+      `[bperf] solve ${recipe.name} wasmDur=${solverResult.wasmDur.toFixed(0)}ms steps=${solverResult.actions.length}`
+    )
+  }
   const simResult = await simulateCraft(solverConfig, solverResult.actions)
 
   const isDoubleMax =
@@ -150,7 +155,7 @@ export async function runBatchOptimization(
     selfMakeOverrides?: Record<number, boolean>
   },
   onProgress: (info: {
-    current: number
+    completed: number
     total: number
     name: string
     phase: 'solving' | 'pricing' | 'evaluating-buffs' | 'evaluating-self-craft' | 'aggregating' | 'done'
@@ -175,65 +180,88 @@ export async function runBatchOptimization(
   await waitForWasm()
 
   // === Phase 1-3: Per-recipe solve + HQ optimize ===
-  for (let i = 0; i < targets.length; i++) {
-    if (isCancelled()) break
-    const target = targets[i]
-    const report = (phase: 'solving' | 'pricing' | 'done', solverPercent = 0) =>
-      onProgress({ current: i + 1, total: targets.length, name: target.recipe.name, phase, solverPercent })
-    report('solving', 0)
-
+  let completedCount = 0
+  const recipePercents = new Array(targets.length).fill(0)
+  const emitAggregateProgress = (name: string) => {
+    const aggregate = recipePercents.reduce((s, p) => s + p, 0) / targets.length
+    onProgress({
+      completed: completedCount,
+      total: targets.length,
+      name,
+      phase: 'solving',
+      solverPercent: aggregate,
+    })
+  }
+  const phase1Settled = await Promise.allSettled(targets.map(async (target, i) => {
+    if (isCancelled()) throw new Error(SOLVE_CANCELLED)
     const gearset = getGearset(target.recipe.job)
     if (!gearset || gearset.level < target.recipe.level) {
+      recipePercents[i] = 100
+      emitAggregateProgress(target.recipe.name)
+      return { kind: 'level-insufficient' as const, target, gearset }
+    }
+    try {
+      const result = await optimizeRecipe(target.recipe, gearset, (pct) => {
+        recipePercents[i] = pct
+        emitAggregateProgress(target.recipe.name)
+      }, buffs)
+      completedCount++
+      recipePercents[i] = 100
+      emitAggregateProgress('')
+      return { kind: 'ok' as const, target, result }
+    } catch (err) {
+      if (err instanceof Error && err.message === SOLVE_CANCELLED) throw err
+      completedCount++
+      recipePercents[i] = 100
+      emitAggregateProgress(target.recipe.name)
+      return { kind: 'failed' as const, target, error: err }
+    }
+  }))
+
+  for (const settled of phase1Settled) {
+    if (settled.status === 'rejected') {
+      if (settled.reason instanceof Error && settled.reason.message === SOLVE_CANCELLED) throw settled.reason
+      continue
+    }
+    const v = settled.value
+    if (v.kind === 'level-insufficient') {
       exceptions.push({
-        type: 'level-insufficient',
-        recipe: target.recipe,
-        quantity: target.quantity,
+        type: 'level-insufficient', recipe: v.target.recipe, quantity: v.target.quantity,
         message: '職業等級不足',
-        details: `你的 ${target.recipe.job} 等級 ${gearset?.level ?? 0} 不足以製作「${target.recipe.name}」（需要等級 ${target.recipe.level}）`,
+        details: `你的 ${v.target.recipe.job} 等級 ${v.gearset?.level ?? 0} 不足以製作「${v.target.recipe.name}」（需要等級 ${v.target.recipe.level}）`,
         action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
       })
       continue
     }
-
-    try {
-      const result = await optimizeRecipe(target.recipe, gearset, (pct) => report('solving', pct), buffs)
-      // target.quantity = output items the user wants. amountResult is how many
-      // items each craft produces (3 for most food/medicine). result.quantity
-      // therefore tracks # of crafts, while outputAmount tracks # of items.
-      const yieldPerCraft = Math.max(1, target.recipe.amountResult)
-      result.outputAmount = target.quantity
-      result.quantity = Math.ceil(target.quantity / yieldPerCraft)
-
-      if (!result.isDoubleMax && result.hqAmounts.length === 0) {
-        // Save for buff recommendation evaluation (food/medicine may fix this)
-        if (result.recipe.canHq) {
-          qualityUnachievableResults.push(result)
-        }
-        exceptions.push({
-          type: 'quality-unachievable',
-          recipe: target.recipe,
-          quantity: target.quantity,
-          message: '無法達成雙滿',
-          details: `「${target.recipe.name}」即使使用全部 HQ 素材仍無法達成品質上限`,
-          action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
-        })
-        continue
-      }
-      recipeResults.push(result)
-    } catch (err) {
-      if (err instanceof Error && err.message === SOLVE_CANCELLED) throw err
+    if (v.kind === 'failed') {
       exceptions.push({
-        type: 'quality-unachievable', recipe: target.recipe,
-        message: '計算失敗', details: `「${target.recipe.name}」計算過程發生錯誤：${err}`,
+        type: 'quality-unachievable', recipe: v.target.recipe,
+        message: '計算失敗', details: `「${v.target.recipe.name}」計算過程發生錯誤：${v.error}`,
         action: 'skipped',
       })
+      continue
     }
+    const result = v.result
+    const yieldPerCraft = Math.max(1, v.target.recipe.amountResult)
+    result.outputAmount = v.target.quantity
+    result.quantity = Math.ceil(v.target.quantity / yieldPerCraft)
+    if (!result.isDoubleMax && result.hqAmounts.length === 0) {
+      if (result.recipe.canHq) qualityUnachievableResults.push(result)
+      exceptions.push({
+        type: 'quality-unachievable', recipe: v.target.recipe, quantity: v.target.quantity,
+        message: '無法達成雙滿',
+        details: `「${v.target.recipe.name}」即使使用全部 HQ 素材仍無法達成品質上限`,
+        action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
+      })
+      continue
+    }
+    recipeResults.push(result)
   }
 
   if (isCancelled()) throw new Error(SOLVE_CANCELLED)
 
   // === Phase 4: Early price query (materials + finished products) ===
-  onProgress({ current: 0, total: 0, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
+  onProgress({ completed: 0, total: 0, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
 
   // Collect all material itemIds (excluding crystals) + finished product itemIds
   const allMaterialIds = new Set<number>()
@@ -268,7 +296,7 @@ export async function runBatchOptimization(
   }
 
   const priceMap = await getAggregatedPrices(priceSource, [...allMaterialIds], (done, total) => {
-    onProgress({ current: done, total, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
+    onProgress({ completed: done, total, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
   })
 
   // === Phase 4a: Fetch NPC availability + locations (parallel) ===
@@ -358,26 +386,47 @@ export async function runBatchOptimization(
     })
   }
 
-  // === Phase 4.6-buff: Evaluate food/medicine recommendation ===
-  let buffRecommendation: BuffRecommendation | undefined
-  if (noBuffSelected && !isCancelled()) {
+  // === Phase 4.6: buff recommendation + self-craft candidates (parallel) ===
+  const buffPromise: Promise<BuffRecommendation | undefined> = (async () => {
+    if (!noBuffSelected || isCancelled()) return undefined
     const buyFinishedIds = new Set(buyFinishedItems.map(bf => bf.recipe.id))
     const hasDeficit = recipesToCraft.some(r => !r.isDoubleMax && r.recipe.canHq)
     const hasUnachievable = qualityUnachievableResults.length > 0
-    if (hasDeficit || hasUnachievable) {
-      onProgress({ current: 0, total: 0, name: '', phase: 'evaluating-buffs', solverPercent: 0 })
-      const recommendation = await evaluateBuffRecommendation(
-        recipesToCraft, buyFinishedIds, getGearset as (job: string) => GearsetStats | null,
-        priceMap, isCancelled,
-        (info) => onProgress({ current: info.current, total: info.total, name: '', phase: 'evaluating-buffs', solverPercent: 0 }),
-        qualityUnachievableResults,
-      )
-      if (recommendation) buffRecommendation = recommendation
+    if (!hasDeficit && !hasUnachievable) return undefined
+    onProgress({ completed: 0, total: 0, name: '', phase: 'evaluating-buffs', solverPercent: 0 })
+    const rec = await evaluateBuffRecommendation(
+      recipesToCraft, buyFinishedIds, getGearset as (job: string) => GearsetStats | null,
+      priceMap, isCancelled,
+      (info) => onProgress({ completed: info.current, total: info.total, name: '', phase: 'evaluating-buffs', solverPercent: 0 }),
+      qualityUnachievableResults,
+    )
+    return rec ?? undefined
+  })()
+
+  const selfCraftPromise: Promise<SelfCraftCandidate[]> = (async () => {
+    if (!settings.recursivePricing || isCancelled()) return []
+    try {
+      return await produceSelfCraftCandidates({
+        recipesToCraft, priceMap, priceSource,
+        crossServer: settings.crossServer, server: settings.server,
+        getGearset: getGearset as (job: string) => GearsetStats | null,
+        maxDepth: settings.maxRecursionDepth, buffs, optimizeRecipe,
+        onProgress: (info) => onProgress({
+          completed: info.current, total: info.total, name: info.name,
+          phase: 'evaluating-self-craft', solverPercent: 0,
+        }),
+        isCancelled,
+      })
+    } catch (err) {
+      console.warn('[batch-optimizer] self-craft candidate production failed:', err)
+      return []
     }
-  }
+  })()
+
+  const [buffRecommendation, selfCraftCandidates] = await Promise.all([buffPromise, selfCraftPromise])
 
   // === Phase 5: Aggregate materials (only for recipes still being crafted) ===
-  onProgress({ current: 0, total: 0, name: '整理材料清單', phase: 'aggregating', solverPercent: 0 })
+  onProgress({ completed: 0, total: 0, name: '整理材料清單', phase: 'aggregating', solverPercent: 0 })
   const allTypedMaterials: TypedMaterial[] = []
 
   for (const r of recipesToCraft) {
@@ -408,33 +457,8 @@ export async function runBatchOptimization(
   const aggregated = Array.from(matMap.values())
   const { crystals, nonCrystals } = separateCrystals(aggregated)
 
-  // === Phase 4.6: Produce self-craft candidates ===
-  let selfCraftCandidates: SelfCraftCandidate[] = []
-  if (settings.recursivePricing && !isCancelled()) {
-    try {
-      selfCraftCandidates = await produceSelfCraftCandidates({
-        recipesToCraft,
-        priceMap,
-        priceSource,
-        crossServer: settings.crossServer,
-        server: settings.server,
-        getGearset: getGearset as (job: string) => GearsetStats | null,
-        maxDepth: settings.maxRecursionDepth,
-        buffs,
-        optimizeRecipe,
-        onProgress: (info) => onProgress({
-          current: info.current, total: info.total, name: info.name,
-          phase: 'evaluating-self-craft', solverPercent: 0,
-        }),
-        isCancelled,
-      })
-    } catch (err) {
-      console.warn('[batch-optimizer] self-craft candidate production failed:', err)
-    }
-  }
-
   // === Phase 5.5: Price materials + add buy-finished items to shopping list ===
-  onProgress({ current: 0, total: 0, name: '分組採購清單', phase: 'aggregating', solverPercent: 0 })
+  onProgress({ completed: 0, total: 0, name: '分組採購清單', phase: 'aggregating', solverPercent: 0 })
   let pricedMaterials: MaterialWithPrice[]
   let dcPriceMap: Map<number, MarketData> | null = null
 
@@ -607,7 +631,7 @@ async function runQuickBuy(
   onProgress: Parameters<typeof runBatchOptimization>[3],
   isCancelled: () => boolean,
 ): Promise<BatchResults> {
-  onProgress({ current: 0, total: 0, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
+  onProgress({ completed: 0, total: 0, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
 
   // Aggregate materials by itemId only (no matType split).
   interface QBMat { itemId: number; name: string; icon: string; amount: number; canHq: boolean }
@@ -644,7 +668,7 @@ async function runQuickBuy(
 
   const priceSource = settings.crossServer ? settings.dataCenter : settings.server
   const priceMap = await getAggregatedPrices(priceSource, [...matMap.keys()], (done, total) => {
-    onProgress({ current: done, total, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
+    onProgress({ completed: done, total, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
   })
 
   // === Phase 4a: Fetch NPC availability + locations (parallel) ===
@@ -669,7 +693,7 @@ async function runQuickBuy(
     loadAetherytes().catch(() => null),
   ])
 
-  onProgress({ current: 0, total: 0, name: '整理材料清單', phase: 'aggregating', solverPercent: 0 })
+  onProgress({ completed: 0, total: 0, name: '整理材料清單', phase: 'aggregating', solverPercent: 0 })
 
   const aggregated = Array.from(matMap.values())
   const { crystals, nonCrystals } = separateCrystals(aggregated)
@@ -748,7 +772,7 @@ async function runQuickBuy(
     })
   }
 
-  onProgress({ current: 1, total: 1, name: '', phase: 'done', solverPercent: 0 })
+  onProgress({ completed: 1, total: 1, name: '', phase: 'done', solverPercent: 0 })
 
   // serverGroups / grandTotal left empty here — the ShoppingList view
   // computes them reactively from quickBuyMaterials + current

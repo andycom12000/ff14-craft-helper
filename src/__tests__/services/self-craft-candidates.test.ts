@@ -149,6 +149,7 @@ vi.mock('@/solver/worker', () => ({
   solveCraft: vi.fn(),
   simulateCraft: vi.fn(),
   waitForWasm: vi.fn().mockResolvedValue(undefined),
+  SOLVE_CANCELLED: '求解已取消',
 }))
 vi.mock('@/api/xivapi', () => ({
   findRecipesByItemName: vi.fn(),
@@ -162,6 +163,7 @@ import { produceSelfCraftCandidates } from '@/services/self-craft-candidates'
 import { buildMaterialTree, computeOptimalCosts } from '@/services/bom-calculator'
 import { findRecipesByItemName, getRecipe } from '@/api/xivapi'
 import { getAggregatedPrices } from '@/api/universalis'
+import { simulateCraft } from '@/solver/worker'
 
 describe('produceSelfCraftCandidates', () => {
   beforeEach(() => vi.clearAllMocks())
@@ -469,5 +471,141 @@ describe('produceSelfCraftCandidates', () => {
     // Ore must be summed across both branches: 4 + 12 = 16
     expect(result[0].rawMaterials).toHaveLength(1)
     expect(result[0].rawMaterials[0]).toMatchObject({ itemId: 1, amount: 16 })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Step 8 branch-rewrite tests: NQ template path + HQ prefilter path
+// ---------------------------------------------------------------------------
+
+const intermediateRecipe: Recipe = {
+  id: 100, itemId: 200, name: 'test-intermediate', icon: '', job: 'CRP',
+  level: 50, stars: 0, canHq: true, materialQualityFactor: 50, amountResult: 1,
+  ingredients: [],
+  recipeLevelTable: {
+    classJobLevel: 50, stars: 0, difficulty: 350, quality: 1100,
+    durability: 60, suggestedCraftsmanship: 300,
+    progressDivider: 50, qualityDivider: 30,
+    progressModifier: 100, qualityModifier: 100,
+  },
+}
+const ampleGearset: GearsetStats = { level: 90, craftsmanship: 1500, control: 1500, cp: 500 }
+const starvedGearset: GearsetStats = { level: 90, craftsmanship: 100, control: 100, cp: 0 }
+const passProgressSim = { progress: 350, max_progress: 350, quality: 0, max_quality: 1100, durability: 10, max_durability: 60, cp: 200, max_cp: 500, steps_count: 6 } as any
+const failProgressSim = { progress: 200, max_progress: 350, quality: 0, max_quality: 1100, durability: 0, max_durability: 60, cp: 0, max_cp: 500, steps_count: 5 } as any
+
+function stubOneCandidate(itemId: number) {
+  vi.mocked(buildMaterialTree).mockResolvedValue([{
+    itemId: 999, name: 'root', icon: '', amount: 1, recipeId: 999,
+    children: [{
+      itemId, name: 'test-intermediate', icon: '', amount: 1, recipeId: 100,
+      children: [{ itemId: 1, name: 'raw-material', icon: '', amount: 2 }],
+    }],
+  }] as any)
+  vi.mocked(computeOptimalCosts).mockReturnValue({
+    totalCost: 0,
+    decisions: [{
+      itemId, name: 'test-intermediate', icon: '', amount: 1,
+      buyCost: 1000, craftCost: 800, optimalCost: 800,
+      savingsRatio: 0.20, recommendation: 'craft',
+    }],
+  })
+  vi.mocked(findRecipesByItemName).mockResolvedValue([{ recipeId: 100, job: '木工' }])
+  vi.mocked(getRecipe).mockResolvedValue(intermediateRecipe)
+}
+
+function buildArgs(overrides: Partial<Parameters<typeof produceSelfCraftCandidates>[0]> = {}) {
+  return {
+    recipesToCraft: [{
+      recipe: { ...intermediateRecipe, id: 999, itemId: 999, level: 90 },
+      quantity: 1, outputAmount: 1, actions: [], hqAmounts: [0, 0],
+      initialQuality: 0, isDoubleMax: false, materials: [], qualityDeficit: 0,
+    }] as any,
+    priceMap: new Map() as any,
+    priceSource: 'TestServer', crossServer: false, server: 'TestServer',
+    getGearset: () => ampleGearset,
+    maxDepth: 2, buffs: undefined,
+    optimizeRecipe: vi.fn(),
+    onProgress: () => {}, isCancelled: () => false,
+    ...overrides,
+  }
+}
+
+describe('produceSelfCraftCandidates – Step 8 branch rewrite', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('NQ: accepts when template simulate succeeds, no solver call', async () => {
+    stubOneCandidate(200)
+    vi.mocked(simulateCraft).mockResolvedValue(passProgressSim)
+    const args = buildArgs()
+    const out = await produceSelfCraftCandidates(args)
+    expect(out).toHaveLength(1)
+    expect(out[0].actions[0]).toBe('BasicSynthesis')
+    expect(args.optimizeRecipe).not.toHaveBeenCalled()
+  })
+
+  it('NQ: template fails → solver fallback → drop when unreachable', async () => {
+    stubOneCandidate(200)
+    vi.mocked(simulateCraft).mockResolvedValue(failProgressSim)
+    const optimizeFn = vi.fn().mockResolvedValue({
+      isDoubleMax: false, actions: [], hqAmounts: [],
+      qualityDeficit: 0, initialQuality: 0, materials: [],
+      recipe: intermediateRecipe, quantity: 1, outputAmount: 1,
+    })
+    const out = await produceSelfCraftCandidates(buildArgs({ optimizeRecipe: optimizeFn as any }))
+    expect(optimizeFn).toHaveBeenCalledTimes(1)
+    expect(out).toHaveLength(0)
+  })
+
+  it('NQ: template fails → solver fallback → accept on reachable', async () => {
+    stubOneCandidate(200)
+    vi.mocked(simulateCraft).mockResolvedValue(failProgressSim)
+    const optimizeFn = vi.fn().mockResolvedValue({
+      isDoubleMax: false, actions: ['solver-action'], hqAmounts: [1, 0],
+      qualityDeficit: 100, initialQuality: 0, materials: [],
+      recipe: intermediateRecipe, quantity: 1, outputAmount: 1,
+    })
+    const out = await produceSelfCraftCandidates(buildArgs({ optimizeRecipe: optimizeFn as any }))
+    expect(out).toHaveLength(1)
+    expect(out[0].actions).toEqual(['solver-action'])
+  })
+
+  it('HQ: prefilter rejects starved gearset, no solver call', async () => {
+    stubOneCandidate(300)
+    const optimizeFn = vi.fn()
+    const out = await produceSelfCraftCandidates(buildArgs({
+      recipesToCraft: [{
+        recipe: intermediateRecipe, quantity: 1, outputAmount: 1,
+        actions: [], hqAmounts: [1, 1],
+        initialQuality: 0, isDoubleMax: false,
+        materials: [{ itemId: 300, name: 'test', icon: '', amount: 1 }],
+        qualityDeficit: 100,
+      }] as any,
+      getGearset: () => starvedGearset,
+      optimizeRecipe: optimizeFn as any,
+    }))
+    expect(optimizeFn).not.toHaveBeenCalled()
+    expect(out).toHaveLength(0)
+  })
+
+  it('HQ: prefilter passes → solver accepts on doubleMax', async () => {
+    stubOneCandidate(300)
+    const optimizeFn = vi.fn().mockResolvedValue({
+      isDoubleMax: true, actions: ['mm', 'careful'], hqAmounts: [],
+      qualityDeficit: 0, initialQuality: 0, materials: [],
+      recipe: intermediateRecipe, quantity: 1, outputAmount: 1,
+    })
+    const out = await produceSelfCraftCandidates(buildArgs({
+      recipesToCraft: [{
+        recipe: intermediateRecipe, quantity: 1, outputAmount: 1,
+        actions: [], hqAmounts: [1, 1],
+        initialQuality: 0, isDoubleMax: false,
+        materials: [{ itemId: 300, name: 'test', icon: '', amount: 1 }],
+        qualityDeficit: 100,
+      }] as any,
+      optimizeRecipe: optimizeFn as any,
+    }))
+    expect(optimizeFn).toHaveBeenCalledTimes(1)
+    expect(out).toHaveLength(1)
   })
 })

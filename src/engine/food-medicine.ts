@@ -138,3 +138,15 @@ export function scaleForNq(buff: FoodBuff): FoodBuff {
     cp: reduce(buff.cp),
   }
 }
+
+/**
+ * Apply food and medicine buffs to base stats.
+ * Applies food buff first, then medicine buff, in sequence.
+ */
+export function applyBuffsToStats(
+  stats: EnhancedStats,
+  buffs: { food: FoodBuff | null; medicine: FoodBuff | null } | undefined,
+): EnhancedStats {
+  if (!buffs) return stats
+  return applyMedicineBuff(applyFoodBuff(stats, buffs.food), buffs.medicine)
+}

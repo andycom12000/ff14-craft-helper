@@ -9,7 +9,11 @@ import { getAggregatedPrices, type MarketData } from '@/api/universalis'
 import { findRecipesByItemName, getRecipe } from '@/api/xivapi'
 import type { RecipeOptimizeResult } from '@/services/batch-optimizer'
 import type { FoodBuff } from '@/engine/food-medicine'
+import { applyBuffsToStats } from '@/engine/food-medicine'
 import type { SelfCraftCandidate } from '@/stores/batch'
+import { simulateCraft } from '@/solver/worker'
+import { canReachHQQuality } from '@/services/feasibility-prefilter'
+import { craftParamsToSolverConfig, recipeToCraftParams } from '@/solver/config'
 
 export interface PrelimCandidate {
   itemId: number
@@ -121,6 +125,80 @@ type OptimizeRecipeFn = (
   buffs?: { food: FoodBuff | null; medicine: FoodBuff | null },
 ) => Promise<RecipeOptimizeResult>
 
+function nqTemplate(level: number): string[] {
+  if (level < 54) return new Array(15).fill('BasicSynthesis')
+  if (level <= 70) return ['MuscleMemory', ...new Array(10).fill('BasicSynthesis')]
+  if (level <= 90) return ['MuscleMemory', ...new Array(8).fill('CarefulSynthesis')]
+  return ['MuscleMemory', 'Veneration', ...new Array(7).fill('CarefulSynthesis')]
+}
+
+type ValidateOutcome =
+  | { kind: 'accepted'; via: 'template' | 'solver'; actions: string[]; hqAmounts: number[]; solveDur?: number }
+  | { kind: 'failed' }
+  | { kind: 'prefilter-rejected' }
+
+async function validateNQ(
+  recipe: Recipe,
+  gearset: GearsetStats,
+  buffs: { food: FoodBuff | null; medicine: FoodBuff | null } | undefined,
+  optimizeRecipe: OptimizeRecipeFn,
+): Promise<ValidateOutcome> {
+  const enhanced = applyBuffsToStats(
+    { craftsmanship: gearset.craftsmanship, control: gearset.control, cp: gearset.cp },
+    buffs,
+  )
+  const params = recipeToCraftParams(recipe, { ...gearset, ...enhanced })
+  const config = craftParamsToSolverConfig(params)
+  const template = nqTemplate(recipe.level)
+
+  try {
+    const sim = await simulateCraft(config, template)
+    if (sim.progress >= sim.max_progress) {
+      return { kind: 'accepted', via: 'template', actions: template, hqAmounts: [] }
+    }
+  } catch (err) {
+    console.warn(`[self-craft] simulate failed for ${recipe.name}, falling back to solver`, err)
+  }
+
+  const t0 = performance.now()
+  try {
+    const opt = await optimizeRecipe(recipe, gearset, undefined, buffs)
+    if (!opt.isDoubleMax && opt.hqAmounts.length === 0) return { kind: 'failed' }
+    return {
+      kind: 'accepted', via: 'solver',
+      actions: opt.actions, hqAmounts: opt.hqAmounts,
+      solveDur: performance.now() - t0,
+    }
+  } catch (err) {
+    console.warn(`[self-craft] solver failed for ${recipe.name}:`, err)
+    return { kind: 'failed' }
+  }
+}
+
+async function validateHQ(
+  recipe: Recipe,
+  gearset: GearsetStats,
+  buffs: { food: FoodBuff | null; medicine: FoodBuff | null } | undefined,
+  optimizeRecipe: OptimizeRecipeFn,
+): Promise<ValidateOutcome> {
+  if (!canReachHQQuality(recipe, gearset, buffs)) {
+    return { kind: 'prefilter-rejected' }
+  }
+  const t0 = performance.now()
+  try {
+    const opt = await optimizeRecipe(recipe, gearset, undefined, buffs)
+    if (!opt.isDoubleMax) return { kind: 'failed' }
+    return {
+      kind: 'accepted', via: 'solver',
+      actions: opt.actions, hqAmounts: opt.hqAmounts,
+      solveDur: performance.now() - t0,
+    }
+  } catch (err) {
+    console.warn(`[self-craft] solver failed for ${recipe.name}:`, err)
+    return { kind: 'failed' }
+  }
+}
+
 interface ProduceArgs {
   recipesToCraft: RecipeOptimizeResult[]
   priceMap: Map<number, MarketData>
@@ -131,7 +209,7 @@ interface ProduceArgs {
   maxDepth: number
   buffs: { food: FoodBuff | null; medicine: FoodBuff | null } | undefined
   optimizeRecipe: OptimizeRecipeFn  // injected to avoid circular import
-  onProgress: (info: { current: number; total: number; name: string }) => void
+  onProgress: (info: { completed: number; total: number; name: string }) => void
   isCancelled: () => boolean
 }
 
@@ -247,32 +325,25 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
   }
 
   const candidates: SelfCraftCandidate[] = []
-  for (let i = 0; i < withRecipes.length; i++) {
-    if (isCancelled()) return candidates
-    const { decision, node, recipe, job } = withRecipes[i]
-    onProgress({ current: i + 1, total: withRecipes.length, name: recipe.name })
+  let completedCount = 0
 
+  const settled = await Promise.allSettled(withRecipes.map(async ({ decision, node, recipe, job }, i) => {
+    if (isCancelled()) throw new Error('cancelled')
     const gs = getGearset(job)
-    if (!gs) continue
+    if (!gs) return null
     const hqRequired = hqRequiredMap.get(decision.itemId) === true
 
-    let optResult: RecipeOptimizeResult
-    try {
-      optResult = await optimizeRecipe(recipe, gs, undefined, buffs)
-    } catch (err) {
-      console.warn(`[self-craft] solver failed for ${recipe.name}:`, err)
-      continue
-    }
+    const validated = hqRequired
+      ? await validateHQ(recipe, gs, buffs, optimizeRecipe)
+      : await validateNQ(recipe, gs, buffs, optimizeRecipe)
 
-    // optimizeRecipe does NOT throw when progress is unreachable; it returns whatever
-    // the solver found. Signals: isDoubleMax=true means both progress and quality are
-    // maxed; !isDoubleMax with hqAmounts.length===0 is batch-optimizer's "unachievable"
-    // signal (no HQ combination closes the quality gap). Mirror that here so crafts the
-    // solver could not complete aren't offered as self-craft candidates.
-    if (!optResult.isDoubleMax && optResult.hqAmounts.length === 0) continue
-    if (hqRequired && !optResult.isDoubleMax) continue
+    completedCount++
+    onProgress({ completed: completedCount, total: withRecipes.length, name: recipe.name })
 
-    candidates.push({
+    if (validated.kind === 'prefilter-rejected') return null
+    if (validated.kind === 'failed') return null
+
+    return {
       itemId: decision.itemId,
       name: decision.name,
       icon: decision.icon,
@@ -283,12 +354,16 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
       craftCost: decision.craftCost,
       savings: decision.buyCost - decision.craftCost,
       savingsRatio: decision.savingsRatio,
-      actions: optResult.actions,
-      hqAmounts: optResult.hqAmounts,
+      actions: validated.actions,
+      hqAmounts: validated.hqAmounts,
       rawMaterials: computeRawMaterials(node.childNodes, priceMap, crossServer, server),
       hqRequired,
       depth: node.depth,
-    })
+    } as SelfCraftCandidate
+  }))
+
+  for (const s of settled) {
+    if (s.status === 'fulfilled' && s.value !== null) candidates.push(s.value)
   }
 
   return candidates

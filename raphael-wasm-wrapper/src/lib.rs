@@ -31,7 +31,11 @@ struct SolveConfig {
     use_trained_eye: bool,
     backload_progress: bool,
     adversarial: bool,
+    #[serde(default = "default_true")]
+    allow_non_max_quality_solutions: bool,
 }
+
+fn default_true() -> bool { true }
 
 #[derive(Serialize)]
 struct SolveResult {
@@ -118,7 +122,7 @@ pub fn solve(config_js: JsValue) -> Result<JsValue, JsValue> {
 
     let solver_settings = SolverSettings {
         simulator_settings,
-        allow_non_max_quality_solutions: true,
+        allow_non_max_quality_solutions: config.allow_non_max_quality_solutions,
     };
 
     let interrupt_signal = AtomicFlag::new();
