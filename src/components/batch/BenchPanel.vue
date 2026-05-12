@@ -1,18 +1,17 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { getRecipe } from '@/api/xivapi'
-import type { GearsetStats } from '@/stores/gearsets'
+import { useGearsetsStore, type GearsetStats } from '@/stores/gearsets'
+import { CRAFT_TYPE_TO_JOB } from '@/utils/jobs'
 import { optimizeRecipe } from '@/services/batch-optimizer'
+import { waitForWasm } from '@/solver/worker'
+
+const gearsetsStore = useGearsetsStore()
 
 interface BenchRecipeEntry {
   label: string
   recipeId: number
   quantity: number
-  craftsmanship: number
-  control: number
-  cp: number
-  level: number
-  manipulation?: boolean
 }
 
 interface BenchDataset {
@@ -57,6 +56,10 @@ async function runDataset(name: string) {
     if (!res.ok) throw new Error(`fetch dataset failed: ${res.status}`)
     const dataset: BenchDataset = await res.json()
 
+    // Without this, the first Promise.allSettled fan-out reaches the worker
+    // before init_threads resolves and every solve returns "WASM 求解器尚未初始化完成".
+    await waitForWasm()
+
     const totalStart = performance.now()
     await Promise.allSettled(dataset.recipes.map(async (entry) => {
       const start = performance.now()
@@ -67,11 +70,17 @@ async function runDataset(name: string) {
         rows.value.push({ label: entry.label, wallMs: -1, error: `getRecipe ${entry.recipeId}: ${String(err)}` })
         return
       }
+      const jobAbbr = CRAFT_TYPE_TO_JOB[recipe.craftType] ?? 'CRP'
+      const stored = gearsetsStore.getGearsetForJob(jobAbbr)
+      if (!stored) {
+        rows.value.push({ label: entry.label, wallMs: -1, error: `no gearset for ${jobAbbr}` })
+        return
+      }
       const gearset: GearsetStats = {
-        level: entry.level,
-        craftsmanship: entry.craftsmanship,
-        control: entry.control,
-        cp: entry.cp,
+        level: stored.level,
+        craftsmanship: stored.craftsmanship,
+        control: stored.control,
+        cp: stored.cp,
       }
       try {
         await optimizeRecipe(recipe, gearset)
