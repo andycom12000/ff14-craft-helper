@@ -3,6 +3,7 @@
  */
 
 import type { SolverConfig, SolverResult, SolverResponse, SimulateConfig } from './raphael'
+import { deriveRayonThreads } from './pool-config'
 
 /* ---------- WASM initialization ---------- */
 
@@ -21,7 +22,8 @@ async function initWasm() {
   try {
     const pkg = await import(/* @vite-ignore */ wasmJsUrl)
     await pkg.default()
-    await pkg.init_threads(navigator.hardwareConcurrency || 4)
+    const hwc = navigator.hardwareConcurrency || 4
+    await pkg.init_threads(deriveRayonThreads(hwc))
     wasmSolve = pkg.solve
     wasmSimulate = pkg.simulate
     wasmSimulateDetail = pkg.simulate_detail
