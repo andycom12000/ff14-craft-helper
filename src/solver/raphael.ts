@@ -30,6 +30,15 @@ export interface SolverConfig {
    * HQ feasibility probe in batch-optimizer. Defaults to false (lenient mode).
    */
   strict_quality?: boolean
+  /**
+   * When set, the solver halts as soon as an intermediate solution's simulated
+   * quality reaches this value (in raphael's internal scale, i.e. after the
+   * caller has already subtracted initial_quality). Returns the *first
+   * sufficient* solution rather than the globally-optimal one — useful for
+   * batch HQ runs that don't need the step/duration tiebreak. Leave undefined
+   * (or 0) for full search.
+   */
+  quality_threshold?: number
 }
 
 export interface SolverResult {

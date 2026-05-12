@@ -52,6 +52,18 @@ export async function optimizeRecipe(
     craftParams.cp = enhanced.cp
   }
   const solverConfig = craftParamsToSolverConfig(craftParams)
+  // Early-stop hook for future use. Setting `solverConfig.quality_threshold`
+  // here would cause raphael to halt as soon as an intermediate solution
+  // simulates to ≥ threshold quality (see solveCraft contract). Leaving it
+  // unset because benchmarking with `threshold = solverConfig.quality`
+  // showed zero measurable win on dataset-1 (Strong + Boundary presets) —
+  // raphael's QualityUbSolver already prunes well enough that the first
+  // max-quality solution arrives at search exhaustion, leaving no later
+  // batches for the early-stop to skip. The mechanism itself is verified
+  // (a low threshold value truncates the search as expected); it's the
+  // default trigger condition that doesn't pay off. Candidate use cases:
+  // truncated-search strict probe (spec §7.5 re-launch path 2) or quality
+  // floors below max_quality.
   const solverResult = await solveCraft(solverConfig, onSolverProgress)
   if (solverResult.wasmDur !== undefined) {
     const stats = solverResult.runtimeStats

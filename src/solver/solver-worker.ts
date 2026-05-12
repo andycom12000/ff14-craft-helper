@@ -104,6 +104,13 @@ function configToWasmSettings(config: SolverConfig) {
   const rawMaxQuality = config.hq_target ? config.quality : 0
   const max_quality = Math.max(0, rawMaxQuality - config.initial_quality)
 
+  // quality_threshold lives on raphael's internal scale (post initial_quality
+  // subtraction). Forward the caller value clamped against max_quality so an
+  // overshooting threshold can never block early-stop.
+  const quality_threshold = config.quality_threshold !== undefined
+    ? Math.min(config.quality_threshold, max_quality)
+    : undefined
+
   return {
     max_cp: config.cp,
     max_durability: config.durability,
@@ -119,6 +126,7 @@ function configToWasmSettings(config: SolverConfig) {
     backload_progress: false,
     adversarial: false,
     allow_non_max_quality_solutions: !config.strict_quality,
+    quality_threshold,
   }
 }
 

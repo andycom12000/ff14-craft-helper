@@ -33,6 +33,12 @@ struct SolveConfig {
     adversarial: bool,
     #[serde(default = "default_true")]
     allow_non_max_quality_solutions: bool,
+    /// When set, the solver halts as soon as an intermediate solution reaches
+    /// this quality value. Used for batch HQ runs that don't need the
+    /// globally-optimal step/duration tiebreak — first sufficient solution wins.
+    /// Defaults to None (full search, current behaviour).
+    #[serde(default)]
+    quality_threshold: Option<u16>,
 }
 
 fn default_true() -> bool { true }
@@ -136,6 +142,23 @@ fn parse_action(name: &str) -> Result<Action, String> {
 /// and the resulting `postMessage` traffic bounded; UI smoothing is JS-side.
 const PROGRESS_CALLBACK_MIN_INTERVAL_MS: f64 = 50.0;
 
+/// Replays an action list through `SimulationState` (under Normal conditions, which
+/// is what the solver itself assumes) and returns the resulting quality. Used by
+/// the quality-threshold early-stop path to decide whether an intermediate solution
+/// already meets the caller's target.
+fn simulate_final_quality(settings: &Settings, actions: &[Action]) -> u16 {
+    let mut state = SimulationState::new(settings);
+    for action in actions {
+        if state.is_final(settings) {
+            break;
+        }
+        if let Ok(new_state) = state.use_action(*action, Condition::Normal, settings) {
+            state = new_state;
+        }
+    }
+    state.quality
+}
+
 #[wasm_bindgen]
 pub fn solve(config_js: JsValue, progress_callback: Option<js_sys::Function>) -> Result<JsValue, JsValue> {
     let config: SolveConfig =
@@ -149,6 +172,35 @@ pub fn solve(config_js: JsValue, progress_callback: Option<js_sys::Function>) ->
     };
 
     let interrupt_signal = AtomicFlag::new();
+
+    // Wire quality-threshold early stop when requested by the caller. The
+    // solution_callback simulates each intermediate solution to compute its
+    // actual final quality (raphael's SearchScore uses `quality_upper_bound`,
+    // not realised quality, so we can't read it off the score directly). When
+    // the threshold is met we stash the actions and trip the interrupt; the
+    // outer solve loop checks the flag at the top of every batch and unwinds
+    // with SolverException::Interrupted, which we then resolve back into a
+    // successful result using the stashed actions.
+    let early_stop_actions: std::rc::Rc<std::cell::RefCell<Option<Vec<Action>>>> =
+        std::rc::Rc::new(std::cell::RefCell::new(None));
+    let solution_cb: Box<dyn Fn(&[Action])> = match config.quality_threshold {
+        Some(threshold) if threshold > 0 => {
+            let sim_settings = simulator_settings;
+            let interrupt_for_cb = interrupt_signal.clone();
+            let actions_cell = std::rc::Rc::clone(&early_stop_actions);
+            Box::new(move |actions: &[Action]| {
+                if interrupt_for_cb.is_set() {
+                    return;
+                }
+                let quality = simulate_final_quality(&sim_settings, actions);
+                if quality >= threshold {
+                    *actions_cell.borrow_mut() = Some(actions.to_vec());
+                    interrupt_for_cb.set();
+                }
+            })
+        }
+        _ => Box::new(|_actions: &[Action]| {}),
+    };
 
     // Capture the JS function inside a throttled Rust closure. The closure swallows
     // any JS-side throw so a buggy callback can't poison the solve.
@@ -169,14 +221,23 @@ pub fn solve(config_js: JsValue, progress_callback: Option<js_sys::Function>) ->
 
     let mut solver = MacroSolver::new(
         solver_settings,
-        Box::new(|_actions: &[Action]| {}),
+        solution_cb,
         progress_cb,
         interrupt_signal,
     );
 
-    let actions = solver
-        .solve()
-        .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
+    let actions = match solver.solve() {
+        Ok(actions) => actions,
+        Err(raphael_solver::SolverException::Interrupted) => {
+            // Either the early-stop callback fired (sufficient quality reached)
+            // or an external cancel — only the former leaves actions stashed.
+            match early_stop_actions.borrow_mut().take() {
+                Some(actions) => actions,
+                None => return Err(JsValue::from_str("Interrupted")),
+            }
+        }
+        Err(e) => return Err(JsValue::from_str(&format!("{:?}", e))),
+    };
 
     let stats = solver.runtime_stats();
     let result = SolveResult {
