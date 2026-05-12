@@ -225,10 +225,8 @@ function collectTreeItemIds(tree: MaterialNode[]): Set<number> {
 
 export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<SelfCraftCandidate[]> {
   const { recipesToCraft, priceMap, priceSource, crossServer, server, getGearset, maxDepth, buffs, optimizeRecipe, onProgress, isCancelled } = args
-  const _bperfT0 = performance.now()
 
   if (recipesToCraft.length === 0) return []
-  console.log(`[bperf-self] start · roots=${recipesToCraft.length} maxDepth=${maxDepth}`)
 
   // Step 1: Collect BOM targets — one per recipesToCraft entry.
   // bomTargets[].quantity is "# of finished items the user wants" — buildMaterialTree
@@ -245,9 +243,7 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
   }
 
   // Step 2: Build the tree
-  const _bperfTreeT0 = performance.now()
   const tree = await buildMaterialTree(bomTargets, maxDepth)
-  console.log(`[bperf-self]   buildMaterialTree dur=${(performance.now() - _bperfTreeT0).toFixed(1)}ms`)
   if (isCancelled()) return []
 
   // Step 3: Backfill prices for BOM-expanded descendants (grand-children and deeper)
@@ -256,16 +252,12 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
   const missingIds: number[] = []
   for (const id of treeItemIds) if (!priceMap.has(id)) missingIds.push(id)
   if (missingIds.length > 0) {
-    const _bperfBackfillT0 = performance.now()
     try {
       const extra = await getAggregatedPrices(priceSource, missingIds)
       for (const [id, md] of extra) priceMap.set(id, md)
-      console.log(`[bperf-self]   price backfill ${missingIds.length} ids dur=${(performance.now() - _bperfBackfillT0).toFixed(1)}ms`)
     } catch (err) {
       console.warn('[self-craft] price backfill failed:', err)
     }
-  } else {
-    console.log(`[bperf-self]   no price backfill needed`)
   }
   if (isCancelled()) return []
 
@@ -320,7 +312,6 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
     withRecipes.push({ decision, node, recipe, job: first.job })
   }
 
-  console.log(`[bperf-self]   viableDecisions=${viableDecisions.length} → withRecipes=${withRecipes.length} (after level + recipe lookup)`)
   if (withRecipes.length === 0) return []
   if (isCancelled()) return []
 
@@ -334,8 +325,6 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
   }
 
   const candidates: SelfCraftCandidate[] = []
-  let _bperfSolveCount = 0, _bperfSolveTotal = 0
-  let _bperfTemplateHits = 0, _bperfPrefilterRejects = 0
   let completedCount = 0
 
   const settled = await Promise.allSettled(withRecipes.map(async ({ decision, node, recipe, job }, i) => {
@@ -351,21 +340,8 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
     completedCount++
     onProgress({ completed: completedCount, total: withRecipes.length, name: recipe.name })
 
-    if (validated.kind === 'prefilter-rejected') {
-      _bperfPrefilterRejects++
-      console.log(`[bperf-self]   prefilter-rejected[${i}] "${recipe.name}" lvl=${recipe.level}`)
-      return null
-    }
+    if (validated.kind === 'prefilter-rejected') return null
     if (validated.kind === 'failed') return null
-
-    if (validated.via === 'template') _bperfTemplateHits++
-    else {
-      _bperfSolveCount++
-      _bperfSolveTotal += validated.solveDur ?? 0
-    }
-    console.log(`[bperf-self]   ${validated.via}[${i}] "${recipe.name}" lvl=${recipe.level} ` +
-      (validated.via === 'solver' ? `dur=${(validated.solveDur ?? 0).toFixed(1)}ms ` : '') +
-      `hqRequired=${hqRequired}`)
 
     return {
       itemId: decision.itemId,
@@ -390,9 +366,5 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
     if (s.status === 'fulfilled' && s.value !== null) candidates.push(s.value)
   }
 
-  console.log(`[bperf-self] done · dur=${(performance.now() - _bperfT0).toFixed(1)}ms · ` +
-    `solverRuns=${_bperfSolveCount} (${_bperfSolveTotal.toFixed(0)}ms) ` +
-    `templateHits=${_bperfTemplateHits} prefilterRejects=${_bperfPrefilterRejects} ` +
-    `accepted=${candidates.length}`)
   return candidates
 }
