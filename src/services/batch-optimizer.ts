@@ -210,6 +210,8 @@ export async function runBatchOptimization(
     if (isCancelled()) throw new Error(SOLVE_CANCELLED)
     const gearset = getGearset(target.recipe.job)
     if (!gearset || gearset.level < target.recipe.level) {
+      recipePercents[i] = 100
+      emitAggregateProgress(target.recipe.name)
       return { kind: 'level-insufficient' as const, target, gearset }
     }
     const _bperfR0 = performance.now()
@@ -229,6 +231,8 @@ export async function runBatchOptimization(
     } catch (err) {
       if (err instanceof Error && err.message === SOLVE_CANCELLED) throw err
       completedCount++
+      recipePercents[i] = 100
+      emitAggregateProgress(target.recipe.name)
       return { kind: 'failed' as const, target, error: err }
     }
   }))
