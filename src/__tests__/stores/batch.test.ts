@@ -308,4 +308,37 @@ describe('batch store finalTodoList', () => {
     store.markSelfCraftDone(50, false)
     expect(store.finalTodoList[0].done).toBe(false)
   })
+
+  // Bug regression: SelfCraftCandidate.amount is items needed, but
+  // TodoItem.quantity must be # of crafts (TodoList renders × amountResult).
+  function withCandidate(itemId: number, amount: number, amountResult: number) {
+    setActivePinia(createPinia())
+    const store = useBatchStore()
+    store.results = {
+      serverGroups: [], crystals: [],
+      selfCraftCandidates: [{
+        itemId, name: 'X', icon: '', amount,
+        recipe: { id: itemId, itemId, name: 'X', icon: '', job: 'CUL', amountResult } as any,
+        job: 'CUL', buyCost: 0, craftCost: 0, savings: 0, savingsRatio: 0,
+        actions: [], hqAmounts: [], rawMaterials: [], hqRequired: false, depth: 1,
+      }],
+      todoList: [],
+      exceptions: [], buyFinishedItems: [], grandTotal: 0, npcPurchaseCandidates: [],
+      crossWorldCache: new Map(),
+    }
+    store.toggleSelfCraft(itemId)
+    return store
+  }
+
+  it('converts semi-finished amount (items) to quantity (crafts) when amountResult > 1', () => {
+    expect(withCandidate(70, 24, 3).finalTodoList[0].quantity).toBe(8)
+  })
+
+  it('rounds up partial crafts when items needed is not divisible by amountResult', () => {
+    expect(withCandidate(80, 25, 3).finalTodoList[0].quantity).toBe(9)
+  })
+
+  it('passes amount through unchanged when amountResult is 1', () => {
+    expect(withCandidate(90, 7, 1).finalTodoList[0].quantity).toBe(7)
+  })
 })
