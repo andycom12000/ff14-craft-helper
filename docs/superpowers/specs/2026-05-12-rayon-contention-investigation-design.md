@@ -3,7 +3,7 @@
 **Date:** 2026-05-12
 **Scope:** `src/solver/worker.ts`, `raphael-wasm-wrapper/` (Rust side)
 **Goal:** 釐清 2-worker pool 在某些 dataset 上 regression 的根因，制定可行的修正方向。
-**Status:** Investigation / Design — not yet implementation-ready
+**Status:** ✅ **Resolved (2026-05-12)** — 方向 A 由 [`b35bd43`](#9-resolution) 落地並 ABTest 驗證。方向 B/C/D 不需實作。詳見 §9。
 
 ---
 
@@ -158,3 +158,51 @@ UI 增加「啟用平行 solver（實驗中）」switch，預設關閉（pool=1 
   - `dd0e5d0` perf(batch): parallelize Phase 1 recipe solver loop
   - `0d0ff30` perf(batch): parallelize self-craft candidate validation loop
 - wasm-bindgen-rayon docs：https://github.com/RReverser/wasm-bindgen-rayon
+
+## 9. Resolution
+
+**結論：方向 A 落地，contention 已消除。** 後續 spec 工作（方向 B / C / D）不需要進行。
+
+### 9.1 實作
+
+`b35bd43 perf(solver): cap rayon threads per worker to hwc / POOL_SIZE`（2026-05-12，本 spec 同日）：
+
+- `raphael-wasm-wrapper/src/lib.rs:14` 暴露 `init_threads(num_threads)`（既存）
+- `src/solver/pool-config.ts:12` `deriveRayonThreads(hwc) = max(1, floor(hwc / POOL_SIZE))`
+- `src/solver/solver-worker.ts:28` worker 啟動時呼叫 `pkg.init_threads(deriveRayonThreads(hwc))`
+
+預設 POOL_SIZE = 2，所以 8-core 機器每 worker 拿 4 thread、16-core 拿 8 thread；總 thread 數恰好等於物理 core 數，無 contention。Low-hwc 退化路徑：`deriveRayonThreads(2) === 1`，rayon 走 serial。
+
+### 9.2 ABTest 驗證（2026-05-12）
+
+同一 commit，只把 `solver-worker.ts:28` 從 `pkg.init_threads(deriveRayonThreads(hwc))` 切到 `pkg.init_threads(hwc)`（模擬 pre-b35bd43 行為），於 BenchPanel / Boundary preset (5000/5000/620) / hwc=20 各跑一次：
+
+**Total wall（across all three datasets）**
+
+| Dataset | Recipes | Capped(10) · current main | Full(20) · pre-b35bd43 | Δ |
+|---|---:|---:|---:|---:|
+| **ds1** (lv94-99 軍需品) | 6 | **11.1 s** | 18.9 s | −41% / 1.70× |
+| **ds2** (mixed lv94-100) | 7 | **23.0 s** | 36.7 s | −37% / 1.59× |
+| **ds3** (mixed lv53-100) | 8 | **22.1 s** | 38.9 s | −43% / 1.76× |
+
+**ds3 per-recipe wasmDur 深拆**（heavy solves 受 contention 衝擊最大，但全部 recipe 都顯著縮短）
+
+| Recipe | Nodes | Full wasmDur | Capped wasmDur | Δ |
+|---|---:|---:|---:|---:|
+| 卡扎納爾手鋸 (lv100, heavy) | 448 749 | 22.2 s | 12.2 s | −45% |
+| 巧力之寶藥 (lv100, heavy) | 448 749 | 14.3 s | 8.8 s | −39% |
+| 深紅木長槍 | 1 003 | 8.6 s | 4.3 s | −50% |
+| 嵌齒象革治癒釘刺坎肩 | 193 | 8.0 s | 4.8 s | −40% |
+| 高級吐司 | 20 | 7.1 s | 3.4 s | −52% |
+| 釕金制敵鎧靴 | 20 | 4.3 s | 2.4 s | −44% |
+
+**讀法**：
+- per-recipe wasmDur 同樣大幅下降 → 證實 contention 發生在 **worker-internal rayon thread 層**，不只是 worker pool 排程
+- 三 dataset slow ratio 1.59-1.76× 落在窄區間 → contention 衝擊度跨 dataset **相近**，跟 §2.2 原假設「ds1 中度 / ds2 較重 / ds3 主導」的階梯不完全吻合；ds3 之所以原本 net regression，主因是 ds3 本身 baseline → parallel 的 speedup margin 較薄（spec §1 表：113.9 s → 175.8 s），不是 contention 特別嚴重
+- §1 表中 PR 4 / baseline 各 dataset slow ratio 與本次 full/capped 同量級，互為旁證
+- 1.59-1.76× 與本 spec §2.1 預期一致（保留 2-worker parallelism，移除 thread-thrash overhead）
+
+### 9.3 殘留 caveat
+
+- 本 ABTest 只在 hwc=20 的單一機器跑過。低核心數機器（hwc=4）每 worker 退到 2 thread、`hwc=2` 退到 serial — 行為尚未 smoke test
+- spec §3.3「不同 CPU core 數的表現」仍是 open，但屬於額外 coverage，不阻擋本 spec close
