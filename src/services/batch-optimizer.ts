@@ -4,7 +4,6 @@ import type { BatchException, BatchTarget, BatchResults, TodoItem, BuyFinishedDe
 import type { MaterialWithPrice, MaterialBase, QuickBuyMaterial, QuickBuyMaterialPricing } from '@/services/shopping-list'
 import { markRaw } from 'vue'
 import { solveCraft, simulateCraft, waitForWasm, SOLVE_CANCELLED } from '@/solver/worker'
-import { isNoSolutionError } from '@/solver/raphael'
 import { craftParamsToSolverConfig, recipeToCraftParams } from '@/solver/config'
 import { findOptimalHqCombinations } from '@/services/hq-optimizer'
 import { getAggregatedPrices, aggregateByWorld } from '@/api/universalis'
@@ -13,7 +12,7 @@ import { separateCrystals, groupByServer, calculateBestPurchase, findCheapestSer
 import { applyFoodBuff, applyMedicineBuff, resolveBuff, COMMON_FOODS, COMMON_MEDICINES, type FoodBuff } from '@/engine/food-medicine'
 import { evaluateBuffRecommendation, getBuffItemIds } from '@/services/buff-recommender'
 import { produceSelfCraftCandidates } from '@/services/self-craft-candidates'
-import { canReachHQQuality, canReachHQQualityStrict } from '@/services/feasibility-prefilter'
+import { canReachHQQuality } from '@/services/feasibility-prefilter'
 import { fetchItemAcquisitionBatch } from '@/services/item-acquisition'
 import { fetchItemLocationsBatch } from '@/services/item-locations'
 import { fetchZoneMetaBulk, fetchNpcNameBulk } from '@/services/zone-meta'
@@ -53,27 +52,7 @@ export async function optimizeRecipe(
     craftParams.cp = enhanced.cp
   }
   const solverConfig = craftParamsToSolverConfig(craftParams)
-
-  // §7.5 gated strict probe: only fires when prefilter predicts HQ unreachable.
-  // Calibrated against 57-row fixture; predicted=false means raphael should
-  // short-circuit via NoSolution rather than wasting time searching for an HQ
-  // path it cannot find. On NoSolution, fall back to lenient solve.
-  let solverResult
-  if (recipe.canHq && solverConfig.hq_target && !canReachHQQualityStrict(recipe, gearset, buffs)) {
-    try {
-      solverResult = await solveCraft({ ...solverConfig, strict_quality: true }, onSolverProgress)
-    } catch (err) {
-      if (isNoSolutionError(err)) {
-        // Prefilter said unreachable, raphael confirmed → lenient finds best-effort.
-        solverResult = await solveCraft(solverConfig, onSolverProgress)
-      } else {
-        throw err
-      }
-    }
-  } else {
-    solverResult = await solveCraft(solverConfig, onSolverProgress)
-  }
-
+  const solverResult = await solveCraft(solverConfig, onSolverProgress)
   if (solverResult.wasmDur !== undefined) {
     console.debug(
       `[bperf] solve ${recipe.name} wasmDur=${solverResult.wasmDur.toFixed(0)}ms steps=${solverResult.actions.length}`
