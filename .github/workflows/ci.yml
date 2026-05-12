@@ -3,10 +3,45 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - '.tmp/**'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - '.tmp/**'
+
+# Cancel duplicate runs when a branch is pushed faster than CI finishes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  type-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run type-check
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -20,6 +55,7 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    needs: [type-check]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -27,4 +63,5 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run build
+      # vue-tsc already validated by type-check job; just run vite build here.
+      - run: npx vite build

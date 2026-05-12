@@ -47,7 +47,7 @@ function dismiss() {
       aria-live="polite"
     >
       <span class="nqhq-tip-banner__icon" aria-hidden="true">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
       </span>
       <p class="nqhq-tip-banner__copy">
         <strong>這不是顯示錯誤</strong> — 部分配方需要 HQ 投料以提升起手品質，其他用 NQ 就夠了。系統已自動拆好兩種數量，照著買就行。

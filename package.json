@@ -11,6 +11,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "lint": "eslint . --max-warnings=0",
+    "lint:fix": "eslint . --fix",
+    "type-check": "vue-tsc -b",
     "build-game-data": "node scripts/build-game-data.mjs",
     "patch-wasm": "node scripts/patch-wasm-rayon-init.mjs",
     "sync-tesseract": "node scripts/sync-tesseract-worker.mjs",
@@ -28,16 +31,21 @@
     "web-vitals": "^5.2.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@vitejs/plugin-vue": "^5.2.0",
     "@vue/test-utils": "^2.4.6",
     "csv-parse": "^5.5.6",
+    "eslint": "^10.3.0",
+    "eslint-plugin-vue": "^10.9.1",
     "happy-dom": "^20.8.3",
     "puppeteer-core": "^24.38.0",
     "typescript": "~5.7.0",
+    "typescript-eslint": "^8.59.3",
     "unplugin-auto-import": "^21.0.0",
     "unplugin-vue-components": "^32.0.0",
     "vite": "^6.2.0",
     "vitest": "^4.0.18",
+    "vue-eslint-parser": "^10.4.0",
     "vue-tsc": "^2.2.0"
   }
 }
