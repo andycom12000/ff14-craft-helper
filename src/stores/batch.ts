@@ -356,9 +356,11 @@ export const useBatchStore = defineStore('batch', () => {
     const semiFinished: TodoItem[] = []
     for (const c of results.value.selfCraftCandidates) {
       if (!selected.has(c.itemId)) continue
+      // TodoList renders quantity × amountResult, so store crafts (not items) here.
+      const yieldPerCraft = Math.max(1, c.recipe.amountResult)
       semiFinished.push({
         recipe: c.recipe,
-        quantity: c.amount,
+        quantity: Math.ceil(c.amount / yieldPerCraft),
         actions: c.actions,
         hqAmounts: c.hqAmounts,
         isSemiFinished: true,
