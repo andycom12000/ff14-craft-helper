@@ -4,7 +4,7 @@
  * Uses a 2-slot worker pool with FIFO queue for concurrent requests.
  */
 
-import type { SolverConfig, SolverResult, SolverResponse, SimulateResult, SimulateDetailResult } from './raphael'
+import type { SolverConfig, SolverResponse, SolverResultWithTiming, SimulateResult, SimulateDetailResult } from './raphael'
 import { POOL_SIZE } from './pool-config'
 import { trackEvent, trackError } from '@/utils/analytics'
 import { classifyGearBucket } from '@/utils/gear-bucket'
@@ -111,7 +111,7 @@ function handleRoutedResponse(slot: WorkerSlot, data: SolverResponse): void {
   if (!pending) return
 
   let terminal = true
-  if (data.type === 'result' && data.result) pending.resolve(data.result)
+  if (data.type === 'result' && data.result) pending.resolve({ ...data.result, wasmDur: data.wasmDur })
   else if (data.type === 'simulate-result' && data.simulateResult) pending.resolve(data.simulateResult)
   else if (data.type === 'simulate-detail-result' && data.simulateDetailResult) pending.resolve(data.simulateDetailResult)
   else if (data.type === 'error') pending.reject(new Error(data.error ?? '求解器發生未知錯誤'))
@@ -184,7 +184,7 @@ export function getWasmStatus(): { status: 'loading' | 'ready' | 'error'; error?
 export function solveCraft(
   config: SolverConfig,
   onProgress?: (percent: number) => void,
-): Promise<SolverResult> {
+): Promise<SolverResultWithTiming> {
   const requestId = nextRequestId++
   const startedAt = performance.now()
   trackEvent('solver_start', {
@@ -192,13 +192,14 @@ export function solveCraft(
     hq_target: config.hq_target,
     gear_bucket: classifyGearBucket(config.crafter_level, config.craftsmanship, config.control),
   })
-  return new Promise<SolverResult>((resolve, reject) => {
+  return new Promise<SolverResultWithTiming>((resolve, reject) => {
     pendingRequests.set(requestId, {
       onProgress,
-      resolve: (r: SolverResult) => {
+      resolve: (r: SolverResultWithTiming) => {
         trackEvent('solver_complete', {
           duration_ms: Math.round(performance.now() - startedAt),
           action_count: r.actions.length, steps: r.steps,
+          wasm_duration_ms: r.wasmDur !== undefined ? Math.round(r.wasmDur) : undefined,
         })
         resolve(r)
       },

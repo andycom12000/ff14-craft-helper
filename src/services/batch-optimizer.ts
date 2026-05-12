@@ -52,6 +52,11 @@ export async function optimizeRecipe(
   }
   const solverConfig = craftParamsToSolverConfig(craftParams)
   const solverResult = await solveCraft(solverConfig, onSolverProgress)
+  if (solverResult.wasmDur !== undefined) {
+    console.debug(
+      `[bperf] solve ${recipe.name} wasmDur=${solverResult.wasmDur.toFixed(0)}ms steps=${solverResult.actions.length}`
+    )
+  }
   const simResult = await simulateCraft(solverConfig, solverResult.actions)
 
   const isDoubleMax =

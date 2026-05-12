@@ -33,6 +33,15 @@ export interface SolverResult {
   steps: number
 }
 
+/**
+ * Internal extension carrying timing data from the worker.
+ * Only used by batch-optimizer's [bperf] log; not part of the public solver
+ * contract — keep wasmDur off SolverResult so simulator UI etc. aren't coupled.
+ */
+export interface SolverResultWithTiming extends SolverResult {
+  wasmDur?: number
+}
+
 export type SolverStatus = 'idle' | 'solving' | 'done' | 'error' | 'cancelled'
 
 export interface SolverMessage {
