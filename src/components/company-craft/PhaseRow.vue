@@ -91,7 +91,7 @@ function markPhaseAndAdvance() {
     </div>
 
     <div v-if="!complete" class="supplies">
-      <div
+      <label
         v-for="(supply, i) in phase.supplyItems"
         :key="i"
         class="supply"
@@ -105,7 +105,7 @@ function markPhaseAndAdvance() {
           :supply-index="i"
           :max="supply.amount"
         />
-      </div>
+      </label>
     </div>
 
     <div v-if="!complete" class="actions">
