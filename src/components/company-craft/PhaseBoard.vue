@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import type { WorkshopProject } from '@/stores/workshop-projects'
 import type { CompanyCraftSequence } from '@/services/local-data-source.types'
 import ItemName from '@/components/common/ItemName.vue'
@@ -33,6 +33,13 @@ function togglePart(seqId: number) {
 function isPartExpanded(seqId: number) {
   return expandedParts.value.has(seqId)
 }
+
+function onMarkNext(seqId: number) {
+  nextTick(() => {
+    const rows = document.querySelectorAll(`.part-group[data-seq="${seqId}"] .phase-row:not(.done)`)
+    if (rows.length > 0) (rows[0] as HTMLElement).scrollIntoView({ block: 'center', behavior: 'smooth' })
+  })
+}
 </script>
 
 <template>
@@ -41,6 +48,7 @@ function isPartExpanded(seqId: number) {
       v-for="{ seq } in linkedSequences"
       :key="seq.id"
       class="part-group"
+      :data-seq="seq.id"
     >
       <button
         class="part-group-head"
@@ -62,6 +70,7 @@ function isPartExpanded(seqId: number) {
           :project-id="project.id"
           :sequence-id="seq.id"
           :phase="phase"
+          @mark-next="onMarkNext(seq.id)"
         />
       </div>
     </div>

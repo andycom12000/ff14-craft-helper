@@ -15,6 +15,10 @@ const props = defineProps<{
   phase: CompanyCraftPhase
 }>()
 
+const emit = defineEmits<{
+  'mark-next': []
+}>()
+
 const store = useWorkshopProjectsStore()
 
 const phaseKey = computed(() => serializePhaseKey({
@@ -52,6 +56,11 @@ function markAllDelivered() {
   for (let i = 0; i < props.phase.supplyItems.length; i++) {
     store.setDelivered(props.projectId, phaseKey.value, i, props.phase.supplyItems[i].amount)
   }
+}
+
+function markPhaseAndAdvance() {
+  markAllDelivered()
+  emit('mark-next')
 }
 </script>
 
@@ -95,6 +104,9 @@ function markAllDelivered() {
 
     <div v-if="!complete" class="actions">
       <el-button size="small" text @click="markAllDelivered">全部繳清</el-button>
+      <el-button size="small" type="primary" plain @click="markPhaseAndAdvance">
+        標記下一階段
+      </el-button>
     </div>
   </div>
 </template>
