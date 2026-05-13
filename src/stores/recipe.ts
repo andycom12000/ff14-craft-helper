@@ -46,6 +46,11 @@ export interface Recipe {
   isExpert?: boolean
   requiredCraftsmanship?: number
   requiredControl?: number
+  // Minimum quality required for a non-canHq recipe to be accepted (tribe-quest
+  // / event "建造組件" deliverables). 0 means quality is irrelevant; only used
+  // when canHq=false. canHq=true recipes always use full max_quality as the
+  // double-max threshold and ignore this field.
+  requiredQuality?: number
 }
 
 export const useRecipeStore = defineStore('recipe', () => {

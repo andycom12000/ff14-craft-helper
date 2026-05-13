@@ -176,6 +176,7 @@ export async function getRecipe(id: number): Promise<Recipe> {
     isExpert: recipe.isExpert ?? false,
     requiredCraftsmanship: recipe.requiredCraftsmanship ?? 0,
     requiredControl: recipe.requiredControl ?? 0,
+    requiredQuality: recipe.requiredQuality ?? 0,
   }
 }
 

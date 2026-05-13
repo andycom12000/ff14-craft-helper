@@ -26,6 +26,9 @@ export interface RecipeRecord {
   isExpert?: boolean
   requiredCraftsmanship?: number
   requiredControl?: number
+  // Minimum quality required for a non-canHq recipe to be accepted in-game —
+  // tribe-quest / event "建造組件" deliverables. 0 = quality irrelevant.
+  requiredQuality?: number
 }
 
 export interface RltRecord {

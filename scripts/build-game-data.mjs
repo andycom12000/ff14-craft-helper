@@ -300,6 +300,8 @@ function buildRecipes(rows, headers, verbose) {
     pickHeader(headers, ['RequiredCraftsmanship']) || 'RequiredCraftsmanship'
   const reqControlCol =
     pickHeader(headers, ['RequiredControl']) || 'RequiredControl'
+  const reqQualityCol =
+    pickHeader(headers, ['RequiredQuality']) || 'RequiredQuality'
   const idCol = pickHeader(headers, ['#']) || '#'
   const ingredientCols = findIngredientColumns(headers)
 
@@ -340,6 +342,7 @@ function buildRecipes(rows, headers, verbose) {
       isExpert: toBool(r[isExpertCol]),
       requiredCraftsmanship: toInt(r[reqCraftCol]),
       requiredControl: toInt(r[reqControlCol]),
+      requiredQuality: toInt(r[reqQualityCol]),
     }
     recipes.push(rec)
     referencedItems.add(itemResult)
