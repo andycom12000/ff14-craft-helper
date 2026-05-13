@@ -75,9 +75,21 @@ export async function optimizeRecipe(
     )
   }
 
-  const isDoubleMax =
-    simResult.progress >= simResult.max_progress &&
-    simResult.quality >= simResult.max_quality
+  // Quality target depends on recipe type:
+  // - canHq=true: must reach max_quality to be "double-max" (HQ output).
+  // - canHq=false + requiredQuality>0: tribe-quest / event 建造組件 — must
+  //   reach the explicit RequiredQuality threshold to be accepted in-game.
+  // - canHq=false + requiredQuality=0: furniture / housing — quality is
+  //   meaningless, only progress matters. Treating as double-max once progress
+  //   is full avoids a downstream misfire where HQ-optimizer returns [] and the
+  //   recipe gets flagged "無法達成雙滿" → buy-finished.
+  const progressFull = simResult.progress >= simResult.max_progress
+  const reqQ = recipe.requiredQuality ?? 0
+  const qualityTarget = recipe.canHq
+    ? simResult.max_quality
+    : reqQ > 0 ? reqQ : 0
+  const qualityOk = simResult.quality >= qualityTarget
+  const isDoubleMax = progressFull && qualityOk
 
   const materials = recipe.ingredients.map(i => ({
     itemId: i.itemId, name: i.name, icon: i.icon, amount: i.amount,
@@ -283,10 +295,28 @@ export async function runBatchOptimization(
     result.quantity = Math.ceil(v.target.quantity / yieldPerCraft)
     if (!result.isDoubleMax && result.hqAmounts.length === 0) {
       if (result.recipe.canHq) qualityUnachievableResults.push(result)
+      // Diagnose why isDoubleMax is false to give a precise message:
+      //   - canHq=true: quality didn't reach max even with full HQ materials
+      //   - canHq=false + requiredQuality>0: tribe-quest deliverable, quality
+      //     below the in-game acceptance threshold
+      //   - canHq=false + requiredQuality=0: pure progress failure
+      //     (gearset too weak to push progress to max)
+      const reqQ = result.recipe.requiredQuality ?? 0
+      let message: string
+      let details: string
+      if (result.recipe.canHq) {
+        message = '無法達成雙滿'
+        details = `「${v.target.recipe.name}」即使使用全部 HQ 素材仍無法達成品質上限`
+      } else if (reqQ > 0) {
+        message = '無法達成所需品質'
+        details = `「${v.target.recipe.name}」需要品質 ≥ ${reqQ}，目前裝備配置無法達成`
+      } else {
+        message = '無法完成合成'
+        details = `「${v.target.recipe.name}」目前裝備配置無法將進度推滿`
+      }
       exceptions.push({
         type: 'quality-unachievable', recipe: v.target.recipe, quantity: v.target.quantity,
-        message: '無法達成雙滿',
-        details: `「${v.target.recipe.name}」即使使用全部 HQ 素材仍無法達成品質上限`,
+        message, details,
         action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
       })
       continue
