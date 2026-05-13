@@ -29,6 +29,12 @@ const router = createRouter({
       meta: { title: '購物清單' },
     },
     {
+      path: '/company-craft',
+      name: 'companyCraft',
+      component: () => import('@/views/CompanyCraftView.vue'),
+      meta: { title: '部隊工坊' },
+    },
+    {
       path: '/batch',
       name: 'batch',
       component: () => import('@/views/BatchView.vue'),

@@ -12,6 +12,7 @@ import {
   Document,
   AlarmClock,
   HomeFilled,
+  Tools,
 } from '@element-plus/icons-vue'
 import EorzeaClock from '@/components/EorzeaClock.vue'
 import LocalePillGroup from '@/components/LocalePillGroup.vue'
@@ -28,6 +29,7 @@ const PAGE_ACCENTS: Record<string, { color: string; dim: string }> = {
   '/simulator': { color: 'var(--app-craft)', dim: 'var(--app-craft-dim)' },
   '/bom': { color: 'var(--app-craft)', dim: 'var(--app-craft-dim)' },
   '/batch': { color: 'var(--app-craft)', dim: 'var(--app-craft-dim)' },
+  '/company-craft': { color: 'var(--app-craft)', dim: 'var(--app-craft-dim)' },
   '/market': { color: 'var(--app-market)', dim: 'var(--app-market-dim)' },
   '/timer': { color: 'var(--app-gather)', dim: 'var(--app-gather-dim)' },
 }
@@ -130,6 +132,11 @@ onUnmounted(() => {
         <el-menu-item index="/bom">
           <el-icon><List /></el-icon>
           <span>購物清單</span>
+          <span class="menu-badge menu-badge--beta">實驗中</span>
+        </el-menu-item>
+        <el-menu-item index="/company-craft">
+          <el-icon><Tools /></el-icon>
+          <span>部隊工坊</span>
           <span class="menu-badge menu-badge--beta">實驗中</span>
         </el-menu-item>
         <el-menu-item index="/market" disabled>
