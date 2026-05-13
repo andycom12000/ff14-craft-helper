@@ -414,6 +414,118 @@ function buildItems(rows, headers, whitelist, verbose, label, opts = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// Company Craft (FC Workshop / Submarine / Airship)
+// ---------------------------------------------------------------------------
+
+// keep in sync with src/utils/jobs.ts CRAFT_TYPE_TO_JOB
+const CRAFT_TYPE_TO_JOB = { 0: 'CRP', 1: 'BSM', 2: 'ARM', 3: 'GSM', 4: 'LTW', 5: 'WVR', 6: 'ALC', 7: 'CUL' }
+
+const ITEM_UI_CATEGORY_TO_COMPANY_CRAFT_CATEGORY = {
+  'Submersible Components': 'submersible',
+  'Airship Components': 'airship',
+}
+
+function inferPartSlot(resultItemName) {
+  const m = /(Bow|Stern|Hull|Bridge)\s*$/i.exec(resultItemName ?? '')
+  return m ? m[1].toLowerCase() : null
+}
+
+/**
+ * Parse CompanyCraft CSVs into a phase index.
+ * Pure data transformation — caller passes CSV strings.
+ *
+ * @param {object} opts
+ * @param {string} opts.sequenceCsv - CompanyCraftSequence CSV content
+ * @param {string} opts.partCsv - CompanyCraftPart CSV content
+ * @param {string} opts.processCsv - CompanyCraftProcess CSV content
+ * @param {string} opts.typeCsv - CompanyCraftType CSV content
+ * @param {Map<number,string>} opts.itemUICategoryMap - itemId -> UICategory name
+ * @param {Map<number,string>} [opts.itemNameMap] - itemId -> item name (optional)
+ * @returns {{ schemaVersion: number, sequences: Array }}
+ */
+export function buildCompanyCraft({ sequenceCsv, partCsv, processCsv, typeCsv, itemUICategoryMap, itemNameMap = new Map() }) {
+  const { headers: seqHeaders, rows: seqRows } = parseCsv(sequenceCsv, 'oxidizer')
+  const { headers: partHeaders, rows: partRows } = parseCsv(partCsv, 'oxidizer')
+  const { headers: procHeaders, rows: procRows } = parseCsv(processCsv, 'oxidizer')
+  const { rows: typeRows } = parseCsv(typeCsv, 'oxidizer')
+
+  const partById = new Map(partRows.map(r => [toInt(r['#']), r]))
+  const processById = new Map(procRows.map(r => [toInt(r['#']), r]))
+  const typeJobAbbr = new Map()
+  for (const row of typeRows) {
+    const id = toInt(row['#'])
+    const abbr = CRAFT_TYPE_TO_JOB[id] ?? null
+    if (abbr) typeJobAbbr.set(id, abbr)
+  }
+
+  // Column discovery (CompanyCraftPart[0..7], CompanyCraftProcess[0..7], SupplyItem[0..11])
+  const seqPartCols = []
+  for (let i = 0; i < 8; i++) {
+    const col = pickHeader(seqHeaders, [`CompanyCraftPart[${i}]`])
+    if (col) seqPartCols.push({ index: i, col })
+  }
+  const partTypeCol = pickHeader(partHeaders, ['CompanyCraftType']) ?? 'CompanyCraftType'
+  const partProcessCols = []
+  for (let i = 0; i < 8; i++) {
+    const col = pickHeader(partHeaders, [`CompanyCraftProcess[${i}]`])
+    if (col) partProcessCols.push({ index: i, col })
+  }
+  const procSupplyCols = []
+  for (let i = 0; i < 12; i++) {
+    const item = pickHeader(procHeaders, [`SupplyItem[${i}]`])
+    const qty = pickHeader(procHeaders, [`SetQuantity[${i}]`])
+    const sets = pickHeader(procHeaders, [`SetsRequired[${i}]`])
+    if (item && qty && sets) procSupplyCols.push({ item, qty, sets })
+  }
+
+  const sequences = []
+  for (const seqRow of seqRows) {
+    const id = toInt(seqRow['#'])
+    const resultItemId = toInt(seqRow.ResultItem)
+    if (!resultItemId) continue
+
+    const uiCategory = itemUICategoryMap.get(resultItemId)
+    const category = ITEM_UI_CATEGORY_TO_COMPANY_CRAFT_CATEGORY[uiCategory] ?? 'workshop'
+    const partSlot = inferPartSlot(itemNameMap.get(resultItemId))
+
+    const phases = []
+    for (const { index: partIndex, col } of seqPartCols) {
+      const partId = toInt(seqRow[col])
+      if (!partId) continue
+      const partRow = partById.get(partId)
+      if (!partRow) continue
+      const typeId = toInt(partRow[partTypeCol])
+      const jobAbbr = typeJobAbbr.get(typeId)
+      if (!jobAbbr) continue
+
+      for (const { index: processIndex, col: pcol } of partProcessCols) {
+        const procId = toInt(partRow[pcol])
+        if (!procId) continue
+        const procRow = processById.get(procId)
+        if (!procRow) continue
+
+        const supplyItems = []
+        for (const { item, qty, sets } of procSupplyCols) {
+          const itemId = toInt(procRow[item])
+          const q = toInt(procRow[qty])
+          const s = toInt(procRow[sets])
+          if (!itemId || q <= 0 || s <= 0) continue
+          supplyItems.push({ itemId, amount: q * s })
+        }
+        if (supplyItems.length === 0) continue
+
+        phases.push({ partIndex, processIndex, jobAbbr, level: 0, supplyItems })
+      }
+    }
+
+    if (phases.length === 0) continue
+    sequences.push({ id, resultItemId, category, partSlot, phases })
+  }
+
+  return { schemaVersion: 1, sequences }
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
