@@ -95,15 +95,52 @@ async function expandNode(
   }
 }
 
+export interface BuildMaterialTreeContext {
+  /**
+   * Resolve a CompanyCraft project's remaining materials.
+   * Required when any target has kind === 'company-craft-project'.
+   * Returns null when the project is missing or the callback is not wired.
+   */
+  resolveProjectRemaining?: (projectId: string) => Map<number, number> | null
+}
+
 /**
  * Recursively expand recipe ingredients into a material tree.
  */
 export async function buildMaterialTree(
   targets: BomTarget[],
   maxDepth: number = DEFAULT_RECURSION_DEPTH,
+  ctx: BuildMaterialTreeContext = {},
 ): Promise<MaterialNode[]> {
   const results = await Promise.allSettled(
     targets.map(async (target) => {
+      // Company-craft-project target: expand via resolveProjectRemaining callback.
+      if (target.kind === 'company-craft-project') {
+        const remaining = ctx.resolveProjectRemaining?.(target.projectId) ?? null
+        if (!remaining) {
+          // Fallback leaf when project missing or no callback wired
+          return {
+            itemId: target.itemId,
+            name: target.name,
+            icon: target.icon,
+            amount: target.quantity,
+          } as MaterialNode
+        }
+        const ancestorIds = new Set<number>()
+        const children = await Promise.all(
+          [...remaining.entries()].map(([itemId, amount]) =>
+            expandNode(itemId, '', '', amount, 1, maxDepth, ancestorIds),
+          ),
+        )
+        return {
+          itemId: target.itemId,
+          name: target.name,
+          icon: target.icon,
+          amount: target.quantity,
+          children,
+        } as MaterialNode
+      }
+
       // Non-craftable target: leaf node with no children, no recipeId.
       // Lives alongside craftable targets in the tree; user picks the
       // acquisition mode (market / NPC / gather) on its decision row.
