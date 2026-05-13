@@ -18,6 +18,7 @@ export interface WorkshopProject {
   category: CompanyCraftCategory
   createdAt: number
   completedAt?: number
+  deletedAt?: number
   sequences: WorkshopProjectSequence[]
   phaseProgress: Record<string, Record<number, number>>
 }
@@ -165,7 +166,13 @@ export const useWorkshopProjectsStore = defineStore('workshop-projects', () => {
   }
 
   function deleteProject(id: string) {
-    projects.value = projects.value.filter(p => p.id !== id)
+    const proj = getProject(id)
+    if (proj) proj.deletedAt = Date.now()
+  }
+
+  function restoreProject(id: string) {
+    const proj = getProject(id)
+    if (proj) delete proj.deletedAt
   }
 
   function renameProject(id: string, name: string) {
@@ -203,7 +210,9 @@ export const useWorkshopProjectsStore = defineStore('workshop-projects', () => {
     if (proj) delete proj.completedAt
   }
 
-  const activeProjects = computed(() => projects.value.filter(p => !p.completedAt))
+  const activeProjects = computed(() =>
+    projects.value.filter(p => !p.completedAt && !p.deletedAt),
+  )
 
   return {
     projects,
@@ -212,6 +221,7 @@ export const useWorkshopProjectsStore = defineStore('workshop-projects', () => {
     getProject,
     createProject,
     deleteProject,
+    restoreProject,
     renameProject,
     getDelivered,
     setDelivered,

@@ -83,21 +83,19 @@ function onMarkNext(seqId: number) {
 
 <style scoped>
 .phase-board {
-  margin-top: 22px;
-  padding-top: 18px;
+  margin-top: 18px;
+  padding-top: 14px;
   border-top: 1px solid var(--app-border);
 }
-.part-group {
-  margin-bottom: 18px;
-  border: 1px solid var(--app-border);
-  border-radius: 12px;
-  overflow: hidden;
-  background: var(--app-surface);
+.part-group + .part-group {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--app-border);
 }
 .part-group-head {
   width: 100%;
-  background: var(--app-surface-2);
-  padding: 10px 16px;
+  background: transparent;
+  padding: 8px 4px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -106,20 +104,36 @@ function onMarkNext(seqId: number) {
   font-size: 15px;
   cursor: pointer;
   border: 0;
+  border-radius: 6px;
   text-align: left;
   color: inherit;
+  transition: background-color 0.12s var(--ease-out-quart, cubic-bezier(0.25, 1, 0.5, 1));
 }
-.head-title { display: inline-flex; align-items: center; gap: 8px; }
-.caret { font-size: 10px; color: var(--app-text-muted); }
+.part-group-head:hover {
+  background: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 5%, transparent);
+}
+.part-group-head:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+.head-title { display: inline-flex; align-items: center; gap: 10px; }
+.caret {
+  font-size: 9px;
+  color: var(--app-text-muted);
+  display: inline-block;
+  width: 12px;
+  text-align: center;
+}
 .slot {
   font-family: 'Fira Code', monospace;
   font-size: 10px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   color: var(--app-craft);
-  background: var(--app-surface);
-  border: 1px solid var(--app-border);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 30%, transparent);
   border-radius: 999px;
   padding: 2px 8px;
+  text-transform: uppercase;
 }
 .part-group-head .meta {
   font-family: 'Fira Code', monospace;
@@ -127,5 +141,8 @@ function onMarkNext(seqId: number) {
   color: var(--app-text-muted);
   letter-spacing: 0.04em;
 }
-.part-group-body > * + * { border-top: 1px solid var(--app-border); }
+.part-group-body {
+  padding: 4px 0 4px 22px;
+}
+.part-group-body > * + * { border-top: 1px dashed var(--app-border); }
 </style>

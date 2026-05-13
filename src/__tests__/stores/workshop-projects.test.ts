@@ -33,14 +33,21 @@ describe('workshop-projects CRUD', () => {
     expect(proj?.completedAt).toBeUndefined()
   })
 
-  it('deletes a project by id', () => {
+  it('soft-deletes a project (deletedAt set, hidden from activeProjects, recoverable)', () => {
     const store = useWorkshopProjectsStore()
     const id = store.createProject({
       name: 'X', category: 'workshop',
       sequences: [{ sequenceId: 99 }],
     })
     store.deleteProject(id)
-    expect(store.getProject(id)).toBeNull()
+    const proj = store.getProject(id)
+    expect(proj).not.toBeNull()
+    expect(proj?.deletedAt).toBeTypeOf('number')
+    expect(store.activeProjects.find(p => p.id === id)).toBeUndefined()
+
+    store.restoreProject(id)
+    expect(store.getProject(id)?.deletedAt).toBeUndefined()
+    expect(store.activeProjects.find(p => p.id === id)?.id).toBe(id)
   })
 
   it('updates phaseProgress immutably and exposes via getDelivered', () => {

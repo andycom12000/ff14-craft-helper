@@ -7,6 +7,7 @@ vi.mock('@/services/local-data-source', () => ({
   listCompanyCraftByCategory: vi.fn(() => []),
   getItemSync: vi.fn(() => ({ name: 'Test Item', level: 1, canBeHq: false, iconId: 0 })),
   loadCompanyCraft: vi.fn(async () => []),
+  itemsCacheVersion: { value: 0 },
 }))
 
 vi.mock('@/components/common/ItemName.vue', () => ({
@@ -45,13 +46,13 @@ const globalStubs = {
 beforeEach(() => setActivePinia(createPinia()))
 
 describe('NewProjectDialog', () => {
-  it('starts on Step 1 with all three type cards', async () => {
+  it('starts on Step 1 with all three type rows', async () => {
     const wrapper = mount(NewProjectDialog, {
       props: { modelValue: true },
       global: { stubs: globalStubs },
     })
     await flushPromises()
-    expect(wrapper.findAll('.type-card').length).toBe(3)
+    expect(wrapper.findAll('.type-row').length).toBe(3)
     expect(wrapper.text()).toContain('Step 1 / 3')
   })
 
@@ -66,7 +67,7 @@ describe('NewProjectDialog', () => {
     expect(nextBtn).toBeDefined()
     expect(nextBtn?.attributes('disabled')).toBeDefined()
 
-    await wrapper.findAll('.type-card')[0].trigger('click')
+    await wrapper.findAll('.type-row')[0].trigger('click')
     await flushPromises()
     expect(nextBtn?.attributes('disabled')).toBeUndefined()
   })

@@ -111,7 +111,7 @@ watch(selectedSequences, (seqs) => {
   if (category.value === 'workshop') {
     projectName.value = firstName
   } else {
-    projectName.value = base ? `${base} 號` : firstName
+    projectName.value = base ? `${base}號` : firstName
   }
 })
 
@@ -152,6 +152,28 @@ const isMobile = useIsMobile()
 function pickCategory(c: CompanyCraftCategory) {
   category.value = c
 }
+
+function categoryStats(c: CompanyCraftCategory): string {
+  void itemsCacheVersion.value
+  if (c === 'workshop') {
+    const all = listCompanyCraftByCategory('workshop')
+    if (!all.length) return '資料載入中…'
+    const avgPhases = Math.round(
+      all.reduce((s, seq) => s + seq.phases.length, 0) / all.length,
+    )
+    return `${all.length} 種建材 · 平均 ~${avgPhases} 階段`
+  }
+  let totalSeqs = 0
+  let totalPhases = 0
+  for (const slot of slots) {
+    const sqs = listCompanyCraftByCategory(c, slot)
+    totalSeqs += sqs.length
+    for (const s of sqs) totalPhases += s.phases.length
+  }
+  if (!totalSeqs) return '資料載入中…'
+  const avgPhases = Math.round(totalPhases / totalSeqs)
+  return `${totalSeqs} 件零件可選 · 每件平均 ~${avgPhases} 階段`
+}
 function nextStep() {
   if (step.value === 1 && category.value) step.value = 2
   else if (step.value === 2) step.value = 3
@@ -173,17 +195,20 @@ function prevStep() {
 
     <div v-if="step === 1" class="step1">
       <h5>做什麼？</h5>
-      <div class="type-grid">
+      <div class="type-list">
         <button
           v-for="(meta, c) in CATEGORY_META"
           :key="c"
-          class="type-card"
+          class="type-row"
           :class="{ active: category === c }"
           @click="pickCategory(c as CompanyCraftCategory)"
         >
-          <div class="icon">{{ meta.icon }}</div>
-          <div class="name">{{ meta.label }}</div>
-          <div class="hint">{{ meta.hint }}</div>
+          <span class="row-icon">{{ meta.icon }}</span>
+          <span class="row-body">
+            <span class="row-name">{{ meta.label }}</span>
+            <span class="row-meta">{{ categoryStats(c as CompanyCraftCategory) }}</span>
+          </span>
+          <span class="row-chevron" aria-hidden="true">›</span>
         </button>
       </div>
     </div>
@@ -284,41 +309,69 @@ function prevStep() {
   font-family: 'Noto Serif TC', serif;
   font-weight: 600;
   font-size: 15px;
-  margin: 0 0 16px;
+  margin: 0 0 12px;
 }
-.type-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-.type-card {
-  border: 1px solid var(--app-border);
-  border-radius: 12px;
-  padding: 18px 12px;
-  text-align: center;
-  background: var(--app-surface);
+.type-list {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--app-border);
+}
+.type-row {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 6px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--app-border);
   cursor: pointer;
-  transition: all 0.15s var(--ease-out-quart);
+  text-align: left;
   color: inherit;
+  transition: background-color 0.12s var(--ease-out-quart);
+  width: 100%;
 }
-.type-card:hover {
-  background: var(--app-surface-hover);
-  border-color: var(--app-accent);
-  transform: translateY(-1px);
+.type-row:hover {
+  background: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 4%, transparent);
 }
-.type-card.active {
-  background: var(--app-accent-glow);
-  border-color: var(--app-accent);
-  border-width: 2px;
+.type-row.active {
+  background: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 8%, transparent);
 }
-.type-card .icon { font-size: 32px; margin-bottom: 6px; }
-.type-card .name {
+.type-row:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: -1px;
+}
+.row-icon {
+  font-size: 22px;
+  line-height: 1;
+  text-align: center;
+}
+.row-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.row-name {
   font-family: 'Noto Serif TC', serif;
   font-weight: 600;
   font-size: 15px;
 }
-.type-card .hint {
+.row-meta {
   font-family: 'Fira Code', monospace;
-  font-size: 10px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
   color: var(--app-text-muted);
-  letter-spacing: 0.06em;
-  margin-top: 4px;
+}
+.row-chevron {
+  font-size: 18px;
+  color: var(--app-text-muted);
+  opacity: 0.45;
+  transition: opacity 0.12s, color 0.12s;
+}
+.type-row.active .row-chevron {
+  opacity: 1;
+  color: var(--app-craft, oklch(0.50 0.16 40));
 }
 .footer { display: flex; justify-content: space-between; }
 
@@ -397,6 +450,7 @@ function prevStep() {
 }
 
 @media (max-width: 640px) {
-  .type-grid { grid-template-columns: repeat(2, 1fr); }
+  .row-icon { font-size: 20px; }
+  .row-name { font-size: 14px; }
 }
 </style>

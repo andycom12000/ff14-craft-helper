@@ -56,7 +56,7 @@ const partsLabel = computed(() => {
       <div class="card-icon">{{ meta.icon }}</div>
       <div class="card-title-block">
         <h3 class="card-title">{{ project.name }}</h3>
-        <div class="card-sub">{{ meta.label }} · {{ partsLabel }} · {{ donePhases }}/{{ totalPhases }} 階段完成</div>
+        <div class="card-sub">{{ meta.label }} · {{ partsLabel }}</div>
       </div>
       <div class="card-actions">
         <el-dropdown trigger="click">
@@ -70,15 +70,15 @@ const partsLabel = computed(() => {
         <el-button text @click="emit('expand', project.id)">
           {{ expanded ? '收合' : '展開' }}
         </el-button>
-        <el-button type="primary" @click="emit('sync', project.id)">
+        <el-button class="craft-cta" @click="emit('sync', project.id)">
           {{ isLinkedToBom ? '前往購物清單 →' : '加入購物清單' }}
         </el-button>
       </div>
     </header>
     <div class="card-progress">
-      <div class="bar"><div class="fill" :style="{ width: progressPct + '%' }" /></div>
+      <div class="bar"><div class="fill" :style="{ transform: `scaleX(${detail.ratio})` }" /></div>
       <span class="meta">
-        {{ progressPct }}% · 剩 {{ remainingCount }} 種素材
+        {{ progressPct }}% · {{ donePhases }}/{{ totalPhases }} 階段 · 剩 {{ remainingCount }} 種素材
         <span v-if="isLinkedToBom" class="linked"> · 已關聯 BOM</span>
       </span>
     </div>
@@ -153,6 +153,25 @@ const partsLabel = computed(() => {
   padding: 0 8px;
 }
 
+.card-actions :deep(.craft-cta) {
+  background: transparent;
+  color: var(--app-craft, oklch(0.50 0.16 40));
+  border: 1px solid color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 38%, transparent);
+  font-weight: 500;
+}
+.card-actions :deep(.craft-cta:hover) {
+  background: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 8%, transparent);
+  border-color: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 60%, transparent);
+  color: var(--app-craft, oklch(0.50 0.16 40));
+}
+.card-actions :deep(.craft-cta:active) {
+  background: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 14%, transparent);
+}
+.card-actions :deep(.craft-cta:focus-visible) {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+
 /* ── Progress Bar ─────────────────────────────────────────────────────────── */
 .card-progress {
   margin-top: 14px;
@@ -168,9 +187,12 @@ const partsLabel = computed(() => {
 
 .fill {
   height: 100%;
+  width: 100%;
   background: var(--app-craft, oklch(0.50 0.16 40));
   border-radius: 999px;
-  transition: width 0.4s var(--ease-out-quart, cubic-bezier(0.25, 1, 0.5, 1));
+  transform-origin: left center;
+  transition: transform 0.4s var(--ease-out-quart, cubic-bezier(0.25, 1, 0.5, 1));
+  will-change: transform;
 }
 
 .meta {

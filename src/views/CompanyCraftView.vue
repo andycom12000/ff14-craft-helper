@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, h, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useWorkshopProjectsStore, getProjectProgress } from '@/stores/workshop-projects'
@@ -66,12 +66,31 @@ function onDelete(id: string) {
 }
 
 function onDeleteConfirm(id: string) {
+  const proj = workshopStore.getProject(id)
+  if (!proj) return
+  const projName = proj.name
+
   bom.removeProjectTarget(id)
   workshopStore.deleteProject(id)
   trackEvent('workshop_project_delete', { project_id: id })
   if (expandedId.value === id) expandedId.value = null
   deleteCandidateId.value = null
-  ElMessage.success('專案已刪除')
+
+  const msg = ElMessage({
+    type: 'success',
+    duration: 8000,
+    showClose: true,
+    message: h('span', { style: 'display: inline-flex; align-items: center; gap: 10px;' }, [
+      h('span', `已刪除「${projName}」`),
+      h('button', {
+        style: 'background: transparent; border: 0; color: var(--app-craft, oklch(0.50 0.16 40)); font-weight: 600; cursor: pointer; padding: 0 4px; font-size: inherit; font-family: inherit; text-decoration: underline;',
+        onClick: () => {
+          workshopStore.restoreProject(id)
+          msg.close()
+        },
+      }, '復原'),
+    ]),
+  })
 }
 
 function onDeleteCancel() {
@@ -109,7 +128,7 @@ watch(
   () => workshopStore.progressVersion,
   () => {
     for (const proj of workshopStore.projects) {
-      if (proj.completedAt) continue
+      if (proj.completedAt || proj.deletedAt) continue
       const progress = getProjectProgress(proj, sequences.value, seqById.value)
       if (progress >= 1) {
         workshopStore.markCompleted(proj.id)
@@ -127,7 +146,7 @@ watch(
 <template>
   <div class="company-craft-view" v-loading="!dataReady && !loadError">
     <header class="cc-header">
-      <span class="cc-eyebrow">工坊圖紙 · BLUEPRINTS</span>
+      <span class="cc-eyebrow">BLUEPRINTS · 工坊圖紙</span>
       <h2>部隊工坊 <span class="cc-beta" aria-label="實驗中">實驗中</span></h2>
       <p class="cc-tagline">『今天工坊裡，動到哪一步了？』</p>
       <div class="cc-chalk-rule" />
@@ -204,13 +223,14 @@ watch(
 
 .cc-eyebrow {
   display: block;
-  font-family: 'Cormorant Garamond', 'Noto Serif TC', serif;
-  font-style: italic;
-  font-size: 12px;
-  letter-spacing: 0.12em;
+  font-family: 'Fira Code', 'JetBrains Mono', ui-monospace, monospace;
+  font-weight: 500;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.25em;
   color: var(--app-text-muted);
   text-transform: uppercase;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .cc-header h2 {
@@ -228,9 +248,9 @@ watch(
   align-items: center;
   padding: 2px 9px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent-gold, oklch(0.78 0.13 75)) 20%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent-gold, oklch(0.78 0.13 75)) 50%, transparent);
-  color: var(--accent-gold, oklch(0.78 0.13 75));
+  background: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 28%, transparent);
+  color: var(--app-craft, oklch(0.50 0.16 40));
   font-family: 'Cormorant Garamond', 'Noto Serif TC', serif;
   font-style: italic;
   font-weight: 600;

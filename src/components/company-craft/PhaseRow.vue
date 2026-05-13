@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, h } from 'vue'
+import { ElMessage } from 'element-plus'
 import type { CompanyCraftPhase } from '@/services/local-data-source.types'
 import {
   useWorkshopProjectsStore,
@@ -53,20 +54,36 @@ const progressPct = computed(() =>
 
 const started = computed(() => deliveredCount.value > 0)
 
-function markAllDelivered() {
+function markPhaseAndAdvance() {
+  const prev: number[] = []
   for (let i = 0; i < props.phase.supplyItems.length; i++) {
+    prev.push(store.getDelivered(props.projectId, phaseKey.value, i))
     store.setDelivered(props.projectId, phaseKey.value, i, props.phase.supplyItems[i].amount)
   }
-}
-
-function markPhaseAndAdvance() {
-  markAllDelivered()
   trackEvent('workshop_project_phase_completed', {
     project_id: props.projectId,
     sequence_id: props.sequenceId,
     phase_index: props.phase.partIndex * 10 + props.phase.processIndex,
   })
   emit('mark-next')
+
+  const msg = ElMessage({
+    type: 'success',
+    duration: 8000,
+    showClose: true,
+    message: h('span', { style: 'display: inline-flex; align-items: center; gap: 10px;' }, [
+      h('span', '此階段已標記完成'),
+      h('button', {
+        style: 'background: transparent; border: 0; color: var(--app-craft, oklch(0.50 0.16 40)); font-weight: 600; cursor: pointer; padding: 0 4px; font-size: inherit; font-family: inherit; text-decoration: underline;',
+        onClick: () => {
+          for (let i = 0; i < prev.length; i++) {
+            store.setDelivered(props.projectId, phaseKey.value, i, prev[i])
+          }
+          msg.close()
+        },
+      }, '復原'),
+    ]),
+  })
 }
 </script>
 
@@ -87,7 +104,7 @@ function markPhaseAndAdvance() {
     </div>
 
     <div v-if="started && !complete" class="mini-progress">
-      <div class="fill" :style="{ width: progressPct + '%' }" />
+      <div class="fill" :style="{ transform: `scaleX(${progressPct / 100})` }" />
     </div>
 
     <div v-if="!complete" class="supplies">
@@ -109,9 +126,8 @@ function markPhaseAndAdvance() {
     </div>
 
     <div v-if="!complete" class="actions">
-      <el-button size="small" text @click="markAllDelivered">全部繳清</el-button>
-      <el-button size="small" type="primary" plain @click="markPhaseAndAdvance">
-        標記下一階段
+      <el-button size="small" class="phase-cta" @click="markPhaseAndAdvance">
+        完成此階段 →
       </el-button>
     </div>
   </div>
@@ -119,9 +135,12 @@ function markPhaseAndAdvance() {
 
 <style scoped>
 .phase-row {
-  padding: 10px 16px;
+  padding: 10px 4px 12px;
 }
-.phase-row.active { background: var(--app-accent-glow); }
+.phase-row.active {
+  background: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 5%, transparent);
+  border-radius: 6px;
+}
 .phase-row.done .status { color: var(--app-success); }
 
 .head {
@@ -134,7 +153,7 @@ function markPhaseAndAdvance() {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  border: 2px solid var(--app-border);
+  border: 1.5px dashed var(--app-border);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -144,12 +163,14 @@ function markPhaseAndAdvance() {
 .status.done {
   background: var(--app-success-tint);
   border-color: var(--app-success);
+  border-style: solid;
   color: var(--app-success);
 }
 .status.active {
-  background: var(--app-accent-glow);
-  border-color: var(--app-accent);
-  color: var(--app-accent);
+  background: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 12%, transparent);
+  border-color: var(--app-craft, oklch(0.50 0.16 40));
+  border-style: solid;
+  color: var(--app-craft, oklch(0.50 0.16 40));
 }
 .job-badge {
   display: inline-block;
@@ -174,20 +195,22 @@ function markPhaseAndAdvance() {
 .mini-progress {
   height: 4px;
   margin: 10px 0 12px 116px;
-  background: var(--app-surface-2);
+  background: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 10%, transparent);
   border-radius: 999px;
   overflow: hidden;
 }
 .mini-progress .fill {
   height: 100%;
-  background: var(--app-accent);
-  transition: width 0.2s var(--ease-out-quart);
+  width: 100%;
+  background: var(--app-craft, oklch(0.50 0.16 40));
+  transform-origin: left center;
+  transition: transform 0.2s var(--ease-out-quart);
+  will-change: transform;
 }
 .supplies {
-  margin: 10px 0 4px 116px;
-  padding: 12px 14px;
-  background: var(--app-surface-2);
-  border-radius: 8px;
+  margin: 8px 0 4px 116px;
+  padding: 4px 0 4px 14px;
+  border-left: 1px solid var(--app-border);
 }
 .supply {
   display: grid;
@@ -198,7 +221,26 @@ function markPhaseAndAdvance() {
 }
 .supply:last-child { border-bottom: 0; }
 .supply-name { font-size: 13px; }
-.actions { margin: 8px 0 4px 116px; }
+.actions {
+  margin: 10px 0 4px 116px;
+  display: flex;
+  gap: 4px;
+}
+.actions :deep(.phase-cta) {
+  background: transparent;
+  color: var(--app-craft, oklch(0.50 0.16 40));
+  border: 1px solid color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 38%, transparent);
+  font-weight: 500;
+}
+.actions :deep(.phase-cta:hover) {
+  background: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 8%, transparent);
+  border-color: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 60%, transparent);
+  color: var(--app-craft, oklch(0.50 0.16 40));
+}
+.actions :deep(.phase-cta:focus-visible) {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
 
 @media (max-width: 640px) {
   .head { grid-template-columns: 22px 80px 1fr; }

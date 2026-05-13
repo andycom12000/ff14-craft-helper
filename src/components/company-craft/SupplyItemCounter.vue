@@ -24,7 +24,6 @@ const value = computed({
       :min="0"
       :max="max"
       size="small"
-      controls-position="right"
     />
     <span class="max">/ {{ max }}</span>
   </span>
