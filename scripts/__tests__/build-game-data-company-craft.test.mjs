@@ -3,15 +3,15 @@ import assert from 'node:assert/strict'
 import { buildCompanyCraft } from '../build-game-data.mjs'
 
 // Minimal fixture: 1 sequence with 1 part holding 1 process that needs 2 items.
-// TYPE_CSV uses # id 4 which maps to 'LTW' per CRAFT_TYPE_TO_JOB
+// Unknown1=4 maps to 'LTW' per CRAFT_TYPE_TO_JOB (Unknown1 is the crafter job FK).
 const SEQUENCE_CSV = [
   '#,ResultItem,CompanyCraftPart[0],CompanyCraftPart[1]',
   '1,18715,10,0',
 ].join('\n')
 
 const PART_CSV = [
-  '#,CompanyCraftType,CompanyCraftProcess[0],CompanyCraftProcess[1]',
-  '10,4,100,0',
+  '#,CompanyCraftType,Unknown0,Unknown1,CompanyCraftProcess[0],CompanyCraftProcess[1]',
+  '10,103,0,4,100,0',
 ].join('\n')
 
 const PROCESS_CSV = [
@@ -19,7 +19,7 @@ const PROCESS_CSV = [
   '100,5057,3,4,5058,2,3',
 ].join('\n')
 
-const itemUICategoryMap = new Map([[18715, 'Submersible Components']])
+const itemUICategoryMap = new Map([[18715, 103]]) // 103 = Submersible Bow
 
 test('buildCompanyCraft: builds sequence with phases summed from process supplies', () => {
   const result = buildCompanyCraft({
@@ -33,6 +33,7 @@ test('buildCompanyCraft: builds sequence with phases summed from process supplie
   assert.equal(seq.id, 1)
   assert.equal(seq.resultItemId, 18715)
   assert.equal(seq.category, 'submersible')
+  assert.equal(seq.partSlot, 'bow')
   assert.equal(seq.phases.length, 1)
   const phase = seq.phases[0]
   assert.equal(phase.jobAbbr, 'LTW')

@@ -420,14 +420,20 @@ function buildItems(rows, headers, whitelist, verbose, label, opts = {}) {
 // keep in sync with src/utils/jobs.ts CRAFT_TYPE_TO_JOB
 const CRAFT_TYPE_TO_JOB = { 0: 'CRP', 1: 'BSM', 2: 'ARM', 3: 'GSM', 4: 'LTW', 5: 'WVR', 6: 'ALC', 7: 'CUL' }
 
-const ITEM_UI_CATEGORY_TO_COMPANY_CRAFT_CATEGORY = {
-  'Submersible Components': 'submersible',
-  'Airship Components': 'airship',
-}
-
-function inferPartSlot(resultItemName) {
-  const m = /(Bow|Stern|Hull|Bridge)\s*$/i.exec(resultItemName ?? '')
-  return m ? m[1].toLowerCase() : null
+/**
+ * Map ItemUICategory FK id → { category, partSlot }.
+ * Submersible: 101=Hull, 102=Stern, 103=Bow, 104=Bridge
+ * Airship: 90=Hull, 91=Rigging→bridge, 92=Aftcastle→stern, 93=Forecastle→bow
+ */
+const UI_CATEGORY_TO_COMPANY_CRAFT = {
+  90:  { category: 'airship',     partSlot: 'hull' },
+  91:  { category: 'airship',     partSlot: 'bridge' },
+  92:  { category: 'airship',     partSlot: 'stern' },
+  93:  { category: 'airship',     partSlot: 'bow' },
+  101: { category: 'submersible', partSlot: 'hull' },
+  102: { category: 'submersible', partSlot: 'stern' },
+  103: { category: 'submersible', partSlot: 'bow' },
+  104: { category: 'submersible', partSlot: 'bridge' },
 }
 
 function findIndexedCols(headers, prefix, count) {
@@ -447,11 +453,10 @@ function findIndexedCols(headers, prefix, count) {
  * @param {string} opts.sequenceCsv - CompanyCraftSequence CSV content
  * @param {string} opts.partCsv - CompanyCraftPart CSV content
  * @param {string} opts.processCsv - CompanyCraftProcess CSV content
- * @param {Map<number,string>} opts.itemUICategoryMap - itemId -> UICategory name
- * @param {Map<number,string>} [opts.itemNameMap] - itemId -> item name (optional)
+ * @param {Map<number,number>} opts.itemUICategoryMap - itemId -> ItemUICategory FK id
  * @returns {{ schemaVersion: number, sequences: Array }}
  */
-export function buildCompanyCraft({ sequenceCsv, partCsv, processCsv, itemUICategoryMap, itemNameMap = new Map() }) {
+export function buildCompanyCraft({ sequenceCsv, partCsv, processCsv, itemUICategoryMap }) {
   const { headers: seqHeaders, rows: seqRows } = parseCsv(sequenceCsv, 'oxidizer')
   const { headers: partHeaders, rows: partRows } = parseCsv(partCsv, 'oxidizer')
   const { headers: procHeaders, rows: procRows } = parseCsv(processCsv, 'oxidizer')
@@ -461,7 +466,9 @@ export function buildCompanyCraft({ sequenceCsv, partCsv, processCsv, itemUICate
 
   // Column discovery (CompanyCraftPart[0..7], CompanyCraftProcess[0..7], SupplyItem[0..11])
   const seqPartCols = findIndexedCols(seqHeaders, 'CompanyCraftPart', 8)
-  const partTypeCol = pickHeader(partHeaders, ['CompanyCraftType']) ?? 'CompanyCraftType'
+  // Unknown1 holds the CraftType (crafter job) FK for each part phase.
+  // CompanyCraftType is the part category (Airship Hull, Submersible Bow, etc.) — not the job.
+  const partTypeCol = pickHeader(partHeaders, ['Unknown1']) ?? 'Unknown1'
   const partProcessCols = findIndexedCols(partHeaders, 'CompanyCraftProcess', 8)
   const procSupplyCols = []
   for (let i = 0; i < 12; i++) {
@@ -477,9 +484,10 @@ export function buildCompanyCraft({ sequenceCsv, partCsv, processCsv, itemUICate
     const resultItemId = toInt(seqRow.ResultItem)
     if (!resultItemId) continue
 
-    const uiCategory = itemUICategoryMap.get(resultItemId)
-    const category = ITEM_UI_CATEGORY_TO_COMPANY_CRAFT_CATEGORY[uiCategory] ?? 'workshop'
-    const partSlot = inferPartSlot(itemNameMap.get(resultItemId))
+    const uiCatId = itemUICategoryMap.get(resultItemId) ?? 0
+    const ccMeta = UI_CATEGORY_TO_COMPANY_CRAFT[uiCatId]
+    const category = ccMeta?.category ?? 'workshop'
+    const partSlot = ccMeta?.partSlot ?? null
 
     const phases = []
     for (const { index: partIndex, col } of seqPartCols) {
@@ -616,7 +624,6 @@ async function main() {
   const itemsByLocale = {}
   const itemsExtraByLocale = {}
   let itemUICategoryMap = new Map()
-  let itemNameMap = new Map()
   for (const src of itemSources) {
     log(verbose, `Reading ${src.path} as ${src.format}`)
     const text = await readCsv(src.path)
@@ -634,18 +641,17 @@ async function main() {
     itemsExtraByLocale[src.locale] = extra
     log(verbose, `  [${src.locale}] kept ${extra.length} items (extra)`)
 
-    // Build itemUICategoryMap and itemNameMap from the en locale parse
-    // for CompanyCraft (avoids a redundant readCsv of Item.csv).
+    // Build itemUICategoryMap from the en locale parse for CompanyCraft
+    // (avoids a redundant readCsv of Item.csv).
+    // Store the FK id as an integer so UI_CATEGORY_TO_COMPANY_CRAFT can look it up.
     if (src.locale === 'en') {
       const uiCatCol = pickHeader(headers, ['ItemUICategory'])
-      const nameCol = pickHeader(headers, ['Name'])
       for (const row of rows) {
         const id = toInt(row['#'])
         if (!id) continue
-        if (uiCatCol && row[uiCatCol]) itemUICategoryMap.set(id, row[uiCatCol])
-        if (nameCol && row[nameCol]) itemNameMap.set(id, row[nameCol])
+        if (uiCatCol && row[uiCatCol]) itemUICategoryMap.set(id, toInt(row[uiCatCol]))
       }
-      log(verbose, `  [en] built itemUICategoryMap (${itemUICategoryMap.size}) and itemNameMap (${itemNameMap.size}) for CompanyCraft`)
+      log(verbose, `  [en] built itemUICategoryMap (${itemUICategoryMap.size}) for CompanyCraft`)
     }
   }
 
@@ -663,7 +669,7 @@ async function main() {
     ])
     companyCraft = buildCompanyCraft({
       sequenceCsv, partCsv, processCsv,
-      itemUICategoryMap, itemNameMap,
+      itemUICategoryMap,
     })
   } catch (err) {
     console.warn(`[warn] CompanyCraft build skipped: ${err.message}`)
