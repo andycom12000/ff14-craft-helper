@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useWorkshopProjectsStore } from '@/stores/workshop-projects'
+import { useWorkshopProjectsStore, getProjectProgress } from '@/stores/workshop-projects'
 import { loadCompanyCraft } from '@/services/local-data-source'
 import type { CompanyCraftSequence } from '@/services/local-data-source.types'
 import { useBomStore } from '@/stores/bom'
+import { trackEvent } from '@/utils/analytics'
 import ProjectEmptyState from '@/components/company-craft/ProjectEmptyState.vue'
 import ProjectCard from '@/components/company-craft/ProjectCard.vue'
 import NewProjectDialog from '@/components/company-craft/NewProjectDialog.vue'
@@ -49,6 +50,7 @@ function onSync(projectId: string) {
       quantity: 1,
     })
   }
+  trackEvent('workshop_project_sync_to_bom', { project_id: projectId })
   router.push('/bom')
 }
 
@@ -63,6 +65,7 @@ async function onDelete(id: string) {
     )
     bom.removeProjectTarget(id)
     workshopStore.deleteProject(id)
+    trackEvent('workshop_project_delete', { project_id: id })
     if (expandedId.value === id) expandedId.value = null
     ElMessage.success('專案已刪除')
   } catch {
@@ -86,6 +89,24 @@ async function retryLoad() {
     loadError.value = err instanceof Error ? err.message : String(err)
   }
 }
+
+watch(
+  () => workshopStore.progressVersion,
+  () => {
+    for (const proj of workshopStore.projects) {
+      if (proj.completedAt) continue
+      const progress = getProjectProgress(proj, sequences.value, seqById.value)
+      if (progress >= 1) {
+        workshopStore.markCompleted(proj.id)
+        trackEvent('workshop_project_completed', {
+          project_id: proj.id,
+          days_to_complete: Math.round((Date.now() - proj.createdAt) / (1000 * 60 * 60 * 24)),
+        })
+        ElMessage.success(`「${proj.name}」全階段完成！`)
+      }
+    }
+  },
+)
 </script>
 
 <template>

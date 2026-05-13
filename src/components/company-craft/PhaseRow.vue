@@ -8,6 +8,7 @@ import {
 } from '@/stores/workshop-projects'
 import ItemName from '@/components/common/ItemName.vue'
 import SupplyItemCounter from './SupplyItemCounter.vue'
+import { trackEvent } from '@/utils/analytics'
 
 const props = defineProps<{
   projectId: string
@@ -60,6 +61,11 @@ function markAllDelivered() {
 
 function markPhaseAndAdvance() {
   markAllDelivered()
+  trackEvent('workshop_project_phase_completed', {
+    project_id: props.projectId,
+    sequence_id: props.sequenceId,
+    phase_index: props.phase.partIndex * 10 + props.phase.processIndex,
+  })
   emit('mark-next')
 }
 </script>

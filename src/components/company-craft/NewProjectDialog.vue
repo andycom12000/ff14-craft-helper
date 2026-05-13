@@ -5,6 +5,7 @@ import { listCompanyCraftByCategory, getItemSync } from '@/services/local-data-s
 import { getTotalMaterials, useWorkshopProjectsStore } from '@/stores/workshop-projects'
 import { CATEGORY_META, SLOT_LABEL } from '@/utils/company-craft-labels'
 import ItemName from '@/components/common/ItemName.vue'
+import { trackEvent } from '@/utils/analytics'
 
 const props = defineProps<{ modelValue: boolean }>()
 const emit = defineEmits<{
@@ -117,6 +118,13 @@ function createAndClose() {
     name: projectName.value.trim(),
     category: category.value,
     sequences: selectedSequences.value.map(s => ({ sequenceId: s.id })),
+  })
+  trackEvent('workshop_project_create', {
+    category: category.value!,
+    sequence_count: selectedSequences.value.length,
+    has_all_parts: category.value === 'workshop'
+      ? true
+      : selectedSequences.value.length === 4,
   })
   emit('created', id)
   visible.value = false
