@@ -6,6 +6,7 @@ import { useBatchStore } from '@/stores/batch'
 import { useSettingsStore } from '@/stores/settings'
 import { useGearsetsStore } from '@/stores/gearsets'
 import { runBatchOptimization } from '@/services/batch-optimizer'
+import { checkLevelGate } from '@/services/recipe-gating'
 import { SOLVE_CANCELLED } from '@/solver/worker'
 import { trackEvent, trackError } from '@/utils/analytics'
 import CostSummaryPanel from '@/components/batch/CostSummaryPanel.vue'
@@ -186,14 +187,28 @@ const missingGearsetJobs = computed<string[]>(() => {
   return result
 })
 
-/* Targets where gearset.level < recipe.level (but not missing). Soft warn only. */
-const lowLevelTargets = computed(() => {
+/* Targets below recipe level, split by whether the recipe has hard gates.
+ * - hard: starred / expert / stat-gated — synthesis blocked in-game.
+ * - soft: standard 0-star — synthesis allowed, just penalized. */
+const hardLevelTargets = computed(() => {
   const out: { recipe: import('@/stores/recipe').Recipe; gearsetLevel: number }[] = []
   for (const t of batchStore.targets) {
     const gs = gearsets.getGearsetForJob(t.recipe.job)
     if (!gs) continue
     if (gs.craftsmanship === 0 && gs.control === 0) continue
-    if (gs.level < t.recipe.level) {
+    if (checkLevelGate(t.recipe, gs.level).kind === 'hard') {
+      out.push({ recipe: t.recipe, gearsetLevel: gs.level })
+    }
+  }
+  return out
+})
+const softLevelTargets = computed(() => {
+  const out: { recipe: import('@/stores/recipe').Recipe; gearsetLevel: number }[] = []
+  for (const t of batchStore.targets) {
+    const gs = gearsets.getGearsetForJob(t.recipe.job)
+    if (!gs) continue
+    if (gs.craftsmanship === 0 && gs.control === 0) continue
+    if (checkLevelGate(t.recipe, gs.level).kind === 'soft') {
       out.push({ recipe: t.recipe, gearsetLevel: gs.level })
     }
   }
@@ -393,16 +408,31 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
             </button>
           </div>
 
-          <div v-else-if="lowLevelTargets.length > 0" class="batch-lvl-alert">
-            <div class="batch-lvl-alert-icon" aria-hidden="true">ℹ</div>
+          <div v-else-if="hardLevelTargets.length > 0" class="batch-lvl-alert">
+            <div class="batch-lvl-alert-icon" aria-hidden="true">⚠</div>
             <div class="batch-lvl-alert-body">
-              <div class="batch-lvl-alert-title">{{ lowLevelTargets.length }} 件目標 · 遊戲目前禁止製作</div>
-              <div class="batch-lvl-alert-desc">等級不夠的職業還無法在遊戲內開始這配方，可以保留為未來規劃，或先調整配裝</div>
+              <div class="batch-lvl-alert-title">{{ hardLevelTargets.length }} 件目標 · 遊戲目前禁止製作</div>
+              <div class="batch-lvl-alert-desc">星級／專家／硬性數值門檻配方，必須先提升等級或調整配裝</div>
             </div>
             <button
               type="button"
               class="batch-lvl-alert-cta"
-              @click="openGearsetSheet(lowLevelTargets[0]?.recipe.job ?? null)"
+              @click="openGearsetSheet(hardLevelTargets[0]?.recipe.job ?? null)"
+            >
+              調整配裝
+            </button>
+          </div>
+
+          <div v-else-if="softLevelTargets.length > 0" class="batch-lvl-alert is-soft">
+            <div class="batch-lvl-alert-icon" aria-hidden="true">ℹ</div>
+            <div class="batch-lvl-alert-body">
+              <div class="batch-lvl-alert-title">{{ softLevelTargets.length }} 件目標 · 等級偏低（仍可合成）</div>
+              <div class="batch-lvl-alert-desc">無星標準配方可低等合成，會套用進度／品質懲罰；想拉滿效率可調整配裝</div>
+            </div>
+            <button
+              type="button"
+              class="batch-lvl-alert-cta"
+              @click="openGearsetSheet(softLevelTargets[0]?.recipe.job ?? null)"
             >
               調整配裝
             </button>
@@ -1121,5 +1151,44 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
 }
 .batch-lvl-alert-cta:hover {
   background: color-mix(in srgb, var(--app-craft) 12%, transparent);
+}
+
+/* Soft variant: 0-star recipes below level — informational, not blocking.
+   Uses cool/info blue to differentiate from the warm warning palette. */
+.batch-lvl-alert.is-soft {
+  background: oklch(0.96 0.025 240 / 0.55);
+  border-color: oklch(0.62 0.08 240 / 0.40);
+}
+.batch-lvl-alert.is-soft .batch-lvl-alert-icon {
+  background: oklch(0.62 0.08 240 / 0.18);
+  color: oklch(0.42 0.10 240);
+}
+.batch-lvl-alert.is-soft .batch-lvl-alert-title {
+  color: oklch(0.38 0.10 240);
+}
+.batch-lvl-alert.is-soft .batch-lvl-alert-cta {
+  border-color: oklch(0.62 0.08 240 / 0.45);
+  color: oklch(0.42 0.10 240);
+}
+.batch-lvl-alert.is-soft .batch-lvl-alert-cta:hover {
+  background: oklch(0.62 0.08 240 / 0.12);
+}
+[data-theme="dark"] .batch-lvl-alert.is-soft {
+  background: oklch(0.28 0.04 240 / 0.45);
+  border-color: oklch(0.55 0.10 240 / 0.45);
+}
+[data-theme="dark"] .batch-lvl-alert.is-soft .batch-lvl-alert-icon {
+  background: oklch(0.55 0.10 240 / 0.22);
+  color: oklch(0.82 0.08 240);
+}
+[data-theme="dark"] .batch-lvl-alert.is-soft .batch-lvl-alert-title {
+  color: oklch(0.86 0.06 240);
+}
+[data-theme="dark"] .batch-lvl-alert.is-soft .batch-lvl-alert-cta {
+  border-color: oklch(0.55 0.10 240 / 0.55);
+  color: oklch(0.82 0.08 240);
+}
+[data-theme="dark"] .batch-lvl-alert.is-soft .batch-lvl-alert-cta:hover {
+  background: oklch(0.55 0.10 240 / 0.18);
 }
 </style>

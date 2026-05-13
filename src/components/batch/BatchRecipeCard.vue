@@ -5,6 +5,7 @@ import { getJobName } from '@/utils/jobs'
 import { starsDisplay } from '@/utils/format'
 import { Delete } from '@element-plus/icons-vue'
 import ItemName from '@/components/common/ItemName.vue'
+import { checkLevelGate } from '@/services/recipe-gating'
 
 const props = defineProps<{
   target: BatchTarget
@@ -17,10 +18,18 @@ const emit = defineEmits<{
 }>()
 
 const recipeLevel = computed(() => props.target.recipe.recipeLevelTable.classJobLevel)
-const isLevelLow = computed(() => {
-  if (props.gearsetLevel == null) return false
-  if (props.gearsetLevel <= 0) return false
-  return props.gearsetLevel < recipeLevel.value
+const levelGateKind = computed<'ok' | 'soft' | 'hard'>(() => {
+  if (props.gearsetLevel == null) return 'ok'
+  if (props.gearsetLevel <= 0) return 'ok'
+  return checkLevelGate(props.target.recipe, props.gearsetLevel).kind
+})
+const isLevelHard = computed(() => levelGateKind.value === 'hard')
+const isLevelSoft = computed(() => levelGateKind.value === 'soft')
+const levelPillTitle = computed(() => {
+  const job = getJobName(props.target.recipe.job)
+  if (isLevelHard.value) return `你的 ${job} 等級不夠，遊戲目前禁止製作`
+  if (isLevelSoft.value) return `你的 ${job} 等級偏低，仍可合成但會有進度／品質懲罰`
+  return ''
 })
 
 // Items per craft. Food/medicine usually yield 3, everything else 1.
@@ -51,13 +60,14 @@ const showYieldHint = computed(() => yieldPerCraft.value > 1)
         {{ starsDisplay(target.recipe.stars) }}
         <el-tag size="small" type="primary">{{ getJobName(target.recipe.job) }}</el-tag>
         <button
-          v-if="isLevelLow"
+          v-if="isLevelHard || isLevelSoft"
           type="button"
           class="recipe-card-lvl-pill"
-          :title="`你的 ${getJobName(target.recipe.job)} 等級不夠，遊戲目前禁止製作`"
+          :class="{ 'is-soft': isLevelSoft }"
+          :title="levelPillTitle"
           @click="emit('open-gearset', target.recipe.job)"
         >
-          Lv {{ gearsetLevel }} · 需 {{ recipeLevel }}
+          Lv {{ gearsetLevel }} · {{ isLevelHard ? '需' : '建議' }} {{ recipeLevel }}
         </button>
         <span class="recipe-card-qty">× {{ target.quantity }} 份</span>
       </div>
@@ -277,5 +287,24 @@ const showYieldHint = computed(() => yieldPerCraft.value > 1)
 .recipe-card-lvl-pill:focus-visible {
   outline: 2px solid var(--app-craft);
   outline-offset: 2px;
+}
+.recipe-card-lvl-pill.is-soft {
+  background: oklch(0.62 0.08 240 / 0.14);
+  border-color: oklch(0.62 0.08 240 / 0.40);
+  color: oklch(0.42 0.10 240);
+}
+.recipe-card-lvl-pill.is-soft:hover {
+  background: oklch(0.62 0.08 240 / 0.22);
+}
+.recipe-card-lvl-pill.is-soft:focus-visible {
+  outline-color: oklch(0.42 0.10 240);
+}
+[data-theme="dark"] .recipe-card-lvl-pill.is-soft {
+  background: oklch(0.55 0.10 240 / 0.20);
+  border-color: oklch(0.55 0.10 240 / 0.50);
+  color: oklch(0.82 0.08 240);
+}
+[data-theme="dark"] .recipe-card-lvl-pill.is-soft:hover {
+  background: oklch(0.55 0.10 240 / 0.30);
 }
 </style>
