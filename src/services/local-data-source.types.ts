@@ -21,10 +21,21 @@ export interface RecipeRecord {
   qualityFactor: number
   durabilityFactor: number
   ingredients: Array<[itemId: number, amount: number]>
+  // Hard-gate signals from XIVAPI Recipe sheet. Optional for backward
+  // compatibility with older bundles built before the augment step ran.
+  isExpert?: boolean
+  requiredCraftsmanship?: number
+  requiredControl?: number
+  // Minimum quality required for a non-canHq recipe to be accepted in-game —
+  // tribe-quest / event "建造組件" deliverables. 0 = quality irrelevant.
+  requiredQuality?: number
 }
 
 export interface RltRecord {
   classJobLevel: number
+  // Recipe star count from XIVAPI RecipeLevelTable.Stars. 0 = standard recipe.
+  // Optional for backward compatibility with bundles built before the augment step.
+  stars?: number
   difficulty: number
   quality: number
   durability: number
