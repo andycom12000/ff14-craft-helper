@@ -32,6 +32,19 @@ export function isRecipeHardGated(recipe: Recipe): boolean {
   return recipeHardGateReasons(recipe).length > 0
 }
 
+const HARD_GATE_LABELS: Record<HardGateReason, string> = {
+  stars: '星級',
+  expert: '專家',
+  requiredCraftsmanship: '硬性數值門檻',
+  requiredControl: '硬性數值門檻',
+}
+
+/** Comma-joined zh-TW label for a set of hard-gate reasons, de-duplicated. */
+export function describeHardGateReasons(reasons: HardGateReason[]): string {
+  const unique = new Set(reasons.map(r => HARD_GATE_LABELS[r]))
+  return Array.from(unique).join('、')
+}
+
 /**
  * Classifies whether a gearset can attempt a recipe given its level.
  *

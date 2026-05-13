@@ -13,7 +13,7 @@ import { applyFoodBuff, applyMedicineBuff, resolveBuff, COMMON_FOODS, COMMON_MED
 import { evaluateBuffRecommendation, getBuffItemIds } from '@/services/buff-recommender'
 import { produceSelfCraftCandidates } from '@/services/self-craft-candidates'
 import { canReachHQQuality } from '@/services/feasibility-prefilter'
-import { recipeHardGateReasons } from '@/services/recipe-gating'
+import { recipeHardGateReasons, describeHardGateReasons } from '@/services/recipe-gating'
 import { fetchItemAcquisitionBatch } from '@/services/item-acquisition'
 import { fetchItemLocationsBatch } from '@/services/item-locations'
 import { fetchZoneMetaBulk, fetchNpcNameBulk } from '@/services/zone-meta'
@@ -85,11 +85,11 @@ export async function optimizeRecipe(
   //   recipe gets flagged "無法達成雙滿" → buy-finished.
   const progressFull = simResult.progress >= simResult.max_progress
   const reqQ = recipe.requiredQuality ?? 0
-  const qualityTarget = recipe.canHq
-    ? simResult.max_quality
-    : reqQ > 0 ? reqQ : 0
-  const qualityOk = simResult.quality >= qualityTarget
-  const isDoubleMax = progressFull && qualityOk
+  let qualityTarget: number
+  if (recipe.canHq) qualityTarget = simResult.max_quality
+  else if (reqQ > 0) qualityTarget = reqQ
+  else qualityTarget = 0
+  const isDoubleMax = progressFull && simResult.quality >= qualityTarget
 
   const materials = recipe.ingredients.map(i => ({
     itemId: i.itemId, name: i.name, icon: i.icon, amount: i.amount,
@@ -131,17 +131,6 @@ interface TypedMaterial extends MaterialBase {
  * cross-server has listings but no world can fulfill — that signals the caller
  * to skip (no usable price).
  */
-function describeHardGates(reasons: ReturnType<typeof recipeHardGateReasons>): string {
-  if (reasons.length === 0) return ''
-  const parts: string[] = []
-  if (reasons.includes('stars')) parts.push('星級')
-  if (reasons.includes('expert')) parts.push('專家')
-  if (reasons.includes('requiredCraftsmanship') || reasons.includes('requiredControl')) {
-    parts.push('硬性數值門檻')
-  }
-  return parts.join('、')
-}
-
 function priceFinishedProduct(
   md: MarketData | undefined,
   quantity: number,
@@ -271,7 +260,7 @@ export async function runBatchOptimization(
     if (v.kind === 'level-insufficient') {
       const gearsetLevel = v.gearset?.level ?? 0
       const details = v.gearset
-        ? `「${v.target.recipe.name}」是${describeHardGates(v.hardGates)}配方，必須達到等級 ${v.target.recipe.level} 才能合成（目前 ${v.target.recipe.job} 等級 ${gearsetLevel}）`
+        ? `「${v.target.recipe.name}」是${describeHardGateReasons(v.hardGates)}配方，必須達到等級 ${v.target.recipe.level} 才能合成（目前 ${v.target.recipe.job} 等級 ${gearsetLevel}）`
         : `尚未設定 ${v.target.recipe.job} 裝備組`
       exceptions.push({
         type: 'level-insufficient', recipe: v.target.recipe, quantity: v.target.quantity,

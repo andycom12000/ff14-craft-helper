@@ -187,33 +187,25 @@ const missingGearsetJobs = computed<string[]>(() => {
   return result
 })
 
-/* Targets below recipe level, split by whether the recipe has hard gates.
+/* Targets below recipe level, partitioned by whether the recipe has hard gates.
  * - hard: starred / expert / stat-gated — synthesis blocked in-game.
  * - soft: standard 0-star — synthesis allowed, just penalized. */
-const hardLevelTargets = computed(() => {
-  const out: { recipe: import('@/stores/recipe').Recipe; gearsetLevel: number }[] = []
+type LeveledTarget = { recipe: import('@/stores/recipe').Recipe; gearsetLevel: number }
+const partitionedLevelTargets = computed(() => {
+  const hard: LeveledTarget[] = []
+  const soft: LeveledTarget[] = []
   for (const t of batchStore.targets) {
     const gs = gearsets.getGearsetForJob(t.recipe.job)
     if (!gs) continue
     if (gs.craftsmanship === 0 && gs.control === 0) continue
-    if (checkLevelGate(t.recipe, gs.level).kind === 'hard') {
-      out.push({ recipe: t.recipe, gearsetLevel: gs.level })
-    }
+    const kind = checkLevelGate(t.recipe, gs.level).kind
+    if (kind === 'hard') hard.push({ recipe: t.recipe, gearsetLevel: gs.level })
+    else if (kind === 'soft') soft.push({ recipe: t.recipe, gearsetLevel: gs.level })
   }
-  return out
+  return { hard, soft }
 })
-const softLevelTargets = computed(() => {
-  const out: { recipe: import('@/stores/recipe').Recipe; gearsetLevel: number }[] = []
-  for (const t of batchStore.targets) {
-    const gs = gearsets.getGearsetForJob(t.recipe.job)
-    if (!gs) continue
-    if (gs.craftsmanship === 0 && gs.control === 0) continue
-    if (checkLevelGate(t.recipe, gs.level).kind === 'soft') {
-      out.push({ recipe: t.recipe, gearsetLevel: gs.level })
-    }
-  }
-  return out
-})
+const hardLevelTargets = computed(() => partitionedLevelTargets.value.hard)
+const softLevelTargets = computed(() => partitionedLevelTargets.value.soft)
 
 const missingJobsLabel = computed(() => missingGearsetJobs.value
   .map(j => JOB_NAMES[j] ?? j).join('、'))

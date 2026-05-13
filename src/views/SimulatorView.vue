@@ -10,7 +10,7 @@ import { useLocaleStore } from '@/stores/locale'
 import { formatMacros } from '@/services/macro-formatter'
 import { useSimulator } from '@/composables/useSimulator'
 import type { Recipe } from '@/stores/recipe'
-import { recipeHardGateReasons } from '@/services/recipe-gating'
+import { recipeHardGateReasons, describeHardGateReasons } from '@/services/recipe-gating'
 
 import StatusBar from '@/components/simulator/StatusBar.vue'
 import BuffDisplay from '@/components/simulator/BuffDisplay.vue'
@@ -195,17 +195,7 @@ const softWarnLabel = computed(() => {
   return `將套用進度 ${rlt.progressModifier}%、品質 ${rlt.qualityModifier}% 的低等懲罰`
 })
 
-const hardGateLabel = computed(() => {
-  const reasons = recipeHardGates.value
-  if (reasons.length === 0) return ''
-  const parts: string[] = []
-  if (reasons.includes('stars')) parts.push('星級')
-  if (reasons.includes('expert')) parts.push('專家')
-  if (reasons.includes('requiredCraftsmanship') || reasons.includes('requiredControl')) {
-    parts.push('硬性數值門檻')
-  }
-  return parts.join('、')
-})
+const hardGateLabel = computed(() => describeHardGateReasons(recipeHardGates.value))
 
 const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardBlock.value)
 </script>
