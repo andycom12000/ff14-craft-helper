@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useWorkshopProjectsStore, getProjectProgress } from '@/stores/workshop-projects'
-import { loadCompanyCraft } from '@/services/local-data-source'
+import { loadCompanyCraft, loadItems } from '@/services/local-data-source'
 import type { CompanyCraftSequence } from '@/services/local-data-source.types'
 import { useBomStore } from '@/stores/bom'
 import { trackEvent } from '@/utils/analytics'
@@ -73,7 +73,11 @@ async function onDelete(id: string) {
 
 onMounted(async () => {
   try {
-    sequences.value = await loadCompanyCraft()
+    const [seqs] = await Promise.all([
+      loadCompanyCraft(),
+      loadItems(),
+    ])
+    sequences.value = seqs
   } catch (err) {
     loadError.value = err instanceof Error ? err.message : String(err)
   }
@@ -82,7 +86,11 @@ onMounted(async () => {
 async function retryLoad() {
   loadError.value = null
   try {
-    sequences.value = await loadCompanyCraft()
+    const [seqs] = await Promise.all([
+      loadCompanyCraft(),
+      loadItems(),
+    ])
+    sequences.value = seqs
   } catch (err) {
     loadError.value = err instanceof Error ? err.message : String(err)
   }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import type { CompanyCraftCategory, CompanyCraftSequence, PartSlot } from '@/services/local-data-source.types'
-import { listCompanyCraftByCategory, getItemSync } from '@/services/local-data-source'
+import { listCompanyCraftByCategory, getItemSync, itemsCacheVersion } from '@/services/local-data-source'
 import { getTotalMaterials, useWorkshopProjectsStore } from '@/stores/workshop-projects'
 import type { WorkshopProject } from '@/stores/workshop-projects'
 import { CATEGORY_META, SLOT_LABEL } from '@/utils/company-craft-labels'
@@ -33,6 +33,7 @@ const slotChoices = ref<Record<PartSlot, number | null>>({
 })
 
 const slotOptions = computed(() => {
+  void itemsCacheVersion.value  // reactivity: re-derive labels when items load
   if (!category.value || category.value === 'workshop') {
     return { bow: [], stern: [], hull: [], bridge: [] } as Record<PartSlot, CompanyCraftSequence[]>
   }
@@ -47,6 +48,7 @@ const workshopPickId = ref<number | null>(null)
 const workshopFilter = ref('')
 
 const workshopMatches = computed(() => {
+  void itemsCacheVersion.value  // reactivity: re-derive labels when items load
   if (category.value !== 'workshop') return []
   const all = listCompanyCraftByCategory('workshop')
   const q = workshopFilter.value.trim().toLowerCase()
