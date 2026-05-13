@@ -254,6 +254,13 @@ watch(
   /* Project cards added in Task 12 */
 }
 
+/* ── Mobile ─────────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .company-craft-view { padding: 12px 12px 80px; }
+  .cc-header { margin-bottom: 20px; }
+  .cc-toolbar { flex-wrap: wrap; gap: 10px; }
+}
+
 /* ── Error state ────────────────────────────────────────────────────────────── */
 .cc-error {
   padding: 32px;

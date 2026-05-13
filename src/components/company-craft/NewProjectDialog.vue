@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import type { CompanyCraftCategory, CompanyCraftSequence, PartSlot } from '@/services/local-data-source.types'
 import { listCompanyCraftByCategory, getItemSync } from '@/services/local-data-source'
 import { getTotalMaterials, useWorkshopProjectsStore } from '@/stores/workshop-projects'
@@ -143,6 +143,20 @@ watch(visible, v => {
   if (v) reset()
 })
 
+const isMobile = ref(false)
+let mq: MediaQueryList | null = null
+function handleMqChange(e: MediaQueryListEvent) {
+  isMobile.value = e.matches
+}
+onMounted(() => {
+  mq = window.matchMedia('(max-width: 640px)')
+  isMobile.value = mq.matches
+  mq.addEventListener('change', handleMqChange)
+})
+onUnmounted(() => {
+  mq?.removeEventListener('change', handleMqChange)
+})
+
 function pickCategory(c: CompanyCraftCategory) {
   category.value = c
 }
@@ -157,7 +171,7 @@ function prevStep() {
 </script>
 
 <template>
-  <el-dialog v-model="visible" :width="560" :show-close="false" align-center class="cc-dialog">
+  <el-dialog v-model="visible" :width="560" :show-close="false" align-center class="cc-dialog" :fullscreen="isMobile">
     <template #header>
       <div class="head">
         <h4>{{ step === 1 ? '新增專案' : step === 2 ? '配置零件' : '命名專案' }}</h4>
