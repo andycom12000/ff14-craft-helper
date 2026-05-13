@@ -3,7 +3,8 @@ import { ref, computed, h, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useWorkshopProjectsStore, getProjectProgress } from '@/stores/workshop-projects'
-import { loadCompanyCraft, loadItems, loadExtraItems } from '@/services/local-data-source'
+import { loadCompanyCraft, loadItems, loadExtraItems, getItemSync } from '@/services/local-data-source'
+import { getIconUrl } from '@/utils/icon-url'
 import type { CompanyCraftSequence } from '@/services/local-data-source.types'
 import { useLocaleStore } from '@/stores/locale'
 import { useBomStore } from '@/stores/bom'
@@ -42,12 +43,22 @@ function onSync(projectId: string) {
     t => t.kind === 'company-craft-project' && t.projectId === projectId,
   )
   if (!linked) {
+    // Pick a representative icon: the first sequence's result item.
+    // The project itself has no inherent icon; this gives the BOM row a
+    // recognizable visual without inventing a generic placeholder.
+    let icon = ''
+    const firstSeqRef = proj.sequences[0]
+    if (firstSeqRef) {
+      const seq = seqById.value.get(firstSeqRef.sequenceId)
+      const item = seq ? getItemSync(seq.resultItemId, localeStore.current) : null
+      if (item?.iconId) icon = getIconUrl(item.iconId)
+    }
     bom.addTarget({
       kind: 'company-craft-project',
       projectId,
       itemId: -1,
       name: proj.name,
-      icon: '',
+      icon,
       quantity: 1,
     })
   }

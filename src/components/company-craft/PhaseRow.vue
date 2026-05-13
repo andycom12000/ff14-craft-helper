@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, h } from 'vue'
+import { computed, h, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { CompanyCraftPhase } from '@/services/local-data-source.types'
 import {
@@ -7,9 +7,13 @@ import {
   serializePhaseKey,
   isPhaseComplete,
 } from '@/stores/workshop-projects'
+import { getItemSync, itemsCacheVersion } from '@/services/local-data-source'
+import { useLocaleStore } from '@/stores/locale'
+import { getIconUrl } from '@/utils/icon-url'
 import ItemName from '@/components/common/ItemName.vue'
 import SupplyItemCounter from './SupplyItemCounter.vue'
 import { trackEvent } from '@/utils/analytics'
+import { getJobNameShort } from '@/utils/jobs'
 
 const props = defineProps<{
   projectId: string
@@ -22,6 +26,16 @@ const emit = defineEmits<{
 }>()
 
 const store = useWorkshopProjectsStore()
+const localeStore = useLocaleStore()
+
+const supplyIconUrls = computed(() => {
+  void itemsCacheVersion.value
+  const locale = localeStore.current
+  return props.phase.supplyItems.map(s => {
+    const item = getItemSync(s.itemId, locale)
+    return item?.iconId ? getIconUrl(item.iconId) : ''
+  })
+})
 
 const phaseKey = computed(() => serializePhaseKey({
   sequenceId: props.sequenceId,
@@ -53,6 +67,18 @@ const progressPct = computed(() =>
 )
 
 const started = computed(() => deliveredCount.value > 0)
+
+const expandedComplete = ref(false)
+watch(complete, (isComplete) => {
+  if (!isComplete) expandedComplete.value = false
+})
+
+function resetPhase() {
+  for (let i = 0; i < props.phase.supplyItems.length; i++) {
+    store.setDelivered(props.projectId, phaseKey.value, i, 0)
+  }
+  expandedComplete.value = false
+}
 
 function markPhaseAndAdvance() {
   const prev: number[] = []
@@ -89,31 +115,53 @@ function markPhaseAndAdvance() {
 
 <template>
   <div class="phase-row" :class="{ active: started && !complete, done: complete }">
-    <div class="head">
+    <component
+      :is="complete ? 'button' : 'div'"
+      :type="complete ? 'button' : undefined"
+      class="head"
+      :class="{ 'head-clickable': complete }"
+      :aria-expanded="complete ? expandedComplete : undefined"
+      @click="complete && (expandedComplete = !expandedComplete)"
+    >
       <span class="status" :class="{ done: complete, active: started && !complete }">
         <template v-if="complete">✓</template>
         <template v-else-if="started">●</template>
       </span>
       <span class="job-badge" :class="{ idle: !started && !complete }">
-        {{ phase.jobAbbr }}{{ phase.level ? ' ' + phase.level : '' }}
+        {{ getJobNameShort(phase.jobAbbr) }}{{ phase.level ? ' ' + phase.level : '' }}
       </span>
-      <span class="name">Phase {{ phase.processIndex + 1 }}</span>
+      <span class="name">
+        <span v-if="complete" class="head-caret" aria-hidden="true">{{ expandedComplete ? '▾' : '▸' }}</span>
+        Phase {{ phase.processIndex + 1 }}
+      </span>
       <span class="progress">
-        {{ complete ? '完成' : (started ? `進行中 ${progressPct}%` : '未開工') }}
+        <template v-if="complete">完成</template>
+        <template v-else-if="started">進行中 {{ progressPct }}%</template>
+        <template v-else>未開工</template>
       </span>
-    </div>
+    </component>
 
     <div v-if="started && !complete" class="mini-progress">
       <div class="fill" :style="{ transform: `scaleX(${progressPct / 100})` }" />
     </div>
 
-    <div v-if="!complete" class="supplies">
+    <div v-if="!complete || expandedComplete" class="supplies">
       <label
         v-for="(supply, i) in phase.supplyItems"
         :key="i"
         class="supply"
       >
         <span class="supply-name">
+          <img
+            v-if="supplyIconUrls[i]"
+            :src="supplyIconUrls[i]"
+            class="supply-icon"
+            alt=""
+            width="20"
+            height="20"
+            loading="lazy"
+          />
+          <span v-else class="supply-icon supply-icon-placeholder" aria-hidden="true" />
           <ItemName :item-id="supply.itemId" :fallback="`#${supply.itemId}`" />
         </span>
         <SupplyItemCounter
@@ -128,6 +176,11 @@ function markPhaseAndAdvance() {
     <div v-if="!complete" class="actions">
       <el-button size="small" class="phase-cta" @click="markPhaseAndAdvance">
         完成此階段 →
+      </el-button>
+    </div>
+    <div v-else-if="expandedComplete" class="actions">
+      <el-button size="small" class="reset-cta" @click="resetPhase">
+        ↻ 重設此階段
       </el-button>
     </div>
   </div>
@@ -148,6 +201,33 @@ function markPhaseAndAdvance() {
   grid-template-columns: 22px 80px 1fr auto;
   gap: 12px;
   align-items: center;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+}
+.head-clickable {
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background-color 0.12s var(--ease-out-quart, cubic-bezier(0.25, 1, 0.5, 1));
+}
+.head-clickable:hover {
+  background: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 4%, transparent);
+}
+.head-clickable:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+.head-caret {
+  display: inline-block;
+  width: 14px;
+  font-size: 11px;
+  color: var(--app-text-muted);
+  margin-right: 4px;
 }
 .status {
   width: 18px;
@@ -214,13 +294,39 @@ function markPhaseAndAdvance() {
 }
 .supply {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr 200px;
   align-items: center;
-  padding: 5px 0;
+  gap: 12px;
+  padding: 6px 0;
   border-bottom: 1px dashed var(--app-border);
 }
 .supply:last-child { border-bottom: 0; }
-.supply-name { font-size: 13px; }
+.supply-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  min-width: 0;
+}
+.supply-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 6%, transparent);
+  object-fit: cover;
+}
+.supply-icon-placeholder {
+  border: 1px dashed var(--app-border);
+  background: transparent;
+}
+
+@media (max-width: 640px) {
+  .supply {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}
 .actions {
   margin: 10px 0 4px 116px;
   display: flex;
@@ -241,6 +347,18 @@ function markPhaseAndAdvance() {
   outline: 2px solid var(--app-accent);
   outline-offset: 2px;
 }
+.actions :deep(.reset-cta) {
+  background: transparent;
+  color: var(--app-text-muted);
+  border: 1px solid var(--app-border);
+  font-weight: 500;
+}
+.actions :deep(.reset-cta:hover) {
+  color: var(--app-danger);
+  border-color: color-mix(in srgb, var(--app-danger) 40%, transparent);
+  background: color-mix(in srgb, var(--app-danger) 5%, transparent);
+}
+
 
 @media (max-width: 640px) {
   .head { grid-template-columns: 22px 80px 1fr; }

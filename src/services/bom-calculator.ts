@@ -53,7 +53,18 @@ async function expandNode(
   depth: number,
   maxDepth: number,
   ancestorIds: Set<number>,
+  resolveItemMeta?: (itemId: number) => { name: string; icon: string } | null,
 ): Promise<MaterialNode> {
+  // Fill missing name/icon (company-craft children arrive without them since
+  // they don't come from a recipe-fetch path that carries icons).
+  if ((!name || !icon) && resolveItemMeta) {
+    const meta = resolveItemMeta(itemId)
+    if (meta) {
+      if (!name) name = meta.name
+      if (!icon) icon = meta.icon
+    }
+  }
+
   // Stop conditions: max depth, cycle detection, or crystal/base material
   if (depth >= maxDepth || ancestorIds.has(itemId) || itemId < RAW_ITEM_ID_THRESHOLD) {
     return { itemId, name, icon, amount }
@@ -81,6 +92,7 @@ async function expandNode(
         depth + 1,
         maxDepth,
         newAncestors,
+        resolveItemMeta,
       ),
     ),
   )
@@ -102,6 +114,15 @@ export interface BuildMaterialTreeContext {
    * Returns null when the project is missing or the callback is not wired.
    */
   resolveProjectRemaining?: (projectId: string) => Map<number, number> | null
+
+  /**
+   * Look up an item's display name and icon URL by itemId. Called by
+   * expandNode whenever a child arrives with empty name/icon — typically
+   * the direct children of a company-craft-project target, which don't
+   * come from a recipe-fetch path that carries that data. Returns null
+   * when the item is unknown to the local items shard.
+   */
+  resolveItemMeta?: (itemId: number) => { name: string; icon: string } | null
 }
 
 /**
@@ -129,7 +150,7 @@ export async function buildMaterialTree(
         const ancestorIds = new Set<number>()
         const children = await Promise.all(
           [...remaining.entries()].map(([itemId, amount]) =>
-            expandNode(itemId, '', '', amount, 1, maxDepth, ancestorIds),
+            expandNode(itemId, '', '', amount, 1, maxDepth, ancestorIds, ctx.resolveItemMeta),
           ),
         )
         return {
@@ -171,6 +192,7 @@ export async function buildMaterialTree(
             1,
             maxDepth,
             ancestorIds,
+            ctx.resolveItemMeta,
           ),
         ),
       )

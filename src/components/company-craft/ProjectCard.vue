@@ -54,10 +54,18 @@ const partsLabel = computed(() => {
   <article class="card">
     <header class="card-head">
       <div class="card-icon">{{ meta.icon }}</div>
-      <div class="card-title-block">
-        <h3 class="card-title">{{ project.name }}</h3>
+      <button
+        type="button"
+        class="card-title-block"
+        :aria-expanded="!!expanded"
+        @click="emit('expand', project.id)"
+      >
+        <h3 class="card-title">
+          <span class="title-caret" aria-hidden="true">{{ expanded ? '▾' : '▸' }}</span>
+          {{ project.name }}
+        </h3>
         <div class="card-sub">{{ meta.label }} · {{ partsLabel }}</div>
-      </div>
+      </button>
       <div class="card-actions">
         <el-dropdown trigger="click">
           <el-button text class="kebab">⋯</el-button>
@@ -124,6 +132,23 @@ const partsLabel = computed(() => {
 .card-title-block {
   flex: 1;
   min-width: 0;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  border-radius: 6px;
+  transition: background-color 0.12s var(--ease-out-quart, cubic-bezier(0.25, 1, 0.5, 1));
+}
+.card-title-block:hover {
+  background: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 4%, transparent);
+}
+.card-title-block:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
 }
 
 .card-title {
@@ -134,6 +159,16 @@ const partsLabel = computed(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.title-caret {
+  display: inline-block;
+  width: 12px;
+  font-size: 12px;
+  color: var(--app-text-muted);
+  flex-shrink: 0;
 }
 
 .card-sub {

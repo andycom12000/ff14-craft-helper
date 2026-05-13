@@ -24,6 +24,7 @@ const value = computed({
       :min="0"
       :max="max"
       size="small"
+      class="counter-input"
     />
     <span class="max">/ {{ max }}</span>
   </span>
@@ -31,13 +32,22 @@ const value = computed({
 
 <style scoped>
 .counter {
-  display: inline-flex;
+  display: inline-grid;
+  grid-template-columns: 1fr 52px;
   align-items: center;
-  gap: 6px;
-  font-family: 'Fira Code', monospace;
+  gap: 8px;
+  font-family: 'Fira Code', 'JetBrains Mono', ui-monospace, monospace;
+  width: 100%;
+}
+.counter :deep(.counter-input) {
+  width: 100%;
+  min-width: 0;
 }
 .max {
   color: var(--app-text-muted);
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  white-space: nowrap;
 }
 </style>

@@ -17,7 +17,8 @@ import { useBomStore } from '@/stores/bom'
 import { useBatchStore } from '@/stores/batch'
 import { useLocaleStore } from '@/stores/locale'
 import { useWorkshopProjectsStore, getRemainingMaterials } from '@/stores/workshop-projects'
-import { loadingState, loadCompanyCraft } from '@/services/local-data-source'
+import { loadingState, loadCompanyCraft, getItemSync } from '@/services/local-data-source'
+import { getIconUrl } from '@/utils/icon-url'
 import type { CompanyCraftSequence } from '@/services/local-data-source.types'
 import { buildMaterialTree, flattenMaterialTree } from '@/services/bom-calculator'
 import { getRecipe } from '@/api/xivapi'
@@ -129,11 +130,20 @@ async function handleCalculate() {
       console.warn('[BomView] CompanyCraft data unavailable:', e)
     }
     const seqById = new Map(sequencesCache.value.map(s => [s.id, s]))
+    const locale = localeStore.current
     const tree = await buildMaterialTree(bomStore.targets, undefined, {
       resolveProjectRemaining: (id) => {
         const proj = workshopStore.getProject(id)
         if (!proj) return null
         return getRemainingMaterials(proj, sequencesCache.value, seqById)
+      },
+      resolveItemMeta: (itemId) => {
+        const item = getItemSync(itemId, locale)
+        if (!item) return null
+        return {
+          name: item.name,
+          icon: item.iconId ? getIconUrl(item.iconId) : '',
+        }
       },
     })
     bomStore.materialTree = tree
