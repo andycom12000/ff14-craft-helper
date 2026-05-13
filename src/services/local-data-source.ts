@@ -9,6 +9,10 @@ import type {
   RecipeSearchResult,
   ItemTuple,
   ItemsFile,
+  CompanyCraftSequence,
+  CompanyCraftFile,
+  CompanyCraftCategory,
+  PartSlot,
 } from './local-data-source.types'
 import { LOCALES, DEFAULT_LOCALE } from './local-data-source.types'
 
@@ -91,6 +95,9 @@ function setGlobalFlag(key: 'recipes' | 'rlt', value: boolean): void {
 let recipesPromise: Promise<RecipeRecord[]> | null = null
 let rltPromise: Promise<Map<number, RltRecord>> | null = null
 let manifestPromise: Promise<Manifest> | null = null
+let companyCraftPromise: Promise<CompanyCraftSequence[]> | null = null
+const companyCraftById = new Map<number, CompanyCraftSequence>()
+const companyCraftByCategory = new Map<string, CompanyCraftSequence[]>()
 const itemsPromises = new Map<Locale, Promise<Map<number, ItemRecord>>>()
 const itemsCache = new Map<Locale, Map<number, ItemRecord>>()
 
@@ -295,6 +302,44 @@ export async function loadManifest(): Promise<Manifest> {
   return manifestPromise
 }
 
+export async function loadCompanyCraft(): Promise<CompanyCraftSequence[]> {
+  if (companyCraftPromise) return companyCraftPromise
+  companyCraftPromise = (async () => {
+    try {
+      const data = await fetchJson<CompanyCraftFile>(dataUrl('/data/company-craft.json'))
+      if (data.schemaVersion !== 1) {
+        throw new Error(`company-craft.json: unsupported schemaVersion ${(data as { schemaVersion?: number }).schemaVersion}`)
+      }
+      companyCraftById.clear()
+      companyCraftByCategory.clear()
+      for (const seq of data.sequences) {
+        companyCraftById.set(seq.id, seq)
+        const list = companyCraftByCategory.get(seq.category) ?? []
+        list.push(seq)
+        companyCraftByCategory.set(seq.category, list)
+      }
+      return data.sequences
+    } catch (err) {
+      companyCraftPromise = null
+      throw err
+    }
+  })()
+  return companyCraftPromise
+}
+
+export function getCompanyCraftSequence(id: number): CompanyCraftSequence | null {
+  return companyCraftById.get(id) ?? null
+}
+
+export function listCompanyCraftByCategory(
+  category: CompanyCraftCategory,
+  partSlot?: PartSlot,
+): CompanyCraftSequence[] {
+  const all = companyCraftByCategory.get(category) ?? []
+  if (!partSlot) return all
+  return all.filter(s => s.partSlot === partSlot)
+}
+
 // ---------------- Accessors ----------------
 
 export async function getItem(id: number, locale?: Locale): Promise<ItemRecord | undefined> {
@@ -447,6 +492,9 @@ export function __resetForTesting(): void {
   recipesPromise = null
   rltPromise = null
   manifestPromise = null
+  companyCraftPromise = null
+  companyCraftById.clear()
+  companyCraftByCategory.clear()
   itemsPromises.clear()
   itemsCache.clear()
   extraItemsPromises.clear()
