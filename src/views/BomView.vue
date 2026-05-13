@@ -16,7 +16,9 @@ import { useObserverFlag } from '@/composables/useObserverFlag'
 import { useBomStore } from '@/stores/bom'
 import { useBatchStore } from '@/stores/batch'
 import { useLocaleStore } from '@/stores/locale'
-import { loadingState } from '@/services/local-data-source'
+import { useWorkshopProjectsStore, getRemainingMaterials } from '@/stores/workshop-projects'
+import { loadingState, loadCompanyCraft } from '@/services/local-data-source'
+import type { CompanyCraftSequence } from '@/services/local-data-source.types'
 import { buildMaterialTree, flattenMaterialTree } from '@/services/bom-calculator'
 import { getRecipe } from '@/api/xivapi'
 import { trackEvent } from '@/utils/analytics'
@@ -24,7 +26,16 @@ import { trackEvent } from '@/utils/analytics'
 const bomStore = useBomStore()
 const batchStore = useBatchStore()
 const localeStore = useLocaleStore()
+const workshopStore = useWorkshopProjectsStore()
 const router = useRouter()
+
+const sequencesCache = ref<CompanyCraftSequence[]>([])
+
+async function ensureCompanyCraftLoaded() {
+  if (sequencesCache.value.length === 0) {
+    sequencesCache.value = await loadCompanyCraft()
+  }
+}
 
 const isLoadingData = computed(() => {
   const s = loadingState[localeStore.current]
@@ -111,7 +122,20 @@ async function handleCalculate() {
 
   try {
     loadingMessage.value = '正在展開子配方...'
-    const tree = await buildMaterialTree(bomStore.targets)
+    try {
+      await ensureCompanyCraftLoaded()
+    } catch (e) {
+      // sequencesCache stays empty; resolveProjectRemaining returns null
+      console.warn('[BomView] CompanyCraft data unavailable:', e)
+    }
+    const seqById = new Map(sequencesCache.value.map(s => [s.id, s]))
+    const tree = await buildMaterialTree(bomStore.targets, undefined, {
+      resolveProjectRemaining: (id) => {
+        const proj = workshopStore.getProject(id)
+        if (!proj) return null
+        return getRemainingMaterials(proj, sequencesCache.value, seqById)
+      },
+    })
     bomStore.materialTree = tree
 
     loadingMessage.value = '正在整理購物清單...'
@@ -288,6 +312,29 @@ watch(npcGatherSig, () => {
 watch(bomViewTab, async (v) => {
   if (v === 'route') await primeRouteData()
 }, { immediate: true })
+
+// ─── Reactive sync: workshop project progress → re-calculate ───────────────
+// When any linked company-craft-project target has its progress updated,
+// the signature changes and we debounce a re-calculate so the BOM totals
+// reflect remaining materials rather than full quantities.
+
+const linkedProjectSig = computed(() => {
+  const ids = bomStore.targets
+    .filter((t): t is import('@/stores/bom').CompanyCraftProjectBomTarget => t.kind === 'company-craft-project')
+    .map(t => t.projectId)
+  return `${ids.join(',')}::${workshopStore.progressVersion}`
+})
+
+let recalcTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(linkedProjectSig, () => {
+  if (!calculated.value || bomStore.targets.length === 0) return
+  if (recalcTimer) clearTimeout(recalcTimer)
+  recalcTimer = setTimeout(() => {
+    void handleCalculate()
+    ElMessage({ type: 'info', message: '素材清單已更新', duration: 2000 })
+  }, 300)
+})
 
 // ─── Receipt ↔ Strip swap ─────────────────────────────────────────────────
 // The full Receipt sits in flow at the top of Section 2; the slim Strip
