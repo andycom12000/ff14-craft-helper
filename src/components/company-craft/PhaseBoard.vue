@@ -22,6 +22,8 @@ const linkedSequences = computed(() =>
     .filter((x): x is { ref: typeof x.ref; seq: CompanyCraftSequence } => !!x.seq),
 )
 
+const boardRef = ref<HTMLElement | null>(null)
+
 const expandedParts = ref<Set<number>>(new Set())
 
 function togglePart(seqId: number) {
@@ -36,14 +38,16 @@ function isPartExpanded(seqId: number) {
 
 function onMarkNext(seqId: number) {
   nextTick(() => {
-    const rows = document.querySelectorAll(`.part-group[data-seq="${seqId}"] .phase-row:not(.done)`)
-    if (rows.length > 0) (rows[0] as HTMLElement).scrollIntoView({ block: 'center', behavior: 'smooth' })
+    const target = boardRef.value?.querySelector(
+      `.part-group[data-seq="${seqId}"] .phase-row:not(.done)`
+    )
+    ;(target as HTMLElement | null)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
   })
 }
 </script>
 
 <template>
-  <div class="phase-board">
+  <div class="phase-board" ref="boardRef">
     <div
       v-for="{ seq } in linkedSequences"
       :key="seq.id"

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { WorkshopProject } from '@/stores/workshop-projects'
-import { getProjectProgress, getRemainingMaterials } from '@/stores/workshop-projects'
+import { getProjectProgressDetail, getRemainingMaterials } from '@/stores/workshop-projects'
 import type { CompanyCraftSequence } from '@/services/local-data-source.types'
 import { useBomStore } from '@/stores/bom'
 import { CATEGORY_META } from '@/utils/company-craft-labels'
@@ -26,21 +26,12 @@ const seqByIdLocal = computed(
   () => props.seqById ?? new Map(props.sequences.map(s => [s.id, s])),
 )
 
-const progress = computed(() =>
-  getProjectProgress(props.project, props.sequences, seqByIdLocal.value),
+const detail = computed(() =>
+  getProjectProgressDetail(props.project, props.sequences, seqByIdLocal.value),
 )
-const progressPct = computed(() => Math.round(progress.value * 100))
-
-const totalPhases = computed(() => {
-  let n = 0
-  for (const r of props.project.sequences) {
-    const seq = seqByIdLocal.value.get(r.sequenceId)
-    if (seq) n += seq.phases.length
-  }
-  return n
-})
-
-const donePhases = computed(() => Math.round(progress.value * totalPhases.value))
+const progressPct = computed(() => Math.round(detail.value.ratio * 100))
+const donePhases = computed(() => detail.value.done)
+const totalPhases = computed(() => detail.value.total)
 
 const remainingCount = computed(() => {
   const m = getRemainingMaterials(props.project, props.sequences, seqByIdLocal.value)

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, watch } from 'vue'
+import { ref, computed, nextTick, watch, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import BomTargetList from '@/components/bom/BomTargetList.vue'
@@ -334,6 +334,13 @@ watch(linkedProjectSig, () => {
     void handleCalculate()
     ElMessage({ type: 'info', message: '素材清單已更新', duration: 2000 })
   }, 300)
+})
+
+onBeforeUnmount(() => {
+  if (recalcTimer) {
+    clearTimeout(recalcTimer)
+    recalcTimer = null
+  }
 })
 
 // ─── Receipt ↔ Strip swap ─────────────────────────────────────────────────

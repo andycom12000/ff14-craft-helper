@@ -20,8 +20,6 @@ const sequences = ref<CompanyCraftSequence[]>([])
 const dataReady = computed(() => sequences.value.length > 0)
 const loadError = ref<string | null>(null)
 
-const activeProjects = computed(() => workshopStore.activeProjects)
-
 const seqById = computed(() => new Map(sequences.value.map(s => [s.id, s])))
 
 const expandedId = ref<string | null>(null)
@@ -110,7 +108,7 @@ watch(
 </script>
 
 <template>
-  <div class="company-craft-view" v-loading="!dataReady">
+  <div class="company-craft-view" v-loading="!dataReady && !loadError">
     <header class="cc-header">
       <span class="cc-eyebrow">工坊圖紙 · BLUEPRINTS</span>
       <h2>部隊工坊 <span class="cc-beta" aria-label="實驗中">實驗中</span></h2>
@@ -124,17 +122,17 @@ watch(
     </div>
     <template v-else>
       <ProjectEmptyState
-        v-if="activeProjects.length === 0"
+        v-if="workshopStore.activeProjects.length === 0"
         @open-new="newDialogOpen = true"
       />
 
       <div v-else class="cc-projects">
         <div class="cc-toolbar">
           <el-button type="primary" @click="newDialogOpen = true">+&nbsp;&nbsp;新增專案</el-button>
-          <span class="cc-counter">{{ activeProjects.length }} 個進行中</span>
+          <span class="cc-counter">{{ workshopStore.activeProjects.length }} 個進行中</span>
         </div>
         <ProjectCard
-          v-for="p in activeProjects"
+          v-for="p in workshopStore.activeProjects"
           :key="p.id"
           :project="p"
           :sequences="sequences"
@@ -247,11 +245,6 @@ watch(
 .cc-counter {
   font-size: 13px;
   color: var(--app-text-muted);
-}
-
-/* ── Projects area ──────────────────────────────────────────────────────────── */
-.cc-projects {
-  /* Project cards added in Task 12 */
 }
 
 /* ── Mobile ─────────────────────────────────────────────────────────────────── */

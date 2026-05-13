@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { CompanyCraftCategory, CompanyCraftSequence, PartSlot } from '@/services/local-data-source.types'
 import { listCompanyCraftByCategory, getItemSync } from '@/services/local-data-source'
 import { getTotalMaterials, useWorkshopProjectsStore } from '@/stores/workshop-projects'
+import type { WorkshopProject } from '@/stores/workshop-projects'
 import { CATEGORY_META, SLOT_LABEL } from '@/utils/company-craft-labels'
 import ItemName from '@/components/common/ItemName.vue'
 import { trackEvent } from '@/utils/analytics'
+import { useIsMobile } from '@/composables/useMediaQuery'
 
 const props = defineProps<{ modelValue: boolean }>()
 const emit = defineEmits<{
@@ -83,7 +85,7 @@ const estimate = computed(() => {
     sequences: selectedSequences.value.map(s => ({ sequenceId: s.id })),
     phaseProgress: {},
   }
-  const totals = getTotalMaterials(fakeProj as never, selectedSequences.value)
+  const totals = getTotalMaterials(fakeProj as WorkshopProject, selectedSequences.value)
   const kinds = totals.size
   let totalPhases = 0
   for (const s of selectedSequences.value) totalPhases += s.phases.length
@@ -143,19 +145,7 @@ watch(visible, v => {
   if (v) reset()
 })
 
-const isMobile = ref(false)
-let mq: MediaQueryList | null = null
-function handleMqChange(e: MediaQueryListEvent) {
-  isMobile.value = e.matches
-}
-onMounted(() => {
-  mq = window.matchMedia('(max-width: 640px)')
-  isMobile.value = mq.matches
-  mq.addEventListener('change', handleMqChange)
-})
-onUnmounted(() => {
-  mq?.removeEventListener('change', handleMqChange)
-})
+const isMobile = useIsMobile()
 
 function pickCategory(c: CompanyCraftCategory) {
   category.value = c

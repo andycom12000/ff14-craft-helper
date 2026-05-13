@@ -102,13 +102,19 @@ export function getRemainingMaterials(
   return out
 }
 
-export function getProjectProgress(
+export interface ProjectProgressDetail {
+  done: number
+  total: number
+  ratio: number
+}
+
+export function getProjectProgressDetail(
   project: WorkshopProject,
   sequences: CompanyCraftSequence[],
   seqById: Map<number, CompanyCraftSequence> = new Map(sequences.map(s => [s.id, s])),
-): number {
-  let totalPhases = 0
-  let donePhases = 0
+): ProjectProgressDetail {
+  let total = 0
+  let done = 0
   for (const ref of project.sequences) {
     const seq = seqById.get(ref.sequenceId)
     if (!seq) continue
@@ -118,11 +124,19 @@ export function getProjectProgress(
         partIndex: phase.partIndex,
         processIndex: phase.processIndex,
       })
-      totalPhases += 1
-      if (isPhaseComplete(project, phase, phaseKey)) donePhases += 1
+      total += 1
+      if (isPhaseComplete(project, phase, phaseKey)) done += 1
     }
   }
-  return totalPhases === 0 ? 0 : donePhases / totalPhases
+  return { done, total, ratio: total === 0 ? 0 : done / total }
+}
+
+export function getProjectProgress(
+  project: WorkshopProject,
+  sequences: CompanyCraftSequence[],
+  seqById?: Map<number, CompanyCraftSequence>,
+): number {
+  return getProjectProgressDetail(project, sequences, seqById).ratio
 }
 
 export const useWorkshopProjectsStore = defineStore('workshop-projects', () => {
@@ -189,13 +203,11 @@ export const useWorkshopProjectsStore = defineStore('workshop-projects', () => {
     if (proj) delete proj.completedAt
   }
 
-  const projectCount = computed(() => projects.value.length)
   const activeProjects = computed(() => projects.value.filter(p => !p.completedAt))
 
   return {
     projects,
     progressVersion,
-    projectCount,
     activeProjects,
     getProject,
     createProject,
