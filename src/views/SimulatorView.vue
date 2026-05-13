@@ -2354,6 +2354,8 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
 }
 .gearset-banner.is-soft .gearset-banner-title { color: oklch(0.32 0.11 70); }
 .gearset-banner.is-soft .gearset-banner-desc { color: oklch(0.42 0.12 70); }
+[data-theme="dark"] .gearset-banner.is-soft .gearset-banner-title { color: oklch(0.90 0.10 75); }
+[data-theme="dark"] .gearset-banner.is-soft .gearset-banner-desc { color: oklch(0.80 0.09 75); }
 
 @media (max-width: 640px) {
   .gearset-banner {
