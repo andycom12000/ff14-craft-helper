@@ -3,8 +3,9 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useWorkshopProjectsStore, getProjectProgress } from '@/stores/workshop-projects'
-import { loadCompanyCraft, loadItems } from '@/services/local-data-source'
+import { loadCompanyCraft, loadItems, loadExtraItems } from '@/services/local-data-source'
 import type { CompanyCraftSequence } from '@/services/local-data-source.types'
+import { useLocaleStore } from '@/stores/locale'
 import { useBomStore } from '@/stores/bom'
 import { trackEvent } from '@/utils/analytics'
 import ProjectEmptyState from '@/components/company-craft/ProjectEmptyState.vue'
@@ -14,6 +15,7 @@ import NewProjectDialog from '@/components/company-craft/NewProjectDialog.vue'
 const router = useRouter()
 const workshopStore = useWorkshopProjectsStore()
 const bom = useBomStore()
+const localeStore = useLocaleStore()
 const newDialogOpen = ref(false)
 
 const sequences = ref<CompanyCraftSequence[]>([])
@@ -75,7 +77,8 @@ onMounted(async () => {
   try {
     const [seqs] = await Promise.all([
       loadCompanyCraft(),
-      loadItems(),
+      loadItems(localeStore.current),
+      loadExtraItems(localeStore.current),
     ])
     sequences.value = seqs
   } catch (err) {
@@ -88,7 +91,8 @@ async function retryLoad() {
   try {
     const [seqs] = await Promise.all([
       loadCompanyCraft(),
-      loadItems(),
+      loadItems(localeStore.current),
+      loadExtraItems(localeStore.current),
     ])
     sequences.value = seqs
   } catch (err) {

@@ -257,7 +257,7 @@ export async function loadItems(locale?: Locale): Promise<Map<number, ItemRecord
  * No locale fallback here — getItem walks both target-locale and zh-TW extra
  * shards explicitly when a miss persists.
  */
-async function loadExtraItems(locale: Locale): Promise<Map<number, ItemRecord>> {
+export async function loadExtraItems(locale: Locale): Promise<Map<number, ItemRecord>> {
   if (extraItemsFailed.has(locale)) return new Map()
   const cached = extraItemsPromises.get(locale)
   if (cached) return cached
