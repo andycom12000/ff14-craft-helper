@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { useWorkshopProjectsStore, getProjectProgress } from '@/stores/workshop-projects'
 import { loadCompanyCraft, loadItems, loadExtraItems } from '@/services/local-data-source'
 import type { CompanyCraftSequence } from '@/services/local-data-source.types'
@@ -11,6 +11,7 @@ import { trackEvent } from '@/utils/analytics'
 import ProjectEmptyState from '@/components/company-craft/ProjectEmptyState.vue'
 import ProjectCard from '@/components/company-craft/ProjectCard.vue'
 import NewProjectDialog from '@/components/company-craft/NewProjectDialog.vue'
+import DeleteProjectDialog from '@/components/company-craft/DeleteProjectDialog.vue'
 
 const router = useRouter()
 const workshopStore = useWorkshopProjectsStore()
@@ -54,23 +55,27 @@ function onSync(projectId: string) {
   router.push('/bom')
 }
 
-async function onDelete(id: string) {
-  const proj = workshopStore.getProject(id)
-  if (!proj) return
-  try {
-    await ElMessageBox.confirm(
-      `確定刪除「${proj.name}」？已記錄的階段進度會一起移除。`,
-      '刪除專案',
-      { confirmButtonText: '刪除', cancelButtonText: '取消', type: 'warning' },
-    )
-    bom.removeProjectTarget(id)
-    workshopStore.deleteProject(id)
-    trackEvent('workshop_project_delete', { project_id: id })
-    if (expandedId.value === id) expandedId.value = null
-    ElMessage.success('專案已刪除')
-  } catch {
-    // user cancelled — no-op
-  }
+const deleteCandidate = computed(() =>
+  deleteCandidateId.value ? workshopStore.getProject(deleteCandidateId.value) : null,
+)
+const deleteCandidateId = ref<string | null>(null)
+
+function onDelete(id: string) {
+  if (!workshopStore.getProject(id)) return
+  deleteCandidateId.value = id
+}
+
+function onDeleteConfirm(id: string) {
+  bom.removeProjectTarget(id)
+  workshopStore.deleteProject(id)
+  trackEvent('workshop_project_delete', { project_id: id })
+  if (expandedId.value === id) expandedId.value = null
+  deleteCandidateId.value = null
+  ElMessage.success('專案已刪除')
+}
+
+function onDeleteCancel() {
+  deleteCandidateId.value = null
 }
 
 onMounted(async () => {
@@ -160,6 +165,14 @@ watch(
     <NewProjectDialog
       v-model="newDialogOpen"
       @created="onProjectCreated"
+    />
+
+    <DeleteProjectDialog
+      :project="deleteCandidate"
+      :sequences="sequences"
+      :seq-by-id="seqById"
+      @cancel="onDeleteCancel"
+      @confirm="onDeleteConfirm"
     />
   </div>
 </template>
