@@ -18,6 +18,7 @@ const emit = defineEmits<{
   expand: [projectId: string]
   sync: [projectId: string]
   delete: [projectId: string]
+  reopen: [projectId: string]
 }>()
 
 const bom = useBomStore()
@@ -48,10 +49,19 @@ const partsLabel = computed(() => {
   const n = props.project.sequences.length
   return props.project.category === 'workshop' ? `${n} 件` : `${n} 零件`
 })
+
+const isCompleted = computed(() => !!props.project.completedAt)
+
+const completedAtLabel = computed(() => {
+  const ts = props.project.completedAt
+  if (!ts) return ''
+  const d = new Date(ts)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+})
 </script>
 
 <template>
-  <article class="card">
+  <article class="card" :class="{ 'card-completed': isCompleted }">
     <header class="card-head">
       <div class="card-icon">{{ meta.icon }}</div>
       <button
@@ -63,14 +73,19 @@ const partsLabel = computed(() => {
         <h3 class="card-title">
           <span class="title-caret" aria-hidden="true">{{ expanded ? '▾' : '▸' }}</span>
           {{ project.name }}
+          <span v-if="isCompleted" class="completed-pill">✓ 已完成</span>
         </h3>
-        <div class="card-sub">{{ meta.label }} · {{ partsLabel }}</div>
+        <div class="card-sub">
+          {{ meta.label }} · {{ partsLabel }}
+          <template v-if="isCompleted"> · 完成於 {{ completedAtLabel }}</template>
+        </div>
       </button>
       <div class="card-actions">
         <el-dropdown trigger="click">
           <el-button text class="kebab">⋯</el-button>
           <template #dropdown>
             <el-dropdown-menu>
+              <el-dropdown-item v-if="isCompleted" @click="emit('reopen', project.id)">重新開啟</el-dropdown-item>
               <el-dropdown-item @click="emit('delete', project.id)">刪除專案</el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -78,7 +93,7 @@ const partsLabel = computed(() => {
         <el-button text @click="emit('expand', project.id)">
           {{ expanded ? '收合' : '展開' }}
         </el-button>
-        <el-button class="craft-cta" @click="emit('sync', project.id)">
+        <el-button v-if="!isCompleted" class="craft-cta" @click="emit('sync', project.id)">
           {{ isLinkedToBom ? '前往購物清單 →' : '加入購物清單' }}
         </el-button>
       </div>
@@ -113,6 +128,33 @@ const partsLabel = computed(() => {
 .card:hover {
   border-color: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 38%, transparent);
   box-shadow: 0 2px 12px color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 10%, transparent);
+}
+
+.card-completed {
+  border-color: color-mix(in srgb, var(--app-success, oklch(0.55 0.16 145)) 30%, transparent);
+}
+.card-completed:hover {
+  border-color: color-mix(in srgb, var(--app-success, oklch(0.55 0.16 145)) 50%, transparent);
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--app-success, oklch(0.55 0.16 145)) 12%, transparent);
+}
+.card-completed .fill {
+  background: var(--app-success, oklch(0.55 0.16 145));
+}
+
+.completed-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  margin-left: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-success, oklch(0.55 0.16 145)) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--app-success, oklch(0.55 0.16 145)) 30%, transparent);
+  color: var(--app-success, oklch(0.55 0.16 145));
+  font-family: 'Fira Code', monospace;
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  line-height: 1.4;
 }
 
 /* ── Card Header ─────────────────────────────────────────────────────────── */

@@ -31,6 +31,13 @@ function onExpand(id: string) {
   expandedId.value = expandedId.value === id ? null : id
 }
 
+const completedSectionOpen = ref(false)
+
+function onReopen(id: string) {
+  workshopStore.reopenProject(id)
+  ElMessage.success('已重新開啟此專案')
+}
+
 function onProjectCreated(projectId: string) {
   expandedId.value = projectId
   ElMessage.success('專案已建立')
@@ -147,7 +154,24 @@ watch(
           project_id: proj.id,
           days_to_complete: Math.round((Date.now() - proj.createdAt) / (1000 * 60 * 60 * 24)),
         })
-        ElMessage.success(`「${proj.name}」全階段完成！`)
+        const completedId = proj.id
+        const completedName = proj.name
+        const msg = ElMessage({
+          type: 'success',
+          duration: 8000,
+          showClose: true,
+          message: h('span', { style: 'display: inline-flex; align-items: center; gap: 10px;' }, [
+            h('span', `「${completedName}」全階段完成！`),
+            h('button', {
+              style: 'background: transparent; border: 0; color: var(--app-craft, oklch(0.50 0.16 40)); font-weight: 600; cursor: pointer; padding: 0 4px; font-size: inherit; font-family: inherit; text-decoration: underline;',
+              onClick: () => {
+                completedSectionOpen.value = true
+                expandedId.value = completedId
+                msg.close()
+              },
+            }, '查看'),
+          ]),
+        })
       }
     }
   },
@@ -169,7 +193,7 @@ watch(
     </div>
     <template v-else>
       <ProjectEmptyState
-        v-if="workshopStore.activeProjects.length === 0"
+        v-if="workshopStore.activeProjects.length === 0 && workshopStore.completedProjects.length === 0"
         @open-new="newDialogOpen = true"
       />
 
@@ -188,7 +212,34 @@ watch(
           @expand="onExpand"
           @sync="onSync"
           @delete="onDelete"
+          @reopen="onReopen"
         />
+
+        <section v-if="workshopStore.completedProjects.length > 0" class="cc-completed">
+          <button
+            type="button"
+            class="cc-completed-head"
+            :aria-expanded="completedSectionOpen"
+            @click="completedSectionOpen = !completedSectionOpen"
+          >
+            <span class="cc-completed-caret" aria-hidden="true">{{ completedSectionOpen ? '▾' : '▸' }}</span>
+            已完成 {{ workshopStore.completedProjects.length }} 件
+          </button>
+          <div v-if="completedSectionOpen" class="cc-completed-list">
+            <ProjectCard
+              v-for="p in workshopStore.completedProjects"
+              :key="p.id"
+              :project="p"
+              :sequences="sequences"
+              :seq-by-id="seqById"
+              :expanded="expandedId === p.id"
+              @expand="onExpand"
+              @sync="onSync"
+              @delete="onDelete"
+              @reopen="onReopen"
+            />
+          </div>
+        </section>
       </div>
     </template>
 
@@ -301,6 +352,43 @@ watch(
 .cc-counter {
   font-size: 13px;
   color: var(--app-text-muted);
+}
+
+/* ── Completed section ────────────────────────────────────────────────────── */
+.cc-completed {
+  margin-top: 28px;
+  padding-top: 18px;
+  border-top: 1px dashed var(--app-border);
+}
+.cc-completed-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 0;
+  padding: 6px 10px 6px 0;
+  margin: 0 0 12px;
+  font-family: 'Noto Serif TC', serif;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--app-text-muted);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: color 0.12s var(--ease-out-quart, cubic-bezier(0.25, 1, 0.5, 1));
+}
+.cc-completed-head:hover { color: var(--app-text); }
+.cc-completed-head:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+.cc-completed-caret {
+  display: inline-block;
+  width: 12px;
+  font-size: 11px;
+}
+.cc-completed-list {
+  display: flex;
+  flex-direction: column;
 }
 
 /* ── Mobile ─────────────────────────────────────────────────────────────────── */

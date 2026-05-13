@@ -210,14 +210,26 @@ export const useWorkshopProjectsStore = defineStore('workshop-projects', () => {
     if (proj) delete proj.completedAt
   }
 
+  function reopenProject(id: string) {
+    const proj = getProject(id)
+    if (proj) delete proj.completedAt
+  }
+
   const activeProjects = computed(() =>
     projects.value.filter(p => !p.completedAt && !p.deletedAt),
+  )
+
+  const completedProjects = computed(() =>
+    projects.value
+      .filter(p => p.completedAt && !p.deletedAt)
+      .sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0)),
   )
 
   return {
     projects,
     progressVersion,
     activeProjects,
+    completedProjects,
     getProject,
     createProject,
     deleteProject,
@@ -227,6 +239,7 @@ export const useWorkshopProjectsStore = defineStore('workshop-projects', () => {
     setDelivered,
     markCompleted,
     unmarkCompleted,
+    reopenProject,
   }
 }, {
   persist: {
