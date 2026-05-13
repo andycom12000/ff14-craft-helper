@@ -615,6 +615,8 @@ async function main() {
 
   const itemsByLocale = {}
   const itemsExtraByLocale = {}
+  let itemUICategoryMap = new Map()
+  let itemNameMap = new Map()
   for (const src of itemSources) {
     log(verbose, `Reading ${src.path} as ${src.format}`)
     const text = await readCsv(src.path)
@@ -631,6 +633,43 @@ async function main() {
     })
     itemsExtraByLocale[src.locale] = extra
     log(verbose, `  [${src.locale}] kept ${extra.length} items (extra)`)
+
+    // Build itemUICategoryMap and itemNameMap from the en locale parse
+    // for CompanyCraft (avoids a redundant readCsv of Item.csv).
+    if (src.locale === 'en') {
+      const uiCatCol = pickHeader(headers, ['ItemUICategory'])
+      const nameCol = pickHeader(headers, ['Name'])
+      for (const row of rows) {
+        const id = toInt(row['#'])
+        if (!id) continue
+        if (uiCatCol && row[uiCatCol]) itemUICategoryMap.set(id, row[uiCatCol])
+        if (nameCol && row[nameCol]) itemNameMap.set(id, row[nameCol])
+      }
+      log(verbose, `  [en] built itemUICategoryMap (${itemUICategoryMap.size}) and itemNameMap (${itemNameMap.size}) for CompanyCraft`)
+    }
+  }
+
+  // Build CompanyCraft index from FFXIV CSVs.
+  const ccSeqPath = path.join(xivDir, 'csv', 'en', 'CompanyCraftSequence.csv')
+  const ccPartPath = path.join(xivDir, 'csv', 'en', 'CompanyCraftPart.csv')
+  const ccProcPath = path.join(xivDir, 'csv', 'en', 'CompanyCraftProcess.csv')
+
+  let companyCraft = { schemaVersion: 1, sequences: [] }
+  try {
+    const [sequenceCsv, partCsv, processCsv] = await Promise.all([
+      readCsv(ccSeqPath),
+      readCsv(ccPartPath),
+      readCsv(ccProcPath),
+    ])
+    companyCraft = buildCompanyCraft({
+      sequenceCsv, partCsv, processCsv,
+      itemUICategoryMap, itemNameMap,
+    })
+  } catch (err) {
+    console.warn(`[warn] CompanyCraft build skipped: ${err.message}`)
+  }
+  if (companyCraft.sequences.length === 0) {
+    console.warn('[warn] CompanyCraft index is empty; downstream features will show empty state')
   }
 
   // 4. Sanity checks.
@@ -722,6 +761,11 @@ async function main() {
       JSON.stringify({ schemaVersion: 1, items }),
     )
   }
+  await fs.writeFile(
+    path.join(OUT_TMP, 'company-craft.json'),
+    JSON.stringify(companyCraft),
+  )
+
   const manifest = {
     schemaVersion: 1,
     buildTime: new Date().toISOString(),
@@ -743,6 +787,7 @@ async function main() {
     ['recipes.json', 'recipes.json'],
     ['rlt.json', 'rlt.json'],
     ['manifest.json', 'manifest.json'],
+    ['company-craft.json', 'company-craft.json'],
     ['items/zh-TW.json', 'items/zh-TW.json'],
     ['items/zh-CN.json', 'items/zh-CN.json'],
     ['items/en.json', 'items/en.json'],
@@ -788,8 +833,10 @@ async function main() {
   }
   const recipesSize = (await fs.stat(path.join(OUT_FINAL, 'recipes.json'))).size
   const rltSize = (await fs.stat(path.join(OUT_FINAL, 'rlt.json'))).size
+  const ccSize = (await fs.stat(path.join(OUT_FINAL, 'company-craft.json'))).size
   console.log(`  recipes.json: ${(recipesSize / 1024).toFixed(1)} KB`)
   console.log(`  rlt.json:     ${(rltSize / 1024).toFixed(1)} KB`)
+  console.log(`  company-craft.json: ${(ccSize / 1024).toFixed(1)} KB`)
   console.log('  sources:')
   for (const [locale, s] of Object.entries(manifest.sources)) {
     console.log(`    ${locale}: ${s.repo}@${s.commit.slice(0, 10)}`)
