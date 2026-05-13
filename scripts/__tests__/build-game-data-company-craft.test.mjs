@@ -16,7 +16,13 @@ const PART_CSV = [
 
 const PROCESS_CSV = [
   '#,SupplyItem[0],SetQuantity[0],SetsRequired[0],SupplyItem[1],SetQuantity[1],SetsRequired[1]',
-  '100,5057,3,4,5058,2,3',
+  '100,1,3,4,2,2,3',  // FK keys 1, 2 (which map to items 5057, 5058 via SUPPLY_ITEM_CSV)
+].join('\n')
+
+const SUPPLY_ITEM_CSV = [
+  '#,Item',
+  '1,5057',
+  '2,5058',
 ].join('\n')
 
 const itemUICategoryMap = new Map([[18715, 103]]) // 103 = Submersible Bow
@@ -26,6 +32,7 @@ test('buildCompanyCraft: builds sequence with phases summed from process supplie
     sequenceCsv: SEQUENCE_CSV,
     partCsv: PART_CSV,
     processCsv: PROCESS_CSV,
+    supplyItemCsv: SUPPLY_ITEM_CSV,
     itemUICategoryMap,
   })
   assert.equal(result.sequences.length, 1)
@@ -49,6 +56,7 @@ test('buildCompanyCraft: skips empty Part/Process slots (id 0)', () => {
     sequenceCsv: SEQUENCE_CSV,
     partCsv: PART_CSV,
     processCsv: PROCESS_CSV,
+    supplyItemCsv: SUPPLY_ITEM_CSV,
     itemUICategoryMap,
   })
   // Only 1 phase (from part slot 0, process slot 0)
@@ -62,6 +70,7 @@ test('buildCompanyCraft: assigns workshop category for unmapped items', () => {
     sequenceCsv: SEQUENCE_CSV,
     partCsv: PART_CSV,
     processCsv: PROCESS_CSV,
+    supplyItemCsv: SUPPLY_ITEM_CSV,
     itemUICategoryMap: emptyMap,
   })
   assert.equal(result.sequences[0].category, 'workshop')

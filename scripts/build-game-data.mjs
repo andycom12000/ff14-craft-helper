@@ -453,16 +453,28 @@ function findIndexedCols(headers, prefix, count) {
  * @param {string} opts.sequenceCsv - CompanyCraftSequence CSV content
  * @param {string} opts.partCsv - CompanyCraftPart CSV content
  * @param {string} opts.processCsv - CompanyCraftProcess CSV content
+ * @param {string} opts.supplyItemCsv - CompanyCraftSupplyItem CSV content (FK lookup)
  * @param {Map<number,number>} opts.itemUICategoryMap - itemId -> ItemUICategory FK id
  * @returns {{ schemaVersion: number, sequences: Array }}
  */
-export function buildCompanyCraft({ sequenceCsv, partCsv, processCsv, itemUICategoryMap }) {
+export function buildCompanyCraft({ sequenceCsv, partCsv, processCsv, supplyItemCsv, itemUICategoryMap }) {
   const { headers: seqHeaders, rows: seqRows } = parseCsv(sequenceCsv, 'oxidizer')
   const { headers: partHeaders, rows: partRows } = parseCsv(partCsv, 'oxidizer')
   const { headers: procHeaders, rows: procRows } = parseCsv(processCsv, 'oxidizer')
 
   const partById = new Map(partRows.map(r => [toInt(r['#']), r]))
   const processById = new Map(procRows.map(r => [toInt(r['#']), r]))
+
+  // Build lookup: CompanyCraftSupplyItem row key -> real itemId
+  // CompanyCraftProcess.SupplyItem[N] is a FK into CompanyCraftSupplyItem.#,
+  // and CompanyCraftSupplyItem.Item holds the actual item id.
+  const { rows: supplyRows } = parseCsv(supplyItemCsv, 'oxidizer')
+  const supplyItemIdByKey = new Map()
+  for (const row of supplyRows) {
+    const key = toInt(row['#'])
+    const itemId = toInt(row.Item)
+    if (key > 0 && itemId > 0) supplyItemIdByKey.set(key, itemId)
+  }
 
   // Column discovery (CompanyCraftPart[0..7], CompanyCraftProcess[0..7], SupplyItem[0..11])
   const seqPartCols = findIndexedCols(seqHeaders, 'CompanyCraftPart', 8)
@@ -507,10 +519,12 @@ export function buildCompanyCraft({ sequenceCsv, partCsv, processCsv, itemUICate
 
         const supplyItems = []
         for (const { item, qty, sets } of procSupplyCols) {
-          const itemId = toInt(procRow[item])
+          const supplyKey = toInt(procRow[item])
           const q = toInt(procRow[qty])
           const s = toInt(procRow[sets])
-          if (!itemId || q <= 0 || s <= 0) continue
+          if (!supplyKey || q <= 0 || s <= 0) continue
+          const itemId = supplyItemIdByKey.get(supplyKey)
+          if (!itemId) continue   // skip orphan FKs gracefully
           supplyItems.push({ itemId, amount: q * s })
         }
         if (supplyItems.length === 0) continue
@@ -659,16 +673,18 @@ async function main() {
   const ccSeqPath = path.join(xivDir, 'csv', 'en', 'CompanyCraftSequence.csv')
   const ccPartPath = path.join(xivDir, 'csv', 'en', 'CompanyCraftPart.csv')
   const ccProcPath = path.join(xivDir, 'csv', 'en', 'CompanyCraftProcess.csv')
+  const ccSupplyItemPath = path.join(xivDir, 'csv', 'en', 'CompanyCraftSupplyItem.csv')
 
   let companyCraft = { schemaVersion: 1, sequences: [] }
   try {
-    const [sequenceCsv, partCsv, processCsv] = await Promise.all([
+    const [sequenceCsv, partCsv, processCsv, supplyItemCsv] = await Promise.all([
       readCsv(ccSeqPath),
       readCsv(ccPartPath),
       readCsv(ccProcPath),
+      readCsv(ccSupplyItemPath),
     ])
     companyCraft = buildCompanyCraft({
-      sequenceCsv, partCsv, processCsv,
+      sequenceCsv, partCsv, processCsv, supplyItemCsv,
       itemUICategoryMap,
     })
   } catch (err) {
