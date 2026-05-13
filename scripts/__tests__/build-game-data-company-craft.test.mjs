@@ -19,11 +19,6 @@ const PROCESS_CSV = [
   '100,5057,3,4,5058,2,3',
 ].join('\n')
 
-const TYPE_CSV = [
-  '#,Name',
-  '4,Leatherworker',
-].join('\n')
-
 const itemUICategoryMap = new Map([[18715, 'Submersible Components']])
 
 test('buildCompanyCraft: builds sequence with phases summed from process supplies', () => {
@@ -31,7 +26,6 @@ test('buildCompanyCraft: builds sequence with phases summed from process supplie
     sequenceCsv: SEQUENCE_CSV,
     partCsv: PART_CSV,
     processCsv: PROCESS_CSV,
-    typeCsv: TYPE_CSV,
     itemUICategoryMap,
   })
   assert.equal(result.sequences.length, 1)
@@ -54,7 +48,6 @@ test('buildCompanyCraft: skips empty Part/Process slots (id 0)', () => {
     sequenceCsv: SEQUENCE_CSV,
     partCsv: PART_CSV,
     processCsv: PROCESS_CSV,
-    typeCsv: TYPE_CSV,
     itemUICategoryMap,
   })
   // Only 1 phase (from part slot 0, process slot 0)
@@ -68,7 +61,6 @@ test('buildCompanyCraft: assigns workshop category for unmapped items', () => {
     sequenceCsv: SEQUENCE_CSV,
     partCsv: PART_CSV,
     processCsv: PROCESS_CSV,
-    typeCsv: TYPE_CSV,
     itemUICategoryMap: emptyMap,
   })
   assert.equal(result.sequences[0].category, 'workshop')

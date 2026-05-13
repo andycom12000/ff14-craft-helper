@@ -430,6 +430,15 @@ function inferPartSlot(resultItemName) {
   return m ? m[1].toLowerCase() : null
 }
 
+function findIndexedCols(headers, prefix, count) {
+  const cols = []
+  for (let i = 0; i < count; i++) {
+    const col = pickHeader(headers, [`${prefix}[${i}]`])
+    if (col) cols.push({ index: i, col })
+  }
+  return cols
+}
+
 /**
  * Parse CompanyCraft CSVs into a phase index.
  * Pure data transformation — caller passes CSV strings.
@@ -438,38 +447,22 @@ function inferPartSlot(resultItemName) {
  * @param {string} opts.sequenceCsv - CompanyCraftSequence CSV content
  * @param {string} opts.partCsv - CompanyCraftPart CSV content
  * @param {string} opts.processCsv - CompanyCraftProcess CSV content
- * @param {string} opts.typeCsv - CompanyCraftType CSV content
  * @param {Map<number,string>} opts.itemUICategoryMap - itemId -> UICategory name
  * @param {Map<number,string>} [opts.itemNameMap] - itemId -> item name (optional)
  * @returns {{ schemaVersion: number, sequences: Array }}
  */
-export function buildCompanyCraft({ sequenceCsv, partCsv, processCsv, typeCsv, itemUICategoryMap, itemNameMap = new Map() }) {
+export function buildCompanyCraft({ sequenceCsv, partCsv, processCsv, itemUICategoryMap, itemNameMap = new Map() }) {
   const { headers: seqHeaders, rows: seqRows } = parseCsv(sequenceCsv, 'oxidizer')
   const { headers: partHeaders, rows: partRows } = parseCsv(partCsv, 'oxidizer')
   const { headers: procHeaders, rows: procRows } = parseCsv(processCsv, 'oxidizer')
-  const { rows: typeRows } = parseCsv(typeCsv, 'oxidizer')
 
   const partById = new Map(partRows.map(r => [toInt(r['#']), r]))
   const processById = new Map(procRows.map(r => [toInt(r['#']), r]))
-  const typeJobAbbr = new Map()
-  for (const row of typeRows) {
-    const id = toInt(row['#'])
-    const abbr = CRAFT_TYPE_TO_JOB[id] ?? null
-    if (abbr) typeJobAbbr.set(id, abbr)
-  }
 
   // Column discovery (CompanyCraftPart[0..7], CompanyCraftProcess[0..7], SupplyItem[0..11])
-  const seqPartCols = []
-  for (let i = 0; i < 8; i++) {
-    const col = pickHeader(seqHeaders, [`CompanyCraftPart[${i}]`])
-    if (col) seqPartCols.push({ index: i, col })
-  }
+  const seqPartCols = findIndexedCols(seqHeaders, 'CompanyCraftPart', 8)
   const partTypeCol = pickHeader(partHeaders, ['CompanyCraftType']) ?? 'CompanyCraftType'
-  const partProcessCols = []
-  for (let i = 0; i < 8; i++) {
-    const col = pickHeader(partHeaders, [`CompanyCraftProcess[${i}]`])
-    if (col) partProcessCols.push({ index: i, col })
-  }
+  const partProcessCols = findIndexedCols(partHeaders, 'CompanyCraftProcess', 8)
   const procSupplyCols = []
   for (let i = 0; i < 12; i++) {
     const item = pickHeader(procHeaders, [`SupplyItem[${i}]`])
@@ -495,7 +488,7 @@ export function buildCompanyCraft({ sequenceCsv, partCsv, processCsv, typeCsv, i
       const partRow = partById.get(partId)
       if (!partRow) continue
       const typeId = toInt(partRow[partTypeCol])
-      const jobAbbr = typeJobAbbr.get(typeId)
+      const jobAbbr = CRAFT_TYPE_TO_JOB[typeId] ?? null
       if (!jobAbbr) continue
 
       for (const { index: processIndex, col: pcol } of partProcessCols) {
