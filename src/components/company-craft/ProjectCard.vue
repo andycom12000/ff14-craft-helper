@@ -5,11 +5,13 @@ import { getProjectProgress, getRemainingMaterials } from '@/stores/workshop-pro
 import type { CompanyCraftSequence } from '@/services/local-data-source.types'
 import { useBomStore } from '@/stores/bom'
 import { CATEGORY_META } from '@/utils/company-craft-labels'
+import PhaseBoard from './PhaseBoard.vue'
 
 const props = defineProps<{
   project: WorkshopProject
   sequences: CompanyCraftSequence[]
   seqById?: Map<number, CompanyCraftSequence>
+  expanded?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -65,7 +67,9 @@ const partsLabel = computed(() => {
         <div class="card-sub">{{ meta.label }} · {{ partsLabel }} · {{ donePhases }}/{{ totalPhases }} 階段完成</div>
       </div>
       <div class="card-actions">
-        <el-button text @click="emit('expand', project.id)">展開</el-button>
+        <el-button text @click="emit('expand', project.id)">
+          {{ expanded ? '收合' : '展開' }}
+        </el-button>
         <el-button type="primary" @click="emit('sync', project.id)">
           {{ isLinkedToBom ? '前往購物清單 →' : '加入購物清單' }}
         </el-button>
@@ -78,6 +82,12 @@ const partsLabel = computed(() => {
         <span v-if="isLinkedToBom" class="linked"> · 已關聯 BOM</span>
       </span>
     </div>
+    <PhaseBoard
+      v-if="expanded"
+      :project="project"
+      :sequences="sequences"
+      :seq-by-id="seqById"
+    />
   </article>
 </template>
 

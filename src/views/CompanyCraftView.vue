@@ -79,6 +79,7 @@ onMounted(async () => {
         :project="p"
         :sequences="sequences"
         :seq-by-id="seqById"
+        :expanded="expandedId === p.id"
         @expand="onExpand"
         @sync="onSync"
       />
