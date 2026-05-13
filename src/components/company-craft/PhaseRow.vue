@@ -127,7 +127,7 @@ function markPhaseAndAdvance() {
         <template v-if="complete">✓</template>
         <template v-else-if="started">●</template>
       </span>
-      <span class="job-badge" :class="{ idle: !started && !complete }">
+      <span class="job-badge" :class="{ idle: !started && !complete, done: complete }">
         {{ getJobNameShort(phase.jobAbbr) }}{{ phase.level ? ' ' + phase.level : '' }}
       </span>
       <span class="name">
@@ -254,9 +254,10 @@ function markPhaseAndAdvance() {
 }
 .job-badge {
   display: inline-block;
-  padding: 2px 7px;
+  padding: 1px 7px;
   background: var(--app-craft);
   color: var(--app-surface);
+  border: 1px solid var(--app-craft);
   border-radius: 4px;
   font-family: 'Fira Code', monospace;
   font-size: 10px;
@@ -264,7 +265,16 @@ function markPhaseAndAdvance() {
   letter-spacing: 0.06em;
   text-align: center;
 }
-.job-badge.idle { background: var(--app-text-muted); }
+.job-badge.idle {
+  background: transparent;
+  color: var(--app-text-muted);
+  border-color: color-mix(in srgb, var(--app-text-muted) 30%, transparent);
+}
+.job-badge.done {
+  background: transparent;
+  color: var(--app-success, oklch(0.55 0.16 145));
+  border-color: color-mix(in srgb, var(--app-success, oklch(0.55 0.16 145)) 40%, transparent);
+}
 .name { font-size: 14px; }
 .progress {
   font-family: 'Fira Code', monospace;
@@ -284,7 +294,7 @@ function markPhaseAndAdvance() {
   width: 100%;
   background: var(--app-craft, oklch(0.50 0.16 40));
   transform-origin: left center;
-  transition: transform 0.2s var(--ease-out-quart);
+  transition: transform 0.3s var(--ease-out-quart, cubic-bezier(0.25, 1, 0.5, 1));
   will-change: transform;
 }
 .supplies {

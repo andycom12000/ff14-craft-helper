@@ -90,9 +90,6 @@ const completedAtLabel = computed(() => {
             </el-dropdown-menu>
           </template>
         </el-dropdown>
-        <el-button text @click="emit('expand', project.id)">
-          {{ expanded ? '收合' : '展開' }}
-        </el-button>
         <el-button v-if="!isCompleted" class="craft-cta" @click="emit('sync', project.id)">
           {{ isLinkedToBom ? '前往購物清單 →' : '加入購物清單' }}
         </el-button>
@@ -117,7 +114,7 @@ const completedAtLabel = computed(() => {
 <style scoped>
 .card {
   background: var(--app-surface-2);
-  border: 1px solid color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 24%, transparent);
   border-radius: 12px;
   padding: 16px 20px;
   margin-bottom: 12px;
@@ -268,7 +265,7 @@ const completedAtLabel = computed(() => {
   background: var(--app-craft, oklch(0.50 0.16 40));
   border-radius: 999px;
   transform-origin: left center;
-  transition: transform 0.4s var(--ease-out-quart, cubic-bezier(0.25, 1, 0.5, 1));
+  transition: transform 0.3s var(--ease-out-quart, cubic-bezier(0.25, 1, 0.5, 1));
   will-change: transform;
 }
 

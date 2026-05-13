@@ -182,7 +182,7 @@ watch(
   <div class="company-craft-view" v-loading="!dataReady && !loadError">
     <header class="cc-header">
       <span class="cc-eyebrow">BLUEPRINTS · 工坊圖紙</span>
-      <h2>部隊工坊 <span class="cc-beta" aria-label="實驗中">實驗中</span></h2>
+      <h2>部隊工坊 <span class="cc-beta" aria-label="實驗中">BETA · 實驗中</span></h2>
       <p class="cc-tagline">『今天工坊裡，動到哪一步了？』</p>
       <div class="cc-chalk-rule" />
     </header>
@@ -308,24 +308,24 @@ watch(
 .cc-beta {
   display: inline-flex;
   align-items: center;
-  padding: 2px 9px;
+  padding: 3px 10px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 28%, transparent);
   color: var(--app-craft, oklch(0.50 0.16 40));
-  font-family: 'Cormorant Garamond', 'Noto Serif TC', serif;
-  font-style: italic;
-  font-weight: 600;
-  font-size: 13px;
-  letter-spacing: 0.04em;
-  line-height: 1;
+  font-family: 'Fira Code', 'JetBrains Mono', ui-monospace, monospace;
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  line-height: 1.1;
+  text-transform: uppercase;
   margin-top: 6px;
 }
 
 .cc-tagline {
   font-family: 'Noto Serif TC', serif;
-  font-style: italic;
   font-size: 14px;
+  letter-spacing: 0.02em;
   color: var(--app-text-muted);
   margin: 0 0 14px;
 }
