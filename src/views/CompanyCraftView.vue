@@ -17,6 +17,7 @@ const newDialogOpen = ref(false)
 
 const sequences = ref<CompanyCraftSequence[]>([])
 const dataReady = computed(() => sequences.value.length > 0)
+const loadError = ref<string | null>(null)
 
 const activeProjects = computed(() => workshopStore.activeProjects)
 
@@ -72,11 +73,19 @@ async function onDelete(id: string) {
 onMounted(async () => {
   try {
     sequences.value = await loadCompanyCraft()
-  } catch (e) {
-    console.warn('[CompanyCraftView] CompanyCraft data unavailable:', e)
-    // sequences stays empty; downstream UI will be in a degraded state
+  } catch (err) {
+    loadError.value = err instanceof Error ? err.message : String(err)
   }
 })
+
+async function retryLoad() {
+  loadError.value = null
+  try {
+    sequences.value = await loadCompanyCraft()
+  } catch (err) {
+    loadError.value = err instanceof Error ? err.message : String(err)
+  }
+}
 </script>
 
 <template>
@@ -88,28 +97,34 @@ onMounted(async () => {
       <div class="cc-chalk-rule" />
     </header>
 
-    <ProjectEmptyState
-      v-if="activeProjects.length === 0"
-      @open-new="newDialogOpen = true"
-    />
-
-    <div v-else class="cc-projects">
-      <div class="cc-toolbar">
-        <el-button type="primary" @click="newDialogOpen = true">+&nbsp;&nbsp;新增專案</el-button>
-        <span class="cc-counter">{{ activeProjects.length }} 個進行中</span>
-      </div>
-      <ProjectCard
-        v-for="p in activeProjects"
-        :key="p.id"
-        :project="p"
-        :sequences="sequences"
-        :seq-by-id="seqById"
-        :expanded="expandedId === p.id"
-        @expand="onExpand"
-        @sync="onSync"
-        @delete="onDelete"
-      />
+    <div v-if="loadError" class="cc-error">
+      <p>圖紙抽屜卡住了，請重試。<span class="detail">({{ loadError }})</span></p>
+      <el-button type="primary" @click="retryLoad">重試</el-button>
     </div>
+    <template v-else>
+      <ProjectEmptyState
+        v-if="activeProjects.length === 0"
+        @open-new="newDialogOpen = true"
+      />
+
+      <div v-else class="cc-projects">
+        <div class="cc-toolbar">
+          <el-button type="primary" @click="newDialogOpen = true">+&nbsp;&nbsp;新增專案</el-button>
+          <span class="cc-counter">{{ activeProjects.length }} 個進行中</span>
+        </div>
+        <ProjectCard
+          v-for="p in activeProjects"
+          :key="p.id"
+          :project="p"
+          :sequences="sequences"
+          :seq-by-id="seqById"
+          :expanded="expandedId === p.id"
+          @expand="onExpand"
+          @sync="onSync"
+          @delete="onDelete"
+        />
+      </div>
+    </template>
 
     <NewProjectDialog
       v-model="newDialogOpen"
@@ -216,5 +231,21 @@ onMounted(async () => {
 /* ── Projects area ──────────────────────────────────────────────────────────── */
 .cc-projects {
   /* Project cards added in Task 12 */
+}
+
+/* ── Error state ────────────────────────────────────────────────────────────── */
+.cc-error {
+  padding: 32px;
+  border: 1px solid var(--app-warning-border, var(--app-border));
+  background: var(--app-warning-tint, var(--app-surface-2));
+  border-radius: 12px;
+  text-align: center;
+}
+.cc-error .detail {
+  display: block;
+  font-family: 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--app-text-muted);
+  margin-top: 4px;
 }
 </style>
