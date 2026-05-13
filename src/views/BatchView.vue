@@ -227,6 +227,14 @@ async function startOptimization() {
     return
   }
 
+  /* Hard block if any target has a hard level gate (starred / expert /
+   * stat-gated). Soft targets are allowed through — the solver applies
+   * the in-game progress/quality penalty. */
+  if (hardLevelTargets.value.length > 0) {
+    openGearsetSheet(hardLevelTargets.value[0]?.recipe.job ?? null)
+    return
+  }
+
   batchStore.isRunning = true
   batchStore.isCancelled = false
   batchStore.clearResults()
@@ -443,7 +451,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
               type="primary"
               size="large"
               :loading="batchStore.isRunning"
-              :disabled="batchStore.targets.length === 0 || batchStore.isRunning"
+              :disabled="batchStore.targets.length === 0 || batchStore.isRunning || hardLevelTargets.length > 0"
               @click="startOptimization"
             >
               {{ batchStore.isRunning ? '計算中...' : '▶ 開始最佳化計算' }}
