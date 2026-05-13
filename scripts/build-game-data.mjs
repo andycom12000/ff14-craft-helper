@@ -295,6 +295,11 @@ function buildRecipes(rows, headers, verbose) {
   const dfCol = pickHeader(headers, ['DifficultyFactor']) || 'DifficultyFactor'
   const qfCol = pickHeader(headers, ['QualityFactor']) || 'QualityFactor'
   const durfCol = pickHeader(headers, ['DurabilityFactor']) || 'DurabilityFactor'
+  const isExpertCol = pickHeader(headers, ['IsExpert']) || 'IsExpert'
+  const reqCraftCol =
+    pickHeader(headers, ['RequiredCraftsmanship']) || 'RequiredCraftsmanship'
+  const reqControlCol =
+    pickHeader(headers, ['RequiredControl']) || 'RequiredControl'
   const idCol = pickHeader(headers, ['#']) || '#'
   const ingredientCols = findIngredientColumns(headers)
 
@@ -332,6 +337,9 @@ function buildRecipes(rows, headers, verbose) {
       qualityFactor: toInt(r[qfCol]),
       durabilityFactor: toInt(r[durfCol]),
       ingredients,
+      isExpert: toBool(r[isExpertCol]),
+      requiredCraftsmanship: toInt(r[reqCraftCol]),
+      requiredControl: toInt(r[reqControlCol]),
     }
     recipes.push(rec)
     referencedItems.add(itemResult)
@@ -342,6 +350,7 @@ function buildRecipes(rows, headers, verbose) {
 function buildRlt(rows, headers, verbose) {
   const idCol = pickHeader(headers, ['#']) || '#'
   const cjlCol = pickHeader(headers, ['ClassJobLevel']) || 'ClassJobLevel'
+  const starsCol = pickHeader(headers, ['Stars']) || 'Stars'
   const diffCol = pickHeader(headers, ['Difficulty']) || 'Difficulty'
   const qCol = pickHeader(headers, ['Quality']) || 'Quality'
   const durCol = pickHeader(headers, ['Durability']) || 'Durability'
@@ -360,6 +369,7 @@ function buildRlt(rows, headers, verbose) {
     rlt.push({
       rlv,
       classJobLevel: toInt(r[cjlCol]),
+      stars: toInt(r[starsCol]),
       difficulty: toInt(r[diffCol]),
       quality: toInt(r[qCol]),
       durability: toInt(r[durCol]),

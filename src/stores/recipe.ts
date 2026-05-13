@@ -40,6 +40,12 @@ export interface Recipe {
   recipeLevelTable: RecipeLevelTable
   // Sentinel for user-authored recipes; downstream skips Universalis + BOM lookups.
   isCustom?: boolean
+  // Hard-gate signals — FFXIV blocks synthesis when any of these are set
+  // and the player is below recipe level. Standard 0-star recipes have none
+  // of these and only suffer the progress/quality modifier as a soft penalty.
+  isExpert?: boolean
+  requiredCraftsmanship?: number
+  requiredControl?: number
 }
 
 export const useRecipeStore = defineStore('recipe', () => {
