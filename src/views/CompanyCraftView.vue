@@ -7,6 +7,7 @@ import type { CompanyCraftSequence } from '@/services/local-data-source.types'
 import { useBomStore } from '@/stores/bom'
 import ProjectEmptyState from '@/components/company-craft/ProjectEmptyState.vue'
 import ProjectCard from '@/components/company-craft/ProjectCard.vue'
+import NewProjectDialog from '@/components/company-craft/NewProjectDialog.vue'
 
 const router = useRouter()
 const workshopStore = useWorkshopProjectsStore()
@@ -85,7 +86,7 @@ onMounted(async () => {
       />
     </div>
 
-    <!-- NewProjectDialog added in Task 16-18 -->
+    <NewProjectDialog v-model="newDialogOpen" />
   </div>
 </template>
 
