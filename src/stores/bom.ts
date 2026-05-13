@@ -366,6 +366,12 @@ export const useBomStore = defineStore('bom', () => {
     targets.value = targets.value.filter(t => t.itemId !== itemId)
   }
 
+  function removeProjectTarget(projectId: string) {
+    targets.value = targets.value.filter(
+      t => !(t.kind === 'company-craft-project' && t.projectId === projectId),
+    )
+  }
+
   function updateTargetQuantity(itemId: number, quantity: number) {
     const target = targets.value.find(t => t.itemId === itemId)
     if (target) {
@@ -1005,6 +1011,7 @@ export const useBomStore = defineStore('bom', () => {
     savingPercent,
     addTarget,
     removeTarget,
+    removeProjectTarget,
     updateTargetQuantity,
     clearTargets,
     toggleCollapsed,

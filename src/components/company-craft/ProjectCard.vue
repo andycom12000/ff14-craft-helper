@@ -17,6 +17,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   expand: [projectId: string]
   sync: [projectId: string]
+  delete: [projectId: string]
 }>()
 
 const bom = useBomStore()
@@ -67,6 +68,14 @@ const partsLabel = computed(() => {
         <div class="card-sub">{{ meta.label }} · {{ partsLabel }} · {{ donePhases }}/{{ totalPhases }} 階段完成</div>
       </div>
       <div class="card-actions">
+        <el-dropdown trigger="click">
+          <el-button text class="kebab">⋯</el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item @click="emit('delete', project.id)">刪除專案</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
         <el-button text @click="emit('expand', project.id)">
           {{ expanded ? '收合' : '展開' }}
         </el-button>
@@ -147,6 +156,10 @@ const partsLabel = computed(() => {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+}
+
+.kebab {
+  padding: 0 8px;
 }
 
 /* ── Progress Bar ─────────────────────────────────────────────────────────── */
