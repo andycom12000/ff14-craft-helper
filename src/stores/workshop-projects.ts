@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { CompanyCraftCategory } from '@/services/local-data-source.types'
+import type { CompanyCraftCategory, CompanyCraftPhase, CompanyCraftSequence } from '@/services/local-data-source.types'
 
 export interface PhaseProgressKey {
   sequenceId: number
@@ -33,6 +33,96 @@ export function parsePhaseKey(s: string): PhaseProgressKey {
 
 function genId(): string {
   return `proj-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+// ---------------------------------------------------------------------------
+// Aggregation selectors (pure functions, no store dependency)
+// ---------------------------------------------------------------------------
+
+export function getDelivered(
+  project: WorkshopProject,
+  phaseKey: string,
+  supplyIndex: number,
+): number {
+  return project.phaseProgress[phaseKey]?.[supplyIndex] ?? 0
+}
+
+export function isPhaseComplete(
+  project: WorkshopProject,
+  phase: CompanyCraftPhase,
+  phaseKey: string,
+): boolean {
+  for (let i = 0; i < phase.supplyItems.length; i++) {
+    if (getDelivered(project, phaseKey, i) < phase.supplyItems[i].amount) return false
+  }
+  return true
+}
+
+export function getTotalMaterials(
+  project: WorkshopProject,
+  sequences: CompanyCraftSequence[],
+  seqById: Map<number, CompanyCraftSequence> = new Map(sequences.map(s => [s.id, s])),
+): Map<number, number> {
+  const out = new Map<number, number>()
+  for (const ref of project.sequences) {
+    const seq = seqById.get(ref.sequenceId)
+    if (!seq) continue
+    for (const phase of seq.phases) {
+      for (const supply of phase.supplyItems) {
+        out.set(supply.itemId, (out.get(supply.itemId) ?? 0) + supply.amount)
+      }
+    }
+  }
+  return out
+}
+
+export function getRemainingMaterials(
+  project: WorkshopProject,
+  sequences: CompanyCraftSequence[],
+  seqById: Map<number, CompanyCraftSequence> = new Map(sequences.map(s => [s.id, s])),
+): Map<number, number> {
+  const out = new Map<number, number>()
+  for (const ref of project.sequences) {
+    const seq = seqById.get(ref.sequenceId)
+    if (!seq) continue
+    for (const phase of seq.phases) {
+      const phaseKey = serializePhaseKey({
+        sequenceId: ref.sequenceId,
+        partIndex: phase.partIndex,
+        processIndex: phase.processIndex,
+      })
+      for (let i = 0; i < phase.supplyItems.length; i++) {
+        const supply = phase.supplyItems[i]
+        const remaining = Math.max(0, supply.amount - getDelivered(project, phaseKey, i))
+        if (remaining <= 0) continue
+        out.set(supply.itemId, (out.get(supply.itemId) ?? 0) + remaining)
+      }
+    }
+  }
+  return out
+}
+
+export function getProjectProgress(
+  project: WorkshopProject,
+  sequences: CompanyCraftSequence[],
+  seqById: Map<number, CompanyCraftSequence> = new Map(sequences.map(s => [s.id, s])),
+): number {
+  let totalPhases = 0
+  let donePhases = 0
+  for (const ref of project.sequences) {
+    const seq = seqById.get(ref.sequenceId)
+    if (!seq) continue
+    for (const phase of seq.phases) {
+      const phaseKey = serializePhaseKey({
+        sequenceId: ref.sequenceId,
+        partIndex: phase.partIndex,
+        processIndex: phase.processIndex,
+      })
+      totalPhases += 1
+      if (isPhaseComplete(project, phase, phaseKey)) donePhases += 1
+    }
+  }
+  return totalPhases === 0 ? 0 : donePhases / totalPhases
 }
 
 export const useWorkshopProjectsStore = defineStore('workshop-projects', () => {
