@@ -2,7 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import type { CompanyCraftCategory, CompanyCraftSequence, PartSlot } from '@/services/local-data-source.types'
 import { listCompanyCraftByCategory, getItemSync } from '@/services/local-data-source'
-import { getTotalMaterials } from '@/stores/workshop-projects'
+import { getTotalMaterials, useWorkshopProjectsStore } from '@/stores/workshop-projects'
 import { CATEGORY_META, SLOT_LABEL } from '@/utils/company-craft-labels'
 import ItemName from '@/components/common/ItemName.vue'
 
@@ -11,6 +11,9 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   created: [projectId: string]
 }>()
+
+const workshopStore = useWorkshopProjectsStore()
+const projectName = ref('')
 
 const visible = computed({
   get: () => props.modelValue,
@@ -92,12 +95,40 @@ function getResultName(seq: CompanyCraftSequence): string {
 
 const canProceedFromStep2 = computed(() => selectedSequences.value.length > 0)
 
+watch(selectedSequences, (seqs) => {
+  if (projectName.value.trim()) return  // user already typed; don't overwrite
+  if (seqs.length === 0) {
+    projectName.value = ''
+    return
+  }
+  const firstName = getResultName(seqs[0])
+  const base = firstName.replace(/\s*(Bow|Stern|Hull|Bridge|船首|船尾|船身|船底)\s*$/i, '').trim()
+  if (category.value === 'workshop') {
+    projectName.value = firstName
+  } else {
+    projectName.value = base ? `${base} 號` : firstName
+  }
+})
+
+function createAndClose() {
+  if (!category.value) return
+  if (!projectName.value.trim()) return
+  const id = workshopStore.createProject({
+    name: projectName.value.trim(),
+    category: category.value,
+    sequences: selectedSequences.value.map(s => ({ sequenceId: s.id })),
+  })
+  emit('created', id)
+  visible.value = false
+}
+
 function reset() {
   step.value = 1
   category.value = null
   slotChoices.value = { bow: null, stern: null, hull: null, bridge: null }
   workshopPickId.value = null
   workshopFilter.value = ''
+  projectName.value = ''
 }
 
 watch(visible, v => {
@@ -191,7 +222,13 @@ function prevStep() {
       </div>
     </div>
     <div v-else class="step3">
-      <p style="color: var(--app-text-muted);">[Task 18 fills naming step]</p>
+      <h5>專案名稱</h5>
+      <el-input v-model="projectName" placeholder="輸入專案名稱…" />
+      <p class="hint">↑ 已自動填入，可修改</p>
+      <div class="preview">
+        總素材 <strong>{{ estimate.kinds }} 種</strong>
+        · Phase 總數 <strong>{{ estimate.totalPhases }}</strong>
+      </div>
     </div>
 
     <template #footer>
@@ -200,8 +237,12 @@ function prevStep() {
         <el-button v-else @click="prevStep">← 上一步</el-button>
         <el-button
           type="primary"
-          :disabled="(step === 1 && !category) || (step === 2 && !canProceedFromStep2)"
-          @click="step === 3 ? null : nextStep()"
+          :disabled="
+            (step === 1 && !category) ||
+            (step === 2 && !canProceedFromStep2) ||
+            (step === 3 && !projectName.trim())
+          "
+          @click="step === 3 ? createAndClose() : nextStep()"
         >
           {{ step === 3 ? '建立並開始 →' : '下一步 →' }}
         </el-button>
@@ -329,6 +370,16 @@ function prevStep() {
   border-radius: 8px;
   font-size: 13px;
   color: var(--app-text-muted);
+}
+
+/* Step 3 — naming */
+.step3 h5 { margin: 0 0 8px; font-family: 'Noto Serif TC', serif; font-weight: 600; font-size: 15px; }
+.hint {
+  font-size: 11px;
+  color: var(--app-text-muted);
+  font-family: 'Fira Code', monospace;
+  letter-spacing: 0.04em;
+  margin: 6px 0 0;
 }
 
 @media (max-width: 640px) {

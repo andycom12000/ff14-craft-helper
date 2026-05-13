@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { useWorkshopProjectsStore } from '@/stores/workshop-projects'
 import { loadCompanyCraft } from '@/services/local-data-source'
 import type { CompanyCraftSequence } from '@/services/local-data-source.types'
@@ -24,6 +25,11 @@ const seqById = computed(() => new Map(sequences.value.map(s => [s.id, s])))
 const expandedId = ref<string | null>(null)
 function onExpand(id: string) {
   expandedId.value = expandedId.value === id ? null : id
+}
+
+function onProjectCreated(projectId: string) {
+  expandedId.value = projectId
+  ElMessage.success('專案已建立')
 }
 
 function onSync(projectId: string) {
@@ -86,7 +92,10 @@ onMounted(async () => {
       />
     </div>
 
-    <NewProjectDialog v-model="newDialogOpen" />
+    <NewProjectDialog
+      v-model="newDialogOpen"
+      @created="onProjectCreated"
+    />
   </div>
 </template>
 
