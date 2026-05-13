@@ -10,6 +10,7 @@ import { useLocaleStore } from '@/stores/locale'
 import { formatMacros } from '@/services/macro-formatter'
 import { useSimulator } from '@/composables/useSimulator'
 import type { Recipe } from '@/stores/recipe'
+import { recipeHardGateReasons } from '@/services/recipe-gating'
 
 import StatusBar from '@/components/simulator/StatusBar.vue'
 import BuffDisplay from '@/components/simulator/BuffDisplay.vue'
@@ -167,13 +168,46 @@ const gearsetMissing = computed(() => {
   return gearset.value.craftsmanship === 0 && gearset.value.control === 0
 })
 
-const gearsetLevelInsufficient = computed(() => {
+/* Level is below recipe's classJobLevel — splits into hard / soft cases.
+ * Hard: recipe has stars / expert / required-stat gates → in-game blocks synthesis.
+ * Soft: 0-star standard recipe → in-game allows it with progress/quality modifier penalty. */
+const gearsetLevelInsufficientRaw = computed(() => {
   if (!recipe.value || !gearset.value) return false
   if (gearsetMissing.value) return false /* missing-gearset takes priority */
   return gearset.value.level < recipe.value.level
 })
 
-const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelInsufficient.value)
+const recipeHardGates = computed(() =>
+  recipe.value ? recipeHardGateReasons(recipe.value) : [],
+)
+
+const gearsetLevelHardBlock = computed(
+  () => gearsetLevelInsufficientRaw.value && recipeHardGates.value.length > 0,
+)
+
+const gearsetLevelSoftWarn = computed(
+  () => gearsetLevelInsufficientRaw.value && recipeHardGates.value.length === 0,
+)
+
+const softWarnLabel = computed(() => {
+  const rlt = recipe.value?.recipeLevelTable
+  if (!rlt) return ''
+  return `將套用進度 ${rlt.progressModifier}%、品質 ${rlt.qualityModifier}% 的低等懲罰`
+})
+
+const hardGateLabel = computed(() => {
+  const reasons = recipeHardGates.value
+  if (reasons.length === 0) return ''
+  const parts: string[] = []
+  if (reasons.includes('stars')) parts.push('星級')
+  if (reasons.includes('expert')) parts.push('專家')
+  if (reasons.includes('requiredCraftsmanship') || reasons.includes('requiredControl')) {
+    parts.push('硬性數值門檻')
+  }
+  return parts.join('、')
+})
+
+const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardBlock.value)
 </script>
 
 <template>
@@ -321,15 +355,22 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelInsuf
                 就地填入 ▾
               </button>
             </div>
-            <div v-else-if="gearsetLevelInsufficient && gearset && recipe" class="gearset-banner">
+            <div v-else-if="gearsetLevelHardBlock && gearset && recipe" class="gearset-banner">
               <div class="gearset-banner-icon" aria-hidden="true">⚠</div>
               <div class="gearset-banner-body">
                 <div class="gearset-banner-title">等級不夠：{{ jobFullName }} Lv {{ gearset.level }}、配方需要 Lv {{ recipe.level }}</div>
-                <div class="gearset-banner-desc">請先調整配裝</div>
+                <div class="gearset-banner-desc">{{ hardGateLabel }}配方有硬性門檻，請先提升等級或調整配裝</div>
               </div>
               <button class="gearset-banner-cta" type="button" @click="openGearsetSheet(recipe?.job ?? null)">
                 調整配裝 ▾
               </button>
+            </div>
+            <div v-else-if="gearsetLevelSoftWarn && gearset && recipe" class="gearset-banner is-soft">
+              <div class="gearset-banner-icon" aria-hidden="true">ℹ</div>
+              <div class="gearset-banner-body">
+                <div class="gearset-banner-title">等級偏低：{{ jobFullName }} Lv {{ gearset.level }}、配方建議 Lv {{ recipe.level }}</div>
+                <div class="gearset-banner-desc">{{ softWarnLabel }}（仍可合成）</div>
+              </div>
             </div>
 
             <div class="cockpit-body" :class="{ 'is-blocked': gearsetBlocking }">
@@ -584,15 +625,22 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelInsuf
             就地填入 ▾
           </button>
         </div>
-        <div v-else-if="gearsetLevelInsufficient && gearset && recipe" class="gearset-banner">
+        <div v-else-if="gearsetLevelHardBlock && gearset && recipe" class="gearset-banner">
           <div class="gearset-banner-icon" aria-hidden="true">⚠</div>
           <div class="gearset-banner-body">
             <div class="gearset-banner-title">等級不夠：{{ jobFullName }} Lv {{ gearset.level }}、配方需要 Lv {{ recipe.level }}</div>
-            <div class="gearset-banner-desc">請先調整配裝</div>
+            <div class="gearset-banner-desc">{{ hardGateLabel }}配方有硬性門檻，請先提升等級或調整配裝</div>
           </div>
           <button class="gearset-banner-cta" type="button" @click="openGearsetSheet(recipe?.job ?? null)">
             調整配裝 ▾
           </button>
+        </div>
+        <div v-else-if="gearsetLevelSoftWarn && gearset && recipe" class="gearset-banner is-soft">
+          <div class="gearset-banner-icon" aria-hidden="true">ℹ</div>
+          <div class="gearset-banner-body">
+            <div class="gearset-banner-title">等級偏低：{{ jobFullName }} Lv {{ gearset.level }}、配方建議 Lv {{ recipe.level }}</div>
+            <div class="gearset-banner-desc">{{ softWarnLabel }}（仍可合成）</div>
+          </div>
         </div>
 
         <button
@@ -2302,6 +2350,19 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelInsuf
   box-shadow: 0 6px 14px oklch(0.58 0.17 45 / 0.40);
 }
 .gearset-banner-cta:active { transform: translateY(0); }
+
+/* Soft variant — informational, not blocking. Uses a calmer blue palette
+ * so users distinguish "below level, will work with penalty" from "blocked". */
+.gearset-banner.is-soft {
+  background: oklch(0.92 0.05 240 / 0.45);
+  border-color: oklch(0.55 0.13 240 / 0.45);
+  box-shadow: 0 4px 14px oklch(0.55 0.13 240 / 0.10);
+}
+.gearset-banner.is-soft .gearset-banner-icon {
+  background: oklch(0.55 0.13 240);
+}
+.gearset-banner.is-soft .gearset-banner-title { color: oklch(0.30 0.12 240); }
+.gearset-banner.is-soft .gearset-banner-desc { color: oklch(0.40 0.13 240); }
 
 @media (max-width: 640px) {
   .gearset-banner {

@@ -45,6 +45,13 @@ const mockRecipe: Recipe = {
 }
 const mockGearset: GearsetStats = { level: 100, craftsmanship: 4000, control: 3800, cp: 600 }
 
+/** Hard-gated variant used by tests that need the level-insufficient code path. */
+const starredMockRecipe: Recipe = {
+  ...mockRecipe,
+  stars: 1,
+  recipeLevelTable: { ...mockRecipe.recipeLevelTable, stars: 1 },
+}
+
 const doubleMaxSim = {
   progress: 3500, max_progress: 3500,
   quality: 7200, max_quality: 7200,
@@ -102,10 +109,11 @@ describe('runBatchOptimization', () => {
     exceptionStrategy: 'skip' as const, server: 'Chocobo', dataCenter: 'Mana',
   }
 
-  it('creates level-insufficient exception when gearset too low', async () => {
+  it('creates level-insufficient exception when gearset too low AND recipe has stars', async () => {
+    // Star-gated recipes hard-block synthesis below recipe level in-game.
     const lowGearset: GearsetStats = { level: 50, craftsmanship: 1000, control: 1000, cp: 300 }
     const result = await runBatchOptimization(
-      [{ recipe: mockRecipe, quantity: 1 }],
+      [{ recipe: starredMockRecipe, quantity: 1 }],
       () => lowGearset,
       defaultSettings,
       () => {}, () => false,
@@ -115,13 +123,71 @@ describe('runBatchOptimization', () => {
     expect(result.exceptions[0].action).toBe('skipped')
   })
 
+  it('hard-blocks when gearset is low AND recipe is expert (no stars)', async () => {
+    const expertRecipe: Recipe = { ...mockRecipe, isExpert: true }
+    const lowGearset: GearsetStats = { level: 50, craftsmanship: 1000, control: 1000, cp: 300 }
+    const result = await runBatchOptimization(
+      [{ recipe: expertRecipe, quantity: 1 }],
+      () => lowGearset,
+      defaultSettings,
+      () => {}, () => false,
+    )
+    expect(result.exceptions).toHaveLength(1)
+    expect(result.exceptions[0].type).toBe('level-insufficient')
+  })
+
+  it('hard-blocks when gearset is low AND recipe has stat gate (no stars)', async () => {
+    const gatedRecipe: Recipe = { ...mockRecipe, requiredCraftsmanship: 3500 }
+    const lowGearset: GearsetStats = { level: 50, craftsmanship: 1000, control: 1000, cp: 300 }
+    const result = await runBatchOptimization(
+      [{ recipe: gatedRecipe, quantity: 1 }],
+      () => lowGearset,
+      defaultSettings,
+      () => {}, () => false,
+    )
+    expect(result.exceptions).toHaveLength(1)
+    expect(result.exceptions[0].type).toBe('level-insufficient')
+  })
+
+  it('does NOT block a 0-star recipe when gearset is below recipe level — solver runs with penalty', async () => {
+    // FFXIV allows attempting standard 0-star recipes below recipe level;
+    // the in-game penalty (progress/quality modifier) is what gates effectiveness.
+    vi.mocked(solveCraft).mockResolvedValue({
+      actions: ['muscle_memory', 'groundwork'], progress: 3500, quality: 7200, steps: 2,
+    })
+    vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
+
+    const lowGearset: GearsetStats = { level: 89, craftsmanship: 4000, control: 3800, cp: 600 }
+    const result = await runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 1 }],
+      () => lowGearset,
+      defaultSettings,
+      () => {}, () => false,
+    )
+    // No level-insufficient exception — the recipe was solved.
+    const levelExc = result.exceptions.find((e) => e.type === 'level-insufficient')
+    expect(levelExc).toBeUndefined()
+    expect(solveCraft).toHaveBeenCalled()
+  })
+
+  it('hard-blocks when gearset is missing entirely (no job configured)', async () => {
+    const result = await runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 1 }],
+      () => null,
+      defaultSettings,
+      () => {}, () => false,
+    )
+    expect(result.exceptions).toHaveLength(1)
+    expect(result.exceptions[0].type).toBe('level-insufficient')
+  })
+
   it('queries buy price when exception strategy is buy', async () => {
     const { getAggregatedPrices } = await import('@/api/universalis')
     vi.mocked(getAggregatedPrices).mockResolvedValue(new Map([
-      [mockRecipe.itemId, { minPriceNQ: 12000, minPriceHQ: 15000, listings: [] } as any],
+      [starredMockRecipe.itemId, { minPriceNQ: 12000, minPriceHQ: 15000, listings: [] } as any],
     ]))
     const result = await runBatchOptimization(
-      [{ recipe: mockRecipe, quantity: 1 }],
+      [{ recipe: starredMockRecipe, quantity: 1 }],
       () => ({ level: 50, craftsmanship: 1000, control: 1000, cp: 300 }),
       { ...defaultSettings, exceptionStrategy: 'buy' },
       () => {}, () => false,
@@ -246,11 +312,11 @@ describe('runBatchOptimization', () => {
   it('buy-finished via level-insufficient exception preserves target quantity', async () => {
     const { getAggregatedPrices } = await import('@/api/universalis')
     vi.mocked(getAggregatedPrices).mockResolvedValue(new Map([
-      [mockRecipe.itemId, { minPriceNQ: 5000, minPriceHQ: 8000, listings: [] } as any],
+      [starredMockRecipe.itemId, { minPriceNQ: 5000, minPriceHQ: 8000, listings: [] } as any],
     ]))
     const lowGearset: GearsetStats = { level: 50, craftsmanship: 1000, control: 1000, cp: 300 }
     const result = await runBatchOptimization(
-      [{ recipe: mockRecipe, quantity: 9 }],
+      [{ recipe: starredMockRecipe, quantity: 9 }],
       () => lowGearset,
       { ...defaultSettings, exceptionStrategy: 'buy' },
       () => {}, () => false,
@@ -268,7 +334,7 @@ describe('runBatchOptimization', () => {
     // Now it should reuse the DC-wide priceMap + findCheapestServerPurchase.
     const { getAggregatedPrices } = await import('@/api/universalis')
     vi.mocked(getAggregatedPrices).mockResolvedValue(new Map([
-      [mockRecipe.itemId, {
+      [starredMockRecipe.itemId, {
         minPriceNQ: 0, minPriceHQ: 7000,
         listings: [
           // Home server: pricey
@@ -280,7 +346,7 @@ describe('runBatchOptimization', () => {
     ]))
     const lowGearset: GearsetStats = { level: 50, craftsmanship: 1000, control: 1000, cp: 300 }
     const result = await runBatchOptimization(
-      [{ recipe: mockRecipe, quantity: 3 }],
+      [{ recipe: starredMockRecipe, quantity: 3 }],
       () => lowGearset,
       { ...defaultSettings, exceptionStrategy: 'buy', crossServer: true },
       () => {}, () => false,

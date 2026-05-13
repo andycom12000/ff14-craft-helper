@@ -13,6 +13,7 @@ import { applyFoodBuff, applyMedicineBuff, resolveBuff, COMMON_FOODS, COMMON_MED
 import { evaluateBuffRecommendation, getBuffItemIds } from '@/services/buff-recommender'
 import { produceSelfCraftCandidates } from '@/services/self-craft-candidates'
 import { canReachHQQuality } from '@/services/feasibility-prefilter'
+import { recipeHardGateReasons } from '@/services/recipe-gating'
 import { fetchItemAcquisitionBatch } from '@/services/item-acquisition'
 import { fetchItemLocationsBatch } from '@/services/item-locations'
 import { fetchZoneMetaBulk, fetchNpcNameBulk } from '@/services/zone-meta'
@@ -118,6 +119,17 @@ interface TypedMaterial extends MaterialBase {
  * cross-server has listings but no world can fulfill — that signals the caller
  * to skip (no usable price).
  */
+function describeHardGates(reasons: ReturnType<typeof recipeHardGateReasons>): string {
+  if (reasons.length === 0) return ''
+  const parts: string[] = []
+  if (reasons.includes('stars')) parts.push('星級')
+  if (reasons.includes('expert')) parts.push('專家')
+  if (reasons.includes('requiredCraftsmanship') || reasons.includes('requiredControl')) {
+    parts.push('硬性數值門檻')
+  }
+  return parts.join('、')
+}
+
 function priceFinishedProduct(
   md: MarketData | undefined,
   quantity: number,
@@ -210,10 +222,15 @@ export async function runBatchOptimization(
   const phase1Settled = await Promise.allSettled(targets.map(async (target, i) => {
     if (isCancelled()) throw new Error(SOLVE_CANCELLED)
     const gearset = getGearset(target.recipe.job)
-    if (!gearset || gearset.level < target.recipe.level) {
+    // Hard-block only when the gearset is missing OR (below recipe level AND
+    // the recipe has at least one hard-gate signal — stars, expert, required
+    // stats). Standard 0-star recipes can be attempted below level; the solver
+    // already applies progress/quality modifiers as the in-game penalty.
+    const hardGates = recipeHardGateReasons(target.recipe)
+    if (!gearset || (gearset.level < target.recipe.level && hardGates.length > 0)) {
       recipePercents[i] = 100
       emitAggregateProgress(target.recipe.name)
-      return { kind: 'level-insufficient' as const, target, gearset }
+      return { kind: 'level-insufficient' as const, target, gearset, hardGates }
     }
     try {
       const result = await optimizeRecipe(target.recipe, gearset, (pct) => {
@@ -240,10 +257,14 @@ export async function runBatchOptimization(
     }
     const v = settled.value
     if (v.kind === 'level-insufficient') {
+      const gearsetLevel = v.gearset?.level ?? 0
+      const details = v.gearset
+        ? `「${v.target.recipe.name}」是${describeHardGates(v.hardGates)}配方，必須達到等級 ${v.target.recipe.level} 才能合成（目前 ${v.target.recipe.job} 等級 ${gearsetLevel}）`
+        : `尚未設定 ${v.target.recipe.job} 裝備組`
       exceptions.push({
         type: 'level-insufficient', recipe: v.target.recipe, quantity: v.target.quantity,
-        message: '職業等級不足',
-        details: `你的 ${v.target.recipe.job} 等級 ${v.gearset?.level ?? 0} 不足以製作「${v.target.recipe.name}」（需要等級 ${v.target.recipe.level}）`,
+        message: v.gearset ? '配方有硬性限制' : '尚未設定裝備組',
+        details,
         action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
       })
       continue
