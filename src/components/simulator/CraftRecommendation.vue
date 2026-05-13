@@ -117,6 +117,7 @@ async function loadBom() {
   try {
     const recipe = props.recipe!
     const targets: BomTarget[] = [{
+      kind: 'recipe',
       itemId: recipe.itemId,
       recipeId: recipe.id,
       name: recipe.name,

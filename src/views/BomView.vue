@@ -90,7 +90,7 @@ function clearAndStartOver(): void {
 const targetItemIds = computed(() => bomStore.targets.map((t) => t.itemId))
 
 const nonCraftableCount = computed(
-  () => bomStore.targets.filter((t) => t.recipeId === null).length,
+  () => bomStore.targets.filter((t) => t.kind !== 'recipe').length,
 )
 
 async function handleCalculate() {
@@ -146,6 +146,7 @@ async function handleCalculate() {
 
 function handleAddFromSearch(recipe: import('@/stores/recipe').Recipe) {
   bomStore.addTarget({
+    kind: 'recipe',
     itemId: recipe.itemId,
     recipeId: recipe.id,
     name: recipe.name,
@@ -162,11 +163,11 @@ async function handleRefreshPrices() {
 }
 
 async function handleSendToBatch() {
-  // Batch is craft-only; non-craftable targets (recipeId === null) have no
+  // Batch is craft-only; non-craftable targets (kind !== 'recipe') have no
   // recipe to optimize and are silently filtered. The user can still see
   // them in BOM for purchase planning.
   const craftableTargets = bomStore.targets.filter(
-    (t): t is typeof t & { recipeId: number } => t.recipeId !== null,
+    (t): t is import('@/stores/bom').RecipeBomTarget => t.kind === 'recipe',
   )
   if (craftableTargets.length === 0) {
     ElMessage.warning(

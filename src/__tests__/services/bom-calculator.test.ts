@@ -346,7 +346,7 @@ describe('buildMaterialTree with amountResult', () => {
 
     // User wants 9 servings → ⌈9/3⌉ = 3 crafts → 4 leaves × 3 = 12 leaves
     const tree = await buildMaterialTree(
-      [{ itemId: 100, recipeId: 1, name: 'Tea', icon: '', quantity: 9 }],
+      [{ kind: 'recipe' as const, itemId: 100, recipeId: 1, name: 'Tea', icon: '', quantity: 9 }],
       3,
     )
     expect(tree[0].amount).toBe(9)
@@ -355,7 +355,7 @@ describe('buildMaterialTree with amountResult', () => {
 
     // Target.quantity that doesn't divide evenly rounds up — 5 servings → 2 crafts → 8 leaves
     const tree2 = await buildMaterialTree(
-      [{ itemId: 100, recipeId: 1, name: 'Tea', icon: '', quantity: 5 }],
+      [{ kind: 'recipe' as const, itemId: 100, recipeId: 1, name: 'Tea', icon: '', quantity: 5 }],
       3,
     )
     expect(tree2[0].children![0].amount).toBe(8)

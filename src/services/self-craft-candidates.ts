@@ -231,9 +231,10 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
   // Step 1: Collect BOM targets — one per recipesToCraft entry.
   // bomTargets[].quantity is "# of finished items the user wants" — buildMaterialTree
   // converts to crafts internally using recipe.amountResult.
-  const bomTargets: Array<{ itemId: number; recipeId: number; name: string; icon: string; quantity: number }> = []
+  const bomTargets: import('@/stores/bom').RecipeBomTarget[] = []
   for (const r of recipesToCraft) {
     bomTargets.push({
+      kind: 'recipe',
       itemId: r.recipe.itemId,
       recipeId: r.recipe.id,
       name: r.recipe.name,

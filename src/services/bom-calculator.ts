@@ -107,7 +107,7 @@ export async function buildMaterialTree(
       // Non-craftable target: leaf node with no children, no recipeId.
       // Lives alongside craftable targets in the tree; user picks the
       // acquisition mode (market / NPC / gather) on its decision row.
-      if (target.recipeId === null) {
+      if (target.kind !== 'recipe') {
         return {
           itemId: target.itemId,
           name: target.name,
@@ -151,13 +151,15 @@ export async function buildMaterialTree(
 
   return results.map((result, i) => {
     if (result.status === 'fulfilled') return result.value
-    console.error(`[BOM] Failed to expand recipe ${targets[i].recipeId}:`, result.reason)
+    const t = targets[i]
+    const recipeId = t.kind === 'recipe' ? t.recipeId : undefined
+    console.error(`[BOM] Failed to expand recipe ${recipeId}:`, result.reason)
     return {
-      itemId: targets[i].itemId,
-      name: targets[i].name,
-      icon: targets[i].icon,
-      amount: targets[i].quantity,
-      recipeId: targets[i].recipeId ?? undefined,
+      itemId: t.itemId,
+      name: t.name,
+      icon: t.icon,
+      amount: t.quantity,
+      recipeId,
     }
   })
 }

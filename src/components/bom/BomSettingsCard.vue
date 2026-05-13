@@ -9,7 +9,7 @@ const bom = useBomStore()
 const isMobile = useIsMobile()
 
 const hasCraftableTarget = computed(() =>
-  bom.targets.some((t) => t.recipeId !== null),
+  bom.targets.some((t) => t.kind === 'recipe'),
 )
 
 type HintKind = 'no-target' | 'craft' | 'market-cross' | 'market-home'

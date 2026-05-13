@@ -140,7 +140,7 @@ describe('BomDecisionRow — target market-mode visuals', () => {
     const bom = useBomStore()
     _settingsState.crossServer = true
     _settingsState.server = 'Tonberry'
-    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.targets = [{ kind: 'recipe', itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
     bom.materialTree = [{
       itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001, collapsed: true,
       children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
@@ -161,7 +161,7 @@ describe('BomDecisionRow — target market-mode visuals', () => {
     const bom = useBomStore()
     _settingsState.crossServer = true
     _settingsState.server = 'Tonberry'
-    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.targets = [{ kind: 'recipe', itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
     bom.materialTree = [{
       itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001, collapsed: true,
       children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
@@ -179,7 +179,7 @@ describe('BomDecisionRow — target market-mode visuals', () => {
   it('shows retry chip on fetch failure', async () => {
     const bom = useBomStore()
     _settingsState.crossServer = true
-    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.targets = [{ kind: 'recipe', itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
     bom.materialTree = [{
       itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001, collapsed: true,
       children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],

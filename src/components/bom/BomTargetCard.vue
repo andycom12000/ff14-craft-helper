@@ -10,7 +10,7 @@ const emit = defineEmits<{
   remove: [itemId: number]
 }>()
 
-const yieldPerCraft = computed(() => Math.max(1, props.target.amountResult ?? 1))
+const yieldPerCraft = computed(() => Math.max(1, (props.target.kind === 'recipe' ? props.target.amountResult : undefined) ?? 1))
 const crafts = computed(() => Math.ceil(props.target.quantity / yieldPerCraft.value))
 const showYieldHint = computed(() => yieldPerCraft.value > 1)
 </script>
