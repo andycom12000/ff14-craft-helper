@@ -1,17 +1,48 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useWorkshopProjectsStore } from '@/stores/workshop-projects'
 import { loadCompanyCraft } from '@/services/local-data-source'
 import type { CompanyCraftSequence } from '@/services/local-data-source.types'
+import { useBomStore } from '@/stores/bom'
 import ProjectEmptyState from '@/components/company-craft/ProjectEmptyState.vue'
+import ProjectCard from '@/components/company-craft/ProjectCard.vue'
 
+const router = useRouter()
 const workshopStore = useWorkshopProjectsStore()
+const bom = useBomStore()
 const newDialogOpen = ref(false)
 
 const sequences = ref<CompanyCraftSequence[]>([])
 const dataReady = computed(() => sequences.value.length > 0)
 
 const activeProjects = computed(() => workshopStore.activeProjects)
+
+const seqById = computed(() => new Map(sequences.value.map(s => [s.id, s])))
+
+const expandedId = ref<string | null>(null)
+function onExpand(id: string) {
+  expandedId.value = expandedId.value === id ? null : id
+}
+
+function onSync(projectId: string) {
+  const proj = workshopStore.getProject(projectId)
+  if (!proj) return
+  const linked = bom.targets.some(
+    t => t.kind === 'company-craft-project' && t.projectId === projectId,
+  )
+  if (!linked) {
+    bom.addTarget({
+      kind: 'company-craft-project',
+      projectId,
+      itemId: -1,
+      name: proj.name,
+      icon: '',
+      quantity: 1,
+    })
+  }
+  router.push('/bom')
+}
 
 onMounted(async () => {
   try {
@@ -42,7 +73,15 @@ onMounted(async () => {
         <el-button type="primary" @click="newDialogOpen = true">+&nbsp;&nbsp;新增專案</el-button>
         <span class="cc-counter">{{ activeProjects.length }} 個進行中</span>
       </div>
-      <!-- Project cards added in Task 12 -->
+      <ProjectCard
+        v-for="p in activeProjects"
+        :key="p.id"
+        :project="p"
+        :sequences="sequences"
+        :seq-by-id="seqById"
+        @expand="onExpand"
+        @sync="onSync"
+      />
     </div>
 
     <!-- NewProjectDialog added in Task 16-18 -->
