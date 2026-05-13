@@ -409,33 +409,44 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
           </div>
 
           <div v-else-if="hardLevelTargets.length > 0" class="batch-lvl-alert">
-            <div class="batch-lvl-alert-icon" aria-hidden="true">⚠</div>
-            <div class="batch-lvl-alert-body">
-              <div class="batch-lvl-alert-title">{{ hardLevelTargets.length }} 件目標 · 遊戲目前禁止製作</div>
-              <div class="batch-lvl-alert-desc">星級／專家／硬性數值門檻配方，必須先提升等級或調整配裝</div>
+            <div class="batch-lvl-alert-main">
+              <div class="batch-lvl-alert-icon" aria-hidden="true">⚠</div>
+              <div class="batch-lvl-alert-body">
+                <div class="batch-lvl-alert-title">{{ hardLevelTargets.length }} 件目標 · 遊戲目前禁止製作</div>
+                <div class="batch-lvl-alert-desc">星級／專家／硬性數值門檻配方，必須先提升等級或調整配裝</div>
+              </div>
+              <button
+                type="button"
+                class="batch-lvl-alert-cta"
+                @click="openGearsetSheet(hardLevelTargets[0]?.recipe.job ?? null)"
+              >
+                調整配裝
+              </button>
             </div>
-            <button
-              type="button"
-              class="batch-lvl-alert-cta"
-              @click="openGearsetSheet(hardLevelTargets[0]?.recipe.job ?? null)"
-            >
-              調整配裝
-            </button>
+            <div v-if="softLevelTargets.length > 0" class="batch-lvl-alert-soft-note">
+              <div class="batch-lvl-alert-soft-note-icon" aria-hidden="true">ℹ</div>
+              <div class="batch-lvl-alert-soft-note-text">
+                另有 <strong>{{ softLevelTargets.length }} 件</strong>無星配方等級偏低
+                <em>· 可合成、會套用進度／品質懲罰</em>
+              </div>
+            </div>
           </div>
 
           <div v-else-if="softLevelTargets.length > 0" class="batch-lvl-alert is-soft">
-            <div class="batch-lvl-alert-icon" aria-hidden="true">ℹ</div>
-            <div class="batch-lvl-alert-body">
-              <div class="batch-lvl-alert-title">{{ softLevelTargets.length }} 件目標 · 等級偏低（仍可合成）</div>
-              <div class="batch-lvl-alert-desc">無星標準配方可低等合成，會套用進度／品質懲罰；想拉滿效率可調整配裝</div>
+            <div class="batch-lvl-alert-main">
+              <div class="batch-lvl-alert-icon" aria-hidden="true">ℹ</div>
+              <div class="batch-lvl-alert-body">
+                <div class="batch-lvl-alert-title">{{ softLevelTargets.length }} 件目標 · 等級偏低（仍可合成）</div>
+                <div class="batch-lvl-alert-desc">無星標準配方可低等合成，會套用進度／品質懲罰；想拉滿效率可調整配裝</div>
+              </div>
+              <button
+                type="button"
+                class="batch-lvl-alert-cta"
+                @click="openGearsetSheet(softLevelTargets[0]?.recipe.job ?? null)"
+              >
+                調整配裝
+              </button>
             </div>
-            <button
-              type="button"
-              class="batch-lvl-alert-cta"
-              @click="openGearsetSheet(softLevelTargets[0]?.recipe.job ?? null)"
-            >
-              調整配裝
-            </button>
           </div>
 
           <div class="batch-action">
@@ -1101,23 +1112,32 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
   transform: translateY(-1px);
 }
 
-/* === Low-level soft alert (cocoa info) === */
+/* === Level-gate alert ===
+   Hard (default) uses Bake Warning hue 45 — the synthesis-blocked tier.
+   When soft targets exist alongside, an inline sub-note row in Buff Info Gold
+   hue 70 reports the count without competing for a CTA.
+   .is-soft modifier flips the whole banner to Buff Info Gold for soft-only. */
 .batch-lvl-alert {
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: oklch(0.58 0.17 45 / 0.06);
+  border: 1px solid oklch(0.58 0.17 45 / 0.35);
+}
+.batch-lvl-alert-main {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 12px;
   padding: 12px 14px;
-  background: color-mix(in srgb, var(--app-craft) 7%, transparent);
-  border: 1px solid color-mix(in srgb, var(--app-craft) 28%, transparent);
-  border-radius: 12px;
 }
 .batch-lvl-alert-icon {
   width: 32px;
   height: 32px;
   border-radius: 10px;
-  background: color-mix(in srgb, var(--app-craft) 18%, transparent);
-  color: var(--app-craft);
+  background: oklch(0.58 0.17 45 / 0.18);
+  color: oklch(0.46 0.18 45);
   display: grid; place-items: center;
   font-size: 16px;
   font-weight: 700;
@@ -1128,7 +1148,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
   font-family: 'Noto Serif TC', serif;
   font-weight: 600;
   font-size: 13.5px;
-  color: var(--app-craft);
+  color: oklch(0.46 0.18 45);
   margin-bottom: 2px;
 }
 .batch-lvl-alert-desc {
@@ -1140,9 +1160,9 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
   flex-shrink: 0;
   padding: 7px 12px;
   background: transparent;
-  border: 1px solid color-mix(in srgb, var(--app-craft) 40%, transparent);
+  border: 1px solid oklch(0.58 0.17 45 / 0.45);
   border-radius: 8px;
-  color: var(--app-craft);
+  color: oklch(0.46 0.18 45);
   font: inherit;
   font-weight: 600;
   font-size: 12px;
@@ -1150,45 +1170,98 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
   transition: background-color 0.18s var(--ease-out-quart);
 }
 .batch-lvl-alert-cta:hover {
-  background: color-mix(in srgb, var(--app-craft) 12%, transparent);
+  background: oklch(0.58 0.17 45 / 0.12);
 }
 
-/* Soft variant: 0-star recipes below level — informational, not blocking.
-   Uses cool/info blue to differentiate from the warm warning palette. */
+/* Soft sub-note inside a hard banner — Buff Info Gold, smaller, no CTA */
+.batch-lvl-alert-soft-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px 11px;
+  background: oklch(0.50 0.13 70 / 0.08);
+  border-top: 1px solid oklch(0.50 0.13 70 / 0.30);
+}
+.batch-lvl-alert-soft-note-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: oklch(0.50 0.13 70 / 0.18);
+  color: oklch(0.42 0.13 70);
+  display: grid; place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.batch-lvl-alert-soft-note-text {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: oklch(0.42 0.13 70);
+}
+.batch-lvl-alert-soft-note-text strong { font-weight: 600; }
+.batch-lvl-alert-soft-note-text em {
+  font-style: normal;
+  color: var(--app-text-muted);
+}
+
+/* Dark mode — keep palette warm (DESIGN.md: never cool blue/gray in dark) */
+[data-theme="dark"] .batch-lvl-alert {
+  background: oklch(0.32 0.10 45 / 0.45);
+  border-color: oklch(0.62 0.16 45 / 0.50);
+}
+[data-theme="dark"] .batch-lvl-alert-icon {
+  background: oklch(0.62 0.16 45 / 0.25);
+  color: oklch(0.85 0.13 50);
+}
+[data-theme="dark"] .batch-lvl-alert-title { color: oklch(0.85 0.13 50); }
+[data-theme="dark"] .batch-lvl-alert-cta {
+  border-color: oklch(0.62 0.16 45 / 0.55);
+  color: oklch(0.85 0.13 50);
+}
+[data-theme="dark"] .batch-lvl-alert-cta:hover {
+  background: oklch(0.62 0.16 45 / 0.20);
+}
+[data-theme="dark"] .batch-lvl-alert-soft-note {
+  background: oklch(0.30 0.08 70 / 0.45);
+  border-top-color: oklch(0.62 0.12 70 / 0.45);
+}
+[data-theme="dark"] .batch-lvl-alert-soft-note-icon {
+  background: oklch(0.62 0.12 70 / 0.25);
+  color: oklch(0.82 0.12 75);
+}
+[data-theme="dark"] .batch-lvl-alert-soft-note-text { color: oklch(0.82 0.12 75); }
+
+/* Soft-only variant: whole banner flips to Buff Info Gold hue 70 */
 .batch-lvl-alert.is-soft {
-  background: oklch(0.96 0.025 240 / 0.55);
-  border-color: oklch(0.62 0.08 240 / 0.40);
+  background: oklch(0.50 0.13 70 / 0.08);
+  border-color: oklch(0.50 0.13 70 / 0.30);
 }
 .batch-lvl-alert.is-soft .batch-lvl-alert-icon {
-  background: oklch(0.62 0.08 240 / 0.18);
-  color: oklch(0.42 0.10 240);
+  background: oklch(0.50 0.13 70 / 0.18);
+  color: oklch(0.42 0.13 70);
 }
-.batch-lvl-alert.is-soft .batch-lvl-alert-title {
-  color: oklch(0.38 0.10 240);
-}
+.batch-lvl-alert.is-soft .batch-lvl-alert-title { color: oklch(0.42 0.13 70); }
 .batch-lvl-alert.is-soft .batch-lvl-alert-cta {
-  border-color: oklch(0.62 0.08 240 / 0.45);
-  color: oklch(0.42 0.10 240);
+  border-color: oklch(0.50 0.13 70 / 0.45);
+  color: oklch(0.42 0.13 70);
 }
 .batch-lvl-alert.is-soft .batch-lvl-alert-cta:hover {
-  background: oklch(0.62 0.08 240 / 0.12);
+  background: oklch(0.50 0.13 70 / 0.12);
 }
 [data-theme="dark"] .batch-lvl-alert.is-soft {
-  background: oklch(0.28 0.04 240 / 0.45);
-  border-color: oklch(0.55 0.10 240 / 0.45);
+  background: oklch(0.30 0.08 70 / 0.45);
+  border-color: oklch(0.62 0.12 70 / 0.45);
 }
 [data-theme="dark"] .batch-lvl-alert.is-soft .batch-lvl-alert-icon {
-  background: oklch(0.55 0.10 240 / 0.22);
-  color: oklch(0.82 0.08 240);
+  background: oklch(0.62 0.12 70 / 0.25);
+  color: oklch(0.82 0.12 75);
 }
-[data-theme="dark"] .batch-lvl-alert.is-soft .batch-lvl-alert-title {
-  color: oklch(0.86 0.06 240);
-}
+[data-theme="dark"] .batch-lvl-alert.is-soft .batch-lvl-alert-title { color: oklch(0.82 0.12 75); }
 [data-theme="dark"] .batch-lvl-alert.is-soft .batch-lvl-alert-cta {
-  border-color: oklch(0.55 0.10 240 / 0.55);
-  color: oklch(0.82 0.08 240);
+  border-color: oklch(0.62 0.12 70 / 0.50);
+  color: oklch(0.82 0.12 75);
 }
 [data-theme="dark"] .batch-lvl-alert.is-soft .batch-lvl-alert-cta:hover {
-  background: oklch(0.55 0.10 240 / 0.18);
+  background: oklch(0.62 0.12 70 / 0.18);
 }
 </style>

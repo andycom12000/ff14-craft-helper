@@ -289,22 +289,22 @@ const showYieldHint = computed(() => yieldPerCraft.value > 1)
   outline-offset: 2px;
 }
 .recipe-card-lvl-pill.is-soft {
-  background: oklch(0.62 0.08 240 / 0.14);
-  border-color: oklch(0.62 0.08 240 / 0.40);
-  color: oklch(0.42 0.10 240);
+  background: oklch(0.50 0.13 70 / 0.14);
+  border-color: oklch(0.50 0.13 70 / 0.40);
+  color: oklch(0.42 0.13 70);
 }
 .recipe-card-lvl-pill.is-soft:hover {
-  background: oklch(0.62 0.08 240 / 0.22);
+  background: oklch(0.50 0.13 70 / 0.22);
 }
 .recipe-card-lvl-pill.is-soft:focus-visible {
-  outline-color: oklch(0.42 0.10 240);
+  outline-color: oklch(0.42 0.13 70);
 }
 [data-theme="dark"] .recipe-card-lvl-pill.is-soft {
-  background: oklch(0.55 0.10 240 / 0.20);
-  border-color: oklch(0.55 0.10 240 / 0.50);
-  color: oklch(0.82 0.08 240);
+  background: oklch(0.62 0.12 70 / 0.20);
+  border-color: oklch(0.62 0.12 70 / 0.50);
+  color: oklch(0.82 0.12 75);
 }
 [data-theme="dark"] .recipe-card-lvl-pill.is-soft:hover {
-  background: oklch(0.55 0.10 240 / 0.30);
+  background: oklch(0.62 0.12 70 / 0.30);
 }
 </style>

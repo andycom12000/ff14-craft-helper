@@ -2341,18 +2341,19 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
 }
 .gearset-banner-cta:active { transform: translateY(0); }
 
-/* Soft variant — informational, not blocking. Uses a calmer blue palette
- * so users distinguish "below level, will work with penalty" from "blocked". */
+/* Soft variant — informational, not blocking. Uses Buff Info Gold (hue 70)
+ * from DESIGN.md so it stays in the warm bakery family and distinguishes
+ * "below level, will work with penalty" from the hard warning tier. */
 .gearset-banner.is-soft {
-  background: oklch(0.92 0.05 240 / 0.45);
-  border-color: oklch(0.55 0.13 240 / 0.45);
-  box-shadow: 0 4px 14px oklch(0.55 0.13 240 / 0.10);
+  background: oklch(0.50 0.13 70 / 0.10);
+  border-color: oklch(0.50 0.13 70 / 0.45);
+  box-shadow: 0 4px 14px oklch(0.50 0.13 70 / 0.10);
 }
 .gearset-banner.is-soft .gearset-banner-icon {
-  background: oklch(0.55 0.13 240);
+  background: oklch(0.50 0.13 70);
 }
-.gearset-banner.is-soft .gearset-banner-title { color: oklch(0.30 0.12 240); }
-.gearset-banner.is-soft .gearset-banner-desc { color: oklch(0.40 0.13 240); }
+.gearset-banner.is-soft .gearset-banner-title { color: oklch(0.32 0.11 70); }
+.gearset-banner.is-soft .gearset-banner-desc { color: oklch(0.42 0.12 70); }
 
 @media (max-width: 640px) {
   .gearset-banner {
