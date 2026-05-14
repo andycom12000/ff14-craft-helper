@@ -81,7 +81,7 @@ async function copyTeamcraftUrl() {
     return
   }
   const url = buildTeamcraftImportUrl(
-    bom.targets.map((t) => ({ itemId: t.itemId, recipeId: t.recipeId, qty: t.quantity })),
+    bom.targets.map((t) => ({ itemId: t.itemId, recipeId: t.kind === 'recipe' ? t.recipeId : null, qty: t.quantity })),
   )
   await copyToClipboard(url, '已複製 Teamcraft 連結')
 }

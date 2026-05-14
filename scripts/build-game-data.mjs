@@ -427,6 +427,133 @@ function buildItems(rows, headers, whitelist, verbose, label, opts = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// Company Craft (FC Workshop / Submarine / Airship)
+// ---------------------------------------------------------------------------
+
+// keep in sync with src/utils/jobs.ts CRAFT_TYPE_TO_JOB
+const CRAFT_TYPE_TO_JOB = { 0: 'CRP', 1: 'BSM', 2: 'ARM', 3: 'GSM', 4: 'LTW', 5: 'WVR', 6: 'ALC', 7: 'CUL' }
+
+/**
+ * Map ItemUICategory FK id → { category, partSlot }.
+ * Submersible: 101=Hull, 102=Stern, 103=Bow, 104=Bridge
+ * Airship: 90=Hull, 91=Rigging→bridge, 92=Aftcastle→stern, 93=Forecastle→bow
+ */
+const UI_CATEGORY_TO_COMPANY_CRAFT = {
+  90:  { category: 'airship',     partSlot: 'hull' },
+  91:  { category: 'airship',     partSlot: 'bridge' },
+  92:  { category: 'airship',     partSlot: 'stern' },
+  93:  { category: 'airship',     partSlot: 'bow' },
+  101: { category: 'submersible', partSlot: 'hull' },
+  102: { category: 'submersible', partSlot: 'stern' },
+  103: { category: 'submersible', partSlot: 'bow' },
+  104: { category: 'submersible', partSlot: 'bridge' },
+}
+
+function findIndexedCols(headers, prefix, count) {
+  const cols = []
+  for (let i = 0; i < count; i++) {
+    const col = pickHeader(headers, [`${prefix}[${i}]`])
+    if (col) cols.push({ index: i, col })
+  }
+  return cols
+}
+
+/**
+ * Parse CompanyCraft CSVs into a phase index.
+ * Pure data transformation — caller passes CSV strings.
+ *
+ * @param {object} opts
+ * @param {string} opts.sequenceCsv - CompanyCraftSequence CSV content
+ * @param {string} opts.partCsv - CompanyCraftPart CSV content
+ * @param {string} opts.processCsv - CompanyCraftProcess CSV content
+ * @param {string} opts.supplyItemCsv - CompanyCraftSupplyItem CSV content (FK lookup)
+ * @param {Map<number,number>} opts.itemUICategoryMap - itemId -> ItemUICategory FK id
+ * @returns {{ schemaVersion: number, sequences: Array }}
+ */
+export function buildCompanyCraft({ sequenceCsv, partCsv, processCsv, supplyItemCsv, itemUICategoryMap }) {
+  const { headers: seqHeaders, rows: seqRows } = parseCsv(sequenceCsv, 'oxidizer')
+  const { headers: partHeaders, rows: partRows } = parseCsv(partCsv, 'oxidizer')
+  const { headers: procHeaders, rows: procRows } = parseCsv(processCsv, 'oxidizer')
+
+  const partById = new Map(partRows.map(r => [toInt(r['#']), r]))
+  const processById = new Map(procRows.map(r => [toInt(r['#']), r]))
+
+  // Build lookup: CompanyCraftSupplyItem row key -> real itemId
+  // CompanyCraftProcess.SupplyItem[N] is a FK into CompanyCraftSupplyItem.#,
+  // and CompanyCraftSupplyItem.Item holds the actual item id.
+  const { rows: supplyRows } = parseCsv(supplyItemCsv, 'oxidizer')
+  const supplyItemIdByKey = new Map()
+  for (const row of supplyRows) {
+    const key = toInt(row['#'])
+    const itemId = toInt(row.Item)
+    if (key > 0 && itemId > 0) supplyItemIdByKey.set(key, itemId)
+  }
+
+  // Column discovery (CompanyCraftPart[0..7], CompanyCraftProcess[0..7], SupplyItem[0..11])
+  const seqPartCols = findIndexedCols(seqHeaders, 'CompanyCraftPart', 8)
+  // Unknown1 holds the CraftType (crafter job) FK for each part phase.
+  // CompanyCraftType is the part category (Airship Hull, Submersible Bow, etc.) — not the job.
+  const partTypeCol = pickHeader(partHeaders, ['Unknown1']) ?? 'Unknown1'
+  const partProcessCols = findIndexedCols(partHeaders, 'CompanyCraftProcess', 8)
+  const procSupplyCols = []
+  for (let i = 0; i < 12; i++) {
+    const item = pickHeader(procHeaders, [`SupplyItem[${i}]`])
+    const qty = pickHeader(procHeaders, [`SetQuantity[${i}]`])
+    const sets = pickHeader(procHeaders, [`SetsRequired[${i}]`])
+    if (item && qty && sets) procSupplyCols.push({ item, qty, sets })
+  }
+
+  const sequences = []
+  for (const seqRow of seqRows) {
+    const id = toInt(seqRow['#'])
+    const resultItemId = toInt(seqRow.ResultItem)
+    if (!resultItemId) continue
+
+    const uiCatId = itemUICategoryMap.get(resultItemId) ?? 0
+    const ccMeta = UI_CATEGORY_TO_COMPANY_CRAFT[uiCatId]
+    const category = ccMeta?.category ?? 'workshop'
+    const partSlot = ccMeta?.partSlot ?? null
+
+    const phases = []
+    for (const { index: partIndex, col } of seqPartCols) {
+      const partId = toInt(seqRow[col])
+      if (!partId) continue
+      const partRow = partById.get(partId)
+      if (!partRow) continue
+      const typeId = toInt(partRow[partTypeCol])
+      const jobAbbr = CRAFT_TYPE_TO_JOB[typeId] ?? null
+      if (!jobAbbr) continue
+
+      for (const { index: processIndex, col: pcol } of partProcessCols) {
+        const procId = toInt(partRow[pcol])
+        if (!procId) continue
+        const procRow = processById.get(procId)
+        if (!procRow) continue
+
+        const supplyItems = []
+        for (const { item, qty, sets } of procSupplyCols) {
+          const supplyKey = toInt(procRow[item])
+          const q = toInt(procRow[qty])
+          const s = toInt(procRow[sets])
+          if (!supplyKey || q <= 0 || s <= 0) continue
+          const itemId = supplyItemIdByKey.get(supplyKey)
+          if (!itemId) continue   // skip orphan FKs gracefully
+          supplyItems.push({ itemId, amount: q * s })
+        }
+        if (supplyItems.length === 0) continue
+
+        phases.push({ partIndex, processIndex, jobAbbr, level: 0, supplyItems })
+      }
+    }
+
+    if (phases.length === 0) continue
+    sequences.push({ id, resultItemId, category, partSlot, phases })
+  }
+
+  return { schemaVersion: 1, sequences }
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -523,6 +650,7 @@ async function main() {
 
   const itemsByLocale = {}
   const itemsExtraByLocale = {}
+  let itemUICategoryMap = new Map()
   for (const src of itemSources) {
     log(verbose, `Reading ${src.path} as ${src.format}`)
     const text = await readCsv(src.path)
@@ -539,6 +667,44 @@ async function main() {
     })
     itemsExtraByLocale[src.locale] = extra
     log(verbose, `  [${src.locale}] kept ${extra.length} items (extra)`)
+
+    // Build itemUICategoryMap from the en locale parse for CompanyCraft
+    // (avoids a redundant readCsv of Item.csv).
+    // Store the FK id as an integer so UI_CATEGORY_TO_COMPANY_CRAFT can look it up.
+    if (src.locale === 'en') {
+      const uiCatCol = pickHeader(headers, ['ItemUICategory'])
+      for (const row of rows) {
+        const id = toInt(row['#'])
+        if (!id) continue
+        if (uiCatCol && row[uiCatCol]) itemUICategoryMap.set(id, toInt(row[uiCatCol]))
+      }
+      log(verbose, `  [en] built itemUICategoryMap (${itemUICategoryMap.size}) for CompanyCraft`)
+    }
+  }
+
+  // Build CompanyCraft index from FFXIV CSVs.
+  const ccSeqPath = path.join(xivDir, 'csv', 'en', 'CompanyCraftSequence.csv')
+  const ccPartPath = path.join(xivDir, 'csv', 'en', 'CompanyCraftPart.csv')
+  const ccProcPath = path.join(xivDir, 'csv', 'en', 'CompanyCraftProcess.csv')
+  const ccSupplyItemPath = path.join(xivDir, 'csv', 'en', 'CompanyCraftSupplyItem.csv')
+
+  let companyCraft = { schemaVersion: 1, sequences: [] }
+  try {
+    const [sequenceCsv, partCsv, processCsv, supplyItemCsv] = await Promise.all([
+      readCsv(ccSeqPath),
+      readCsv(ccPartPath),
+      readCsv(ccProcPath),
+      readCsv(ccSupplyItemPath),
+    ])
+    companyCraft = buildCompanyCraft({
+      sequenceCsv, partCsv, processCsv, supplyItemCsv,
+      itemUICategoryMap,
+    })
+  } catch (err) {
+    console.warn(`[warn] CompanyCraft build skipped: ${err.message}`)
+  }
+  if (companyCraft.sequences.length === 0) {
+    console.warn('[warn] CompanyCraft index is empty; downstream features will show empty state')
   }
 
   // 4. Sanity checks.
@@ -630,6 +796,11 @@ async function main() {
       JSON.stringify({ schemaVersion: 1, items }),
     )
   }
+  await fs.writeFile(
+    path.join(OUT_TMP, 'company-craft.json'),
+    JSON.stringify(companyCraft),
+  )
+
   const manifest = {
     schemaVersion: 1,
     buildTime: new Date().toISOString(),
@@ -651,6 +822,7 @@ async function main() {
     ['recipes.json', 'recipes.json'],
     ['rlt.json', 'rlt.json'],
     ['manifest.json', 'manifest.json'],
+    ['company-craft.json', 'company-craft.json'],
     ['items/zh-TW.json', 'items/zh-TW.json'],
     ['items/zh-CN.json', 'items/zh-CN.json'],
     ['items/en.json', 'items/en.json'],
@@ -696,8 +868,10 @@ async function main() {
   }
   const recipesSize = (await fs.stat(path.join(OUT_FINAL, 'recipes.json'))).size
   const rltSize = (await fs.stat(path.join(OUT_FINAL, 'rlt.json'))).size
+  const ccSize = (await fs.stat(path.join(OUT_FINAL, 'company-craft.json'))).size
   console.log(`  recipes.json: ${(recipesSize / 1024).toFixed(1)} KB`)
   console.log(`  rlt.json:     ${(rltSize / 1024).toFixed(1)} KB`)
+  console.log(`  company-craft.json: ${(ccSize / 1024).toFixed(1)} KB`)
   console.log('  sources:')
   for (const [locale, s] of Object.entries(manifest.sources)) {
     console.log(`    ${locale}: ${s.repo}@${s.commit.slice(0, 10)}`)

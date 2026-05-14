@@ -53,7 +53,18 @@ async function expandNode(
   depth: number,
   maxDepth: number,
   ancestorIds: Set<number>,
+  resolveItemMeta?: (itemId: number) => { name: string; icon: string } | null,
 ): Promise<MaterialNode> {
+  // Fill missing name/icon (company-craft children arrive without them since
+  // they don't come from a recipe-fetch path that carries icons).
+  if ((!name || !icon) && resolveItemMeta) {
+    const meta = resolveItemMeta(itemId)
+    if (meta) {
+      if (!name) name = meta.name
+      if (!icon) icon = meta.icon
+    }
+  }
+
   // Stop conditions: max depth, cycle detection, or crystal/base material
   if (depth >= maxDepth || ancestorIds.has(itemId) || itemId < RAW_ITEM_ID_THRESHOLD) {
     return { itemId, name, icon, amount }
@@ -81,6 +92,7 @@ async function expandNode(
         depth + 1,
         maxDepth,
         newAncestors,
+        resolveItemMeta,
       ),
     ),
   )
@@ -95,19 +107,65 @@ async function expandNode(
   }
 }
 
+export interface BuildMaterialTreeContext {
+  /**
+   * Resolve a CompanyCraft project's remaining materials.
+   * Required when any target has kind === 'company-craft-project'.
+   * Returns null when the project is missing or the callback is not wired.
+   */
+  resolveProjectRemaining?: (projectId: string) => Map<number, number> | null
+
+  /**
+   * Look up an item's display name and icon URL by itemId. Called by
+   * expandNode whenever a child arrives with empty name/icon — typically
+   * the direct children of a company-craft-project target, which don't
+   * come from a recipe-fetch path that carries that data. Returns null
+   * when the item is unknown to the local items shard.
+   */
+  resolveItemMeta?: (itemId: number) => { name: string; icon: string } | null
+}
+
 /**
  * Recursively expand recipe ingredients into a material tree.
  */
 export async function buildMaterialTree(
   targets: BomTarget[],
   maxDepth: number = DEFAULT_RECURSION_DEPTH,
+  ctx: BuildMaterialTreeContext = {},
 ): Promise<MaterialNode[]> {
   const results = await Promise.allSettled(
     targets.map(async (target) => {
+      // Company-craft-project target: expand via resolveProjectRemaining callback.
+      if (target.kind === 'company-craft-project') {
+        const remaining = ctx.resolveProjectRemaining?.(target.projectId) ?? null
+        if (!remaining) {
+          // Fallback leaf when project missing or no callback wired
+          return {
+            itemId: target.itemId,
+            name: target.name,
+            icon: target.icon,
+            amount: target.quantity,
+          } as MaterialNode
+        }
+        const ancestorIds = new Set<number>()
+        const children = await Promise.all(
+          [...remaining.entries()].map(([itemId, amount]) =>
+            expandNode(itemId, '', '', amount, 1, maxDepth, ancestorIds, ctx.resolveItemMeta),
+          ),
+        )
+        return {
+          itemId: target.itemId,
+          name: target.name,
+          icon: target.icon,
+          amount: target.quantity,
+          children,
+        } as MaterialNode
+      }
+
       // Non-craftable target: leaf node with no children, no recipeId.
       // Lives alongside craftable targets in the tree; user picks the
       // acquisition mode (market / NPC / gather) on its decision row.
-      if (target.recipeId === null) {
+      if (target.kind !== 'recipe') {
         return {
           itemId: target.itemId,
           name: target.name,
@@ -134,6 +192,7 @@ export async function buildMaterialTree(
             1,
             maxDepth,
             ancestorIds,
+            ctx.resolveItemMeta,
           ),
         ),
       )
@@ -151,13 +210,15 @@ export async function buildMaterialTree(
 
   return results.map((result, i) => {
     if (result.status === 'fulfilled') return result.value
-    console.error(`[BOM] Failed to expand recipe ${targets[i].recipeId}:`, result.reason)
+    const t = targets[i]
+    const recipeId = t.kind === 'recipe' ? t.recipeId : undefined
+    console.error(`[BOM] Failed to expand recipe ${recipeId}:`, result.reason)
     return {
-      itemId: targets[i].itemId,
-      name: targets[i].name,
-      icon: targets[i].icon,
-      amount: targets[i].quantity,
-      recipeId: targets[i].recipeId ?? undefined,
+      itemId: t.itemId,
+      name: t.name,
+      icon: t.icon,
+      amount: t.quantity,
+      recipeId,
     }
   })
 }

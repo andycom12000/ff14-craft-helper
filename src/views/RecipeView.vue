@@ -56,6 +56,7 @@ function handleAddToBatch() {
 function handleAddToBom() {
   if (selectedRecipe.value) {
     bomStore.addTarget({
+      kind: 'recipe',
       itemId: selectedRecipe.value.itemId,
       recipeId: selectedRecipe.value.id,
       name: selectedRecipe.value.name,

@@ -244,6 +244,7 @@ export function useSimulator() {
       return
     }
     bomStore.addTarget({
+      kind: 'recipe',
       itemId: recipe.value.itemId,
       recipeId: recipe.value.id,
       name: recipe.value.name,

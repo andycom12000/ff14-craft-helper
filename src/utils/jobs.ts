@@ -18,8 +18,9 @@ export const JOB_ICONS: Record<string, string> = {
   LTW: '🧶', WVR: '🪡', ALC: '⚗️', CUL: '🍳',
 }
 
-// yyyy.games API returns short job names without 師/術師
-const API_JOB_NAMES: Record<string, string> = {
+// Short 2-character job names without 師/術師 suffix.
+// Used in compact UI labels (job badges, tags) and by yyyy.games API.
+export const JOB_NAMES_SHORT: Record<string, string> = {
   CRP: '木工',
   BSM: '鍛造',
   ARM: '甲冑',
@@ -32,11 +33,15 @@ const API_JOB_NAMES: Record<string, string> = {
 
 export const JOB_ABBR: Record<string, string> = Object.fromEntries([
   ...Object.entries(JOB_NAMES).map(([abbr, name]) => [name, abbr]),
-  ...Object.entries(API_JOB_NAMES).map(([abbr, name]) => [name, abbr]),
+  ...Object.entries(JOB_NAMES_SHORT).map(([abbr, name]) => [name, abbr]),
 ])
 
 export function getJobName(abbr: string): string {
   return JOB_NAMES[abbr] ?? abbr
+}
+
+export function getJobNameShort(abbr: string): string {
+  return JOB_NAMES_SHORT[abbr] ?? abbr
 }
 
 export function getJobLabel(abbr: string): string {

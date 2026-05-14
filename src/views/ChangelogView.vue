@@ -18,6 +18,16 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: 'v2.15.0',
+    date: '2026-05-13',
+    highlights: [
+      '【部隊工坊（實驗中）】新增「部隊工坊」頁面：追蹤潛水艇 / 飛空艇 / 工坊建材的素材繳交進度',
+      '剩餘素材一鍵推進購物清單（Tracker → BOM 單向同步）',
+      '支援整艘潛水艇 / 飛空艇的 4 零件 bundle 專案',
+      '每個 phase 的 supplyItem 都有獨立進度 counter',
+    ],
+  },
+  {
     version: 'v2.14.0',
     date: '2026-05-13',
     highlights: [

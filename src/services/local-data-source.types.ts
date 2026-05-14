@@ -71,3 +71,27 @@ export interface RecipeSearchResult {
   canHq: boolean
   materialQualityFactor: number
 }
+
+export type CompanyCraftCategory = 'submersible' | 'airship' | 'workshop'
+export type PartSlot = 'bow' | 'stern' | 'hull' | 'bridge'
+
+export interface CompanyCraftPhase {
+  partIndex: number
+  processIndex: number
+  jobAbbr: string
+  level: number
+  supplyItems: Array<{ itemId: number; amount: number }>
+}
+
+export interface CompanyCraftSequence {
+  id: number
+  resultItemId: number
+  category: CompanyCraftCategory
+  partSlot: PartSlot | null
+  phases: CompanyCraftPhase[]
+}
+
+export interface CompanyCraftFile {
+  schemaVersion: 1
+  sequences: CompanyCraftSequence[]
+}

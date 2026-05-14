@@ -27,15 +27,8 @@ export type { AcquisitionSource }
 
 export type TargetDefaultMode = Extract<AcquisitionSource, 'craft' | 'market'>
 
-export interface BomTarget {
+interface BaseBomTarget {
   itemId: number
-  /**
-   * Recipe id when the target is a craftable item. `null` for items the user
-   * wants to procure but can't craft (NPC vendor, FATE rewards, gathered
-   * goods imported from a Teamcraft list). Non-craftable targets bypass
-   * material expansion and live in flatMaterials as a single raw entry.
-   */
-  recipeId: number | null
   /**
    * @deprecated name is no longer the source of truth for rendering.
    * Components should resolve the current-locale name via useItemName(itemId).
@@ -48,8 +41,53 @@ export interface BomTarget {
   icon: string
   /** # of finished items the user wants. */
   quantity: number
+}
+
+export interface RecipeBomTarget extends BaseBomTarget {
+  kind: 'recipe'
+  recipeId: number
   /** Items produced per craft. Optional for legacy data; treat undefined as 1. */
   amountResult?: number
+}
+
+export interface CompanyCraftProjectBomTarget extends BaseBomTarget {
+  kind: 'company-craft-project'
+  projectId: string
+}
+
+export interface NoRecipeBomTarget extends BaseBomTarget {
+  kind: 'no-recipe'
+}
+
+/**
+ * A discriminated union over all target kinds. The `kind` field is the
+ * discriminant; use it to narrow before accessing kind-specific fields.
+ *
+ * Legacy data (without `kind`) can be up-converted via `migrateLegacyTarget`.
+ */
+export type BomTarget = RecipeBomTarget | CompanyCraftProjectBomTarget | NoRecipeBomTarget
+
+/**
+ * Up-converts a legacy target object (pre-discriminant-union) to a typed
+ * `BomTarget`. If the object already has a `kind` field it is returned
+ * as-is (idempotent). Exported for test access and future persist migration.
+ */
+export function migrateLegacyTarget(t: unknown): BomTarget {
+  const obj = t as Record<string, unknown>
+  if (obj && typeof obj === 'object' && 'kind' in obj) return obj as unknown as BomTarget
+  const itemId = Number(obj.itemId)
+  const name = String(obj.name ?? '')
+  const icon = String(obj.icon ?? '')
+  const quantity = Number(obj.quantity ?? 1)
+  const recipeId = obj.recipeId
+  const base: BaseBomTarget = { itemId, name, icon, quantity }
+  if (recipeId == null) return { ...base, kind: 'no-recipe' }
+  return {
+    ...base,
+    kind: 'recipe',
+    recipeId: Number(recipeId),
+    amountResult: obj.amountResult !== undefined ? Number(obj.amountResult) : undefined,
+  }
 }
 
 export interface MaterialNode {
@@ -303,9 +341,19 @@ export const useBomStore = defineStore('bom', () => {
   )
 
   function addTarget(target: BomTarget) {
-    // Dedupe by itemId — same item shouldn't appear twice even with different
-    // recipe choices, and itemId is the only stable key for non-craftable
-    // targets (recipeId is null for those).
+    if (target.kind === 'company-craft-project') {
+      // Company craft projects are keyed by projectId — the same project
+      // can share an itemId placeholder (-1) across multiple entries.
+      const existing = targets.value.find(
+        t => t.kind === 'company-craft-project' && t.projectId === target.projectId,
+      )
+      if (existing) return
+      targets.value.push(target)
+      return
+    }
+    // recipe / no-recipe: dedupe by itemId (existing behavior).
+    // itemId is the only stable key for non-craftable targets, and the same
+    // craftable item shouldn't appear twice even with different recipe choices.
     const existing = targets.value.find(t => t.itemId === target.itemId)
     if (existing) {
       existing.quantity += target.quantity
@@ -316,6 +364,12 @@ export const useBomStore = defineStore('bom', () => {
 
   function removeTarget(itemId: number) {
     targets.value = targets.value.filter(t => t.itemId !== itemId)
+  }
+
+  function removeProjectTarget(projectId: string) {
+    targets.value = targets.value.filter(
+      t => !(t.kind === 'company-craft-project' && t.projectId === projectId),
+    )
   }
 
   function updateTargetQuantity(itemId: number, quantity: number) {
@@ -630,7 +684,7 @@ export const useBomStore = defineStore('bom', () => {
     let nextAcq: Map<number, AcquisitionSource> | null = null
     let changed = false
     for (const t of targets.value) {
-      if (t.recipeId === null) continue
+      if (t.kind !== 'recipe') continue
       if (userTouchedModes.value.has(t.itemId)) continue
       const node = findNode(t.itemId)
       if (!node || !node.recipeId || !node.children || node.children.length === 0) continue
@@ -957,6 +1011,7 @@ export const useBomStore = defineStore('bom', () => {
     savingPercent,
     addTarget,
     removeTarget,
+    removeProjectTarget,
     updateTargetQuantity,
     clearTargets,
     toggleCollapsed,

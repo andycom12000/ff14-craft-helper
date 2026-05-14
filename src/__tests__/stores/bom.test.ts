@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { flushPromises } from '@vue/test-utils'
-import { useBomStore, getPrice } from '@/stores/bom'
+import { useBomStore, getPrice, migrateLegacyTarget } from '@/stores/bom'
 import { useSettingsStore } from '@/stores/settings'
 import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
 import type { PriceInfo, MaterialNode } from '@/stores/bom'
@@ -180,7 +180,7 @@ describe('useBomStore.applyOptimalDefaults', () => {
 
   it('picks market when its cost beats craft and NPC for a craftable', () => {
     const bom = useBomStore()
-    bom.targets = [{ itemId: 100, recipeId: 1, name: 'Target', icon: '', quantity: 2 }]
+    bom.targets = [{ kind: 'recipe', itemId: 100, recipeId: 1, name: 'Target', icon: '', quantity: 2 }]
     bom.materialTree = makeTree()
     // children's market prices total: leafA1 8×5 + leafA2 4×5 = 60. childA market 4×10 = 40.
     // childA market (40) < its craft cost (60). Default should pick market.
@@ -198,7 +198,7 @@ describe('useBomStore.applyOptimalDefaults', () => {
 
   it('keeps craftable on craft when craft cost is cheapest', () => {
     const bom = useBomStore()
-    bom.targets = [{ itemId: 100, recipeId: 1, name: 'Target', icon: '', quantity: 2 }]
+    bom.targets = [{ kind: 'recipe', itemId: 100, recipeId: 1, name: 'Target', icon: '', quantity: 2 }]
     bom.materialTree = makeTree()
     // childA market 100; craft cost = 8×1 + 4×1 = 12. Should stay craft.
     bom.prices = new Map([
@@ -214,7 +214,7 @@ describe('useBomStore.applyOptimalDefaults', () => {
 
   it('picks NPC when it is cheaper than market', () => {
     const bom = useBomStore()
-    bom.targets = [{ itemId: 100, recipeId: 1, name: 'Target', icon: '', quantity: 2 }]
+    bom.targets = [{ kind: 'recipe', itemId: 100, recipeId: 1, name: 'Target', icon: '', quantity: 2 }]
     bom.materialTree = makeTree()
     bom.prices = new Map([
       [10, priceInfo(10, 50)],
@@ -231,7 +231,7 @@ describe('useBomStore.applyOptimalDefaults', () => {
 
   it('targets always stay on craft', () => {
     const bom = useBomStore()
-    bom.targets = [{ itemId: 100, recipeId: 1, name: 'Target', icon: '', quantity: 2 }]
+    bom.targets = [{ kind: 'recipe', itemId: 100, recipeId: 1, name: 'Target', icon: '', quantity: 2 }]
     bom.materialTree = makeTree()
     bom.prices = new Map([
       [100, priceInfo(100, 1)], // target market is dirt-cheap
@@ -247,7 +247,7 @@ describe('useBomStore.applyOptimalDefaults', () => {
 
   it('does not pick NPC when no npcPrice is known (Infinity guard)', () => {
     const bom = useBomStore()
-    bom.targets = [{ itemId: 100, recipeId: 1, name: 'Target', icon: '', quantity: 2 }]
+    bom.targets = [{ kind: 'recipe', itemId: 100, recipeId: 1, name: 'Target', icon: '', quantity: 2 }]
     bom.materialTree = makeTree()
     bom.prices = new Map([[202, priceInfo(202, 50)]])
     bom.acquisitionAvailability = new Map([
@@ -259,7 +259,7 @@ describe('useBomStore.applyOptimalDefaults', () => {
 
   it('falls back to market when no price data is available', () => {
     const bom = useBomStore()
-    bom.targets = [{ itemId: 100, recipeId: 1, name: 'Target', icon: '', quantity: 2 }]
+    bom.targets = [{ kind: 'recipe', itemId: 100, recipeId: 1, name: 'Target', icon: '', quantity: 2 }]
     bom.materialTree = makeTree()
     // No prices at all
     bom.applyOptimalDefaults()
@@ -270,7 +270,7 @@ describe('useBomStore.applyOptimalDefaults', () => {
   it('non-craftable target picks the cheapest of {market, npc} (not forced craft)', () => {
     const bom = useBomStore()
     // Single non-craftable target — recipeId null, no children in the tree.
-    bom.targets = [{ itemId: 500, recipeId: null, name: 'Housing Item', icon: '', quantity: 1 }]
+    bom.targets = [{ kind: 'no-recipe', itemId: 500, name: 'Housing Item', icon: '', quantity: 1 }]
     bom.materialTree = [
       { itemId: 500, name: 'Housing Item', icon: '', amount: 1 },
     ]
@@ -442,7 +442,7 @@ describe('applyTargetDefault', () => {
       },
     ]
     bom.materialTree = tree
-    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.targets = [{ kind: 'recipe', itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
     bom.setTargetDefaultMode('craft')
     bom.applyTargetDefault()
     expect(tree[0].collapsed).toBeFalsy()
@@ -458,7 +458,7 @@ describe('applyTargetDefault', () => {
       },
     ]
     bom.materialTree = tree
-    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.targets = [{ kind: 'recipe', itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
     bom.setTargetDefaultMode('market')
     bom.applyTargetDefault()
     expect(tree[0].collapsed).toBe(true)
@@ -474,7 +474,7 @@ describe('applyTargetDefault', () => {
       },
     ]
     bom.materialTree = tree
-    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.targets = [{ kind: 'recipe', itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
     bom.setAcquisitionMode(100, 'craft', true)
     bom.setTargetDefaultMode('market')
     bom.applyTargetDefault()
@@ -488,7 +488,7 @@ describe('applyTargetDefault', () => {
       { itemId: 200, name: 'npc-only', icon: '', amount: 1 },
     ]
     bom.materialTree = tree
-    bom.targets = [{ itemId: 200, recipeId: null, name: 'npc-only', icon: '', quantity: 1 }]
+    bom.targets = [{ kind: 'no-recipe', itemId: 200, name: 'npc-only', icon: '', quantity: 1 }]
     bom.setTargetDefaultMode('market')
     bom.applyTargetDefault()
     expect(bom.getEffectiveMode(200)).toBe('market')
@@ -513,7 +513,7 @@ describe('fetchCrossWorldBestForTargets', () => {
     const bom = useBomStore()
     const settings = useSettingsStore()
     settings.dataCenter = 'Materia'
-    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.targets = [{ kind: 'recipe', itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
     bom.materialTree = [{
       itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001,
       children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
@@ -535,7 +535,7 @@ describe('fetchCrossWorldBestForTargets', () => {
     const bom = useBomStore()
     const settings = useSettingsStore()
     settings.dataCenter = 'Materia'
-    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.targets = [{ kind: 'recipe', itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
     bom.materialTree = [{
       itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001,
       children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
@@ -552,7 +552,7 @@ describe('fetchCrossWorldBestForTargets', () => {
     const bom = useBomStore()
     const settings = useSettingsStore()
     settings.dataCenter = 'Materia'
-    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.targets = [{ kind: 'recipe', itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
     bom.materialTree = [{
       itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001,
       children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
@@ -568,7 +568,7 @@ describe('fetchCrossWorldBestForTargets', () => {
     const bom = useBomStore()
     const settings = useSettingsStore()
     settings.dataCenter = 'Materia'
-    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.targets = [{ kind: 'recipe', itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
     bom.materialTree = [{
       itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001,
       children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
@@ -588,7 +588,7 @@ describe('fetchCrossWorldBestForTargets', () => {
     const bom = useBomStore()
     const settings = useSettingsStore()
     settings.dataCenter = 'Materia'
-    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.targets = [{ kind: 'recipe', itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
     bom.materialTree = [{
       itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001,
       children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
@@ -646,7 +646,7 @@ describe('cross-world reactivity', () => {
     settings.dataCenter = 'Materia'
     bom.setTargetDefaultMode('market')
 
-    bom.targets = [{ itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
+    bom.targets = [{ kind: 'recipe', itemId: 100, recipeId: 9001, name: 't', icon: '', quantity: 1 }]
     bom.materialTree = [{
       itemId: 100, name: 't', icon: '', amount: 1, recipeId: 9001,
       children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }],
@@ -655,5 +655,58 @@ describe('cross-world reactivity', () => {
 
     expect(vi.mocked(getMarketDataByDC)).toHaveBeenCalled()
     expect(bom.crossWorldBestPriceMap.get(100)?.minPrice).toBe(1500)
+  })
+})
+
+describe('BomTarget migration', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  it('upgrades legacy target with recipeId to recipe kind', () => {
+    const legacy = { itemId: 100, recipeId: 5, name: 'X', icon: '', quantity: 1 }
+    const upgraded = migrateLegacyTarget(legacy)
+    expect(upgraded).toMatchObject({ kind: 'recipe', recipeId: 5, itemId: 100 })
+  })
+
+  it('upgrades legacy target with null recipeId to no-recipe kind', () => {
+    const legacy = { itemId: 100, recipeId: null, name: 'X', icon: '', quantity: 1 }
+    const upgraded = migrateLegacyTarget(legacy)
+    expect(upgraded).toMatchObject({ kind: 'no-recipe', itemId: 100 })
+  })
+
+  it('passes through already-migrated targets', () => {
+    const next = { kind: 'recipe' as const, recipeId: 5, itemId: 100, name: '', icon: '', quantity: 1 }
+    expect(migrateLegacyTarget(next)).toBe(next)
+  })
+
+  it('addTarget dedupes company-craft-project by projectId, not itemId', () => {
+    const bom = useBomStore()
+    bom.addTarget({
+      kind: 'company-craft-project',
+      projectId: 'proj-abc',
+      itemId: -1,
+      name: 'Tatanora 號',
+      icon: '',
+      quantity: 1,
+    })
+    bom.addTarget({
+      kind: 'company-craft-project',
+      projectId: 'proj-abc',
+      itemId: -1,
+      name: 'Tatanora 號 (dup)',
+      icon: '',
+      quantity: 1,
+    })
+    expect(bom.targets).toHaveLength(1)
+    bom.addTarget({
+      kind: 'company-craft-project',
+      projectId: 'proj-xyz',
+      itemId: -1,
+      name: 'Other',
+      icon: '',
+      quantity: 1,
+    })
+    expect(bom.targets).toHaveLength(2)
   })
 })

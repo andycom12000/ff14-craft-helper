@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { setActivePinia, createPinia } from 'pinia'
 import { flattenMaterialTree, getCraftingOrder, computeOptimalCosts } from '@/services/bom-calculator'
 import type { MaterialNode } from '@/stores/bom'
 
@@ -346,7 +347,7 @@ describe('buildMaterialTree with amountResult', () => {
 
     // User wants 9 servings → ⌈9/3⌉ = 3 crafts → 4 leaves × 3 = 12 leaves
     const tree = await buildMaterialTree(
-      [{ itemId: 100, recipeId: 1, name: 'Tea', icon: '', quantity: 9 }],
+      [{ kind: 'recipe' as const, itemId: 100, recipeId: 1, name: 'Tea', icon: '', quantity: 9 }],
       3,
     )
     expect(tree[0].amount).toBe(9)
@@ -355,10 +356,111 @@ describe('buildMaterialTree with amountResult', () => {
 
     // Target.quantity that doesn't divide evenly rounds up — 5 servings → 2 crafts → 8 leaves
     const tree2 = await buildMaterialTree(
-      [{ itemId: 100, recipeId: 1, name: 'Tea', icon: '', quantity: 5 }],
+      [{ kind: 'recipe' as const, itemId: 100, recipeId: 1, name: 'Tea', icon: '', quantity: 5 }],
       3,
     )
     expect(tree2[0].children![0].amount).toBe(8)
     vi.doUnmock('@/api/xivapi')
+  })
+})
+
+describe('buildMaterialTree — company-craft-project target', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  it('expands project target into per-supply children via resolveProjectRemaining', async () => {
+    const { useWorkshopProjectsStore, getRemainingMaterials } = await import('@/stores/workshop-projects')
+    const { buildMaterialTree } = await import('@/services/bom-calculator')
+    const { SEQ_TATANORA_BOW } = await import('@/__tests__/fixtures/company-craft')
+
+    const ws = useWorkshopProjectsStore()
+    const projectId = ws.createProject({
+      name: 'Tatanora 號',
+      category: 'submersible',
+      sequences: [{ sequenceId: SEQ_TATANORA_BOW.id }],
+    })
+
+    const tree = await buildMaterialTree(
+      [{
+        kind: 'company-craft-project',
+        projectId,
+        itemId: -1,
+        name: 'Tatanora 號',
+        icon: '',
+        quantity: 1,
+      }],
+      undefined as unknown as number,
+      {
+        resolveProjectRemaining: (id) => {
+          const proj = ws.getProject(id)
+          if (!proj) return null
+          return getRemainingMaterials(proj, [SEQ_TATANORA_BOW])
+        },
+      },
+    )
+
+    expect(tree).toHaveLength(1)
+    const root = tree[0]
+    // SEQ_TATANORA_BOW totals: 5057 = 12 + 4 = 16, 5058 = 6
+    expect(root.children).toBeDefined()
+    const byId = new Map(root.children!.map(c => [c.itemId, c]))
+    expect(byId.get(5057)?.amount).toBe(16)
+    expect(byId.get(5058)?.amount).toBe(6)
+  })
+
+  it('shrinks expansion as phase deliveries are recorded', async () => {
+    const { useWorkshopProjectsStore, getRemainingMaterials } = await import('@/stores/workshop-projects')
+    const { buildMaterialTree } = await import('@/services/bom-calculator')
+    const { SEQ_TATANORA_BOW } = await import('@/__tests__/fixtures/company-craft')
+
+    const ws = useWorkshopProjectsStore()
+    const projectId = ws.createProject({
+      name: 'X', category: 'submersible',
+      sequences: [{ sequenceId: SEQ_TATANORA_BOW.id }],
+    })
+    // Phase 0 key: sequenceId=1, partIndex=0, processIndex=0 → "1:0:0"
+    // supplyIndex 0 = itemId 5057 (amount 12), supplyIndex 1 = itemId 5058 (amount 6)
+    ws.setDelivered(projectId, '1:0:0', 0, 4)  // 5057: deliver 4 of 12
+    ws.setDelivered(projectId, '1:0:0', 1, 2)  // 5058: deliver 2 of 6
+
+    const tree = await buildMaterialTree(
+      [{
+        kind: 'company-craft-project',
+        projectId,
+        itemId: -1, name: 'X', icon: '', quantity: 1,
+      }],
+      undefined as unknown as number,
+      {
+        resolveProjectRemaining: (id) => {
+          const proj = ws.getProject(id)
+          if (!proj) return null
+          return getRemainingMaterials(proj, [SEQ_TATANORA_BOW])
+        },
+      },
+    )
+
+    const byId = new Map(tree[0].children!.map(c => [c.itemId, c]))
+    // 5057: phase 0 has 12 remaining - 4 delivered = 8; phase 1 has 4 remaining = 4 total; total = 12
+    expect(byId.get(5057)?.amount).toBe(12)
+    // 5058: phase 0 has 6 remaining - 2 delivered = 4 total
+    expect(byId.get(5058)?.amount).toBe(4)
+  })
+
+  it('falls back to leaf node when resolveProjectRemaining returns null', async () => {
+    vi.resetModules()
+    const { buildMaterialTree } = await import('@/services/bom-calculator')
+
+    const tree = await buildMaterialTree(
+      [{
+        kind: 'company-craft-project',
+        projectId: 'nonexistent',
+        itemId: -1, name: 'X', icon: '', quantity: 1,
+      }],
+      undefined as unknown as number,
+      { resolveProjectRemaining: () => null },
+    )
+    expect(tree[0].children).toBeUndefined()
+    expect(tree[0].amount).toBe(1)
   })
 })

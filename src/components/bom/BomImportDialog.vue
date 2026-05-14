@@ -147,8 +147,8 @@ async function confirmImport() {
       // Non-craftable: no recipe to fetch.
       if (r.recipes.length === 0) {
         return {
+          kind: 'no-recipe' as const,
           itemId: r.itemId,
-          recipeId: null,
           name: r.name,
           icon: r.icon,
           quantity: r.qty,
@@ -158,6 +158,7 @@ async function confirmImport() {
       try {
         const recipe = await getRecipe(recipeId)
         return {
+          kind: 'recipe' as const,
           itemId: r.itemId,
           recipeId,
           name: recipe.name,
