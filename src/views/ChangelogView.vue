@@ -19,12 +19,14 @@ interface Highlight {
 const changelog: Entry[] = [
   {
     version: 'v2.15.0',
-    date: '2026-05-13',
+    date: '2026-05-14',
     highlights: [
       '【部隊工坊（實驗中）】新增「部隊工坊」頁面：追蹤潛水艇 / 飛空艇 / 工坊建材的素材繳交進度',
       '剩餘素材一鍵推進購物清單（Tracker → BOM 單向同步）',
       '支援整艘潛水艇 / 飛空艇的 4 零件 bundle 專案',
       '每個 phase 的 supplyItem 都有獨立進度 counter',
+      '【批量等級警告軟硬分級】prepare-list 等級警告拆成「硬阻擋」（裝等不足、必擋）與「軟提示」（可做但不建議）兩層；含硬阻擋目標時 optimize 按鈕停用；軟提示配色改暖色與暗模可讀性修正',
+      '【批量計算穩定性】Universalis 暫時抓取失敗自動 retry 避免批量計算當機；isDoubleMax quality 目標依配方類型分流；自製清單建構時 self-craft 項目正確轉成 craft；0 星配方等級不符在模擬器顯示為軟提示',
     ],
   },
   {
