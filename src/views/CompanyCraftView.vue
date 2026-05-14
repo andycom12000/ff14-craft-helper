@@ -11,8 +11,13 @@ import { useBomStore } from '@/stores/bom'
 import { trackEvent } from '@/utils/analytics'
 import ProjectEmptyState from '@/components/company-craft/ProjectEmptyState.vue'
 import ProjectCard from '@/components/company-craft/ProjectCard.vue'
+import PhaseBoard from '@/components/company-craft/PhaseBoard.vue'
 import NewProjectDialog from '@/components/company-craft/NewProjectDialog.vue'
 import DeleteProjectDialog from '@/components/company-craft/DeleteProjectDialog.vue'
+import { useMediaQuery } from '@/composables/useMediaQuery'
+import { CATEGORY_META } from '@/utils/company-craft-labels'
+
+const isWide = useMediaQuery('(min-width: 1200px)')
 
 const router = useRouter()
 const workshopStore = useWorkshopProjectsStore()
@@ -28,8 +33,32 @@ const seqById = computed(() => new Map(sequences.value.map(s => [s.id, s])))
 
 const expandedId = ref<string | null>(null)
 function onExpand(id: string) {
-  expandedId.value = expandedId.value === id ? null : id
+  if (isWide.value) {
+    expandedId.value = id
+  } else {
+    expandedId.value = expandedId.value === id ? null : id
+  }
 }
+
+const selectedProject = computed(() =>
+  expandedId.value ? workshopStore.getProject(expandedId.value) : null,
+)
+
+const selectedMeta = computed(() => {
+  const p = selectedProject.value
+  if (!p) return null
+  const meta = CATEGORY_META[p.category]
+  const n = p.sequences.length
+  const partsLabel = p.category === 'workshop' ? `${n} 件` : `${n} 零件`
+  return { ...meta, partsLabel, isCompleted: !!p.completedAt }
+})
+
+const selectedLinkedToBom = computed(() => {
+  if (!selectedProject.value) return false
+  return bom.targets.some(
+    t => t.kind === 'company-craft-project' && t.projectId === selectedProject.value!.id,
+  )
+})
 
 const completedSectionOpen = ref(false)
 
@@ -179,13 +208,13 @@ watch(
 </script>
 
 <template>
-  <div class="company-craft-view" v-loading="!dataReady && !loadError">
-    <header class="cc-header">
-      <span class="cc-eyebrow">BLUEPRINTS · 工坊圖紙</span>
-      <h2>部隊工坊 <span class="cc-beta" aria-label="實驗中">BETA · 實驗中</span></h2>
-      <p class="cc-tagline">『今天工坊裡，動到哪一步了？』</p>
-      <div class="cc-chalk-rule" />
-    </header>
+  <div
+    class="view-container company-craft-view"
+    :class="{ 'cc-wide': isWide }"
+    v-loading="!dataReady && !loadError"
+  >
+    <h2>部隊工坊<span class="cc-beta" aria-label="實驗中">BETA · 實驗中</span></h2>
+    <p class="view-desc">追蹤潛艇、飛空艇、地下城等部隊工坊的多階段製作進度。</p>
 
     <div v-if="loadError" class="cc-error">
       <p>圖紙抽屜卡住了，請重試。<span class="detail">({{ loadError }})</span></p>
@@ -198,46 +227,95 @@ watch(
       />
 
       <div v-else class="cc-projects">
-        <div class="cc-toolbar">
-          <el-button type="primary" @click="newDialogOpen = true">+&nbsp;&nbsp;新增專案</el-button>
-          <span class="cc-counter">{{ workshopStore.activeProjects.length }} 個進行中</span>
-        </div>
-        <ProjectCard
-          v-for="p in workshopStore.activeProjects"
-          :key="p.id"
-          :project="p"
-          :sequences="sequences"
-          :seq-by-id="seqById"
-          :expanded="expandedId === p.id"
-          @expand="onExpand"
-          @sync="onSync"
-          @delete="onDelete"
-          @reopen="onReopen"
-        />
+        <aside class="cc-rail">
+          <div class="cc-toolbar">
+            <el-button type="primary" @click="newDialogOpen = true">+&nbsp;&nbsp;新增專案</el-button>
+            <span class="cc-counter">{{ workshopStore.activeProjects.length }} 個進行中</span>
+          </div>
+          <ProjectCard
+            v-for="p in workshopStore.activeProjects"
+            :key="p.id"
+            :project="p"
+            :sequences="sequences"
+            :seq-by-id="seqById"
+            :expanded="expandedId === p.id"
+            :selected="isWide && expandedId === p.id"
+            :embed-phase-board="!isWide"
+            @expand="onExpand"
+            @sync="onSync"
+            @delete="onDelete"
+            @reopen="onReopen"
+          />
 
-        <section v-if="workshopStore.completedProjects.length > 0" class="cc-completed">
-          <button
-            type="button"
-            class="cc-completed-head"
-            :aria-expanded="completedSectionOpen"
-            @click="completedSectionOpen = !completedSectionOpen"
-          >
-            <span class="cc-completed-caret" aria-hidden="true">{{ completedSectionOpen ? '▾' : '▸' }}</span>
-            已完成 {{ workshopStore.completedProjects.length }} 件
-          </button>
-          <div v-if="completedSectionOpen" class="cc-completed-list">
-            <ProjectCard
-              v-for="p in workshopStore.completedProjects"
-              :key="p.id"
-              :project="p"
+          <section v-if="workshopStore.completedProjects.length > 0" class="cc-completed">
+            <button
+              type="button"
+              class="cc-completed-head"
+              :aria-expanded="completedSectionOpen"
+              @click="completedSectionOpen = !completedSectionOpen"
+            >
+              <span class="cc-completed-caret" aria-hidden="true">{{ completedSectionOpen ? '▾' : '▸' }}</span>
+              已完成 {{ workshopStore.completedProjects.length }} 件
+            </button>
+            <div v-if="completedSectionOpen" class="cc-completed-list">
+              <ProjectCard
+                v-for="p in workshopStore.completedProjects"
+                :key="p.id"
+                :project="p"
+                :sequences="sequences"
+                :seq-by-id="seqById"
+                :expanded="expandedId === p.id"
+                :selected="isWide && expandedId === p.id"
+                :embed-phase-board="!isWide"
+                @expand="onExpand"
+                @sync="onSync"
+                @delete="onDelete"
+                @reopen="onReopen"
+              />
+            </div>
+          </section>
+        </aside>
+
+        <section v-if="isWide" class="cc-detail">
+          <template v-if="selectedProject && selectedMeta">
+            <header class="cc-detail-head">
+              <div class="cc-detail-titlebox">
+                <span class="cc-detail-eyebrow">
+                  {{ selectedMeta.label }} · {{ selectedMeta.partsLabel }}
+                  <span v-if="selectedMeta.isCompleted" class="cc-detail-completed">✓ 已完成</span>
+                </span>
+                <h3 class="cc-detail-title">{{ selectedProject.name }}</h3>
+              </div>
+              <div class="cc-detail-actions">
+                <el-button
+                  v-if="!selectedMeta.isCompleted"
+                  class="craft-cta"
+                  @click="onSync(selectedProject.id)"
+                >
+                  {{ selectedLinkedToBom ? '前往購物清單 →' : '加入購物清單' }}
+                </el-button>
+                <el-dropdown trigger="click">
+                  <el-button text class="kebab">⋯</el-button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item v-if="selectedMeta.isCompleted" @click="onReopen(selectedProject.id)">
+                        重新開啟
+                      </el-dropdown-item>
+                      <el-dropdown-item @click="onDelete(selectedProject.id)">刪除專案</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </div>
+            </header>
+            <PhaseBoard
+              :project="selectedProject"
               :sequences="sequences"
               :seq-by-id="seqById"
-              :expanded="expandedId === p.id"
-              @expand="onExpand"
-              @sync="onSync"
-              @delete="onDelete"
-              @reopen="onReopen"
             />
+          </template>
+          <div v-else class="cc-detail-empty">
+            <p class="cc-detail-empty-eyebrow">DETAIL</p>
+            <p class="cc-detail-empty-line">從左側選一個專案，這裡會展開階段進度。</p>
           </div>
         </section>
       </div>
@@ -278,37 +356,18 @@ watch(
   }
 }
 
-/* ── Editorial Hero Header ─────────────────────────────────────────────────── */
-.cc-header {
-  margin-bottom: 28px;
-}
-
-.cc-eyebrow {
-  display: block;
-  font-family: 'Fira Code', 'JetBrains Mono', ui-monospace, monospace;
-  font-weight: 500;
-  font-size: 11px;
-  line-height: 1;
-  letter-spacing: 0.25em;
-  color: var(--app-text-muted);
-  text-transform: uppercase;
-  margin-bottom: 6px;
-}
-
-.cc-header h2 {
+/* Page H2 picks up the global .view-container h2 rule from App.vue;
+ * only the BETA pill needs local styling. */
+.company-craft-view h2 {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-size: 28px;
-  font-weight: 700;
-  margin: 0 0 6px;
-  line-height: 1.2;
 }
 
 .cc-beta {
   display: inline-flex;
   align-items: center;
-  padding: 3px 10px;
+  padding: 2px 9px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 28%, transparent);
@@ -319,26 +378,6 @@ watch(
   letter-spacing: 0.18em;
   line-height: 1.1;
   text-transform: uppercase;
-  margin-top: 6px;
-}
-
-.cc-tagline {
-  font-family: 'Noto Serif TC', serif;
-  font-size: 14px;
-  letter-spacing: 0.02em;
-  color: var(--app-text-muted);
-  margin: 0 0 14px;
-}
-
-.cc-chalk-rule {
-  height: 1px;
-  background: linear-gradient(
-    to right,
-    var(--app-craft, oklch(0.50 0.16 40)) 0%,
-    color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 30%, transparent) 60%,
-    transparent 100%
-  );
-  opacity: 0.4;
 }
 
 /* ── Toolbar (projects exist state) ────────────────────────────────────────── */
@@ -352,6 +391,150 @@ watch(
 .cc-counter {
   font-size: 13px;
   color: var(--app-text-muted);
+}
+
+/* ── Layout: narrow (default) = single column, wide = rail + detail ────────── */
+.cc-projects {
+  display: block;
+}
+
+.cc-rail { min-width: 0; }
+.cc-detail { display: none; }
+
+@media (min-width: 1200px) {
+  .cc-projects {
+    display: grid;
+    grid-template-columns: 360px minmax(0, 1fr);
+    gap: 28px;
+    align-items: start;
+  }
+
+  .cc-rail {
+    position: sticky;
+    top: 24px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    /* Leave a sliver for the scrollbar so card hover shadow isn't clipped */
+    padding-right: 4px;
+    /* Tinted scrollbar that fits the cream-on-cream palette */
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 24%, transparent)
+      transparent;
+  }
+
+  .cc-detail {
+    display: block;
+    min-width: 0;
+  }
+
+  /* Rail cards: hide the inline action row (sync CTA + kebab) — actions
+   * live on the detail card instead so rail items stay scannable. The
+   * kebab on the detail card covers delete / reopen for the selected one. */
+  .cc-rail :deep(.card-actions) {
+    display: none;
+  }
+
+  /* Stretched-link pattern: whole rail card is the click target.
+   * The real button (.card-title-block) still handles keyboard focus
+   * and screen-reader semantics; ::after just extends its hit-area to
+   * cover the entire card. Hidden action row at rail leaves no children
+   * to conflict with the overlay. */
+  .cc-rail :deep(.card) { position: relative; cursor: pointer; }
+  .cc-rail :deep(.card-title-block::after) {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+  }
+  /* Title-block's own hover/focus styling shouldn't leak — the card
+   * already provides the hover lift + selected highlight. */
+  .cc-rail :deep(.card-title-block:hover) { background: transparent; }
+}
+
+/* ── Detail header (wide only) ─────────────────────────────────────────────── */
+.cc-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 4px;
+  padding-bottom: 14px;
+}
+.cc-detail-titlebox { min-width: 0; }
+.cc-detail-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'Fira Code', 'JetBrains Mono', ui-monospace, monospace;
+  font-weight: 500;
+  font-size: 10.5px;
+  letter-spacing: 0.22em;
+  color: var(--app-text-muted);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.cc-detail-completed {
+  font-family: 'Fira Code', monospace;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: none;
+  color: var(--app-success, oklch(0.55 0.16 145));
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-success, oklch(0.55 0.16 145)) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--app-success, oklch(0.55 0.16 145)) 30%, transparent);
+}
+.cc-detail-title {
+  font-family: 'Noto Serif TC', serif;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 0;
+  color: var(--app-text);
+}
+.cc-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.cc-detail-actions :deep(.craft-cta) {
+  background: transparent;
+  color: var(--app-craft, oklch(0.50 0.16 40));
+  border: 1px solid color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 38%, transparent);
+  font-weight: 500;
+}
+.cc-detail-actions :deep(.craft-cta:hover) {
+  background: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 8%, transparent);
+  border-color: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 60%, transparent);
+}
+.cc-detail-actions :deep(.kebab) {
+  padding: 0 8px;
+}
+
+/* ── Detail empty hint (wide only) ─────────────────────────────────────────── */
+.cc-detail-empty {
+  padding: 56px 28px;
+  border: 1px dashed var(--app-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--app-surface-2) 50%, transparent);
+  text-align: center;
+}
+.cc-detail-empty-eyebrow {
+  margin: 0 0 10px;
+  font-family: 'Fira Code', 'JetBrains Mono', ui-monospace, monospace;
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  color: var(--app-text-muted);
+  text-transform: uppercase;
+}
+.cc-detail-empty-line {
+  margin: 0;
+  font-family: 'Noto Serif TC', serif;
+  font-size: 14px;
+  color: var(--app-text-muted);
+  line-height: 1.6;
 }
 
 /* ── Completed section ────────────────────────────────────────────────────── */
@@ -393,8 +576,7 @@ watch(
 
 /* ── Mobile ─────────────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
-  .company-craft-view { padding: 12px 12px 80px; }
-  .cc-header { margin-bottom: 20px; }
+  .company-craft-view { padding-bottom: 80px; }
   .cc-toolbar { flex-wrap: wrap; gap: 10px; }
 }
 

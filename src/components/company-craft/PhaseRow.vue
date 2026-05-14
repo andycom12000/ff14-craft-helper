@@ -28,6 +28,11 @@ const emit = defineEmits<{
 const store = useWorkshopProjectsStore()
 const localeStore = useLocaleStore()
 
+const jobLine = computed(() => {
+  const job = getJobNameShort(props.phase.jobAbbr)
+  return props.phase.level ? `${job} Lv.${props.phase.level}` : job
+})
+
 const supplyIconUrls = computed(() => {
   void itemsCacheVersion.value
   const locale = localeStore.current
@@ -123,27 +128,22 @@ function markPhaseAndAdvance() {
       :aria-expanded="complete ? expandedComplete : undefined"
       @click="complete && (expandedComplete = !expandedComplete)"
     >
-      <span class="status" :class="{ done: complete, active: started && !complete }">
-        <template v-if="complete">✓</template>
-        <template v-else-if="started">●</template>
-      </span>
-      <span class="job-badge" :class="{ idle: !started && !complete, done: complete }">
-        {{ getJobNameShort(phase.jobAbbr) }}{{ phase.level ? ' ' + phase.level : '' }}
-      </span>
+      <span
+        class="status"
+        :class="{ done: complete, active: started && !complete }"
+        aria-hidden="true"
+      />
       <span class="name">
         <span v-if="complete" class="head-caret" aria-hidden="true">{{ expandedComplete ? '▾' : '▸' }}</span>
         Phase {{ phase.processIndex + 1 }}
+        <span class="phase-meta">· {{ jobLine }}</span>
       </span>
       <span class="progress">
         <template v-if="complete">完成</template>
-        <template v-else-if="started">進行中 {{ progressPct }}%</template>
+        <template v-else-if="started">進行中 <span class="progress-num">{{ progressPct }}%</span></template>
         <template v-else>未開工</template>
       </span>
     </component>
-
-    <div v-if="started && !complete" class="mini-progress">
-      <div class="fill" :style="{ transform: `scaleX(${progressPct / 100})` }" />
-    </div>
 
     <div v-if="!complete || expandedComplete" class="supplies">
       <label
@@ -187,18 +187,16 @@ function markPhaseAndAdvance() {
 </template>
 
 <style scoped>
+/* Resting list row — flat, no card chrome (no bg, no radius).
+ * The status dot's color carries the "active" signal; the supplies
+ * grid below is the row's own progress display. No nested cards. */
 .phase-row {
   padding: 10px 4px 12px;
 }
-.phase-row.active {
-  background: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 5%, transparent);
-  border-radius: 6px;
-}
-.phase-row.done .status { color: var(--app-success); }
 
 .head {
   display: grid;
-  grid-template-columns: 22px 80px 1fr auto;
+  grid-template-columns: 14px 1fr auto;
   gap: 12px;
   align-items: center;
   width: 100%;
@@ -229,76 +227,51 @@ function markPhaseAndAdvance() {
   color: var(--app-text-muted);
   margin-right: 4px;
 }
+
+/* Single-shape 8px dot. Only the color changes between idle / active /
+ * done — no shape juggle, no inner glyph, no dashed border. */
 .status {
-  width: 18px;
-  height: 18px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  border: 1.5px dashed var(--app-border);
+  background: color-mix(in srgb, var(--app-text-muted) 35%, transparent);
+  justify-self: center;
+  transition: background-color 0.15s var(--ease-out-quart, cubic-bezier(0.25, 1, 0.5, 1));
+}
+.status.active { background: var(--app-craft, oklch(0.50 0.16 40)); }
+.status.done { background: var(--app-success, oklch(0.55 0.16 145)); }
+
+.name {
+  font-size: 14px;
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  color: transparent;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
 }
-.status.done {
-  background: var(--app-success-tint);
-  border-color: var(--app-success);
-  border-style: solid;
-  color: var(--app-success);
-}
-.status.active {
-  background: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 12%, transparent);
-  border-color: var(--app-craft, oklch(0.50 0.16 40));
-  border-style: solid;
-  color: var(--app-craft, oklch(0.50 0.16 40));
-}
-.job-badge {
-  display: inline-block;
-  padding: 1px 7px;
-  background: var(--app-craft);
-  color: var(--app-surface);
-  border: 1px solid var(--app-craft);
-  border-radius: 4px;
-  font-family: 'Fira Code', monospace;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-align: center;
-}
-.job-badge.idle {
-  background: transparent;
+/* Inline job metadata — Noto Sans muted, no chip, no Fira Code on CJK. */
+.phase-meta {
   color: var(--app-text-muted);
-  border-color: color-mix(in srgb, var(--app-text-muted) 30%, transparent);
+  font-weight: 400;
+  font-size: 13px;
 }
-.job-badge.done {
-  background: transparent;
-  color: var(--app-success, oklch(0.55 0.16 145));
-  border-color: color-mix(in srgb, var(--app-success, oklch(0.55 0.16 145)) 40%, transparent);
-}
-.name { font-size: 14px; }
+
 .progress {
-  font-family: 'Fira Code', monospace;
-  font-size: 11px;
+  font-family: 'Noto Sans TC', system-ui, sans-serif;
+  font-size: 12px;
   color: var(--app-text-muted);
-  letter-spacing: 0.04em;
 }
-.mini-progress {
-  height: 4px;
-  margin: 10px 0 12px 116px;
-  background: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 10%, transparent);
-  border-radius: 999px;
-  overflow: hidden;
+/* Only the numeric part uses Fira Code (Four-Track Rule). */
+.progress-num {
+  font-family: 'Fira Code', 'JetBrains Mono', ui-monospace, monospace;
+  letter-spacing: 0.02em;
+  margin-left: 2px;
 }
-.mini-progress .fill {
-  height: 100%;
-  width: 100%;
-  background: var(--app-craft, oklch(0.50 0.16 40));
-  transform-origin: left center;
-  transition: transform 0.3s var(--ease-out-quart, cubic-bezier(0.25, 1, 0.5, 1));
-  will-change: transform;
-}
+
+/* Supplies indent matches the dot column (14 + 12 gap = 26px), so the
+ * supplies grid lines up under the phase name — not buried 116px in. */
 .supplies {
-  margin: 8px 0 4px 116px;
+  margin: 8px 0 4px 26px;
   padding: 4px 0 4px 14px;
   border-left: 1px solid var(--app-border);
 }
@@ -338,7 +311,7 @@ function markPhaseAndAdvance() {
   }
 }
 .actions {
-  margin: 10px 0 4px 116px;
+  margin: 10px 0 4px 26px;
   display: flex;
   gap: 4px;
 }
@@ -371,8 +344,8 @@ function markPhaseAndAdvance() {
 
 
 @media (max-width: 640px) {
-  .head { grid-template-columns: 22px 80px 1fr; }
-  .head .progress { grid-column: 1 / -1; margin-left: 116px; }
-  .supplies, .mini-progress, .actions { margin-left: 0; }
+  .head { grid-template-columns: 14px 1fr auto; }
+  .name { font-size: 13px; }
+  .supplies, .actions { margin-left: 14px; }
 }
 </style>

@@ -7,12 +7,18 @@ import { useBomStore } from '@/stores/bom'
 import { CATEGORY_META } from '@/utils/company-craft-labels'
 import PhaseBoard from './PhaseBoard.vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   project: WorkshopProject
   sequences: CompanyCraftSequence[]
   seqById?: Map<number, CompanyCraftSequence>
   expanded?: boolean
-}>()
+  /** Wide-mode rail item: highlight as selected, suppress inline PhaseBoard. */
+  selected?: boolean
+  /** Set false when PhaseBoard renders elsewhere (detail panel in wide layout). */
+  embedPhaseBoard?: boolean
+}>(), {
+  embedPhaseBoard: true,
+})
 
 const emit = defineEmits<{
   expand: [projectId: string]
@@ -61,7 +67,7 @@ const completedAtLabel = computed(() => {
 </script>
 
 <template>
-  <article class="card" :class="{ 'card-completed': isCompleted }">
+  <article class="card" :class="{ 'card-completed': isCompleted, 'card-selected': selected }">
     <header class="card-head">
       <div class="card-icon">{{ meta.icon }}</div>
       <button
@@ -71,7 +77,7 @@ const completedAtLabel = computed(() => {
         @click="emit('expand', project.id)"
       >
         <h3 class="card-title">
-          <span class="title-caret" aria-hidden="true">{{ expanded ? '▾' : '▸' }}</span>
+          <span v-if="embedPhaseBoard" class="title-caret" aria-hidden="true">{{ expanded ? '▾' : '▸' }}</span>
           {{ project.name }}
           <span v-if="isCompleted" class="completed-pill">✓ 已完成</span>
         </h3>
@@ -103,7 +109,7 @@ const completedAtLabel = computed(() => {
       </span>
     </div>
     <PhaseBoard
-      v-if="expanded"
+      v-if="expanded && embedPhaseBoard"
       :project="project"
       :sequences="sequences"
       :seq-by-id="seqById"
@@ -125,6 +131,14 @@ const completedAtLabel = computed(() => {
 .card:hover {
   border-color: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 38%, transparent);
   box-shadow: 0 2px 12px color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 10%, transparent);
+}
+
+.card-selected {
+  border-color: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 55%, transparent);
+  background: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 4%, var(--app-surface-2));
+}
+.card-selected:hover {
+  border-color: color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 70%, transparent);
 }
 
 .card-completed {
