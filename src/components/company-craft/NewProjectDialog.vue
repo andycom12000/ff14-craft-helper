@@ -149,8 +149,17 @@ watch(visible, v => {
 
 const isMobile = useIsMobile()
 
+const nameInputRef = ref<{ focus: () => void } | null>(null)
+
+function onStepEnter() {
+  if (step.value === 3) {
+    nameInputRef.value?.focus?.()
+  }
+}
+
 function pickCategory(c: CompanyCraftCategory) {
   category.value = c
+  step.value = 2
 }
 
 function categoryStats(c: CompanyCraftCategory): string {
@@ -189,11 +198,28 @@ function prevStep() {
     <template #header>
       <div class="head">
         <h4>{{ step === 1 ? '新增專案' : step === 2 ? '配置零件' : '命名專案' }}</h4>
-        <span class="step-counter">Step {{ step }} / 3</span>
+        <span class="step-counter" :aria-label="`Step ${step} of 3`">
+          <span class="step-dots" aria-hidden="true">
+            <span
+              class="step-dot"
+              :class="{ done: step > 1, current: step === 1 }"
+            />
+            <span
+              class="step-dot"
+              :class="{ done: step > 2, current: step === 2 }"
+            />
+            <span
+              class="step-dot"
+              :class="{ current: step === 3 }"
+            />
+          </span>
+          <span class="step-label">{{ step }} / 3</span>
+        </span>
       </div>
     </template>
 
-    <div v-if="step === 1" class="step1">
+    <Transition name="step-slide" mode="out-in" @after-enter="onStepEnter">
+    <div v-if="step === 1" key="s1" class="step1">
       <h5>做什麼？</h5>
       <div class="type-list">
         <button
@@ -213,7 +239,7 @@ function prevStep() {
       </div>
     </div>
 
-    <div v-else-if="step === 2" class="step2">
+    <div v-else-if="step === 2" key="s2" class="step2">
       <template v-if="category !== 'workshop'">
         <h5>選擇 4 個零件（可留空槽）</h5>
         <div v-for="slot in slots" :key="slot" class="slot-row">
@@ -242,7 +268,10 @@ function prevStep() {
           class="ws-search"
           clearable
         />
-        <div class="ws-list">
+        <div v-if="workshopMatches.length === 0 && workshopFilter.trim()" class="ws-empty">
+          沒有符合「{{ workshopFilter.trim() }}」的建材。
+        </div>
+        <div v-else class="ws-list">
           <button
             v-for="seq in workshopMatches"
             :key="seq.id"
@@ -256,28 +285,40 @@ function prevStep() {
       </template>
 
       <div class="preview" v-if="estimate.kinds > 0">
-        預估總素材 <strong>{{ estimate.kinds }} 種</strong>
-        ， <strong>{{ estimate.totalPhases }} 個 Phase</strong>
+        <span class="preview-eyebrow">預估</span>
+        <span class="preview-line">
+          總素材 <strong>{{ estimate.kinds }}</strong> 種<span class="preview-sep">,</span>
+          Phase <strong>{{ estimate.totalPhases }}</strong> 個
+        </span>
       </div>
     </div>
-    <div v-else class="step3">
+    <div v-else key="s3" class="step3">
       <h5>專案名稱</h5>
-      <el-input v-model="projectName" placeholder="輸入專案名稱…" />
+      <el-input
+        ref="nameInputRef"
+        v-model="projectName"
+        placeholder="輸入專案名稱…"
+        @keyup.enter="projectName.trim() && createAndClose()"
+      />
       <p class="hint">↑ 已自動填入，可修改</p>
       <div class="preview">
-        總素材 <strong>{{ estimate.kinds }} 種</strong>
-        · Phase 總數 <strong>{{ estimate.totalPhases }}</strong>
+        <span class="preview-eyebrow">預估</span>
+        <span class="preview-line">
+          總素材 <strong>{{ estimate.kinds }}</strong> 種<span class="preview-sep">·</span>
+          Phase 總數 <strong>{{ estimate.totalPhases }}</strong>
+        </span>
       </div>
     </div>
+    </Transition>
 
     <template #footer>
       <div class="footer">
         <el-button v-if="step === 1" @click="visible = false">取消</el-button>
         <el-button v-else @click="prevStep">← 上一步</el-button>
         <el-button
+          v-if="step !== 1"
           type="primary"
           :disabled="
-            (step === 1 && !category) ||
             (step === 2 && !canProceedFromStep2) ||
             (step === 3 && !projectName.trim())
           "
@@ -299,11 +340,39 @@ function prevStep() {
   font-size: 20px;
 }
 .step-counter {
-  font-family: 'Fira Code', monospace;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.step-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.step-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--app-craft, oklch(0.50 0.16 40)) 32%, transparent);
+  background: transparent;
+  transition: all 0.18s var(--ease-out-quart, cubic-bezier(0.25, 1, 0.5, 1));
+}
+.step-dot.done {
+  background: var(--app-craft, oklch(0.50 0.16 40));
+  border-color: var(--app-craft, oklch(0.50 0.16 40));
+}
+.step-dot.current {
+  width: 18px;
+  border-radius: 999px;
+  background: var(--app-craft, oklch(0.50 0.16 40));
+  border-color: var(--app-craft, oklch(0.50 0.16 40));
+}
+.step-label {
+  font-family: 'Fira Code', 'JetBrains Mono', ui-monospace, monospace;
   font-size: 10px;
-  letter-spacing: 0.2em;
+  font-weight: 500;
+  letter-spacing: 0.12em;
   color: var(--app-text-muted);
-  text-transform: uppercase;
 }
 .step1 h5 {
   font-family: 'Noto Serif TC', serif;
@@ -428,15 +497,46 @@ function prevStep() {
   border-width: 2px;
 }
 
-/* Step 2 — preview strip */
-.preview {
-  margin-top: 12px;
-  padding: 8px 12px;
-  background: var(--app-surface);
-  border: 1px solid var(--app-border);
-  border-radius: 8px;
+/* Workshop empty state */
+.ws-empty {
+  padding: 16px 4px;
   font-size: 13px;
   color: var(--app-text-muted);
+  text-align: center;
+  font-style: italic;
+}
+
+/* Preview strip — editorial line, no box */
+.preview {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--app-border);
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  font-size: 13px;
+  color: var(--app-text-muted);
+}
+.preview-eyebrow {
+  font-family: 'Fira Code', 'JetBrains Mono', ui-monospace, monospace;
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+.preview-line strong {
+  font-family: 'Fira Code', monospace;
+  font-weight: 600;
+  color: var(--app-text);
+  letter-spacing: 0.02em;
+}
+.preview-sep {
+  display: inline-block;
+  margin: 0 6px;
+  opacity: 0.5;
 }
 
 /* Step 3 — naming */
@@ -452,5 +552,30 @@ function prevStep() {
 @media (max-width: 640px) {
   .row-icon { font-size: 20px; }
   .row-name { font-size: 14px; }
+}
+
+/* Step slide transition */
+.step-slide-enter-from {
+  transform: translateX(16px);
+  opacity: 0;
+}
+.step-slide-leave-to {
+  transform: translateX(-16px);
+  opacity: 0;
+}
+.step-slide-enter-active,
+.step-slide-leave-active {
+  transition: transform 0.22s var(--ease-out-quart, cubic-bezier(0.25, 1, 0.5, 1)),
+              opacity 0.22s var(--ease-out-quart, cubic-bezier(0.25, 1, 0.5, 1));
+}
+@media (prefers-reduced-motion: reduce) {
+  .step-slide-enter-active,
+  .step-slide-leave-active {
+    transition: opacity 0.12s ease;
+  }
+  .step-slide-enter-from,
+  .step-slide-leave-to {
+    transform: none;
+  }
 }
 </style>

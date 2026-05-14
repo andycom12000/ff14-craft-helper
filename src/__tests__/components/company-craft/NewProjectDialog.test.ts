@@ -53,10 +53,10 @@ describe('NewProjectDialog', () => {
     })
     await flushPromises()
     expect(wrapper.findAll('.type-row').length).toBe(3)
-    expect(wrapper.text()).toContain('Step 1 / 3')
+    expect(wrapper.text()).toContain('1 / 3')
   })
 
-  it('disables next button until a type is picked', async () => {
+  it('Step 1 shows no 下一步 button (auto-advances on category pick)', async () => {
     const wrapper = mount(NewProjectDialog, {
       props: { modelValue: true },
       global: { stubs: globalStubs },
@@ -64,11 +64,19 @@ describe('NewProjectDialog', () => {
     await flushPromises()
 
     const nextBtn = wrapper.findAll('.el-button').find(b => b.text().includes('下一步'))
-    expect(nextBtn).toBeDefined()
-    expect(nextBtn?.attributes('disabled')).toBeDefined()
+    expect(nextBtn).toBeUndefined()
+    expect(wrapper.text()).toContain('1 / 3')
+  })
+
+  it('picking a type-row auto-advances to Step 2', async () => {
+    const wrapper = mount(NewProjectDialog, {
+      props: { modelValue: true },
+      global: { stubs: globalStubs },
+    })
+    await flushPromises()
 
     await wrapper.findAll('.type-row')[0].trigger('click')
     await flushPromises()
-    expect(nextBtn?.attributes('disabled')).toBeUndefined()
+    expect(wrapper.text()).toContain('2 / 3')
   })
 })
