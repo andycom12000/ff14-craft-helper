@@ -103,3 +103,53 @@ describe('universalis_fetch tracking', () => {
     )
   })
 })
+
+describe('fetchUniversalis retry on transient failures', () => {
+  beforeEach(() => {
+    vi.mocked(trackEvent).mockClear()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('retries on TypeError (network/CORS) and succeeds on second attempt', async () => {
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ itemID: 5057, listings: [] }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await getMarketData('Tonberry', 5057)
+    expect(result).toMatchObject({ itemID: 5057 })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('retries on 5xx response and succeeds on retry', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response('Bad Gateway', { status: 502, statusText: 'Bad Gateway' }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ itemID: 5057, listings: [] }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await getMarketData('Tonberry', 5057)
+    expect(result).toMatchObject({ itemID: 5057 })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('does NOT retry on 4xx client error', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response('Not Found', { status: 404, statusText: 'Not Found' }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(getMarketData('Tonberry', 5057)).rejects.toThrow()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('gives up after max retries (3 attempts) on persistent TypeError', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(getMarketData('Tonberry', 5057)).rejects.toThrow(/Failed to fetch/)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+})

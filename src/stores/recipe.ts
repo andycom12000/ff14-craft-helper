@@ -40,6 +40,17 @@ export interface Recipe {
   recipeLevelTable: RecipeLevelTable
   // Sentinel for user-authored recipes; downstream skips Universalis + BOM lookups.
   isCustom?: boolean
+  // Hard-gate signals — FFXIV blocks synthesis when any of these are set
+  // and the player is below recipe level. Standard 0-star recipes have none
+  // of these and only suffer the progress/quality modifier as a soft penalty.
+  isExpert?: boolean
+  requiredCraftsmanship?: number
+  requiredControl?: number
+  // Minimum quality required for a non-canHq recipe to be accepted (tribe-quest
+  // / event "建造組件" deliverables). 0 means quality is irrelevant; only used
+  // when canHq=false. canHq=true recipes always use full max_quality as the
+  // double-max threshold and ignore this field.
+  requiredQuality?: number
 }
 
 export const useRecipeStore = defineStore('recipe', () => {

@@ -41,24 +41,20 @@ export interface World {
   name: string
 }
 
-async function fetchUniversalis<T>(
-  path: string,
-  timeoutMs = REQUEST_TIMEOUT_MS,
-  tracking?: FetchTracking,
-): Promise<T> {
+const MAX_RETRIES = 2
+const RETRY_BACKOFF_MS = [300, 800]
+
+const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
+
+async function attemptFetch<T>(path: string, timeoutMs: number): Promise<{ data: T; status: number }> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
-  const startedAt = performance.now()
-  let status = 0
-  let ok = false
   try {
     const response = await fetch(`${BASE_URL}/${path}`, { signal: controller.signal })
-    status = response.status
-    ok = response.ok
     if (!response.ok) {
       throw new Error(`Universalis request failed: ${response.status} ${response.statusText}`)
     }
-    return await response.json()
+    return { data: await response.json(), status: response.status }
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
       throw new Error(`Universalis 查詢逾時 (${timeoutMs / 1000}s)`)
@@ -66,16 +62,73 @@ async function fetchUniversalis<T>(
     throw err
   } finally {
     clearTimeout(timer)
-    if (tracking) {
-      trackEvent('universalis_fetch', {
-        server: tracking.server,
-        item_count: tracking.item_count,
-        duration_ms: Math.round(performance.now() - startedAt),
-        ok,
-        status,
-      })
+  }
+}
+
+// Retry transient failures (network errors / 5xx). 4xx and timeouts are not retried —
+// 4xx won't change on replay, timeouts already abort after timeoutMs.
+function isRetriable(err: unknown): boolean {
+  if (err instanceof TypeError) return true // network / CORS-without-header
+  if (err instanceof Error) {
+    const m = /Universalis request failed: (\d+)/.exec(err.message)
+    if (m) {
+      const code = Number(m[1])
+      return code >= 500 && code < 600
     }
   }
+  return false
+}
+
+function extractStatus(err: unknown): number {
+  if (err instanceof Error) {
+    const m = /Universalis request failed: (\d+)/.exec(err.message)
+    if (m) return Number(m[1])
+  }
+  return 0
+}
+
+async function fetchUniversalis<T>(
+  path: string,
+  timeoutMs = REQUEST_TIMEOUT_MS,
+  tracking?: FetchTracking,
+): Promise<T> {
+  const startedAt = performance.now()
+  let lastErr: unknown
+  let finalStatus = 0
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const { data, status } = await attemptFetch<T>(path, timeoutMs)
+      finalStatus = status
+      if (tracking) {
+        trackEvent('universalis_fetch', {
+          server: tracking.server,
+          item_count: tracking.item_count,
+          duration_ms: Math.round(performance.now() - startedAt),
+          ok: true,
+          status: finalStatus,
+        })
+      }
+      return data
+    } catch (err) {
+      lastErr = err
+      finalStatus = extractStatus(err)
+      if (attempt < MAX_RETRIES && isRetriable(err)) {
+        await sleep(RETRY_BACKOFF_MS[attempt])
+        continue
+      }
+      break
+    }
+  }
+  if (tracking) {
+    trackEvent('universalis_fetch', {
+      server: tracking.server,
+      item_count: tracking.item_count,
+      duration_ms: Math.round(performance.now() - startedAt),
+      ok: false,
+      status: finalStatus,
+    })
+  }
+  throw lastErr
 }
 
 export function getMarketData(server: string, itemId: number): Promise<MarketData> {

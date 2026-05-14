@@ -13,6 +13,7 @@ import { applyFoodBuff, applyMedicineBuff, resolveBuff, COMMON_FOODS, COMMON_MED
 import { evaluateBuffRecommendation, getBuffItemIds } from '@/services/buff-recommender'
 import { produceSelfCraftCandidates } from '@/services/self-craft-candidates'
 import { canReachHQQuality } from '@/services/feasibility-prefilter'
+import { recipeHardGateReasons, describeHardGateReasons } from '@/services/recipe-gating'
 import { fetchItemAcquisitionBatch } from '@/services/item-acquisition'
 import { fetchItemLocationsBatch } from '@/services/item-locations'
 import { fetchZoneMetaBulk, fetchNpcNameBulk } from '@/services/zone-meta'
@@ -74,9 +75,21 @@ export async function optimizeRecipe(
     )
   }
 
-  const isDoubleMax =
-    simResult.progress >= simResult.max_progress &&
-    simResult.quality >= simResult.max_quality
+  // Quality target depends on recipe type:
+  // - canHq=true: must reach max_quality to be "double-max" (HQ output).
+  // - canHq=false + requiredQuality>0: tribe-quest / event 建造組件 — must
+  //   reach the explicit RequiredQuality threshold to be accepted in-game.
+  // - canHq=false + requiredQuality=0: furniture / housing — quality is
+  //   meaningless, only progress matters. Treating as double-max once progress
+  //   is full avoids a downstream misfire where HQ-optimizer returns [] and the
+  //   recipe gets flagged "無法達成雙滿" → buy-finished.
+  const progressFull = simResult.progress >= simResult.max_progress
+  const reqQ = recipe.requiredQuality ?? 0
+  let qualityTarget: number
+  if (recipe.canHq) qualityTarget = simResult.max_quality
+  else if (reqQ > 0) qualityTarget = reqQ
+  else qualityTarget = 0
+  const isDoubleMax = progressFull && simResult.quality >= qualityTarget
 
   const materials = recipe.ingredients.map(i => ({
     itemId: i.itemId, name: i.name, icon: i.icon, amount: i.amount,
@@ -210,10 +223,15 @@ export async function runBatchOptimization(
   const phase1Settled = await Promise.allSettled(targets.map(async (target, i) => {
     if (isCancelled()) throw new Error(SOLVE_CANCELLED)
     const gearset = getGearset(target.recipe.job)
-    if (!gearset || gearset.level < target.recipe.level) {
+    // Hard-block only when the gearset is missing OR (below recipe level AND
+    // the recipe has at least one hard-gate signal — stars, expert, required
+    // stats). Standard 0-star recipes can be attempted below level; the solver
+    // already applies progress/quality modifiers as the in-game penalty.
+    const hardGates = recipeHardGateReasons(target.recipe)
+    if (!gearset || (gearset.level < target.recipe.level && hardGates.length > 0)) {
       recipePercents[i] = 100
       emitAggregateProgress(target.recipe.name)
-      return { kind: 'level-insufficient' as const, target, gearset }
+      return { kind: 'level-insufficient' as const, target, gearset, hardGates }
     }
     try {
       const result = await optimizeRecipe(target.recipe, gearset, (pct) => {
@@ -240,10 +258,14 @@ export async function runBatchOptimization(
     }
     const v = settled.value
     if (v.kind === 'level-insufficient') {
+      const gearsetLevel = v.gearset?.level ?? 0
+      const details = v.gearset
+        ? `「${v.target.recipe.name}」是${describeHardGateReasons(v.hardGates)}配方，必須達到等級 ${v.target.recipe.level} 才能合成（目前 ${v.target.recipe.job} 等級 ${gearsetLevel}）`
+        : `尚未設定 ${v.target.recipe.job} 裝備組`
       exceptions.push({
         type: 'level-insufficient', recipe: v.target.recipe, quantity: v.target.quantity,
-        message: '職業等級不足',
-        details: `你的 ${v.target.recipe.job} 等級 ${v.gearset?.level ?? 0} 不足以製作「${v.target.recipe.name}」（需要等級 ${v.target.recipe.level}）`,
+        message: v.gearset ? '配方有硬性限制' : '尚未設定裝備組',
+        details,
         action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
       })
       continue
@@ -262,10 +284,28 @@ export async function runBatchOptimization(
     result.quantity = Math.ceil(v.target.quantity / yieldPerCraft)
     if (!result.isDoubleMax && result.hqAmounts.length === 0) {
       if (result.recipe.canHq) qualityUnachievableResults.push(result)
+      // Diagnose why isDoubleMax is false to give a precise message:
+      //   - canHq=true: quality didn't reach max even with full HQ materials
+      //   - canHq=false + requiredQuality>0: tribe-quest deliverable, quality
+      //     below the in-game acceptance threshold
+      //   - canHq=false + requiredQuality=0: pure progress failure
+      //     (gearset too weak to push progress to max)
+      const reqQ = result.recipe.requiredQuality ?? 0
+      let message: string
+      let details: string
+      if (result.recipe.canHq) {
+        message = '無法達成雙滿'
+        details = `「${v.target.recipe.name}」即使使用全部 HQ 素材仍無法達成品質上限`
+      } else if (reqQ > 0) {
+        message = '無法達成所需品質'
+        details = `「${v.target.recipe.name}」需要品質 ≥ ${reqQ}，目前裝備配置無法達成`
+      } else {
+        message = '無法完成合成'
+        details = `「${v.target.recipe.name}」目前裝備配置無法將進度推滿`
+      }
       exceptions.push({
         type: 'quality-unachievable', recipe: v.target.recipe, quantity: v.target.quantity,
-        message: '無法達成雙滿',
-        details: `「${v.target.recipe.name}」即使使用全部 HQ 素材仍無法達成品質上限`,
+        message, details,
         action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
       })
       continue

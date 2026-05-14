@@ -143,9 +143,11 @@ export async function getRecipe(id: number): Promise<Recipe> {
       }
     })
 
+  const stars = rlt.stars ?? 0
+
   const recipeLevelTable: RecipeLevelTable = {
     classJobLevel: rlt.classJobLevel,
-    stars: 0,
+    stars,
     difficulty: Math.floor(rlt.difficulty * recipe.difficultyFactor / 100),
     quality: Math.floor(rlt.quality * recipe.qualityFactor / 100),
     durability: Math.floor(rlt.durability * recipe.durabilityFactor / 100),
@@ -165,12 +167,16 @@ export async function getRecipe(id: number): Promise<Recipe> {
     icon: resultIcon,
     job: jobZh(jobAbbr),
     level: rlt.classJobLevel,
-    stars: 0,
+    stars,
     canHq: recipe.canHq,
     materialQualityFactor: recipe.materialQualityFactor,
     amountResult: recipe.amountResult > 0 ? recipe.amountResult : 1,
     ingredients,
     recipeLevelTable,
+    isExpert: recipe.isExpert ?? false,
+    requiredCraftsmanship: recipe.requiredCraftsmanship ?? 0,
+    requiredControl: recipe.requiredControl ?? 0,
+    requiredQuality: recipe.requiredQuality ?? 0,
   }
 }
 
