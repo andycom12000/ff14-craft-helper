@@ -18,6 +18,13 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: 'v2.15.1',
+    date: '2026-05-16',
+    highlights: [
+      '【巨集 wait 時間修正】工匠的絕技 / 專心致志 / 快速改革 / 觀察 / 秘訣 五個技能原本被誤 cap 在 <wait.2>，動畫沒跑完就接下個指令；改用對拍 raphael upstream `time_cost()` 的 per-skill 查表，這些技能改回 <wait.3>',
+    ],
+  },
+  {
     version: 'v2.15.0',
     date: '2026-05-14',
     highlights: [
