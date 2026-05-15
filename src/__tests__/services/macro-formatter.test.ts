@@ -28,4 +28,27 @@ describe('formatMacros', () => {
     const result = formatMacros(['groundwork'], { includeEcho: false })
     expect(result[0]).not.toContain('/echo')
   })
+
+  it.each([
+    ['TrainedPerfection'],
+    ['HeartAndSoul'],
+    ['QuickInnovation'],
+    ['Observe'],
+    ['TricksOfTheTrade'],
+  ])('falls back to waitTime for %s (not in SKILL_WAIT_TIME → uses default 3)', (id) => {
+    const result = formatMacros([id], { includeEcho: false })
+    expect(result[0]).toContain('<wait.3>')
+  })
+
+  it.each([
+    ['WasteNot'],
+    ['WasteNotII'],
+    ['Veneration'],
+    ['Innovation'],
+    ['GreatStrides'],
+    ['FinalAppraisal'],
+  ])('uses 2s for %s (per SKILL_WAIT_TIME table)', (id) => {
+    const result = formatMacros([id], { includeEcho: false })
+    expect(result[0]).toContain('<wait.2>')
+  })
 })

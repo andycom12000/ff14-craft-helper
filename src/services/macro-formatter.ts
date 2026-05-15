@@ -3,7 +3,23 @@ import type { SupportedLocale } from '@/engine/skills'
 import { useLocaleStore } from '@/stores/locale'
 
 const MACRO_LINE_LIMIT = 15
-const BUFF_CATEGORIES = new Set(['buff', 'other'])
+
+// Per-skill animation time，對拍 raphael upstream `time_cost()`
+// (raphael-sim/src/actions.rs)。在表內的技能用表中數值；不在表內的技能 fallback
+// 到使用者設定的 `waitTime`（預設 3，MacroExport 面板可調）。
+//
+// 註：
+// - Manipulation 上游是 2s，但目前我們先維持 3（走 waitTime 預設），確認 2s 在
+//   實機穩定後再加進表。
+// - FinalAppraisal 不在 raphael 的 action enum 內，這裡釘成 2s 維持既有行為。
+const SKILL_WAIT_TIME: ReadonlyMap<string, number> = new Map([
+  ['WasteNot', 2],
+  ['WasteNotII', 2],
+  ['Veneration', 2],
+  ['Innovation', 2],
+  ['GreatStrides', 2],
+  ['FinalAppraisal', 2],
+])
 
 interface FormatOptions {
   waitTime?: number
@@ -30,9 +46,7 @@ function resolveLocale(explicit?: SupportedLocale): SupportedLocale {
 function formatAction(skillId: string, waitTime: number, locale: SupportedLocale): string {
   const skill = getSkillById(skillId)
   const name = skill ? getSkillNameByLocale(skill.id, locale) : skillId
-  const wait = skill && BUFF_CATEGORIES.has(skill.category)
-    ? Math.min(waitTime, 2)
-    : waitTime
+  const wait = SKILL_WAIT_TIME.get(skillId) ?? waitTime
   return `/ac ${name} <wait.${wait}>`
 }
 
