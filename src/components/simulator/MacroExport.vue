@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useSimulatorStore } from '@/stores/simulator'
 import { useLocaleStore } from '@/stores/locale'
 import { formatMacros } from '@/services/macro-formatter'
 import { ElMessage } from 'element-plus'
+import { trackEvent } from '@/utils/analytics'
+import { useMilestonesStore } from '@/stores/milestones'
 
 const simStore = useSimulatorStore()
 const localeStore = useLocaleStore()
+const milestones = useMilestonesStore()
 
 const waitTime = ref(3)
 const includeEcho = ref(true)
@@ -19,6 +22,13 @@ const macros = computed(() =>
   })
 )
 
+watch(
+  () => macros.value.length,
+  (count) => {
+    if (count > 0) milestones.markMilestoneOnce('saw_macro')
+  },
+)
+
 const summaryText = computed(() => {
   const skillCount = simStore.actions.length
   const macroCount = macros.value.length
@@ -28,6 +38,13 @@ const summaryText = computed(() => {
 async function copyMacro(text: string, index: number) {
   try {
     await navigator.clipboard.writeText(text)
+    trackEvent('solver_macro_copy', {
+      macro_index: index,
+      total_macros: macros.value.length,
+      action_count: simStore.actions.length,
+      wait_time: waitTime.value,
+      include_echo: includeEcho.value,
+    })
     ElMessage.success(`巨集 ${index + 1} 已複製`)
   } catch {
     ElMessage.error('複製失敗，請手動複製')
