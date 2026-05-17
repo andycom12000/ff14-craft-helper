@@ -18,6 +18,13 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: 'v2.15.3',
+    date: '2026-05-17',
+    highlights: [
+      '【部署後不再卡死】之前每次發新版本，留在舊頁面的人按 nav 切頁會整個沒反應 — 舊 build 的 lazy chunk 在 GitHub Pages 已經被新檔取代，瀏覽器抓不到那支 JS，router 的 promise 永遠等不到、UI 凍住。現在偵測到這個 error 簽名就自動重整到新版（10 秒內只會 reload 一次，避免新舊 build 同時上線那短暫 window 進入無限 reload）。同時送 `stale_chunk_reload` GA 事件，之後就能看出這種情況一週發生幾次',
+    ],
+  },
+  {
     version: 'v2.15.2',
     date: '2026-05-17',
     highlights: [
