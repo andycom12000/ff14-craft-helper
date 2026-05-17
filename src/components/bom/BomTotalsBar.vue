@@ -13,6 +13,7 @@ import { useBomStore, type AcquisitionSource } from '@/stores/bom'
 import { useSettingsStore } from '@/stores/settings'
 import { buildTeamcraftImportUrl } from '@/services/teamcraft-import'
 import { formatGil } from '@/utils/format'
+import { trackEvent } from '@/utils/analytics'
 
 const bom = useBomStore()
 const settings = useSettingsStore()
@@ -83,6 +84,7 @@ async function copyTeamcraftUrl() {
   const url = buildTeamcraftImportUrl(
     bom.targets.map((t) => ({ itemId: t.itemId, recipeId: t.kind === 'recipe' ? t.recipeId : null, qty: t.quantity })),
   )
+  trackEvent('bom_copy_list', { format: 'teamcraft', target_count: bom.targets.length })
   await copyToClipboard(url, '已複製 Teamcraft 連結')
 }
 
@@ -93,6 +95,7 @@ async function copyMaterialsMarkdown() {
   }
   const lines: string[] = []
   for (const m of bom.flatMaterials) lines.push(`- ×${m.totalAmount} ${m.name}`)
+  trackEvent('bom_copy_list', { format: 'markdown', target_count: bom.targets.length })
   await copyToClipboard(lines.join('\n'), '已複製材料清單 (Markdown)')
 }
 

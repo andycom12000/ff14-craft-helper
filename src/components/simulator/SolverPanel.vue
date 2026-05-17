@@ -6,6 +6,7 @@ import { solveCraft, cancelSolve, disposeWorker, waitForWasm, getWasmStatus } fr
 import type { CraftParams } from '@/engine/simulator'
 import type { SolverConfig, SolverStatus } from '@/solver/raphael'
 import { getSkillName } from '@/engine/skills'
+import { useMilestonesStore } from '@/stores/milestones'
 
 const props = defineProps<{
   craftParams: CraftParams | null
@@ -16,6 +17,7 @@ const emit = defineEmits<{
 }>()
 
 const simStore = useSimulatorStore()
+const milestones = useMilestonesStore()
 
 const status = ref<SolverStatus>('idle')
 const progress = ref(0)
@@ -90,6 +92,7 @@ async function handleSolve() {
   simStore.solverRunning = true
 
   try {
+    milestones.markMilestoneOnce('ran_solver')
     const result = await solveCraft(config, (percent) => {
       progress.value = percent
     })

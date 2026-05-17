@@ -2,6 +2,7 @@
 import { ElMessage } from 'element-plus'
 import { useZoneName } from '@/composables/useZoneName'
 import { buildTpCommand } from '@/utils/ff14-map-link'
+import { trackEvent } from '@/utils/analytics'
 import ZoneMapInline from '@/components/common/ZoneMapInline.vue'
 
 const props = defineProps<{
@@ -23,6 +24,7 @@ async function copyTp() {
   if (!props.aetheryteName) return
   try {
     await navigator.clipboard.writeText(buildTpCommand(props.aetheryteName))
+    trackEvent('aetheryte_tp_copy', { source: 'zone_map' })
     ElMessage({ message: `已複製：/tp ${props.aetheryteName}`, type: 'success', duration: 1500 })
   } catch {
     ElMessage({ message: '複製失敗', type: 'error', duration: 1500 })

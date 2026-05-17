@@ -108,9 +108,9 @@ async function goNext() {
     return
   }
   if (step.value === 2) {
-    settingsStore.region = selectedRegion.value
-    settingsStore.dataCenter = selectedDC.value
-    settingsStore.server = selectedServer.value
+    settingsStore.setRegion(selectedRegion.value)
+    settingsStore.setDataCenter(selectedDC.value)
+    settingsStore.setServer(selectedServer.value)
     step.value = 3
     return
   }

@@ -9,6 +9,7 @@ import { type SimulatorMode } from '@/stores/simulator'
 import { useLocaleStore } from '@/stores/locale'
 import { formatMacros } from '@/services/macro-formatter'
 import { useSimulator } from '@/composables/useSimulator'
+import { useSolverInputAudit } from '@/composables/useSolverInputAudit'
 import type { Recipe } from '@/stores/recipe'
 import { recipeHardGateReasons, describeHardGateReasons } from '@/services/recipe-gating'
 
@@ -59,6 +60,14 @@ const {
   handleUseSkill, onSolveComplete, handleApplyHq,
   handleAddToBom, handleSelfCraft,
 } = useSimulator()
+
+useSolverInputAudit({
+  crafterLevel: computed(() => gearset.value?.level),
+  craftsmanship: computed(() => gearset.value?.craftsmanship),
+  control: computed(() => gearset.value?.control),
+  cp: computed(() => gearset.value?.cp),
+  recipeId: computed(() => recipeStore.currentRecipe?.id ?? null),
+})
 
 /* Macro list — compact "巨集 1 / 巨集 2 / 展開" buttons in the cockpit's
    sequence column. Full text only renders when expanded. */
