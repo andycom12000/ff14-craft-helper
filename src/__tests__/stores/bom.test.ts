@@ -737,3 +737,33 @@ describe('toggleChecked tracking', () => {
     expect(trackEvent).toHaveBeenCalledWith('bom_item_check', { item_id: 12345, checked: false })
   })
 })
+
+describe('toggleRowExpanded tracking', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.mocked(trackEvent).mockClear()
+  })
+
+  it('emits bom_breakdown_expand on first expand of an item', () => {
+    const bom = useBomStore()
+    bom.toggleRowExpanded(7777)
+    expect(trackEvent).toHaveBeenCalledWith('bom_breakdown_expand', { item_id: 7777 })
+  })
+
+  it('does not re-emit on collapse + same-session re-expand of the same item', () => {
+    const bom = useBomStore()
+    bom.toggleRowExpanded(7777) // expand → emit
+    bom.toggleRowExpanded(7777) // collapse → no emit
+    bom.toggleRowExpanded(7777) // expand again → no emit (session dedupe)
+    expect(trackEvent).toHaveBeenCalledTimes(1)
+  })
+
+  it('emits for different item_ids independently in the same session', () => {
+    const bom = useBomStore()
+    bom.toggleRowExpanded(1)
+    bom.toggleRowExpanded(2)
+    expect(trackEvent).toHaveBeenCalledTimes(2)
+    expect(trackEvent).toHaveBeenNthCalledWith(1, 'bom_breakdown_expand', { item_id: 1 })
+    expect(trackEvent).toHaveBeenNthCalledWith(2, 'bom_breakdown_expand', { item_id: 2 })
+  })
+})

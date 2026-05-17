@@ -233,6 +233,12 @@ export const useBomStore = defineStore('bom', () => {
   /** Item IDs whose drill-down (sub-craft tree) is currently expanded in the UI. */
   const expandedRows = ref<Set<number>>(new Set())
 
+  // Session dedupe for `bom_breakdown_expand` — same item should only fire
+  // the event once per store lifetime, even if the user collapses + re-expands.
+  // Lives inside the store setup so `setActivePinia(createPinia())` in tests
+  // resets it automatically; no test-only export needed.
+  const trackedExpands = new Set<number>()
+
   /**
    * Item IDs the user has explicitly picked an acquisition mode for. The
    * decision row collapses the segmented picker into a single "active mode"
@@ -710,10 +716,15 @@ export const useBomStore = defineStore('bom', () => {
   }
 
   function toggleRowExpanded(itemId: number) {
-    if (expandedRows.value.has(itemId)) {
-      expandedRows.value.delete(itemId)
-    } else {
+    const willBeExpanded = !expandedRows.value.has(itemId)
+    if (willBeExpanded) {
       expandedRows.value.add(itemId)
+      if (!trackedExpands.has(itemId)) {
+        trackedExpands.add(itemId)
+        trackEvent('bom_breakdown_expand', { item_id: itemId })
+      }
+    } else {
+      expandedRows.value.delete(itemId)
     }
     expandedRows.value = new Set(expandedRows.value)
   }
