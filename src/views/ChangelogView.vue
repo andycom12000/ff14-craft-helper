@@ -18,6 +18,13 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: 'v2.15.2',
+    date: '2026-05-17',
+    highlights: [
+      '【內部】補齊 GA 追蹤埋點：新增 12 個事件（BOM 操作 / Solver 結果消化 / 新用戶里程碑 / Universalis 失敗原因）+ augment `sab_unavailable` 帶瀏覽器資訊；settings store 公開 9 個顯式 setter，後續 UI 改動會自動經由 `settings_change` 事件被觀察到。對使用者完全不可見，純為了後續產品決策能有數據依據。Spec / plan 留底於 `docs/superpowers/specs|plans/2026-05-17-ga-tracking-expansion*`',
+    ],
+  },
+  {
     version: 'v2.15.1',
     date: '2026-05-16',
     highlights: [
