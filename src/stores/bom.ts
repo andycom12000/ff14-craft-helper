@@ -905,8 +905,10 @@ export const useBomStore = defineStore('bom', () => {
 
   function toggleChecked(itemId: number) {
     const next = new Set(routeViewSession.value.checked)
-    if (next.has(itemId)) next.delete(itemId); else next.add(itemId)
+    const willBeChecked = !next.has(itemId)
+    if (willBeChecked) next.add(itemId); else next.delete(itemId)
     routeViewSession.value = { ...routeViewSession.value, checked: next }
+    trackEvent('bom_item_check', { item_id: itemId, checked: willBeChecked })
   }
 
   function toggleExcluded(itemId: number) {

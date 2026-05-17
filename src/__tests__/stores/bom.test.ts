@@ -17,6 +17,12 @@ import {
   aggregateByWorld,
 } from '@/api/universalis'
 
+vi.mock('@/utils/analytics', async () => {
+  const actual = await vi.importActual<typeof import('@/utils/analytics')>('@/utils/analytics')
+  return { ...actual, trackEvent: vi.fn(), trackError: vi.fn() }
+})
+import { trackEvent } from '@/utils/analytics'
+
 function priceInfo(itemId: number, nq: number, hq = nq): PriceInfo {
   return {
     itemId,
@@ -708,5 +714,26 @@ describe('BomTarget migration', () => {
       quantity: 1,
     })
     expect(bom.targets).toHaveLength(2)
+  })
+})
+
+describe('toggleChecked tracking', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.mocked(trackEvent).mockClear()
+  })
+
+  it('emits bom_item_check on first check (checked=true)', () => {
+    const bom = useBomStore()
+    bom.toggleChecked(12345)
+    expect(trackEvent).toHaveBeenCalledWith('bom_item_check', { item_id: 12345, checked: true })
+  })
+
+  it('emits bom_item_check with checked=false on second toggle', () => {
+    const bom = useBomStore()
+    bom.toggleChecked(12345)
+    vi.mocked(trackEvent).mockClear()
+    bom.toggleChecked(12345)
+    expect(trackEvent).toHaveBeenCalledWith('bom_item_check', { item_id: 12345, checked: false })
   })
 })
