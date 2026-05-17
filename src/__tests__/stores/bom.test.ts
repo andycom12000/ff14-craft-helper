@@ -17,6 +17,12 @@ import {
   aggregateByWorld,
 } from '@/api/universalis'
 
+vi.mock('@/utils/analytics', async () => {
+  const actual = await vi.importActual<typeof import('@/utils/analytics')>('@/utils/analytics')
+  return { ...actual, trackEvent: vi.fn(), trackError: vi.fn() }
+})
+import { trackEvent } from '@/utils/analytics'
+
 function priceInfo(itemId: number, nq: number, hq = nq): PriceInfo {
   return {
     itemId,
@@ -626,10 +632,10 @@ describe('cross-world reactivity', () => {
   it('keeps crossWorldBestPriceMap when crossServer flips off', async () => {
     const bom = useBomStore()
     const settings = useSettingsStore()
-    settings.crossServer = true
+    settings.setCrossServer(true)
     bom.crossWorldBestPriceMap.set(100, { worldName: 'Tonberry', minPrice: 1500, fetchedAt: 1 })
 
-    settings.crossServer = false
+    settings.setCrossServer(false)
     await flushPromises()
 
     expect(bom.crossWorldBestPriceMap.has(100)).toBe(true)
@@ -642,7 +648,7 @@ describe('cross-world reactivity', () => {
     ])
     const bom = useBomStore()
     const settings = useSettingsStore()
-    settings.crossServer = true
+    settings.setCrossServer(true)
     settings.dataCenter = 'Materia'
     bom.setTargetDefaultMode('market')
 
@@ -708,5 +714,56 @@ describe('BomTarget migration', () => {
       quantity: 1,
     })
     expect(bom.targets).toHaveLength(2)
+  })
+})
+
+describe('toggleChecked tracking', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.mocked(trackEvent).mockClear()
+  })
+
+  it('emits bom_item_check on first check (checked=true)', () => {
+    const bom = useBomStore()
+    bom.toggleChecked(12345)
+    expect(trackEvent).toHaveBeenCalledWith('bom_item_check', { item_id: 12345, checked: true })
+  })
+
+  it('emits bom_item_check with checked=false on second toggle', () => {
+    const bom = useBomStore()
+    bom.toggleChecked(12345)
+    vi.mocked(trackEvent).mockClear()
+    bom.toggleChecked(12345)
+    expect(trackEvent).toHaveBeenCalledWith('bom_item_check', { item_id: 12345, checked: false })
+  })
+})
+
+describe('toggleRowExpanded tracking', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.mocked(trackEvent).mockClear()
+  })
+
+  it('emits bom_breakdown_expand on first expand of an item', () => {
+    const bom = useBomStore()
+    bom.toggleRowExpanded(7777)
+    expect(trackEvent).toHaveBeenCalledWith('bom_breakdown_expand', { item_id: 7777 })
+  })
+
+  it('does not re-emit on collapse + same-session re-expand of the same item', () => {
+    const bom = useBomStore()
+    bom.toggleRowExpanded(7777) // expand → emit
+    bom.toggleRowExpanded(7777) // collapse → no emit
+    bom.toggleRowExpanded(7777) // expand again → no emit (session dedupe)
+    expect(trackEvent).toHaveBeenCalledTimes(1)
+  })
+
+  it('emits for different item_ids independently in the same session', () => {
+    const bom = useBomStore()
+    bom.toggleRowExpanded(1)
+    bom.toggleRowExpanded(2)
+    expect(trackEvent).toHaveBeenCalledTimes(2)
+    expect(trackEvent).toHaveBeenNthCalledWith(1, 'bom_breakdown_expand', { item_id: 1 })
+    expect(trackEvent).toHaveBeenNthCalledWith(2, 'bom_breakdown_expand', { item_id: 2 })
   })
 })

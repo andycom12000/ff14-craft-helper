@@ -7,6 +7,7 @@ import { useIsMobile } from '@/composables/useMediaQuery'
 import { useNpcName } from '@/composables/useNpcName'
 import { useZoneName } from '@/composables/useZoneName'
 import { buildTpCommand } from '@/utils/ff14-map-link'
+import { trackEvent } from '@/utils/analytics'
 import { formatGil } from '@/utils/format'
 import ItemName from '@/components/common/ItemName.vue'
 import ZoneMapInline from '@/components/common/ZoneMapInline.vue'
@@ -49,6 +50,7 @@ async function copyTp() {
   }
   try {
     await navigator.clipboard.writeText(buildTpCommand(aetheryteName.value))
+    trackEvent('aetheryte_tp_copy', { source: 'npc_shop' })
     ElMessage({
       message: `已複製：/tp ${aetheryteName.value}`,
       type: 'success',

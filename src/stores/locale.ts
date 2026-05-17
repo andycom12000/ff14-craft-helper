@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import type { Locale } from '@/services/local-data-source.types'
 import { LOCALES, DEFAULT_LOCALE } from '@/services/local-data-source.types'
 import * as localDataSource from '@/services/local-data-source'
+import { emitSettingsChange } from '@/utils/settings-change'
 
 const STORAGE_KEY = 'ffxiv-craft-helper:locale'
 
@@ -23,12 +24,15 @@ export const useLocaleStore = defineStore('locale', () => {
 
   async function setLocale(locale: Locale): Promise<void> {
     if (!(LOCALES as readonly string[]).includes(locale)) return
+    const prev = current.value
+    if (prev === locale) return
     current.value = locale
     try {
       localStorage.setItem(STORAGE_KEY, locale)
     } catch {
       // ignore
     }
+    emitSettingsChange('language', prev, locale)
     await localDataSource.setLocale(locale)
   }
 

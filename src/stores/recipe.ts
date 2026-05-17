@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { trackEvent } from '@/utils/analytics'
+import { useMilestonesStore } from '@/stores/milestones'
 
 export interface Ingredient {
   itemId: number
@@ -64,6 +65,7 @@ export const useRecipeStore = defineStore('recipe', () => {
       job: recipe.job,
       level: recipe.level,
     })
+    useMilestonesStore().markMilestoneOnce('viewed_recipe')
   }
 
   function clearRecipe() {
