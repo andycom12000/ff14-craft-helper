@@ -18,7 +18,8 @@
     "patch-wasm": "node scripts/patch-wasm-rayon-init.mjs",
     "sync-tesseract": "node scripts/sync-tesseract-worker.mjs",
     "bench:solver": "node scripts/dev/bench-solver.mjs --dataset=dataset-3 --csv",
-    "bench:solver:single": "node scripts/dev/bench-solver.mjs --dataset=dataset-3 --threads=1"
+    "bench:solver:single": "node scripts/dev/bench-solver.mjs --dataset=dataset-3 --threads=1",
+    "ga:analyze": "node scripts/dev/ga-analyze.mjs"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.0",
@@ -32,6 +33,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@google-analytics/data": "^6.0.0",
     "@vitejs/plugin-vue": "^5.2.0",
     "@vue/test-utils": "^2.4.6",
     "csv-parse": "^5.5.6",
