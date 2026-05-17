@@ -632,10 +632,10 @@ describe('cross-world reactivity', () => {
   it('keeps crossWorldBestPriceMap when crossServer flips off', async () => {
     const bom = useBomStore()
     const settings = useSettingsStore()
-    settings.crossServer = true
+    settings.setCrossServer(true)
     bom.crossWorldBestPriceMap.set(100, { worldName: 'Tonberry', minPrice: 1500, fetchedAt: 1 })
 
-    settings.crossServer = false
+    settings.setCrossServer(false)
     await flushPromises()
 
     expect(bom.crossWorldBestPriceMap.has(100)).toBe(true)
@@ -648,7 +648,7 @@ describe('cross-world reactivity', () => {
     ])
     const bom = useBomStore()
     const settings = useSettingsStore()
-    settings.crossServer = true
+    settings.setCrossServer(true)
     settings.dataCenter = 'Materia'
     bom.setTargetDefaultMode('market')
 

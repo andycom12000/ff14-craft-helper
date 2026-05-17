@@ -24,7 +24,7 @@ function onTargetDefaultChange(value: TargetDefaultMode) {
 }
 
 function enableCrossServer() {
-  settings.crossServer = true
+  settings.setCrossServer(true)
 }
 </script>
 

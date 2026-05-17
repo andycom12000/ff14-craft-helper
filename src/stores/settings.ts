@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { useLocaleStore } from '@/stores/locale'
 import type { Locale } from '@/services/local-data-source.types'
+import { emitSettingsChange } from '@/utils/settings-change'
 
 export type PriceDisplayMode = 'nq' | 'hq' | 'minOf'
 
@@ -31,22 +32,51 @@ export const useSettingsStore = defineStore('settings', () => {
   const localeStore = useLocaleStore()
   const language = computed<Locale>({
     get: () => localeStore.current,
-    set: (value: Locale) => {
-      void localeStore.setLocale(value)
-    },
+    set: (value: Locale) => { void localeStore.setLocale(value) },
   })
 
+  function setServer(v: string) {
+    const prev = server.value; if (prev === v) return
+    server.value = v; emitSettingsChange('server', prev, v)
+  }
+  function setDataCenter(v: string) {
+    const prev = dataCenter.value; if (prev === v) return
+    dataCenter.value = v; emitSettingsChange('data_center', prev, v)
+  }
+  function setRegion(v: string) {
+    const prev = region.value; if (prev === v) return
+    region.value = v; emitSettingsChange('region', prev, v)
+  }
+  function setPriceDisplayMode(v: PriceDisplayMode) {
+    const prev = priceDisplayMode.value; if (prev === v) return
+    priceDisplayMode.value = v; emitSettingsChange('price_display_mode', prev, v)
+  }
+  function setCrossServer(v: boolean) {
+    const prev = crossServer.value; if (prev === v) return
+    crossServer.value = v; emitSettingsChange('cross_server', prev, v)
+  }
+  function setRecursivePricing(v: boolean) {
+    const prev = recursivePricing.value; if (prev === v) return
+    recursivePricing.value = v; emitSettingsChange('recursive_pricing', prev, v)
+  }
+  function setMaxRecursionDepth(v: number) {
+    const prev = maxRecursionDepth.value; if (prev === v) return
+    maxRecursionDepth.value = v; emitSettingsChange('max_recursion_depth', prev, v)
+  }
+  function setExceptionStrategy(v: 'skip' | 'buy') {
+    const prev = exceptionStrategy.value; if (prev === v) return
+    exceptionStrategy.value = v; emitSettingsChange('exception_strategy', prev, v)
+  }
+  function setRawMaterialDefault(v: 'buy' | 'gather') {
+    const prev = rawMaterialDefault.value; if (prev === v) return
+    rawMaterialDefault.value = v; emitSettingsChange('raw_material_default', prev, v)
+  }
+
   return {
-    server,
-    dataCenter,
-    region,
-    language,
-    priceDisplayMode,
-    crossServer,
-    recursivePricing,
-    maxRecursionDepth,
-    exceptionStrategy,
-    rawMaterialDefault,
+    server, dataCenter, region, language, priceDisplayMode, crossServer,
+    recursivePricing, maxRecursionDepth, exceptionStrategy, rawMaterialDefault,
+    setServer, setDataCenter, setRegion, setPriceDisplayMode, setCrossServer,
+    setRecursivePricing, setMaxRecursionDepth, setExceptionStrategy, setRawMaterialDefault,
   }
 }, {
   // `language` is a computed proxy; let the locale store persist it instead.
