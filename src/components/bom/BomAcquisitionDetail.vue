@@ -5,6 +5,7 @@ import { useBomStore } from '@/stores/bom'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import { getZoneMetaSync } from '@/services/zone-meta'
 import { convertToPixel, pixelToPercent } from '@/utils/map-coords'
+import { trackEvent } from '@/utils/analytics'
 
 // ---------------------------------------------------------------------------
 // Props / Emits
@@ -157,6 +158,7 @@ function getFirstAetheryte(zoneId: number): AetheryteEntry | null {
 async function copyTp(aetheryteName: string) {
   try {
     await navigator.clipboard.writeText(`/tp ${aetheryteName}`)
+    trackEvent('aetheryte_tp_copy', { source: 'bom_detail' })
     ElMessage({ message: `已複製：/tp ${aetheryteName}`, type: 'success', duration: 2000 })
   } catch {
     ElMessage({ message: '複製失敗', type: 'error', duration: 2000 })
