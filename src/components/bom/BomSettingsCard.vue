@@ -12,6 +12,28 @@ const hasCraftableTarget = computed(() =>
   bom.targets.some((t) => t.kind === 'recipe'),
 )
 
+// Wrapper computeds to route v-model through store setters (emit settings_change)
+const crossServer = computed({
+  get: () => settings.crossServer,
+  set: (v: boolean) => settings.setCrossServer(v),
+})
+const recursivePricing = computed({
+  get: () => settings.recursivePricing,
+  set: (v: boolean) => settings.setRecursivePricing(v),
+})
+const maxRecursionDepth = computed({
+  get: () => settings.maxRecursionDepth,
+  set: (v: number) => settings.setMaxRecursionDepth(v),
+})
+const rawMaterialDefault = computed({
+  get: () => settings.rawMaterialDefault,
+  set: (v: 'buy' | 'gather') => settings.setRawMaterialDefault(v),
+})
+const exceptionStrategy = computed({
+  get: () => settings.exceptionStrategy,
+  set: (v: 'skip' | 'buy') => settings.setExceptionStrategy(v),
+})
+
 type HintKind = 'no-target' | 'craft' | 'market-cross' | 'market-home'
 const hintKind = computed<HintKind>(() => {
   if (!hasCraftableTarget.value) return 'no-target'
@@ -37,10 +59,10 @@ function enableCrossServer() {
 
       <div class="bom-settings__row">
         <div class="bom-settings__cell">
-          <el-switch v-model="settings.crossServer" size="small" />
+          <el-switch v-model="crossServer" size="small" />
           <span class="bom-settings__label">跨服採購</span>
         </div>
-        <span v-if="settings.crossServer" class="bom-settings__hint">
+        <span v-if="crossServer" class="bom-settings__hint">
           {{ settings.dataCenter || '所有伺服器' }} 同 DC 比價
         </span>
       </div>
@@ -73,11 +95,11 @@ function enableCrossServer() {
 
       <div class="bom-settings__row">
         <div class="bom-settings__cell">
-          <el-switch v-model="settings.recursivePricing" size="small" />
+          <el-switch v-model="recursivePricing" size="small" />
           <span class="bom-settings__label">遞迴查價</span>
           <el-input-number
-            v-if="settings.recursivePricing"
-            v-model="settings.maxRecursionDepth"
+            v-if="recursivePricing"
+            v-model="maxRecursionDepth"
             :min="1"
             :max="10"
             size="small"
@@ -92,13 +114,13 @@ function enableCrossServer() {
       <div class="bom-settings__row">
         <div class="bom-settings__cell">
           <span class="bom-settings__label">原料準備</span>
-          <el-radio-group v-model="settings.rawMaterialDefault" size="small">
+          <el-radio-group v-model="rawMaterialDefault" size="small">
             <el-radio-button value="buy">購買</el-radio-button>
             <el-radio-button value="gather">自採</el-radio-button>
           </el-radio-group>
         </div>
         <span class="bom-settings__hint">
-          {{ settings.rawMaterialDefault === 'gather'
+          {{ rawMaterialDefault === 'gather'
             ? '可採集的原料預設標為自採（免費）'
             : '原料預設走市場價'
           }}
@@ -108,7 +130,7 @@ function enableCrossServer() {
       <div class="bom-settings__row">
         <div class="bom-settings__cell">
           <span class="bom-settings__label">遇到例外</span>
-          <el-radio-group v-model="settings.exceptionStrategy" size="small">
+          <el-radio-group v-model="exceptionStrategy" size="small">
             <el-radio-button value="skip">跳過</el-radio-button>
             <el-radio-button value="buy">直接買</el-radio-button>
           </el-radio-group>
@@ -125,10 +147,10 @@ function enableCrossServer() {
         <div class="m-cell-body">
           <div class="m-cell-title">跨服採購</div>
           <div class="m-cell-sub">
-            {{ settings.crossServer ? `${settings.dataCenter || '同 DC'} 比價` : '只看當前伺服器' }}
+            {{ crossServer ? `${settings.dataCenter || '同 DC'} 比價` : '只看當前伺服器' }}
           </div>
         </div>
-        <el-switch v-model="settings.crossServer" size="default" />
+        <el-switch v-model="crossServer" size="default" />
       </div>
 
       <div class="m-cell">
@@ -137,17 +159,17 @@ function enableCrossServer() {
           <div class="m-cell-title">遞迴查價</div>
           <div class="m-cell-sub">把材料的材料也納入比價</div>
         </div>
-        <el-switch v-model="settings.recursivePricing" size="default" />
+        <el-switch v-model="recursivePricing" size="default" />
       </div>
 
-      <div v-if="settings.recursivePricing" class="m-cell">
+      <div v-if="recursivePricing" class="m-cell">
         <span class="m-cell-icon" aria-hidden="true">⇅</span>
         <div class="m-cell-body">
           <div class="m-cell-title">遞迴深度</div>
           <div class="m-cell-sub">最多展開幾層</div>
         </div>
         <el-input-number
-          v-model="settings.maxRecursionDepth"
+          v-model="maxRecursionDepth"
           :min="1"
           :max="10"
           size="small"
@@ -160,14 +182,14 @@ function enableCrossServer() {
         <div class="m-cell-body">
           <div class="m-cell-title">原料準備</div>
           <div class="m-cell-sub">
-            {{ settings.rawMaterialDefault === 'gather'
+            {{ rawMaterialDefault === 'gather'
               ? '可採集原料預設自採'
               : '原料預設走市場價'
             }}
           </div>
         </div>
         <el-segmented
-          v-model="settings.rawMaterialDefault"
+          v-model="rawMaterialDefault"
           :options="[
             { label: '購買', value: 'buy' },
             { label: '自採', value: 'gather' },
@@ -208,7 +230,7 @@ function enableCrossServer() {
           <div class="m-cell-sub">等級不足或無法雙滿時</div>
         </div>
         <el-segmented
-          v-model="settings.exceptionStrategy"
+          v-model="exceptionStrategy"
           :options="[
             { label: '跳過', value: 'skip' },
             { label: '直接買', value: 'buy' },
