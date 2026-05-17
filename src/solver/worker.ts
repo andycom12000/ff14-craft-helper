@@ -11,6 +11,21 @@ import { classifyGearBucket } from '@/utils/gear-bucket'
 
 export const SOLVE_CANCELLED = '求解已取消'
 
+// Tab-session rerun counter: keyed by input fingerprint so we can flag
+// "user tried the same config 2+ times in a row". Cleared on page reload.
+const solverRerunCounts = new Map<string, number>()
+
+function solverInputFingerprint(config: SolverConfig): string {
+  return [
+    config.crafter_level,
+    config.recipe_level,
+    config.craftsmanship,
+    config.control,
+    config.cp,
+    config.hq_target,
+  ].join('|')
+}
+
 interface WorkerSlot { worker: Worker; busy: boolean }
 
 const slots: WorkerSlot[] = []
@@ -187,11 +202,19 @@ export function solveCraft(
 ): Promise<SolverResultWithTiming> {
   const requestId = nextRequestId++
   const startedAt = performance.now()
+  const fp = solverInputFingerprint(config)
+  const prevRunCount = solverRerunCounts.get(fp) ?? 0
+  const runIndex = prevRunCount + 1
+  solverRerunCounts.set(fp, runIndex)
+
   trackEvent('solver_start', {
     crafter_level: config.crafter_level, recipe_level: config.recipe_level,
     hq_target: config.hq_target,
     gear_bucket: classifyGearBucket(config.crafter_level, config.craftsmanship, config.control),
   })
+  if (runIndex >= 2) {
+    trackEvent('solver_rerun', { run_index: runIndex })
+  }
   return new Promise<SolverResultWithTiming>((resolve, reject) => {
     pendingRequests.set(requestId, {
       onProgress,
