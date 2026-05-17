@@ -8,6 +8,7 @@ import type { SolverConfig, SolverResponse, SolverResultWithTiming, SimulateResu
 import { POOL_SIZE } from './pool-config'
 import { trackEvent, trackError } from '@/utils/analytics'
 import { classifyGearBucket } from '@/utils/gear-bucket'
+import { noteSolverFailed } from '@/composables/useSolverFailState'
 
 export const SOLVE_CANCELLED = '求解已取消'
 
@@ -229,6 +230,7 @@ export function solveCraft(
       reject: (err: Error) => {
         trackEvent('solver_failed', { reason: err.message })
         trackError(`solver_failed: ${err.message}`)
+        noteSolverFailed()
         reject(err)
       },
     })
