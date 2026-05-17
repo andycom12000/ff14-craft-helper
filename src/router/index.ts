@@ -1,5 +1,9 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import { trackPageView } from '@/utils/analytics'
+import { trackEvent, trackPageView } from '@/utils/analytics'
+
+const STALE_CHUNK_PATTERNS = /Failed to fetch dynamically imported module|Importing a module script failed|ChunkLoadError/i
+const RELOAD_GUARD_KEY = 'ff14ch.stale_chunk_reload_at'
+const RELOAD_GUARD_MS = 10_000
 
 const router = createRouter({
   history: createWebHashHistory(),
@@ -69,6 +73,21 @@ const router = createRouter({
 
 router.afterEach((to) => {
   trackPageView(to.fullPath, to.meta.title as string | undefined)
+})
+
+// After a deploy, content-hashed chunks for the previous build disappear from
+// the host. Old sessions hitting a lazy route then 404 — router promise hangs,
+// UI freezes. Detect that signature and reload onto the new build.
+// The 10s guard prevents a tight loop if a deploy is mid-flight and chunks
+// are still inconsistent.
+router.onError((err) => {
+  const msg = err instanceof Error ? err.message : String(err)
+  if (!STALE_CHUNK_PATTERNS.test(msg)) return
+  const last = Number(sessionStorage.getItem(RELOAD_GUARD_KEY) ?? 0)
+  if (Date.now() - last < RELOAD_GUARD_MS) return
+  sessionStorage.setItem(RELOAD_GUARD_KEY, String(Date.now()))
+  trackEvent('stale_chunk_reload', { path: location.hash })
+  location.reload()
 })
 
 export default router
