@@ -1,7 +1,7 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { trackEvent, trackPageView } from '@/utils/analytics'
 
-const STALE_CHUNK_PATTERNS = /Failed to fetch dynamically imported module|Importing a module script failed|ChunkLoadError/i
+const STALE_CHUNK_PATTERNS = /Failed to fetch dynamically imported module|Importing a module script failed|ChunkLoadError|Unable to preload CSS/i
 const RELOAD_GUARD_KEY = 'ff14ch.stale_chunk_reload_at'
 const RELOAD_GUARD_MS = 10_000
 

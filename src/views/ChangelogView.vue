@@ -18,6 +18,13 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: 'v2.15.4',
+    date: '2026-05-17',
+    highlights: [
+      '【部署後不再卡死（補洞）】v2.15.3 補的偵測規則漏了 Vite 在 CSS preload 失敗時丟的特有 error（`Unable to preload CSS for ...`），就在 v2.15.3 自己 deploy 的當下 smoke test 直接撞到。補進 regex 後現在 4 種變體都能 catch',
+    ],
+  },
+  {
     version: 'v2.15.3',
     date: '2026-05-17',
     highlights: [
