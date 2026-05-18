@@ -105,7 +105,7 @@ describe('recipeToCraftParams — isExpert pass-through', () => {
       progressModifier: 90, qualityModifier: 80,
     },
   }
-  const gearset: GearsetStats = { level: 100, craftsmanship: 4000, control: 3800, cp: 600 }
+  const gearset: GearsetStats = { level: 100, craftsmanship: 4000, control: 3800, cp: 600, isSpecialist: false }
 
   it('reads recipe.isExpert into CraftParams.isExpert', () => {
     const p = recipeToCraftParams({ ...baseRecipe, isExpert: true }, gearset)

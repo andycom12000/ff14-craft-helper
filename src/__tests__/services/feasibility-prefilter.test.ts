@@ -34,10 +34,10 @@ const lv94Recipe: Recipe = {
 
 describe('canReachHQQuality', () => {
   it('passes when control + CP comfortably exceed target', () => {
-    expect(canReachHQQuality(lv94Recipe, { level: 100, craftsmanship: 5000, control: 5000, cp: 700 })).toBe(true)
+    expect(canReachHQQuality(lv94Recipe, { level: 100, craftsmanship: 5000, control: 5000, cp: 700, isSpecialist: false })).toBe(true)
   })
 
   it('rejects when both control and CP are starved', () => {
-    expect(canReachHQQuality(lv94Recipe, { level: 94, craftsmanship: 3500, control: 100, cp: 50 })).toBe(false)
+    expect(canReachHQQuality(lv94Recipe, { level: 94, craftsmanship: 3500, control: 100, cp: 50, isSpecialist: false })).toBe(false)
   })
 })

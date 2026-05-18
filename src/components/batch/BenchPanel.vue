@@ -38,9 +38,9 @@ interface GearsetPreset {
 
 const GEARSET_PRESETS: GearsetPreset[] = [
   { label: 'Stored (real)', override: null },
-  { label: 'Strong lv100 (5500/5500/700)', override: { level: 100, craftsmanship: 5500, control: 5500, cp: 700 } },
-  { label: 'Mid lv100 (4500/4500/600)', override: { level: 100, craftsmanship: 4500, control: 4500, cp: 600 } },
-  { label: 'Boundary lv100 (5000/5000/620)', override: { level: 100, craftsmanship: 5000, control: 5000, cp: 620 } },
+  { label: 'Strong lv100 (5500/5500/700)', override: { level: 100, craftsmanship: 5500, control: 5500, cp: 700, isSpecialist: false } },
+  { label: 'Mid lv100 (4500/4500/600)', override: { level: 100, craftsmanship: 4500, control: 4500, cp: 600, isSpecialist: false } },
+  { label: 'Boundary lv100 (5000/5000/620)', override: { level: 100, craftsmanship: 5000, control: 5000, cp: 620, isSpecialist: false } },
 ]
 
 const running = ref(false)
@@ -119,6 +119,7 @@ async function runDataset(name: string) {
           craftsmanship: stored.craftsmanship,
           control: stored.control,
           cp: stored.cp,
+          isSpecialist: stored.isSpecialist,
         }
       }
       try {

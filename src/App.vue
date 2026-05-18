@@ -225,6 +225,7 @@ onUnmounted(() => {
   /* Brand — 可可（cocoa）: used by expert condition chips (Centered / Sturdy / Pliant / Malleable).
    * PRODUCT.md 規範色：oklch(0.50 0.16 40)。 */
   --brand-cocoa: oklch(0.50 0.16 40);
+  --brand-cocoa-glow: oklch(0.50 0.16 40 / 0.18);
 
   /* Functional areas (果醬罐排隊) */
   --app-craft: oklch(0.50 0.16 40);
@@ -329,6 +330,7 @@ onUnmounted(() => {
 
   /* Brand — 可可（cocoa）— dark: lift L for contrast on dark surfaces, hue 維持 40。 */
   --brand-cocoa: oklch(0.68 0.14 42);
+  --brand-cocoa-glow: oklch(0.68 0.14 42 / 0.22);
 
   /* Functional areas (dark: 飽和度收斂避免刺眼) */
   --app-craft: oklch(0.70 0.04 60);

@@ -4,6 +4,9 @@ import { ElMessage } from 'element-plus'
 import { useGearsetsStore, type GearsetStats } from '@/stores/gearsets'
 import { JOB_NAMES } from '@/utils/jobs'
 import { trackEvent } from '@/utils/analytics'
+import { specialistCount } from '@/services/specialist-state'
+
+const SPECIALIST_TOKEN_LIMIT = 3
 
 const props = defineProps<{
   open: boolean
@@ -40,6 +43,9 @@ const tableData = computed(() =>
 )
 
 const missingSet = computed(() => new Set(props.missingJobs ?? []))
+
+const currentSpecialistCount = computed(() => specialistCount(store.gearsets))
+const specialistOverLimit = computed(() => currentSpecialistCount.value > SPECIALIST_TOKEN_LIMIT)
 
 const bulkOpen = ref(false)
 const bulkLevel = ref<number | undefined>(undefined)
@@ -145,6 +151,22 @@ onUnmounted(() => {
 
       <div v-if="hint" class="hint">{{ hint }}</div>
 
+      <!-- Specialist status line — permanent context, sits between head and bulk -->
+      <div class="specialist-status" :class="{ 'is-over-limit': specialistOverLimit }">
+        <div class="specialist-status-row">
+          <span class="specialist-pill">專家配置</span>
+          <span class="specialist-count">
+            <span class="specialist-count-num">{{ currentSpecialistCount }}</span>
+            <span class="specialist-count-sep"> / </span>
+            <span class="specialist-count-limit">{{ SPECIALIST_TOKEN_LIMIT }}</span>
+          </span>
+          <span v-if="specialistOverLimit" class="specialist-warning">
+            遊戲內最多 {{ SPECIALIST_TOKEN_LIMIT }} 個 specialist token
+          </span>
+        </div>
+        <div class="specialist-status-underline" aria-hidden="true" />
+      </div>
+
       <!-- Bulk panel -->
       <div class="bulk-panel" :class="{ 'is-open': bulkOpen }">
         <button
@@ -220,6 +242,7 @@ onUnmounted(() => {
             'is-focus': row.job === props.focusJob,
             'is-missing': missingSet.has(row.job),
             'is-saved': flashingJob === row.job,
+            'is-specialist': row.isSpecialist,
           }"
           :data-gs-row="row.job"
         >
@@ -268,6 +291,19 @@ onUnmounted(() => {
                 :aria-label="`${JOB_NAMES[row.job]} CP`"
               />
             </div>
+          </div>
+          <div
+            class="job-specialist"
+            :class="{ 'is-on': row.isSpecialist }"
+            data-gs-field="specialist"
+          >
+            <el-checkbox
+              :model-value="row.isSpecialist"
+              @update:model-value="(v: boolean | string | number) => updateJob(row.job, { isSpecialist: !!v })"
+              :aria-label="`${JOB_NAMES[row.job]} 設為專家`"
+            >
+              <span class="job-specialist-label">專家</span>
+            </el-checkbox>
           </div>
         </div>
       </div>
@@ -332,6 +368,94 @@ onUnmounted(() => {
   border-radius: 4px;
   font-size: 13px;
   color: oklch(0.32 0.14 45);
+}
+
+/* Specialist status line — Editorial Hero echo (eyebrow pill + chalk underline).
+ * Permanent context between sheet-head and bulk-panel; no border-left stripe,
+ * no modal, no el-alert default — per DESIGN.md. */
+.specialist-status {
+  padding: 2px 4px 0;
+}
+.specialist-status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.specialist-pill {
+  font-family: 'Fira Code', 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--brand-cocoa);
+  background: var(--brand-cocoa-glow);
+  padding: 3px 8px;
+  border-radius: 999px;
+  line-height: 1;
+}
+.specialist-count {
+  margin-left: auto;
+  font-family: 'Fira Code', 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 13px;
+  color: var(--brand-cocoa);
+  font-variant-numeric: tabular-nums;
+}
+.specialist-count-sep,
+.specialist-count-limit {
+  color: var(--brand-cocoa);
+  opacity: 0.75;
+}
+.specialist-status.is-over-limit .specialist-count-num {
+  color: var(--app-warning);
+  font-weight: 600;
+}
+.specialist-status.is-over-limit .specialist-count {
+  /* keep label colour cocoa, only the number shifts */
+  color: var(--brand-cocoa);
+}
+.specialist-warning {
+  font-family: 'Noto Sans TC', sans-serif;
+  font-size: 13px;
+  color: var(--app-text-muted);
+  flex-basis: 100%;
+  margin-top: -2px;
+}
+.specialist-status-underline {
+  height: 1px;
+  width: 56px;
+  background: color-mix(in srgb, var(--brand-cocoa) 55%, transparent);
+  margin-top: 6px;
+}
+
+/* Per-row specialist toggle — cocoa-glow wash when active. No border-left stripe. */
+.job-specialist {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  transition: background-color 0.18s var(--ease-out-quart);
+  min-width: 76px;
+}
+.job-specialist.is-on {
+  background: var(--brand-cocoa-glow);
+}
+.job-specialist-label {
+  font-size: 13px;
+  color: var(--app-text);
+  font-weight: 500;
+}
+.job-specialist.is-on .job-specialist-label {
+  color: var(--brand-cocoa);
+  font-weight: 600;
+}
+.job-specialist :deep(.el-checkbox) {
+  height: auto;
+  margin-right: 0;
+}
+.job-specialist :deep(.el-checkbox__label) {
+  padding-left: 6px;
 }
 
 /* Bulk panel — same pattern as GearsetView desktop */
@@ -441,7 +565,7 @@ onUnmounted(() => {
 }
 .job-row {
   display: grid;
-  grid-template-columns: 110px 1fr;
+  grid-template-columns: 110px 1fr auto;
   gap: 14px;
   align-items: center;
   padding: 10px 14px;
@@ -546,7 +670,7 @@ onUnmounted(() => {
 }
 .done-btn:active { transform: translateY(0); }
 
-/* mobile: 4 fields stack into 2 cols */
+/* mobile: 4 fields stack into 2 cols, specialist toggle drops to its own row */
 @media (max-width: 768px) {
   .job-row {
     grid-template-columns: 1fr;
@@ -555,6 +679,10 @@ onUnmounted(() => {
   .job-fields {
     grid-template-columns: 1fr 1fr;
     gap: 8px 12px;
+  }
+  .job-specialist {
+    justify-content: flex-start;
+    padding: 6px 10px;
   }
   .bulk-fields {
     display: grid;

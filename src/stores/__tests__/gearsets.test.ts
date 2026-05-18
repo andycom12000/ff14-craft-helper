@@ -61,7 +61,7 @@ describe('useGearsetsStore', () => {
 
       store.updateAllGearsets({ level: 100, craftsmanship: 5000, control: 5000, cp: 700 })
 
-      const expected = { level: 100, craftsmanship: 5000, control: 5000, cp: 700 }
+      const expected = { level: 100, craftsmanship: 5000, control: 5000, cp: 700, isSpecialist: false }
       for (const job of Object.keys(JOB_NAMES)) {
         expect(store.gearsets[job]).toEqual(expected)
       }
