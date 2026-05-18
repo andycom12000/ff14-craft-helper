@@ -18,6 +18,27 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: 'v2.15.4',
+    date: '2026-05-17',
+    highlights: [
+      '【部署後不再卡死（補洞）】v2.15.3 補的偵測規則漏了 Vite 在 CSS preload 失敗時丟的特有 error（`Unable to preload CSS for ...`），就在 v2.15.3 自己 deploy 的當下 smoke test 直接撞到。補進 regex 後現在 4 種變體都能 catch',
+    ],
+  },
+  {
+    version: 'v2.15.3',
+    date: '2026-05-17',
+    highlights: [
+      '【部署後不再卡死】之前每次發新版本，留在舊頁面的人按 nav 切頁會整個沒反應 — 舊 build 的 lazy chunk 在 GitHub Pages 已經被新檔取代，瀏覽器抓不到那支 JS，router 的 promise 永遠等不到、UI 凍住。現在偵測到這個 error 簽名就自動重整到新版（10 秒內只會 reload 一次，避免新舊 build 同時上線那短暫 window 進入無限 reload）。同時送 `stale_chunk_reload` GA 事件，之後就能看出這種情況一週發生幾次',
+    ],
+  },
+  {
+    version: 'v2.15.2',
+    date: '2026-05-17',
+    highlights: [
+      '【內部】補齊 GA 追蹤埋點：新增 12 個事件（BOM 操作 / Solver 結果消化 / 新用戶里程碑 / Universalis 失敗原因）+ augment `sab_unavailable` 帶瀏覽器資訊；settings store 公開 9 個顯式 setter，後續 UI 改動會自動經由 `settings_change` 事件被觀察到。對使用者完全不可見，純為了後續產品決策能有數據依據。Spec / plan 留底於 `docs/superpowers/specs|plans/2026-05-17-ga-tracking-expansion*`',
+    ],
+  },
+  {
     version: 'v2.15.1',
     date: '2026-05-16',
     highlights: [
