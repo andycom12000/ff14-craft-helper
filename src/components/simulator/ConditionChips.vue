@@ -22,6 +22,11 @@ const chips: ChipDef[] = [
   { id: 'Good', label: '高品質', kind: 'solid', color: 'var(--state-good)' },
   { id: 'Excellent', label: '最高品質', kind: 'rainbow' },
   { id: 'Poor', label: '低品質', kind: 'solid', color: 'var(--state-poor)' },
+  // Expert (stateless) — neutral cocoa palette; never reuse --state-poor.
+  { id: 'Centered', label: '安定', kind: 'solid', color: 'var(--brand-cocoa, #8b5e3c)' },
+  { id: 'Sturdy', label: '結實', kind: 'solid', color: 'var(--brand-cocoa, #8b5e3c)' },
+  { id: 'Pliant', label: '高效', kind: 'solid', color: 'var(--brand-cocoa, #8b5e3c)' },
+  { id: 'Malleable', label: '高進度', kind: 'solid', color: 'var(--brand-cocoa, #8b5e3c)' },
 ]
 
 function select(c: ManualCondition) {

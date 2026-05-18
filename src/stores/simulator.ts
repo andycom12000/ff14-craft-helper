@@ -9,7 +9,10 @@ interface RecipeSimState {
 }
 
 export type SimulatorMode = 'solver' | 'manual'
-export type ManualCondition = Extract<CraftCondition, 'Normal' | 'Good' | 'Excellent' | 'Poor'>
+export type ManualCondition = Extract<
+  CraftCondition,
+  'Normal' | 'Good' | 'Excellent' | 'Poor' | 'Centered' | 'Sturdy' | 'Pliant' | 'Malleable'
+>
 
 interface ManualSnapshot {
   actions: string[]

@@ -1,5 +1,12 @@
 import type { BuffType } from './buffs'
-import { getSkillById } from './skills'
+import {
+  applyConditionToAction,
+  capSuccessRate,
+  divCeilHalf,
+  malleableProgressMod,
+  type ModifiedOutcome,
+} from './expert-conditions'
+import { getSkillById, type SkillDefinition } from './skills'
 
 export interface CraftState {
   progress: number
@@ -112,4 +119,93 @@ export function canUseAction(state: CraftState, action: string, params?: CraftPa
   }
 
   return true
+}
+
+// ---------------------------------------------------------------------------
+// Expert-condition aware action resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-action cost / outcome resolved against the current craft state's
+ * condition. The CP and durability fields here are already adjusted for
+ * Pliant / Sturdy / WasteNot (raphael handles WasteNot inside the WASM
+ * solver; this TS path applies Pliant / Sturdy from the condition layer).
+ *
+ * `progressModFactor` is the multiplicative factor to apply to the
+ * action's `action_progress_mod` (the per-thousand layer in the raphael
+ * progress formula). It is `1` when no expert progress flag fires, and
+ * the caller is responsible for the integer `× 3 / 2 floor` at the
+ * appropriate layer — `resolveActionProgressMod` exposes that arithmetic
+ * directly so callers do not have to re-implement the rule.
+ */
+export interface ResolvedAction {
+  cpCost: number
+  durabilityCost: number
+  /** True if the action succeeded this step. < 100% actions still count as success (deterministic). */
+  success: boolean
+  /** Effective success rate after Centered bonus and the 100 cap (informational). */
+  effectiveSuccessRate: number
+  /** Raw outcome from `applyConditionToAction` for downstream consumers (e.g. WASM step adapter). */
+  outcome: ModifiedOutcome
+}
+
+/**
+ * Resolve an action's CP / durability / success against the current
+ * craft state, taking the active expert condition into account.
+ *
+ * Notes
+ *  - CP is `div_ceil(2)` when Pliant is active.
+ *  - Durability is `div_ceil(2)` when Sturdy is active. Other durability
+ *    modifiers (WasteNot, TrainedPerfection) are NOT applied here — they
+ *    live in the WASM solver path. This function is the boundary that
+ *    layers expert conditions on top of an action's base costs.
+ *  - Success rate: action's intrinsic success rate (defaulted to 100 for
+ *    actions without an explicit field) plus `successRateBonusPp`, capped
+ *    at 100. Because the TS-side simulator does not roll RNG, any
+ *    < 100% action is treated as a success (matches raphael's
+ *    deterministic search semantics).
+ *  - Progress / quality numbers are computed by the WASM solver against
+ *    the same condition; `progressModMul3Div2` is surfaced via the
+ *    `outcome` field so the WASM step adapter can corroborate.
+ */
+export function applyAction(
+  state: CraftState,
+  action: SkillDefinition,
+  baseSuccessRate = 100,
+): ResolvedAction {
+  const outcome = applyConditionToAction(action, state.condition, state)
+
+  const cpCost = outcome.cpCeilHalve ? divCeilHalf(action.cp) : action.cp
+  const durabilityCost = outcome.durabilityCeilHalve
+    ? divCeilHalf(action.durability)
+    : action.durability
+
+  const effectiveSuccessRate = capSuccessRate(baseSuccessRate + outcome.successRateBonusPp)
+
+  // Deterministic: < 100% rated actions still resolve as successes, mirroring
+  // raphael-sim's search semantics. RNG-driven behaviour is out of scope for
+  // this engine layer.
+  const success = true
+
+  return {
+    cpCost,
+    durabilityCost,
+    success,
+    effectiveSuccessRate,
+    outcome,
+  }
+}
+
+/**
+ * Apply Malleable's `× 3 / 2 floor` to the action_progress_mod layer if
+ * the outcome flag is set. Caller is responsible for the final formula
+ * `/ 1000` floor (per raphael's integer pipeline).
+ */
+export function resolveActionProgressMod(
+  baseActionProgressMod: number,
+  outcome: ModifiedOutcome,
+): number {
+  return outcome.progressModMul3Div2
+    ? malleableProgressMod(baseActionProgressMod)
+    : baseActionProgressMod
 }
