@@ -298,9 +298,9 @@ onUnmounted(() => {
   padding: 8px 12px;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--state-poor);
-  background: color-mix(in srgb, var(--state-poor) 8%, transparent);
-  border-left: 3px solid var(--state-poor);
+  color: var(--app-warning);
+  background: var(--app-warning-tint);
+  border-left: 3px solid var(--app-warning-border);
   border-radius: 4px;
 }
 
