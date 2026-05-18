@@ -117,3 +117,33 @@ describe('recipeToCraftParams — isExpert pass-through', () => {
     expect(p.isExpert).toBe(false)
   })
 })
+
+describe('recipeToCraftParams — specialist soul bonus', () => {
+  const baseRecipe: Recipe = {
+    id: 1, itemId: 100, name: 'Test', icon: '', job: 'CRP',
+    level: 90, stars: 0, canHq: true, materialQualityFactor: 75, amountResult: 1,
+    ingredients: [],
+    recipeLevelTable: {
+      classJobLevel: 90, stars: 0, difficulty: 3500, quality: 7200,
+      durability: 80, suggestedCraftsmanship: 0,
+      progressDivider: 130, qualityDivider: 115,
+      progressModifier: 90, qualityModifier: 80,
+    },
+  }
+
+  it('passes raw stats when isSpecialist=false', () => {
+    const gearset: GearsetStats = { level: 100, craftsmanship: 4000, control: 3800, cp: 600, isSpecialist: false }
+    const p = recipeToCraftParams(baseRecipe, gearset)
+    expect(p.craftsmanship).toBe(4000)
+    expect(p.control).toBe(3800)
+    expect(p.cp).toBe(600)
+  })
+
+  it('adds +20/+20/+15 when isSpecialist=true', () => {
+    const gearset: GearsetStats = { level: 100, craftsmanship: 4000, control: 3800, cp: 600, isSpecialist: true }
+    const p = recipeToCraftParams(baseRecipe, gearset)
+    expect(p.craftsmanship).toBe(4020)
+    expect(p.control).toBe(3820)
+    expect(p.cp).toBe(615)
+  })
+})

@@ -2,6 +2,7 @@ import type { CraftParams } from '@/engine/simulator'
 import type { SolverConfig } from '@/solver/raphael'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
+import { applyCrafterSoulBonus } from '@/services/specialist-state'
 
 export interface SolverSkillOptions {
   useManipulation?: boolean
@@ -70,10 +71,15 @@ export function craftParamsToSolverConfig(
 }
 
 export function recipeToCraftParams(recipe: Recipe, gearset: GearsetStats): CraftParams {
+  // Soul of the Crafter is a gear-equivalent stat bonus (+20/+20/+15). It
+  // belongs in the gearset → craft-params conversion so every caller —
+  // simulator, batch-optimizer, buff-recommender, self-craft-candidates —
+  // sees specialist-adjusted stats without each having to remember.
+  const enhanced = applyCrafterSoulBonus(gearset)
   return {
-    craftsmanship: gearset.craftsmanship,
-    control: gearset.control,
-    cp: gearset.cp,
+    craftsmanship: enhanced.craftsmanship,
+    control: enhanced.control,
+    cp: enhanced.cp,
     crafterLevel: gearset.level,
     recipeLevelTable: recipe.recipeLevelTable,
     canHq: recipe.canHq,
