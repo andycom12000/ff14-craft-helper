@@ -147,13 +147,13 @@ onUnmounted(() => {
         <el-checkbox v-model="useManipulation">{{ getSkillName('Manipulation') }}</el-checkbox>
       </el-tooltip>
       <el-tooltip
-        content="心眼之手：專家配方專用。一次將普通狀態手動切到高品質，搶大波加工。"
+        content="心眼之手：需專家之證（specialist）才能使用。一次將普通狀態手動切到高品質，搶大波加工。"
         placement="top"
       >
         <el-checkbox v-model="useHeartAndSoul">{{ getSkillName('HeartAndSoul') }}</el-checkbox>
       </el-tooltip>
       <el-tooltip
-        content="快速改革：專家配方專用。不耗 CP 觸發一次革新，求解器自動安排最佳時點。"
+        content="快速改革：需專家之證（specialist）才能使用。不耗 CP 觸發一次革新，求解器自動安排最佳時點。"
         placement="top"
       >
         <el-checkbox v-model="useQuickInnovation">{{ getSkillName('QuickInnovation') }}</el-checkbox>
