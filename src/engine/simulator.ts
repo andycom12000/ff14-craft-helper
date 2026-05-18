@@ -53,6 +53,13 @@ export interface CraftParams {
   crafterLevel: number
   initialQuality: number
   canHq: boolean
+  /**
+   * True for expert recipes (`Recipe.isExpert === true`). Drives upstream
+   * raphael-rs behaviour: expert recipes hard-disable `adversarial` because
+   * the search space is unbounded and would OOM. Defaults to false when the
+   * source Recipe omits `isExpert`.
+   */
+  isExpert?: boolean
 }
 
 export function createInitialState(params: CraftParams): CraftState {

@@ -8,6 +8,13 @@ export interface SolverSkillOptions {
   useHeartAndSoul?: boolean
   useQuickInnovation?: boolean
   useTrainedEye?: boolean
+  /**
+   * User-facing "100% reliability" toggle. Defaults to false. The emitted
+   * SolverConfig's `adversarial` field is the result of
+   * `params.isExpert ? false : (skills.adversarial ?? false)` — expert
+   * recipes ignore this flag entirely (see SolverConfig.isExpert).
+   */
+  adversarial?: boolean
 }
 
 /**
@@ -16,6 +23,8 @@ export interface SolverSkillOptions {
  * Skill defaults match SolverPanel.vue:
  * - Manipulation, HeartAndSoul, QuickInnovation are expert-only skills → default OFF
  * - TrainedEye → default ON but auto-disabled if crafter level < recipe level + 10
+ * - adversarial → default OFF; force-false on expert recipes (raphael upstream
+ *   contract — adversarial search space is unbounded for expert recipes).
  */
 export function craftParamsToSolverConfig(
   params: CraftParams,
@@ -26,10 +35,12 @@ export function craftParamsToSolverConfig(
     useHeartAndSoul = false,
     useQuickInnovation = false,
     useTrainedEye = true,
+    adversarial = false,
   } = skills
 
   // TrainedEye requires crafter level >= recipe level + 10
   const canUseTrainedEye = params.crafterLevel >= params.recipeLevelTable.classJobLevel + 10
+  const isExpert = params.isExpert ?? false
 
   return {
     recipe_level: params.recipeLevelTable.classJobLevel,
@@ -51,6 +62,8 @@ export function craftParamsToSolverConfig(
     use_heart_and_soul: useHeartAndSoul,
     use_quick_innovation: useQuickInnovation,
     use_trained_eye: useTrainedEye && canUseTrainedEye,
+    isExpert,
+    adversarial,
   }
 }
 
@@ -63,5 +76,6 @@ export function recipeToCraftParams(recipe: Recipe, gearset: GearsetStats): Craf
     recipeLevelTable: recipe.recipeLevelTable,
     canHq: recipe.canHq,
     initialQuality: 0,
+    isExpert: recipe.isExpert ?? false,
   }
 }

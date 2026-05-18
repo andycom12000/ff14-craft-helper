@@ -30,6 +30,9 @@ const useTrainedEye = ref(true)
 const useManipulation = ref(false)
 const useHeartAndSoul = ref(false)
 const useQuickInnovation = ref(false)
+// "100% reliability" — raphael's adversarial flag. Default OFF (experimental,
+// can balloon WASM heap past 4GB on hard recipes). Expert recipes force-off.
+const useAdversarial = ref(false)
 
 // TrainedEye requires crafter level >= recipe level + 10
 const canUseTrainedEye = computed(() => {
@@ -37,6 +40,12 @@ const canUseTrainedEye = computed(() => {
   if (!p) return false
   return p.crafterLevel >= p.recipeLevelTable.classJobLevel + 10
 })
+
+// Expert recipes hard-disable adversarial — matches raphael upstream contract.
+const isExpertRecipe = computed(() => props.craftParams?.isExpert === true)
+
+// Effective adversarial value: expert overrides user toggle.
+const adversarialActive = computed(() => !isExpertRecipe.value && useAdversarial.value)
 
 onMounted(async () => {
   const ws = getWasmStatus()
@@ -79,6 +88,10 @@ function buildConfig(): SolverConfig | null {
     use_heart_and_soul: useHeartAndSoul.value,
     use_quick_innovation: useQuickInnovation.value,
     use_trained_eye: useTrainedEye.value && canUseTrainedEye.value,
+    isExpert: isExpertRecipe.value,
+    // Worker re-derives `isExpert ? false : adversarial`, but mirror the rule
+    // here so logs/inspectors see the effective value.
+    adversarial: adversarialActive.value,
   }
 }
 
@@ -158,7 +171,24 @@ onUnmounted(() => {
       >
         <el-checkbox v-model="useQuickInnovation">{{ getSkillName('QuickInnovation') }}</el-checkbox>
       </el-tooltip>
+      <el-tooltip
+        :content="isExpertRecipe
+          ? '專家配方不支援 100% 可靠性模式（與 raphael upstream 對齊）'
+          : '100% 可靠性：求解器要求手法在最壞狀態序列下仍能達成雙滿，而不是只看平均期望。'"
+        placement="top"
+      >
+        <!-- el-tooltip needs a non-disabled wrapper to fire on hover when the
+             checkbox is disabled, so wrap in a span. -->
+        <span class="adversarial-toggle-wrap">
+          <el-checkbox v-model="useAdversarial" :disabled="isExpertRecipe">
+            100% 可靠性
+          </el-checkbox>
+        </span>
+      </el-tooltip>
     </div>
+    <p v-if="adversarialActive" class="adversarial-warning">
+      ⚠ 實驗性功能：可能讓 WASM solver 用掉 4GB 以上記憶體並 crash 瀏覽器
+    </p>
 
     <!-- WASM error stays as full alert; "loading" rolls into the hub hint -->
     <el-alert
@@ -250,6 +280,28 @@ onUnmounted(() => {
   font-size: 14px;
   color: var(--el-text-color-secondary);
   margin-right: 4px;
+}
+
+/* Span wrapper so el-tooltip's mouseenter still fires when the checkbox
+   itself is disabled (Element Plus' disabled checkboxes don't propagate
+   pointer events to wrapping tooltip otherwise). */
+.adversarial-toggle-wrap {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* OOM warning helper. Only rendered when adversarial is actually active
+   (v-if=adversarialActive), so it vanishes the moment the user unchecks
+   or switches to an expert recipe. */
+.adversarial-warning {
+  margin: -8px 0 16px;
+  padding: 8px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--state-poor);
+  background: color-mix(in srgb, var(--state-poor) 8%, transparent);
+  border-left: 3px solid var(--state-poor);
+  border-radius: 4px;
 }
 
 /* On narrow phones, el-tooltip wrappers break flex-wrap with long checkbox

@@ -117,7 +117,9 @@ function configToWasmSettings(config: SolverConfig) {
     use_quick_innovation: config.use_quick_innovation,
     use_trained_eye: config.use_trained_eye,
     backload_progress: false,
-    adversarial: false,
+    // Expert recipes hard-disable adversarial regardless of user toggle —
+    // raphael-rs upstream contract (search space is unbounded otherwise).
+    adversarial: config.isExpert ? false : config.adversarial,
     allow_non_max_quality_solutions: !config.strict_quality,
   }
 }
