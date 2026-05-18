@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useSimulatorStore } from '@/stores/simulator'
+import { useRecipeStore } from '@/stores/recipe'
+import { useGearsetsStore } from '@/stores/gearsets'
 import { solveCraft, cancelSolve, disposeWorker, waitForWasm, getWasmStatus } from '@/solver/worker'
 import type { CraftParams } from '@/engine/simulator'
 import type { SolverConfig, SolverStatus } from '@/solver/raphael'
 import { getSkillName } from '@/engine/skills'
 import { useMilestonesStore } from '@/stores/milestones'
+import { canUseSpecialistAction } from '@/services/specialist-state'
 
 const props = defineProps<{
   craftParams: CraftParams | null
@@ -18,6 +21,8 @@ const emit = defineEmits<{
 
 const simStore = useSimulatorStore()
 const milestones = useMilestonesStore()
+const recipeStore = useRecipeStore()
+const gearsetsStore = useGearsetsStore()
 
 const status = ref<SolverStatus>('idle')
 const progress = ref(0)
@@ -40,6 +45,29 @@ const canUseTrainedEye = computed(() => {
   if (!p) return false
   return p.crafterLevel >= p.recipeLevelTable.classJobLevel + 10
 })
+
+// Specialist gating — H&S and QI require the active gearset's `isSpecialist`
+// flag. Watch the flag for transitions so we can force the refs to track
+// (true → checked, false → unchecked) without preserving shadow state.
+const currentGearset = computed(() => {
+  const job = recipeStore.currentRecipe?.job
+  if (!job) return null
+  return gearsetsStore.getGearsetForJob(job)
+})
+const canUseHeartAndSoul = computed(() => canUseSpecialistAction(currentGearset.value, 'HeartAndSoul'))
+const canUseQuickInnovation = computed(() => canUseSpecialistAction(currentGearset.value, 'QuickInnovation'))
+
+watch(
+  () => currentGearset.value?.isSpecialist === true,
+  (isSpecialist) => {
+    // On every transition: force-sync both refs to the specialist flag.
+    // - false → checkboxes uncheck and stay disabled (no shadow state kept)
+    // - true → checkboxes default to checked (matches Q2 spec)
+    useHeartAndSoul.value = isSpecialist
+    useQuickInnovation.value = isSpecialist
+  },
+  { immediate: true },
+)
 
 // Expert recipes hard-disable adversarial — matches raphael upstream contract.
 const isExpertRecipe = computed(() => props.craftParams?.isExpert === true)
@@ -160,16 +188,27 @@ onUnmounted(() => {
         <el-checkbox v-model="useManipulation">{{ getSkillName('Manipulation') }}</el-checkbox>
       </el-tooltip>
       <el-tooltip
-        content="心眼之手：需專家之證（specialist）才能使用。一次將普通狀態手動切到高品質，搶大波加工。"
+        :content="canUseHeartAndSoul
+          ? '心眼之手：需專家之證（specialist）才能使用。一次將普通狀態手動切到高品質，搶大波加工。'
+          : '目前 gearset 未標記為專家之證（specialist），請到配裝頁面開啟。'"
         placement="top"
       >
-        <el-checkbox v-model="useHeartAndSoul">{{ getSkillName('HeartAndSoul') }}</el-checkbox>
+        <!-- Span wrapper so el-tooltip's mouseenter still fires when the
+             checkbox is disabled (Element Plus' disabled checkboxes swallow
+             pointer events otherwise). -->
+        <span class="specialist-toggle-wrap">
+          <el-checkbox v-model="useHeartAndSoul" :disabled="!canUseHeartAndSoul">{{ getSkillName('HeartAndSoul') }}</el-checkbox>
+        </span>
       </el-tooltip>
       <el-tooltip
-        content="快速改革：需專家之證（specialist）才能使用。不耗 CP 觸發一次革新，求解器自動安排最佳時點。"
+        :content="canUseQuickInnovation
+          ? '快速改革：需專家之證（specialist）才能使用。不耗 CP 觸發一次革新，求解器自動安排最佳時點。'
+          : '目前 gearset 未標記為專家之證（specialist），請到配裝頁面開啟。'"
         placement="top"
       >
-        <el-checkbox v-model="useQuickInnovation">{{ getSkillName('QuickInnovation') }}</el-checkbox>
+        <span class="specialist-toggle-wrap">
+          <el-checkbox v-model="useQuickInnovation" :disabled="!canUseQuickInnovation">{{ getSkillName('QuickInnovation') }}</el-checkbox>
+        </span>
       </el-tooltip>
       <el-tooltip
         :content="isExpertRecipe
@@ -285,7 +324,8 @@ onUnmounted(() => {
 /* Span wrapper so el-tooltip's mouseenter still fires when the checkbox
    itself is disabled (Element Plus' disabled checkboxes don't propagate
    pointer events to wrapping tooltip otherwise). */
-.adversarial-toggle-wrap {
+.adversarial-toggle-wrap,
+.specialist-toggle-wrap {
   display: inline-flex;
   align-items: center;
 }

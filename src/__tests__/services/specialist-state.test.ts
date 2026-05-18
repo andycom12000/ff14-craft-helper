@@ -4,6 +4,7 @@ import {
   currentSpecialists,
   specialistCount,
   applyCrafterSoulBonus,
+  canUseSpecialistAction,
   SPECIALIST_BONUS,
 } from '@/services/specialist-state'
 
@@ -98,5 +99,44 @@ describe('applyCrafterSoulBonus', () => {
 
   it('exposes the canonical bonus constants 20/20/15', () => {
     expect(SPECIALIST_BONUS).toEqual({ craftsmanship: 20, control: 20, cp: 15 })
+  })
+})
+
+describe('canUseSpecialistAction', () => {
+  const specialist = makeStats({ isSpecialist: true })
+  const nonSpecialist = makeStats({ isSpecialist: false })
+
+  it('allows HeartAndSoul when gearset is specialist', () => {
+    expect(canUseSpecialistAction(specialist, 'HeartAndSoul')).toBe(true)
+  })
+
+  it('allows QuickInnovation when gearset is specialist', () => {
+    expect(canUseSpecialistAction(specialist, 'QuickInnovation')).toBe(true)
+  })
+
+  it('blocks HeartAndSoul when gearset is not specialist', () => {
+    expect(canUseSpecialistAction(nonSpecialist, 'HeartAndSoul')).toBe(false)
+  })
+
+  it('blocks QuickInnovation when gearset is not specialist', () => {
+    expect(canUseSpecialistAction(nonSpecialist, 'QuickInnovation')).toBe(false)
+  })
+
+  it('treats null gearset as non-specialist for gated actions', () => {
+    expect(canUseSpecialistAction(null, 'HeartAndSoul')).toBe(false)
+    expect(canUseSpecialistAction(null, 'QuickInnovation')).toBe(false)
+    expect(canUseSpecialistAction(undefined, 'HeartAndSoul')).toBe(false)
+  })
+
+  it('always allows Manipulation regardless of specialist status', () => {
+    expect(canUseSpecialistAction(specialist, 'Manipulation')).toBe(true)
+    expect(canUseSpecialistAction(nonSpecialist, 'Manipulation')).toBe(true)
+    expect(canUseSpecialistAction(null, 'Manipulation')).toBe(true)
+  })
+
+  it('always allows unknown actions regardless of specialist status', () => {
+    expect(canUseSpecialistAction(specialist, 'BasicSynthesis')).toBe(true)
+    expect(canUseSpecialistAction(nonSpecialist, 'TrainedEye')).toBe(true)
+    expect(canUseSpecialistAction(nonSpecialist, 'SomeFutureAction')).toBe(true)
   })
 })

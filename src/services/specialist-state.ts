@@ -40,6 +40,36 @@ export function specialistCount(gearsets: GearsetMap): number {
 }
 
 /**
+ * Actions that in-game require a Soul of the Crafter (specialist) slotted on
+ * the active gearset. Used by `canUseSpecialistAction` — every other action
+ * is unaffected by specialist status.
+ */
+const SPECIALIST_GATED_ACTIONS: ReadonlySet<string> = new Set([
+  'HeartAndSoul',
+  'QuickInnovation',
+])
+
+/**
+ * Returns whether `action` is usable given `gearset`'s specialist status.
+ *
+ * - Specialist-gated actions (`HeartAndSoul`, `QuickInnovation`) require
+ *   `gearset.isSpecialist === true`. A `null` gearset is treated as
+ *   non-specialist.
+ * - Every other action — including `Manipulation` and any unknown id —
+ *   returns `true` (specialist status is irrelevant).
+ *
+ * This is the single source of truth for the SolverPanel checkbox-gating
+ * logic; reuse it instead of inlining the action list.
+ */
+export function canUseSpecialistAction(
+  gearset: Pick<GearsetStats, 'isSpecialist'> | null | undefined,
+  action: string,
+): boolean {
+  if (!SPECIALIST_GATED_ACTIONS.has(action)) return true
+  return gearset?.isSpecialist === true
+}
+
+/**
  * Returns a copy of `gearset` with the Soul of the Crafter bonus folded into
  * craftsmanship / control / cp when `isSpecialist` is true. When false,
  * returns a shallow copy with the same stats — never the input reference,
