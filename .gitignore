@@ -36,6 +36,9 @@ components.d.ts
 # Local verification screenshots
 docs/promo-screenshots/
 
+# Internal analysis artifacts (GA dashboards, ad-hoc reports)
+docs/internal/
+
 # Rust
 raphael-wasm-wrapper/target/
 
