@@ -22,8 +22,7 @@
  *    formula `/ 1000` floor.
  */
 
-import type { CraftCondition, CraftState } from './simulator'
-import type { SkillDefinition } from './skills'
+import type { CraftCondition } from './simulator'
 
 export interface ModifiedOutcome {
   /** Additive success-rate bonus in percentage points (cap 100). */
@@ -58,45 +57,23 @@ const DEFAULT_OUTCOME: ModifiedOutcome = {
   forceNextCondition: null,
 }
 
-function defaultOutcome(): ModifiedOutcome {
-  return { ...DEFAULT_OUTCOME }
-}
-
-/**
- * Compute the modifier set the given condition imposes on the given action.
- *
- * The `state` argument is part of the signature so R2 (Primed / GoodOmen)
- * can read pending buff / forced-condition fields without changing the
- * call site; this slice ignores it.
- */
-export function applyConditionToAction(
-  _action: SkillDefinition,
-  condition: CraftCondition,
-  _state?: CraftState,
-): ModifiedOutcome {
+/** Compute the modifier set the given condition imposes on an action. */
+export function applyConditionToAction(condition: CraftCondition): ModifiedOutcome {
   switch (condition) {
     case 'Centered':
-      return { ...defaultOutcome(), successRateBonusPp: 25 }
+      return { ...DEFAULT_OUTCOME, successRateBonusPp: 25 }
     case 'Sturdy':
-      return { ...defaultOutcome(), durabilityCeilHalve: true }
+      return { ...DEFAULT_OUTCOME, durabilityCeilHalve: true }
     case 'Pliant':
-      return { ...defaultOutcome(), cpCeilHalve: true }
+      return { ...DEFAULT_OUTCOME, cpCeilHalve: true }
     case 'Malleable':
-      return { ...defaultOutcome(), progressModMul3Div2: true }
+      return { ...DEFAULT_OUTCOME, progressModMul3Div2: true }
     case 'Primed':
-      // FFXIV behaviour: Primed itself imposes no immediate action modifier.
-      // It plants a pending +2 duration that the *next* buff-applying action
-      // picks up. Concretely Primed conditions show "+2 to next buff" hints
-      // in-game.
-      return { ...defaultOutcome(), nextBuffDurationBonus: 2 }
+      return { ...DEFAULT_OUTCOME, nextBuffDurationBonus: 2 }
     case 'GoodOmen':
-      // FFXIV behaviour: GoodOmen does not modify the current action. It
-      // forces the *next* step's condition to Good. The caller writes this
-      // into `state.forcedNextCondition` after the current step settles.
-      return { ...defaultOutcome(), forceNextCondition: 'Good' }
-    // Normal / Good / Excellent / Poor → no expert flags here.
+      return { ...DEFAULT_OUTCOME, forceNextCondition: 'Good' }
     default:
-      return defaultOutcome()
+      return { ...DEFAULT_OUTCOME }
   }
 }
 

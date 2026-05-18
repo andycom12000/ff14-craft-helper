@@ -22,7 +22,6 @@ import type { BuffType } from '@/engine/buffs'
 const HASTY_TOUCH = getSkillById('HastyTouch') as SkillDefinition
 const PRUDENT_TOUCH = getSkillById('PrudentTouch') as SkillDefinition
 const BASIC_TOUCH = getSkillById('BasicTouch') as SkillDefinition
-const RAPID_SYNTH = getSkillById('RapidSynthesis') as SkillDefinition
 const MANIPULATION = getSkillById('Manipulation') as SkillDefinition
 const INNOVATION = getSkillById('Innovation') as SkillDefinition
 const BASIC_SYNTH = getSkillById('BasicSynthesis') as SkillDefinition
@@ -68,46 +67,46 @@ function expectAllFlagsDefault(o: ModifiedOutcome, except?: Partial<ModifiedOutc
 
 describe('applyConditionToAction', () => {
   it('Centered sets successRateBonusPp=25 only', () => {
-    const o = applyConditionToAction(HASTY_TOUCH, 'Centered')
+    const o = applyConditionToAction('Centered')
     expectAllFlagsDefault(o, { successRateBonusPp: 25 })
   })
 
   it('Sturdy sets durabilityCeilHalve=true only', () => {
-    const o = applyConditionToAction(BASIC_TOUCH, 'Sturdy')
+    const o = applyConditionToAction('Sturdy')
     expectAllFlagsDefault(o, { durabilityCeilHalve: true })
   })
 
   it('Pliant sets cpCeilHalve=true only', () => {
-    const o = applyConditionToAction(BASIC_TOUCH, 'Pliant')
+    const o = applyConditionToAction('Pliant')
     expectAllFlagsDefault(o, { cpCeilHalve: true })
   })
 
   it('Malleable sets progressModMul3Div2=true only', () => {
-    const o = applyConditionToAction(RAPID_SYNTH, 'Malleable')
+    const o = applyConditionToAction('Malleable')
     expectAllFlagsDefault(o, { progressModMul3Div2: true })
   })
 
   it.each<CraftCondition>(['Normal', 'Good', 'Excellent', 'Poor'])(
     '%s returns all defaults (no expert flags fire)',
     (cond) => {
-      const o = applyConditionToAction(BASIC_TOUCH, cond)
+      const o = applyConditionToAction(cond)
       expectAllFlagsDefault(o)
     },
   )
 
   it('Primed sets nextBuffDurationBonus=2 only', () => {
-    const o = applyConditionToAction(BASIC_TOUCH, 'Primed')
+    const o = applyConditionToAction('Primed')
     expectAllFlagsDefault(o, { nextBuffDurationBonus: 2 })
   })
 
   it('GoodOmen sets forceNextCondition=Good only', () => {
-    const o = applyConditionToAction(BASIC_TOUCH, 'GoodOmen')
+    const o = applyConditionToAction('GoodOmen')
     expectAllFlagsDefault(o, { forceNextCondition: 'Good' })
   })
 
   it('returned outcome is a fresh object (no shared mutable default)', () => {
-    const a = applyConditionToAction(BASIC_TOUCH, 'Centered')
-    const b = applyConditionToAction(BASIC_TOUCH, 'Centered')
+    const a = applyConditionToAction('Centered')
+    const b = applyConditionToAction('Centered')
     expect(a).not.toBe(b)
     a.successRateBonusPp = 999
     expect(b.successRateBonusPp).toBe(25)
@@ -179,10 +178,10 @@ describe('applyAction integration', () => {
   })
 
   it('resolveActionProgressMod applies Malleable only when flag is set', () => {
-    const malleable = applyConditionToAction(RAPID_SYNTH, 'Malleable')
+    const malleable = applyConditionToAction('Malleable')
     expect(resolveActionProgressMod(500, malleable)).toBe(750)
 
-    const normal = applyConditionToAction(RAPID_SYNTH, 'Normal')
+    const normal = applyConditionToAction('Normal')
     expect(resolveActionProgressMod(500, normal)).toBe(500)
   })
 })
@@ -245,7 +244,7 @@ describe('getActionAppliedBuff', () => {
 describe('commitOutcomeToState — Primed plant + carry + consume', () => {
   it('Primed condition plants pendingBuffDurationBonus=2 after the step', () => {
     const state = stateWith('Primed')
-    const outcome = applyConditionToAction(BASIC_TOUCH, 'Primed', state)
+    const outcome = applyConditionToAction('Primed')
     commitOutcomeToState(state, BASIC_TOUCH, outcome)
     expect(state.pendingBuffDurationBonus).toBe(2)
   })
@@ -255,7 +254,7 @@ describe('commitOutcomeToState — Primed plant + carry + consume', () => {
     state.pendingBuffDurationBonus = 2
     // Simulate the WASM-side buff installation (Manipulation: 8 turns base).
     installBuff(state, 'Manipulation', 8)
-    const outcome = applyConditionToAction(MANIPULATION, 'Normal', state)
+    const outcome = applyConditionToAction('Normal')
     commitOutcomeToState(state, MANIPULATION, outcome)
     expect(state.buffs.get('Manipulation')?.duration).toBe(10)
     expect(state.pendingBuffDurationBonus).toBe(0)
@@ -265,7 +264,7 @@ describe('commitOutcomeToState — Primed plant + carry + consume', () => {
     const state = stateWith('Normal')
     state.pendingBuffDurationBonus = 2
     installBuff(state, 'Innovation', 4)
-    const outcome = applyConditionToAction(INNOVATION, 'Normal', state)
+    const outcome = applyConditionToAction('Normal')
     commitOutcomeToState(state, INNOVATION, outcome)
     expect(state.buffs.get('Innovation')?.duration).toBe(6)
     expect(state.pendingBuffDurationBonus).toBe(0)
@@ -274,7 +273,7 @@ describe('commitOutcomeToState — Primed plant + carry + consume', () => {
   it('Primed → BasicSynthesis (non-buff): bonus is NOT consumed, carries forward', () => {
     const state = stateWith('Normal')
     state.pendingBuffDurationBonus = 2
-    const outcome = applyConditionToAction(BASIC_SYNTH, 'Normal', state)
+    const outcome = applyConditionToAction('Normal')
     commitOutcomeToState(state, BASIC_SYNTH, outcome)
     expect(state.pendingBuffDurationBonus).toBe(2)
   })
@@ -286,7 +285,7 @@ describe('commitOutcomeToState — Primed plant + carry + consume', () => {
     commitOutcomeToState(
       state,
       BASIC_SYNTH,
-      applyConditionToAction(BASIC_SYNTH, 'Normal', state),
+      applyConditionToAction('Normal'),
     )
     expect(state.pendingBuffDurationBonus).toBe(2)
     // Step 2: Innovation — consume.
@@ -294,7 +293,7 @@ describe('commitOutcomeToState — Primed plant + carry + consume', () => {
     commitOutcomeToState(
       state,
       INNOVATION,
-      applyConditionToAction(INNOVATION, 'Normal', state),
+      applyConditionToAction('Normal'),
     )
     expect(state.buffs.get('Innovation')?.duration).toBe(6)
     expect(state.pendingBuffDurationBonus).toBe(0)
@@ -306,14 +305,14 @@ describe('commitOutcomeToState — Primed plant + carry + consume', () => {
     commitOutcomeToState(
       state,
       BASIC_TOUCH,
-      applyConditionToAction(BASIC_TOUCH, 'Primed', state),
+      applyConditionToAction('Primed'),
     )
     expect(state.pendingBuffDurationBonus).toBe(2)
     // Second Primed back-to-back — overwrite, still 2 (not 4).
     commitOutcomeToState(
       state,
       BASIC_TOUCH,
-      applyConditionToAction(BASIC_TOUCH, 'Primed', state),
+      applyConditionToAction('Primed'),
     )
     expect(state.pendingBuffDurationBonus).toBe(2)
   })
@@ -327,7 +326,7 @@ describe('commitOutcomeToState — Primed plant + carry + consume', () => {
     commitOutcomeToState(
       state,
       MANIPULATION,
-      applyConditionToAction(MANIPULATION, 'Normal', state),
+      applyConditionToAction('Normal'),
     )
     expect(state.buffs.get('Manipulation')?.duration).toBe(10)
   })
@@ -336,7 +335,7 @@ describe('commitOutcomeToState — Primed plant + carry + consume', () => {
 describe('commitOutcomeToState — GoodOmen forces next condition', () => {
   it('GoodOmen condition plants forcedNextCondition="Good" after the step', () => {
     const state = stateWith('GoodOmen')
-    const outcome = applyConditionToAction(BASIC_TOUCH, 'GoodOmen', state)
+    const outcome = applyConditionToAction('GoodOmen')
     commitOutcomeToState(state, BASIC_TOUCH, outcome)
     expect(state.forcedNextCondition).toBe('Good')
   })
@@ -346,7 +345,7 @@ describe('commitOutcomeToState — GoodOmen forces next condition', () => {
     commitOutcomeToState(
       state,
       BASIC_TOUCH,
-      applyConditionToAction(BASIC_TOUCH, 'Centered', state),
+      applyConditionToAction('Centered'),
     )
     expect(state.forcedNextCondition).toBeNull()
   })
@@ -375,7 +374,7 @@ describe('consumeForcedCondition', () => {
     commitOutcomeToState(
       state,
       BASIC_TOUCH,
-      applyConditionToAction(BASIC_TOUCH, 'GoodOmen', state),
+      applyConditionToAction('GoodOmen'),
     )
     expect(state.forcedNextCondition).toBe('Good')
 

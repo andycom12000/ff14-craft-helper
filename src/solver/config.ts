@@ -21,7 +21,9 @@ export interface SolverSkillOptions {
  * Convert CraftParams to SolverConfig for the WASM solver.
  *
  * Skill defaults match SolverPanel.vue:
- * - Manipulation, HeartAndSoul, QuickInnovation are expert-only skills → default OFF
+ * - Manipulation → default OFF (level-gated)
+ * - HeartAndSoul / QuickInnovation → default OFF; require Soul of the Crafter
+ *   (gated by gearset.isSpecialist in the UI layer)
  * - TrainedEye → default ON but auto-disabled if crafter level < recipe level + 10
  * - adversarial → default OFF; force-false on expert recipes (raphael upstream
  *   contract — adversarial search space is unbounded for expert recipes).

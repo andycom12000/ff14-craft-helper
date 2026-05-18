@@ -42,16 +42,11 @@ const baseStats = computed<EnhancedStats>(() => {
   }
 })
 
-// Specialist (Soul of the Crafter) bonus — derived from gearset.isSpecialist,
-// which is set in GearsetSheet. There is no local toggle here anymore.
+// Specialist bonus is gearset-derived (set in GearsetSheet); no local toggle here.
 const afterSpecialist = computed<EnhancedStats>(() => {
   if (!gearset.value) return baseStats.value
-  const enriched = applyCrafterSoulBonus(gearset.value)
-  return {
-    craftsmanship: enriched.craftsmanship,
-    control: enriched.control,
-    cp: enriched.cp,
-  }
+  const { craftsmanship, control, cp } = applyCrafterSoulBonus(gearset.value)
+  return { craftsmanship, control, cp }
 })
 
 const selectedFood = computed<FoodBuff | null>(() => {

@@ -1,9 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { StepResult, CraftCondition } from '@/engine/simulator'
-import { getActionAppliedBuff, PRIMED_ELIGIBLE_BUFFS } from '@/engine/simulator'
-
-const PRIMED_ELIGIBLE_BUFF_SET = new Set(PRIMED_ELIGIBLE_BUFFS)
+import { getActionAppliedBuff, PRIMED_ELIGIBLE_BUFF_SET } from '@/engine/simulator'
+import { applyConditionToAction } from '@/engine/expert-conditions'
 
 interface RecipeSimState {
   actions: string[]
@@ -178,29 +177,16 @@ export const useSimulatorStore = defineStore('simulator', () => {
     pushToHistory(snapshot())
     future.value = []
 
-    // Resolve the effective condition for this step: a pending GoodOmen
-    // (forcedNextCondition === 'Good') overrides whatever the picker shows,
-    // and consumes itself.
     const effectiveCondition: ManualCondition =
       forcedNextCondition.value ?? currentCondition.value
 
     actions.value = [...actions.value, skillId]
     conditions.value = [...conditions.value, effectiveCondition]
+    forcedNextCondition.value = null
 
-    // Consume the GoodOmen lock now that the action is committed against it.
-    if (forcedNextCondition.value !== null) {
-      forcedNextCondition.value = null
-    }
-
-    // Apply Primed bonus carry/consume semantics. Only matters when there
-    // is a pending bonus AND this action applies one of the eligible
-    // duration-bearing buffs — non-buff actions preserve the bonus.
-    // The actual `+2 turns` adjustment is for the WASM-driven view layer,
-    // which currently does not surface the bonus; the spec's first-class
-    // consumer is the TS-side simulator (tested via commitOutcomeToState).
-    // Here in the store we only need to clear pending bonus on the same
-    // trigger condition so the picker UX (and re-arming via a fresh Primed)
-    // behaves consistently with the engine.
+    // Consume pending Primed bonus when this step applies an eligible buff.
+    // The store doesn't model buff durations directly (WASM does); we only
+    // clear the pending flag so the picker re-arms correctly on a fresh Primed.
     const appliedBuff = getActionAppliedBuff(skillId)
     if (
       pendingBuffDurationBonus.value > 0 &&
@@ -210,13 +196,13 @@ export const useSimulatorStore = defineStore('simulator', () => {
       pendingBuffDurationBonus.value = 0
     }
 
-    // Plant new pending state from the *effective* condition that was just
-    // committed (so e.g. picking GoodOmen plants forcedNextCondition='Good'
-    // for the next step). Primed overwrites; GoodOmen overwrites.
-    if (effectiveCondition === 'Primed') {
-      pendingBuffDurationBonus.value = 2
-    } else if (effectiveCondition === 'GoodOmen') {
-      forcedNextCondition.value = 'Good'
+    // Plant new pending state from this step's outcome (Primed / GoodOmen).
+    const outcome = applyConditionToAction(effectiveCondition)
+    if (outcome.nextBuffDurationBonus > 0) {
+      pendingBuffDurationBonus.value = outcome.nextBuffDurationBonus
+    }
+    if (outcome.forceNextCondition !== null) {
+      forcedNextCondition.value = outcome.forceNextCondition as ManualCondition
     }
   }
 

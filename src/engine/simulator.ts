@@ -189,7 +189,7 @@ export function applyAction(
   action: SkillDefinition,
   baseSuccessRate = 100,
 ): ResolvedAction {
-  const outcome = applyConditionToAction(action, state.condition, state)
+  const outcome = applyConditionToAction(state.condition)
 
   const cpCost = outcome.cpCeilHalve ? divCeilHalf(action.cp) : action.cp
   const durabilityCost = outcome.durabilityCeilHalve
@@ -257,7 +257,7 @@ export const PRIMED_ELIGIBLE_BUFFS: ReadonlyArray<BuffType> = [
   'FinalAppraisal',
 ]
 
-const PRIMED_ELIGIBLE_BUFF_SET = new Set<BuffType>(PRIMED_ELIGIBLE_BUFFS)
+export const PRIMED_ELIGIBLE_BUFF_SET: ReadonlySet<BuffType> = new Set(PRIMED_ELIGIBLE_BUFFS)
 
 /**
  * Map a skill id to the duration-bearing buff it applies, if any.
