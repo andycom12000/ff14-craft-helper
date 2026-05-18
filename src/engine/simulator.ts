@@ -22,6 +22,20 @@ export interface CraftState {
   condition: CraftCondition
   isComplete: boolean
   isSuccess: boolean
+  /**
+   * Pending +duration bonus planted by a Primed condition. Defaults to 0.
+   * Consumed (reset to 0) on the next step where the chosen action applies
+   * one of the duration-bearing buffs in `PRIMED_ELIGIBLE_BUFFS`. Persists
+   * across non-buff actions (BasicSynthesis, HastyTouch, …). Re-setting
+   * Primed *overwrites* (does not stack) — matches FFXIV behaviour.
+   */
+  pendingBuffDurationBonus: number
+  /**
+   * Condition that the *next* step must take, planted by a GoodOmen
+   * condition. Defaults to `null`. Consumed (reset to `null`) at the
+   * start of the next step by `consumeForcedCondition`.
+   */
+  forcedNextCondition: CraftCondition | null
 }
 
 export type CraftCondition =
@@ -84,6 +98,8 @@ export function createInitialState(params: CraftParams): CraftState {
     condition: 'Normal',
     isComplete: false,
     isSuccess: false,
+    pendingBuffDurationBonus: 0,
+    forcedNextCondition: null,
   }
 }
 
@@ -208,4 +224,131 @@ export function resolveActionProgressMod(
   return outcome.progressModMul3Div2
     ? malleableProgressMod(baseActionProgressMod)
     : baseActionProgressMod
+}
+
+// ---------------------------------------------------------------------------
+// Stateful expert conditions (Primed / GoodOmen) — state transitions
+// ---------------------------------------------------------------------------
+
+/**
+ * Duration-bearing buffs eligible for Primed's `+2 turns` bonus.
+ *
+ * Hardcoded (rather than derived from `BUFF_DEFINITIONS[type].maxDuration`)
+ * for two reasons:
+ *  1. The list is small and stable; explicit is easier to audit.
+ *  2. `BuffType` currently includes `Pliant` as a pre-existing bug
+ *     (Pliant is a Condition, not a buff). Hardcoding avoids accidentally
+ *     pulling it in via a `maxDuration > 0` heuristic.
+ *
+ * Out of the eligible list intentionally:
+ *  - InnerQuiet           (no duration; tracked as stacks)
+ *  - TrainedPerfection    (one-shot, no duration)
+ *  - HeartAndSoul         (one-shot, no duration)
+ *  - QuickInnovation      (one-turn freebie; +2 here would change semantics)
+ */
+export const PRIMED_ELIGIBLE_BUFFS: ReadonlyArray<BuffType> = [
+  'Manipulation',
+  'WasteNot',
+  'WasteNotII',
+  'Innovation',
+  'Veneration',
+  'GreatStrides',
+  'MuscleMemory',
+  'FinalAppraisal',
+]
+
+const PRIMED_ELIGIBLE_BUFF_SET = new Set<BuffType>(PRIMED_ELIGIBLE_BUFFS)
+
+/**
+ * Map a skill id to the duration-bearing buff it applies, if any.
+ * Returns `null` for non-buff-applying actions (BasicSynthesis, HastyTouch,
+ * etc.) — those carry Primed's pending bonus forward without consuming it.
+ *
+ * The mapping is the subset of `PRIMED_ELIGIBLE_BUFFS` that have a matching
+ * skill id; other buff-like actions (HeartAndSoul, QuickInnovation,
+ * TrainedPerfection) are not eligible per the list above.
+ */
+export function getActionAppliedBuff(actionId: string): BuffType | null {
+  switch (actionId) {
+    case 'Manipulation':     return 'Manipulation'
+    case 'WasteNot':         return 'WasteNot'
+    case 'WasteNotII':       return 'WasteNotII'
+    case 'Innovation':       return 'Innovation'
+    case 'Veneration':       return 'Veneration'
+    case 'GreatStrides':     return 'GreatStrides'
+    case 'MuscleMemory':     return 'MuscleMemory'
+    case 'FinalAppraisal':   return 'FinalAppraisal'
+    default:                 return null
+  }
+}
+
+/**
+ * Commit the post-action side effects of an `applyAction` resolution to
+ * the craft state. Two responsibilities, both stateful-expert flavour:
+ *
+ *  1. **Consume pending Primed bonus**: if `state.pendingBuffDurationBonus`
+ *     is > 0 *and* `action` applies one of the eligible duration-bearing
+ *     buffs, add the bonus turns to that buff's `duration` and reset
+ *     the pending bonus to 0. If the action does not apply an eligible
+ *     buff, the pending bonus is preserved (carries to a later step).
+ *
+ *  2. **Plant new pending state**: write `outcome.nextBuffDurationBonus`
+ *     into `state.pendingBuffDurationBonus` (Primed *overwrites*, does
+ *     not accumulate — matches FFXIV), and write `outcome.forceNextCondition`
+ *     into `state.forcedNextCondition` (GoodOmen).
+ *
+ * `buffsBeforeCommit` is the (already-mutated) buff map for the step,
+ * post-application. Callers that drive the WASM solver shouldn't normally
+ * need this helper directly — it's the TS-side state transition used by
+ * the manual / test path. There is no buff duration cap applied: FFXIV
+ * does not cap Primed-bonused durations beyond the natural buff max.
+ */
+export function commitOutcomeToState(
+  state: CraftState,
+  action: SkillDefinition,
+  outcome: ModifiedOutcome,
+): void {
+  // 1. Consume pending Primed bonus, if any, when this action applies an
+  //    eligible buff.
+  const appliedBuff = getActionAppliedBuff(action.id)
+  if (
+    state.pendingBuffDurationBonus > 0 &&
+    appliedBuff !== null &&
+    PRIMED_ELIGIBLE_BUFF_SET.has(appliedBuff)
+  ) {
+    const buff = state.buffs.get(appliedBuff)
+    if (buff) {
+      buff.duration += state.pendingBuffDurationBonus
+    }
+    state.pendingBuffDurationBonus = 0
+  }
+
+  // 2. Plant new pending state from this step's outcome (Primed / GoodOmen).
+  //    Primed overwrites — no accumulation across consecutive Primed steps.
+  if (outcome.nextBuffDurationBonus > 0) {
+    state.pendingBuffDurationBonus = outcome.nextBuffDurationBonus
+  }
+  if (outcome.forceNextCondition !== null) {
+    state.forcedNextCondition = outcome.forceNextCondition
+  }
+}
+
+/**
+ * Pick the condition for the *upcoming* step. If a GoodOmen-style forced
+ * condition is pending, returns that and consumes it (resets to `null`);
+ * otherwise returns `pickerChoice` unchanged.
+ *
+ * Call this at the boundary where a new step begins — typically right
+ * before the next `applyAction`.
+ */
+export function consumeForcedCondition(
+  state: CraftState,
+  pickerChoice: CraftCondition,
+): CraftCondition {
+  if (state.forcedNextCondition !== null) {
+    const forced = state.forcedNextCondition
+    state.forcedNextCondition = null
+    return forced
+  }
+  return pickerChoice
 }

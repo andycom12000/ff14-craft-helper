@@ -135,6 +135,12 @@ export function useSimulator() {
       condition: 'Normal',
       isComplete: step.is_finished,
       isSuccess: step.is_finished && step.progress >= params.recipeLevelTable.difficulty,
+      // Stateful expert-condition fields are tracked TS-side only (the WASM
+      // simulator owns its own state and does not surface them). The picker
+      // / chip-lock UX reads these straight off the store-driven CraftState
+      // path, not these mirrored snapshots.
+      pendingBuffDurationBonus: 0,
+      forcedNextCondition: null,
     }
     return { action: step.action, state, success: step.success }
   }

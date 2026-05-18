@@ -392,7 +392,11 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
                     </button>
                   </div>
                   <div v-if="simStore.mode === 'manual'" class="cockpit-tool-head-aside">
-                    <ConditionChips :model-value="simStore.currentCondition" @change="(c) => (simStore.currentCondition = c)" />
+                    <ConditionChips
+                      :model-value="simStore.currentCondition"
+                      :forced-condition="simStore.forcedNextCondition"
+                      @change="(c) => (simStore.currentCondition = c)"
+                    />
                     <ManualControls />
                   </div>
                 </header>
@@ -680,6 +684,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
         <div v-if="canSimulate && simStore.mode === 'manual'" class="m-manual-row">
           <ConditionChips
             :model-value="simStore.currentCondition"
+            :forced-condition="simStore.forcedNextCondition"
             @change="(c) => (simStore.currentCondition = c)"
           />
           <ManualControls />

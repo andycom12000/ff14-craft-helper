@@ -1,6 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { StepResult, CraftCondition } from '@/engine/simulator'
+import { getActionAppliedBuff, PRIMED_ELIGIBLE_BUFFS } from '@/engine/simulator'
+
+const PRIMED_ELIGIBLE_BUFF_SET = new Set(PRIMED_ELIGIBLE_BUFFS)
 
 interface RecipeSimState {
   actions: string[]
@@ -11,12 +14,29 @@ interface RecipeSimState {
 export type SimulatorMode = 'solver' | 'manual'
 export type ManualCondition = Extract<
   CraftCondition,
-  'Normal' | 'Good' | 'Excellent' | 'Poor' | 'Centered' | 'Sturdy' | 'Pliant' | 'Malleable'
+  | 'Normal'
+  | 'Good'
+  | 'Excellent'
+  | 'Poor'
+  | 'Centered'
+  | 'Sturdy'
+  | 'Pliant'
+  | 'Malleable'
+  | 'Primed'
+  | 'GoodOmen'
 >
 
 interface ManualSnapshot {
   actions: string[]
   conditions: ManualCondition[]
+  /**
+   * `pendingBuffDurationBonus` and `forcedNextCondition` captured at the
+   * time of the snapshot. Without these, undo would correctly roll back
+   * the action list but leave the stateful expert chips in a stale state
+   * (e.g. cleared lock UX would not reappear on undo of a GoodOmen step).
+   */
+  pendingBuffDurationBonus: number
+  forcedNextCondition: ManualCondition | null
 }
 
 // Cap the undo/redo stack so long manual sessions don't grow unbounded.
@@ -34,6 +54,13 @@ export const useSimulatorStore = defineStore('simulator', () => {
   const history = ref<ManualSnapshot[]>([])
   const future = ref<ManualSnapshot[]>([])
   const currentCondition = ref<ManualCondition>('Normal')
+
+  // Stateful expert-condition tracking (Primed / GoodOmen).
+  // The values here drive the picker lock UX and the WASM submission
+  // conditions array. They are *only* relevant in manual mode; solver mode
+  // does not touch them.
+  const pendingBuffDurationBonus = ref(0)
+  const forcedNextCondition = ref<ManualCondition | null>(null)
 
   // Per-recipe storage: saves/restores state when switching recipes
   const stateMap = new Map<number, RecipeSimState>()
@@ -113,6 +140,9 @@ export const useSimulatorStore = defineStore('simulator', () => {
     simulationResults.value = []
     history.value = []
     future.value = []
+    pendingBuffDurationBonus.value = 0
+    forcedNextCondition.value = null
+    currentCondition.value = 'Normal'
   }
 
   function setMode(next: SimulatorMode) {
@@ -122,12 +152,19 @@ export const useSimulatorStore = defineStore('simulator', () => {
   }
 
   function snapshot(): ManualSnapshot {
-    return { actions: [...actions.value], conditions: [...conditions.value] }
+    return {
+      actions: [...actions.value],
+      conditions: [...conditions.value],
+      pendingBuffDurationBonus: pendingBuffDurationBonus.value,
+      forcedNextCondition: forcedNextCondition.value,
+    }
   }
 
   function restore(snap: ManualSnapshot) {
     actions.value = [...snap.actions]
     conditions.value = [...snap.conditions]
+    pendingBuffDurationBonus.value = snap.pendingBuffDurationBonus
+    forcedNextCondition.value = snap.forcedNextCondition
   }
 
   function pushToHistory(snap: ManualSnapshot) {
@@ -140,8 +177,47 @@ export const useSimulatorStore = defineStore('simulator', () => {
   function pushAction(skillId: string) {
     pushToHistory(snapshot())
     future.value = []
+
+    // Resolve the effective condition for this step: a pending GoodOmen
+    // (forcedNextCondition === 'Good') overrides whatever the picker shows,
+    // and consumes itself.
+    const effectiveCondition: ManualCondition =
+      forcedNextCondition.value ?? currentCondition.value
+
     actions.value = [...actions.value, skillId]
-    conditions.value = [...conditions.value, currentCondition.value]
+    conditions.value = [...conditions.value, effectiveCondition]
+
+    // Consume the GoodOmen lock now that the action is committed against it.
+    if (forcedNextCondition.value !== null) {
+      forcedNextCondition.value = null
+    }
+
+    // Apply Primed bonus carry/consume semantics. Only matters when there
+    // is a pending bonus AND this action applies one of the eligible
+    // duration-bearing buffs — non-buff actions preserve the bonus.
+    // The actual `+2 turns` adjustment is for the WASM-driven view layer,
+    // which currently does not surface the bonus; the spec's first-class
+    // consumer is the TS-side simulator (tested via commitOutcomeToState).
+    // Here in the store we only need to clear pending bonus on the same
+    // trigger condition so the picker UX (and re-arming via a fresh Primed)
+    // behaves consistently with the engine.
+    const appliedBuff = getActionAppliedBuff(skillId)
+    if (
+      pendingBuffDurationBonus.value > 0 &&
+      appliedBuff !== null &&
+      PRIMED_ELIGIBLE_BUFF_SET.has(appliedBuff)
+    ) {
+      pendingBuffDurationBonus.value = 0
+    }
+
+    // Plant new pending state from the *effective* condition that was just
+    // committed (so e.g. picking GoodOmen plants forcedNextCondition='Good'
+    // for the next step). Primed overwrites; GoodOmen overwrites.
+    if (effectiveCondition === 'Primed') {
+      pendingBuffDurationBonus.value = 2
+    } else if (effectiveCondition === 'GoodOmen') {
+      forcedNextCondition.value = 'Good'
+    }
   }
 
   function undo() {
@@ -172,6 +248,8 @@ export const useSimulatorStore = defineStore('simulator', () => {
     history,
     future,
     currentCondition,
+    pendingBuffDurationBonus,
+    forcedNextCondition,
     switchToRecipe,
     removeRecipeState,
     setActions,

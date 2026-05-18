@@ -1,10 +1,17 @@
 /**
- * Expert craft condition effects (stateless slice).
+ * Expert craft condition effects.
  *
- * Pure, side-effect-free helpers describing how the four stateless
- * expert conditions (Centered / Sturdy / Pliant / Malleable) modify
- * a single action's CP cost, durability cost, progress modifier, and
- * success rate.
+ * Pure, side-effect-free helpers describing how expert conditions modify
+ * a single action's CP cost, durability cost, progress modifier, success
+ * rate, and (for the stateful conditions) what state-side fields to set
+ * for the *next* step.
+ *
+ * Stateless conditions (R1): Centered / Sturdy / Pliant / Malleable.
+ * Stateful conditions (R2):
+ *  - Primed   → `nextBuffDurationBonus: 2` (next buff-applying action's
+ *               duration += 2; carries until consumed).
+ *  - GoodOmen → `forceNextCondition: 'Good'` (next step's condition is
+ *               forced to Good regardless of the picker).
  *
  * Arithmetic aligns with raphael-sim:
  *  - Integer math; explicit floor / ceil at the boundaries
@@ -13,10 +20,6 @@
  *  - Progress modifier multiplies by 3 then floor-divides by 2 at the
  *    `action_progress_mod` (per-thousand) layer, before the final
  *    formula `/ 1000` floor.
- *
- * Out of scope for this slice: Primed and GoodOmen. The `ModifiedOutcome`
- * interface keeps `nextBuffDurationBonus` and `forceNextCondition` fields
- * reserved for R2; this module always returns the defaults (0 / null).
  */
 
 import type { CraftCondition, CraftState } from './simulator'
@@ -31,9 +34,18 @@ export interface ModifiedOutcome {
   cpCeilHalve: boolean
   /** `true` → action_progress_mod multiplied by 3 then floor-divided by 2. */
   progressModMul3Div2: boolean
-  /** Reserved for Primed (R2). Always 0 here. */
+  /**
+   * Bonus duration (in turns) to add to the next buff-applying action's
+   * resulting buff. Set by `Primed` (= 2); zero otherwise. The caller
+   * stores this into `CraftState.pendingBuffDurationBonus` after the
+   * Primed step settles, and consumes it on the next buff-applying step.
+   */
   nextBuffDurationBonus: number
-  /** Reserved for GoodOmen (R2). Always null here. */
+  /**
+   * Condition to force on the *next* step. Set by `GoodOmen` (= 'Good');
+   * `null` otherwise. The caller stores this into
+   * `CraftState.forcedNextCondition` after the GoodOmen step settles.
+   */
   forceNextCondition: CraftCondition | null
 }
 
@@ -71,8 +83,18 @@ export function applyConditionToAction(
       return { ...defaultOutcome(), cpCeilHalve: true }
     case 'Malleable':
       return { ...defaultOutcome(), progressModMul3Div2: true }
+    case 'Primed':
+      // FFXIV behaviour: Primed itself imposes no immediate action modifier.
+      // It plants a pending +2 duration that the *next* buff-applying action
+      // picks up. Concretely Primed conditions show "+2 to next buff" hints
+      // in-game.
+      return { ...defaultOutcome(), nextBuffDurationBonus: 2 }
+    case 'GoodOmen':
+      // FFXIV behaviour: GoodOmen does not modify the current action. It
+      // forces the *next* step's condition to Good. The caller writes this
+      // into `state.forcedNextCondition` after the current step settles.
+      return { ...defaultOutcome(), forceNextCondition: 'Good' }
     // Normal / Good / Excellent / Poor → no expert flags here.
-    // Primed / GoodOmen → R2 slice; default for now.
     default:
       return defaultOutcome()
   }
