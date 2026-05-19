@@ -31,7 +31,7 @@ async function handleSelect(id: number) {
   try {
     const recipe = await getRecipe(id)
     selectedRecipe.value = recipe
-    recipeStore.setRecipe(recipe)
+    recipeStore.setRecipe(recipe, 'search')
   } catch {
     ElMessage.error('無法載入配方詳情，請稍後再試。')
   } finally {

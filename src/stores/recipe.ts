@@ -2,6 +2,11 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { trackEvent } from '@/utils/analytics'
 import { useMilestonesStore } from '@/stores/milestones'
+import { computeRecipeTaxonomy, flattenTaxonomyForEvent } from '@/utils/recipe-taxonomy'
+
+export type RecipeOpenSource =
+  | 'search' | 'queue' | 'batch_target' | 'bom_drilldown'
+  | 'company_craft' | 'deep_link' | 'changelog' | 'unknown'
 
 export interface Ingredient {
   itemId: number
@@ -63,12 +68,15 @@ export const useRecipeStore = defineStore('recipe', () => {
   const currentRecipe = ref<Recipe | null>(null)
   const simulationQueue = ref<Recipe[]>([])
 
-  function setRecipe(recipe: Recipe) {
+  function setRecipe(recipe: Recipe, source: RecipeOpenSource = 'unknown') {
     currentRecipe.value = recipe
+    const taxonomy = flattenTaxonomyForEvent(computeRecipeTaxonomy(recipe))
     trackEvent('recipe_select', {
       recipe_id: recipe.id,
       job: recipe.job,
       level: recipe.level,
+      source,
+      ...taxonomy,
     })
     useMilestonesStore().markMilestoneOnce('viewed_recipe')
   }
