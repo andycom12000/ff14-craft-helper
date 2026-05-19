@@ -7,7 +7,9 @@ import { computeRecipeTaxonomy, flattenTaxonomyForEvent } from '@/utils/recipe-t
 
 export type RecipeOpenSource =
   | 'search' | 'queue' | 'batch_target' | 'bom_drilldown'
-  | 'company_craft' | 'deep_link' | 'changelog' | 'unknown'
+  | 'company_craft' | 'deep_link' | 'changelog'
+  | 'cross_page_send'
+  | 'unknown'
 
 export interface Ingredient {
   itemId: number

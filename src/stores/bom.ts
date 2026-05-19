@@ -374,7 +374,7 @@ export const useBomStore = defineStore('bom', () => {
     } else {
       targets.value.push(target)
     }
-    const base: Record<string, unknown> = {
+    const base: Record<string, string | number | boolean | undefined> = {
       item_id: target.itemId,
       quantity: target.quantity,
       source,
