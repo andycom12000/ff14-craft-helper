@@ -4,6 +4,7 @@ import { useLocaleStore } from '@/stores/locale'
 import type { Locale } from '@/services/local-data-source.types'
 import { emitSettingsChange } from '@/utils/settings-change'
 import { trackEvent } from '@/utils/analytics'
+import { inferMarketRegion } from '@/utils/market-region'
 
 export type PriceDisplayMode = 'nq' | 'hq' | 'minOf'
 
@@ -49,11 +50,9 @@ export const useSettingsStore = defineStore('settings', () => {
     region.value = v
     emitSettingsChange('region', prev, v)
     if (prev === '' && v !== '') {
-      import('@/utils/user-properties').then(({ inferMarketRegion }) => {
-        trackEvent('region_resolution', {
-          from_default: false,
-          market_region: inferMarketRegion(v),
-        })
+      trackEvent('region_resolution', {
+        from_default: false,
+        market_region: inferMarketRegion(v),
       })
     }
     import('@/utils/user-properties').then(({ syncFromStores }) => syncFromStores())

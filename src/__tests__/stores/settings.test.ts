@@ -73,24 +73,20 @@ describe('region_resolution event', () => {
     vi.mocked(trackEvent).mockClear()
   })
 
-  it('emits region_resolution on first region set (prev empty → non-empty)', async () => {
+  it('emits region_resolution on first region set (prev empty → non-empty)', () => {
     const store = useSettingsStore()
     store.setRegion('zh-TW')
-    // Wait for the dynamic import to resolve
-    await new Promise(resolve => setTimeout(resolve, 50))
     expect(trackEvent).toHaveBeenCalledWith('region_resolution', {
       from_default: false,
       market_region: 'cht',
     })
   })
 
-  it('does NOT emit region_resolution on subsequent changes', async () => {
+  it('does NOT emit region_resolution on subsequent changes', () => {
     const store = useSettingsStore()
     store.setRegion('zh-TW')
-    await new Promise(resolve => setTimeout(resolve, 50))
     vi.mocked(trackEvent).mockClear()
     store.setRegion('Japan')
-    await new Promise(resolve => setTimeout(resolve, 50))
     expect(trackEvent).not.toHaveBeenCalledWith('region_resolution', expect.anything())
   })
 })

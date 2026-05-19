@@ -2,20 +2,12 @@ import { setUserProperty } from '@/utils/analytics'
 import { useSettingsStore } from '@/stores/settings'
 import { useGearsetsStore } from '@/stores/gearsets'
 import { useThemeStore } from '@/stores/theme'
+import { inferMarketRegion } from '@/utils/market-region'
+export { type MarketRegion, inferMarketRegion } from '@/utils/market-region'
 
-export type MarketRegion = 'cht' | 'intl' | 'unset'
 export type ViewportBucket = 'wide' | 'standard' | 'narrow'
 export type DeviceClass = 'mobile' | 'tablet' | 'desktop'
 export type EndgameTier = '7.x' | '6.x' | '5.x' | '4.x' | '3.x' | '2.x' | 'none'
-
-// Universalis API region strings: 'zh-TW' / 'TW' = 繁中服; 'CN' = 簡中(國服) → intl.
-const CHT_VALUES = new Set(['zh-TW', 'TW'])
-
-export function inferMarketRegion(region: string): MarketRegion {
-  if (!region) return 'unset'
-  if (CHT_VALUES.has(region)) return 'cht'
-  return 'intl'
-}
 
 export function computeViewportBucket(width: number): ViewportBucket {
   if (width >= 1440) return 'wide'
