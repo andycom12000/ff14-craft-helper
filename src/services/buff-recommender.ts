@@ -10,6 +10,16 @@ import {
 import { solveCraft, simulateCraft } from '@/solver/worker'
 import { craftParamsToSolverConfig, recipeToCraftParams } from '@/solver/config'
 import type { Recipe } from '@/stores/recipe'
+import { gearsetToBuffedStats } from '@/services/stat-stacking'
+
+/**
+ * Canonical baseStats for buff recommendation — folds in the Soul of the
+ * Crafter bonus so ceiling checks and dedup keys reflect the stats the
+ * solver will actually see (ADR 0001). Exported for testing.
+ */
+export function computeBaseStats(gearset: GearsetStats): EnhancedStats {
+  return gearsetToBuffedStats(gearset, undefined)
+}
 
 export interface BuffCombo {
   food: { buff: FoodBuff; isHq: boolean } | null
@@ -243,11 +253,7 @@ export async function evaluateBuffRecommendation(
   const ceilingGearset = getGearset(ceilingTarget.recipe.job)
   if (!ceilingGearset) return null
 
-  const baseStats: EnhancedStats = {
-    craftsmanship: ceilingGearset.craftsmanship,
-    control: ceilingGearset.control,
-    cp: ceilingGearset.cp,
-  }
+  const baseStats: EnhancedStats = computeBaseStats(ceilingGearset)
 
   // Step 0: stat ceiling pre-check on the primary target
   const allCombos = generateCandidateCombos()
