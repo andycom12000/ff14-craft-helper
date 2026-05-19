@@ -216,12 +216,7 @@ export const useBatchStore = defineStore('batch', () => {
   }
 
   function addTarget(recipe: Recipe) {
-    const existing = targets.value.find(t => t.recipe.id === recipe.id)
-    if (existing) {
-      existing.quantity += 1
-    } else {
-      targets.value.push({ recipe, quantity: 1 })
-    }
+    addRecipe(recipe, 1, 'search')
   }
 
   function addRecipe(recipe: Recipe, quantity: number = 1, method: BatchAddMethod = 'search') {
