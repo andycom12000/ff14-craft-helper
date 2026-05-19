@@ -2,7 +2,8 @@ import type { CraftParams } from '@/engine/simulator'
 import type { SolverConfig } from '@/solver/raphael'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
-import { applyCrafterSoulBonus } from '@/services/specialist-state'
+import type { FoodBuff } from '@/engine/food-medicine'
+import { gearsetToBuffedStats } from '@/services/stat-stacking'
 
 export interface SolverSkillOptions {
   useManipulation?: boolean
@@ -70,16 +71,20 @@ export function craftParamsToSolverConfig(
   }
 }
 
-export function recipeToCraftParams(recipe: Recipe, gearset: GearsetStats): CraftParams {
-  // Soul of the Crafter is a gear-equivalent stat bonus (+20/+20/+15). It
-  // belongs in the gearset → craft-params conversion so every caller —
-  // simulator, batch-optimizer, buff-recommender, self-craft-candidates —
-  // sees specialist-adjusted stats without each having to remember.
-  const enhanced = applyCrafterSoulBonus(gearset)
+export function recipeToCraftParams(
+  recipe: Recipe,
+  gearset: GearsetStats,
+  buffs?: { food: FoodBuff | null; medicine: FoodBuff | null },
+): CraftParams {
+  // Single source of truth for stat stacking (see ADR 0001).
+  // Soul of the Crafter (+20/+20/+15) is gear-equivalent and folded in first,
+  // then food % (cap), then medicine % (cap). Callers MUST NOT post-process
+  // the returned params with applyFoodBuff — pass buffs in here instead.
+  const buffed = gearsetToBuffedStats(gearset, buffs)
   return {
-    craftsmanship: enhanced.craftsmanship,
-    control: enhanced.control,
-    cp: enhanced.cp,
+    craftsmanship: buffed.craftsmanship,
+    control: buffed.control,
+    cp: buffed.cp,
     crafterLevel: gearset.level,
     recipeLevelTable: recipe.recipeLevelTable,
     canHq: recipe.canHq,

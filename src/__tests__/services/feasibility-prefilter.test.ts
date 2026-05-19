@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { computeBaseQuality, computeBaseProgress, canReachHQQuality } from '@/services/feasibility-prefilter'
 import type { Recipe } from '@/stores/recipe'
+import { COMMON_FOODS } from '@/engine/food-medicine'
 
 const lv90Rlt = {
   classJobLevel: 90, stars: 0, difficulty: 3500, quality: 7200,
@@ -39,5 +40,30 @@ describe('canReachHQQuality', () => {
 
   it('rejects when both control and CP are starved', () => {
     expect(canReachHQQuality(lv94Recipe, { level: 94, craftsmanship: 3500, control: 100, cp: 50, isSpecialist: false })).toBe(false)
+  })
+})
+
+describe('canReachHQQuality — specialist Soul bonus is counted', () => {
+  // quality: 2500 is between withoutSoul max (~1870) and withSoul max (~3795),
+  // making it a tight threshold that the +20 control / +15 CP Soul bonus flips.
+  const tightRecipe: Recipe = {
+    ...lv94Recipe,
+    recipeLevelTable: { ...lv94Recipe.recipeLevelTable, quality: 2500 },
+  }
+
+  it('specialist gearset is evaluated WITH +20/+20/+15 Soul bonus', () => {
+    const borderline = { level: 100, craftsmanship: 4000, control: 380, cp: 35, isSpecialist: false }
+    const borderlineSpec = { ...borderline, isSpecialist: true }
+    const withoutSoul = canReachHQQuality(tightRecipe, borderline)
+    const withSoul = canReachHQQuality(tightRecipe, borderlineSpec)
+    expect(withoutSoul).toBe(false)
+    expect(withSoul).toBe(true)
+  })
+
+  it('food % is applied AFTER Soul (specialist + 高山茶 HQ)', () => {
+    const gearset = { level: 100, craftsmanship: 4000, control: 380, cp: 35, isSpecialist: true }
+    const food = COMMON_FOODS.find(f => f.id === 36060)!
+    const result = canReachHQQuality(tightRecipe, gearset, { food, medicine: null })
+    expect(result).toBe(true)
   })
 })

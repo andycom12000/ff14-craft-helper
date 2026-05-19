@@ -474,6 +474,82 @@ describe('produceSelfCraftCandidates', () => {
   })
 })
 
+import { COMMON_FOODS } from '@/engine/food-medicine'
+import type { RecipeOptimizeResult } from '@/services/batch-optimizer'
+
+describe('validateNQ — stacking order matches batch-optimizer (#34)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('specialist + food: simulateCraft receives Soul→Food stats (cp=144, not 141)', async () => {
+    const gearset: GearsetStats = {
+      level: 100, craftsmanship: 4000, control: 100, cp: 100, isSpecialist: true,
+    }
+    const food = COMMON_FOODS.find(f => f.id === 36060)!  // cp +26% cap 78
+
+    const captured: any[] = []
+    vi.mocked(simulateCraft).mockImplementation(async (config: any) => {
+      captured.push(config)
+      return { progress: 0, max_progress: 999, quality: 0, max_quality: 999,
+               durability: 70, max_durability: 70, cp: 0, max_cp: 100, steps_count: 0 } as any
+    })
+
+    const recipe = mkRecipe(1, 'CRP', 80)
+    const deficitResult: RecipeOptimizeResult = {
+      recipe, quantity: 1, outputAmount: 1,
+      actions: [], hqAmounts: [], initialQuality: 0,
+      isDoubleMax: false, materials: [], qualityDeficit: 100,
+    }
+
+    vi.mocked(buildMaterialTree).mockResolvedValue([
+      {
+        itemId: 100, name: 'Product', icon: '', amount: 1, recipeId: 1,
+        children: [
+          { itemId: 50, name: 'Intermediate', icon: '', amount: 1, recipeId: 5,
+            children: [{ itemId: 1, name: 'Raw', icon: '', amount: 1 }] },
+        ],
+      } as any,
+    ])
+    vi.mocked(computeOptimalCosts).mockReturnValue({
+      totalCost: 0,
+      decisions: [{
+        itemId: 50, name: 'Intermediate', icon: '', amount: 1,
+        buyCost: 1000, craftCost: 800, optimalCost: 800,
+        savingsRatio: 0.20, recommendation: 'craft',
+      }],
+    })
+    vi.mocked(findRecipesByItemName).mockResolvedValue([{ recipeId: 5, job: 'CRP' }])
+    vi.mocked(getRecipe).mockResolvedValue({
+      id: 5, itemId: 50, name: 'Intermediate', icon: '', job: 'CRP',
+      level: 80, stars: 0, canHq: true, materialQualityFactor: 50, amountResult: 1,
+      ingredients: [],
+      recipeLevelTable: {
+        classJobLevel: 80, stars: 0, difficulty: 1000, quality: 2000, durability: 70,
+        suggestedCraftsmanship: 0, progressDivider: 100, qualityDivider: 100,
+        progressModifier: 100, qualityModifier: 100,
+      },
+    } as any)
+
+    await produceSelfCraftCandidates({
+      recipesToCraft: [deficitResult],
+      priceMap: new Map(),
+      priceSource: 'Chocobo', crossServer: false, server: 'Chocobo',
+      getGearset: () => gearset,
+      maxDepth: 3,
+      buffs: { food, medicine: null },
+      optimizeRecipe: vi.fn().mockResolvedValue({
+        ...deficitResult, isDoubleMax: false, hqAmounts: [],
+      }),
+      onProgress: () => {},
+      isCancelled: () => false,
+    })
+
+    expect(captured.length).toBeGreaterThan(0)
+    expect(captured[0].cp).toBe(144)
+  })
+})
+
 // ---------------------------------------------------------------------------
 // Step 8 branch-rewrite tests: NQ template path + HQ prefilter path
 // ---------------------------------------------------------------------------
