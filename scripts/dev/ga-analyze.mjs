@@ -233,6 +233,141 @@ async function main() {
   await writeCsv('sessions-per-user-by-landing.csv', sessionsPerUser)
 
   // ---------------------------------------------------------------------------
+  // Q4: 2026-05-19 GA expansion — market_region / recipe taxonomy / page funnel
+  // All queries are `soft: true` because the custom dimensions / user properties
+  // must be registered in GA admin before the Data API will return them.
+  // If a section returns no data, the report renders a "no data yet" placeholder.
+  // ---------------------------------------------------------------------------
+
+  // A. Funnels × market_region (user_property)
+  const funnelsByRegion = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'eventName' }, { name: 'customUser:market_region' }],
+    metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
+    dimensionFilter: {
+      filter: {
+        fieldName: 'eventName',
+        inListFilter: { values: [
+          'solver_start', 'solver_complete', 'solver_macro_copy',
+          'batch_optimization_start', 'batch_optimization_complete',
+          'bom_calculate', 'bom_send_to_batch', 'bom_copy_list',
+          'bom_target_add', 'bom_item_check',
+        ]},
+      },
+    },
+    limit: 100,
+  }, { soft: true })
+  if (funnelsByRegion) await writeCsv('funnels-by-region.csv', funnelsByRegion)
+
+  // B. Onboarding milestone funnel
+  const onboardingFunnel = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'customEvent:step' }],
+    metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
+    dimensionFilter: {
+      filter: { fieldName: 'eventName', stringFilter: { value: 'first_session_milestone' } },
+    },
+  }, { soft: true })
+  if (onboardingFunnel) await writeCsv('onboarding-funnel.csv', onboardingFunnel)
+
+  // C. Top recipes (by recipe_select event count)
+  const topRecipes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'customEvent:recipe_id' }],
+    metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
+    dimensionFilter: {
+      filter: { fieldName: 'eventName', stringFilter: { value: 'recipe_select' } },
+    },
+    orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+    limit: 30,
+  }, { soft: true })
+  if (topRecipes) await writeCsv('top-recipes.csv', topRecipes)
+
+  // D. Recipe taxonomy: rlv distribution
+  const recipeByRlv = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'customEvent:rlv' }],
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: {
+      filter: { fieldName: 'eventName', stringFilter: { value: 'recipe_select' } },
+    },
+    orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+    limit: 25,
+  }, { soft: true })
+  if (recipeByRlv) await writeCsv('recipe-by-rlv.csv', recipeByRlv)
+
+  // E. Recipe taxonomy: craft_kind × is_expert × is_collectable joint distribution
+  const recipeByKind = await runReport(client, {
+    property, dateRanges,
+    dimensions: [
+      { name: 'customEvent:craft_kind' },
+      { name: 'customEvent:is_expert' },
+      { name: 'customEvent:is_collectable' },
+    ],
+    metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
+    dimensionFilter: {
+      filter: { fieldName: 'eventName', stringFilter: { value: 'recipe_select' } },
+    },
+    orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+    limit: 40,
+  }, { soft: true })
+  if (recipeByKind) await writeCsv('recipe-by-kind.csv', recipeByKind)
+
+  // F. recipe_open_source — which entry point dominates
+  const recipeOpenSource = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'customEvent:source' }],
+    metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
+    dimensionFilter: {
+      filter: { fieldName: 'eventName', stringFilter: { value: 'recipe_select' } },
+    },
+    orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+  }, { soft: true })
+  if (recipeOpenSource) await writeCsv('recipe-open-source.csv', recipeOpenSource)
+
+  // G. Misuse signals (page_misuse_hint × type)
+  const misuseHints = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'customEvent:type' }],
+    metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
+    dimensionFilter: {
+      filter: { fieldName: 'eventName', stringFilter: { value: 'page_misuse_hint' } },
+    },
+    orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+  }, { soft: true })
+  if (misuseHints) await writeCsv('misuse-hints.csv', misuseHints)
+
+  // H. recipe_name_locale_miss top item ids
+  const localeMiss = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'customEvent:kind' }, { name: 'customEvent:item_id' }],
+    metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
+    dimensionFilter: {
+      filter: { fieldName: 'eventName', stringFilter: { value: 'recipe_name_locale_miss' } },
+    },
+    orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+    limit: 30,
+  }, { soft: true })
+  if (localeMiss) await writeCsv('locale-miss.csv', localeMiss)
+
+  // I. api_failure breakdown
+  const apiFailures = await runReport(client, {
+    property, dateRanges,
+    dimensions: [
+      { name: 'customEvent:api' },
+      { name: 'customEvent:endpoint' },
+      { name: 'customEvent:status' },
+    ],
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: {
+      filter: { fieldName: 'eventName', stringFilter: { value: 'api_failure' } },
+    },
+    orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+    limit: 30,
+  }, { soft: true })
+  if (apiFailures) await writeCsv('api-failures.csv', apiFailures)
+
+  // ---------------------------------------------------------------------------
   // Summary stats for the report
   // ---------------------------------------------------------------------------
   const summary = buildSummary({
@@ -240,6 +375,9 @@ async function main() {
     failureReasons, engagementPerPage, webVitals,
     newVsReturning, returningEvents, returningPages,
     acquisition,
+    funnelsByRegion, onboardingFunnel, topRecipes,
+    recipeByRlv, recipeByKind, recipeOpenSource,
+    misuseHints, localeMiss, apiFailures,
   })
   await fs.writeFile(path.join(OUT, 'summary.json'), JSON.stringify(summary, null, 2))
 
@@ -360,6 +498,57 @@ function buildSummary(reports) {
     newVsReturning: r.newVsReturning,
     returningEvents: r.returningEvents.slice(0, 25),
     returningPages: r.returningPages.slice(0, 15),
+    // 2026-05-19 expansion (PR #40). Each is empty until the corresponding
+    // custom dimension / user_property is registered in GA admin AND events
+    // start flowing post-deploy.
+    funnelsByRegion: r.funnelsByRegion ?? [],
+    onboardingFunnel: r.onboardingFunnel ?? [],
+    topRecipes: r.topRecipes ?? [],
+    recipeByRlv: r.recipeByRlv ?? [],
+    recipeByKind: r.recipeByKind ?? [],
+    recipeOpenSource: r.recipeOpenSource ?? [],
+    misuseHints: r.misuseHints ?? [],
+    localeMiss: r.localeMiss ?? [],
+    apiFailures: r.apiFailures ?? [],
+    // Derived: page funnel drop rates from existing event counts.
+    pageFunnel: derivePageFunnel(r.eventCounts),
+  }
+}
+
+// Page funnel drop: ratio of "next step" events to "prior step" events.
+// Per spec §4.3.4 the windowed version requires GA4 Explorations; here we
+// surface the raw count ratios, which approximate the funnel when most users
+// follow the same path in order.
+function derivePageFunnel(eventCounts) {
+  if (!eventCounts?.length) return null
+  const total = (name) => eventCounts.find((e) => e.eventName === name)?.eventCount ?? 0
+  const users = (name) => eventCounts.find((e) => e.eventName === name)?.totalUsers ?? 0
+
+  const recipeSelect = total('recipe_select')
+  const solverStart = total('solver_start')
+  const solverComplete = total('solver_complete')
+  const solverMacroCopy = total('solver_macro_copy')
+  const batchAddRecipe = total('batch_add_recipe')
+  const batchOptStart = total('batch_optimization_start')
+  const bomCalculate = total('bom_calculate')
+  // Any of these counts as "BOM result consumed" downstream:
+  const bomConsumed = total('bom_item_check') + total('bom_copy_list')
+    + total('bom_send_to_batch') + total('aetheryte_tp_copy')
+
+  return {
+    recipeToSolver: { from: recipeSelect, to: solverStart,
+      rate: recipeSelect ? solverStart / recipeSelect : 0 },
+    solverToMacro: { from: solverComplete, to: solverMacroCopy,
+      rate: solverComplete ? solverMacroCopy / solverComplete : 0 },
+    batchAddToOpt: { from: batchAddRecipe, to: batchOptStart,
+      rate: batchAddRecipe ? batchOptStart / batchAddRecipe : 0 },
+    bomCalcToConsumed: { from: bomCalculate, to: bomConsumed,
+      rate: bomCalculate ? bomConsumed / bomCalculate : 0 },
+    users: {
+      recipeSelect: users('recipe_select'),
+      solverStart: users('solver_start'),
+      solverMacroCopy: users('solver_macro_copy'),
+    },
   }
 }
 
@@ -476,6 +665,158 @@ async function writeReport(s) {
   md.push(`| --- | ---: | ---: | ---: |`)
   for (const p of s.returningPages) {
     md.push(`| \`${p.pagePath || '/'}\` | ${num(p.screenPageViews)} | ${num(p.activeUsers)} | ${pct(p.engagementRate)} |`)
+  }
+  md.push('')
+
+  // -- Q4 — 2026-05-19 expansion ----------------------------------------------
+  md.push(`## Q4 — Post-2026-05-19 dimensions`)
+  md.push('')
+  md.push(`> Backfilled by PR #40. Sections show "no data yet" until the custom dimensions / user properties are registered in GA admin AND production deploy has had time to accumulate events.`)
+  md.push('')
+
+  // Page funnel drop (derived from existing events; always renderable)
+  if (s.pageFunnel) {
+    md.push(`### Page funnel drop rates`)
+    md.push('')
+    md.push(`| Funnel | From → To | Count → Count | Rate |`)
+    md.push(`| --- | --- | ---: | ---: |`)
+    const f = s.pageFunnel
+    md.push(`| Recipe → Solver | recipe_select → solver_start | ${num(f.recipeToSolver.from)} → ${num(f.recipeToSolver.to)} | ${pct(f.recipeToSolver.rate)} |`)
+    md.push(`| Solver → Macro | solver_complete → solver_macro_copy | ${num(f.solverToMacro.from)} → ${num(f.solverToMacro.to)} | ${pct(f.solverToMacro.rate)} |`)
+    md.push(`| Batch prep → Optimize | batch_add_recipe → batch_optimization_start | ${num(f.batchAddToOpt.from)} → ${num(f.batchAddToOpt.to)} | ${pct(f.batchAddToOpt.rate)} |`)
+    md.push(`| BOM → Consumed | bom_calculate → (item_check ∪ copy_list ∪ send_to_batch ∪ tp_copy) | ${num(f.bomCalcToConsumed.from)} → ${num(f.bomCalcToConsumed.to)} | ${pct(f.bomCalcToConsumed.rate)} |`)
+    md.push('')
+    md.push(`*Rates >100% / very low rates often mean inflated denominators: \`solver_start\` / \`solver_complete\` include batch optimizer's per-recipe internal solves, not just user-initiated ones. \`solver_macro_copy\` only fires from the user-facing MacroExport. Treat absolute rates as noisy and compare across reports to track direction.*`)
+    md.push('')
+  }
+
+  // A. Funnels × market_region
+  md.push(`### Funnels × market_region`)
+  md.push('')
+  if (s.funnelsByRegion.length) {
+    md.push(`| Event | Region | Count | Users |`)
+    md.push(`| --- | --- | ---: | ---: |`)
+    for (const f of s.funnelsByRegion) {
+      md.push(`| ${f.eventName} | ${f['customUser:market_region'] || '(unset)'} | ${num(f.eventCount)} | ${num(f.totalUsers)} |`)
+    }
+  } else {
+    md.push(`_No data yet. Register the \`market_region\` user property as a custom dimension in GA admin, then wait ~24h post-deploy for data to accumulate._`)
+  }
+  md.push('')
+
+  // B. Onboarding milestone funnel
+  md.push(`### Onboarding milestone funnel`)
+  md.push('')
+  if (s.onboardingFunnel.length) {
+    const order = ['viewed_recipe', 'ran_solver', 'saw_macro', 'used_batch']
+    const sorted = [...s.onboardingFunnel].sort(
+      (a, b) => order.indexOf(a['customEvent:step']) - order.indexOf(b['customEvent:step']),
+    )
+    md.push(`| Step | Users reaching | Events |`)
+    md.push(`| --- | ---: | ---: |`)
+    for (const m of sorted) {
+      md.push(`| ${m['customEvent:step']} | ${num(m.totalUsers)} | ${num(m.eventCount)} |`)
+    }
+  } else {
+    md.push(`_No data yet. Register \`step\` as a custom dimension on the \`first_session_milestone\` event in GA admin._`)
+  }
+  md.push('')
+
+  // C. Top recipes
+  md.push(`### Top recipes (by recipe_select)`)
+  md.push('')
+  if (s.topRecipes.length) {
+    md.push(`| Recipe ID | Selects | Users |`)
+    md.push(`| --- | ---: | ---: |`)
+    for (const r of s.topRecipes.slice(0, 20)) {
+      md.push(`| \`${r['customEvent:recipe_id']}\` | ${num(r.eventCount)} | ${num(r.totalUsers)} |`)
+    }
+  } else {
+    md.push(`_No data yet. Register \`recipe_id\` as a custom dimension on \`recipe_select\` in GA admin._`)
+  }
+  md.push('')
+
+  // D. Recipe taxonomy: rlv distribution
+  md.push(`### Recipe selects by rlv`)
+  md.push('')
+  if (s.recipeByRlv.length) {
+    md.push(`| rlv | Selects |`)
+    md.push(`| --- | ---: |`)
+    for (const r of s.recipeByRlv) {
+      md.push(`| ${r['customEvent:rlv']} | ${num(r.eventCount)} |`)
+    }
+  } else {
+    md.push(`_No data yet. Register \`rlv\` as a custom dimension on \`recipe_select\` in GA admin._`)
+  }
+  md.push('')
+
+  // E. Recipe taxonomy: craft_kind × is_expert × is_collectable
+  md.push(`### Recipe selects by craft_kind × is_expert × is_collectable`)
+  md.push('')
+  if (s.recipeByKind.length) {
+    md.push(`| craft_kind | is_expert | is_collectable | Selects | Users |`)
+    md.push(`| --- | --- | --- | ---: | ---: |`)
+    for (const r of s.recipeByKind) {
+      md.push(`| ${r['customEvent:craft_kind']} | ${r['customEvent:is_expert']} | ${r['customEvent:is_collectable']} | ${num(r.eventCount)} | ${num(r.totalUsers)} |`)
+    }
+  } else {
+    md.push(`_No data yet. Register \`craft_kind\` / \`is_expert\` / \`is_collectable\` as custom dimensions on \`recipe_select\` in GA admin._`)
+  }
+  md.push('')
+
+  // F. Recipe open source
+  md.push(`### Recipe open source (entry point)`)
+  md.push('')
+  if (s.recipeOpenSource.length) {
+    md.push(`| Source | Selects | Users |`)
+    md.push(`| --- | ---: | ---: |`)
+    for (const r of s.recipeOpenSource) {
+      md.push(`| ${r['customEvent:source']} | ${num(r.eventCount)} | ${num(r.totalUsers)} |`)
+    }
+  } else {
+    md.push(`_No data yet. Register \`source\` as a custom dimension on \`recipe_select\` in GA admin._`)
+  }
+  md.push('')
+
+  // G. Misuse signals
+  md.push(`### Page misuse signals`)
+  md.push('')
+  if (s.misuseHints.length) {
+    md.push(`| Type | Events | Users affected |`)
+    md.push(`| --- | ---: | ---: |`)
+    for (const r of s.misuseHints) {
+      md.push(`| ${r['customEvent:type']} | ${num(r.eventCount)} | ${num(r.totalUsers)} |`)
+    }
+  } else {
+    md.push(`_No data yet. Register \`type\` as a custom dimension on \`page_misuse_hint\` in GA admin._`)
+  }
+  md.push('')
+
+  // H. Locale miss top items
+  md.push(`### Locale miss top items (zh-TW fallback)`)
+  md.push('')
+  if (s.localeMiss.length) {
+    md.push(`| Kind | Item ID | Misses | Users |`)
+    md.push(`| --- | --- | ---: | ---: |`)
+    for (const r of s.localeMiss) {
+      md.push(`| ${r['customEvent:kind']} | \`${r['customEvent:item_id']}\` | ${num(r.eventCount)} | ${num(r.totalUsers)} |`)
+    }
+  } else {
+    md.push(`_No data yet. Register \`kind\` and \`item_id\` as custom dimensions on \`recipe_name_locale_miss\` in GA admin._`)
+  }
+  md.push('')
+
+  // I. API failure breakdown
+  md.push(`### API failure breakdown`)
+  md.push('')
+  if (s.apiFailures.length) {
+    md.push(`| API | Endpoint | Status | Count |`)
+    md.push(`| --- | --- | --- | ---: |`)
+    for (const r of s.apiFailures) {
+      md.push(`| ${r['customEvent:api']} | ${ellipsis(r['customEvent:endpoint'], 50)} | ${r['customEvent:status']} | ${num(r.eventCount)} |`)
+    }
+  } else {
+    md.push(`_No data yet. Register \`api\`, \`endpoint\`, \`status\` as custom dimensions on \`api_failure\` in GA admin (\`universalis_fetch\` legacy event still firing in parallel until deprecation)._`)
   }
   md.push('')
 
