@@ -37,15 +37,21 @@ jobs:
           printf '%s' "$GA_SA_JSON" > $HOME/.ff14-craft-helper/ga-sa.json
 
       - name: Prepare gh-data working tree
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git fetch origin gh-data || true
           if git rev-parse --verify origin/gh-data >/dev/null 2>&1; then
+            # Existing branch: worktree shares main repo's .git so it inherits
+            # actions/checkout's injected auth header for github.com.
             git worktree add /tmp/gh-data origin/gh-data
           else
+            # Orphan bootstrap: standalone repo with no inherited auth.
+            # Embed the token in the remote URL so git push can authenticate.
             mkdir /tmp/gh-data
             cd /tmp/gh-data
             git init -b gh-data
-            git remote add origin "${{ github.server_url }}/${{ github.repository }}"
+            git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}"
             cd -
           fi
 
