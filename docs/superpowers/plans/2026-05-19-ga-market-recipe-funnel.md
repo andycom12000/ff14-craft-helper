@@ -32,6 +32,11 @@
 | Path | What changes |
 |---|---|
 | `src/utils/analytics.ts` | 加 `setUserProperty(key, value)` wrapper |
+| `scripts/build-game-data.mjs` | 提取 `IsSpecializationRequired`/`IsCollectable`/`CanQuickSynth`/`ItemUICategory` + CompanyCraft → recipe 反查（Task 2a） |
+| `public/data/recipes.json` | 重建（Task 2a） |
+| `public/data/items/{en,ja,zh-TW,zh-CN}.json` | 重建（Task 2a，含 ItemTuple 擴展） |
+| `src/services/local-data-source.types.ts` | RecipeRecord/ItemRecord/ItemTuple 加 optional 欄位（Task 2b） |
+| `src/api/xivapi.ts` | `getRecipe()` 加 GA taxonomy passthrough（Task 2c）、失敗時送 `api_failure`（Task 16） |
 | `src/utils/web-vitals-tracking.ts` | 每筆 web_vitals 加 `page_path` 參數 |
 | `src/main.ts` | mount 後呼叫 `syncUserProperties()`；`time_to_first_action` 監聽 |
 | `src/stores/recipe.ts` | `setRecipe(recipe, source?)` 加 source；`recipe_select` 帶 taxonomy |
@@ -354,6 +359,434 @@ Expected: PASS, clean.
 git add src/utils/recipe-taxonomy.ts src/__tests__/utils/recipe-taxonomy.test.ts
 git commit -m "feat(utils): add recipe-taxonomy classifier"
 ```
+
+---
+
+## Task 2a — Augment build script with new Recipe + Item fields
+
+> **Inserted 2026-05-19 after Task 2 revealed Recipe runtime shape lacks `requires_specialist` / `is_collectable` / `category` / full `craft_kind`. Pipeline enrichment unlocks the full GA taxonomy in spec §4.2.1.**
+
+**Files:**
+- Modify: `scripts/build-game-data.mjs`
+- Modify (rebuild): `public/data/recipes.json`, `public/data/items/{en,ja,zh-TW,zh-CN}.json`
+
+**Background data:**
+- Recipe CSV → `RecipeRecord` is built in `buildRecipes()` (~line 285-351). Already extracts `craftType`, `isExpert`. Needs to add `IsSpecializationRequired`, `CanQuickSynth`, `SecretRecipeBook`.
+- Item CSV → ItemRecord built in `buildItems()` (~line 390-427). Currently stores `[id, name, level, canBeHq, iconId]` as positional tuple. Need `IsCollectable` and `ItemUICategory`.
+- `itemUICategoryMap` already collected at line 675-681 (used by CompanyCraft). Reuse it.
+
+- [ ] **Step 2a.1 — Add a CATEGORY mapping table**
+
+In `scripts/build-game-data.mjs`, near the top of the file (after imports), add:
+
+```js
+// ItemUICategory ID → GA RecipeCategory enum.
+// Source: XIVAPI ItemUICategory rows; see https://xivapi.com/ItemUICategory
+// Mapping is heuristic — adjust if data audit reveals miscategorization.
+// 0 / null → 'misc'.
+const ITEM_UI_CATEGORY_TO_GA = new Map([
+  // Gear (weapons + body slots) — UICategory 1..32 cover most weapon classes;
+  // 33..40 cover body/legs/head/hands/feet/etc.
+  ...[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59].map(n => [n, 'gear']),
+  // Consumables: Food (45-ish), Medicine, Ingredients, etc.
+  ...[45, 46, 47, 48].map(n => [n, 'consumable']),
+  // Housing: outdoor + indoor furnishing categories
+  ...[56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68].map(n => [n, 'housing']),
+  // Materials: crystals, reagents, leather, cloth, lumber, etc.
+  ...[49, 50, 51, 52, 53, 54, 55].map(n => [n, 'material']),
+])
+
+function classifyItemCategory(uiCategoryId) {
+  if (!uiCategoryId) return 'misc'
+  return ITEM_UI_CATEGORY_TO_GA.get(uiCategoryId) ?? 'misc'
+}
+```
+
+> **Note:** The actual XIVAPI ItemUICategory IDs may not cleanly match the ranges above. After Step 2a.5 validates output, run a sanity script to check distribution (count of items per category) — if 'misc' dominates implausibly, refine the table. **Don't spend time on perfect taxonomy** — the goal is "useful signal", not "scholarly accurate FFXIV item ontology".
+
+- [ ] **Step 2a.2 — Extract new Recipe fields in `buildRecipes()`**
+
+Find `buildRecipes()`. Where it currently extracts fields, add detections for:
+
+```js
+const isSpecializationRequiredCol = pickHeader(headers, ['IsSpecializationRequired'])
+const canQuickSynthCol = pickHeader(headers, ['CanQuickSynth'])
+const secretRecipeBookCol = pickHeader(headers, ['SecretRecipeBook', 'SecretRecipeBookTargetID'])
+```
+
+In the row-loop where existing `RecipeRecord` is assembled, add:
+
+```js
+record.requiresSpecialist = parseBool(row[isSpecializationRequiredCol])
+record.canQuickSynth = parseBool(row[canQuickSynthCol])
+record.secretRecipeBook = parseInt(row[secretRecipeBookCol] ?? '0', 10) || 0
+```
+
+(Adapt to the actual code patterns used in this file — use `parseBool` helper if it exists, otherwise inline `=== 'True' || === '1'`.)
+
+- [ ] **Step 2a.3 — Extract `IsCollectable` + `ItemUICategory` in `buildItems()`**
+
+Find `buildItems()`. Add column detection for `IsCollectable` (Item.IsCollectable) and `ItemUICategory` (already-detected FK).
+
+The current `ItemTuple` is `[id, name, level, canBeHq, iconId]`. Extend it to also output collectable + category:
+
+```js
+// New tuple: [id, name, level, canBeHq, iconId, isCollectable, category]
+const tuple = [
+  id, name, level,
+  canBeHq ? 1 : 0,
+  iconId,
+  parseBool(row[isCollectableCol]) ? 1 : 0,
+  classifyItemCategory(parseInt(row[itemUICategoryCol] ?? '0', 10)),
+]
+```
+
+Update the `ItemTuple` type alias note in the JSDoc.
+
+- [ ] **Step 2a.4 — Cross-reference CompanyCraft → recipes**
+
+Where `buildCompanyCraft()` produces `CompanyCraftSequence[]`, after that:
+
+```js
+const companyCraftItemIds = new Set()
+for (const seq of companyCraftSequences) {
+  for (const phase of seq.phases) {
+    for (const supply of phase.supplyItems) {
+      companyCraftItemIds.add(supply.itemId)
+    }
+  }
+}
+
+// In the recipe build loop, set craft_kind:
+//   - 'expert'           if isExpert
+//   - 'quick'            else if canQuickSynth
+//   - 'company'          else if companyCraftItemIds.has(record.itemResult)
+//   - 'custom_delivery'  (no reliable XIVAPI signal — skip; default to 'normal')
+//   - 'normal'           otherwise
+function deriveCraftKind(record, companyCraftItemIds) {
+  if (record.isExpert) return 'expert'
+  if (record.canQuickSynth) return 'quick'
+  if (companyCraftItemIds.has(record.itemResult)) return 'company'
+  return 'normal'
+}
+```
+
+Set `record.craftKind = deriveCraftKind(record, companyCraftItemIds)` for each recipe.
+
+- [ ] **Step 2a.5 — Run + verify output**
+
+```
+npm run build-game-data
+```
+
+Then inspect the output:
+
+```
+node -e "
+const r = require('./public/data/recipes.json');
+const sample = r.slice(0, 5);
+console.log(JSON.stringify(sample, null, 2));
+console.log('total recipes:', r.length);
+console.log('with requiresSpecialist:', r.filter(x => x.requiresSpecialist).length);
+console.log('craft_kind distribution:', Object.entries(r.reduce((acc, x) => { acc[x.craftKind ?? 'normal'] = (acc[x.craftKind ?? 'normal']||0)+1; return acc }, {})).sort((a,b)=>b[1]-a[1]));
+"
+```
+
+```
+node -e "
+const it = require('./public/data/items/en.json');
+console.log('first 3 items:', JSON.stringify(it.items.slice(0, 3), null, 2));
+console.log('collectable items:', it.items.filter(t => t[5] === 1).length);
+"
+```
+
+Expected: `requiresSpecialist` non-zero count (>0). craft_kind distribution shows expert/quick/company non-zero. Collectable item count plausible (~50-200).
+
+- [ ] **Step 2a.6 — Commit**
+
+```bash
+git add scripts/build-game-data.mjs public/data/recipes.json public/data/items/
+git commit -m "feat(build): extract requires_specialist/is_collectable/craft_kind/category from XIVAPI"
+```
+
+> **Note:** Bundle file diff will be large (entire recipes.json / items shards regenerated). Acceptable — this is how this repo manages game data.
+
+---
+
+## Task 2b — Extend RecipeRecord / ItemRecord type signatures
+
+**Files:**
+- Modify: `src/services/local-data-source.types.ts`
+
+- [ ] **Step 2b.1 — Add new fields to type definitions**
+
+```ts
+export interface RecipeRecord {
+  // ... existing fields
+  // GA taxonomy fields added 2026-05-19 (see plans/2026-05-19-ga-market-recipe-funnel.md).
+  // Optional for backward compat with bundles built before Task 2a ran.
+  requiresSpecialist?: boolean
+  canQuickSynth?: boolean
+  secretRecipeBook?: number
+  craftKind?: 'normal' | 'quick' | 'expert' | 'company'
+}
+
+// ItemTuple grows from 5 to 7 elements. Add the new positions.
+export type ItemTuple = [
+  id: number,
+  name: string,
+  level: number,
+  canBeHq: 0 | 1,
+  iconId: number,
+  isCollectable: 0 | 1,        // NEW
+  category: ItemCategory,       // NEW
+]
+
+export type ItemCategory = 'gear' | 'consumable' | 'housing' | 'material' | 'misc'
+
+export interface ItemRecord {
+  name: string
+  level: number
+  canBeHq: boolean
+  iconId: number
+  // NEW
+  isCollectable: boolean
+  category: ItemCategory
+}
+```
+
+> **If the codebase loader maps ItemTuple → ItemRecord positionally**, update that mapping too. Grep `ItemTuple` to find loader.
+
+- [ ] **Step 2b.2 — Type check + lint**
+
+```
+npm run type-check
+npm run lint
+```
+
+Fix any breaks — loaders that destructure ItemTuple by position will need the 2 new elements added.
+
+- [ ] **Step 2b.3 — Commit**
+
+```bash
+git add src/services/local-data-source.types.ts
+# + any loader changes
+git commit -m "feat(types): extend RecipeRecord/ItemRecord with GA taxonomy fields"
+```
+
+---
+
+## Task 2c — Thread fields through runtime Recipe + `getRecipe`
+
+**Files:**
+- Modify: `src/stores/recipe.ts` — `Recipe` interface
+- Modify: `src/api/xivapi.ts` — `getRecipe()` passthrough
+- Modify: any callers reading from item records (e.g. BOM) if they need `category` / `isCollectable`
+
+- [ ] **Step 2c.1 — Extend runtime `Recipe`**
+
+In `src/stores/recipe.ts`, add to the `Recipe` interface:
+
+```ts
+export interface Recipe {
+  // ... existing fields
+  // GA taxonomy passthrough from RecipeRecord (build-time-derived).
+  requiresSpecialist?: boolean
+  isCollectable?: boolean   // ← derived from Recipe's resulting Item.IsCollectable
+  craftKind?: 'normal' | 'quick' | 'expert' | 'company'
+}
+```
+
+- [ ] **Step 2c.2 — Update `getRecipe()` in `xivapi.ts`**
+
+In `getRecipe(id)`, after the RecipeRecord is loaded and the result item is fetched, add:
+
+```ts
+const resultItemRecord = await getItem(rec.itemResult) // however the item is currently looked up
+const recipe: Recipe = {
+  // ... existing fields
+  requiresSpecialist: rec.requiresSpecialist === true,
+  isCollectable: resultItemRecord.isCollectable === true,
+  craftKind: rec.craftKind ?? 'normal',
+}
+```
+
+Grep `getRecipe` in `src/api/xivapi.ts` to find the exact assembly site and adapt.
+
+- [ ] **Step 2c.3 — Type check + lint + tests**
+
+```
+npm run type-check
+npm run lint
+npm test
+```
+
+Expected: all pass. Existing tests don't reference the new fields so should be unaffected.
+
+- [ ] **Step 2c.4 — Commit**
+
+```bash
+git add src/stores/recipe.ts src/api/xivapi.ts
+git commit -m "feat(recipe): thread GA taxonomy fields to runtime Recipe"
+```
+
+---
+
+## Task 2d — Expand `recipe-taxonomy` to use real fields
+
+**Files:**
+- Modify: `src/utils/recipe-taxonomy.ts`
+- Modify: `src/__tests__/utils/recipe-taxonomy.test.ts`
+
+> **Builds on Task 2 (commit `62b5458`).** Replaces the constant placeholders (`requires_specialist: false`, `is_collectable: false`, `category: 'misc'`, partial `craft_kind`) with real field reads now that Tasks 2a-2c have enriched Recipe.
+
+- [ ] **Step 2d.1 — Write the failing tests**
+
+Replace the test file with full-taxonomy fixtures:
+
+```ts
+import { describe, it, expect } from 'vitest'
+import { computeRecipeTaxonomy, flattenTaxonomyForEvent } from '@/utils/recipe-taxonomy'
+import type { Recipe } from '@/stores/recipe'
+
+function makeRecipe(overrides: Partial<Recipe>): Recipe {
+  return {
+    id: 1, itemId: 100, name: 'Test', icon: '', job: 'CRP', level: 90,
+    stars: 0, canHq: true, materialQualityFactor: 50, amountResult: 1,
+    ingredients: [],
+    recipeLevelTable: {
+      classJobLevel: 90, stars: 0, difficulty: 5000, quality: 15000,
+      durability: 70, suggestedCraftsmanship: 4000,
+      progressDivider: 130, qualityDivider: 115,
+      progressModifier: 100, qualityModifier: 100, conditionsFlag: 15,
+    },
+    isExpert: false, requiresSpecialist: false, isCollectable: false,
+    craftKind: 'normal',
+    ...overrides,
+  } as Recipe
+}
+
+describe('computeRecipeTaxonomy (full taxonomy)', () => {
+  it('reads stars + is_expert from recipe', () => {
+    const t = computeRecipeTaxonomy(makeRecipe({ stars: 3, isExpert: true }))
+    expect(t.stars).toBe(3)
+    expect(t.is_expert).toBe(true)
+  })
+
+  it('reads rlv from recipeLevelTable.classJobLevel', () => {
+    const t = computeRecipeTaxonomy(makeRecipe({
+      recipeLevelTable: { classJobLevel: 640 } as Recipe['recipeLevelTable'],
+    }))
+    expect(t.rlv).toBe(640)
+  })
+
+  it('reads requires_specialist when set', () => {
+    expect(computeRecipeTaxonomy(makeRecipe({ requiresSpecialist: true })).requires_specialist).toBe(true)
+    expect(computeRecipeTaxonomy(makeRecipe({ requiresSpecialist: false })).requires_specialist).toBe(false)
+  })
+
+  it('reads is_collectable when set', () => {
+    expect(computeRecipeTaxonomy(makeRecipe({ isCollectable: true })).is_collectable).toBe(true)
+  })
+
+  it('reads craft_kind from Recipe.craftKind', () => {
+    expect(computeRecipeTaxonomy(makeRecipe({ craftKind: 'quick' })).craft_kind).toBe('quick')
+    expect(computeRecipeTaxonomy(makeRecipe({ craftKind: 'company' })).craft_kind).toBe('company')
+    expect(computeRecipeTaxonomy(makeRecipe({ craftKind: 'expert' })).craft_kind).toBe('expert')
+  })
+
+  it('craft_kind falls back to normal when undefined', () => {
+    expect(computeRecipeTaxonomy(makeRecipe({ craftKind: undefined })).craft_kind).toBe('normal')
+  })
+
+  it('category defaults to misc (looked up by caller from item, not in this util)', () => {
+    expect(computeRecipeTaxonomy(makeRecipe({})).category).toBe('misc')
+  })
+
+  it('classifies action_count buckets', () => {
+    expect(computeRecipeTaxonomy(makeRecipe({}), 10).expected_action_count_bucket).toBe('short')
+    expect(computeRecipeTaxonomy(makeRecipe({}), 20).expected_action_count_bucket).toBe('medium')
+    expect(computeRecipeTaxonomy(makeRecipe({}), 30).expected_action_count_bucket).toBe('long')
+  })
+
+  it('flattenTaxonomyForEvent returns flat snake_case keys', () => {
+    const r = makeRecipe({ stars: 2, isExpert: true, isCollectable: true, requiresSpecialist: true, craftKind: 'expert' })
+    const flat = flattenTaxonomyForEvent(computeRecipeTaxonomy(r))
+    expect(flat).toMatchObject({
+      stars: 2, is_expert: true, is_collectable: true,
+      requires_specialist: true, craft_kind: 'expert',
+    })
+  })
+})
+```
+
+- [ ] **Step 2d.2 — Run, watch fail**
+
+```
+npx vitest run src/__tests__/utils/recipe-taxonomy.test.ts
+```
+
+Expected: FAIL on new requires_specialist / is_collectable / craft_kind cases (still hardcoded false / 'normal').
+
+- [ ] **Step 2d.3 — Update implementation**
+
+Replace `computeRecipeTaxonomy` in `src/utils/recipe-taxonomy.ts`:
+
+```ts
+export function computeRecipeTaxonomy(recipe: Recipe, actionCount?: number): RecipeTaxonomy {
+  const r = recipe as Partial<Recipe>
+  return {
+    rlv: r.recipeLevelTable?.classJobLevel ?? 0,
+    stars: typeof r.stars === 'number' ? r.stars : 0,
+    is_expert: r.isExpert === true,
+    requires_specialist: r.requiresSpecialist === true,
+    is_collectable: r.isCollectable === true,
+    craft_kind: r.craftKind ?? 'normal',
+    // category lives on Item, not Recipe — caller looks it up separately.
+    // We keep 'misc' here so the flat-event helper has a stable key.
+    // Tasks 6 / 9 (recipe_select / bom_target_add) override this from item lookup.
+    category: 'misc',
+    expected_action_count_bucket: bucketActionCount(actionCount),
+  }
+}
+```
+
+Drop the `deriveCraftKind` helper — no longer needed.
+
+- [ ] **Step 2d.4 — Update file header comment**
+
+Replace the field-mapping note at top of `recipe-taxonomy.ts` with the new mapping:
+
+```ts
+/**
+ * recipe-taxonomy.ts
+ *
+ * Derives a stable, analytics-friendly taxonomy from a Recipe object.
+ *
+ * Field mapping (after data pipeline enrichment 2026-05-19):
+ *   - spec `rlv`                → Recipe.recipeLevelTable.classJobLevel
+ *   - spec `stars`              → Recipe.stars
+ *   - spec `isExpert`           → Recipe.isExpert
+ *   - spec `requires_specialist`→ Recipe.requiresSpecialist (build-time-derived)
+ *   - spec `is_collectable`     → Recipe.isCollectable (from result Item)
+ *   - spec `craft_kind`         → Recipe.craftKind (build-time-derived)
+ *   - spec `category`           → looked up by CALLER from Item.category;
+ *                                 this util defaults to 'misc'
+ */
+```
+
+- [ ] **Step 2d.5 — Run, watch pass + commit**
+
+```
+npx vitest run src/__tests__/utils/recipe-taxonomy.test.ts
+npm run type-check
+npm run lint
+npm test
+git add src/utils/recipe-taxonomy.ts src/__tests__/utils/recipe-taxonomy.test.ts
+git commit -m "feat(taxonomy): consume real Recipe fields instead of constant placeholders"
+```
+
+> **Note for downstream tasks:** Task 6 (`recipe_select`) and Task 9 (`bom_target_add`) must look up `category` from the item record themselves when emitting events. Don't expect `computeRecipeTaxonomy` to provide it.
 
 ---
 
