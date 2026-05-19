@@ -9,7 +9,7 @@ import { findOptimalHqCombinations } from '@/services/hq-optimizer'
 import { getAggregatedPrices, aggregateByWorld } from '@/api/universalis'
 import type { MarketData, WorldPriceSummary } from '@/api/universalis'
 import { separateCrystals, groupByServer, calculateBestPurchase, findCheapestServerPurchase } from '@/services/shopping-list'
-import { applyFoodBuff, applyMedicineBuff, resolveBuff, COMMON_FOODS, COMMON_MEDICINES, type FoodBuff } from '@/engine/food-medicine'
+import { resolveBuff, COMMON_FOODS, COMMON_MEDICINES, type FoodBuff } from '@/engine/food-medicine'
 import { evaluateBuffRecommendation, getBuffItemIds } from '@/services/buff-recommender'
 import { produceSelfCraftCandidates } from '@/services/self-craft-candidates'
 import { canReachHQQuality } from '@/services/feasibility-prefilter'
@@ -41,17 +41,7 @@ export async function optimizeRecipe(
   onSolverProgress?: (percent: number) => void,
   buffs?: { food: FoodBuff | null; medicine: FoodBuff | null },
 ): Promise<RecipeOptimizeResult> {
-  const craftParams = recipeToCraftParams(recipe, gearset)
-  if (buffs) {
-    const afterFood = applyFoodBuff(
-      { craftsmanship: craftParams.craftsmanship, control: craftParams.control, cp: craftParams.cp },
-      buffs.food,
-    )
-    const enhanced = applyMedicineBuff(afterFood, buffs.medicine)
-    craftParams.craftsmanship = enhanced.craftsmanship
-    craftParams.control = enhanced.control
-    craftParams.cp = enhanced.cp
-  }
+  const craftParams = recipeToCraftParams(recipe, gearset, buffs)
   // Batch hard-pins adversarial=false even though it's the default — the
   // batch pipeline runs many solves in parallel and the WASM heap blow-up
   // risk is unacceptable here. Keep this explicit so a future default-flip
