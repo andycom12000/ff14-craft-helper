@@ -98,4 +98,29 @@ router.onError((err) => {
   location.reload()
 })
 
+router.isReady().then(() => {
+  const url = new URL(window.location.href)
+  const hash = url.hash || ''
+  const referrerHost = (() => {
+    try { return new URL(document.referrer).host } catch { return '' }
+  })()
+
+  // Hash-based deep-link detection (app uses createWebHashHistory)
+  // Patterns derived from share-link conventions in this codebase
+  const hasRecipe = /[?&]recipeId=/.test(hash) || /[?&]recipe=/.test(hash)
+  const hasBatch = /[?&]targets=/.test(hash) || /[?&]batch=/.test(hash)
+  const hasMacro = /[?&]macro=/.test(hash)
+
+  let payload_kind: 'recipe' | 'batch' | 'macro' | 'mixed' | null = null
+  const kinds = [hasRecipe, hasBatch, hasMacro].filter(Boolean).length
+  if (kinds > 1) payload_kind = 'mixed'
+  else if (hasRecipe) payload_kind = 'recipe'
+  else if (hasBatch) payload_kind = 'batch'
+  else if (hasMacro) payload_kind = 'macro'
+
+  if (payload_kind) {
+    trackEvent('share_link_inbound', { payload_kind, referrer_host: referrerHost })
+  }
+})
+
 export default router
