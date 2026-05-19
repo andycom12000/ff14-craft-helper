@@ -899,8 +899,335 @@ async function buildClient() {
 }
 
 async function buildBundle(client, propertyId, days) {
-  // Will be implemented in Task 5.
-  return { window: { days, startDate: `${days}daysAgo`, endDate: 'today' } }
+  const property = `properties/${propertyId}`
+  const dateRanges = [{ startDate: `${days}daysAgo`, endDate: 'today' }]
+
+  // helper for date string
+  const today = new Date()
+  const start = new Date(today)
+  start.setDate(today.getDate() - days)
+  const fmt = (d) => d.toISOString().slice(0, 10)
+
+  // --- Q1: pages ----------------------------------------------------------
+  const pagesRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'pagePath' }, { name: 'pageTitle' }],
+    metrics: [
+      { name: 'screenPageViews' }, { name: 'totalUsers' },
+      { name: 'sessions' }, { name: 'userEngagementDuration' },
+      { name: 'engagementRate' }, { name: 'bounceRate' },
+    ],
+    orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
+    limit: 20,
+  })
+  const pages = (pagesRes?.rows ?? []).map((r) => mapPageRow(r))
+
+  // --- Q1: channels -------------------------------------------------------
+  const channelsRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'sessionDefaultChannelGroup' }, { name: 'sessionSource' }],
+    metrics: [{ name: 'sessions' }, { name: 'totalUsers' }, { name: 'engagementRate' }],
+    orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+    limit: 12,
+  })
+  const channels = (channelsRes?.rows ?? []).map((r) => ({
+    channel: r.dimensionValues[0].value,
+    source: r.dimensionValues[1].value,
+    sessions: Number(r.metricValues[0].value),
+    users: Number(r.metricValues[1].value),
+    engagement: Number(r.metricValues[2].value),
+  }))
+
+  // --- Q2: funnels --------------------------------------------------------
+  const evCounts = await fetchEventCounts(client, property, dateRanges, [
+    'solver_start', 'solver_complete', 'solver_failed',
+    'batch_optimization_start', 'batch_optimization_complete',
+    'batch_optimization_failed', 'batch_optimization_cancelled',
+    'page_view', 'solver_macro_copy', 'recipe_select',
+    'bom_calculate', 'bom_send_to_batch', 'bom_item_check',
+    'bom_copy_list', 'bom_target_add',
+    'batch_add_recipe',
+    'web_vitals',
+    'wasm_load_failed', 'sab_unavailable',
+  ])
+
+  const solverFunnel = [
+    { step: 'solver_start',    count: evCounts.get('solver_start') ?? 0,    tone: 'neutral' },
+    { step: 'solver_complete', count: evCounts.get('solver_complete') ?? 0, tone: 'success' },
+    { step: 'solver_failed',   count: evCounts.get('solver_failed') ?? 0,   tone: 'danger' },
+  ]
+
+  const batchFunnel = [
+    { step: 'add → start',     count: evCounts.get('batch_optimization_start') ?? 0, tone: 'neutral' },
+    { step: 'batch_complete',  count: evCounts.get('batch_optimization_complete') ?? 0, tone: 'success' },
+    { step: 'batch_failed',    count: evCounts.get('batch_optimization_failed') ?? 0, tone: 'danger' },
+    { step: 'batch_cancelled', count: evCounts.get('batch_optimization_cancelled') ?? 0, tone: 'warn' },
+  ]
+
+  // --- Q2: simulator funnel (inferred) ------------------------------------
+  const simulatorPageView = pages.find((p) => p.path === '/simulator')
+  const simulatorFunnel = {
+    entry: {
+      label: '/simulator page_view',
+      count: simulatorPageView?.views ?? 0,
+      users: simulatorPageView?.users ?? 0,
+    },
+    macroCopy: {
+      label: 'solver_macro_copy',
+      count: evCounts.get('solver_macro_copy') ?? 0,
+      users: await uniqueUsersForEvent(client, property, dateRanges, 'solver_macro_copy'),
+    },
+    globalContext: [
+      { label: 'recipe_select (any page)',   count: evCounts.get('recipe_select') ?? 0 },
+      { label: 'solver_start (any page)',    count: evCounts.get('solver_start') ?? 0 },
+      { label: 'solver_complete (any page)', count: evCounts.get('solver_complete') ?? 0 },
+    ],
+  }
+
+  // --- Q2: failures -------------------------------------------------------
+  const failuresRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'eventName' }, { name: 'customEvent:reason' }],
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: { filter: { fieldName: 'eventName', inListFilter: {
+      values: ['solver_failed', 'batch_optimization_failed', 'wasm_load_failed'] } } },
+    orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+    limit: 30,
+  }, { soft: true })
+  const failures = (failuresRes?.rows ?? []).map((r) => ({
+    event: r.dimensionValues[0].value.startsWith('solver') ? 'solver'
+         : r.dimensionValues[0].value.startsWith('batch')  ? 'batch'
+         : 'wasm',
+    reason: r.dimensionValues[1].value || '(no reason)',
+    count: Number(r.metricValues[0].value),
+  }))
+
+  // --- Q2: vitals ---------------------------------------------------------
+  const vitalsRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'customEvent:metric' }, { name: 'customEvent:rating' }],
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { value: 'web_vitals' } } },
+    limit: 60,
+  }, { soft: true })
+  const vitals = buildVitalsRows(vitalsRes?.rows ?? [])
+
+  // --- Q3: flip -----------------------------------------------------------
+  const flipRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'newVsReturning' }],
+    metrics: [{ name: 'totalUsers' }, { name: 'sessions' }],
+  })
+  const flip = mapFlip(flipRes?.rows ?? [])
+
+  // --- Q3: returning events ----------------------------------------------
+  const retEvRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'eventName' }],
+    metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
+    dimensionFilter: { filter: { fieldName: 'newVsReturning', stringFilter: { value: 'returning' } } },
+    orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+    limit: 25,
+  })
+  const returningEvents = (retEvRes?.rows ?? []).map((r) => ({
+    event: r.dimensionValues[0].value,
+    family: familyForEvent(r.dimensionValues[0].value),
+    count: Number(r.metricValues[0].value),
+    users: Number(r.metricValues[1].value),
+  }))
+
+  // --- Q3: returning pages -----------------------------------------------
+  const retPgRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'pagePath' }],
+    metrics: [{ name: 'screenPageViews' }, { name: 'totalUsers' }, { name: 'engagementRate' }],
+    dimensionFilter: { filter: { fieldName: 'newVsReturning', stringFilter: { value: 'returning' } } },
+    orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
+    limit: 15,
+  })
+  const returningPages = (retPgRes?.rows ?? []).map((r) => ({
+    path: r.dimensionValues[0].value,
+    returningViews: Number(r.metricValues[0].value),
+    returningUsers: Number(r.metricValues[1].value),
+    engagement: Number(r.metricValues[2].value),
+  }))
+
+  // --- Q4: funnel drop rates (reuse existing helpers) ---------------------
+  const q4Funnels = [
+    { name: 'Recipe → Solver',       label: 'recipe_select → solver_start',
+      from: evCounts.get('recipe_select') ?? 0, to: evCounts.get('solver_start') ?? 0,
+      note: 'inflated · batch internal solves', flag: 'noise' },
+    { name: 'Solver → Macro',        label: 'solver_complete → solver_macro_copy',
+      from: evCounts.get('solver_complete') ?? 0, to: evCounts.get('solver_macro_copy') ?? 0,
+      note: 'user-facing only', flag: 'danger' },
+    { name: 'Batch prep → Optimize', label: 'batch_add_recipe → batch_opt_start',
+      from: evCounts.get('batch_add_recipe') ?? 0, to: evCounts.get('batch_optimization_start') ?? 0,
+      note: 'healthy halfway', flag: 'ok' },
+    { name: 'BOM → Consumed',        label: 'bom_calculate → (any consume)',
+      from: evCounts.get('bom_calculate') ?? 0,
+      to: ['bom_item_check', 'bom_copy_list', 'bom_send_to_batch', 'bom_target_add']
+        .map((n) => evCounts.get(n) ?? 0).reduce((a, b) => a + b, 0),
+      note: 'low handoff', flag: 'warn' },
+  ]
+
+  // --- Q4: market_region --------------------------------------------------
+  const mrRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'eventName' }, { name: 'customUser:market_region' }],
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: { filter: { fieldName: 'eventName', inListFilter: {
+      values: ['solver_start', 'solver_complete', 'batch_optimization_start',
+               'batch_optimization_complete', 'bom_calculate', 'bom_send_to_batch',
+               'solver_macro_copy'] } } },
+    limit: 80,
+  }, { soft: true })
+  const marketRegion = buildMarketRegion(mrRes?.rows ?? [])
+
+  // --- glance summary -----------------------------------------------------
+  const flipUsers = flip.users.new + flip.users.returning + flip.users.other
+  const glance = {
+    activeUsers: {
+      total: flipUsers,
+      new: flip.users.new,
+      returning: flip.users.returning,
+      returningPct: flipUsers ? flip.users.returning / flipUsers : 0,
+    },
+    solver: {
+      starts: solverFunnel[0].count,
+      completes: solverFunnel[1].count,
+      fails: solverFunnel[2].count,
+      completePct: solverFunnel[0].count ? solverFunnel[1].count / solverFunnel[0].count : 0,
+    },
+    batch: {
+      starts: batchFunnel[0].count,
+      completes: batchFunnel[1].count,
+      fails: batchFunnel[2].count,
+      cancelled: batchFunnel[3].count,
+      completePct: batchFunnel[0].count ? batchFunnel[1].count / batchFunnel[0].count : 0,
+    },
+    bom: {
+      calculates: evCounts.get('bom_calculate') ?? 0,
+      sentToBatch: evCounts.get('bom_send_to_batch') ?? 0,
+      handoffPct: (evCounts.get('bom_calculate') ?? 0)
+        ? (evCounts.get('bom_send_to_batch') ?? 0) / (evCounts.get('bom_calculate') ?? 1)
+        : 0,
+    },
+    infra: {
+      sabUnavailable: evCounts.get('sab_unavailable') ?? 0,
+      wasmLoadFailed: evCounts.get('wasm_load_failed') ?? 0,
+    },
+  }
+
+  return {
+    window: { days, startDate: fmt(start), endDate: fmt(today) },
+    glance, pages, channels, solverFunnel, batchFunnel, simulatorFunnel,
+    failures, vitals, flip, returningEvents, returningPages, q4Funnels, marketRegion,
+  }
+}
+
+// helpers
+async function fetchEventCounts(client, property, dateRanges, eventNames) {
+  const res = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'eventName' }],
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: { filter: { fieldName: 'eventName', inListFilter: { values: eventNames } } },
+    limit: eventNames.length + 5,
+  })
+  const out = new Map()
+  for (const r of res?.rows ?? []) {
+    out.set(r.dimensionValues[0].value, Number(r.metricValues[0].value))
+  }
+  return out
+}
+
+async function uniqueUsersForEvent(client, property, dateRanges, eventName) {
+  const res = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'eventName' }],
+    metrics: [{ name: 'totalUsers' }],
+    dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { value: eventName } } },
+  })
+  const row = res?.rows?.[0]
+  return row ? Number(row.metricValues[0].value) : 0
+}
+
+function mapPageRow(r) {
+  const path = r.dimensionValues[0].value
+  return {
+    path,
+    title: r.dimensionValues[1].value,
+    family: familyForPath(path),
+    views: Number(r.metricValues[0].value),
+    users: Number(r.metricValues[1].value),
+    sessions: Number(r.metricValues[2].value),
+    engagement: Number(r.metricValues[4].value),
+    bounce: Number(r.metricValues[5].value),
+    avgSession: Number(r.metricValues[2].value)
+      ? Number(r.metricValues[3].value) / Number(r.metricValues[2].value)
+      : 0,
+  }
+}
+
+function familyForPath(path) {
+  if (path === '/') return 'core'
+  if (/^\/(batch|gearset|simulator|bom)/.test(path)) return 'craft'
+  if (path === '/timer') return 'gather'
+  if (path === '/company-craft') return 'company'
+  if (path === '/market') return 'market'
+  return 'meta'
+}
+
+function familyForEvent(event) {
+  if (event.startsWith('universalis')) return 'market'
+  if (event.startsWith('web_vitals') || event === 'page_view' || event === 'recipe_select') return 'meta'
+  if (event.startsWith('solver') || event.startsWith('batch') || event.startsWith('bom') || event.startsWith('gearset') || event.startsWith('queue')) return 'craft'
+  if (event === 'exception' || event === 'solver_failed' || event === 'batch_optimization_failed') return 'error'
+  return 'meta'
+}
+
+function mapFlip(rows) {
+  const init = { new: 0, returning: 0, other: 0 }
+  const out = { users: { ...init }, sessions: { ...init } }
+  for (const r of rows) {
+    const k = r.dimensionValues[0].value
+    const bucket = k === 'new' ? 'new' : k === 'returning' ? 'returning' : 'other'
+    out.users[bucket] += Number(r.metricValues[0].value)
+    out.sessions[bucket] += Number(r.metricValues[1].value)
+  }
+  return out
+}
+
+function buildVitalsRows(rows) {
+  const metrics = ['INP', 'TTFB', 'CLS', 'FCP', 'LCP']
+  const map = new Map(metrics.map((m) => [m, { metric: m, good: 0, ni: 0, poor: 0 }]))
+  for (const r of rows) {
+    const metric = r.dimensionValues[0].value.toUpperCase()
+    const rating = r.dimensionValues[1].value
+    const count = Number(r.metricValues[0].value)
+    const target = map.get(metric)
+    if (!target) continue
+    if (rating === 'good') target.good += count
+    else if (rating === 'needs-improvement') target.ni += count
+    else if (rating === 'poor') target.poor += count
+  }
+  return [...map.values()]
+}
+
+function buildMarketRegion(rows) {
+  const map = new Map()
+  for (const r of rows) {
+    const event = r.dimensionValues[0].value
+    const region = r.dimensionValues[1].value
+    if (!map.has(event)) map.set(event, { event, notset: 0, unset: 0, cht: 0, intl: 0 })
+    const row = map.get(event)
+    const count = Number(r.metricValues[0].value)
+    if (region === '(not set)') row.notset += count
+    else if (region === 'unset') row.unset += count
+    else if (region === 'cht') row.cht += count
+    else if (region === 'intl') row.intl += count
+  }
+  return [...map.values()]
 }
 
 if (CLI.snapshot) {
