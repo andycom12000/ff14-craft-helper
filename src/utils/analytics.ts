@@ -11,7 +11,10 @@ const MEASUREMENT_ID = 'G-SLTFWP4D5S'
 
 function send(eventName: string, params?: GtagParams) {
   if (typeof window === 'undefined' || typeof window.gtag !== 'function') return
-  window.gtag('event', eventName, params)
+  window.gtag('event', eventName, {
+    page_location: `${window.location.origin}${window.location.pathname}${window.location.hash}`,
+    ...params,
+  })
 }
 
 export function trackPageView(path: string, title?: string) {
