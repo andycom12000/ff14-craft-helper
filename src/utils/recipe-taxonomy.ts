@@ -3,15 +3,15 @@
  *
  * Derives a stable, analytics-friendly taxonomy from a Recipe object.
  *
- * Field mapping notes (actual Recipe type vs. GA spec assumptions):
- *   - spec `rlv`               → Recipe.recipeLevelTable.classJobLevel
- *   - spec `stars`             → Recipe.stars  (exists)
- *   - spec `isExpert`          → Recipe.isExpert  (exists, optional)
- *   - spec `requiresSpecialist`→ NOT on Recipe → always false
- *   - spec `isCollectable`     → NOT on Recipe → always false
- *   - spec `craftType`         → NOT on Recipe (craftType int is RecipeRecord-only);
- *                                 craft_kind derived from Recipe.isExpert
- *   - spec `category`          → NOT on Recipe → always 'misc'
+ * Field mapping (after data pipeline enrichment 2026-05-19):
+ *   - spec `rlv`                → Recipe.recipeLevelTable.classJobLevel
+ *   - spec `stars`              → Recipe.stars
+ *   - spec `isExpert`           → Recipe.isExpert
+ *   - spec `requires_specialist`→ Recipe.requiresSpecialist (build-time-derived)
+ *   - spec `is_collectable`     → Recipe.isCollectable (from result Item)
+ *   - spec `craft_kind`         → Recipe.craftKind (build-time-derived)
+ *   - spec `category`           → looked up by CALLER from Item.category;
+ *                                 this util defaults to 'misc'
  */
 
 import type { Recipe } from '@/stores/recipe'
@@ -25,12 +25,10 @@ export interface RecipeTaxonomy {
   rlv: number
   stars: number
   is_expert: boolean
-  /** Always false — Recipe type has no requiresSpecialist field. */
   requires_specialist: boolean
-  /** Always false — Recipe type has no isCollectable field. */
   is_collectable: boolean
   craft_kind: CraftKind
-  /** Always 'misc' — Recipe type has no item-category field. */
+  /** Always 'misc' — category lives on Item, not Recipe; caller overrides from item lookup. */
   category: RecipeCategory
   expected_action_count_bucket: ActionCountBucket
 }
@@ -42,28 +40,18 @@ function bucketActionCount(count: number | undefined | null): ActionCountBucket 
   return 'long'
 }
 
-/**
- * Derives a craft_kind from the Recipe.
- * Since the Recipe type does not carry a craftType integer, we infer:
- *   - isExpert === true  → 'expert'
- *   - otherwise          → 'normal'
- */
-function deriveCraftKind(r: Partial<Recipe>): CraftKind {
-  if (r.isExpert === true) return 'expert'
-  return 'normal'
-}
-
 export function computeRecipeTaxonomy(recipe: Recipe, actionCount?: number): RecipeTaxonomy {
-  // Use Partial to be defensive — partial/mock recipes may omit optional fields.
   const r = recipe as Partial<Recipe>
-
   return {
     rlv: r.recipeLevelTable?.classJobLevel ?? 0,
     stars: typeof r.stars === 'number' ? r.stars : 0,
     is_expert: r.isExpert === true,
-    requires_specialist: false,
-    is_collectable: false,
-    craft_kind: deriveCraftKind(r),
+    requires_specialist: r.requiresSpecialist === true,
+    is_collectable: r.isCollectable === true,
+    craft_kind: r.craftKind ?? 'normal',
+    // category lives on Item, not Recipe — caller looks it up separately.
+    // We keep 'misc' here so the flat-event helper has a stable key.
+    // Tasks 6 / 9 (recipe_select / bom_target_add) override this from item lookup.
     category: 'misc',
     expected_action_count_bucket: bucketActionCount(actionCount),
   }
