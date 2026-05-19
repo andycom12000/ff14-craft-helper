@@ -36,6 +36,7 @@ export const useThemeStore = defineStore('theme', () => {
       // private mode / quota — non-critical
     }
     trackEvent('theme_change', { mode: m })
+    import('@/utils/user-properties').then(({ syncFromStores }) => syncFromStores())
   }
 
   function toggle() {

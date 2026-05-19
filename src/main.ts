@@ -48,6 +48,11 @@ useThemeStore()
 
 app.mount('#app')
 
+// User properties: sync once after Pinia stores hydrate.
+import('@/utils/user-properties').then(({ syncFromStores }) => {
+  syncFromStores()
+})
+
 registerWebVitals()
 
 // Canary: GitHub Pages COOP/COEP headers should keep us isolated. If they

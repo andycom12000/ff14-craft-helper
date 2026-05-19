@@ -1,4 +1,7 @@
 import { setUserProperty } from '@/utils/analytics'
+import { useSettingsStore } from '@/stores/settings'
+import { useGearsetsStore } from '@/stores/gearsets'
+import { useThemeStore } from '@/stores/theme'
 
 export type MarketRegion = 'cht' | 'intl' | 'unset'
 export type ViewportBucket = 'wide' | 'standard' | 'narrow'
@@ -58,4 +61,22 @@ export function syncUserProperties(snapshot: UserPropertySnapshot): void {
   setUserProperty('viewport_bucket', computeViewportBucket(snapshot.viewportWidth))
   setUserProperty('device_class', computeDeviceClass(snapshot.userAgent))
   setUserProperty('pwa_standalone', snapshot.pwaStandalone)
+}
+
+// Convenience wrapper that pulls live state from stores. Called by main.ts
+// after Pinia is mounted, and re-called by individual store mutations.
+export function syncFromStores(): void {
+  if (typeof window === 'undefined') return
+  const settings = useSettingsStore()
+  const gearsets = useGearsetsStore()
+  const theme = useThemeStore()
+
+  syncUserProperties({
+    region: settings.region,
+    gearsets: gearsets.gearsets as Record<string, GearsetLike>,
+    themeMode: theme.mode === 'dark' ? 'dark' : 'light',
+    viewportWidth: window.innerWidth,
+    userAgent: navigator.userAgent,
+    pwaStandalone: window.matchMedia?.('(display-mode: standalone)').matches ?? false,
+  })
 }

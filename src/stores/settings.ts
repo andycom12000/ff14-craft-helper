@@ -46,6 +46,7 @@ export const useSettingsStore = defineStore('settings', () => {
   function setRegion(v: string) {
     const prev = region.value; if (prev === v) return
     region.value = v; emitSettingsChange('region', prev, v)
+    import('@/utils/user-properties').then(({ syncFromStores }) => syncFromStores())
   }
   function setPriceDisplayMode(v: PriceDisplayMode) {
     const prev = priceDisplayMode.value; if (prev === v) return

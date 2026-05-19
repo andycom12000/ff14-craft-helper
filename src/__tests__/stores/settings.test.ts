@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 
 vi.mock('@/utils/analytics', () => ({ trackEvent: vi.fn() }))
+vi.mock('@/utils/user-properties', () => ({ syncFromStores: vi.fn() }))
 import { trackEvent } from '@/utils/analytics'
 import { useSettingsStore } from '@/stores/settings'
 
