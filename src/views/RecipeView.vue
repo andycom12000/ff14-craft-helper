@@ -48,7 +48,7 @@ function handleUseInSimulator() {
 
 function handleAddToBatch() {
   if (selectedRecipe.value) {
-    batchStore.addTarget(selectedRecipe.value)
+    batchStore.addRecipe(selectedRecipe.value, 1, 'search')
     ElMessage.success(`已加入批量：${selectedRecipe.value.name}`)
   }
 }

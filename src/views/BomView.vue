@@ -214,8 +214,7 @@ async function handleSendToBatch() {
       craftableTargets.map((t) => getRecipe(t.recipeId)),
     )
     for (let i = 0; i < recipes.length; i++) {
-      batchStore.addTarget(recipes[i])
-      batchStore.updateQuantity(craftableTargets[i].recipeId, craftableTargets[i].quantity)
+      batchStore.addRecipe(recipes[i], craftableTargets[i].quantity, 'cross_page_send')
     }
     const skipped = bomStore.targets.length - craftableTargets.length
     trackEvent('bom_send_to_batch', {

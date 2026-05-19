@@ -10,6 +10,8 @@ import { trackEvent } from '@/utils/analytics'
 
 export type { ShoppingItem, ServerGroup, CrystalSummary }
 
+export type BatchAddMethod = 'search' | 'paste_teamcraft' | 'queue_import' | 'favorite' | 'cross_page_send'
+
 export interface BatchTarget {
   recipe: Recipe
   quantity: number
@@ -219,6 +221,39 @@ export const useBatchStore = defineStore('batch', () => {
     } else {
       targets.value.push({ recipe, quantity: 1 })
     }
+  }
+
+  function addRecipe(recipe: Recipe, quantity: number = 1, method: BatchAddMethod = 'search') {
+    const existing = targets.value.find(t => t.recipe.id === recipe.id)
+    if (existing) {
+      existing.quantity += quantity
+    } else {
+      targets.value.push({ recipe, quantity })
+    }
+    trackEvent('batch_add_recipe', {
+      recipe_id: recipe.id,
+      method,
+      target_count: targets.value.length,
+    })
+  }
+
+  function recordOptimizationStart() {
+    const rlvs = targets.value
+      .map(t => t.recipe?.recipeLevelTable?.classJobLevel ?? 0)
+      .filter(v => v > 0)
+    const starsMax = Math.max(0, ...targets.value.map(t => t.recipe?.stars ?? 0))
+    const jobs = new Set(targets.value.map(t => t.recipe?.job).filter(Boolean))
+    trackEvent('batch_optimization_start', {
+      target_count: targets.value.length,
+      total_quantity: targets.value.reduce((sum, t) => sum + t.quantity, 0),
+      calc_mode: calcMode.value,
+      targets_rlv_min: rlvs.length ? Math.min(...rlvs) : 0,
+      targets_rlv_max: rlvs.length ? Math.max(...rlvs) : 0,
+      targets_stars_max: starsMax,
+      has_expert_in_batch: targets.value.some(t => t.recipe?.isExpert === true),
+      has_collectable_in_batch: targets.value.some(t => t.recipe?.isCollectable === true),
+      unique_jobs_in_batch: jobs.size,
+    })
   }
 
   function removeTarget(recipeId: number) {
@@ -494,6 +529,8 @@ export const useBatchStore = defineStore('batch', () => {
     shoppingCheckedCount,
     allShoppingDone,
     addTarget,
+    addRecipe,
+    recordOptimizationStart,
     removeTarget,
     updateQuantity,
     reorderTargets,
