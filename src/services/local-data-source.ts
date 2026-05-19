@@ -224,12 +224,14 @@ export async function loadItems(locale?: Locale): Promise<Map<number, ItemRecord
       }
       const map = new Map<number, ItemRecord>()
       for (const tuple of data.items as ItemTuple[]) {
-        const [id, name, level, canBeHq, iconId] = tuple
+        const [id, name, level, canBeHq, iconId, isCollectable, category] = tuple
         map.set(id, {
           name: overrides.get(id) ?? name,
           level,
           canBeHq: canBeHq === 1,
           iconId,
+          isCollectable: isCollectable === 1,
+          category,
         })
       }
       itemsCache.set(loc, map)
@@ -271,8 +273,8 @@ export async function loadExtraItems(locale: Locale): Promise<Map<number, ItemRe
       }
       const map = new Map<number, ItemRecord>()
       for (const tuple of data.items as ItemTuple[]) {
-        const [id, name, level, canBeHq, iconId] = tuple
-        map.set(id, { name, level, canBeHq: canBeHq === 1, iconId })
+        const [id, name, level, canBeHq, iconId, isCollectable, category] = tuple
+        map.set(id, { name, level, canBeHq: canBeHq === 1, iconId, isCollectable: isCollectable === 1, category })
       }
       extraItemsCache.set(locale, map)
       itemsCacheVersion.value++

@@ -8,15 +8,15 @@ function makeItemsFile(items: ItemTuple[]) {
 }
 
 const ITEMS_ZH_TW: ItemTuple[] = [
-  [5057, '黑鐵錠', 11, 1, 20001],
-  [5058, '銅錠', 6, 1, 20002],
-  [5059, '亞麻布', 13, 1, 20003],
+  [5057, '黑鐵錠', 11, 1, 20001, 0, 'material'],
+  [5058, '銅錠', 6, 1, 20002, 0, 'material'],
+  [5059, '亞麻布', 13, 1, 20003, 0, 'material'],
 ]
 
 const ITEMS_EN: ItemTuple[] = [
-  [5057, 'Iron Ingot', 11, 1, 20001],
+  [5057, 'Iron Ingot', 11, 1, 20001, 0, 'material'],
   // Note: 5058 intentionally missing from EN to test fallback
-  [5059, 'Linen', 13, 1, 20003],
+  [5059, 'Linen', 13, 1, 20003, 0, 'material'],
 ]
 
 const RECIPES = [
@@ -391,8 +391,8 @@ describe('local-data-source: searchRecipesByName', () => {
     const { impl } = makeFetchMock({
       items: {
         en: makeItemsFile([
-          [7001, 'ABC Widget', 10, 1, 1],
-          [7002, 'xyz Gadget', 10, 1, 2],
+          [7001, 'ABC Widget', 10, 1, 1, 0, 'material'],
+          [7002, 'xyz Gadget', 10, 1, 2, 0, 'material'],
         ]),
       },
       recipes: [
@@ -424,8 +424,8 @@ describe('local-data-source: searchRecipesByName', () => {
     const { impl } = makeFetchMock({
       items: {
         en: makeItemsFile([
-          [8001, 'foo-bar', 50, 1, 1], // includes "bar"
-          [8002, 'bar-baz', 40, 1, 2], // startsWith "bar"
+          [8001, 'foo-bar', 50, 1, 1, 0, 'material'], // includes "bar"
+          [8002, 'bar-baz', 40, 1, 2, 0, 'material'], // startsWith "bar"
         ]),
       },
       recipes: [
@@ -472,7 +472,7 @@ describe('local-data-source: searchRecipesByName', () => {
     // 80 items all starting with "ore", 80 recipes
     for (let i = 0; i < 80; i++) {
       const id = 10000 + i
-      items.push([id, `ore-${i}`, 50 - i, 1, 1])
+      items.push([id, `ore-${i}`, 50 - i, 1, 1, 0, 'material'])
       recipes.push({
         id: 50000 + i,
         itemResult: id,
@@ -507,7 +507,7 @@ describe('local-data-source: searchRecipesByName', () => {
     // first 50 results would all fail an rlv>=300 filter and return [].
     for (let i = 0; i < 80; i++) {
       const id = 10000 + i
-      items.push([id, `ore-${i}`, 500 - i, 1, 1])
+      items.push([id, `ore-${i}`, 500 - i, 1, 1, 0, 'material'])
       recipes.push({
         id: 50000 + i,
         itemResult: id,
