@@ -46,6 +46,32 @@ useLocaleStore()
 // guard in index.html that runs even earlier to avoid a light->dark flash).
 useThemeStore()
 
+// time_to_first_action: log the timestamp of the first user-meaningful event in a session.
+const TTFA_KEY = 'ff14ch.ttfa_sent'
+const AUTO_EVENTS = new Set([
+  'page_view', 'session_start', 'first_visit',
+  'user_engagement', 'scroll', 'web_vitals', 'exception',
+])
+
+if (typeof window !== 'undefined' && !sessionStorage.getItem(TTFA_KEY)) {
+  const startedAt = performance.now()
+  const originalGtag = window.gtag
+  if (typeof originalGtag === 'function') {
+    window.gtag = function (...args: unknown[]) {
+      const [cmd, name] = args as [string, string, ...unknown[]]
+      if (cmd === 'event' && name && !AUTO_EVENTS.has(name) && !sessionStorage.getItem(TTFA_KEY)) {
+        sessionStorage.setItem(TTFA_KEY, '1')
+        const duration = Math.round(performance.now() - startedAt)
+        originalGtag('event', 'time_to_first_action', {
+          duration_ms_since_load: duration,
+          first_event_name: name,
+        })
+      }
+      return originalGtag.apply(window, args)
+    } as typeof window.gtag
+  }
+}
+
 app.mount('#app')
 
 // User properties: sync once after Pinia stores hydrate.
