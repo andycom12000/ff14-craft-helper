@@ -1,7 +1,7 @@
 import type { RecipeLevelTable, Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 import type { FoodBuff } from '@/engine/food-medicine'
-import { applyBuffsToStats } from '@/engine/food-medicine'
+import { gearsetToBuffedStats } from '@/services/stat-stacking'
 
 // Derived from raphael-sim/src/actions.rs:46-47 and effects.rs:70-80.
 // Whole-phase upper bound — empirically matches what raphael-solver can
@@ -28,10 +28,8 @@ export function canReachHQQuality(
   gearset: GearsetStats,
   buffs?: { food: FoodBuff | null; medicine: FoodBuff | null },
 ): boolean {
-  const stats = applyBuffsToStats(
-    { craftsmanship: gearset.craftsmanship, control: gearset.control, cp: gearset.cp },
-    buffs,
-  )
+  // Canonical stacking order (ADR 0001): Soul → food → medicine.
+  const stats = gearsetToBuffedStats(gearset, buffs)
   const baseQuality = computeBaseQuality(stats.control, gearset.level, recipe.recipeLevelTable)
   const maxQualitySteps = Math.floor(stats.cp / AVG_QUALITY_CP_COST)
   const maxAchievable = baseQuality * QUALITY_PHASE_UPPER_BOUND_MULTIPLIER * maxQualitySteps * MARGIN
