@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { trackEvent } from '@/utils/analytics'
+import { emitLargeQueueInSimulator } from '@/composables/useFunnelMisuseDetector'
 import { useMilestonesStore } from '@/stores/milestones'
 import { computeRecipeTaxonomy, flattenTaxonomyForEvent } from '@/utils/recipe-taxonomy'
 
@@ -67,6 +68,11 @@ export interface Recipe {
 export const useRecipeStore = defineStore('recipe', () => {
   const currentRecipe = ref<Recipe | null>(null)
   const simulationQueue = ref<Recipe[]>([])
+
+  watch(
+    () => simulationQueue.value.length,
+    (len) => emitLargeQueueInSimulator(len),
+  )
 
   function setRecipe(recipe: Recipe, source: RecipeOpenSource = 'unknown') {
     currentRecipe.value = recipe

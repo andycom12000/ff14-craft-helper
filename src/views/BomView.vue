@@ -23,6 +23,7 @@ import type { CompanyCraftSequence } from '@/services/local-data-source.types'
 import { buildMaterialTree, flattenMaterialTree } from '@/services/bom-calculator'
 import { getRecipe } from '@/api/xivapi'
 import { trackEvent } from '@/utils/analytics'
+import { emitBomWithoutQuantity } from '@/composables/useFunnelMisuseDetector'
 
 const bomStore = useBomStore()
 const batchStore = useBatchStore()
@@ -115,6 +116,7 @@ async function handleCalculate() {
     target_count: bomStore.targets.length,
     non_craftable_count: nonCraftableCount.value,
   })
+  emitBomWithoutQuantity({ targets: bomStore.targets })
 
   calculating.value = true
   // Re-running calc starts a fresh section-collapse state — any "i'd

@@ -7,6 +7,7 @@ import type { WorldPriceSummary } from '@/api/universalis'
 import type { FoodBuff } from '@/engine/food-medicine'
 import { cancelSolve } from '@/solver/worker'
 import { trackEvent } from '@/utils/analytics'
+import { emitSingleRecipeInBatch } from '@/composables/useFunnelMisuseDetector'
 
 export type { ShoppingItem, ServerGroup, CrystalSummary }
 
@@ -254,6 +255,10 @@ export const useBatchStore = defineStore('batch', () => {
       has_expert_in_batch: targets.value.some(t => t.recipe?.isExpert === true),
       has_collectable_in_batch: targets.value.some(t => t.recipe?.isCollectable === true),
       unique_jobs_in_batch: jobs.size,
+    })
+    emitSingleRecipeInBatch({
+      target_count: targets.value.length,
+      total_quantity: targets.value.reduce((sum, t) => sum + t.quantity, 0),
     })
   }
 
