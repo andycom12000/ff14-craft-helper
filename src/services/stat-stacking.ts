@@ -1,6 +1,6 @@
 import type { GearsetStats } from '@/stores/gearsets'
 import type { FoodBuff, EnhancedStats } from '@/engine/food-medicine'
-import { applyFoodBuff, applyMedicineBuff } from '@/engine/food-medicine'
+import { applyBuffsToStats } from '@/engine/food-medicine'
 import { applyCrafterSoulBonus } from '@/services/specialist-state'
 
 /**
@@ -25,6 +25,5 @@ export function gearsetToBuffedStats(
     control: withSoul.control,
     cp: withSoul.cp,
   }
-  if (!buffs) return base
-  return applyMedicineBuff(applyFoodBuff(base, buffs.food), buffs.medicine)
+  return applyBuffsToStats(base, buffs)
 }
