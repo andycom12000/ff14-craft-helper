@@ -141,6 +141,13 @@ export function scaleForNq(buff: FoodBuff): FoodBuff {
 
 /**
  * Apply food and medicine buffs to base stats.
+ *
+ * NOTE: This helper does NOT apply the Soul of the Crafter (+20/+20/+15)
+ * bonus. Non-test callers that take a `GearsetStats` should use
+ * `gearsetToBuffedStats` from `@/services/stat-stacking` instead — see
+ * docs/adr/0001-stat-stacking-order.md. Direct use of this function on a
+ * raw gearset will silently drop the specialist Soul bonus.
+ *
  * Applies food buff first, then medicine buff, in sequence.
  */
 export function applyBuffsToStats(

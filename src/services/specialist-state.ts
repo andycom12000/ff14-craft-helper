@@ -74,6 +74,12 @@ export function canUseSpecialistAction(
  * craftsmanship / control / cp when `isSpecialist` is true. When false,
  * returns a shallow copy with the same stats — never the input reference,
  * so callers can mutate freely.
+ *
+ * Most callers should NOT use this directly — go through
+ * `gearsetToBuffedStats` (or `recipeToCraftParams(recipe, gearset, buffs)`)
+ * which composes Soul + food + medicine in the canonical order (ADR 0001).
+ * This function is exported only for that helper and for the simulator's
+ * inline FoodMedicine widget, which composes the sequence explicitly.
  */
 export function applyCrafterSoulBonus(gearset: GearsetStats): GearsetStats {
   if (!gearset.isSpecialist) {
