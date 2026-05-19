@@ -1,4 +1,5 @@
 import { trackEvent } from '@/utils/analytics'
+import { emitApiFailure } from '@/utils/api-failure'
 
 const BASE_URL = 'https://universalis.app/api/v2'
 const REQUEST_TIMEOUT_MS = 20000
@@ -119,6 +120,7 @@ async function fetchUniversalis<T>(
       break
     }
   }
+  emitApiFailure('universalis', `${BASE_URL}/${path}`, finalStatus, MAX_RETRIES)
   if (tracking) {
     trackEvent('universalis_fetch', {
       server: tracking.server,
