@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useLocaleStore } from '@/stores/locale'
 import type { Locale } from '@/services/local-data-source.types'
 import { emitSettingsChange } from '@/utils/settings-change'
+import { trackEvent } from '@/utils/analytics'
 
 export type PriceDisplayMode = 'nq' | 'hq' | 'minOf'
 
@@ -45,7 +46,16 @@ export const useSettingsStore = defineStore('settings', () => {
   }
   function setRegion(v: string) {
     const prev = region.value; if (prev === v) return
-    region.value = v; emitSettingsChange('region', prev, v)
+    region.value = v
+    emitSettingsChange('region', prev, v)
+    if (prev === '' && v !== '') {
+      import('@/utils/user-properties').then(({ inferMarketRegion }) => {
+        trackEvent('region_resolution', {
+          from_default: false,
+          market_region: inferMarketRegion(v),
+        })
+      })
+    }
     import('@/utils/user-properties').then(({ syncFromStores }) => syncFromStores())
   }
   function setPriceDisplayMode(v: PriceDisplayMode) {
