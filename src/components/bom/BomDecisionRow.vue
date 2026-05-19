@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { ElSkeletonItem } from 'element-plus'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { ElButton, ElMessage, ElSkeletonItem } from 'element-plus'
+import { DocumentCopy } from '@element-plus/icons-vue'
 import { useBomStore } from '@/stores/bom'
 import { useSettingsStore } from '@/stores/settings'
 import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
+import { useItemName } from '@/composables/useItemName'
 import { getPrice, type AcquisitionSource } from '@/stores/bom'
 import ItemName from '@/components/common/ItemName.vue'
 import GilDisplay from '@/components/common/GilDisplay.vue'
@@ -179,6 +181,40 @@ function onRowClick() {
   if (!isRowToggleable.value) return
   bom.toggleRowExpanded(props.itemId)
 }
+
+// Click-to-copy item name. The row click stays as expand; @click.stop on the
+// copy surfaces isolates the two interactions.
+const displayedName = useItemName(() => props.itemId)
+const copyLabel = computed(() => displayedName.value || props.name)
+const copyAria = computed(() => `複製品名：${copyLabel.value}`)
+const copyHint = computed(() => `點一下複製品名：${copyLabel.value}`)
+const isFlashing = ref(false)
+let flashTimer: ReturnType<typeof setTimeout> | null = null
+
+async function copyName() {
+  // Flash window doubles as a debounce: rapid double-clicks (common on
+  // touch where one tap can register twice) would otherwise stack toasts.
+  if (isFlashing.value) return
+  const text = copyLabel.value
+  // Flash optimistically so the user sees feedback before the clipboard
+  // permission prompt resolves on browsers that gate writeText.
+  isFlashing.value = true
+  if (flashTimer) clearTimeout(flashTimer)
+  flashTimer = setTimeout(() => {
+    isFlashing.value = false
+    flashTimer = null
+  }, 300)
+  try {
+    await navigator.clipboard.writeText(text)
+    ElMessage({ message: `已複製「${text}」`, type: 'success', duration: 1500 })
+  } catch {
+    ElMessage({ message: '複製失敗', type: 'error', duration: 1500 })
+  }
+}
+
+onBeforeUnmount(() => {
+  if (flashTimer) clearTimeout(flashTimer)
+})
 </script>
 
 <template>
@@ -206,8 +242,17 @@ function onRowClick() {
       class="dec-row__icon"
     />
 
-    <div class="dec-row__name">
-      <ItemName :item-id="itemId" :fallback="name" />
+    <div class="dec-row__name" :class="{ 'is-flashing': isFlashing }">
+      <span
+        class="dec-row__name-text"
+        role="button"
+        tabindex="0"
+        :aria-label="copyAria"
+        :title="copyHint"
+        @click.stop="copyName"
+        @keydown.enter.prevent.stop="copyName"
+        @keydown.space.prevent.stop="copyName"
+      ><ItemName :item-id="itemId" :fallback="name" /></span>
       <span
         v-if="showCrossWorld && crossWorldEntry"
         class="bdr__cross-pill"
@@ -240,6 +285,17 @@ function onRowClick() {
       >
         跨服無掛單
       </span>
+      <ElButton
+        :icon="DocumentCopy"
+        size="small"
+        text
+        class="dec-row__copy-btn"
+        :aria-label="copyAria"
+        :title="copyAria"
+        @click.stop="copyName"
+        @keydown.enter.stop="copyName"
+        @keydown.space.stop="copyName"
+      />
     </div>
 
     <div class="dec-row__qty">×{{ amount }}</div>
@@ -390,9 +446,81 @@ function onRowClick() {
   font-weight: 500;
   color: var(--app-text);
   overflow: hidden;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: 4px;
+  /* Negative margin cancels the inset so the flash glow extends to the
+   * grid cell edges without nudging neighbours on layout. */
+  padding: 2px 4px;
+  margin: -2px -4px;
+  transition: background-color 0.3s var(--ease-out-quart, ease-out);
+}
+
+.dec-row__name-text {
+  cursor: pointer;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  border-radius: 4px;
+  transition: color 0.15s var(--ease-out-quart, ease-out);
+}
+
+.dec-row__name-text:hover {
+  color: var(--app-craft);
+}
+
+.dec-row__name-text:focus-visible {
+  outline: 2px solid var(--app-craft);
+  outline-offset: 2px;
+}
+
+/* Hidden at rest; revealed on row hover OR focus-within so keyboard
+ * navigators get the affordance without having to guess. */
+.dec-row__copy-btn {
+  opacity: 0;
+  margin-left: 2px;
+  height: 22px;
+  min-height: 22px;
+  width: 22px;
+  padding: 0;
+  color: var(--app-text-muted);
+  flex-shrink: 0;
+  transition: opacity 0.15s var(--ease-out-quart, ease-out),
+    color 0.15s var(--ease-out-quart, ease-out);
+}
+
+.dec-row:hover .dec-row__copy-btn,
+.dec-row:focus-within .dec-row__copy-btn {
+  opacity: 1;
+}
+
+.dec-row__copy-btn:hover {
+  color: var(--app-craft);
+  background: color-mix(in srgb, var(--app-craft) 12%, transparent);
+}
+
+.dec-row__copy-btn:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--app-craft);
+  outline-offset: 2px;
+}
+
+.dec-row__name.is-flashing {
+  background-color: var(--app-accent-glow);
+}
+
+/* Touch devices can't hover; reveal the button at all times and grow
+ * it to a 32px touch target. */
+@media (hover: none) {
+  .dec-row__copy-btn {
+    opacity: 1;
+    width: 32px;
+    height: 32px;
+    min-height: 32px;
+  }
 }
 
 .dec-row.is-nested .dec-row__name {
