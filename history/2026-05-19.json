@@ -1,0 +1,2445 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-05-19T23:36:53.962Z",
+  "propertyId": "527587379",
+  "windows": {
+    "7d": {
+      "window": {
+        "days": 7,
+        "startDate": "2026-05-12",
+        "endDate": "2026-05-19"
+      },
+      "glance": {
+        "activeUsers": {
+          "total": 1066,
+          "new": 662,
+          "returning": 318,
+          "returningPct": 0.29831144465290804
+        },
+        "solver": {
+          "starts": 5457,
+          "completes": 5342,
+          "fails": 84,
+          "completePct": 0.978926149899212
+        },
+        "batch": {
+          "starts": 787,
+          "completes": 698,
+          "fails": 73,
+          "cancelled": 4,
+          "completePct": 0.8869123252858958
+        },
+        "bom": {
+          "calculates": 237,
+          "sentToBatch": 19,
+          "handoffPct": 0.08016877637130802
+        },
+        "infra": {
+          "sabUnavailable": 439,
+          "wasmLoadFailed": 18
+        }
+      },
+      "pages": [
+        {
+          "path": "/",
+          "title": "吐司工坊",
+          "family": "core",
+          "views": 1842,
+          "users": 730,
+          "sessions": 1092,
+          "engagement": 0.8113553113553114,
+          "bounce": 0.18864468864468864,
+          "avgSession": 5.197802197802198
+        },
+        {
+          "path": "/batch",
+          "title": "批量製作",
+          "family": "craft",
+          "views": 1700,
+          "users": 458,
+          "sessions": 876,
+          "engagement": 0.8344748858447488,
+          "bounce": 0.16552511415525115,
+          "avgSession": 15.689497716894977
+        },
+        {
+          "path": "/gearset",
+          "title": "配裝管理",
+          "family": "craft",
+          "views": 1286,
+          "users": 423,
+          "sessions": 768,
+          "engagement": 0.8515625,
+          "bounce": 0.1484375,
+          "avgSession": 15.686197916666666
+        },
+        {
+          "path": "/simulator",
+          "title": "製作模擬",
+          "family": "craft",
+          "views": 1235,
+          "users": 341,
+          "sessions": 693,
+          "engagement": 0.8253968253968254,
+          "bounce": 0.1746031746031746,
+          "avgSession": 15.375180375180376
+        },
+        {
+          "path": "/bom",
+          "title": "購物清單",
+          "family": "craft",
+          "views": 829,
+          "users": 311,
+          "sessions": 482,
+          "engagement": 0.8298755186721992,
+          "bounce": 0.17012448132780084,
+          "avgSession": 15.70954356846473
+        },
+        {
+          "path": "/timer",
+          "title": "採集計時器",
+          "family": "gather",
+          "views": 272,
+          "users": 160,
+          "sessions": 221,
+          "engagement": 0.8778280542986425,
+          "bounce": 0.12217194570135746,
+          "avgSession": 9.515837104072398
+        },
+        {
+          "path": "/company-craft",
+          "title": "部隊工坊",
+          "family": "company",
+          "views": 248,
+          "users": 108,
+          "sessions": 137,
+          "engagement": 0.8686131386861314,
+          "bounce": 0.13138686131386862,
+          "avgSession": 15.408759124087592
+        },
+        {
+          "path": "/settings",
+          "title": "設定",
+          "family": "meta",
+          "views": 175,
+          "users": 110,
+          "sessions": 134,
+          "engagement": 0.8432835820895522,
+          "bounce": 0.15671641791044777,
+          "avgSession": 17.097014925373134
+        },
+        {
+          "path": "/changelog",
+          "title": "更新日誌",
+          "family": "meta",
+          "views": 111,
+          "users": 81,
+          "sessions": 94,
+          "engagement": 0.925531914893617,
+          "bounce": 0.07446808510638298,
+          "avgSession": 18.76595744680851
+        },
+        {
+          "path": "/company-craft",
+          "title": "吐司工坊 - FFXIV 製作助手｜製作模擬器與批量製作工具",
+          "family": "company",
+          "views": 6,
+          "users": 1,
+          "sessions": 1,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 0
+        },
+        {
+          "path": "/recipe",
+          "title": "吐司工坊 - FFXIV 製作助手｜製作模擬器與批量製作工具",
+          "family": "meta",
+          "views": 1,
+          "users": 1,
+          "sessions": 1,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 0
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "[Human] [LLM] 吐司工坊 - FFXIV 製作助手｜製作模擬器與批量製作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 1,
+          "sessions": 1,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 2431
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "[LLM] 吐司工坊 - FFXIV 製作助手｜製作模擬器與批量製作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 1,
+          "sessions": 1,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 2438
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "吐司工坊 - FFXIV 制作助手|制作模拟器与批量制作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 1,
+          "sessions": 9,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 183.88888888888889
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "吐司工坊 - FFXIV 製作助手｜製作模擬器與批次製作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 4,
+          "sessions": 6,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 60.333333333333336
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "吐司工坊 - FFXIV 製作助手｜製作模擬器與批量製作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 805,
+          "sessions": 2133,
+          "engagement": 0.6549460853258322,
+          "bounce": 0.34505391467416785,
+          "avgSession": 92.48382559774964
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "吐司工坊 - FFXIV 製作助手｜製作模擬器與批量製作工具                     - HVKeyboard Hide",
+          "family": "meta",
+          "views": 0,
+          "users": 1,
+          "sessions": 1,
+          "engagement": 0,
+          "bounce": 1,
+          "avgSession": 23
+        }
+      ],
+      "channels": [
+        {
+          "channel": "Referral",
+          "source": "ref.gamer.com.tw",
+          "sessions": 1431,
+          "users": 497,
+          "engagement": 0.6834381551362684
+        },
+        {
+          "channel": "Direct",
+          "source": "(direct)",
+          "sessions": 646,
+          "users": 292,
+          "engagement": 0.6207430340557275
+        },
+        {
+          "channel": "Unassigned",
+          "source": "(not set)",
+          "sessions": 217,
+          "users": 151,
+          "engagement": 0
+        },
+        {
+          "channel": "Referral",
+          "source": "github.com",
+          "sessions": 22,
+          "users": 3,
+          "engagement": 0.6363636363636364
+        },
+        {
+          "channel": "Organic Search",
+          "source": "cn.bing.com",
+          "sessions": 6,
+          "users": 2,
+          "engagement": 0.8333333333333334
+        },
+        {
+          "channel": "Organic Social",
+          "source": "plurk.com",
+          "sessions": 6,
+          "users": 1,
+          "engagement": 1
+        },
+        {
+          "channel": "Organic Search",
+          "source": "google",
+          "sessions": 4,
+          "users": 1,
+          "engagement": 0.5
+        },
+        {
+          "channel": "Referral",
+          "source": "gamer.com.tw",
+          "sessions": 3,
+          "users": 2,
+          "engagement": 0.3333333333333333
+        },
+        {
+          "channel": "Organic Search",
+          "source": "tw.search.yahoo.com",
+          "sessions": 1,
+          "users": 1,
+          "engagement": 1
+        },
+        {
+          "channel": "Organic Social",
+          "source": "facebook.com",
+          "sessions": 1,
+          "users": 1,
+          "engagement": 1
+        },
+        {
+          "channel": "Referral",
+          "source": "now.gamer.com.tw",
+          "sessions": 1,
+          "users": 1,
+          "engagement": 1
+        }
+      ],
+      "solverFunnel": [
+        {
+          "step": "solver_start",
+          "count": 5457,
+          "tone": "neutral"
+        },
+        {
+          "step": "solver_complete",
+          "count": 5342,
+          "tone": "success"
+        },
+        {
+          "step": "solver_failed",
+          "count": 84,
+          "tone": "danger"
+        }
+      ],
+      "batchFunnel": [
+        {
+          "step": "add → start",
+          "count": 787,
+          "tone": "neutral"
+        },
+        {
+          "step": "batch_complete",
+          "count": 698,
+          "tone": "success"
+        },
+        {
+          "step": "batch_failed",
+          "count": 73,
+          "tone": "danger"
+        },
+        {
+          "step": "batch_cancelled",
+          "count": 4,
+          "tone": "warn"
+        }
+      ],
+      "simulatorFunnel": {
+        "entry": {
+          "label": "/simulator page_view",
+          "count": 1235,
+          "users": 341
+        },
+        "macroCopy": {
+          "label": "solver_macro_copy",
+          "count": 22,
+          "users": 5
+        },
+        "globalContext": [
+          {
+            "label": "recipe_select (any page)",
+            "count": 1463
+          },
+          {
+            "label": "solver_start (any page)",
+            "count": 5457
+          },
+          {
+            "label": "solver_complete (any page)",
+            "count": 5342
+          }
+        ]
+      },
+      "failures": [
+        {
+          "event": "batch",
+          "reason": "Universalis request failed: 404 ",
+          "count": 45
+        },
+        {
+          "event": "solver",
+          "reason": "找不到可行的製作方案，請確認裝備數值與配方是否正確",
+          "count": 42
+        },
+        {
+          "event": "solver",
+          "reason": "求解已取消",
+          "count": 28
+        },
+        {
+          "event": "batch",
+          "reason": "Failed to fetch",
+          "count": 21
+        },
+        {
+          "event": "wasm",
+          "reason": "The object can not be cloned.",
+          "count": 18
+        },
+        {
+          "event": "solver",
+          "reason": "WASM 求解器尚未初始化完成",
+          "count": 12
+        },
+        {
+          "event": "batch",
+          "reason": "The object can not be cloned.",
+          "count": 6
+        },
+        {
+          "event": "solver",
+          "reason": "unreachable",
+          "count": 2
+        },
+        {
+          "event": "batch",
+          "reason": "Universalis 查詢逾時 (20s)",
+          "count": 1
+        }
+      ],
+      "vitals": [
+        {
+          "metric": "INP",
+          "good": 1862,
+          "ni": 203,
+          "poor": 32
+        },
+        {
+          "metric": "TTFB",
+          "good": 1680,
+          "ni": 79,
+          "poor": 24
+        },
+        {
+          "metric": "CLS",
+          "good": 1520,
+          "ni": 56,
+          "poor": 13
+        },
+        {
+          "metric": "FCP",
+          "good": 1392,
+          "ni": 74,
+          "poor": 43
+        },
+        {
+          "metric": "LCP",
+          "good": 1325,
+          "ni": 60,
+          "poor": 37
+        }
+      ],
+      "flip": {
+        "users": {
+          "new": 662,
+          "returning": 318,
+          "other": 86
+        },
+        "sessions": {
+          "new": 682,
+          "returning": 1409,
+          "other": 114
+        }
+      },
+      "returningEvents": [
+        {
+          "event": "universalis_fetch",
+          "family": "market",
+          "count": 7856,
+          "users": 179
+        },
+        {
+          "event": "web_vitals",
+          "family": "meta",
+          "count": 4462,
+          "users": 298
+        },
+        {
+          "event": "solver_start",
+          "family": "craft",
+          "count": 4334,
+          "users": 136
+        },
+        {
+          "event": "solver_complete",
+          "family": "craft",
+          "count": 4266,
+          "users": 136
+        },
+        {
+          "event": "page_view",
+          "family": "meta",
+          "count": 4044,
+          "users": 297
+        },
+        {
+          "event": "session_start",
+          "family": "meta",
+          "count": 1381,
+          "users": 313
+        },
+        {
+          "event": "recipe_select",
+          "family": "meta",
+          "count": 1121,
+          "users": 76
+        },
+        {
+          "event": "scroll",
+          "family": "meta",
+          "count": 1087,
+          "users": 276
+        },
+        {
+          "event": "batch_add_recipe",
+          "family": "craft",
+          "count": 1043,
+          "users": 105
+        },
+        {
+          "event": "queue_add_recipe",
+          "family": "craft",
+          "count": 828,
+          "users": 76
+        },
+        {
+          "event": "batch_optimization_start",
+          "family": "craft",
+          "count": 562,
+          "users": 114
+        },
+        {
+          "event": "batch_optimization_complete",
+          "family": "craft",
+          "count": 506,
+          "users": 107
+        },
+        {
+          "event": "gearset_sheet_open",
+          "family": "craft",
+          "count": 412,
+          "users": 105
+        },
+        {
+          "event": "bom_acquisition_mode_set",
+          "family": "craft",
+          "count": 372,
+          "users": 31
+        },
+        {
+          "event": "user_engagement",
+          "family": "meta",
+          "count": 365,
+          "users": 169
+        },
+        {
+          "event": "solver_rerun",
+          "family": "craft",
+          "count": 322,
+          "users": 44
+        },
+        {
+          "event": "exception",
+          "family": "error",
+          "count": 313,
+          "users": 58
+        },
+        {
+          "event": "bom_breakdown_expand",
+          "family": "craft",
+          "count": 177,
+          "users": 12
+        },
+        {
+          "event": "bom_calculate",
+          "family": "craft",
+          "count": 165,
+          "users": 47
+        },
+        {
+          "event": "first_session_milestone",
+          "family": "meta",
+          "count": 116,
+          "users": 70
+        },
+        {
+          "event": "solver_failed",
+          "family": "craft",
+          "count": 62,
+          "users": 16
+        },
+        {
+          "event": "settings_change",
+          "family": "meta",
+          "count": 49,
+          "users": 10
+        },
+        {
+          "event": "gearset_apply_all",
+          "family": "craft",
+          "count": 47,
+          "users": 29
+        },
+        {
+          "event": "batch_optimization_failed",
+          "family": "craft",
+          "count": 42,
+          "users": 16
+        },
+        {
+          "event": "theme_change",
+          "family": "meta",
+          "count": 35,
+          "users": 13
+        }
+      ],
+      "returningPages": [
+        {
+          "path": "/batch",
+          "returningViews": 1015,
+          "returningUsers": 191,
+          "engagement": 0.793168880455408
+        },
+        {
+          "path": "/simulator",
+          "returningViews": 810,
+          "returningUsers": 152,
+          "engagement": 0.7787810383747178
+        },
+        {
+          "path": "/gearset",
+          "returningViews": 731,
+          "returningUsers": 147,
+          "engagement": 0.8136792452830188
+        },
+        {
+          "path": "/",
+          "returningViews": 619,
+          "returningUsers": 200,
+          "engagement": 0.7692307692307693
+        },
+        {
+          "path": "/bom",
+          "returningViews": 481,
+          "returningUsers": 118,
+          "engagement": 0.7410358565737052
+        },
+        {
+          "path": "/company-craft",
+          "returningViews": 157,
+          "returningUsers": 42,
+          "engagement": 0.8125
+        },
+        {
+          "path": "/timer",
+          "returningViews": 118,
+          "returningUsers": 50,
+          "engagement": 0.8333333333333334
+        },
+        {
+          "path": "/settings",
+          "returningViews": 62,
+          "returningUsers": 32,
+          "engagement": 0.7291666666666666
+        },
+        {
+          "path": "/changelog",
+          "returningViews": 50,
+          "returningUsers": 34,
+          "engagement": 0.9047619047619048
+        },
+        {
+          "path": "/recipe",
+          "returningViews": 1,
+          "returningUsers": 1,
+          "engagement": 1
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "returningViews": 0,
+          "returningUsers": 316,
+          "engagement": 0.5884892086330935
+        }
+      ],
+      "q4Funnels": [
+        {
+          "name": "Recipe → Solver",
+          "label": "recipe_select → solver_start",
+          "from": 1463,
+          "to": 5457,
+          "note": "inflated · batch internal solves",
+          "flag": "noise"
+        },
+        {
+          "name": "Solver → Macro",
+          "label": "solver_complete → solver_macro_copy",
+          "from": 5342,
+          "to": 22,
+          "note": "user-facing only",
+          "flag": "danger"
+        },
+        {
+          "name": "Batch prep → Optimize",
+          "label": "batch_add_recipe → batch_opt_start",
+          "from": 1486,
+          "to": 787,
+          "note": "healthy halfway",
+          "flag": "ok"
+        },
+        {
+          "name": "BOM → Consumed",
+          "label": "bom_calculate → (any consume)",
+          "from": 237,
+          "to": 32,
+          "note": "low handoff",
+          "flag": "warn"
+        }
+      ],
+      "marketRegion": [
+        {
+          "event": "solver_start",
+          "notset": 5057,
+          "unset": 0,
+          "cht": 0,
+          "intl": 0
+        },
+        {
+          "event": "solver_complete",
+          "notset": 4970,
+          "unset": 0,
+          "cht": 0,
+          "intl": 0
+        },
+        {
+          "event": "batch_optimization_start",
+          "notset": 743,
+          "unset": 0,
+          "cht": 0,
+          "intl": 0
+        },
+        {
+          "event": "batch_optimization_complete",
+          "notset": 653,
+          "unset": 0,
+          "cht": 0,
+          "intl": 0
+        },
+        {
+          "event": "bom_calculate",
+          "notset": 226,
+          "unset": 0,
+          "cht": 0,
+          "intl": 0
+        },
+        {
+          "event": "bom_send_to_batch",
+          "notset": 19,
+          "unset": 0,
+          "cht": 0,
+          "intl": 0
+        },
+        {
+          "event": "solver_macro_copy",
+          "notset": 18,
+          "unset": 0,
+          "cht": 0,
+          "intl": 0
+        }
+      ]
+    },
+    "14d": {
+      "window": {
+        "days": 14,
+        "startDate": "2026-05-05",
+        "endDate": "2026-05-19"
+      },
+      "glance": {
+        "activeUsers": {
+          "total": 1710,
+          "new": 1225,
+          "returning": 388,
+          "returningPct": 0.22690058479532163
+        },
+        "solver": {
+          "starts": 8122,
+          "completes": 7926,
+          "fails": 156,
+          "completePct": 0.9758680128047279
+        },
+        "batch": {
+          "starts": 1145,
+          "completes": 992,
+          "fails": 125,
+          "cancelled": 8,
+          "completePct": 0.8663755458515284
+        },
+        "bom": {
+          "calculates": 405,
+          "sentToBatch": 35,
+          "handoffPct": 0.08641975308641975
+        },
+        "infra": {
+          "sabUnavailable": 892,
+          "wasmLoadFailed": 24
+        }
+      },
+      "pages": [
+        {
+          "path": "/",
+          "title": "吐司工坊",
+          "family": "core",
+          "views": 3188,
+          "users": 1187,
+          "sessions": 1809,
+          "engagement": 0.8501934770591487,
+          "bounce": 0.1498065229408513,
+          "avgSession": 5.643449419568823
+        },
+        {
+          "path": "/batch",
+          "title": "批量製作",
+          "family": "craft",
+          "views": 2864,
+          "users": 705,
+          "sessions": 1376,
+          "engagement": 0.8873546511627907,
+          "bounce": 0.11264534883720931,
+          "avgSession": 20.29360465116279
+        },
+        {
+          "path": "/gearset",
+          "title": "配裝管理",
+          "family": "craft",
+          "views": 2148,
+          "users": 713,
+          "sessions": 1252,
+          "engagement": 0.9001597444089456,
+          "bounce": 0.09984025559105432,
+          "avgSession": 17.654952076677315
+        },
+        {
+          "path": "/simulator",
+          "title": "製作模擬",
+          "family": "craft",
+          "views": 2017,
+          "users": 546,
+          "sessions": 1097,
+          "engagement": 0.8760255241567912,
+          "bounce": 0.12397447584320875,
+          "avgSession": 17.318140382862353
+        },
+        {
+          "path": "/bom",
+          "title": "購物清單",
+          "family": "craft",
+          "views": 1615,
+          "users": 520,
+          "sessions": 829,
+          "engagement": 0.8854041013268998,
+          "bounce": 0.11459589867310012,
+          "avgSession": 19.67310012062726
+        },
+        {
+          "path": "/timer",
+          "title": "採集計時器",
+          "family": "gather",
+          "views": 471,
+          "users": 292,
+          "sessions": 382,
+          "engagement": 0.9240837696335078,
+          "bounce": 0.07591623036649214,
+          "avgSession": 10.209424083769633
+        },
+        {
+          "path": "/settings",
+          "title": "設定",
+          "family": "meta",
+          "views": 329,
+          "users": 205,
+          "sessions": 248,
+          "engagement": 0.9153225806451613,
+          "bounce": 0.0846774193548387,
+          "avgSession": 15.411290322580646
+        },
+        {
+          "path": "/company-craft",
+          "title": "部隊工坊",
+          "family": "company",
+          "views": 248,
+          "users": 108,
+          "sessions": 137,
+          "engagement": 0.8686131386861314,
+          "bounce": 0.13138686131386862,
+          "avgSession": 15.408759124087592
+        },
+        {
+          "path": "/changelog",
+          "title": "更新日誌",
+          "family": "meta",
+          "views": 228,
+          "users": 146,
+          "sessions": 181,
+          "engagement": 0.9502762430939227,
+          "bounce": 0.049723756906077346,
+          "avgSession": 22.972375690607734
+        },
+        {
+          "path": "/company-craft",
+          "title": "吐司工坊 - FFXIV 製作助手｜製作模擬器與批量製作工具",
+          "family": "company",
+          "views": 6,
+          "users": 1,
+          "sessions": 1,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 0
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "FF14 Craft Helper - FFXIV 製作模擬器與批量製作工具",
+          "family": "meta",
+          "views": 3,
+          "users": 1,
+          "sessions": 4,
+          "engagement": 0.25,
+          "bounce": 0.75,
+          "avgSession": 0
+        },
+        {
+          "path": "/recipe",
+          "title": "吐司工坊 - FFXIV 製作助手｜製作模擬器與批量製作工具",
+          "family": "meta",
+          "views": 2,
+          "users": 1,
+          "sessions": 2,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 0
+        },
+        {
+          "path": "/market",
+          "title": "市場查價",
+          "family": "market",
+          "views": 1,
+          "users": 1,
+          "sessions": 1,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 44
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "[Human] [LLM] 吐司工坊 - FFXIV 製作助手｜製作模擬器與批量製作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 1,
+          "sessions": 1,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 2431
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "[Human] 吐司工坊 - FFXIV 製作助手｜製作模擬器與批量製作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 1,
+          "sessions": 1,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 0
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "[LLM] 吐司工坊 - FFXIV 製作助手｜製作模擬器與批量製作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 1,
+          "sessions": 3,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 1486
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "吐司工坊 - FFXIV 制作助手|制作模拟器与批量制作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 1,
+          "sessions": 9,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 183.88888888888889
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "吐司工坊 - FFXIV 製作助手｜製作模擬器與批次製作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 6,
+          "sessions": 10,
+          "engagement": 0.9,
+          "bounce": 0.1,
+          "avgSession": 42.8
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "吐司工坊 - FFXIV 製作助手｜製作模擬器與批量製作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 1240,
+          "sessions": 3169,
+          "engagement": 0.7134742821079205,
+          "bounce": 0.28652571789207953,
+          "avgSession": 126.56453139791732
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "吐司工坊 - FFXIV 製作助手｜製作模擬器與批量製作工具                     - HVKeyboard Hide",
+          "family": "meta",
+          "views": 0,
+          "users": 1,
+          "sessions": 1,
+          "engagement": 0,
+          "bounce": 1,
+          "avgSession": 23
+        }
+      ],
+      "channels": [
+        {
+          "channel": "Referral",
+          "source": "ref.gamer.com.tw",
+          "sessions": 2078,
+          "users": 767,
+          "engagement": 0.7324350336862367
+        },
+        {
+          "channel": "Direct",
+          "source": "(direct)",
+          "sessions": 1063,
+          "users": 458,
+          "engagement": 0.6726246472248354
+        },
+        {
+          "channel": "Unassigned",
+          "source": "(not set)",
+          "sessions": 220,
+          "users": 152,
+          "engagement": 0
+        },
+        {
+          "channel": "Referral",
+          "source": "github.com",
+          "sessions": 37,
+          "users": 6,
+          "engagement": 0.7297297297297297
+        },
+        {
+          "channel": "Organic Search",
+          "source": "cn.bing.com",
+          "sessions": 6,
+          "users": 2,
+          "engagement": 0.8333333333333334
+        },
+        {
+          "channel": "Organic Social",
+          "source": "plurk.com",
+          "sessions": 6,
+          "users": 1,
+          "engagement": 1
+        },
+        {
+          "channel": "Organic Search",
+          "source": "bing",
+          "sessions": 4,
+          "users": 4,
+          "engagement": 0.25
+        },
+        {
+          "channel": "Organic Search",
+          "source": "google",
+          "sessions": 4,
+          "users": 1,
+          "engagement": 0.5
+        },
+        {
+          "channel": "Referral",
+          "source": "gamer.com.tw",
+          "sessions": 4,
+          "users": 3,
+          "engagement": 0.5
+        },
+        {
+          "channel": "Organic Search",
+          "source": "tw.search.yahoo.com",
+          "sessions": 1,
+          "users": 1,
+          "engagement": 1
+        },
+        {
+          "channel": "Organic Social",
+          "source": "facebook.com",
+          "sessions": 1,
+          "users": 1,
+          "engagement": 1
+        },
+        {
+          "channel": "Referral",
+          "source": "now.gamer.com.tw",
+          "sessions": 1,
+          "users": 1,
+          "engagement": 1
+        }
+      ],
+      "solverFunnel": [
+        {
+          "step": "solver_start",
+          "count": 8122,
+          "tone": "neutral"
+        },
+        {
+          "step": "solver_complete",
+          "count": 7926,
+          "tone": "success"
+        },
+        {
+          "step": "solver_failed",
+          "count": 156,
+          "tone": "danger"
+        }
+      ],
+      "batchFunnel": [
+        {
+          "step": "add → start",
+          "count": 1145,
+          "tone": "neutral"
+        },
+        {
+          "step": "batch_complete",
+          "count": 992,
+          "tone": "success"
+        },
+        {
+          "step": "batch_failed",
+          "count": 125,
+          "tone": "danger"
+        },
+        {
+          "step": "batch_cancelled",
+          "count": 8,
+          "tone": "warn"
+        }
+      ],
+      "simulatorFunnel": {
+        "entry": {
+          "label": "/simulator page_view",
+          "count": 2017,
+          "users": 546
+        },
+        "macroCopy": {
+          "label": "solver_macro_copy",
+          "count": 22,
+          "users": 5
+        },
+        "globalContext": [
+          {
+            "label": "recipe_select (any page)",
+            "count": 1860
+          },
+          {
+            "label": "solver_start (any page)",
+            "count": 8122
+          },
+          {
+            "label": "solver_complete (any page)",
+            "count": 7926
+          }
+        ]
+      },
+      "failures": [
+        {
+          "event": "solver",
+          "reason": "找不到可行的製作方案，請確認裝備數值與配方是否正確",
+          "count": 108
+        },
+        {
+          "event": "batch",
+          "reason": "Universalis request failed: 404 ",
+          "count": 74
+        },
+        {
+          "event": "batch",
+          "reason": "Failed to fetch",
+          "count": 29
+        },
+        {
+          "event": "solver",
+          "reason": "求解已取消",
+          "count": 28
+        },
+        {
+          "event": "wasm",
+          "reason": "The object can not be cloned.",
+          "count": 19
+        },
+        {
+          "event": "solver",
+          "reason": "WASM 求解器尚未初始化完成",
+          "count": 18
+        },
+        {
+          "event": "batch",
+          "reason": "Failed to execute 'postMessage' on 'Worker': SharedArrayBuffer transfer requires self.crossOriginIso",
+          "count": 14
+        },
+        {
+          "event": "batch",
+          "reason": "The object can not be cloned.",
+          "count": 7
+        },
+        {
+          "event": "wasm",
+          "reason": "The WebAssembly.Memory object cannot be serialized. The Cross-Origin-Opener-Policy and Cross-Origin-",
+          "count": 3
+        },
+        {
+          "event": "solver",
+          "reason": "unreachable",
+          "count": 2
+        },
+        {
+          "event": "wasm",
+          "reason": "Failed to execute 'postMessage' on 'Worker': SharedArrayBuffer transfer requires self.crossOriginIso",
+          "count": 2
+        },
+        {
+          "event": "batch",
+          "reason": "Universalis 查詢逾時 (20s)",
+          "count": 1
+        }
+      ],
+      "vitals": [
+        {
+          "metric": "INP",
+          "good": 2990,
+          "ni": 290,
+          "poor": 51
+        },
+        {
+          "metric": "TTFB",
+          "good": 2816,
+          "ni": 106,
+          "poor": 34
+        },
+        {
+          "metric": "CLS",
+          "good": 2653,
+          "ni": 149,
+          "poor": 29
+        },
+        {
+          "metric": "FCP",
+          "good": 2556,
+          "ni": 113,
+          "poor": 65
+        },
+        {
+          "metric": "LCP",
+          "good": 2361,
+          "ni": 109,
+          "poor": 129
+        }
+      ],
+      "flip": {
+        "users": {
+          "new": 1225,
+          "returning": 388,
+          "other": 97
+        },
+        "sessions": {
+          "new": 1249,
+          "returning": 1910,
+          "other": 133
+        }
+      },
+      "returningEvents": [
+        {
+          "event": "universalis_fetch",
+          "family": "market",
+          "count": 9888,
+          "users": 220
+        },
+        {
+          "event": "web_vitals",
+          "family": "meta",
+          "count": 7182,
+          "users": 362
+        },
+        {
+          "event": "solver_start",
+          "family": "craft",
+          "count": 6287,
+          "users": 170
+        },
+        {
+          "event": "page_view",
+          "family": "meta",
+          "count": 6194,
+          "users": 364
+        },
+        {
+          "event": "solver_complete",
+          "family": "craft",
+          "count": 6164,
+          "users": 170
+        },
+        {
+          "event": "session_start",
+          "family": "meta",
+          "count": 1883,
+          "users": 384
+        },
+        {
+          "event": "scroll",
+          "family": "meta",
+          "count": 1722,
+          "users": 326
+        },
+        {
+          "event": "recipe_select",
+          "family": "meta",
+          "count": 1448,
+          "users": 93
+        },
+        {
+          "event": "batch_add_recipe",
+          "family": "craft",
+          "count": 1260,
+          "users": 133
+        },
+        {
+          "event": "queue_add_recipe",
+          "family": "craft",
+          "count": 1094,
+          "users": 93
+        },
+        {
+          "event": "batch_optimization_start",
+          "family": "craft",
+          "count": 777,
+          "users": 141
+        },
+        {
+          "event": "user_engagement",
+          "family": "meta",
+          "count": 735,
+          "users": 214
+        },
+        {
+          "event": "batch_optimization_complete",
+          "family": "craft",
+          "count": 700,
+          "users": 133
+        },
+        {
+          "event": "exception",
+          "family": "error",
+          "count": 610,
+          "users": 77
+        },
+        {
+          "event": "gearset_sheet_open",
+          "family": "craft",
+          "count": 549,
+          "users": 143
+        },
+        {
+          "event": "bom_acquisition_mode_set",
+          "family": "craft",
+          "count": 435,
+          "users": 43
+        },
+        {
+          "event": "solver_rerun",
+          "family": "craft",
+          "count": 322,
+          "users": 44
+        },
+        {
+          "event": "bom_calculate",
+          "family": "craft",
+          "count": 247,
+          "users": 66
+        },
+        {
+          "event": "bom_breakdown_expand",
+          "family": "craft",
+          "count": 177,
+          "users": 12
+        },
+        {
+          "event": "theme_change",
+          "family": "meta",
+          "count": 161,
+          "users": 25
+        },
+        {
+          "event": "first_session_milestone",
+          "family": "meta",
+          "count": 116,
+          "users": 70
+        },
+        {
+          "event": "solver_failed",
+          "family": "craft",
+          "count": 107,
+          "users": 23
+        },
+        {
+          "event": "gearset_apply_all",
+          "family": "craft",
+          "count": 75,
+          "users": 43
+        },
+        {
+          "event": "batch_optimization_failed",
+          "family": "craft",
+          "count": 55,
+          "users": 19
+        },
+        {
+          "event": "settings_change",
+          "family": "meta",
+          "count": 49,
+          "users": 10
+        }
+      ],
+      "returningPages": [
+        {
+          "path": "/batch",
+          "returningViews": 1603,
+          "returningUsers": 248,
+          "engagement": 0.8389261744966443
+        },
+        {
+          "path": "/simulator",
+          "returningViews": 1204,
+          "returningUsers": 201,
+          "engagement": 0.8212025316455697
+        },
+        {
+          "path": "/gearset",
+          "returningViews": 1038,
+          "returningUsers": 203,
+          "engagement": 0.8510998307952623
+        },
+        {
+          "path": "/bom",
+          "returningViews": 925,
+          "returningUsers": 164,
+          "engagement": 0.8005181347150259
+        },
+        {
+          "path": "/",
+          "returningViews": 880,
+          "returningUsers": 254,
+          "engagement": 0.7876823338735819
+        },
+        {
+          "path": "/timer",
+          "returningViews": 166,
+          "returningUsers": 77,
+          "engagement": 0.8768115942028986
+        },
+        {
+          "path": "/company-craft",
+          "returningViews": 157,
+          "returningUsers": 42,
+          "engagement": 0.8125
+        },
+        {
+          "path": "/settings",
+          "returningViews": 117,
+          "returningUsers": 57,
+          "engagement": 0.8470588235294118
+        },
+        {
+          "path": "/changelog",
+          "returningViews": 98,
+          "returningUsers": 54,
+          "engagement": 0.9210526315789473
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "returningViews": 3,
+          "returningUsers": 383,
+          "engagement": 0.6217368140649974
+        },
+        {
+          "path": "/recipe",
+          "returningViews": 2,
+          "returningUsers": 1,
+          "engagement": 1
+        },
+        {
+          "path": "/market",
+          "returningViews": 1,
+          "returningUsers": 1,
+          "engagement": 1
+        },
+        {
+          "path": "/ff14-craft-helper/batch",
+          "returningViews": 0,
+          "returningUsers": 1,
+          "engagement": 1
+        }
+      ],
+      "q4Funnels": [
+        {
+          "name": "Recipe → Solver",
+          "label": "recipe_select → solver_start",
+          "from": 1860,
+          "to": 8122,
+          "note": "inflated · batch internal solves",
+          "flag": "noise"
+        },
+        {
+          "name": "Solver → Macro",
+          "label": "solver_complete → solver_macro_copy",
+          "from": 7926,
+          "to": 22,
+          "note": "user-facing only",
+          "flag": "danger"
+        },
+        {
+          "name": "Batch prep → Optimize",
+          "label": "batch_add_recipe → batch_opt_start",
+          "from": 1867,
+          "to": 1145,
+          "note": "healthy halfway",
+          "flag": "ok"
+        },
+        {
+          "name": "BOM → Consumed",
+          "label": "bom_calculate → (any consume)",
+          "from": 405,
+          "to": 48,
+          "note": "low handoff",
+          "flag": "warn"
+        }
+      ],
+      "marketRegion": [
+        {
+          "event": "solver_start",
+          "notset": 7722,
+          "unset": 0,
+          "cht": 0,
+          "intl": 0
+        },
+        {
+          "event": "solver_complete",
+          "notset": 7554,
+          "unset": 0,
+          "cht": 0,
+          "intl": 0
+        },
+        {
+          "event": "batch_optimization_start",
+          "notset": 1101,
+          "unset": 0,
+          "cht": 0,
+          "intl": 0
+        },
+        {
+          "event": "batch_optimization_complete",
+          "notset": 947,
+          "unset": 0,
+          "cht": 0,
+          "intl": 0
+        },
+        {
+          "event": "bom_calculate",
+          "notset": 394,
+          "unset": 0,
+          "cht": 0,
+          "intl": 0
+        },
+        {
+          "event": "bom_send_to_batch",
+          "notset": 35,
+          "unset": 0,
+          "cht": 0,
+          "intl": 0
+        },
+        {
+          "event": "solver_macro_copy",
+          "notset": 18,
+          "unset": 0,
+          "cht": 0,
+          "intl": 0
+        }
+      ]
+    },
+    "28d": {
+      "window": {
+        "days": 28,
+        "startDate": "2026-04-21",
+        "endDate": "2026-05-19"
+      },
+      "glance": {
+        "activeUsers": {
+          "total": 1746,
+          "new": 1253,
+          "returning": 394,
+          "returningPct": 0.2256586483390607
+        },
+        "solver": {
+          "starts": 8599,
+          "completes": 8358,
+          "fails": 201,
+          "completePct": 0.9719734852889871
+        },
+        "batch": {
+          "starts": 1211,
+          "completes": 1038,
+          "fails": 144,
+          "cancelled": 9,
+          "completePct": 0.8571428571428571
+        },
+        "bom": {
+          "calculates": 405,
+          "sentToBatch": 35,
+          "handoffPct": 0.08641975308641975
+        },
+        "infra": {
+          "sabUnavailable": 901,
+          "wasmLoadFailed": 25
+        }
+      },
+      "pages": [
+        {
+          "path": "/",
+          "title": "吐司工坊",
+          "family": "core",
+          "views": 3258,
+          "users": 1203,
+          "sessions": 1847,
+          "engagement": 0.8500270709258256,
+          "bounce": 0.14997292907417434,
+          "avgSession": 5.63508391987006
+        },
+        {
+          "path": "/batch",
+          "title": "批量製作",
+          "family": "craft",
+          "views": 3004,
+          "users": 714,
+          "sessions": 1422,
+          "engagement": 0.8881856540084389,
+          "bounce": 0.11181434599156118,
+          "avgSession": 20.90576652601969
+        },
+        {
+          "path": "/gearset",
+          "title": "配裝管理",
+          "family": "craft",
+          "views": 2253,
+          "users": 725,
+          "sessions": 1300,
+          "engagement": 0.8961538461538462,
+          "bounce": 0.10384615384615385,
+          "avgSession": 17.6
+        },
+        {
+          "path": "/simulator",
+          "title": "製作模擬",
+          "family": "craft",
+          "views": 2155,
+          "users": 557,
+          "sessions": 1153,
+          "engagement": 0.8794449262792715,
+          "bounce": 0.12055507372072853,
+          "avgSession": 17.01561144839549
+        },
+        {
+          "path": "/bom",
+          "title": "購物清單",
+          "family": "craft",
+          "views": 1666,
+          "users": 527,
+          "sessions": 847,
+          "engagement": 0.8878394332939787,
+          "bounce": 0.11216056670602124,
+          "avgSession": 19.38134592680047
+        },
+        {
+          "path": "/timer",
+          "title": "採集計時器",
+          "family": "gather",
+          "views": 488,
+          "users": 297,
+          "sessions": 389,
+          "engagement": 0.9254498714652957,
+          "bounce": 0.07455012853470437,
+          "avgSession": 10.36503856041131
+        },
+        {
+          "path": "/settings",
+          "title": "設定",
+          "family": "meta",
+          "views": 360,
+          "users": 208,
+          "sessions": 260,
+          "engagement": 0.9153846153846154,
+          "bounce": 0.08461538461538462,
+          "avgSession": 15.842307692307692
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "FF14 Craft Helper - FFXIV 製作模擬器與批量製作工具",
+          "family": "meta",
+          "views": 329,
+          "users": 14,
+          "sessions": 100,
+          "engagement": 0.5,
+          "bounce": 0.5,
+          "avgSession": 3194.45
+        },
+        {
+          "path": "/company-craft",
+          "title": "部隊工坊",
+          "family": "company",
+          "views": 248,
+          "users": 108,
+          "sessions": 137,
+          "engagement": 0.8686131386861314,
+          "bounce": 0.13138686131386862,
+          "avgSession": 15.408759124087592
+        },
+        {
+          "path": "/changelog",
+          "title": "更新日誌",
+          "family": "meta",
+          "views": 246,
+          "users": 150,
+          "sessions": 195,
+          "engagement": 0.9487179487179487,
+          "bounce": 0.05128205128205128,
+          "avgSession": 21.974358974358974
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "吐司工坊 - FFXIV 製作助手｜製作模擬器與批量製作工具",
+          "family": "meta",
+          "views": 203,
+          "users": 1265,
+          "sessions": 3292,
+          "engagement": 0.7199270959902795,
+          "bounce": 0.2800729040097205,
+          "avgSession": 171.52156743620898
+        },
+        {
+          "path": "/company-craft",
+          "title": "吐司工坊 - FFXIV 製作助手｜製作模擬器與批量製作工具",
+          "family": "company",
+          "views": 6,
+          "users": 1,
+          "sessions": 1,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 0
+        },
+        {
+          "path": "/recipe",
+          "title": "吐司工坊 - FFXIV 製作助手｜製作模擬器與批量製作工具",
+          "family": "meta",
+          "views": 2,
+          "users": 1,
+          "sessions": 2,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 0
+        },
+        {
+          "path": "/ff14-craft-helper/batch",
+          "title": "FF14 Craft Helper - FFXIV 製作模擬器與批量製作工具",
+          "family": "meta",
+          "views": 1,
+          "users": 1,
+          "sessions": 1,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 6
+        },
+        {
+          "path": "/market",
+          "title": "市場查價",
+          "family": "market",
+          "views": 1,
+          "users": 1,
+          "sessions": 1,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 44
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "[Human] [LLM] 吐司工坊 - FFXIV 製作助手｜製作模擬器與批量製作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 1,
+          "sessions": 1,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 2431
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "[Human] 吐司工坊 - FFXIV 製作助手｜製作模擬器與批量製作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 1,
+          "sessions": 2,
+          "engagement": 0.5,
+          "bounce": 0.5,
+          "avgSession": 0
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "[LLM] 吐司工坊 - FFXIV 製作助手｜製作模擬器與批量製作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 1,
+          "sessions": 4,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 9166.25
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "吐司工坊 - FFXIV 制作助手|制作模拟器与批量制作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 1,
+          "sessions": 9,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 183.88888888888889
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "吐司工坊 - FFXIV 製作助手｜製作模擬器與批次製作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 6,
+          "sessions": 10,
+          "engagement": 0.9,
+          "bounce": 0.1,
+          "avgSession": 42.8
+        }
+      ],
+      "channels": [
+        {
+          "channel": "Referral",
+          "source": "ref.gamer.com.tw",
+          "sessions": 2078,
+          "users": 767,
+          "engagement": 0.7324350336862367
+        },
+        {
+          "channel": "Direct",
+          "source": "(direct)",
+          "sessions": 1301,
+          "users": 485,
+          "engagement": 0.6671790930053805
+        },
+        {
+          "channel": "Unassigned",
+          "source": "(not set)",
+          "sessions": 224,
+          "users": 153,
+          "engagement": 0
+        },
+        {
+          "channel": "Referral",
+          "source": "github.com",
+          "sessions": 37,
+          "users": 6,
+          "engagement": 0.7297297297297297
+        },
+        {
+          "channel": "Organic Search",
+          "source": "cn.bing.com",
+          "sessions": 6,
+          "users": 2,
+          "engagement": 0.8333333333333334
+        },
+        {
+          "channel": "Organic Social",
+          "source": "plurk.com",
+          "sessions": 6,
+          "users": 1,
+          "engagement": 1
+        },
+        {
+          "channel": "Organic Search",
+          "source": "bing",
+          "sessions": 4,
+          "users": 4,
+          "engagement": 0.25
+        },
+        {
+          "channel": "Organic Search",
+          "source": "google",
+          "sessions": 4,
+          "users": 1,
+          "engagement": 0.5
+        },
+        {
+          "channel": "Referral",
+          "source": "gamer.com.tw",
+          "sessions": 4,
+          "users": 3,
+          "engagement": 0.5
+        },
+        {
+          "channel": "Organic Social",
+          "source": "facebook.com",
+          "sessions": 2,
+          "users": 2,
+          "engagement": 1
+        },
+        {
+          "channel": "Organic Search",
+          "source": "tw.search.yahoo.com",
+          "sessions": 1,
+          "users": 1,
+          "engagement": 1
+        },
+        {
+          "channel": "Referral",
+          "source": "now.gamer.com.tw",
+          "sessions": 1,
+          "users": 1,
+          "engagement": 1
+        }
+      ],
+      "solverFunnel": [
+        {
+          "step": "solver_start",
+          "count": 8599,
+          "tone": "neutral"
+        },
+        {
+          "step": "solver_complete",
+          "count": 8358,
+          "tone": "success"
+        },
+        {
+          "step": "solver_failed",
+          "count": 201,
+          "tone": "danger"
+        }
+      ],
+      "batchFunnel": [
+        {
+          "step": "add → start",
+          "count": 1211,
+          "tone": "neutral"
+        },
+        {
+          "step": "batch_complete",
+          "count": 1038,
+          "tone": "success"
+        },
+        {
+          "step": "batch_failed",
+          "count": 144,
+          "tone": "danger"
+        },
+        {
+          "step": "batch_cancelled",
+          "count": 9,
+          "tone": "warn"
+        }
+      ],
+      "simulatorFunnel": {
+        "entry": {
+          "label": "/simulator page_view",
+          "count": 2155,
+          "users": 557
+        },
+        "macroCopy": {
+          "label": "solver_macro_copy",
+          "count": 22,
+          "users": 5
+        },
+        "globalContext": [
+          {
+            "label": "recipe_select (any page)",
+            "count": 1926
+          },
+          {
+            "label": "solver_start (any page)",
+            "count": 8599
+          },
+          {
+            "label": "solver_complete (any page)",
+            "count": 8358
+          }
+        ]
+      },
+      "failures": [
+        {
+          "event": "solver",
+          "reason": "找不到可行的製作方案，請確認裝備數值與配方是否正確",
+          "count": 153
+        },
+        {
+          "event": "batch",
+          "reason": "Universalis request failed: 404 ",
+          "count": 91
+        },
+        {
+          "event": "batch",
+          "reason": "Failed to fetch",
+          "count": 30
+        },
+        {
+          "event": "solver",
+          "reason": "求解已取消",
+          "count": 28
+        },
+        {
+          "event": "wasm",
+          "reason": "The object can not be cloned.",
+          "count": 20
+        },
+        {
+          "event": "solver",
+          "reason": "WASM 求解器尚未初始化完成",
+          "count": 18
+        },
+        {
+          "event": "batch",
+          "reason": "Failed to execute 'postMessage' on 'Worker': SharedArrayBuffer transfer requires self.crossOriginIso",
+          "count": 14
+        },
+        {
+          "event": "batch",
+          "reason": "The object can not be cloned.",
+          "count": 8
+        },
+        {
+          "event": "wasm",
+          "reason": "The WebAssembly.Memory object cannot be serialized. The Cross-Origin-Opener-Policy and Cross-Origin-",
+          "count": 3
+        },
+        {
+          "event": "solver",
+          "reason": "unreachable",
+          "count": 2
+        },
+        {
+          "event": "wasm",
+          "reason": "Failed to execute 'postMessage' on 'Worker': SharedArrayBuffer transfer requires self.crossOriginIso",
+          "count": 2
+        },
+        {
+          "event": "batch",
+          "reason": "Universalis 查詢逾時 (20s)",
+          "count": 1
+        }
+      ],
+      "vitals": [
+        {
+          "metric": "INP",
+          "good": 3088,
+          "ni": 295,
+          "poor": 55
+        },
+        {
+          "metric": "TTFB",
+          "good": 2901,
+          "ni": 111,
+          "poor": 34
+        },
+        {
+          "metric": "CLS",
+          "good": 2730,
+          "ni": 156,
+          "poor": 31
+        },
+        {
+          "metric": "FCP",
+          "good": 2634,
+          "ni": 113,
+          "poor": 66
+        },
+        {
+          "metric": "LCP",
+          "good": 2431,
+          "ni": 111,
+          "poor": 132
+        }
+      ],
+      "flip": {
+        "users": {
+          "new": 1253,
+          "returning": 394,
+          "other": 99
+        },
+        "sessions": {
+          "new": 1277,
+          "returning": 2119,
+          "other": 140
+        }
+      },
+      "returningEvents": [
+        {
+          "event": "universalis_fetch",
+          "family": "market",
+          "count": 10061,
+          "users": 221
+        },
+        {
+          "event": "web_vitals",
+          "family": "meta",
+          "count": 7573,
+          "users": 363
+        },
+        {
+          "event": "page_view",
+          "family": "meta",
+          "count": 7147,
+          "users": 368
+        },
+        {
+          "event": "solver_start",
+          "family": "craft",
+          "count": 6710,
+          "users": 172
+        },
+        {
+          "event": "solver_complete",
+          "family": "craft",
+          "count": 6565,
+          "users": 172
+        },
+        {
+          "event": "scroll",
+          "family": "meta",
+          "count": 2345,
+          "users": 330
+        },
+        {
+          "event": "session_start",
+          "family": "meta",
+          "count": 2094,
+          "users": 390
+        },
+        {
+          "event": "recipe_select",
+          "family": "meta",
+          "count": 1512,
+          "users": 94
+        },
+        {
+          "event": "batch_add_recipe",
+          "family": "craft",
+          "count": 1293,
+          "users": 135
+        },
+        {
+          "event": "user_engagement",
+          "family": "meta",
+          "count": 1209,
+          "users": 218
+        },
+        {
+          "event": "queue_add_recipe",
+          "family": "craft",
+          "count": 1151,
+          "users": 94
+        },
+        {
+          "event": "batch_optimization_start",
+          "family": "craft",
+          "count": 818,
+          "users": 144
+        },
+        {
+          "event": "batch_optimization_complete",
+          "family": "craft",
+          "count": 738,
+          "users": 135
+        },
+        {
+          "event": "exception",
+          "family": "error",
+          "count": 652,
+          "users": 79
+        },
+        {
+          "event": "gearset_sheet_open",
+          "family": "craft",
+          "count": 557,
+          "users": 145
+        },
+        {
+          "event": "bom_acquisition_mode_set",
+          "family": "craft",
+          "count": 435,
+          "users": 43
+        },
+        {
+          "event": "solver_rerun",
+          "family": "craft",
+          "count": 322,
+          "users": 44
+        },
+        {
+          "event": "bom_calculate",
+          "family": "craft",
+          "count": 247,
+          "users": 66
+        },
+        {
+          "event": "theme_change",
+          "family": "meta",
+          "count": 179,
+          "users": 27
+        },
+        {
+          "event": "bom_breakdown_expand",
+          "family": "craft",
+          "count": 177,
+          "users": 12
+        },
+        {
+          "event": "solver_failed",
+          "family": "craft",
+          "count": 129,
+          "users": 24
+        },
+        {
+          "event": "first_session_milestone",
+          "family": "meta",
+          "count": 116,
+          "users": 70
+        },
+        {
+          "event": "gearset_apply_all",
+          "family": "craft",
+          "count": 77,
+          "users": 44
+        },
+        {
+          "event": "batch_optimization_failed",
+          "family": "craft",
+          "count": 57,
+          "users": 21
+        },
+        {
+          "event": "settings_change",
+          "family": "meta",
+          "count": 49,
+          "users": 10
+        }
+      ],
+      "returningPages": [
+        {
+          "path": "/batch",
+          "returningViews": 1716,
+          "returningUsers": 250,
+          "engagement": 0.8456632653061225
+        },
+        {
+          "path": "/simulator",
+          "returningViews": 1326,
+          "returningUsers": 204,
+          "engagement": 0.8291605301914581
+        },
+        {
+          "path": "/gearset",
+          "returningViews": 1120,
+          "returningUsers": 207,
+          "engagement": 0.8436018957345972
+        },
+        {
+          "path": "/bom",
+          "returningViews": 968,
+          "returningUsers": 166,
+          "engagement": 0.8070175438596491
+        },
+        {
+          "path": "/",
+          "returningViews": 914,
+          "returningUsers": 256,
+          "engagement": 0.7912772585669782
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "returningViews": 504,
+          "returningUsers": 389,
+          "engagement": 0.6256607400288323
+        },
+        {
+          "path": "/timer",
+          "returningViews": 179,
+          "returningUsers": 78,
+          "engagement": 0.8794326241134752
+        },
+        {
+          "path": "/company-craft",
+          "returningViews": 157,
+          "returningUsers": 42,
+          "engagement": 0.8125
+        },
+        {
+          "path": "/settings",
+          "returningViews": 145,
+          "returningUsers": 58,
+          "engagement": 0.8526315789473684
+        },
+        {
+          "path": "/changelog",
+          "returningViews": 114,
+          "returningUsers": 56,
+          "engagement": 0.9204545454545454
+        },
+        {
+          "path": "/recipe",
+          "returningViews": 2,
+          "returningUsers": 1,
+          "engagement": 1
+        },
+        {
+          "path": "/ff14-craft-helper/batch",
+          "returningViews": 1,
+          "returningUsers": 1,
+          "engagement": 1
+        },
+        {
+          "path": "/market",
+          "returningViews": 1,
+          "returningUsers": 1,
+          "engagement": 1
+        },
+        {
+          "path": "/ff14-craft-helper/simulator",
+          "returningViews": 0,
+          "returningUsers": 1,
+          "engagement": 1
+        }
+      ],
+      "q4Funnels": [
+        {
+          "name": "Recipe → Solver",
+          "label": "recipe_select → solver_start",
+          "from": 1926,
+          "to": 8599,
+          "note": "inflated · batch internal solves",
+          "flag": "noise"
+        },
+        {
+          "name": "Solver → Macro",
+          "label": "solver_complete → solver_macro_copy",
+          "from": 8358,
+          "to": 22,
+          "note": "user-facing only",
+          "flag": "danger"
+        },
+        {
+          "name": "Batch prep → Optimize",
+          "label": "batch_add_recipe → batch_opt_start",
+          "from": 1909,
+          "to": 1211,
+          "note": "healthy halfway",
+          "flag": "ok"
+        },
+        {
+          "name": "BOM → Consumed",
+          "label": "bom_calculate → (any consume)",
+          "from": 405,
+          "to": 48,
+          "note": "low handoff",
+          "flag": "warn"
+        }
+      ],
+      "marketRegion": [
+        {
+          "event": "solver_start",
+          "notset": 8199,
+          "unset": 0,
+          "cht": 0,
+          "intl": 0
+        },
+        {
+          "event": "solver_complete",
+          "notset": 7986,
+          "unset": 0,
+          "cht": 0,
+          "intl": 0
+        },
+        {
+          "event": "batch_optimization_start",
+          "notset": 1167,
+          "unset": 0,
+          "cht": 0,
+          "intl": 0
+        },
+        {
+          "event": "batch_optimization_complete",
+          "notset": 993,
+          "unset": 0,
+          "cht": 0,
+          "intl": 0
+        },
+        {
+          "event": "bom_calculate",
+          "notset": 394,
+          "unset": 0,
+          "cht": 0,
+          "intl": 0
+        },
+        {
+          "event": "bom_send_to_batch",
+          "notset": 35,
+          "unset": 0,
+          "cht": 0,
+          "intl": 0
+        },
+        {
+          "event": "solver_macro_copy",
+          "notset": 18,
+          "unset": 0,
+          "cht": 0,
+          "intl": 0
+        }
+      ]
+    }
+  }
+}
