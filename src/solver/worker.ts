@@ -212,6 +212,7 @@ export function solveCraft(
     crafter_level: config.crafter_level, recipe_level: config.recipe_level,
     hq_target: config.hq_target,
     gear_bucket: classifyGearBucket(config.crafter_level, config.craftsmanship, config.control),
+    ...(config.taxonomy ?? {}),
   })
   if (runIndex >= 2) {
     trackEvent('solver_rerun', { run_index: runIndex })

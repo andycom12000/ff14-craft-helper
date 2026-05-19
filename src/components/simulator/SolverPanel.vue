@@ -10,6 +10,7 @@ import type { SolverConfig, SolverStatus } from '@/solver/raphael'
 import { getSkillName } from '@/engine/skills'
 import { useMilestonesStore } from '@/stores/milestones'
 import { canUseSpecialistAction } from '@/services/specialist-state'
+import { computeRecipeTaxonomy } from '@/utils/recipe-taxonomy'
 
 const props = defineProps<{
   craftParams: CraftParams | null
@@ -96,6 +97,8 @@ function buildConfig(): SolverConfig | null {
   const p = props.craftParams
   if (!p) return null
   const rlt = p.recipeLevelTable
+  const recipe = recipeStore.currentRecipe
+  const tax = recipe ? computeRecipeTaxonomy(recipe) : undefined
   return {
     recipe_level: rlt.classJobLevel,
     stars: rlt.stars,
@@ -120,6 +123,12 @@ function buildConfig(): SolverConfig | null {
     // Worker re-derives `isExpert ? false : adversarial`, but mirror the rule
     // here so logs/inspectors see the effective value.
     adversarial: adversarialActive.value,
+    taxonomy: tax && {
+      stars: tax.stars,
+      is_expert: tax.is_expert,
+      is_collectable: tax.is_collectable,
+      craft_kind: tax.craft_kind,
+    },
   }
 }
 

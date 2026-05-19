@@ -44,6 +44,18 @@ export interface SolverConfig {
    * HQ feasibility probe in batch-optimizer. Defaults to false (lenient mode).
    */
   strict_quality?: boolean
+  /**
+   * Optional recipe taxonomy for analytics enrichment. Only user-initiated
+   * solves (SolverPanel) should pass this. Internal callers (batch-optimizer,
+   * buff-recommender) leave it undefined so taxonomy fields are omitted from
+   * solver_start events they trigger.
+   */
+  taxonomy?: {
+    stars: number
+    is_expert: boolean
+    is_collectable: boolean
+    craft_kind: string
+  }
 }
 
 export interface SolverResult {
