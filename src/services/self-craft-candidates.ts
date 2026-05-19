@@ -9,7 +9,6 @@ import { getAggregatedPrices, type MarketData } from '@/api/universalis'
 import { findRecipesByItemName, getRecipe } from '@/api/xivapi'
 import type { RecipeOptimizeResult } from '@/services/batch-optimizer'
 import type { FoodBuff } from '@/engine/food-medicine'
-import { applyBuffsToStats } from '@/engine/food-medicine'
 import type { SelfCraftCandidate } from '@/stores/batch'
 import { simulateCraft } from '@/solver/worker'
 import { canReachHQQuality } from '@/services/feasibility-prefilter'
@@ -143,11 +142,9 @@ async function validateNQ(
   buffs: { food: FoodBuff | null; medicine: FoodBuff | null } | undefined,
   optimizeRecipe: OptimizeRecipeFn,
 ): Promise<ValidateOutcome> {
-  const enhanced = applyBuffsToStats(
-    { craftsmanship: gearset.craftsmanship, control: gearset.control, cp: gearset.cp },
-    buffs,
-  )
-  const params = recipeToCraftParams(recipe, { ...gearset, ...enhanced })
+  // Use recipeToCraftParams's buffs param so stacking order matches
+  // batch-optimizer (Soul → food → medicine, see ADR 0001).
+  const params = recipeToCraftParams(recipe, gearset, buffs)
   const config = craftParamsToSolverConfig(params)
   const template = nqTemplate(recipe.level)
 
