@@ -15,8 +15,20 @@ import type {
   PartSlot,
 } from './local-data-source.types'
 import { LOCALES, DEFAULT_LOCALE } from './local-data-source.types'
+import { trackEvent } from '@/utils/analytics'
 
 export * from './local-data-source.types'
+
+// ---------------- Locale-miss analytics ----------------
+
+const localeMissReported = new Set<string>()
+
+function reportLocaleMiss(kind: 'recipe' | 'item', itemId: number): void {
+  const key = `${kind}:${itemId}`
+  if (localeMissReported.has(key)) return
+  localeMissReported.add(key)
+  trackEvent('recipe_name_locale_miss', { kind, item_id: itemId, expected_locale: 'zh' })
+}
 
 const LOCALE_STORAGE_KEY = 'ffxiv-craft-helper:locale'
 const SEARCH_LIMIT = 50
@@ -356,11 +368,20 @@ export async function getItem(id: number, locale?: Locale): Promise<ItemRecord |
   // block the user from getting an en name.
   const visitOrder: Locale[] = [loc, ...LOCALES.filter((l) => l !== loc)]
 
+  // Track whether the requested locale's lean shard had the item,
+  // so we can fire a locale-miss event when we fall back to another locale.
+  // Only fires when the user is on zh-TW and the zh-TW lean shard misses.
+  let zhTwLeanHit = false
+
   for (const l of visitOrder) {
     try {
       const lean = await loadItems(l)
       const found = lean.get(id)
-      if (found) return found
+      if (found) {
+        if (l === loc && loc === 'zh-TW') zhTwLeanHit = true
+        else if (loc === 'zh-TW') reportLocaleMiss('item', id)
+        return found
+      }
     } catch {
       // missing per-locale shard is non-fatal; keep walking
     }
@@ -368,7 +389,12 @@ export async function getItem(id: number, locale?: Locale): Promise<ItemRecord |
   for (const l of visitOrder) {
     const extra = await loadExtraItems(l)
     const found = extra.get(id)
-    if (found) return found
+    if (found) {
+      // zh-TW extra is visitOrder[0] when loc === 'zh-TW'; if we're still
+      // here without a lean hit and find it in a non-zh-TW extra, it's a miss.
+      if (loc === 'zh-TW' && l !== loc && !zhTwLeanHit) reportLocaleMiss('item', id)
+      return found
+    }
   }
   return undefined
 }
@@ -503,6 +529,7 @@ export function __resetForTesting(): void {
   extraItemsCache.clear()
   extraItemsFailed.clear()
   localeListeners.clear()
+  localeMissReported.clear()
   try {
     globalThis.localStorage?.removeItem(LOCALE_STORAGE_KEY)
   } catch {
