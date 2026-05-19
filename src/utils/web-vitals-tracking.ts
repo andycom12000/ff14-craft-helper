@@ -6,6 +6,7 @@ function sendVital(metric: Metric) {
     metric: metric.name,
     value: metric.name === 'CLS' ? Number(metric.value.toFixed(4)) : Math.round(metric.value),
     rating: metric.rating,
+    page_path: typeof window !== 'undefined' ? window.location.pathname + window.location.hash : '',
   })
 }
 
