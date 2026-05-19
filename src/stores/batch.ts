@@ -237,7 +237,7 @@ export const useBatchStore = defineStore('batch', () => {
     })
   }
 
-  function recordOptimizationStart() {
+  function recordOptimizationStart(crossServer: boolean) {
     const rlvs = targets.value
       .map(t => t.recipe?.recipeLevelTable?.classJobLevel ?? 0)
       .filter(v => v > 0)
@@ -247,6 +247,7 @@ export const useBatchStore = defineStore('batch', () => {
       target_count: targets.value.length,
       total_quantity: targets.value.reduce((sum, t) => sum + t.quantity, 0),
       calc_mode: calcMode.value,
+      cross_server: crossServer,
       targets_rlv_min: rlvs.length ? Math.min(...rlvs) : 0,
       targets_rlv_max: rlvs.length ? Math.max(...rlvs) : 0,
       targets_stars_max: starsMax,

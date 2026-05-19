@@ -393,7 +393,7 @@ describe('batch_optimization_start aggregate dims', () => {
     vi.mocked(trackEvent).mockClear()
   })
 
-  it('emits rlv min/max, stars max, has_expert/collectable, unique_jobs', () => {
+  it('emits rlv min/max, stars max, has_expert/collectable, unique_jobs, cross_server', () => {
     const batch = useBatchStore()
     batch.addRecipe(makeRecipe({
       id: 1,
@@ -416,7 +416,7 @@ describe('batch_optimization_start aggregate dims', () => {
       stars: 4, isExpert: false, isCollectable: true, job: 'BSM',
     }), 1, 'search')
     vi.mocked(trackEvent).mockClear()
-    batch.recordOptimizationStart()
+    batch.recordOptimizationStart(false)
     expect(trackEvent).toHaveBeenCalledWith('batch_optimization_start', expect.objectContaining({
       targets_rlv_min: 640,
       targets_rlv_max: 700,
@@ -424,6 +424,7 @@ describe('batch_optimization_start aggregate dims', () => {
       has_expert_in_batch: true,
       has_collectable_in_batch: true,
       unique_jobs_in_batch: 2,
+      cross_server: false,
     }))
   })
 })

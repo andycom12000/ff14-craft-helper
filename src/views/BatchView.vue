@@ -234,7 +234,7 @@ async function startOptimization() {
   expandedSections.value = new Set()
 
   const startedAt = performance.now()
-  batchStore.recordOptimizationStart()
+  batchStore.recordOptimizationStart(settings.crossServer)
   useMilestonesStore().markMilestoneOnce('used_batch')
 
   try {
