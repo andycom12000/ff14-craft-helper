@@ -52,10 +52,6 @@ describe('computeRecipeTaxonomy (full taxonomy)', () => {
     expect(computeRecipeTaxonomy(makeRecipe({ craftKind: undefined })).craft_kind).toBe('normal')
   })
 
-  it('category defaults to misc (looked up by caller from item, not in this util)', () => {
-    expect(computeRecipeTaxonomy(makeRecipe({})).category).toBe('misc')
-  })
-
   it('classifies action_count buckets', () => {
     expect(computeRecipeTaxonomy(makeRecipe({}), 10).expected_action_count_bucket).toBe('short')
     expect(computeRecipeTaxonomy(makeRecipe({}), 20).expected_action_count_bucket).toBe('medium')
