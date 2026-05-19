@@ -25,6 +25,14 @@ const router = createRouter({
       name: 'simulator',
       component: () => import('@/views/SimulatorView.vue'),
       meta: { title: '製作模擬' },
+      beforeEnter: (to, from) => {
+        let source: 'recipe_auto' | 'manual_nav' | 'queue_jump' | 'share_url' | 'unknown' = 'unknown'
+        if (to.query.macro || to.hash.includes('macro')) source = 'share_url'
+        else if (from.name === 'batch' || to.query.from === 'queue') source = 'queue_jump'
+        else if (from.name === 'dashboard' || from.name === 'batch') source = 'recipe_auto'
+        else if (from.name) source = 'manual_nav'
+        trackEvent('simulator_entry_source', { source })
+      },
     },
     {
       path: '/bom',
