@@ -8,6 +8,7 @@ import { useLocaleStore } from '@/stores/locale'
 import { useThemeStore } from '@/stores/theme'
 import { trackError } from '@/utils/analytics'
 import { registerWebVitals } from '@/utils/web-vitals-tracking'
+import { syncFromStores } from '@/utils/user-properties'
 
 const app = createApp(App)
 
@@ -59,8 +60,10 @@ if (typeof window !== 'undefined' && !sessionStorage.getItem(TTFA_KEY)) {
   if (typeof originalGtag === 'function') {
     window.gtag = function (...args: unknown[]) {
       const [cmd, name] = args as [string, string, ...unknown[]]
-      if (cmd === 'event' && name && !AUTO_EVENTS.has(name) && !sessionStorage.getItem(TTFA_KEY)) {
+      if (cmd === 'event' && name && !AUTO_EVENTS.has(name)) {
         sessionStorage.setItem(TTFA_KEY, '1')
+        // Restore the original gtag so subsequent calls skip the wrapper entirely.
+        window.gtag = originalGtag
         const duration = Math.round(performance.now() - startedAt)
         originalGtag('event', 'time_to_first_action', {
           duration_ms_since_load: duration,
@@ -75,9 +78,7 @@ if (typeof window !== 'undefined' && !sessionStorage.getItem(TTFA_KEY)) {
 app.mount('#app')
 
 // User properties: sync once after Pinia stores hydrate.
-import('@/utils/user-properties').then(({ syncFromStores }) => {
-  syncFromStores()
-})
+syncFromStores()
 
 registerWebVitals()
 

@@ -5,6 +5,7 @@ import type { Locale } from '@/services/local-data-source.types'
 import { emitSettingsChange } from '@/utils/settings-change'
 import { trackEvent } from '@/utils/analytics'
 import { inferMarketRegion } from '@/utils/market-region'
+import { syncFromStores } from '@/utils/user-properties'
 
 export type PriceDisplayMode = 'nq' | 'hq' | 'minOf'
 
@@ -55,7 +56,7 @@ export const useSettingsStore = defineStore('settings', () => {
         market_region: inferMarketRegion(v),
       })
     }
-    import('@/utils/user-properties').then(({ syncFromStores }) => syncFromStores())
+    syncFromStores()
   }
   function setPriceDisplayMode(v: PriceDisplayMode) {
     const prev = priceDisplayMode.value; if (prev === v) return

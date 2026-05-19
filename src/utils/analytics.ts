@@ -36,7 +36,11 @@ export function trackError(message: string, context?: GtagParams) {
   })
 }
 
+const lastUserProperty = new Map<string, string | number | boolean>()
+
 export function setUserProperty(key: string, value: string | number | boolean) {
+  if (lastUserProperty.get(key) === value) return
+  lastUserProperty.set(key, value)
   if (typeof window === 'undefined' || typeof window.gtag !== 'function') return
   window.gtag('set', 'user_properties', { [key]: value })
 }

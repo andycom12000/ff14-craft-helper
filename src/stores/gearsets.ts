@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { JOB_NAMES, JOB_ABBR } from '@/utils/jobs'
 import { trackEvent } from '@/utils/analytics'
+import { syncFromStores } from '@/utils/user-properties'
 
 export interface GearsetStats {
   level: number
@@ -42,7 +43,7 @@ export const useGearsetsStore = defineStore('gearsets', () => {
   function updateGearset(job: string, updates: Partial<GearsetStats>) {
     if (gearsets.value[job]) {
       gearsets.value[job] = { ...gearsets.value[job], ...updates }
-      import('@/utils/user-properties').then(({ syncFromStores }) => syncFromStores())
+      syncFromStores()
     }
   }
 
@@ -60,7 +61,7 @@ export const useGearsetsStore = defineStore('gearsets', () => {
     trackEvent('gearset_apply_all', {
       fields: Object.keys(defined).join(','),
     })
-    import('@/utils/user-properties').then(({ syncFromStores }) => syncFromStores())
+    syncFromStores()
   }
 
   // Migrate from old array format and ensure all jobs exist
