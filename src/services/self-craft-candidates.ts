@@ -9,7 +9,6 @@ import { getAggregatedPrices, type MarketData } from '@/api/universalis'
 import { findRecipesByItemName, getRecipe } from '@/api/xivapi'
 import type { RecipeOptimizeResult } from '@/services/batch-optimizer'
 import type { FoodBuff } from '@/engine/food-medicine'
-import { applyBuffsToStats } from '@/engine/food-medicine'
 import type { SelfCraftCandidate } from '@/stores/batch'
 import { simulateCraft } from '@/solver/worker'
 import { canReachHQQuality } from '@/services/feasibility-prefilter'
@@ -90,6 +89,36 @@ export function walkTreeForCandidates(tree: MaterialNode[]): TreeNodeInfo[] {
   return out
 }
 
+/**
+ * Cheapest listing-fulfilment price for buying `amount` of `itemId`.
+ * Falls back to `minPriceNQ` (or 0) when listings can't fulfil — same fallback
+ * the shopping list uses, so cart totals and reprice math stay in lock-step.
+ */
+function priceItemFromListings(
+  itemId: number,
+  amount: number,
+  priceMap: Map<number, MarketData>,
+  crossServer: boolean,
+  fallbackServer: string,
+): { unitPrice: number; server: string } {
+  if (isCrystal(itemId)) return { unitPrice: 0, server: fallbackServer }
+  const md = priceMap.get(itemId)
+  const fallback = { unitPrice: md?.minPriceNQ ?? 0, server: fallbackServer }
+  if (!md?.listings?.length || amount <= 0) return fallback
+
+  if (crossServer) {
+    const result = findCheapestServerPurchase(md.listings, amount, false, fallbackServer)
+    return Number.isFinite(result.bestCost)
+      ? { unitPrice: Math.round(result.bestCost / amount), server: result.bestServer }
+      : fallback
+  }
+
+  const purchase = calculateBestPurchase(md.listings, amount, false)
+  return purchase.fulfilled
+    ? { unitPrice: purchase.effectiveUnitPrice, server: fallbackServer }
+    : fallback
+}
+
 export function computeRawMaterials(
   childNodes: MaterialNode[],
   priceMap: Map<number, MarketData>,
@@ -97,24 +126,13 @@ export function computeRawMaterials(
   server: string,
 ): MaterialWithPrice[] {
   return childNodes.map(c => {
-    const base = { itemId: c.itemId, name: c.name, icon: c.icon, amount: c.amount, type: 'nq' as const }
-    if (isCrystal(c.itemId)) return { ...base, unitPrice: 0, server }
-
-    const md = priceMap.get(c.itemId)
-    const fallback = { ...base, unitPrice: md?.minPriceNQ ?? 0, server }
-    if (!md?.listings?.length) return fallback
-
-    if (crossServer) {
-      const result = findCheapestServerPurchase(md.listings, c.amount, false, server)
-      return Number.isFinite(result.bestCost)
-        ? { ...base, unitPrice: Math.round(result.bestCost / c.amount), server: result.bestServer }
-        : fallback
+    const priced = priceItemFromListings(c.itemId, c.amount, priceMap, crossServer, server)
+    return {
+      itemId: c.itemId, name: c.name, icon: c.icon, amount: c.amount,
+      type: 'nq' as const,
+      unitPrice: priced.unitPrice,
+      server: priced.server,
     }
-
-    const purchase = calculateBestPurchase(md.listings, c.amount, false)
-    return purchase.fulfilled
-      ? { ...base, unitPrice: purchase.effectiveUnitPrice, server }
-      : fallback
   })
 }
 
@@ -143,11 +161,9 @@ async function validateNQ(
   buffs: { food: FoodBuff | null; medicine: FoodBuff | null } | undefined,
   optimizeRecipe: OptimizeRecipeFn,
 ): Promise<ValidateOutcome> {
-  const enhanced = applyBuffsToStats(
-    { craftsmanship: gearset.craftsmanship, control: gearset.control, cp: gearset.cp },
-    buffs,
-  )
-  const params = recipeToCraftParams(recipe, { ...gearset, ...enhanced })
+  // Use recipeToCraftParams's buffs param so stacking order matches
+  // batch-optimizer (Soul → food → medicine, see ADR 0001).
+  const params = recipeToCraftParams(recipe, gearset, buffs)
   const config = craftParamsToSolverConfig(params)
   const template = nqTemplate(recipe.level)
 
@@ -344,6 +360,32 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
     if (validated.kind === 'prefilter-rejected') return null
     if (validated.kind === 'failed') return null
 
+    // computeOptimalCosts prices everything at `minPriceNQ × amount`, but the
+    // shopping list uses listing fulfilment — the two diverge once the cheapest
+    // stack runs out. Reprice against what the cart will actually charge, then
+    // re-apply the savings threshold so we never recommend a "saving" that
+    // becomes a loss on accept. Empty market data → no reality check possible,
+    // keep the decision values.
+    const rawMaterials = computeRawMaterials(node.childNodes, priceMap, crossServer, server)
+    const realPrice = priceItemFromListings(decision.itemId, decision.amount, priceMap, crossServer, server)
+    const realBuyCost = realPrice.unitPrice * decision.amount
+
+    let buyCost = decision.buyCost
+    let craftCost = decision.craftCost
+    let savings = decision.buyCost - decision.craftCost
+    let savingsRatio = decision.savingsRatio
+
+    if (realBuyCost > 0) {
+      const realCraftCost = rawMaterials.reduce((sum, m) => sum + m.unitPrice * m.amount, 0)
+      const realSavings = realBuyCost - realCraftCost
+      const realRatio = realSavings / realBuyCost
+      if (realRatio < SELF_CRAFT_SAVINGS_THRESHOLD) return null
+      buyCost = realBuyCost
+      craftCost = realCraftCost
+      savings = realSavings
+      savingsRatio = realRatio
+    }
+
     return {
       itemId: decision.itemId,
       name: decision.name,
@@ -351,13 +393,13 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
       amount: decision.amount,
       recipe,
       job,
-      buyCost: decision.buyCost,
-      craftCost: decision.craftCost,
-      savings: decision.buyCost - decision.craftCost,
-      savingsRatio: decision.savingsRatio,
+      buyCost,
+      craftCost,
+      savings,
+      savingsRatio,
       actions: validated.actions,
       hqAmounts: validated.hqAmounts,
-      rawMaterials: computeRawMaterials(node.childNodes, priceMap, crossServer, server),
+      rawMaterials,
       hqRequired,
       depth: node.depth,
     } as SelfCraftCandidate

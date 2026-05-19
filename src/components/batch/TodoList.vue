@@ -129,19 +129,6 @@ function requestNewBatch() {
       製作順序（依相依性排列，由底層半成品到頂層成品）
     </el-text>
 
-    <div v-if="allComplete" class="todo-celebration" role="status">
-      <div class="todo-celebration-body">
-        <span class="todo-celebration-icon" aria-hidden="true">🎉</span>
-        <div class="todo-celebration-text">
-          <h4 class="todo-celebration-title">全部完工！</h4>
-          <div class="todo-celebration-sub">辛苦了，要不要開始下一批？</div>
-        </div>
-      </div>
-      <ConfirmNewBatch @confirm="requestNewBatch">
-        <el-button type="primary" size="default" class="new-batch-cta">✨ 開始新批次</el-button>
-      </ConfirmNewBatch>
-    </div>
-
     <!-- Completed items collapsed section -->
     <div v-if="doneItems.length > 0" class="done-collapse">
       <button
@@ -302,16 +289,22 @@ function requestNewBatch() {
     </div>
     </div>
 
+    <!-- Completion moment: lands in the same vertical zone the user's
+         cursor just left, so the next-batch CTA is one short hop away. -->
+    <div v-if="allComplete" class="todo-celebration" role="status">
+      <span class="todo-celebration-icon" aria-hidden="true">🎉</span>
+      <h4 class="todo-celebration-title">全部完工！</h4>
+      <p class="todo-celebration-sub">辛苦了，要不要再揉一團麵團？</p>
+      <ConfirmNewBatch @confirm="requestNewBatch">
+        <el-button type="primary" size="large" class="new-batch-cta">✨ 開始新批次</el-button>
+      </ConfirmNewBatch>
+    </div>
+
     <div v-if="items.length > 0" class="todo-footer">
       <el-progress :percentage="progressPercent" :stroke-width="10" class="todo-progress" />
-      <div class="todo-footer-row">
-        <el-text size="small" type="info">
-          進度：{{ doneCount }} / {{ items.length }} 完成
-        </el-text>
-        <ConfirmNewBatch @confirm="requestNewBatch">
-          <el-button type="primary" size="small" class="new-batch-cta">✨ 開始新批次</el-button>
-        </ConfirmNewBatch>
-      </div>
+      <el-text size="small" type="info" class="todo-progress-label">
+        進度：{{ doneCount }} / {{ items.length }} 完成
+      </el-text>
     </div>
   </div>
 </template>
@@ -323,47 +316,53 @@ function requestNewBatch() {
 
 .todo-celebration {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 16px;
-  padding: 14px 18px;
-  margin-bottom: 16px;
-  border-radius: 10px;
-  background: color-mix(in oklch, var(--app-success) 10%, var(--app-surface));
-  border: 1px solid color-mix(in oklch, var(--app-success) 40%, transparent);
-  flex-wrap: wrap;
-}
-
-.todo-celebration-body {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1 1 auto;
-  min-width: 0;
+  gap: 8px;
+  padding: 24px 20px 22px;
+  margin: 4px 0 12px;
+  border-radius: 14px;
+  background: color-mix(in oklch, var(--app-success) 8%, var(--app-surface));
+  border: 1px solid color-mix(in oklch, var(--app-success) 32%, transparent);
+  text-align: center;
 }
 
 .todo-celebration-icon {
-  font-size: 28px;
+  font-size: 36px;
   line-height: 1;
+  margin-bottom: 2px;
 }
 
 .todo-celebration-title {
-  margin: 0 0 2px 0;
-  font-size: 15px;
-  font-weight: 600;
+  margin: 0;
+  font-family: 'Noto Serif TC', serif;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
   color: var(--app-text);
 }
 
 .todo-celebration-sub {
-  font-size: 13px;
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  line-height: 1.6;
   color: var(--app-text-muted);
+}
+
+.todo-celebration .new-batch-cta {
+  min-width: 180px;
 }
 
 @media (max-width: 480px) {
   .todo-celebration {
-    padding: 12px 14px;
+    padding: 20px 16px 18px;
   }
   .todo-celebration-icon {
-    font-size: 24px;
+    font-size: 30px;
+  }
+  .todo-celebration-title {
+    font-size: 19px;
   }
 }
 
@@ -705,13 +704,11 @@ function requestNewBatch() {
 }
 
 .todo-progress {
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
-.todo-footer-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.todo-progress-label {
+  display: block;
 }
 
 /* Wide screen: 2-column todo grid */

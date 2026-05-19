@@ -474,6 +474,82 @@ describe('produceSelfCraftCandidates', () => {
   })
 })
 
+import { COMMON_FOODS } from '@/engine/food-medicine'
+import type { RecipeOptimizeResult } from '@/services/batch-optimizer'
+
+describe('validateNQ — stacking order matches batch-optimizer (#34)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('specialist + food: simulateCraft receives Soul→Food stats (cp=144, not 141)', async () => {
+    const gearset: GearsetStats = {
+      level: 100, craftsmanship: 4000, control: 100, cp: 100, isSpecialist: true,
+    }
+    const food = COMMON_FOODS.find(f => f.id === 36060)!  // cp +26% cap 78
+
+    const captured: any[] = []
+    vi.mocked(simulateCraft).mockImplementation(async (config: any) => {
+      captured.push(config)
+      return { progress: 0, max_progress: 999, quality: 0, max_quality: 999,
+               durability: 70, max_durability: 70, cp: 0, max_cp: 100, steps_count: 0 } as any
+    })
+
+    const recipe = mkRecipe(1, 'CRP', 80)
+    const deficitResult: RecipeOptimizeResult = {
+      recipe, quantity: 1, outputAmount: 1,
+      actions: [], hqAmounts: [], initialQuality: 0,
+      isDoubleMax: false, materials: [], qualityDeficit: 100,
+    }
+
+    vi.mocked(buildMaterialTree).mockResolvedValue([
+      {
+        itemId: 100, name: 'Product', icon: '', amount: 1, recipeId: 1,
+        children: [
+          { itemId: 50, name: 'Intermediate', icon: '', amount: 1, recipeId: 5,
+            children: [{ itemId: 1, name: 'Raw', icon: '', amount: 1 }] },
+        ],
+      } as any,
+    ])
+    vi.mocked(computeOptimalCosts).mockReturnValue({
+      totalCost: 0,
+      decisions: [{
+        itemId: 50, name: 'Intermediate', icon: '', amount: 1,
+        buyCost: 1000, craftCost: 800, optimalCost: 800,
+        savingsRatio: 0.20, recommendation: 'craft',
+      }],
+    })
+    vi.mocked(findRecipesByItemName).mockResolvedValue([{ recipeId: 5, job: 'CRP' }])
+    vi.mocked(getRecipe).mockResolvedValue({
+      id: 5, itemId: 50, name: 'Intermediate', icon: '', job: 'CRP',
+      level: 80, stars: 0, canHq: true, materialQualityFactor: 50, amountResult: 1,
+      ingredients: [],
+      recipeLevelTable: {
+        classJobLevel: 80, stars: 0, difficulty: 1000, quality: 2000, durability: 70,
+        suggestedCraftsmanship: 0, progressDivider: 100, qualityDivider: 100,
+        progressModifier: 100, qualityModifier: 100,
+      },
+    } as any)
+
+    await produceSelfCraftCandidates({
+      recipesToCraft: [deficitResult],
+      priceMap: new Map(),
+      priceSource: 'Chocobo', crossServer: false, server: 'Chocobo',
+      getGearset: () => gearset,
+      maxDepth: 3,
+      buffs: { food, medicine: null },
+      optimizeRecipe: vi.fn().mockResolvedValue({
+        ...deficitResult, isDoubleMax: false, hqAmounts: [],
+      }),
+      onProgress: () => {},
+      isCancelled: () => false,
+    })
+
+    expect(captured.length).toBeGreaterThan(0)
+    expect(captured[0].cp).toBe(144)
+  })
+})
+
 // ---------------------------------------------------------------------------
 // Step 8 branch-rewrite tests: NQ template path + HQ prefilter path
 // ---------------------------------------------------------------------------
@@ -607,5 +683,129 @@ describe('produceSelfCraftCandidates – Step 8 branch rewrite', () => {
     }))
     expect(optimizeFn).toHaveBeenCalledTimes(1)
     expect(out).toHaveLength(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Reprice against listing fulfilment (issue #39):
+// computeOptimalCosts thinks "self-craft saves X%" using minPriceNQ × amount,
+// but the shopping list uses calculateBestPurchase / findCheapestServerPurchase
+// which has to eat more-expensive listings once the cheapest stack runs out.
+// Recommendations must match what the cart will actually charge.
+// ---------------------------------------------------------------------------
+
+describe('produceSelfCraftCandidates – reprices against listing fulfilment', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  function buildBugCaseArgs() {
+    // Stub a 1→1 recipe whose raw material is itemId 20 (above crystal threshold).
+    vi.mocked(buildMaterialTree).mockResolvedValue([{
+      itemId: 999, name: 'root', icon: '', amount: 1, recipeId: 999,
+      children: [{
+        itemId: 200, name: 'self-craft target', icon: '', amount: 1, recipeId: 100,
+        children: [{ itemId: 20, name: 'raw', icon: '', amount: 5 }],
+      }],
+    }] as any)
+    vi.mocked(findRecipesByItemName).mockResolvedValue([{ recipeId: 100, job: '木工' }])
+    vi.mocked(getRecipe).mockResolvedValue(intermediateRecipe)
+    vi.mocked(simulateCraft).mockResolvedValue(passProgressSim)
+    return buildArgs()
+  }
+
+  it('drops candidate when realistic fulfilment inverts the optimistic savings', async () => {
+    // computeOptimalCosts says: buy 200 once costs 1000, craft for 800 (20% saved).
+    // Reality: 200's market only has 1 stack at the cheap price; need to eat next
+    // tier. And the raw material is sparser than its minPriceNQ suggests.
+    vi.mocked(computeOptimalCosts).mockReturnValue({
+      totalCost: 0,
+      decisions: [{
+        itemId: 200, name: 'self-craft target', icon: '', amount: 1,
+        buyCost: 1000, craftCost: 800, optimalCost: 800,
+        savingsRatio: 0.20, recommendation: 'craft',
+      }],
+    })
+    const priceMap = new Map<number, any>([
+      [200, {
+        itemID: 200, lastUploadTime: 0, currentAveragePrice: 0,
+        currentAveragePriceNQ: 0, currentAveragePriceHQ: 0,
+        minPriceNQ: 1000, minPriceHQ: 0,
+        listings: [{ pricePerUnit: 1000, quantity: 1, total: 1000, hq: false, lastReviewTime: 0 }],
+        recentHistory: [],
+      }],
+      [20, {
+        itemID: 20, lastUploadTime: 0, currentAveragePrice: 0,
+        currentAveragePriceNQ: 0, currentAveragePriceHQ: 0,
+        minPriceNQ: 160, minPriceHQ: 0,
+        // Only 5 needed but cheapest 1-stack runs out fast → bid up.
+        listings: [
+          { pricePerUnit: 160, quantity: 1, total: 160, hq: false, lastReviewTime: 0 },
+          { pricePerUnit: 300, quantity: 4, total: 1200, hq: false, lastReviewTime: 0 },
+        ],
+        recentHistory: [],
+      }],
+    ])
+    const args = { ...buildBugCaseArgs(), priceMap: priceMap as any }
+    const out = await produceSelfCraftCandidates(args)
+    // Optimistic decision claimed 20% savings, but craft cost 160+1200=1360 > buy cost 1000.
+    // Realistic ratio is negative → must be dropped.
+    expect(out).toHaveLength(0)
+  })
+
+  it('rewrites buyCost/craftCost/savings to listing-fulfilment numbers when still profitable', async () => {
+    // Optimistic numbers exaggerate the win; realistic ones still save 5%+ so candidate survives,
+    // but the displayed figures must reflect what the cart will actually charge.
+    vi.mocked(computeOptimalCosts).mockReturnValue({
+      totalCost: 0,
+      decisions: [{
+        itemId: 200, name: 'self-craft target', icon: '', amount: 1,
+        buyCost: 1000, craftCost: 500, optimalCost: 500,
+        savingsRatio: 0.50, recommendation: 'craft',
+      }],
+    })
+    // calculateBestPurchase buys whole stacks — listing quantities must match
+    // the needed amounts exactly, otherwise the test would also exercise the
+    // waste cost which isn't what we're verifying here.
+    const priceMap = new Map<number, any>([
+      [200, {
+        itemID: 200, lastUploadTime: 0, currentAveragePrice: 0,
+        currentAveragePriceNQ: 0, currentAveragePriceHQ: 0,
+        minPriceNQ: 800, minPriceHQ: 0,
+        listings: [{ pricePerUnit: 800, quantity: 1, total: 800, hq: false, lastReviewTime: 0 }],
+        recentHistory: [],
+      }],
+      [20, {
+        itemID: 20, lastUploadTime: 0, currentAveragePrice: 0,
+        currentAveragePriceNQ: 0, currentAveragePriceHQ: 0,
+        minPriceNQ: 100, minPriceHQ: 0,
+        listings: [{ pricePerUnit: 100, quantity: 5, total: 500, hq: false, lastReviewTime: 0 }],
+        recentHistory: [],
+      }],
+    ])
+    const args = { ...buildBugCaseArgs(), priceMap: priceMap as any }
+    const out = await produceSelfCraftCandidates(args)
+    expect(out).toHaveLength(1)
+    // Realistic: buy 1 × 800 = 800; craft uses 5 × 100 = 500; savings 300, ratio 0.375.
+    expect(out[0].buyCost).toBe(800)
+    expect(out[0].craftCost).toBe(500)
+    expect(out[0].savings).toBe(300)
+    expect(out[0].savingsRatio).toBeCloseTo(0.375, 3)
+  })
+
+  it('falls back to decision values when price map has no entry for the candidate', async () => {
+    // Empty priceMap (test artifact) — no realistic data, keep optimistic numbers.
+    vi.mocked(computeOptimalCosts).mockReturnValue({
+      totalCost: 0,
+      decisions: [{
+        itemId: 200, name: 'self-craft target', icon: '', amount: 1,
+        buyCost: 1000, craftCost: 800, optimalCost: 800,
+        savingsRatio: 0.20, recommendation: 'craft',
+      }],
+    })
+    const args = buildBugCaseArgs()  // priceMap: new Map()
+    const out = await produceSelfCraftCandidates(args)
+    expect(out).toHaveLength(1)
+    expect(out[0].buyCost).toBe(1000)
+    expect(out[0].craftCost).toBe(800)
+    expect(out[0].savingsRatio).toBeCloseTo(0.20, 3)
   })
 })
