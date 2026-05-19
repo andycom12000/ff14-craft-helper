@@ -52,7 +52,11 @@ export async function optimizeRecipe(
     craftParams.control = enhanced.control
     craftParams.cp = enhanced.cp
   }
-  const solverConfig = craftParamsToSolverConfig(craftParams)
+  // Batch hard-pins adversarial=false even though it's the default — the
+  // batch pipeline runs many solves in parallel and the WASM heap blow-up
+  // risk is unacceptable here. Keep this explicit so a future default-flip
+  // can't quietly turn it on for batch.
+  const solverConfig = craftParamsToSolverConfig(craftParams, { adversarial: false })
   const solverResult = await solveCraft(solverConfig, onSolverProgress)
   if (solverResult.wasmDur !== undefined) {
     const stats = solverResult.runtimeStats

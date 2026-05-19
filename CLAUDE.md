@@ -61,3 +61,17 @@ rm -rf .tmp/
 - 視覺基調：light theme · 奶油白主背景 · 多色烘焙語意（吐司金 / 可可 / 草莓醬 / 抹茶 / 藍莓）
 - Brand & 設計細節請參考 `PRODUCT.md`
 - Rebrand spec：`docs/superpowers/specs/2026-04-26-toast-workshop-rebrand-design.md`
+
+## Agent skills
+
+### Issue tracker
+
+Issues 開在 GitHub Issues（`andycom12000/ff14-craft-helper`），透過 `gh` CLI 操作。詳見 `docs/agents/issue-tracker.md`。
+
+### Triage labels
+
+5 個 canonical role 全部沿用預設字串（`needs-triage` / `needs-info` / `ready-for-agent` / `ready-for-human` / `wontfix`）。詳見 `docs/agents/triage-labels.md`。
+
+### Domain docs
+
+Single-context — 一份 `CONTEXT.md` + `docs/adr/` 在 repo root。詳見 `docs/agents/domain.md`。

@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useSimulatorStore } from '@/stores/simulator'
+import { useRecipeStore } from '@/stores/recipe'
+import { useGearsetsStore } from '@/stores/gearsets'
 import { solveCraft, cancelSolve, disposeWorker, waitForWasm, getWasmStatus } from '@/solver/worker'
 import type { CraftParams } from '@/engine/simulator'
 import type { SolverConfig, SolverStatus } from '@/solver/raphael'
 import { getSkillName } from '@/engine/skills'
 import { useMilestonesStore } from '@/stores/milestones'
+import { canUseSpecialistAction } from '@/services/specialist-state'
 
 const props = defineProps<{
   craftParams: CraftParams | null
@@ -18,6 +21,8 @@ const emit = defineEmits<{
 
 const simStore = useSimulatorStore()
 const milestones = useMilestonesStore()
+const recipeStore = useRecipeStore()
+const gearsetsStore = useGearsetsStore()
 
 const status = ref<SolverStatus>('idle')
 const progress = ref(0)
@@ -30,6 +35,9 @@ const useTrainedEye = ref(true)
 const useManipulation = ref(false)
 const useHeartAndSoul = ref(false)
 const useQuickInnovation = ref(false)
+// "100% reliability" — raphael's adversarial flag. Default OFF (experimental,
+// can balloon WASM heap past 4GB on hard recipes). Expert recipes force-off.
+const useAdversarial = ref(false)
 
 // TrainedEye requires crafter level >= recipe level + 10
 const canUseTrainedEye = computed(() => {
@@ -37,6 +45,35 @@ const canUseTrainedEye = computed(() => {
   if (!p) return false
   return p.crafterLevel >= p.recipeLevelTable.classJobLevel + 10
 })
+
+// Specialist gating — H&S and QI require the active gearset's `isSpecialist`
+// flag. Watch the flag for transitions so we can force the refs to track
+// (true → checked, false → unchecked) without preserving shadow state.
+const currentGearset = computed(() => {
+  const job = recipeStore.currentRecipe?.job
+  if (!job) return null
+  return gearsetsStore.getGearsetForJob(job)
+})
+const canUseHeartAndSoul = computed(() => canUseSpecialistAction(currentGearset.value, 'HeartAndSoul'))
+const canUseQuickInnovation = computed(() => canUseSpecialistAction(currentGearset.value, 'QuickInnovation'))
+
+watch(
+  () => currentGearset.value?.isSpecialist === true,
+  (isSpecialist) => {
+    // On every transition: force-sync both refs to the specialist flag.
+    // - false → checkboxes uncheck and stay disabled (no shadow state kept)
+    // - true → checkboxes default to checked (matches Q2 spec)
+    useHeartAndSoul.value = isSpecialist
+    useQuickInnovation.value = isSpecialist
+  },
+  { immediate: true },
+)
+
+// Expert recipes hard-disable adversarial — matches raphael upstream contract.
+const isExpertRecipe = computed(() => props.craftParams?.isExpert === true)
+
+// Effective adversarial value: expert overrides user toggle.
+const adversarialActive = computed(() => !isExpertRecipe.value && useAdversarial.value)
 
 onMounted(async () => {
   const ws = getWasmStatus()
@@ -79,6 +116,10 @@ function buildConfig(): SolverConfig | null {
     use_heart_and_soul: useHeartAndSoul.value,
     use_quick_innovation: useQuickInnovation.value,
     use_trained_eye: useTrainedEye.value && canUseTrainedEye.value,
+    isExpert: isExpertRecipe.value,
+    // Worker re-derives `isExpert ? false : adversarial`, but mirror the rule
+    // here so logs/inspectors see the effective value.
+    adversarial: adversarialActive.value,
   }
 }
 
@@ -147,18 +188,46 @@ onUnmounted(() => {
         <el-checkbox v-model="useManipulation">{{ getSkillName('Manipulation') }}</el-checkbox>
       </el-tooltip>
       <el-tooltip
-        content="心眼之手：專家配方專用。一次將普通狀態手動切到高品質，搶大波加工。"
+        :content="canUseHeartAndSoul
+          ? '心眼之手：需專家之證（specialist）才能使用。一次將普通狀態手動切到高品質，搶大波加工。'
+          : '目前 gearset 未標記為專家之證（specialist），請到配裝頁面開啟。'"
         placement="top"
       >
-        <el-checkbox v-model="useHeartAndSoul">{{ getSkillName('HeartAndSoul') }}</el-checkbox>
+        <!-- Span wrapper so el-tooltip's mouseenter still fires when the
+             checkbox is disabled (Element Plus' disabled checkboxes swallow
+             pointer events otherwise). -->
+        <span class="specialist-toggle-wrap">
+          <el-checkbox v-model="useHeartAndSoul" :disabled="!canUseHeartAndSoul">{{ getSkillName('HeartAndSoul') }}</el-checkbox>
+        </span>
       </el-tooltip>
       <el-tooltip
-        content="快速改革：專家配方專用。不耗 CP 觸發一次革新，求解器自動安排最佳時點。"
+        :content="canUseQuickInnovation
+          ? '快速改革：需專家之證（specialist）才能使用。不耗 CP 觸發一次革新，求解器自動安排最佳時點。'
+          : '目前 gearset 未標記為專家之證（specialist），請到配裝頁面開啟。'"
         placement="top"
       >
-        <el-checkbox v-model="useQuickInnovation">{{ getSkillName('QuickInnovation') }}</el-checkbox>
+        <span class="specialist-toggle-wrap">
+          <el-checkbox v-model="useQuickInnovation" :disabled="!canUseQuickInnovation">{{ getSkillName('QuickInnovation') }}</el-checkbox>
+        </span>
+      </el-tooltip>
+      <el-tooltip
+        :content="isExpertRecipe
+          ? '專家配方不支援 100% 可靠性模式（與 raphael upstream 對齊）'
+          : '100% 可靠性：求解器要求手法在最壞狀態序列下仍能達成雙滿，而不是只看平均期望。'"
+        placement="top"
+      >
+        <!-- el-tooltip needs a non-disabled wrapper to fire on hover when the
+             checkbox is disabled, so wrap in a span. -->
+        <span class="adversarial-toggle-wrap">
+          <el-checkbox v-model="useAdversarial" :disabled="isExpertRecipe">
+            100% 可靠性
+          </el-checkbox>
+        </span>
       </el-tooltip>
     </div>
+    <p v-if="adversarialActive" class="adversarial-warning">
+      ⚠ 實驗性功能：可能讓 WASM solver 用掉 4GB 以上記憶體並 crash 瀏覽器
+    </p>
 
     <!-- WASM error stays as full alert; "loading" rolls into the hub hint -->
     <el-alert
@@ -250,6 +319,29 @@ onUnmounted(() => {
   font-size: 14px;
   color: var(--el-text-color-secondary);
   margin-right: 4px;
+}
+
+/* Span wrapper so el-tooltip's mouseenter still fires when the checkbox
+   itself is disabled (Element Plus' disabled checkboxes don't propagate
+   pointer events to wrapping tooltip otherwise). */
+.adversarial-toggle-wrap,
+.specialist-toggle-wrap {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* OOM warning helper. Only rendered when adversarial is actually active
+   (v-if=adversarialActive), so it vanishes the moment the user unchecks
+   or switches to an expert recipe. */
+.adversarial-warning {
+  margin: -8px 0 16px;
+  padding: 8px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--app-warning);
+  background: var(--app-warning-tint);
+  border-left: 3px solid var(--app-warning-border);
+  border-radius: 4px;
 }
 
 /* On narrow phones, el-tooltip wrappers break flex-wrap with long checkbox

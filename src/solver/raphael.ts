@@ -25,6 +25,20 @@ export interface SolverConfig {
   use_quick_innovation: boolean
   use_trained_eye: boolean
   /**
+   * Expert-recipe marker. When true, the worker forces `adversarial=false`
+   * regardless of the `adversarial` field below to match raphael-rs upstream
+   * (expert recipes' search space is unbounded under adversarial conditions).
+   */
+  isExpert: boolean
+  /**
+   * User-requested "100% reliability" toggle. When true (and `isExpert` is
+   * false), raphael-rs runs its adversarial search to guarantee the macro
+   * succeeds under worst-case condition rolls. Experimental: 4GB+ RAM /
+   * browser-crash risk. Defaults to false at every callsite that builds a
+   * SolverConfig. Batch-optimizer hard-pins this to false.
+   */
+  adversarial: boolean
+  /**
    * When true, instructs raphael-rs to return NoSolution if target quality is
    * unachievable (instead of best-effort sub-target solution). Used by Phase 1
    * HQ feasibility probe in batch-optimizer. Defaults to false (lenient mode).
