@@ -35,3 +35,8 @@ export function trackError(message: string, context?: GtagParams) {
     ...context,
   })
 }
+
+export function setUserProperty(key: string, value: string | number | boolean) {
+  if (typeof window === 'undefined' || typeof window.gtag !== 'function') return
+  window.gtag('set', 'user_properties', { [key]: value })
+}
