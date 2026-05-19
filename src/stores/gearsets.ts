@@ -8,11 +8,18 @@ export interface GearsetStats {
   craftsmanship: number
   control: number
   cp: number
+  isSpecialist: boolean
 }
 
 export type GearsetMap = Record<string, GearsetStats>
 
-const DEFAULT_GEARSET_STATS: GearsetStats = { level: 100, craftsmanship: 0, control: 0, cp: 0 }
+export const DEFAULT_GEARSET_STATS: GearsetStats = {
+  level: 100,
+  craftsmanship: 0,
+  control: 0,
+  cp: 0,
+  isSpecialist: false,
+}
 
 function createDefaultGearsets(): GearsetMap {
   const map: GearsetMap = {}
@@ -57,7 +64,7 @@ export const useGearsetsStore = defineStore('gearsets', () => {
   // Migrate from old array format and ensure all jobs exist
   function ensureAllJobs() {
     if (Array.isArray(gearsets.value)) {
-      const oldArray = gearsets.value as unknown as Array<{ job?: string; level?: number; craftsmanship?: number; control?: number; cp?: number }>
+      const oldArray = gearsets.value as unknown as Array<{ job?: string; level?: number; craftsmanship?: number; control?: number; cp?: number; isSpecialist?: boolean }>
       const migrated = createDefaultGearsets()
       for (const entry of oldArray) {
         if (entry.job && migrated[entry.job]) {
@@ -67,6 +74,7 @@ export const useGearsetsStore = defineStore('gearsets', () => {
             craftsmanship: entry.craftsmanship ?? DEFAULT_GEARSET_STATS.craftsmanship,
             control: entry.control ?? DEFAULT_GEARSET_STATS.control,
             cp: entry.cp ?? DEFAULT_GEARSET_STATS.cp,
+            isSpecialist: entry.isSpecialist ?? DEFAULT_GEARSET_STATS.isSpecialist,
           }
         }
       }
@@ -76,6 +84,10 @@ export const useGearsetsStore = defineStore('gearsets', () => {
     for (const job of Object.keys(JOB_NAMES)) {
       if (!gearsets.value[job]) {
         gearsets.value[job] = { ...DEFAULT_GEARSET_STATS }
+      } else if (typeof gearsets.value[job].isSpecialist !== 'boolean') {
+        // Hydrated from a prior persisted shape that pre-dated isSpecialist —
+        // backfill the missing field without disturbing existing stats.
+        gearsets.value[job] = { ...gearsets.value[job], isSpecialist: false }
       }
     }
   }

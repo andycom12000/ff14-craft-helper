@@ -85,13 +85,13 @@ export const BUFF_DEFINITIONS: Record<BuffType, BuffInfo> = {
     name: '專心致志',
     maxDuration: 0,
     maxStacks: 1,
-    description: '下次可使用高品質限定技能（專家）',
+    description: '下次可使用高品質限定技能（需專家之證）',
   },
   QuickInnovation: {
     name: '快速改革',
     maxDuration: 1,
     maxStacks: 1,
-    description: '品質效率提升 50%，1 回合（專家）',
+    description: '品質效率提升 50%，1 回合（需專家之證）',
   },
   TrainedPerfection: {
     name: '工匠的絕技',

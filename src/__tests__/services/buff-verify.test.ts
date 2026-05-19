@@ -42,7 +42,7 @@ const mockRecipe: Recipe = {
     progressModifier: 90, qualityModifier: 80,
   },
 }
-const gearset: GearsetStats = { level: 100, craftsmanship: 4000, control: 3800, cp: 600 }
+const gearset: GearsetStats = { level: 100, craftsmanship: 4000, control: 3800, cp: 600, isSpecialist: false }
 
 describe('optimizeRecipe buff propagation', () => {
   beforeEach(() => vi.clearAllMocks())

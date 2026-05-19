@@ -12,6 +12,7 @@ import {
   type FoodBuff,
   type EnhancedStats,
 } from '@/engine/food-medicine'
+import { applyCrafterSoulBonus } from '@/services/specialist-state'
 
 const emit = defineEmits<{
   'update:enhancedStats': [value: EnhancedStats]
@@ -29,10 +30,6 @@ const selectedFoodId = ref<number | null>(null)
 const selectedMedicineId = ref<number | null>(null)
 const foodIsHq = ref(true)
 const medicineIsHq = ref(true)
-const useSpecialist = ref(false)
-
-// Specialist soul crystal bonuses (固定值)
-const SPECIALIST_BONUS = { craftsmanship: 20, control: 20, cp: 15 }
 
 const baseStats = computed<EnhancedStats>(() => {
   if (!gearset.value) {
@@ -45,14 +42,11 @@ const baseStats = computed<EnhancedStats>(() => {
   }
 })
 
-// 專家之證加成後的數值（食物/藥水基數）
+// Specialist bonus is gearset-derived (set in GearsetSheet); no local toggle here.
 const afterSpecialist = computed<EnhancedStats>(() => {
-  if (!useSpecialist.value) return baseStats.value
-  return {
-    craftsmanship: baseStats.value.craftsmanship + SPECIALIST_BONUS.craftsmanship,
-    control: baseStats.value.control + SPECIALIST_BONUS.control,
-    cp: baseStats.value.cp + SPECIALIST_BONUS.cp,
-  }
+  if (!gearset.value) return baseStats.value
+  const { craftsmanship, control, cp } = applyCrafterSoulBonus(gearset.value)
+  return { craftsmanship, control, cp }
 })
 
 const selectedFood = computed<FoodBuff | null>(() => {
@@ -165,20 +159,6 @@ const isRailNarrow = useMediaQuery('(min-width: 1100px) and (max-width: 1360px)'
           {{ baseStats.cp }}
         </el-descriptions-item>
       </el-descriptions>
-    </div>
-
-    <el-divider />
-
-    <!-- Specialist soul crystal -->
-    <div class="buff-section">
-      <div class="buff-header">
-        <el-checkbox v-model="useSpecialist" label="專家之證" />
-      </div>
-      <div v-if="useSpecialist" class="buff-preview">
-        <el-tag type="warning" size="small">作業 +{{ SPECIALIST_BONUS.craftsmanship }}</el-tag>
-        <el-tag type="success" size="small">加工 +{{ SPECIALIST_BONUS.control }}</el-tag>
-        <el-tag type="primary" size="small">CP +{{ SPECIALIST_BONUS.cp }}</el-tag>
-      </div>
     </div>
 
     <el-divider />

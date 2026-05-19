@@ -36,8 +36,8 @@ describe('filterCandidatesByLevel', () => {
       { itemId: 3, recipe: mkRecipe(3, 'CRP', 100) },
     ] as any[]
     const getGearset = (job: string): GearsetStats | null => {
-      if (job === 'CRP') return { level: 90, craftsmanship: 3000, control: 3000, cp: 500 }
-      if (job === 'BSM') return { level: 80, craftsmanship: 3000, control: 3000, cp: 500 }
+      if (job === 'CRP') return { level: 90, craftsmanship: 3000, control: 3000, cp: 500, isSpecialist: false }
+      if (job === 'BSM') return { level: 80, craftsmanship: 3000, control: 3000, cp: 500, isSpecialist: false }
       return null
     }
     const filtered = filterCandidatesByLevel(candidates, getGearset)
@@ -177,7 +177,7 @@ describe('produceSelfCraftCandidates', () => {
       priceSource: 'Chocobo',
       crossServer: false,
       server: 'Chocobo',
-      getGearset: () => ({ level: 100, craftsmanship: 4000, control: 3800, cp: 600 }),
+      getGearset: () => ({ level: 100, craftsmanship: 4000, control: 3800, cp: 600, isSpecialist: false }),
       maxDepth: 2,
       buffs: undefined,
       optimizeRecipe: vi.fn() as any,
@@ -224,7 +224,7 @@ describe('produceSelfCraftCandidates', () => {
       priceSource: 'Chocobo',
       crossServer: false,
       server: 'Chocobo',
-      getGearset: () => ({ level: 80, craftsmanship: 3000, control: 3000, cp: 500 }), // below 90
+      getGearset: () => ({ level: 80, craftsmanship: 3000, control: 3000, cp: 500, isSpecialist: false }), // below 90
       maxDepth: 2,
       buffs: undefined,
       optimizeRecipe: vi.fn() as any,
@@ -286,7 +286,7 @@ describe('produceSelfCraftCandidates', () => {
       priceSource: 'Chocobo',
       crossServer: false,
       server: 'Chocobo',
-      getGearset: () => ({ level: 90, craftsmanship: 4000, control: 3800, cp: 600 }),
+      getGearset: () => ({ level: 90, craftsmanship: 4000, control: 3800, cp: 600, isSpecialist: false }),
       maxDepth: 2,
       buffs: undefined,
       optimizeRecipe: mockOptimizeRecipe as any,
@@ -331,7 +331,7 @@ describe('produceSelfCraftCandidates', () => {
       priceSource: 'Chocobo',
       crossServer: false,
       server: 'Chocobo',
-      getGearset: () => ({ level: 100, craftsmanship: 4000, control: 3800, cp: 600 }),
+      getGearset: () => ({ level: 100, craftsmanship: 4000, control: 3800, cp: 600, isSpecialist: false }),
       maxDepth: 2,
       buffs: undefined,
       optimizeRecipe: vi.fn() as any,
@@ -371,7 +371,7 @@ describe('produceSelfCraftCandidates', () => {
       priceSource: 'Chocobo',
       crossServer: false,
       server: 'Chocobo',
-      getGearset: () => ({ level: 100, craftsmanship: 4000, control: 3800, cp: 600 }),
+      getGearset: () => ({ level: 100, craftsmanship: 4000, control: 3800, cp: 600, isSpecialist: false }),
       maxDepth: 2,
       buffs: undefined,
       optimizeRecipe: vi.fn() as any,
@@ -457,7 +457,7 @@ describe('produceSelfCraftCandidates', () => {
       priceSource: 'Chocobo',
       crossServer: false,
       server: 'Chocobo',
-      getGearset: () => ({ level: 100, craftsmanship: 4000, control: 3800, cp: 600 }),
+      getGearset: () => ({ level: 100, craftsmanship: 4000, control: 3800, cp: 600, isSpecialist: false }),
       maxDepth: 2,
       buffs: undefined,
       optimizeRecipe: mockOptimizeRecipe as any,
@@ -489,8 +489,8 @@ const intermediateRecipe: Recipe = {
     progressModifier: 100, qualityModifier: 100,
   },
 }
-const ampleGearset: GearsetStats = { level: 90, craftsmanship: 1500, control: 1500, cp: 500 }
-const starvedGearset: GearsetStats = { level: 90, craftsmanship: 100, control: 100, cp: 0 }
+const ampleGearset: GearsetStats = { level: 90, craftsmanship: 1500, control: 1500, cp: 500, isSpecialist: false }
+const starvedGearset: GearsetStats = { level: 90, craftsmanship: 100, control: 100, cp: 0, isSpecialist: false }
 const passProgressSim = { progress: 350, max_progress: 350, quality: 0, max_quality: 1100, durability: 10, max_durability: 60, cp: 200, max_cp: 500, steps_count: 6 } as any
 const failProgressSim = { progress: 200, max_progress: 350, quality: 0, max_quality: 1100, durability: 0, max_durability: 60, cp: 0, max_cp: 500, steps_count: 5 } as any
 

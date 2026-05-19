@@ -43,7 +43,7 @@ const mockRecipe: Recipe = {
     progressModifier: 90, qualityModifier: 80,
   },
 }
-const mockGearset: GearsetStats = { level: 100, craftsmanship: 4000, control: 3800, cp: 600 }
+const mockGearset: GearsetStats = { level: 100, craftsmanship: 4000, control: 3800, cp: 600, isSpecialist: false }
 
 /** Hard-gated variant used by tests that need the level-insufficient code path. */
 const starredMockRecipe: Recipe = {
@@ -148,7 +148,7 @@ describe('runBatchOptimization', () => {
 
   it('creates level-insufficient exception when gearset too low AND recipe has stars', async () => {
     // Star-gated recipes hard-block synthesis below recipe level in-game.
-    const lowGearset: GearsetStats = { level: 50, craftsmanship: 1000, control: 1000, cp: 300 }
+    const lowGearset: GearsetStats = { level: 50, craftsmanship: 1000, control: 1000, cp: 300, isSpecialist: false }
     const result = await runBatchOptimization(
       [{ recipe: starredMockRecipe, quantity: 1 }],
       () => lowGearset,
@@ -162,7 +162,7 @@ describe('runBatchOptimization', () => {
 
   it('hard-blocks when gearset is low AND recipe is expert (no stars)', async () => {
     const expertRecipe: Recipe = { ...mockRecipe, isExpert: true }
-    const lowGearset: GearsetStats = { level: 50, craftsmanship: 1000, control: 1000, cp: 300 }
+    const lowGearset: GearsetStats = { level: 50, craftsmanship: 1000, control: 1000, cp: 300, isSpecialist: false }
     const result = await runBatchOptimization(
       [{ recipe: expertRecipe, quantity: 1 }],
       () => lowGearset,
@@ -175,7 +175,7 @@ describe('runBatchOptimization', () => {
 
   it('hard-blocks when gearset is low AND recipe has stat gate (no stars)', async () => {
     const gatedRecipe: Recipe = { ...mockRecipe, requiredCraftsmanship: 3500 }
-    const lowGearset: GearsetStats = { level: 50, craftsmanship: 1000, control: 1000, cp: 300 }
+    const lowGearset: GearsetStats = { level: 50, craftsmanship: 1000, control: 1000, cp: 300, isSpecialist: false }
     const result = await runBatchOptimization(
       [{ recipe: gatedRecipe, quantity: 1 }],
       () => lowGearset,
@@ -194,7 +194,7 @@ describe('runBatchOptimization', () => {
     })
     vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
 
-    const lowGearset: GearsetStats = { level: 89, craftsmanship: 4000, control: 3800, cp: 600 }
+    const lowGearset: GearsetStats = { level: 89, craftsmanship: 4000, control: 3800, cp: 600, isSpecialist: false }
     const result = await runBatchOptimization(
       [{ recipe: mockRecipe, quantity: 1 }],
       () => lowGearset,
@@ -280,7 +280,7 @@ describe('runBatchOptimization', () => {
     ]))
     const result = await runBatchOptimization(
       [{ recipe: starredMockRecipe, quantity: 1 }],
-      () => ({ level: 50, craftsmanship: 1000, control: 1000, cp: 300 }),
+      () => ({ level: 50, craftsmanship: 1000, control: 1000, cp: 300, isSpecialist: false }),
       { ...defaultSettings, exceptionStrategy: 'buy' },
       () => {}, () => false,
     )
@@ -406,7 +406,7 @@ describe('runBatchOptimization', () => {
     vi.mocked(getAggregatedPrices).mockResolvedValue(new Map([
       [starredMockRecipe.itemId, { minPriceNQ: 5000, minPriceHQ: 8000, listings: [] } as any],
     ]))
-    const lowGearset: GearsetStats = { level: 50, craftsmanship: 1000, control: 1000, cp: 300 }
+    const lowGearset: GearsetStats = { level: 50, craftsmanship: 1000, control: 1000, cp: 300, isSpecialist: false }
     const result = await runBatchOptimization(
       [{ recipe: starredMockRecipe, quantity: 9 }],
       () => lowGearset,
@@ -436,7 +436,7 @@ describe('runBatchOptimization', () => {
         ],
       } as any],
     ]))
-    const lowGearset: GearsetStats = { level: 50, craftsmanship: 1000, control: 1000, cp: 300 }
+    const lowGearset: GearsetStats = { level: 50, craftsmanship: 1000, control: 1000, cp: 300, isSpecialist: false }
     const result = await runBatchOptimization(
       [{ recipe: starredMockRecipe, quantity: 3 }],
       () => lowGearset,

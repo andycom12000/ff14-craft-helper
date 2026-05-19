@@ -12,7 +12,7 @@ vi.mock('@/solver/worker', () => ({
 import { generateCandidateCombos, evaluateBuffRecommendation } from '@/services/buff-recommender'
 import { simulateCraft } from '@/solver/worker'
 
-const mockGearset: GearsetStats = { level: 100, craftsmanship: 4000, control: 3800, cp: 600 }
+const mockGearset: GearsetStats = { level: 100, craftsmanship: 4000, control: 3800, cp: 600, isSpecialist: false }
 
 describe('generateCandidateCombos', () => {
   it('generates 44 combos (excluding null/null)', () => {
