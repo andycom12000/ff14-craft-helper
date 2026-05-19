@@ -52,6 +52,11 @@ export interface Recipe {
   // when canHq=false. canHq=true recipes always use full max_quality as the
   // double-max threshold and ignore this field.
   requiredQuality?: number
+  // GA taxonomy passthrough from RecipeRecord (build-time-derived).
+  // Optional for forward compat with future schema additions.
+  requiresSpecialist?: boolean
+  isCollectable?: boolean      // ← derived from result Item.IsCollectable
+  craftKind?: 'normal' | 'quick' | 'expert' | 'company'
 }
 
 export const useRecipeStore = defineStore('recipe', () => {
