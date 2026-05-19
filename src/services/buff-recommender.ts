@@ -12,15 +12,6 @@ import { craftParamsToSolverConfig, recipeToCraftParams } from '@/solver/config'
 import type { Recipe } from '@/stores/recipe'
 import { gearsetToBuffedStats } from '@/services/stat-stacking'
 
-/**
- * Canonical baseStats for buff recommendation — folds in the Soul of the
- * Crafter bonus so ceiling checks and dedup keys reflect the stats the
- * solver will actually see (ADR 0001). Exported for testing.
- */
-export function computeBaseStats(gearset: GearsetStats): EnhancedStats {
-  return gearsetToBuffedStats(gearset, undefined)
-}
-
 export interface BuffCombo {
   food: { buff: FoodBuff; isHq: boolean } | null
   medicine: { buff: FoodBuff; isHq: boolean } | null
@@ -148,6 +139,13 @@ function dedupCombos(
   return Array.from(statMap.values()).sort((a, b) => a.price - b.price)
 }
 
+function comboToBuffs(combo: BuffCombo): { food: FoodBuff | null; medicine: FoodBuff | null } {
+  return {
+    food: combo.food?.buff ?? null,
+    medicine: combo.medicine?.buff ?? null,
+  }
+}
+
 /**
  * Check if existing actions achieve isDoubleMax with buffed stats using cheap simulation.
  */
@@ -157,16 +155,7 @@ async function simulateWithBuffedStats(
   combo: BuffCombo,
   existingActions: string[],
 ): Promise<boolean> {
-  const craftParams = recipeToCraftParams(recipe, gearset)
-  const enhanced = applyCombo(
-    { craftsmanship: craftParams.craftsmanship, control: craftParams.control, cp: craftParams.cp },
-    combo,
-  )
-  craftParams.craftsmanship = enhanced.craftsmanship
-  craftParams.control = enhanced.control
-  craftParams.cp = enhanced.cp
-  craftParams.initialQuality = 0
-
+  const craftParams = recipeToCraftParams(recipe, gearset, comboToBuffs(combo))
   const config = craftParamsToSolverConfig(craftParams)
   const simResult = await simulateCraft(config, existingActions)
 
@@ -182,16 +171,7 @@ async function solveWithBuffedStats(
   gearset: GearsetStats,
   combo: BuffCombo,
 ): Promise<boolean> {
-  const craftParams = recipeToCraftParams(recipe, gearset)
-  const enhanced = applyCombo(
-    { craftsmanship: craftParams.craftsmanship, control: craftParams.control, cp: craftParams.cp },
-    combo,
-  )
-  craftParams.craftsmanship = enhanced.craftsmanship
-  craftParams.control = enhanced.control
-  craftParams.cp = enhanced.cp
-  craftParams.initialQuality = 0
-
+  const craftParams = recipeToCraftParams(recipe, gearset, comboToBuffs(combo))
   const config = craftParamsToSolverConfig(craftParams)
   const solverResult = await solveCraft(config)
   const simResult = await simulateCraft(config, solverResult.actions)
@@ -253,7 +233,9 @@ export async function evaluateBuffRecommendation(
   const ceilingGearset = getGearset(ceilingTarget.recipe.job)
   if (!ceilingGearset) return null
 
-  const baseStats: EnhancedStats = computeBaseStats(ceilingGearset)
+  // Soul of the Crafter must be folded in so ceiling checks and dedup keys
+  // reflect the stats the solver will actually see (ADR 0001).
+  const baseStats: EnhancedStats = gearsetToBuffedStats(ceilingGearset, undefined)
 
   // Step 0: stat ceiling pre-check on the primary target
   const allCombos = generateCandidateCombos()

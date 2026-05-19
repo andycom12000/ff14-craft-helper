@@ -9,8 +9,7 @@ vi.mock('@/solver/worker', () => ({
   simulateCraft: vi.fn(),
 }))
 
-import { generateCandidateCombos, evaluateBuffRecommendation, computeBaseStats } from '@/services/buff-recommender'
-import { gearsetToBuffedStats } from '@/services/stat-stacking'
+import { generateCandidateCombos, evaluateBuffRecommendation } from '@/services/buff-recommender'
 import { simulateCraft } from '@/solver/worker'
 
 const mockGearset: GearsetStats = { level: 100, craftsmanship: 4000, control: 3800, cp: 600, isSpecialist: false }
@@ -142,20 +141,3 @@ describe('evaluateBuffRecommendation', () => {
   })
 })
 
-describe('computeBaseStats — Soul folded in (#34)', () => {
-  it('non-specialist: equals raw gearset stats', () => {
-    const gs: GearsetStats = { level: 100, craftsmanship: 4000, control: 3800, cp: 600, isSpecialist: false }
-    expect(computeBaseStats(gs)).toEqual({ craftsmanship: 4000, control: 3800, cp: 600 })
-  })
-
-  it('specialist: adds +20/+20/+15 (matches gearsetToBuffedStats(gs, undefined))', () => {
-    const gs: GearsetStats = { level: 100, craftsmanship: 4000, control: 3800, cp: 600, isSpecialist: true }
-    expect(computeBaseStats(gs)).toEqual(gearsetToBuffedStats(gs, undefined))
-    expect(computeBaseStats(gs)).toEqual({ craftsmanship: 4020, control: 3820, cp: 615 })
-  })
-
-  it('low-stat specialist (food cap NOT saturated): dedup-key contract differs from raw', () => {
-    const gs: GearsetStats = { level: 100, craftsmanship: 4000, control: 100, cp: 100, isSpecialist: true }
-    expect(computeBaseStats(gs)).toEqual({ craftsmanship: 4020, control: 120, cp: 115 })
-  })
-})

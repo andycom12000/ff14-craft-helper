@@ -99,10 +99,6 @@ export const applyFoodBuff = applyBuff
 export const applyMedicineBuff = applyBuff
 
 /**
- * Return the NQ version of a FoodBuff.
- * Uses explicit nq data if available, otherwise falls back to a rough approximation.
- */
-/**
  * Look up a buff by ID from a list and return HQ or NQ version.
  */
 export function resolveBuff(list: FoodBuff[], id: number | null, isHq = true): FoodBuff | null {
