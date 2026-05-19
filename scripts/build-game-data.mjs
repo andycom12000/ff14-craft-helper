@@ -393,6 +393,35 @@ function buildRlt(rows, headers, verbose) {
   return rlt
 }
 
+// ---------------------------------------------------------------------------
+// ItemUICategory → GA RecipeCategory enum mapping
+// ---------------------------------------------------------------------------
+
+// ItemUICategory ID → GA RecipeCategory enum.
+// Source: XIVAPI ItemUICategory rows; see https://xivapi.com/ItemUICategory
+// Mapping is heuristic — adjust if data audit reveals miscategorization.
+// 0 / null → 'misc'.
+const ITEM_UI_CATEGORY_TO_GA = new Map([
+  // Gear: weapons, tools, armour, accessories (1–44)
+  ...[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44].map(n => [n, 'gear']),
+  // Consumables: Raw food (45), Prepared food (46), Medicine (47)
+  [45, 'consumable'], [46, 'consumable'], [47, 'consumable'],
+  // Materials: Ores/reagents (48), Metal/Ingot (49), Lumber (50), Cloth (51),
+  //   Leather (52), Bone (53), Reagents/Alchemy (54), Dye (55), Crystals (59),
+  //   Carbonized matter / melding reagents (60), Crafting sub-items (61),
+  //   Materia (58), Demimateria (83), Unfinished weapons/intermediates (56, 84)
+  ...[48, 49, 50, 51, 52, 53, 54, 55, 56, 58, 59, 60, 61, 83, 84].map(n => [n, 'material']),
+  // Housing: furniture (57), garden seeds (82), outdoor structure pieces (65–72),
+  //   interior wall/floor/window (73–74), lamps/lighting (75, 78), plants (76),
+  //   desks/cabinets (77), banners (79), rugs (80)
+  ...[57, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 82].map(n => [n, 'housing']),
+])
+
+function classifyItemCategory(uiCategoryId) {
+  if (!uiCategoryId) return 'misc'
+  return ITEM_UI_CATEGORY_TO_GA.get(uiCategoryId) ?? 'misc'
+}
+
 function buildItems(rows, headers, whitelist, verbose, label, opts = {}) {
   const { invert = false, itemUICategoryMap = null } = opts
   const idCol = pickHeader(headers, ['#']) || '#'
@@ -440,35 +469,6 @@ function buildItems(rows, headers, whitelist, verbose, label, opts = {}) {
   // Stable, deterministic order.
   items.sort((a, b) => a[0] - b[0])
   return items
-}
-
-// ---------------------------------------------------------------------------
-// ItemUICategory → GA RecipeCategory enum mapping
-// ---------------------------------------------------------------------------
-
-// ItemUICategory ID → GA RecipeCategory enum.
-// Source: XIVAPI ItemUICategory rows; see https://xivapi.com/ItemUICategory
-// Mapping is heuristic — adjust if data audit reveals miscategorization.
-// 0 / null → 'misc'.
-const ITEM_UI_CATEGORY_TO_GA = new Map([
-  // Gear: weapons, tools, armour, accessories (1–44)
-  ...[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44].map(n => [n, 'gear']),
-  // Consumables: Raw food (45), Prepared food (46), Medicine (47)
-  [45, 'consumable'], [46, 'consumable'], [47, 'consumable'],
-  // Materials: Ores/reagents (48), Metal/Ingot (49), Lumber (50), Cloth (51),
-  //   Leather (52), Bone (53), Reagents/Alchemy (54), Dye (55), Crystals (59),
-  //   Carbonized matter / melding reagents (60), Crafting sub-items (61),
-  //   Materia (58), Demimateria (83), Unfinished weapons/intermediates (56, 84)
-  ...[48, 49, 50, 51, 52, 53, 54, 55, 56, 58, 59, 60, 61, 83, 84].map(n => [n, 'material']),
-  // Housing: furniture (57), garden seeds (82), outdoor structure pieces (65–72),
-  //   interior wall/floor/window (73–74), lamps/lighting (75, 78), plants (76),
-  //   desks/cabinets (77), banners (79), rugs (80)
-  ...[57, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 82].map(n => [n, 'housing']),
-])
-
-function classifyItemCategory(uiCategoryId) {
-  if (!uiCategoryId) return 'misc'
-  return ITEM_UI_CATEGORY_TO_GA.get(uiCategoryId) ?? 'misc'
 }
 
 // ---------------------------------------------------------------------------
