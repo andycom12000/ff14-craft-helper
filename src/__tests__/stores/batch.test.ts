@@ -1,7 +1,26 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useBatchStore } from '@/stores/batch'
 import type { Recipe } from '@/stores/recipe'
+
+vi.mock('@/utils/analytics', () => ({ trackEvent: vi.fn() }))
+import { trackEvent } from '@/utils/analytics'
+
+function makeRecipe(overrides: Partial<Recipe> = {}): Recipe {
+  return {
+    id: 1, itemId: 100, name: 'Test', icon: '', job: 'CRP', level: 90,
+    stars: 0, canHq: true, materialQualityFactor: 50, amountResult: 1,
+    ingredients: [],
+    recipeLevelTable: {
+      classJobLevel: 90, stars: 0, difficulty: 0, quality: 0,
+      durability: 0, suggestedCraftsmanship: 0,
+      progressDivider: 0, qualityDivider: 0,
+      progressModifier: 0, qualityModifier: 0,
+    },
+    isExpert: false, requiresSpecialist: false, isCollectable: false, craftKind: 'normal',
+    ...overrides,
+  } as Recipe
+}
 
 const mockRecipe: Recipe = {
   id: 100,
@@ -340,5 +359,72 @@ describe('batch store finalTodoList', () => {
 
   it('passes amount through unchanged when amountResult is 1', () => {
     expect(withCandidate(90, 7, 1).finalTodoList[0].quantity).toBe(7)
+  })
+})
+
+describe('batch_add_recipe method param', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.mocked(trackEvent).mockClear()
+  })
+
+  it('passes method through to batch_add_recipe event', () => {
+    const batch = useBatchStore()
+    batch.addRecipe(makeRecipe({ id: 1 }), 1, 'search')
+    expect(trackEvent).toHaveBeenCalledWith('batch_add_recipe', expect.objectContaining({ method: 'search' }))
+  })
+
+  it('defaults method to search when not passed', () => {
+    const batch = useBatchStore()
+    batch.addRecipe(makeRecipe({ id: 1 }), 1)
+    expect(trackEvent).toHaveBeenCalledWith('batch_add_recipe', expect.objectContaining({ method: 'search' }))
+  })
+
+  it('passes cross_page_send method', () => {
+    const batch = useBatchStore()
+    batch.addRecipe(makeRecipe({ id: 2 }), 1, 'cross_page_send')
+    expect(trackEvent).toHaveBeenCalledWith('batch_add_recipe', expect.objectContaining({ method: 'cross_page_send' }))
+  })
+})
+
+describe('batch_optimization_start aggregate dims', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.mocked(trackEvent).mockClear()
+  })
+
+  it('emits rlv min/max, stars max, has_expert/collectable, unique_jobs, cross_server', () => {
+    const batch = useBatchStore()
+    batch.addRecipe(makeRecipe({
+      id: 1,
+      recipeLevelTable: {
+        classJobLevel: 640, stars: 2, difficulty: 0, quality: 0,
+        durability: 0, suggestedCraftsmanship: 0,
+        progressDivider: 0, qualityDivider: 0,
+        progressModifier: 0, qualityModifier: 0,
+      },
+      stars: 2, isExpert: true, job: 'CRP',
+    }), 1, 'search')
+    batch.addRecipe(makeRecipe({
+      id: 2,
+      recipeLevelTable: {
+        classJobLevel: 700, stars: 4, difficulty: 0, quality: 0,
+        durability: 0, suggestedCraftsmanship: 0,
+        progressDivider: 0, qualityDivider: 0,
+        progressModifier: 0, qualityModifier: 0,
+      },
+      stars: 4, isExpert: false, isCollectable: true, job: 'BSM',
+    }), 1, 'search')
+    vi.mocked(trackEvent).mockClear()
+    batch.recordOptimizationStart(false)
+    expect(trackEvent).toHaveBeenCalledWith('batch_optimization_start', expect.objectContaining({
+      targets_rlv_min: 640,
+      targets_rlv_max: 700,
+      targets_stars_max: 4,
+      has_expert_in_batch: true,
+      has_collectable_in_batch: true,
+      unique_jobs_in_batch: 2,
+      cross_server: false,
+    }))
   })
 })

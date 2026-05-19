@@ -1,4 +1,5 @@
 import { trackEvent } from '@/utils/analytics'
+import { emitApiFailure } from '@/utils/api-failure'
 
 const BASE_URL = 'https://universalis.app/api/v2'
 const REQUEST_TIMEOUT_MS = 20000
@@ -95,7 +96,9 @@ async function fetchUniversalis<T>(
   const startedAt = performance.now()
   let lastErr: unknown
   let finalStatus = 0
+  let finalAttempt = 0
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    finalAttempt = attempt
     try {
       const { data, status } = await attemptFetch<T>(path, timeoutMs)
       finalStatus = status
@@ -119,6 +122,7 @@ async function fetchUniversalis<T>(
       break
     }
   }
+  emitApiFailure('universalis', `${BASE_URL}/${path}`, finalStatus, finalAttempt)
   if (tracking) {
     trackEvent('universalis_fetch', {
       server: tracking.server,

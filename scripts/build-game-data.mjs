@@ -296,6 +296,9 @@ function buildRecipes(rows, headers, verbose) {
   const qfCol = pickHeader(headers, ['QualityFactor']) || 'QualityFactor'
   const durfCol = pickHeader(headers, ['DurabilityFactor']) || 'DurabilityFactor'
   const isExpertCol = pickHeader(headers, ['IsExpert']) || 'IsExpert'
+  const isSpecializationRequiredCol = pickHeader(headers, ['IsSpecializationRequired']) || 'IsSpecializationRequired'
+  const canQuickSynthCol = pickHeader(headers, ['CanQuickSynth']) || 'CanQuickSynth'
+  const secretRecipeBookCol = pickHeader(headers, ['SecretRecipeBook', 'SecretRecipeBookTargetID']) || 'SecretRecipeBook'
   const reqCraftCol =
     pickHeader(headers, ['RequiredCraftsmanship']) || 'RequiredCraftsmanship'
   const reqControlCol =
@@ -340,6 +343,9 @@ function buildRecipes(rows, headers, verbose) {
       durabilityFactor: toInt(r[durfCol]),
       ingredients,
       isExpert: toBool(r[isExpertCol]),
+      requiresSpecialist: toBool(r[isSpecializationRequiredCol]),
+      canQuickSynth: toBool(r[canQuickSynthCol]),
+      secretRecipeBook: toInt(r[secretRecipeBookCol]),
       requiredCraftsmanship: toInt(r[reqCraftCol]),
       requiredControl: toInt(r[reqControlCol]),
       requiredQuality: toInt(r[reqQualityCol]),
@@ -387,17 +393,48 @@ function buildRlt(rows, headers, verbose) {
   return rlt
 }
 
+// ---------------------------------------------------------------------------
+// ItemUICategory → GA RecipeCategory enum mapping
+// ---------------------------------------------------------------------------
+
+// ItemUICategory ID → GA RecipeCategory enum.
+// Source: XIVAPI ItemUICategory rows; see https://xivapi.com/ItemUICategory
+// Mapping is heuristic — adjust if data audit reveals miscategorization.
+// 0 / null → 'misc'.
+const ITEM_UI_CATEGORY_TO_GA = new Map([
+  // Gear: weapons, tools, armour, accessories (1–44)
+  ...[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44].map(n => [n, 'gear']),
+  // Consumables: Raw food (45), Prepared food (46), Medicine (47)
+  [45, 'consumable'], [46, 'consumable'], [47, 'consumable'],
+  // Materials: Ores/reagents (48), Metal/Ingot (49), Lumber (50), Cloth (51),
+  //   Leather (52), Bone (53), Reagents/Alchemy (54), Dye (55), Crystals (59),
+  //   Carbonized matter / melding reagents (60), Crafting sub-items (61),
+  //   Materia (58), Demimateria (83), Unfinished weapons/intermediates (56, 84)
+  ...[48, 49, 50, 51, 52, 53, 54, 55, 56, 58, 59, 60, 61, 83, 84].map(n => [n, 'material']),
+  // Housing: furniture (57), garden seeds (82), outdoor structure pieces (65–72),
+  //   interior wall/floor/window (73–74), lamps/lighting (75, 78), plants (76),
+  //   desks/cabinets (77), banners (79), rugs (80)
+  ...[57, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 82].map(n => [n, 'housing']),
+])
+
+function classifyItemCategory(uiCategoryId) {
+  if (!uiCategoryId) return 'misc'
+  return ITEM_UI_CATEGORY_TO_GA.get(uiCategoryId) ?? 'misc'
+}
+
 function buildItems(rows, headers, whitelist, verbose, label, opts = {}) {
-  const { invert = false } = opts
+  const { invert = false, itemUICategoryMap = null } = opts
   const idCol = pickHeader(headers, ['#']) || '#'
   const nameCol = pickHeader(headers, ['Name']) || 'Name'
   const levelCol =
     pickHeader(headers, ['Level{Item}', 'LevelItem']) || 'LevelItem'
   const canBeHqCol = pickHeader(headers, ['CanBeHq']) || 'CanBeHq'
   const iconCol = pickHeader(headers, ['Icon']) || 'Icon'
+  const isCollectableCol = pickHeader(headers, ['IsCollectable']) || null
+  const itemUICategoryCol = pickHeader(headers, ['ItemUICategory']) || null
   if (verbose) {
     console.log(
-      `  [${label}] Item columns: id=${idCol} name=${nameCol} level=${levelCol} hq=${canBeHqCol} icon=${iconCol}`,
+      `  [${label}] Item columns: id=${idCol} name=${nameCol} level=${levelCol} hq=${canBeHqCol} icon=${iconCol} collectable=${isCollectableCol} uicat=${itemUICategoryCol}`,
     )
   }
   const items = []
@@ -413,12 +450,20 @@ function buildItems(rows, headers, whitelist, verbose, label, opts = {}) {
     if (invert ? inWhitelist : !inWhitelist) continue
     const name = String(r[nameCol] ?? '').trim()
     if (!name) continue
+    // Resolve ItemUICategory: prefer the pre-built map (from en locale pass),
+    // fall back to reading the column directly from this row.
+    const uiCatId = itemUICategoryMap
+      ? (itemUICategoryMap.get(id) ?? 0)
+      : (itemUICategoryCol ? toInt(r[itemUICategoryCol]) : 0)
+    // Tuple: [id, name, level, canBeHq, iconId, isCollectable, category]
     items.push([
       id,
       name,
       toInt(r[levelCol], 1),
       toBool(r[canBeHqCol]) ? 1 : 0,
       toInt(r[iconCol]),
+      (isCollectableCol && toBool(r[isCollectableCol])) ? 1 : 0,
+      classifyItemCategory(uiCatId),
     ])
   }
   // Stable, deterministic order.
@@ -651,26 +696,22 @@ async function main() {
   const itemsByLocale = {}
   const itemsExtraByLocale = {}
   let itemUICategoryMap = new Map()
-  for (const src of itemSources) {
+
+  // Process en first so itemUICategoryMap is available for all locales
+  // (category classification needs the FK map built from en rows).
+  const enSrc = itemSources.find(s => s.locale === 'en')
+  const otherSources = itemSources.filter(s => s.locale !== 'en')
+  const orderedSources = [enSrc, ...otherSources]
+
+  for (const src of orderedSources) {
     log(verbose, `Reading ${src.path} as ${src.format}`)
     const text = await readCsv(src.path)
     const { headers, rows } = parseCsv(text, src.format)
-    const items = buildItems(rows, headers, referencedItems, verbose, src.locale)
-    itemsByLocale[src.locale] = items
-    log(verbose, `  [${src.locale}] kept ${items.length} items (lean)`)
-
-    // Extra shard: every named item NOT in the lean shard. Lazy-loaded
-    // by getItem on first miss so cold-start path stays unchanged.
-    const leanIds = new Set(items.map((row) => row[0]))
-    const extra = buildItems(rows, headers, leanIds, verbose, src.locale, {
-      invert: true,
-    })
-    itemsExtraByLocale[src.locale] = extra
-    log(verbose, `  [${src.locale}] kept ${extra.length} items (extra)`)
 
     // Build itemUICategoryMap from the en locale parse for CompanyCraft
     // (avoids a redundant readCsv of Item.csv).
     // Store the FK id as an integer so UI_CATEGORY_TO_COMPANY_CRAFT can look it up.
+    // Must happen before buildItems so the map is available for category classification.
     if (src.locale === 'en') {
       const uiCatCol = pickHeader(headers, ['ItemUICategory'])
       for (const row of rows) {
@@ -680,6 +721,20 @@ async function main() {
       }
       log(verbose, `  [en] built itemUICategoryMap (${itemUICategoryMap.size}) for CompanyCraft`)
     }
+
+    const items = buildItems(rows, headers, referencedItems, verbose, src.locale, { itemUICategoryMap })
+    itemsByLocale[src.locale] = items
+    log(verbose, `  [${src.locale}] kept ${items.length} items (lean)`)
+
+    // Extra shard: every named item NOT in the lean shard. Lazy-loaded
+    // by getItem on first miss so cold-start path stays unchanged.
+    const leanIds = new Set(items.map((row) => row[0]))
+    const extra = buildItems(rows, headers, leanIds, verbose, src.locale, {
+      invert: true,
+      itemUICategoryMap,
+    })
+    itemsExtraByLocale[src.locale] = extra
+    log(verbose, `  [${src.locale}] kept ${extra.length} items (extra)`)
   }
 
   // Build CompanyCraft index from FFXIV CSVs.
@@ -705,6 +760,29 @@ async function main() {
   }
   if (companyCraft.sequences.length === 0) {
     console.warn('[warn] CompanyCraft index is empty; downstream features will show empty state')
+  }
+
+  // Build reverse-index: item ids that appear as company-craft supply targets.
+  const companyCraftItemIds = new Set()
+  for (const seq of companyCraft.sequences) {
+    for (const phase of seq.phases) {
+      for (const supply of phase.supplyItems) {
+        companyCraftItemIds.add(supply.itemId)
+      }
+    }
+  }
+
+  // Derive craftKind for each recipe now that companyCraftItemIds is available.
+  for (const rec of recipes) {
+    if (rec.isExpert) {
+      rec.craftKind = 'expert'
+    } else if (rec.canQuickSynth) {
+      rec.craftKind = 'quick'
+    } else if (companyCraftItemIds.has(rec.itemResult)) {
+      rec.craftKind = 'company'
+    } else {
+      rec.craftKind = 'normal'
+    }
   }
 
   // 4. Sanity checks.

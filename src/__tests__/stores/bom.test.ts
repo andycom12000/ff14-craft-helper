@@ -767,3 +767,41 @@ describe('toggleRowExpanded tracking', () => {
     expect(trackEvent).toHaveBeenNthCalledWith(2, 'bom_breakdown_expand', { item_id: 2 })
   })
 })
+
+describe('bom_target_add', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.mocked(trackEvent).mockClear()
+  })
+
+  it('emits with taxonomy when adding a recipe target', () => {
+    const bom = useBomStore()
+    bom.addTarget({
+      kind: 'recipe',
+      itemId: 5000, recipeId: 33001, quantity: 3,
+      name: '', icon: '',
+      recipe: {
+        id: 33001, name: '', icon: '', job: 'CRP', level: 90,
+        itemId: 5000, canHq: true, materialQualityFactor: 50,
+        amountResult: 1, ingredients: [],
+        recipeLevelTable: { classJobLevel: 640, stars: 2, difficulty: 0, quality: 0, durability: 0, suggestedCraftsmanship: 0, progressDivider: 0, qualityDivider: 0, progressModifier: 0, qualityModifier: 0 },
+        stars: 2, isExpert: true, requiresSpecialist: false,
+        isCollectable: false, craftKind: 'expert',
+      } as any,
+    }, 'search')
+
+    expect(trackEvent).toHaveBeenCalledWith('bom_target_add', expect.objectContaining({
+      recipe_id: 33001, item_id: 5000, quantity: 3,
+      source: 'search',
+      rlv: 640, stars: 2, is_expert: true,
+    }))
+  })
+
+  it('emits without taxonomy when adding a no-recipe target', () => {
+    const bom = useBomStore()
+    bom.addTarget({ kind: 'no-recipe', itemId: 12, quantity: 99, name: '', icon: '' }, 'search')
+    expect(trackEvent).toHaveBeenCalledWith('bom_target_add', expect.objectContaining({
+      item_id: 12, quantity: 99, source: 'search',
+    }))
+  })
+})

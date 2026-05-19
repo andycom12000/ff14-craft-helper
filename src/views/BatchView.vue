@@ -234,12 +234,7 @@ async function startOptimization() {
   expandedSections.value = new Set()
 
   const startedAt = performance.now()
-  trackEvent('batch_optimization_start', {
-    target_count: batchStore.targets.length,
-    total_quantity: batchStore.targets.reduce((sum, t) => sum + t.quantity, 0),
-    calc_mode: batchStore.calcMode,
-    cross_server: settings.crossServer,
-  })
+  batchStore.recordOptimizationStart(settings.crossServer)
   useMilestonesStore().markMilestoneOnce('used_batch')
 
   try {
@@ -297,11 +292,7 @@ async function startOptimization() {
 }
 
 function handleAddRecipe(recipe: import('@/stores/recipe').Recipe) {
-  batchStore.addTarget(recipe)
-  trackEvent('batch_add_recipe', {
-    recipe_id: recipe.id,
-    target_count: batchStore.targets.length,
-  })
+  batchStore.addRecipe(recipe, 1, 'search')
   ElMessage.success(`已加入「${recipe.name}」`)
 }
 

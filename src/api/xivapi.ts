@@ -9,6 +9,7 @@ import {
 } from '@/services/local-data-source'
 import { getIconUrl } from '@/utils/icon-url'
 import { CRAFT_TYPE_TO_JOB, JOB_ABBR } from '@/utils/jobs'
+import { emitApiFailure } from '@/utils/api-failure'
 
 export interface RecipeSearchOptions {
   /** Chinese short-form job name (e.g. '木工') or DoH abbreviation ('CRP'). */
@@ -177,6 +178,9 @@ export async function getRecipe(id: number): Promise<Recipe> {
     requiredCraftsmanship: recipe.requiredCraftsmanship ?? 0,
     requiredControl: recipe.requiredControl ?? 0,
     requiredQuality: recipe.requiredQuality ?? 0,
+    requiresSpecialist: recipe.requiresSpecialist === true,
+    isCollectable: resultItem?.isCollectable === true,
+    craftKind: recipe.craftKind ?? 'normal',
   }
 }
 
@@ -193,14 +197,19 @@ export async function fetchSheetFields<T>(
 ): Promise<Map<number, T>> {
   const map = new Map<number, T>()
   if (rows.length === 0) return map
+  const url = `${XIVAPI_SHEET_BASE}/sheet/${sheet}?rows=${rows.join(',')}&fields=${fields}`
   try {
-    const url = `${XIVAPI_SHEET_BASE}/sheet/${sheet}?rows=${rows.join(',')}&fields=${fields}`
     const resp = await fetch(url)
-    if (!resp.ok) return map
+    if (!resp.ok) {
+      emitApiFailure('xivapi', url, resp.status, 0)
+      return map
+    }
     const data = await resp.json()
     for (const row of data.rows) {
       map.set(row.row_id, row.fields as T)
     }
-  } catch { /* non-critical */ }
+  } catch {
+    emitApiFailure('xivapi', url, 0, 0)
+  }
   return map
 }

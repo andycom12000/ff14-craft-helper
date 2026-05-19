@@ -31,7 +31,7 @@ async function handleSelect(id: number) {
   try {
     const recipe = await getRecipe(id)
     selectedRecipe.value = recipe
-    recipeStore.setRecipe(recipe)
+    recipeStore.setRecipe(recipe, 'search')
   } catch {
     ElMessage.error('無法載入配方詳情，請稍後再試。')
   } finally {
@@ -48,7 +48,7 @@ function handleUseInSimulator() {
 
 function handleAddToBatch() {
   if (selectedRecipe.value) {
-    batchStore.addTarget(selectedRecipe.value)
+    batchStore.addRecipe(selectedRecipe.value, 1, 'search')
     ElMessage.success(`已加入批量：${selectedRecipe.value.name}`)
   }
 }
@@ -63,7 +63,8 @@ function handleAddToBom() {
       icon: selectedRecipe.value.icon,
       quantity: 1,
       amountResult: selectedRecipe.value.amountResult,
-    })
+      recipe: selectedRecipe.value,
+    }, 'search')
     ElMessage.success(`已將「${selectedRecipe.value.name}」加入購物清單。`)
   }
 }

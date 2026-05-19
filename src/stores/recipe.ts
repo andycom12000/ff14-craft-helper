@@ -1,7 +1,15 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { trackEvent } from '@/utils/analytics'
+import { emitLargeQueueInSimulator } from '@/composables/useFunnelMisuseDetector'
 import { useMilestonesStore } from '@/stores/milestones'
+import { computeRecipeTaxonomy, flattenTaxonomyForEvent } from '@/utils/recipe-taxonomy'
+
+export type RecipeOpenSource =
+  | 'search' | 'queue' | 'batch_target' | 'bom_drilldown'
+  | 'company_craft' | 'deep_link' | 'changelog'
+  | 'cross_page_send'
+  | 'unknown'
 
 export interface Ingredient {
   itemId: number
@@ -52,18 +60,31 @@ export interface Recipe {
   // when canHq=false. canHq=true recipes always use full max_quality as the
   // double-max threshold and ignore this field.
   requiredQuality?: number
+  // GA taxonomy passthrough from RecipeRecord (build-time-derived).
+  // Optional for forward compat with future schema additions.
+  requiresSpecialist?: boolean
+  isCollectable?: boolean      // ← derived from result Item.IsCollectable
+  craftKind?: 'normal' | 'quick' | 'expert' | 'company'
 }
 
 export const useRecipeStore = defineStore('recipe', () => {
   const currentRecipe = ref<Recipe | null>(null)
   const simulationQueue = ref<Recipe[]>([])
 
-  function setRecipe(recipe: Recipe) {
+  watch(
+    () => simulationQueue.value.length,
+    (len) => emitLargeQueueInSimulator(len),
+  )
+
+  function setRecipe(recipe: Recipe, source: RecipeOpenSource = 'unknown') {
     currentRecipe.value = recipe
+    const taxonomy = flattenTaxonomyForEvent(computeRecipeTaxonomy(recipe))
     trackEvent('recipe_select', {
       recipe_id: recipe.id,
       job: recipe.job,
       level: recipe.level,
+      source,
+      ...taxonomy,
     })
     useMilestonesStore().markMilestoneOnce('viewed_recipe')
   }

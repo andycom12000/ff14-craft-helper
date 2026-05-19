@@ -1,7 +1,18 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 
-vi.mock('@/utils/analytics', () => ({ trackEvent: vi.fn() }))
+vi.mock('@/utils/analytics', () => ({
+  trackEvent: vi.fn(),
+  setUserProperty: vi.fn(),
+}))
+vi.mock('@/utils/user-properties', () => ({
+  syncFromStores: vi.fn(),
+  inferMarketRegion: (region: string) => {
+    if (!region) return 'unset'
+    if (region === 'zh-TW' || region === 'TW') return 'cht'
+    return 'intl'
+  },
+}))
 import { trackEvent } from '@/utils/analytics'
 import { useSettingsStore } from '@/stores/settings'
 
@@ -53,5 +64,29 @@ describe('useSettingsStore', () => {
     const store = useSettingsStore()
     store.setServer('')
     expect(trackEvent).not.toHaveBeenCalled()
+  })
+})
+
+describe('region_resolution event', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.mocked(trackEvent).mockClear()
+  })
+
+  it('emits region_resolution on first region set (prev empty → non-empty)', () => {
+    const store = useSettingsStore()
+    store.setRegion('zh-TW')
+    expect(trackEvent).toHaveBeenCalledWith('region_resolution', {
+      from_default: false,
+      market_region: 'cht',
+    })
+  })
+
+  it('does NOT emit region_resolution on subsequent changes', () => {
+    const store = useSettingsStore()
+    store.setRegion('zh-TW')
+    vi.mocked(trackEvent).mockClear()
+    store.setRegion('Japan')
+    expect(trackEvent).not.toHaveBeenCalledWith('region_resolution', expect.anything())
   })
 })

@@ -287,7 +287,7 @@ function addToBatch() {
   let count = 0
   for (const item of matchItems.value) {
     if (item.checked && item.selectedRecipe) {
-      batchStore.addTarget(item.selectedRecipe)
+      batchStore.addRecipe(item.selectedRecipe, 1, 'search')
       count++
     }
   }

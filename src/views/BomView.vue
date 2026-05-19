@@ -23,6 +23,7 @@ import type { CompanyCraftSequence } from '@/services/local-data-source.types'
 import { buildMaterialTree, flattenMaterialTree } from '@/services/bom-calculator'
 import { getRecipe } from '@/api/xivapi'
 import { trackEvent } from '@/utils/analytics'
+import { emitBomWithoutQuantity } from '@/composables/useFunnelMisuseDetector'
 
 const bomStore = useBomStore()
 const batchStore = useBatchStore()
@@ -115,6 +116,7 @@ async function handleCalculate() {
     target_count: bomStore.targets.length,
     non_craftable_count: nonCraftableCount.value,
   })
+  emitBomWithoutQuantity({ targets: bomStore.targets })
 
   calculating.value = true
   // Re-running calc starts a fresh section-collapse state — any "i'd
@@ -187,7 +189,8 @@ function handleAddFromSearch(recipe: import('@/stores/recipe').Recipe) {
     icon: recipe.icon,
     quantity: 1,
     amountResult: recipe.amountResult,
-  })
+    recipe,
+  }, 'search')
   ElMessage.success(`已加入「${recipe.name}」`)
 }
 
@@ -214,8 +217,7 @@ async function handleSendToBatch() {
       craftableTargets.map((t) => getRecipe(t.recipeId)),
     )
     for (let i = 0; i < recipes.length; i++) {
-      batchStore.addTarget(recipes[i])
-      batchStore.updateQuantity(craftableTargets[i].recipeId, craftableTargets[i].quantity)
+      batchStore.addRecipe(recipes[i], craftableTargets[i].quantity, 'cross_page_send')
     }
     const skipped = bomStore.targets.length - craftableTargets.length
     trackEvent('bom_send_to_batch', {

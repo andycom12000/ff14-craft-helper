@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import { trackEvent } from '@/utils/analytics'
+import { syncFromStores } from '@/utils/user-properties'
 
 export type ThemeMode = 'light' | 'dark'
 
@@ -36,6 +37,7 @@ export const useThemeStore = defineStore('theme', () => {
       // private mode / quota — non-critical
     }
     trackEvent('theme_change', { mode: m })
+    syncFromStores()
   }
 
   function toggle() {

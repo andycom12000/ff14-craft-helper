@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { Search } from '@element-plus/icons-vue'
 import { type RecipeSearchResult } from '@/api/xivapi'
 import { useRecipeSearch } from '@/composables/useRecipeSearch'
@@ -34,6 +34,28 @@ const { results, loading } = useRecipeSearch({
 function handleRowClick(row: RecipeSearchResult) {
   emit('select', row.id)
 }
+
+let noResultTimer: ReturnType<typeof setTimeout> | null = null
+function reportNoResult(query: string) {
+  if (noResultTimer) clearTimeout(noResultTimer)
+  noResultTimer = setTimeout(() => {
+    const cjk = /[一-鿿぀-ヿ]/.test(query)
+    const latin = /[a-zA-Z]/.test(query)
+    const lang: 'cjk' | 'latin' | 'mixed' =
+      cjk && latin ? 'mixed' : cjk ? 'cjk' : 'latin'
+    trackEvent('search_no_result', {
+      query_length: query.length,
+      query_lang_hint: lang,
+    })
+  }, 1000)
+}
+
+watch(
+  () => [query.value, results.value.length] as const,
+  ([q, count]) => {
+    if (q && q.trim().length > 0 && count === 0) reportNoResult(q.trim())
+  },
+)
 </script>
 
 <template>

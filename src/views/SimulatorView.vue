@@ -158,7 +158,7 @@ function openSearchFromSheet() {
 }
 
 function pickQueueRecipe(r: Recipe) {
-  recipeStore.setRecipe(r)
+  recipeStore.setRecipe(r, 'queue')
   queueSheetOpen.value = false
 }
 
@@ -265,8 +265,8 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
                 :class="{ 'is-active': recipe?.id === qr.id }"
                 role="button"
                 tabindex="0"
-                @click="recipeStore.setRecipe(qr)"
-                @keydown.enter.prevent="recipeStore.setRecipe(qr)"
+                @click="recipeStore.setRecipe(qr, 'queue')"
+                @keydown.enter.prevent="recipeStore.setRecipe(qr, 'queue')"
               >
                 <span v-if="qr.isCustom" class="queue-row-icon queue-row-icon--custom" aria-hidden="true">{{ CUSTOM_RECIPE_ICON }}</span>
                 <img v-else :src="qr.icon" alt="" aria-hidden="true" loading="lazy" class="queue-row-icon" />

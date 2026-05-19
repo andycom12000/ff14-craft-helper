@@ -181,7 +181,7 @@ export function useSimulator() {
 
   function handleAddFromSearch(r: Recipe) {
     recipeStore.addToQueue(r)
-    recipeStore.setRecipe(r)
+    recipeStore.setRecipe(r, 'search')
     ElMessage.success(`已將「${r.name}」加入模擬佇列`)
   }
 
@@ -260,7 +260,8 @@ export function useSimulator() {
       icon: recipe.value.icon,
       quantity: 1,
       amountResult: recipe.value.amountResult,
-    })
+      recipe: recipe.value,
+    }, 'cross_page_send')
     ElMessage.success(`已將「${recipe.value.name}」加入購物清單`)
   }
 
@@ -277,7 +278,7 @@ export function useSimulator() {
       }
       const fullRecipe = await getRecipe(results[0].recipeId)
       recipeStore.addToQueue(fullRecipe)
-      recipeStore.setRecipe(fullRecipe)
+      recipeStore.setRecipe(fullRecipe, 'queue')
       ElMessage.success(`已將「${fullRecipe.name}」加入模擬佇列`)
     } catch (err) {
       console.error('[SimulatorView] Failed to load recipe for self-craft:', err)

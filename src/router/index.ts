@@ -25,6 +25,14 @@ const router = createRouter({
       name: 'simulator',
       component: () => import('@/views/SimulatorView.vue'),
       meta: { title: '製作模擬' },
+      beforeEnter: (to, from) => {
+        let source: 'recipe_auto' | 'manual_nav' | 'queue_jump' | 'share_url' | 'unknown' = 'unknown'
+        if (to.query.macro || to.hash.includes('macro')) source = 'share_url'
+        else if (to.query.from === 'queue') source = 'queue_jump'
+        else if (from.name === 'dashboard' || from.name === 'batch') source = 'recipe_auto'
+        else if (from.name) source = 'manual_nav'
+        trackEvent('simulator_entry_source', { source })
+      },
     },
     {
       path: '/bom',
@@ -88,6 +96,31 @@ router.onError((err) => {
   sessionStorage.setItem(RELOAD_GUARD_KEY, String(Date.now()))
   trackEvent('stale_chunk_reload', { path: location.hash })
   location.reload()
+})
+
+router.isReady().then(() => {
+  const url = new URL(window.location.href)
+  const hash = url.hash || ''
+  const referrerHost = (() => {
+    try { return new URL(document.referrer).host } catch { return '' }
+  })()
+
+  // Hash-based deep-link detection (app uses createWebHashHistory)
+  // Patterns derived from share-link conventions in this codebase
+  const hasRecipe = /[?&]recipeId=/.test(hash) || /[?&]recipe=/.test(hash)
+  const hasBatch = /[?&]targets=/.test(hash) || /[?&]batch=/.test(hash)
+  const hasMacro = /[?&]macro=/.test(hash)
+
+  let payload_kind: 'recipe' | 'batch' | 'macro' | 'mixed' | null = null
+  const kinds = [hasRecipe, hasBatch, hasMacro].filter(Boolean).length
+  if (kinds > 1) payload_kind = 'mixed'
+  else if (hasRecipe) payload_kind = 'recipe'
+  else if (hasBatch) payload_kind = 'batch'
+  else if (hasMacro) payload_kind = 'macro'
+
+  if (payload_kind) {
+    trackEvent('share_link_inbound', { payload_kind, referrer_host: referrerHost })
+  }
 })
 
 export default router

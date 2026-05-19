@@ -1,5 +1,8 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
+
+vi.mock('@/utils/user-properties', () => ({ syncFromStores: vi.fn() }))
+
 import { useGearsetsStore } from '@/stores/gearsets'
 import { JOB_NAMES } from '@/utils/jobs'
 

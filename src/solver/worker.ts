@@ -37,6 +37,10 @@ const taskQueue: Array<{
   requestId: number
 }> = []
 
+// Timing for wasm_load_ms / worker_pool_init_ms telemetry
+let poolInitT0: number | null = null
+let wasmReadyT0: number | null = null
+
 let wasmStatus: 'loading' | 'ready' | 'error' = 'loading'
 let wasmErrorMessage: string | null = null
 // Multiple components (SolverPanel, CraftRecommendation, …) can call
@@ -57,6 +61,7 @@ const pendingRequests = new Map<number, {
 
 function ensurePool(): void {
   if (slots.length === POOL_SIZE) return
+  if (poolInitT0 === null) poolInitT0 = performance.now()
   for (let i = slots.length; i < POOL_SIZE; i++) {
     const w = new Worker(new URL('./solver-worker.ts', import.meta.url), { type: 'module' })
     const slot: WorkerSlot = { worker: w, busy: false }
@@ -84,6 +89,8 @@ function ensurePool(): void {
       }
       slots.length = 0
       readySlotCount = 0
+      poolInitT0 = null
+      wasmReadyT0 = null
       wasmStatus = 'error'
       wasmErrorMessage = message
       for (const [, pending] of pendingRequests) pending.reject(new Error(message))
@@ -98,8 +105,25 @@ function ensurePool(): void {
 }
 
 function onSlotReady(): void {
+  if (readySlotCount === 0) wasmReadyT0 = performance.now()
   readySlotCount++
   if (readySlotCount === POOL_SIZE) {
+    const now = performance.now()
+    const isColdStart = !sessionStorage.getItem('ff14ch.wasm_loaded_once')
+    if (wasmReadyT0 !== null) {
+      trackEvent('wasm_load_ms', {
+        duration_ms: Math.round(now - wasmReadyT0),
+        worker_count: POOL_SIZE,
+        is_cold_start: isColdStart,
+      })
+    }
+    sessionStorage.setItem('ff14ch.wasm_loaded_once', '1')
+    if (poolInitT0 !== null) {
+      trackEvent('worker_pool_init_ms', {
+        duration_ms: Math.round(now - poolInitT0),
+        worker_count: POOL_SIZE,
+      })
+    }
     wasmStatus = 'ready'
     const waiters = wasmReadyWaiters.splice(0)
     wasmErrorWaiters.length = 0
@@ -212,6 +236,7 @@ export function solveCraft(
     crafter_level: config.crafter_level, recipe_level: config.recipe_level,
     hq_target: config.hq_target,
     gear_bucket: classifyGearBucket(config.crafter_level, config.craftsmanship, config.control),
+    ...(config.taxonomy ?? {}),
   })
   if (runIndex >= 2) {
     trackEvent('solver_rerun', { run_index: runIndex })
@@ -287,6 +312,8 @@ export function cancelSolve(): void {
   for (const slot of slots) slot.worker.terminate()
   slots.length = 0
   readySlotCount = 0
+  poolInitT0 = null
+  wasmReadyT0 = null
   wasmStatus = 'loading'
   wasmErrorMessage = null
   for (const [, pending] of pendingRequests) pending.reject(new Error(SOLVE_CANCELLED))
@@ -301,6 +328,8 @@ export function disposeWorker(): void {
   for (const slot of slots) slot.worker.terminate()
   slots.length = 0
   readySlotCount = 0
+  poolInitT0 = null
+  wasmReadyT0 = null
   wasmStatus = 'loading'
   wasmErrorMessage = null
   pendingRequests.clear()
