@@ -26,7 +26,21 @@ const HOME = process.env.HOME || process.env.USERPROFILE || ''
 // Stable location outside the repo (survives `.tmp/` wipes). Override with GA_SA_PATH.
 const SA_PATH = process.env.GA_SA_PATH
   || path.join(HOME, '.ff14-craft-helper', 'ga-sa.json')
-const WINDOW_DAYS = Number(process.env.GA_WINDOW_DAYS ?? 28)
+
+function parseArgs(argv) {
+  const args = { snapshot: false, out: null, history: null, windowDays: null }
+  for (let i = 2; i < argv.length; i++) {
+    const a = argv[i]
+    if (a === '--snapshot') args.snapshot = true
+    else if (a === '--out')     args.out = argv[++i]
+    else if (a === '--history') args.history = argv[++i]
+    else if (a === '--window')  args.windowDays = Number(argv[++i])
+  }
+  return args
+}
+const CLI = parseArgs(process.argv)
+
+const WINDOW_DAYS = CLI.windowDays ?? Number(process.env.GA_WINDOW_DAYS ?? 28)
 
 async function main() {
   const propertyId = process.env.GA_PROPERTY_ID
@@ -838,7 +852,59 @@ function die(msg) {
   process.exit(1)
 }
 
-main().catch((err) => {
-  console.error(err)
-  process.exit(1)
-})
+async function runSnapshot() {
+  const propertyId = process.env.GA_PROPERTY_ID
+  if (!propertyId) die('Missing env GA_PROPERTY_ID')
+  const client = await buildClient()
+
+  const out = CLI.out ?? path.join(ROOT, 'public', 'data', 'ga-snapshot.json')
+  const historyDir = CLI.history  // optional
+
+  const snapshot = {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    propertyId,
+    windows: {},
+  }
+
+  for (const days of [7, 14, 28]) {
+    const key = `${days}d`
+    console.log(`[snapshot] querying ${key}...`)
+    snapshot.windows[key] = await buildBundle(client, propertyId, days)
+  }
+
+  await fs.mkdir(path.dirname(out), { recursive: true })
+  await fs.writeFile(out, JSON.stringify(snapshot, null, 2))
+  console.log(`[snapshot] wrote ${out}`)
+
+  if (historyDir) {
+    const stamp = snapshot.generatedAt.slice(0, 10)  // YYYY-MM-DD
+    const histPath = path.join(historyDir, `${stamp}.json`)
+    await fs.mkdir(historyDir, { recursive: true })
+    await fs.writeFile(histPath, JSON.stringify(snapshot, null, 2))
+    console.log(`[snapshot] archived ${histPath}`)
+  }
+}
+
+async function buildClient() {
+  const accessToken = process.env.GA_ACCESS_TOKEN
+  if (accessToken) {
+    const oauth = new OAuth2Client()
+    oauth.setCredentials({ access_token: accessToken })
+    return new BetaAnalyticsDataClient({ authClient: oauth })
+  }
+  try { await fs.access(SA_PATH) }
+  catch { die(`Missing ${SA_PATH} (service-account JSON)`) }
+  return new BetaAnalyticsDataClient({ keyFilename: SA_PATH })
+}
+
+async function buildBundle(client, propertyId, days) {
+  // Will be implemented in Task 5.
+  return { window: { days, startDate: `${days}daysAgo`, endDate: 'today' } }
+}
+
+if (CLI.snapshot) {
+  runSnapshot().catch((err) => { console.error(err); process.exit(1) })
+} else {
+  main().catch((err) => { console.error(err); process.exit(1) })
+}
