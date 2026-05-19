@@ -14,6 +14,8 @@ import { fetchZoneMetaBulk, fetchNpcNameBulk } from '@/services/zone-meta'
 import { trackEvent } from '@/utils/analytics'
 import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
 import type { AcquisitionSource } from '@/types/acquisition'
+import { computeRecipeTaxonomy, flattenTaxonomyForEvent } from '@/utils/recipe-taxonomy'
+import type { Recipe, RecipeOpenSource } from '@/stores/recipe'
 
 export type PriceFetchStatus = 'ok' | 'failed'
 
@@ -48,6 +50,11 @@ export interface RecipeBomTarget extends BaseBomTarget {
   recipeId: number
   /** Items produced per craft. Optional for legacy data; treat undefined as 1. */
   amountResult?: number
+  /**
+   * Full recipe object used to derive analytics taxonomy at add-time.
+   * Not persisted — optional so legacy/import targets remain valid.
+   */
+  recipe?: Recipe
 }
 
 export interface CompanyCraftProjectBomTarget extends BaseBomTarget {
@@ -346,7 +353,7 @@ export const useBomStore = defineStore('bom', () => {
     { deep: true, flush: 'sync' },
   )
 
-  function addTarget(target: BomTarget) {
+  function addTarget(target: BomTarget, source: RecipeOpenSource = 'unknown') {
     if (target.kind === 'company-craft-project') {
       // Company craft projects are keyed by projectId — the same project
       // can share an itemId placeholder (-1) across multiple entries.
@@ -355,6 +362,7 @@ export const useBomStore = defineStore('bom', () => {
       )
       if (existing) return
       targets.value.push(target)
+      trackEvent('bom_target_add', { item_id: target.itemId, quantity: target.quantity, source })
       return
     }
     // recipe / no-recipe: dedupe by itemId (existing behavior).
@@ -366,6 +374,18 @@ export const useBomStore = defineStore('bom', () => {
     } else {
       targets.value.push(target)
     }
+    const base: Record<string, unknown> = {
+      item_id: target.itemId,
+      quantity: target.quantity,
+      source,
+    }
+    if (target.kind === 'recipe') {
+      base.recipe_id = target.recipeId
+      if (target.recipe) {
+        Object.assign(base, flattenTaxonomyForEvent(computeRecipeTaxonomy(target.recipe)))
+      }
+    }
+    trackEvent('bom_target_add', base)
   }
 
   function removeTarget(itemId: number) {

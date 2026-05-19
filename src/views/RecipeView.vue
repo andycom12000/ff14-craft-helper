@@ -63,7 +63,8 @@ function handleAddToBom() {
       icon: selectedRecipe.value.icon,
       quantity: 1,
       amountResult: selectedRecipe.value.amountResult,
-    })
+      recipe: selectedRecipe.value,
+    }, 'search')
     ElMessage.success(`已將「${selectedRecipe.value.name}」加入購物清單。`)
   }
 }

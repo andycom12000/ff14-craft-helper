@@ -187,7 +187,8 @@ function handleAddFromSearch(recipe: import('@/stores/recipe').Recipe) {
     icon: recipe.icon,
     quantity: 1,
     amountResult: recipe.amountResult,
-  })
+    recipe,
+  }, 'search')
   ElMessage.success(`已加入「${recipe.name}」`)
 }
 

@@ -183,7 +183,7 @@ async function confirmImport() {
     bom.clearTargets()
   }
   for (const t of newTargets) {
-    bom.addTarget(t)
+    bom.addTarget(t, 'unknown')
   }
 
   ElMessage.success(`已匯入 ${newTargets.length} 筆`)

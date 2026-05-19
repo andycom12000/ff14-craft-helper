@@ -260,7 +260,8 @@ export function useSimulator() {
       icon: recipe.value.icon,
       quantity: 1,
       amountResult: recipe.value.amountResult,
-    })
+      recipe: recipe.value,
+    }, 'cross_page_send')
     ElMessage.success(`已將「${recipe.value.name}」加入購物清單`)
   }
 

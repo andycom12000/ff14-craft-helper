@@ -96,7 +96,7 @@ function onSync(projectId: string) {
       name: proj.name,
       icon,
       quantity: 1,
-    })
+    }, 'company_craft')
   }
   trackEvent('workshop_project_sync_to_bom', { project_id: projectId })
   router.push('/bom')
