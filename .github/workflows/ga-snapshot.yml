@@ -1,0 +1,68 @@
+name: GA daily snapshot
+
+on:
+  schedule:
+    - cron: '0 4 * * *'   # 04:00 UTC = 12:00 Asia/Taipei
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ga-snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Write SA cred
+        env:
+          GA_SA_JSON: ${{ secrets.GA_SA_JSON }}
+        run: |
+          mkdir -p $HOME/.ff14-craft-helper
+          printf '%s' "$GA_SA_JSON" > $HOME/.ff14-craft-helper/ga-sa.json
+
+      - name: Prepare gh-data working tree
+        run: |
+          git fetch origin gh-data || true
+          if git rev-parse --verify origin/gh-data >/dev/null 2>&1; then
+            git worktree add /tmp/gh-data origin/gh-data
+          else
+            mkdir /tmp/gh-data
+            cd /tmp/gh-data
+            git init -b gh-data
+            git remote add origin "${{ github.server_url }}/${{ github.repository }}"
+            cd -
+          fi
+
+      - name: Run snapshot
+        env:
+          GA_PROPERTY_ID: ${{ secrets.GA_PROPERTY_ID }}
+        run: |
+          node scripts/dev/ga-analyze.mjs --snapshot \
+            --out /tmp/gh-data/snapshot.json \
+            --history /tmp/gh-data/history
+
+      - name: Commit + push
+        run: |
+          cd /tmp/gh-data
+          git config user.name "ga-snapshot-bot"
+          git config user.email "ga-snapshot-bot@users.noreply.github.com"
+          git add snapshot.json history/
+          git diff --cached --quiet && exit 0
+          git commit -m "data(snapshot): $(date -u +%Y-%m-%d)"
+          git push -u origin gh-data

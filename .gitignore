@@ -55,3 +55,10 @@ public/tesseract-shim/worker.min.js
 /*.png
 tmp-compare/
 .superpowers/
+
+# GA snapshot served from gh-data branch in prod; local copy is dev-only
+public/data/ga-snapshot.json
+public/data/ga-history/
+
+# GA dashboard ad-hoc diagnostic script (kept locally, not for repo)
+scripts/dev/simulator-funnel.mjs

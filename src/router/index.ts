@@ -76,6 +76,12 @@ const router = createRouter({
       component: () => import('@/views/SettingsView.vue'),
       meta: { title: '設定' },
     },
+    {
+      path: '/admin/ga',
+      name: 'admin-ga',
+      component: () => import('@/views/admin/GaDashboardView.vue'),
+      meta: { title: 'GA Analytics', layout: 'bare' },
+    },
   ],
 })
 

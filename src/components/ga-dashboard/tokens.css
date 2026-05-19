@@ -1,0 +1,54 @@
+/* src/components/ga-dashboard/tokens.css
+ * Scoped warm-dark theme for GA admin dashboard.
+ * Decoupled from app-level theme store on purpose — this view is always dark.
+ * Per DESIGN.md §6 dark mode rules: warm brown surfaces, never blue/gray.
+ */
+.ga-dashboard {
+  --bg:           oklch(0.18 0.018 62);
+  --bg-deep:      oklch(0.14 0.014 60);
+  --surface:      oklch(0.225 0.018 62);
+  --surface-2:    oklch(0.26  0.022 62);
+  --surface-3:    oklch(0.30  0.025 64);
+  --border:       oklch(0.42 0.035 60 / 0.36);
+  --border-soft:  oklch(0.42 0.035 60 / 0.18);
+
+  --ink:          oklch(0.94 0.022 82);
+  --ink-mid:      oklch(0.80 0.022 75);
+  --ink-muted:    oklch(0.66 0.024 68);
+  --ink-faint:    oklch(0.52 0.028 62);
+
+  --gold:         oklch(0.78 0.15 72);
+  --gold-glow:    oklch(0.78 0.15 72 / 0.16);
+  --crust:        oklch(0.66 0.11 50);
+  --cocoa:        oklch(0.66 0.14 40);
+  --cocoa-dark:   oklch(0.50 0.13 40);
+  --strawberry:   oklch(0.70 0.18 15);
+  --matcha:       oklch(0.72 0.15 138);
+  --blueberry:    oklch(0.66 0.16 248);
+
+  --success:      oklch(0.70 0.16 145);
+  --warning:      oklch(0.74 0.16 60);
+  --danger:       oklch(0.68 0.20 22);
+
+  background:
+    radial-gradient(1200px 700px at 20% -10%, oklch(0.26 0.04 60 / 0.55), transparent 60%),
+    radial-gradient(900px 600px at 95% 8%, oklch(0.24 0.05 40 / 0.40), transparent 65%),
+    var(--bg);
+  color: var(--ink);
+  font-family: 'Noto Sans TC', system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+.ga-dashboard ::selection { background: var(--gold-glow); color: var(--ink); }
+
+/* family color helpers (used by chart components) */
+.ga-dashboard .fam-core    { color: var(--gold); }
+.ga-dashboard .fam-craft   { color: var(--cocoa); }
+.ga-dashboard .fam-gather  { color: var(--matcha); }
+.ga-dashboard .fam-company { color: var(--blueberry); }
+.ga-dashboard .fam-meta    { color: var(--ink-muted); }
+.ga-dashboard .fam-market  { color: var(--strawberry); }
+.ga-dashboard .fam-error   { color: var(--danger); }

@@ -22,6 +22,8 @@ import CommandPalette from '@/components/CommandPalette.vue'
 const route = useRoute()
 const sidebarOpen = ref(false)
 
+const isBare = computed(() => route.meta?.layout === 'bare')
+
 const pageTitle = computed(() => (route.meta?.title as string) ?? '吐司工坊')
 
 const PAGE_ACCENTS: Record<string, { color: string; dim: string }> = {
@@ -60,7 +62,8 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <el-container class="app-container">
+  <router-view v-if="isBare" />
+  <el-container v-else class="app-container">
     <div
       v-if="sidebarOpen"
       class="sidebar-backdrop"
