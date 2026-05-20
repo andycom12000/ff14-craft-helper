@@ -4,29 +4,12 @@ import * as d3 from 'd3'
 import type { HierarchyRectangularNode } from 'd3'
 import { useD3Resize } from '@/composables/useD3Resize'
 import { useTooltip } from '@/composables/useTooltip'
-import type { PageRow, PageFamily } from '@/types/ga-snapshot'
+import type { PageRow } from '@/types/ga-snapshot'
+import { C, pageFamilyColor } from '@/components/ga-dashboard/palette'
 
 const props = defineProps<{ data: PageRow[] }>()
 const root = ref<HTMLDivElement | null>(null)
 const tip = useTooltip()
-
-// Theme colors — must match tokens.css OKLCH palette.
-const C = {
-  ink:      'oklch(0.94 0.022 82)',
-  inkMuted: 'oklch(0.66 0.024 68)',
-  bgDeep:   'oklch(0.14 0.014 60)',
-  border:   'oklch(0.42 0.035 60 / 0.36)',
-  surface:  'oklch(0.225 0.018 62)',
-}
-
-const familyColor: Record<PageFamily, string> = {
-  core:    'oklch(0.78 0.15 72)',   // gold
-  craft:   'oklch(0.66 0.14 40)',   // cocoa
-  gather:  'oklch(0.72 0.15 138)',  // matcha
-  company: 'oklch(0.66 0.16 248)',  // blueberry
-  meta:    'oklch(0.50 0.04 65)',
-  market:  'oklch(0.70 0.18 15)',   // strawberry
-}
 
 const fmt = (n: number) => n.toLocaleString('en-US')
 const fmtPct = (n: number) => (n * 100).toFixed(1) + '%'
@@ -61,9 +44,9 @@ function render(w: number, _h: number) {
   cell.append('rect')
     .attr('width',  d => d.x1 - d.x0)
     .attr('height', d => d.y1 - d.y0)
-    .attr('fill',   d => familyColor[(d.data as PageRow).family] || C.surface)
+    .attr('fill',   d => pageFamilyColor[(d.data as PageRow).family] || C.surface)
     .attr('fill-opacity', 0.18)
-    .attr('stroke', d => familyColor[(d.data as PageRow).family] || C.border)
+    .attr('stroke', d => pageFamilyColor[(d.data as PageRow).family] || C.border)
     .attr('stroke-width', 1)
     .attr('rx', 4)
     .style('cursor', 'pointer')
@@ -77,7 +60,7 @@ function render(w: number, _h: number) {
         <div class="row"><span>Sessions</span><span>${fmt(row.sessions)}</span></div>
         <div class="row"><span>Engagement</span><span>${fmtPct(row.engagement)}</span></div>
         <div class="row"><span>Avg session</span><span>${row.avgSession.toFixed(1)}s</span></div>
-        <span class="tag" style="background:${familyColor[row.family]};color:${C.bgDeep}">${row.family}</span>
+        <span class="tag" style="background:${pageFamilyColor[row.family]};color:${C.bgDeep}">${row.family}</span>
       `, ev)
     })
     .on('mousemove', function (ev: MouseEvent) {
@@ -114,7 +97,7 @@ function render(w: number, _h: number) {
       g.append('text')
         .attr('x', 10).attr('y', H - 14)
         .attr('class', 'chart-label-mono')
-        .attr('fill', familyColor[row.family])
+        .attr('fill', pageFamilyColor[row.family])
         .style('font-weight', 500)
         .style('font-size', W > 200 ? '22px' : '14px')
         .text(fmt(row.views) + ' views')
@@ -131,7 +114,7 @@ onMounted(() => {
 })
 </script>
 
-<template><div ref="root" class="chart" /></template>
+<template><div ref="root" class="chart" role="img" aria-label="Treemap of pages sized by view count" /></template>
 
 <style scoped>
 .chart { margin: 12px 0 8px; position: relative; }
