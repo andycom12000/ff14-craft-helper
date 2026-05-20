@@ -18,6 +18,15 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: "v2.15.6",
+    date: "2026-05-20",
+    highlights: [
+      "【配裝表也能勾「專家之證」】之前 /gearset 頁面少了專家之證勾選框，要動專家狀態只能從配方配置抽屜進去；現在 /gearset 桌面版每列直接顯示「專家之證」核取（開啟時帶可可色光暈、上方有「專家配置 N / 3」狀態列與超限警告），手機版手風琴摘要有「專」標籤、展開後在屬性欄位下方也補上開關",
+      "【內部】Owner-only /admin/ga dashboard UI/UX 大改：把「儀表板呈現數據」改寫成「報表指出問題並建議怎麼做」。新增 per-section TL;DR pill + 一行白話結論（自動點名首頁進入來源 / 最差漏斗第一個流失點 / 回訪者主要動作）；EngagementScatter 換成 PagesTable（中位數基準的 Δ 排序，讓首頁 -67% session 之類的異常直接被看見）；Q4 漏斗組（Recipe→Solver / Solver→Macro / Batch prep→Optimize / BOM→Consumed）併入 Q2「漏在哪」當第三層；ReturningEventsBar 把 GA snake_case 翻成中文功能名（universalis_fetch → 市場價查詢）；容器寬度 1180 → 1720（≥1440 才看得到，1920 螢幕內容區佔比 67 → 90%）；12 張圖補齊 role=img + aria-label；palette / formatters / paths 三個共用模組砍掉 12 處重複",
+      "【內部】GA daily snapshot workflow 第二次以後排程跑會 fail：`git worktree add origin/gh-data` 進 detached HEAD、`git push -u origin gh-data` 噴 `src refspec gh-data does not match any`。改用 `-B gh-data` 強制建立本地 branch — 首次跑因為走 orphan bootstrap 路徑沒中、第二次以後才會出現",
+    ],
+  },
+  {
     version: "v2.15.5",
     date: "2026-05-20",
     highlights: [
