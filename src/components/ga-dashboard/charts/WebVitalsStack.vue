@@ -4,27 +4,11 @@ import * as d3 from 'd3'
 import { useD3Resize } from '@/composables/useD3Resize'
 import { useTooltip } from '@/composables/useTooltip'
 import type { VitalRow } from '@/types/ga-snapshot'
+import { C } from '@/components/ga-dashboard/palette'
 
 const props = defineProps<{ data: VitalRow[] }>()
 const root = ref<HTMLDivElement | null>(null)
 const tip = useTooltip()
-
-const C = {
-  ink:      'oklch(0.94 0.022 82)',
-  inkMid:   'oklch(0.80 0.022 75)',
-  inkMuted: 'oklch(0.66 0.024 68)',
-  inkFaint: 'oklch(0.52 0.028 62)',
-  bgDeep:   'oklch(0.14 0.014 60)',
-  border:   'oklch(0.42 0.035 60 / 0.36)',
-  borderSoft: 'oklch(0.42 0.035 60 / 0.18)',
-  surface:  'oklch(0.225 0.018 62)',
-  surface2: 'oklch(0.26 0.022 62)',
-  gold:     'oklch(0.78 0.15 72)',
-  cocoa:    'oklch(0.66 0.14 40)',
-  success:  'oklch(0.70 0.16 145)',
-  warning:  'oklch(0.74 0.16 60)',
-  danger:   'oklch(0.68 0.20 22)',
-}
 
 const fmt = (n: number) => n.toLocaleString('en-US')
 
@@ -123,7 +107,7 @@ onMounted(() => {
 })
 </script>
 
-<template><div ref="root" class="chart" /></template>
+<template><div ref="root" class="chart" role="img" aria-label="Web vitals — INP, TTFB, CLS, FCP, LCP good/needs-improvement/poor split" /></template>
 
 <style scoped>
 .chart { margin: 12px 0 8px; position: relative; }

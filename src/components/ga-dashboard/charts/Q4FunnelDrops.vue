@@ -3,25 +3,10 @@ import { ref, watch, onMounted } from 'vue'
 import * as d3 from 'd3'
 import { useD3Resize } from '@/composables/useD3Resize'
 import type { Q4Funnel } from '@/types/ga-snapshot'
+import { C } from '@/components/ga-dashboard/palette'
 
 const props = defineProps<{ data: Q4Funnel[] }>()
 const root = ref<HTMLDivElement | null>(null)
-
-const C = {
-  ink:      'oklch(0.94 0.022 82)',
-  inkMid:   'oklch(0.80 0.022 75)',
-  inkMuted: 'oklch(0.66 0.024 68)',
-  inkFaint: 'oklch(0.52 0.028 62)',
-  bgDeep:   'oklch(0.14 0.014 60)',
-  border:   'oklch(0.42 0.035 60 / 0.36)',
-  borderSoft: 'oklch(0.42 0.035 60 / 0.18)',
-  surface:  'oklch(0.225 0.018 62)',
-  gold:     'oklch(0.78 0.15 72)',
-  crust:    'oklch(0.66 0.11 50)',
-  success:  'oklch(0.70 0.16 145)',
-  warning:  'oklch(0.74 0.16 60)',
-  danger:   'oklch(0.68 0.20 22)',
-}
 const fmt = (n: number) => n.toLocaleString('en-US')
 
 function render(w: number, _h: number) {
@@ -129,7 +114,7 @@ onMounted(() => {
 })
 </script>
 
-<template><div ref="root" class="chart" /></template>
+<template><div ref="root" class="chart" role="img" aria-label="Q4 page funnel drop rates" /></template>
 
 <style scoped>
 .chart { margin: 12px 0 8px; position: relative; }
