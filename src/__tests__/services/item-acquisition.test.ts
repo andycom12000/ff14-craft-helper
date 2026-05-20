@@ -57,10 +57,28 @@ describe('deriveAcquisition', () => {
     expect(r.npcPrice).toBeNull()
   })
 
-  it('treats trade-shops the same as vendors', () => {
+  it('treats trade-shop-only items as NOT canNpc (token exchange, not gil)', () => {
+    // Trade shops use tokens (scrips, tomestones, etc.), not gil. Garlandtools'
+    // top-level item.price is the NPC gil-sale price and is unrelated to the
+    // trade-shop cost — falling back to it falsely shows a gil price.
     const r = deriveAcquisition(detail({ tradeShops: [{}], price: 100 }))
-    expect(r.canNpc).toBe(true)
-    expect(r.npcPrice).toBe(100)
+    expect(r.canNpc).toBe(false)
+    expect(r.npcPrice).toBeNull()
+  })
+
+  it('treats price=99999 as a placeholder, not a real NPC price', () => {
+    // Real-world repro: itemId 44144 (佩魯佩魯棉線) returns
+    // { tradeShops: [...], price: 99999 } — 99999 is garlandtools' sentinel
+    // for "no real NPC gil price", not an actual sale price.
+    const r = deriveAcquisition(detail({ vendors: [{}], price: 99999 }))
+    expect(r.canNpc).toBe(false)
+    expect(r.npcPrice).toBeNull()
+  })
+
+  it('佩魯佩魯棉線 fixture: tradeShops + price=99999 → no NPC gil', () => {
+    const r = deriveAcquisition(detail({ tradeShops: [{}, {}], price: 99999 }))
+    expect(r.canNpc).toBe(false)
+    expect(r.npcPrice).toBeNull()
   })
 
   it('returns all-false when item is empty', () => {

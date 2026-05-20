@@ -50,15 +50,21 @@ export function deriveAcquisition(detail: GarlandItemDetail): ItemAcquisition {
     (Array.isArray(item.fish) && item.fish.length > 0) ||
     (Array.isArray(item.fishingSpots) && item.fishingSpots.length > 0) ||
     (Array.isArray(item.spearfishingSpots) && item.spearfishingSpots.length > 0)
-  const hasVendor =
-    (Array.isArray(item.vendors) && item.vendors.length > 0) ||
-    (Array.isArray(item.tradeShops) && item.tradeShops.length > 0)
-  // Only count as NPC-purchasable when we also have a gil price; trade-shop
-  // tokens with no gil price aren't useful to the cost calculator.
-  const npcPrice = hasVendor && typeof item.price === 'number' && item.price > 0
-    ? item.price
-    : null
-  const canNpc = hasVendor && npcPrice !== null
+  // Only `vendors` represent NPCs selling for gil. `tradeShops` cost tokens
+  // (scrips, tomestones, …) and garlandtools' top-level `item.price` is the
+  // gil-sale price — unrelated to a trade-shop's token cost. Mixing them in
+  // surfaces phantom gil prices in BOM NPC mode.
+  // `price === 99999` is garlandtools' sentinel for "no real NPC gil price"
+  // (e.g., itemId 44144 佩魯佩魯棉線 ships as tradeShops-only with price=99999).
+  const hasGilVendor = Array.isArray(item.vendors) && item.vendors.length > 0
+  const npcPrice =
+    hasGilVendor &&
+    typeof item.price === 'number' &&
+    item.price > 0 &&
+    item.price < 99999
+      ? item.price
+      : null
+  const canNpc = npcPrice !== null
   return { canMarket, canGather, canNpc, npcPrice }
 }
 
