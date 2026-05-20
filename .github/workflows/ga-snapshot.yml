@@ -44,7 +44,7 @@ jobs:
           if git rev-parse --verify origin/gh-data >/dev/null 2>&1; then
             # Existing branch: worktree shares main repo's .git so it inherits
             # actions/checkout's injected auth header for github.com.
-            git worktree add /tmp/gh-data origin/gh-data
+            git worktree add -B gh-data /tmp/gh-data origin/gh-data
           else
             # Orphan bootstrap: standalone repo with no inherited auth.
             # Embed the token in the remote URL so git push can authenticate.
