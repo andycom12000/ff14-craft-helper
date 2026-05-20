@@ -22,7 +22,7 @@ const changelog: Entry[] = [
     date: "2026-05-20",
     highlights: [
       "【模擬器：專家配方條件擴張】6 個工匠配方條件埋進求解 / 模擬器：4 個無狀態（Centered / Sturdy / Pliant / Malleable）+ 2 個有狀態（Primed / Good Omen，含 lock UX）；模擬器面板可手動切條件做沙盤推演；adversarial 開關讓求解器知道條件會隨機跳、避免做出在新條件下會崩的計畫",
-      "【匠人之魂跟隨配裝走】配裝表新增 specialist 標記，匠之魂 +20 加成只在該配裝開了 specialist 時帶進求解參數；Heart & Soul / Quick Innovation 也按同邏輯 gate 在 specialist 配裝才解鎖；Soul of the Crafter / 食物 / 藥水的疊加順序統一",
+      "【專家之證跟隨配裝走】配裝表新增 specialist 標記，匠之魂 +20 加成只在該配裝開了 specialist 時帶進求解參數；Heart & Soul / Quick Innovation 也按同邏輯 gate 在 specialist 配裝才解鎖；Soul of the Crafter / 食物 / 藥水的疊加順序統一",
       "【BOM 素材名一鍵複製】材料詳細頁的物品名點下去直接 copy 到剪貼簿，方便去遊戲內貼搜尋",
       "【批量按鈕落在游標位置】之前批量做完的 CTA 會跑到頁面頂端、要往回捲；現在按鈕落在游標所在那一行，做完一個立刻能按下一個",
       "【自製候選重新比價】批量計算的自製候選之前定價時沒考慮市場 listing 實際能不能填滿你要的數量，會把「掛單只有 1 個但你要 10 個」當成可直購；改成依 listing 累積數量與 fulfillment 重新比價，自製建議更貼合實情",

@@ -4,8 +4,14 @@ import { ElMessage } from 'element-plus'
 import { useGearsetsStore, type GearsetStats } from '@/stores/gearsets'
 import { useIsMobile } from '@/composables/useMediaQuery'
 import { JOB_NAMES } from '@/utils/jobs'
+import { specialistCount } from '@/services/specialist-state'
+
+const SPECIALIST_TOKEN_LIMIT = 3
 
 const store = useGearsetsStore()
+
+const currentSpecialistCount = computed(() => specialistCount(store.gearsets))
+const specialistOverLimit = computed(() => currentSpecialistCount.value > SPECIALIST_TOKEN_LIMIT)
 
 const jobs = Object.keys(JOB_NAMES)
 
@@ -95,6 +101,22 @@ function applyBulk() {
       <h2>配裝管理</h2>
       <p class="view-desc view-desc--optional">填好裝備數值，模擬器就能幫你算出最佳手法。</p>
 
+      <!-- Specialist status line — N / 3 with over-limit warning -->
+      <div class="specialist-status" :class="{ 'is-over-limit': specialistOverLimit }">
+        <div class="specialist-status-row">
+          <span class="specialist-pill">專家配置</span>
+          <span class="specialist-count">
+            <span class="specialist-count-num">{{ currentSpecialistCount }}</span>
+            <span class="specialist-count-sep"> / </span>
+            <span class="specialist-count-limit">{{ SPECIALIST_TOKEN_LIMIT }}</span>
+          </span>
+          <span v-if="specialistOverLimit" class="specialist-warning">
+            遊戲內最多 {{ SPECIALIST_TOKEN_LIMIT }} 個 specialist token
+          </span>
+        </div>
+        <div class="specialist-status-underline" aria-hidden="true" />
+      </div>
+
       <!-- Collapsible bulk-edit panel -->
       <div class="bulk-panel" :class="{ 'bulk-panel--open': bulkOpen }">
         <button
@@ -183,7 +205,15 @@ function applyBulk() {
       </div>
 
       <div class="job-list">
-        <div v-for="row in tableData" :key="row.job" class="job-row" :class="{ 'job-row--saved': flashingJob === row.job }">
+        <div
+          v-for="row in tableData"
+          :key="row.job"
+          class="job-row"
+          :class="{
+            'job-row--saved': flashingJob === row.job,
+            'job-row--specialist': row.isSpecialist,
+          }"
+        >
           <div class="job-identity">
             <span class="job-icon">{{ JOB_ICONS[row.job] }}</span>
             <span class="job-name">{{ JOB_NAMES[row.job] }}</span>
@@ -230,6 +260,15 @@ function applyBulk() {
               />
             </div>
           </div>
+          <div class="job-specialist" :class="{ 'is-on': row.isSpecialist }">
+            <el-checkbox
+              :model-value="row.isSpecialist"
+              @update:model-value="(v: boolean | string | number) => updateJob(row.job, { isSpecialist: !!v })"
+              :aria-label="`${JOB_NAMES[row.job]} 設為專家之證`"
+            >
+              <span class="job-specialist-label">專家之證</span>
+            </el-checkbox>
+          </div>
         </div>
       </div>
     </template>
@@ -243,6 +282,18 @@ function applyBulk() {
         </button>
       </Teleport>
 
+      <div class="m-specialist-status" :class="{ 'is-over-limit': specialistOverLimit }">
+        <span class="specialist-pill">專家配置</span>
+        <span class="specialist-count">
+          <span class="specialist-count-num">{{ currentSpecialistCount }}</span>
+          <span class="specialist-count-sep"> / </span>
+          <span class="specialist-count-limit">{{ SPECIALIST_TOKEN_LIMIT }}</span>
+        </span>
+        <span v-if="specialistOverLimit" class="m-specialist-warning">
+          最多 {{ SPECIALIST_TOKEN_LIMIT }} 個
+        </span>
+      </div>
+
       <p class="m-sub">點一下展開編輯</p>
 
       <ul class="acc" role="list">
@@ -253,6 +304,7 @@ function applyBulk() {
           :class="{
             'acc-item--open': expandedJob === row.job,
             'acc-item--saved': flashingJob === row.job,
+            'acc-item--specialist': row.isSpecialist,
           }"
         >
           <button
@@ -263,6 +315,7 @@ function applyBulk() {
           >
             <span class="acc-icon" aria-hidden="true">{{ JOB_ICONS[row.job] }}</span>
             <span class="acc-name">{{ JOB_NAMES[row.job] }}</span>
+            <span v-if="row.isSpecialist" class="acc-specialist-badge" aria-label="專家之證">專</span>
             <span class="acc-meta" aria-hidden="true">
               Lv{{ row.level }}<span class="acc-dot">·</span>作{{ row.craftsmanship }}<span class="acc-dot">·</span>加{{ row.control }}<span class="acc-dot">·</span>CP{{ row.cp }}
             </span>
@@ -319,6 +372,15 @@ function applyBulk() {
                   @input="updateJobField(row.job, 'control', ($event.target as HTMLInputElement).value)"
                 />
               </label>
+            </div>
+            <div class="m-specialist-toggle" :class="{ 'is-on': row.isSpecialist }">
+              <el-checkbox
+                :model-value="row.isSpecialist"
+                @update:model-value="(v: boolean | string | number) => updateJob(row.job, { isSpecialist: !!v })"
+                :aria-label="`${JOB_NAMES[row.job]} 設為專家之證`"
+              >
+                <span class="m-specialist-label">專家之證</span>
+              </el-checkbox>
             </div>
           </div>
         </li>
@@ -417,6 +479,63 @@ function applyBulk() {
   --page-accent: var(--app-craft);
   --page-accent-dim: var(--app-craft-dim);
   max-width: 960px;
+}
+
+/* ============================================================
+   Specialist status — Editorial Hero echo (eyebrow pill + chalk underline)
+   Shared visual language with GearsetSheet.
+   ============================================================ */
+
+.specialist-status {
+  margin: 8px 0 4px;
+  padding: 2px 4px 0;
+}
+.specialist-status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.specialist-pill {
+  font-family: 'Fira Code', 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--brand-cocoa);
+  background: var(--brand-cocoa-glow);
+  padding: 3px 8px;
+  border-radius: 999px;
+  line-height: 1;
+}
+.specialist-count {
+  margin-left: auto;
+  font-family: 'Fira Code', 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 13px;
+  color: var(--brand-cocoa);
+  font-variant-numeric: tabular-nums;
+}
+.specialist-count-sep,
+.specialist-count-limit {
+  color: var(--brand-cocoa);
+  opacity: 0.75;
+}
+.specialist-status.is-over-limit .specialist-count-num {
+  color: var(--app-warning);
+  font-weight: 600;
+}
+.specialist-warning {
+  font-family: 'Noto Sans TC', sans-serif;
+  font-size: 13px;
+  color: var(--app-text-muted);
+  flex-basis: 100%;
+  margin-top: -2px;
+}
+.specialist-status-underline {
+  height: 1px;
+  width: 56px;
+  background: color-mix(in srgb, var(--brand-cocoa) 55%, transparent);
+  margin-top: 6px;
 }
 
 /* ============================================================
@@ -610,6 +729,41 @@ function applyBulk() {
   max-width: 140px;
 }
 
+/* Per-row specialist toggle — cocoa-glow wash when active. */
+.job-specialist {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  transition: background-color 0.18s var(--ease-out-quart, ease-out);
+  flex-shrink: 0;
+  min-width: 96px;
+}
+.job-specialist.is-on {
+  background: var(--brand-cocoa-glow);
+}
+.job-specialist-label {
+  font-size: 13px;
+  color: var(--app-text);
+  font-weight: 500;
+}
+.job-specialist.is-on .job-specialist-label {
+  color: var(--brand-cocoa);
+  font-weight: 600;
+}
+.job-specialist :deep(.el-checkbox) {
+  height: auto;
+  margin-right: 0;
+}
+.job-specialist :deep(.el-checkbox__label) {
+  padding-left: 6px;
+}
+
+.job-row--specialist {
+  border-color: color-mix(in srgb, var(--brand-cocoa) 28%, var(--app-border));
+}
+
 /* Tablet: two-column stacked (still within desktop branch) */
 @media (max-width: 768px) {
   .job-row {
@@ -651,6 +805,63 @@ function applyBulk() {
 /* ============================================================
    Mobile branch — accordion
    ============================================================ */
+
+.m-specialist-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 4px 0 10px;
+}
+.m-specialist-warning {
+  font-size: 12px;
+  color: var(--app-text-muted);
+  margin-left: auto;
+}
+.m-specialist-status.is-over-limit .specialist-count-num {
+  color: var(--app-warning);
+  font-weight: 600;
+}
+
+.acc-specialist-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--brand-cocoa-glow);
+  color: var(--brand-cocoa);
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-left: -2px;
+}
+
+.m-specialist-toggle {
+  margin-top: 14px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--app-border);
+  transition: background-color 0.18s var(--ease-out-quart, ease-out),
+              border-color 0.18s var(--ease-out-quart, ease-out);
+}
+.m-specialist-toggle.is-on {
+  background: var(--brand-cocoa-glow);
+  border-color: color-mix(in srgb, var(--brand-cocoa) 32%, transparent);
+}
+.m-specialist-label {
+  font-size: 13px;
+  color: var(--app-text);
+  font-weight: 500;
+}
+.m-specialist-toggle.is-on .m-specialist-label {
+  color: var(--brand-cocoa);
+  font-weight: 600;
+}
+.m-specialist-toggle :deep(.el-checkbox__label) {
+  padding-left: 8px;
+}
 
 .m-sub {
   margin: 0 0 12px;
