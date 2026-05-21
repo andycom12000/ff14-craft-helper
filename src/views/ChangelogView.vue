@@ -18,6 +18,14 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: "v2.16.0",
+    date: "2026-05-21",
+    highlights: [
+      "【購物清單能勾完成了】材料明細 tab 每一列加了「已完成」核取，邊跑邊買的時候可以勾掉手上拿到的，看一眼就知道還剩幾件。footer 有採購進度條（X / Y 完成）+ 全部完成 tag，跟批量採購清單同一套視覺語言。勾選狀態綁這份 BOM（targets + 取得方式 hash 當 key），改數量或切自製/直購會自然歸零、F5 / 切頁切回會還原；localStorage 走 LRU 16 + 14 天 GC，多份 BOM 來回切互不污染",
+      "【內部】抽 `evictLruByPrefix(prefix, limit)` 共用 helper：BOM 的 route-session + completed 兩處的 LS 清掃邏輯收成一份；BomDecisionRow 的 grid 從 8 欄擴到 9 欄但 nested drill-down 子列維持 8 欄（PR review 抓出的 silent-desync：sub-craft 子節點誤掛 checkbox 但不計入 X/Y 池子）。新增 15 個 unit test 覆蓋 bomKey 穩定性 / recalc 行為 / LRU 容錯 / empty-Set 自動 removeItem",
+    ],
+  },
+  {
     version: "v2.15.6",
     date: "2026-05-20",
     highlights: [
