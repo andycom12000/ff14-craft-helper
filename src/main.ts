@@ -9,6 +9,7 @@ import { useThemeStore } from '@/stores/theme'
 import { trackError } from '@/utils/analytics'
 import { registerWebVitals } from '@/utils/web-vitals-tracking'
 import { syncFromStores } from '@/utils/user-properties'
+import { pruneStaleCompletedEntries } from '@/stores/bom'
 
 const app = createApp(App)
 
@@ -46,6 +47,8 @@ useLocaleStore()
 // so the resolved value is set on the first paint (also see the inline
 // guard in index.html that runs even earlier to avoid a light->dark flash).
 useThemeStore()
+
+pruneStaleCompletedEntries()
 
 // time_to_first_action: log the timestamp of the first user-meaningful event in a session.
 const TTFA_KEY = 'ff14ch.ttfa_sent'

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { ElButton, ElMessage, ElSkeletonItem } from 'element-plus'
+import { ElButton, ElCheckbox, ElMessage, ElSkeletonItem } from 'element-plus'
 import { DocumentCopy } from '@element-plus/icons-vue'
 import { useBomStore } from '@/stores/bom'
 import { useSettingsStore } from '@/stores/settings'
@@ -215,6 +215,11 @@ async function copyName() {
 onBeforeUnmount(() => {
   if (flashTimer) clearTimeout(flashTimer)
 })
+
+const isCompleted = computed(() => bom.isBomCompleted(props.itemId))
+function toggleCompleted() {
+  bom.toggleBomCompleted(props.itemId)
+}
 </script>
 
 <template>
@@ -224,6 +229,7 @@ onBeforeUnmount(() => {
       'is-nested': nested,
       'is-expanded': isExpanded,
       'is-row-toggleable': isRowToggleable,
+      'is-completed': isCompleted,
     }"
     :role="isRowToggleable ? 'button' : undefined"
     :tabindex="isRowToggleable ? 0 : undefined"
@@ -233,6 +239,23 @@ onBeforeUnmount(() => {
     @keydown.enter.prevent="onRowClick"
     @keydown.space.prevent="onRowClick"
   >
+    <!-- Nested rows are intermediate craft children; their completion is
+         implicit when the parent is done, so no checkbox + they don't
+         contribute to BomDecisionTable's progress pool. -->
+    <span
+      v-if="!nested"
+      class="dec-row__check"
+      @click.stop
+      @keydown.enter.stop
+      @keydown.space.stop
+    >
+      <ElCheckbox
+        :model-value="isCompleted"
+        :aria-label="`標記已完成：${name}`"
+        @change="toggleCompleted"
+      />
+    </span>
+
     <img
       :src="icon"
       :alt="name"
@@ -380,6 +403,7 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns:
     28px
+    28px
     minmax(0, 320px)
     44px
     minmax(0, 1fr)
@@ -433,6 +457,42 @@ onBeforeUnmount(() => {
   padding-left: 36px;
   min-height: 48px;
   font-size: 13.5px;
+  /* Nested skips the leading check column — see v-if="!nested" in template. */
+  grid-template-columns:
+    28px
+    minmax(0, 320px)
+    44px
+    minmax(0, 1fr)
+    260px
+    96px
+    104px
+    24px;
+}
+
+/* drill-down 仍可展開：使用者勾完後可能想回查單價/來源，不擋 toggle。 */
+.dec-row.is-completed {
+  opacity: 0.45;
+}
+
+.dec-row.is-completed:hover {
+  opacity: 0.65;
+}
+
+.dec-row.is-completed .dec-row__name-text {
+  text-decoration: line-through;
+}
+
+.dec-row__check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+@media (hover: none) {
+  .dec-row__check {
+    min-height: var(--touch-target-min);
+  }
 }
 
 .dec-row__icon {
@@ -739,15 +799,23 @@ onBeforeUnmount(() => {
    * "200 Gil ×4 = 800" naturally; no diagonal glance to a top-right
    * qty. Total anchors the bottom-right. */
   .dec-row {
+    grid-template-columns: 28px 28px auto auto 1fr auto 28px;
+    grid-template-areas:
+      'check icon name name name name chev'
+      'seg   seg  seg  seg  seg  seg  seg'
+      '.     .    unit qty  .    total .';
+    column-gap: 6px;
+    row-gap: 8px;
+    padding: 12px;
+  }
+  .dec-row.is-nested {
     grid-template-columns: 28px auto auto 1fr auto 28px;
     grid-template-areas:
       'icon name name name name chev'
       'seg  seg  seg  seg  seg  seg'
       '.    unit qty  .    total .';
-    column-gap: 6px;
-    row-gap: 8px;
-    padding: 12px;
   }
+  .dec-row__check { grid-area: check; }
   .dec-row__icon { grid-area: icon; }
   .dec-row__name { grid-area: name; }
   .dec-row__qty {
