@@ -239,7 +239,16 @@ function toggleCompleted() {
     @keydown.enter.prevent="onRowClick"
     @keydown.space.prevent="onRowClick"
   >
-    <span class="dec-row__check" @click.stop @keydown.enter.stop @keydown.space.stop>
+    <!-- Nested rows are intermediate craft children; their completion is
+         implicit when the parent is done, so no checkbox + they don't
+         contribute to BomDecisionTable's progress pool. -->
+    <span
+      v-if="!nested"
+      class="dec-row__check"
+      @click.stop
+      @keydown.enter.stop
+      @keydown.space.stop
+    >
       <ElCheckbox
         :model-value="isCompleted"
         :aria-label="`標記已完成：${name}`"
@@ -448,6 +457,16 @@ function toggleCompleted() {
   padding-left: 36px;
   min-height: 48px;
   font-size: 13.5px;
+  /* Nested skips the leading check column — see v-if="!nested" in template. */
+  grid-template-columns:
+    28px
+    minmax(0, 320px)
+    44px
+    minmax(0, 1fr)
+    260px
+    96px
+    104px
+    24px;
 }
 
 /* drill-down 仍可展開：使用者勾完後可能想回查單價/來源，不擋 toggle。 */
@@ -788,6 +807,13 @@ function toggleCompleted() {
     column-gap: 6px;
     row-gap: 8px;
     padding: 12px;
+  }
+  .dec-row.is-nested {
+    grid-template-columns: 28px auto auto 1fr auto 28px;
+    grid-template-areas:
+      'icon name name name name chev'
+      'seg  seg  seg  seg  seg  seg'
+      '.    unit qty  .    total .';
   }
   .dec-row__check { grid-area: check; }
   .dec-row__icon { grid-area: icon; }
