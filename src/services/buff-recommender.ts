@@ -8,9 +8,9 @@ import {
   resolveBuff, applyBuffsToStats,
 } from '@/engine/food-medicine'
 import { solveCraft, simulateCraft } from '@/solver/worker'
-import { craftParamsToSolverConfig, recipeToCraftParams } from '@/solver/config'
+import { craftParamsToSolverConfig } from '@/solver/config'
 import type { Recipe } from '@/stores/recipe'
-import { gearsetToBuffedStats } from '@/services/stat-stacking'
+import { gearsetToBuffedStats, recipeToCraftParams } from '@/services/stat-stacking'
 
 export interface BuffCombo {
   food: { buff: FoodBuff; isHq: boolean } | null

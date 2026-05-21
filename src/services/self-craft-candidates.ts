@@ -12,7 +12,8 @@ import type { FoodBuff } from '@/engine/food-medicine'
 import type { SelfCraftCandidate } from '@/stores/batch'
 import { simulateCraft } from '@/solver/worker'
 import { canReachHQQuality } from '@/services/feasibility-prefilter'
-import { craftParamsToSolverConfig, recipeToCraftParams } from '@/solver/config'
+import { craftParamsToSolverConfig } from '@/solver/config'
+import { recipeToCraftParams } from '@/services/stat-stacking'
 
 export interface PrelimCandidate {
   itemId: number
