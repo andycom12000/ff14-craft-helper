@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, getCurrentScope, onScopeDispose } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
 import type { PriceDisplayMode } from '@/stores/settings'
 import { flattenMaterialTree } from '@/services/bom-calculator'
@@ -158,6 +158,68 @@ const ROUTE_KEY_PREFIX = 'bom-route::'
 const ROUTE_LRU_LIMIT = 8
 const WRITE_DEBOUNCE_MS = 500
 
+// ---------------------------------------------------------------------------
+// BOM 材料明細「已完成」追蹤 — localStorage helpers
+// ---------------------------------------------------------------------------
+// Keyed by bomKey = targetSig + acquisitionModeSig hash, so that:
+//   - changing target qty / acquisition override → new key → progress自然歸零
+//   - F5 / 切頁切回 → same key → progress 保留
+// LRU + 14d GC keeps the keyspace bounded across many BOMs over time.
+
+const COMPLETED_KEY_PREFIX = 'bom-completed::'
+const COMPLETED_LRU_LIMIT = 16
+const COMPLETED_MAX_AGE_MS = 14 * 24 * 3600 * 1000
+
+function completedLsKey(sig: string) { return `${COMPLETED_KEY_PREFIX}${sig}` }
+
+function loadCompleted(sig: string): Set<number> {
+  try {
+    const raw = localStorage.getItem(completedLsKey(sig))
+    if (!raw) return new Set()
+    const v = JSON.parse(raw)
+    return new Set(Array.isArray(v.items) ? v.items.filter((n: unknown) => typeof n === 'number') : [])
+  } catch { return new Set() }
+}
+
+function persistCompleted(sig: string, items: Set<number>) {
+  try {
+    if (items.size === 0) {
+      // Empty Set ≠ "user cleared everything" worth persisting; treat as
+      // absent so the key doesn't squat in LS forever for empty data.
+      localStorage.removeItem(completedLsKey(sig))
+      return
+    }
+    localStorage.setItem(completedLsKey(sig), JSON.stringify({
+      items: [...items],
+      _mtime: Date.now(),
+    }))
+    evictLruByPrefix(COMPLETED_KEY_PREFIX, COMPLETED_LRU_LIMIT)
+  } catch {}
+}
+
+/**
+ * Sweep BOM-completed entries older than maxAgeMs. Called once at store init
+ * so the LS keyspace doesn't grow unbounded across many BOMs over time.
+ * Exported for test access.
+ */
+export function pruneStaleCompletedEntries(maxAgeMs = COMPLETED_MAX_AGE_MS, now = Date.now()) {
+  try {
+    const stale: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)!
+      if (!k.startsWith(COMPLETED_KEY_PREFIX)) continue
+      try {
+        const v = JSON.parse(localStorage.getItem(k)!)
+        const mtime = typeof v._mtime === 'number' ? v._mtime : 0
+        if (now - mtime > maxAgeMs) stale.push(k)
+      } catch {
+        stale.push(k)
+      }
+    }
+    for (const k of stale) localStorage.removeItem(k)
+  } catch {}
+}
+
 interface RoutePrefs {
   optimizeBy: 'gil' | 'hop'
   targetDefaultMode: TargetDefaultMode
@@ -194,19 +256,20 @@ function loadSession(sig: string): { excluded: Set<number>; checked: Set<number>
   } catch { return { excluded: new Set(), checked: new Set(), collapsedGroups: new Set() } }
 }
 
-function evictLru() {
+/**
+ * Generic LRU evictor for any `{ _mtime }` JSON entry under a key prefix.
+ * Two-pass: count cheaply first, only JSON.parse mtime when over limit —
+ * the common case is "nothing to do" and we shouldn't pay parse cost for it.
+ */
+function evictLruByPrefix(prefix: string, limit: number) {
   try {
-    // First pass: count matching keys cheaply, no JSON parse. Bail out if
-    // we're under the limit — the common case after every session mutation
-    // is "nothing to do" and we shouldn't be paying parse cost for it.
     const matchingKeys: string[] = []
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i)!
-      if (k.startsWith(ROUTE_KEY_PREFIX)) matchingKeys.push(k)
+      if (k.startsWith(prefix)) matchingKeys.push(k)
     }
-    if (matchingKeys.length <= ROUTE_LRU_LIMIT) return
+    if (matchingKeys.length <= limit) return
 
-    // Over limit — only now parse mtime to decide who to evict.
     const keys: Array<[string, number]> = []
     for (const k of matchingKeys) {
       try {
@@ -217,7 +280,7 @@ function evictLru() {
       }
     }
     keys.sort((a, b) => a[1] - b[1])
-    const toRemove = keys.length - ROUTE_LRU_LIMIT
+    const toRemove = keys.length - limit
     for (let i = 0; i < toRemove; i++) localStorage.removeItem(keys[i][0])
   } catch {}
 }
@@ -311,6 +374,72 @@ export const useBomStore = defineStore('bom', () => {
       .join(',')
   })
 
+  /**
+   * Signature of all per-itemId acquisition overrides. Combined with
+   * `targetSig` to form `bomCompletedKey` — so changing 直購/自製 also
+   * resets the BOM checked progress (different row set = different work).
+   */
+  const acquisitionModeSig = computed(() => {
+    return [...acquisitionMode.value.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([id, mode]) => `${id}:${mode}`)
+      .join(',')
+  })
+
+  /**
+   * Key under which the BOM-completed Set is persisted. Stable hash of the
+   * row set that would render in 材料明細 — when it changes, the user has
+   * recomputed a different BOM and progress legitimately resets to zero.
+   */
+  const bomCompletedKey = computed(() => {
+    return `${targetSig.value}|${acquisitionModeSig.value}`
+  })
+
+  const bomCompleted = ref<Set<number>>(loadCompleted(`${targetSig.value}|${acquisitionModeSig.value}`))
+
+  let completedWriteTimer: ReturnType<typeof setTimeout> | null = null
+
+  // Drop pending writes if the store is disposed (test teardown, HMR) so a
+  // pending 500ms timer doesn't fire after the next pinia instance has taken
+  // over and write LS for the wrong key.
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      if (completedWriteTimer) { clearTimeout(completedWriteTimer); completedWriteTimer = null }
+    })
+  }
+
+  watch(bomCompletedKey, (next) => {
+    bomCompleted.value = loadCompleted(next)
+  }, { flush: 'sync' })
+
+  // flush:'sync' so user-action time IS the debounce-window start (matches
+  // routeViewSession's timing contract — tests rely on it).
+  watch(bomCompleted, (next) => {
+    const key = bomCompletedKey.value
+    if (!key) return
+    if (completedWriteTimer) clearTimeout(completedWriteTimer)
+    completedWriteTimer = setTimeout(() => {
+      persistCompleted(key, next)
+      completedWriteTimer = null
+    }, WRITE_DEBOUNCE_MS)
+  }, { flush: 'sync' })
+
+  function isBomCompleted(itemId: number): boolean {
+    return bomCompleted.value.has(itemId)
+  }
+
+  function toggleBomCompleted(itemId: number) {
+    const next = new Set(bomCompleted.value)
+    const willBe = !next.has(itemId)
+    if (willBe) next.add(itemId); else next.delete(itemId)
+    bomCompleted.value = next
+    trackEvent('bom_item_completed_toggle', { item_id: itemId, completed: willBe })
+  }
+
+  function clearBomCompleted() {
+    bomCompleted.value = new Set()
+  }
+
   // Scoped to each store instance — prevents HMR / multi-instance timer collisions.
   let writeTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -324,7 +453,7 @@ export const useBomStore = defineStore('bom', () => {
           collapsedGroups: [...session.collapsedGroups],
           _mtime: Date.now(),
         }))
-        evictLru()
+        evictLruByPrefix(ROUTE_KEY_PREFIX, ROUTE_LRU_LIMIT)
       } catch {}
       writeTimer = null
     }, WRITE_DEBOUNCE_MS)
@@ -1079,5 +1208,10 @@ export const useBomStore = defineStore('bom', () => {
     toggleChecked,
     toggleExcluded,
     toggleGroupCollapsed,
+    // BOM-completed tracking (材料明細 tab)
+    bomCompletedKey,
+    isBomCompleted,
+    toggleBomCompleted,
+    clearBomCompleted,
   }
 })

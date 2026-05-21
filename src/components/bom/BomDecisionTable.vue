@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { ElProgress, ElTag } from 'element-plus'
 import type { FlatMaterial, MaterialNode } from '@/stores/bom'
 import { useBomStore } from '@/stores/bom'
 import { useSettingsStore } from '@/stores/settings'
@@ -168,6 +169,22 @@ const announcement = ref('')
 function onAnnounceExpand(detail: { modeLabel: string; itemName: string }) {
   announcement.value = `已切換為${detail.modeLabel}，已展開${detail.itemName}詳細`
 }
+
+// 水晶 rollup 不入池：已是匯總，逐顆勾沒意義。
+const checkableItemIds = computed<number[]>(() => [
+  ...targetRows.value.map(r => r.itemId),
+  ...materialRows.value.map(r => r.itemId),
+])
+const completedCount = computed(() =>
+  checkableItemIds.value.reduce((n, id) => n + (bom.isBomCompleted(id) ? 1 : 0), 0),
+)
+const totalCount = computed(() => checkableItemIds.value.length)
+const completedPercent = computed(() =>
+  totalCount.value === 0 ? 0 : Math.round((completedCount.value / totalCount.value) * 100),
+)
+const allCompleted = computed(() =>
+  totalCount.value > 0 && completedCount.value === totalCount.value,
+)
 </script>
 
 <template>
@@ -190,6 +207,7 @@ function onAnnounceExpand(detail: { modeLabel: string; itemName: string }) {
         </span>
       </div>
       <div class="bdt-head">
+        <div class="bdt-head__col bdt-head__col--check" aria-hidden="true" />
         <div class="bdt-head__col bdt-head__col--icon" />
         <div class="bdt-head__col bdt-head__col--name">物品</div>
         <div class="bdt-head__col bdt-head__col--qty">數量</div>
@@ -249,6 +267,7 @@ function onAnnounceExpand(detail: { modeLabel: string; itemName: string }) {
         <span class="bdt-group__hint">逐筆挑選取得方式，總價會即時更新</span>
       </div>
       <div class="bdt-head">
+        <div class="bdt-head__col bdt-head__col--check" aria-hidden="true" />
         <div class="bdt-head__col bdt-head__col--icon" />
         <div class="bdt-head__col bdt-head__col--name">物品</div>
         <div class="bdt-head__col bdt-head__col--qty">數量</div>
@@ -298,6 +317,24 @@ function onAnnounceExpand(detail: { modeLabel: string; itemName: string }) {
     </div>
 
     </div><!-- /.bdt-columns -->
+
+    <!-- 採購進度 — 完成品 + 材料共用一個 footer。水晶不算進池子。
+         與 batch ShoppingList 的 .shopping-footer 視覺對齊；位置放在
+         水晶 rollup 之上，因為水晶是匯總、進度才是動作收尾。 -->
+    <div v-if="totalCount > 0" class="bdt-progress" aria-live="polite">
+      <ElProgress
+        :percentage="completedPercent"
+        :stroke-width="10"
+        :show-text="false"
+        class="bdt-progress__bar"
+      />
+      <div class="bdt-progress__row">
+        <span class="bdt-progress__label">
+          採購進度：{{ completedCount }} / {{ totalCount }} 完成
+        </span>
+        <ElTag v-if="allCompleted" type="success" size="small">全部完成</ElTag>
+      </div>
+    </div>
 
     <div v-if="crystalRollup.length > 0" class="bdt-crystals">
       <span class="bdt-crystals__label">水晶</span>
@@ -365,6 +402,7 @@ function onAnnounceExpand(detail: { modeLabel: string; itemName: string }) {
 .bdt-head {
   display: grid;
   grid-template-columns:
+    28px
     28px
     minmax(0, 320px)
     44px
@@ -529,6 +567,32 @@ function onAnnounceExpand(detail: { modeLabel: string; itemName: string }) {
   text-align: center;
   color: var(--app-text-muted);
   font-size: 13.5px;
+}
+
+/* 採購進度 footer — 沿用 batch ShoppingList 的 .shopping-footer 風格：
+ * 上方一條 progress、下方 label + tag。Token (toast-gold) 自動跟著 page
+ * accent，與 BOM page 主視覺一致。 */
+.bdt-progress {
+  margin-top: 16px;
+  padding: 14px 4px 4px;
+  border-top: 1px solid var(--app-border);
+}
+
+.bdt-progress__bar {
+  margin-bottom: 8px;
+}
+
+.bdt-progress__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.bdt-progress__label {
+  font-size: 12.5px;
+  color: var(--app-text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .bdt-sr-only {
