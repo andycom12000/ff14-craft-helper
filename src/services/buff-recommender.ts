@@ -7,10 +7,9 @@ import {
   COMMON_FOODS, COMMON_MEDICINES,
   resolveBuff, applyBuffsToStats,
 } from '@/engine/food-medicine'
-import { solveCraft, simulateCraft } from '@/solver/worker'
-import { craftParamsToSolverConfig } from '@/solver/config'
+import { solveCraftForRecipe, simulateCraftForRecipe } from '@/solver/api'
 import type { Recipe } from '@/stores/recipe'
-import { gearsetToBuffedStats, recipeToCraftParams } from '@/services/stat-stacking'
+import { gearsetToBuffedStats } from '@/services/stat-stacking'
 
 export interface BuffCombo {
   food: { buff: FoodBuff; isHq: boolean } | null
@@ -155,9 +154,10 @@ async function simulateWithBuffedStats(
   combo: BuffCombo,
   existingActions: string[],
 ): Promise<boolean> {
-  const craftParams = recipeToCraftParams(recipe, gearset, comboToBuffs(combo))
-  const config = craftParamsToSolverConfig(craftParams)
-  const simResult = await simulateCraft(config, existingActions)
+  const simResult = await simulateCraftForRecipe(recipe, gearset, {
+    buffs: comboToBuffs(combo),
+    actions: existingActions,
+  })
 
   return simResult.progress >= simResult.max_progress &&
     simResult.quality >= simResult.max_quality
@@ -171,10 +171,12 @@ async function solveWithBuffedStats(
   gearset: GearsetStats,
   combo: BuffCombo,
 ): Promise<boolean> {
-  const craftParams = recipeToCraftParams(recipe, gearset, comboToBuffs(combo))
-  const config = craftParamsToSolverConfig(craftParams)
-  const solverResult = await solveCraft(config)
-  const simResult = await simulateCraft(config, solverResult.actions)
+  const buffs = comboToBuffs(combo)
+  const solverResult = await solveCraftForRecipe(recipe, gearset, { buffs })
+  const simResult = await simulateCraftForRecipe(recipe, gearset, {
+    buffs,
+    actions: solverResult.actions,
+  })
 
   return simResult.progress >= simResult.max_progress &&
     simResult.quality >= simResult.max_quality
