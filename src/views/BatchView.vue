@@ -8,7 +8,7 @@ import { useGearsetsStore } from '@/stores/gearsets'
 import { useMilestonesStore } from '@/stores/milestones'
 import { runBatchOptimization } from '@/services/batch-optimizer'
 import { checkLevelGate } from '@/services/recipe-gating'
-import { SOLVE_CANCELLED } from '@/solver/worker'
+import { SolveCancelledError } from '@/solver/api'
 import { trackEvent, trackError } from '@/utils/analytics'
 import CostSummaryPanel from '@/components/batch/CostSummaryPanel.vue'
 import BatchList from '@/components/batch/BatchList.vue'
@@ -279,7 +279,7 @@ async function startOptimization() {
       calc_mode: batchStore.calcMode,
     })
   } catch (err) {
-    if (err instanceof Error && err.message === SOLVE_CANCELLED) {
+    if (err instanceof SolveCancelledError) {
       ElMessage.info('已取消計算')
       trackEvent('batch_optimization_cancelled')
     } else {

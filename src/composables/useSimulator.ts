@@ -16,7 +16,7 @@ import { calculateInitialQuality } from '@/engine/quality'
 import { getRecipe, findRecipesByItemName } from '@/api/xivapi'
 import { simulateCraftDetail, waitForWasm } from '@/solver/worker'
 import { craftParamsToSolverConfig } from '@/solver/config'
-import { applyCrafterSoulBonus } from '@/services/specialist-state'
+import { gearsetToBuffedStats } from '@/services/stat-stacking'
 import type { WasmEffects, StepDetail } from '@/solver/raphael'
 import { JOB_ORDER, type Job } from '@/engine/skill-icons-by-job'
 import { JOB_ABBR } from '@/utils/jobs'
@@ -75,12 +75,7 @@ export function useSimulator() {
     if (!gearset.value) return null
     if (enhancedStats.value) return enhancedStats.value
     // Fallback before FoodMedicine emits: still honour specialist soul bonus.
-    const withSoul = applyCrafterSoulBonus(gearset.value)
-    return {
-      craftsmanship: withSoul.craftsmanship,
-      control: withSoul.control,
-      cp: withSoul.cp,
-    }
+    return gearsetToBuffedStats(gearset.value, undefined)
   })
 
   const craftParams = computed<CraftParams | null>(() => {

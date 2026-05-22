@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest'
 import type { CraftParams } from '@/engine/simulator'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
-import { craftParamsToSolverConfig, recipeToCraftParams } from '@/solver/config'
+import { craftParamsToSolverConfig } from '@/solver/config'
+import { recipeToCraftParams } from '@/services/stat-stacking'
 import { COMMON_FOODS } from '@/engine/food-medicine'
 
 /**

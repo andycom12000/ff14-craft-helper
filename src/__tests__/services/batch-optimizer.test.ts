@@ -2,11 +2,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 
+const { MockSolveCancelledError } = vi.hoisted(() => {
+  class MockSolveCancelledError extends Error {
+    constructor(message = '求解已取消') {
+      super(message)
+      this.name = 'SolveCancelledError'
+    }
+  }
+  return { MockSolveCancelledError }
+})
+
 vi.mock('@/solver/worker', () => ({
   solveCraft: vi.fn(),
   simulateCraft: vi.fn(),
   waitForWasm: vi.fn().mockResolvedValue(undefined),
-  SOLVE_CANCELLED: '求解已取消',
+  SolveCancelledError: MockSolveCancelledError,
 }))
 vi.mock('@/api/universalis', () => ({
   getAggregatedPrices: vi.fn().mockResolvedValue(new Map()),
@@ -27,7 +37,7 @@ vi.mock('@/services/self-craft-candidates', () => ({
 }))
 
 import { optimizeRecipe, runBatchOptimization } from '@/services/batch-optimizer'
-import { solveCraft, simulateCraft, SOLVE_CANCELLED } from '@/solver/worker'
+import { solveCraft, simulateCraft, SolveCancelledError } from '@/solver/worker'
 
 const mockRecipe: Recipe = {
   id: 1, itemId: 100, name: 'Test', icon: '', job: 'CRP',
@@ -567,7 +577,7 @@ describe('runBatchOptimization', () => {
       defaultSettings,
       (info) => { if (info.completed >= 1 && info.phase === 'solving') cancelled = true },
       () => cancelled,
-    )).rejects.toThrow(SOLVE_CANCELLED)
+    )).rejects.toThrow(SolveCancelledError)
   })
 })
 
@@ -596,10 +606,10 @@ describe('runBatchOptimization buff recommendation', () => {
 describe('runBatchOptimization · Phase 1 cancel', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('propagates SOLVE_CANCELLED through Promise.allSettled', async () => {
+  it('propagates SolveCancelledError through Promise.allSettled', async () => {
     let firstResolve: ((v: any) => void) | undefined
     vi.mocked(solveCraft).mockImplementationOnce(() => new Promise(r => { firstResolve = r }))
-    vi.mocked(solveCraft).mockRejectedValueOnce(new Error(SOLVE_CANCELLED))
+    vi.mocked(solveCraft).mockRejectedValueOnce(new SolveCancelledError())
     vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
 
     const targets = [
@@ -615,7 +625,7 @@ describe('runBatchOptimization · Phase 1 cancel', () => {
     await new Promise(r => setTimeout(r, 10))
     firstResolve?.({ actions: [], progress: 3500, quality: 7200, steps: 0 })
 
-    await expect(run).rejects.toThrow(SOLVE_CANCELLED)
+    await expect(run).rejects.toThrow(SolveCancelledError)
   })
 })
 
