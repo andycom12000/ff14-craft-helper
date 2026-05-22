@@ -18,6 +18,16 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: "v2.17.0",
+    date: "2026-05-22",
+    highlights: [
+      "【快速購買 step 3 直接當製作清單】快速購買模式跑完後 step 3 不再是空白頁 — 把這次批量的目標投影成 crafting TODO（跟巨集模式同一套版面），可以邊做邊勾、做幾個剩幾個一目了然。沒跑 solver 的快速購買模式，巨集按鈕和 HQ 提示列會自動 gate 掉不顯示；巨集模式（含 double-max「全 NQ 即可」配方）原本的 hint 行保持原樣，gate 條件改成「solver 有沒有跑」而不是「hqAmounts 有沒有東西」",
+      "【取消批量計算不再卡在「準備求解器」】使用者在 worker pool 還沒 ready 時按取消，會卡在 preparing solver 永遠跳不回去 — cancelSolve() 之前只 reject 已 queue 的請求、留著 wasmReadyWaiters / wasmErrorWaiters 沒清。現在 cancel 會同時把這兩個 waiter array 全部 reject 成 SolveCancelledError，batch-optimizer / SolverPanel / CraftRecommendation / useSimulator / BenchPanel 任何在等 WASM init 的呼叫端都能立刻收到取消訊號脫身",
+      "【內部】Solver façade 重構大收尾：所有非 worker 直連的呼叫端（batch-optimizer / buff-recommender / self-craft-candidates / BatchView cancellation / unhandledrejection handler）都改走 `src/solver/api.ts` 服務層；cancellation 全面改成 `instanceof SolveCancelledError` 判斷，順手砍掉 SOLVE_CANCELLED 字串常數；batch result types 抽 `src/stores/batch.types.ts`；useSimulator 的 Soul-only fallback 改走 `gearsetToBuffedStats` 統一 pipeline（ADR-0001 收口）。call sites 縮成 façade，未來新增 solver 行為只動一個檔",
+      "【內部】Docs-only PR 走得通了：`ci.yml` 改成 docs PR 也跑（30-40s no-op pass）解 branch protection 死結；新增 `.claude/skills/docs-pr` skill 把 conventional-commit prefix、body 形狀、`docs(changelog):` 流程一次寫死，AFK agent 改 ADR / spec / plan 不會再撞牆。架構深化計畫 `docs/superpowers/plans/2026-05-21-codebase-architecture-deepening.md` 已落地，後續重構基於它走",
+    ],
+  },
+  {
     version: "v2.16.0",
     date: "2026-05-21",
     highlights: [
