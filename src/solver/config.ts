@@ -1,9 +1,5 @@
 import type { CraftParams } from '@/engine/simulator'
 import type { SolverConfig } from '@/solver/raphael'
-import type { Recipe } from '@/stores/recipe'
-import type { GearsetStats } from '@/stores/gearsets'
-import type { FoodBuff } from '@/engine/food-medicine'
-import { gearsetToBuffedStats } from '@/services/stat-stacking'
 
 export interface SolverSkillOptions {
   useManipulation?: boolean
@@ -71,24 +67,3 @@ export function craftParamsToSolverConfig(
   }
 }
 
-export function recipeToCraftParams(
-  recipe: Recipe,
-  gearset: GearsetStats,
-  buffs?: { food: FoodBuff | null; medicine: FoodBuff | null },
-): CraftParams {
-  // Single source of truth for stat stacking (see ADR 0001).
-  // Soul of the Crafter (+20/+20/+15) is gear-equivalent and folded in first,
-  // then food % (cap), then medicine % (cap). Callers MUST NOT post-process
-  // the returned params with applyFoodBuff — pass buffs in here instead.
-  const buffed = gearsetToBuffedStats(gearset, buffs)
-  return {
-    craftsmanship: buffed.craftsmanship,
-    control: buffed.control,
-    cp: buffed.cp,
-    crafterLevel: gearset.level,
-    recipeLevelTable: recipe.recipeLevelTable,
-    canHq: recipe.canHq,
-    initialQuality: 0,
-    isExpert: recipe.isExpert ?? false,
-  }
-}

@@ -2,8 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { COMMON_FOODS, COMMON_MEDICINES, applyFoodBuff, applyMedicineBuff } from '@/engine/food-medicine'
 import { applyCrafterSoulBonus } from '@/services/specialist-state'
-import { gearsetToBuffedStats } from '@/services/stat-stacking'
-import { recipeToCraftParams } from '@/solver/config'
+import { gearsetToBuffedStats, recipeToCraftParams } from '@/services/stat-stacking'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 

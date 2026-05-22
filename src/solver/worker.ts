@@ -12,6 +12,13 @@ import { noteSolverFailed } from '@/composables/useSolverFailState'
 
 export const SOLVE_CANCELLED = '求解已取消'
 
+export class SolveCancelledError extends Error {
+  constructor(message = SOLVE_CANCELLED) {
+    super(message)
+    this.name = 'SolveCancelledError'
+  }
+}
+
 // Tab-session rerun counter: keyed by input fingerprint so we can flag
 // "user tried the same config 2+ times in a row". Cleared on page reload.
 const solverRerunCounts = new Map<string, number>()
@@ -316,7 +323,7 @@ export function cancelSolve(): void {
   wasmReadyT0 = null
   wasmStatus = 'loading'
   wasmErrorMessage = null
-  for (const [, pending] of pendingRequests) pending.reject(new Error(SOLVE_CANCELLED))
+  for (const [, pending] of pendingRequests) pending.reject(new SolveCancelledError())
   pendingRequests.clear()
   taskQueue.length = 0
 }

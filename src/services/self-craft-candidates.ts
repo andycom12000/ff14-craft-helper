@@ -11,8 +11,10 @@ import type { RecipeOptimizeResult } from '@/services/batch-optimizer'
 import type { FoodBuff } from '@/engine/food-medicine'
 import type { SelfCraftCandidate } from '@/stores/batch'
 import { simulateCraft } from '@/solver/worker'
+import { SolveCancelledError } from '@/solver/api'
 import { canReachHQQuality } from '@/services/feasibility-prefilter'
-import { craftParamsToSolverConfig, recipeToCraftParams } from '@/solver/config'
+import { craftParamsToSolverConfig } from '@/solver/config'
+import { recipeToCraftParams } from '@/services/stat-stacking'
 
 export interface PrelimCandidate {
   itemId: number
@@ -173,6 +175,7 @@ async function validateNQ(
       return { kind: 'accepted', via: 'template', actions: template, hqAmounts: [] }
     }
   } catch (err) {
+    if (err instanceof SolveCancelledError) throw err
     console.warn(`[self-craft] simulate failed for ${recipe.name}, falling back to solver`, err)
   }
 
@@ -186,6 +189,7 @@ async function validateNQ(
       solveDur: performance.now() - t0,
     }
   } catch (err) {
+    if (err instanceof SolveCancelledError) throw err
     console.warn(`[self-craft] solver failed for ${recipe.name}:`, err)
     return { kind: 'failed' }
   }
@@ -210,6 +214,7 @@ async function validateHQ(
       solveDur: performance.now() - t0,
     }
   } catch (err) {
+    if (err instanceof SolveCancelledError) throw err
     console.warn(`[self-craft] solver failed for ${recipe.name}:`, err)
     return { kind: 'failed' }
   }
