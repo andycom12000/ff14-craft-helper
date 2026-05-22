@@ -159,7 +159,6 @@ vi.mock('@/solver/worker', () => ({
   solveCraft: vi.fn(),
   simulateCraft: vi.fn(),
   waitForWasm: vi.fn().mockResolvedValue(undefined),
-  SOLVE_CANCELLED: '求解已取消',
   SolveCancelledError: MockSolveCancelledError,
 }))
 vi.mock('@/api/xivapi', () => ({

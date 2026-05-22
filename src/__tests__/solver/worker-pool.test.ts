@@ -94,7 +94,7 @@ describe('solver worker pool', () => {
   })
 
   it('cancelSolve rejects in-flight and queued solves', async () => {
-    const { solveCraft, cancelSolve, SOLVE_CANCELLED, waitForWasm } = await import('@/solver/worker')
+    const { solveCraft, cancelSolve, waitForWasm } = await import('@/solver/worker')
     await waitForWasm()
     const p1 = solveCraft({ progress: 100 } as any).catch(e => e.message)
     const p2 = solveCraft({ progress: 200 } as any).catch(e => e.message)
@@ -103,7 +103,7 @@ describe('solver worker pool', () => {
 
     cancelSolve()
     const results = await Promise.all([p1, p2, p3])
-    expect(results.every(r => r === SOLVE_CANCELLED)).toBe(true)
+    expect(results.every(r => r === '求解已取消')).toBe(true)
   })
 })
 

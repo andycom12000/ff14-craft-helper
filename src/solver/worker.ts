@@ -10,10 +10,8 @@ import { trackEvent, trackError } from '@/utils/analytics'
 import { classifyGearBucket } from '@/utils/gear-bucket'
 import { noteSolverFailed } from '@/composables/useSolverFailState'
 
-export const SOLVE_CANCELLED = '求解已取消'
-
 export class SolveCancelledError extends Error {
-  constructor(message = SOLVE_CANCELLED) {
+  constructor(message = '求解已取消') {
     super(message)
     this.name = 'SolveCancelledError'
   }
