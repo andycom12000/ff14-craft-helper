@@ -274,6 +274,9 @@ async function startOptimization() {
       duration_ms: Math.round(performance.now() - startedAt),
       target_count: batchStore.targets.length,
       todo_count: results.todoList.length,
+      // todo_count meaning shifted in v2.16+: quick-buy used to emit 0, now
+      // emits targets.length. calc_mode lets dashboards segment cleanly.
+      calc_mode: batchStore.calcMode,
     })
   } catch (err) {
     if (err instanceof Error && err.message === SOLVE_CANCELLED) {

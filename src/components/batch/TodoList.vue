@@ -240,7 +240,11 @@ function requestNewBatch() {
             <el-tag size="small" type="primary">{{ getJobName(item.recipe.job) }}</el-tag>
             <span v-if="item.isSemiFinished" class="todo-badge">半成品</span>
           </div>
-          <div v-if="item.hqAmounts.length > 0" class="todo-hq-hint">
+          <!-- Gate on actions, not hqAmounts: optimizeRecipe returns hqAmounts: [] for
+               double-max recipes (where the v-else "全 NQ 即可" reassurance was designed
+               to show). actions is non-empty iff the solver ran — true for macro mode
+               (including double-max), false for quick-buy where no solver result exists. -->
+          <div v-if="item.actions.length > 0" class="todo-hq-hint">
             <template v-if="item.hqAmounts.some(a => a > 0)">
               <el-tag size="small" type="warning">HQ</el-tag>
               <template v-for="(ing, ii) in item.recipe.ingredients" :key="ii">
