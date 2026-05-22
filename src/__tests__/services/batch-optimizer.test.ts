@@ -2,11 +2,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 
+const { MockSolveCancelledError } = vi.hoisted(() => {
+  class MockSolveCancelledError extends Error {
+    constructor(message = '求解已取消') {
+      super(message)
+      this.name = 'SolveCancelledError'
+    }
+  }
+  return { MockSolveCancelledError }
+})
+
 vi.mock('@/solver/worker', () => ({
   solveCraft: vi.fn(),
   simulateCraft: vi.fn(),
   waitForWasm: vi.fn().mockResolvedValue(undefined),
-  SOLVE_CANCELLED: '求解已取消',
+  SolveCancelledError: MockSolveCancelledError,
 }))
 vi.mock('@/api/universalis', () => ({
   getAggregatedPrices: vi.fn().mockResolvedValue(new Map()),
@@ -27,7 +37,7 @@ vi.mock('@/services/self-craft-candidates', () => ({
 }))
 
 import { optimizeRecipe, runBatchOptimization } from '@/services/batch-optimizer'
-import { solveCraft, simulateCraft, SOLVE_CANCELLED } from '@/solver/worker'
+import { solveCraft, simulateCraft, SolveCancelledError } from '@/solver/worker'
 
 const mockRecipe: Recipe = {
   id: 1, itemId: 100, name: 'Test', icon: '', job: 'CRP',
@@ -508,6 +518,34 @@ describe('runBatchOptimization', () => {
     expect(result.grandTotal).toBe(0)
   })
 
+  it('quick-buy projects targets into todoList so step 3 has a checklist', async () => {
+    const { getAggregatedPrices } = await import('@/api/universalis')
+    vi.mocked(getAggregatedPrices).mockResolvedValue(new Map([
+      [200, { minPriceNQ: 1000, minPriceHQ: 2500, listings: [] } as any],
+      [201, { minPriceNQ: 500, minPriceHQ: 0, listings: [] } as any],
+    ]))
+
+    // amountResult=3 → 9 servings = 3 crafts; todoList quantity should be in crafts.
+    const foodRecipe: Recipe = { ...mockRecipe, amountResult: 3 }
+    const result = await runBatchOptimization(
+      [{ recipe: foodRecipe, quantity: 9 }],
+      () => mockGearset,
+      { ...defaultSettings, calcMode: 'quick-buy' },
+      () => {}, () => false,
+    )
+
+    expect(result.todoList).toHaveLength(1)
+    const todo = result.todoList[0]
+    expect(todo.recipe.itemId).toBe(foodRecipe.itemId)
+    expect(todo.quantity).toBe(3)
+    expect(todo.isSemiFinished).toBe(false)
+    expect(todo.done).toBe(false)
+    // Quick-buy did not run the solver — no actions / hqAmounts. TodoList
+    // gates macro buttons and the HQ hint row on these being empty.
+    expect(todo.actions).toEqual([])
+    expect(todo.hqAmounts).toEqual([])
+  })
+
   it('quick-buy returns hq=null when listings lack HQ data', async () => {
     const { getAggregatedPrices } = await import('@/api/universalis')
     vi.mocked(getAggregatedPrices).mockResolvedValue(new Map([
@@ -539,7 +577,7 @@ describe('runBatchOptimization', () => {
       defaultSettings,
       (info) => { if (info.completed >= 1 && info.phase === 'solving') cancelled = true },
       () => cancelled,
-    )).rejects.toThrow(SOLVE_CANCELLED)
+    )).rejects.toThrow(SolveCancelledError)
   })
 })
 
@@ -568,10 +606,10 @@ describe('runBatchOptimization buff recommendation', () => {
 describe('runBatchOptimization · Phase 1 cancel', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('propagates SOLVE_CANCELLED through Promise.allSettled', async () => {
+  it('propagates SolveCancelledError through Promise.allSettled', async () => {
     let firstResolve: ((v: any) => void) | undefined
     vi.mocked(solveCraft).mockImplementationOnce(() => new Promise(r => { firstResolve = r }))
-    vi.mocked(solveCraft).mockRejectedValueOnce(new Error(SOLVE_CANCELLED))
+    vi.mocked(solveCraft).mockRejectedValueOnce(new SolveCancelledError())
     vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
 
     const targets = [
@@ -587,7 +625,7 @@ describe('runBatchOptimization · Phase 1 cancel', () => {
     await new Promise(r => setTimeout(r, 10))
     firstResolve?.({ actions: [], progress: 3500, quality: 7200, steps: 0 })
 
-    await expect(run).rejects.toThrow(SOLVE_CANCELLED)
+    await expect(run).rejects.toThrow(SolveCancelledError)
   })
 })
 

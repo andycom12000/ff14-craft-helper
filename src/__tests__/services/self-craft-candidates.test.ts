@@ -145,11 +145,21 @@ vi.mock('@/services/bom-calculator', async (importActual) => {
     computeOptimalCosts: vi.fn(),
   }
 })
+const { MockSolveCancelledError } = vi.hoisted(() => {
+  class MockSolveCancelledError extends Error {
+    constructor(message = '求解已取消') {
+      super(message)
+      this.name = 'SolveCancelledError'
+    }
+  }
+  return { MockSolveCancelledError }
+})
+
 vi.mock('@/solver/worker', () => ({
   solveCraft: vi.fn(),
   simulateCraft: vi.fn(),
   waitForWasm: vi.fn().mockResolvedValue(undefined),
-  SOLVE_CANCELLED: '求解已取消',
+  SolveCancelledError: MockSolveCancelledError,
 }))
 vi.mock('@/api/xivapi', () => ({
   findRecipesByItemName: vi.fn(),

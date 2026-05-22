@@ -3,8 +3,8 @@ import type { GearsetStats } from '@/stores/gearsets'
 import type { BatchException, BatchTarget, BatchResults, TodoItem, BuyFinishedDecision, BuffRecommendation, SelfCraftCandidate } from '@/stores/batch'
 import type { MaterialWithPrice, MaterialBase, QuickBuyMaterial, QuickBuyMaterialPricing } from '@/services/shopping-list'
 import { markRaw } from 'vue'
-import { solveCraft, simulateCraft, waitForWasm, SOLVE_CANCELLED } from '@/solver/worker'
-import { craftParamsToSolverConfig, recipeToCraftParams } from '@/solver/config'
+import { waitForWasm } from '@/solver/worker'
+import { solveCraftForRecipe, simulateCraftForRecipe, SolveCancelledError } from '@/solver/api'
 import { findOptimalHqCombinations } from '@/services/hq-optimizer'
 import { getAggregatedPrices, aggregateByWorld } from '@/api/universalis'
 import type { MarketData, WorldPriceSummary } from '@/api/universalis'
@@ -41,13 +41,15 @@ export async function optimizeRecipe(
   onSolverProgress?: (percent: number) => void,
   buffs?: { food: FoodBuff | null; medicine: FoodBuff | null },
 ): Promise<RecipeOptimizeResult> {
-  const craftParams = recipeToCraftParams(recipe, gearset, buffs)
   // Batch hard-pins adversarial=false even though it's the default — the
   // batch pipeline runs many solves in parallel and the WASM heap blow-up
   // risk is unacceptable here. Keep this explicit so a future default-flip
   // can't quietly turn it on for batch.
-  const solverConfig = craftParamsToSolverConfig(craftParams, { adversarial: false })
-  const solverResult = await solveCraft(solverConfig, onSolverProgress)
+  const solverResult = await solveCraftForRecipe(recipe, gearset, {
+    buffs,
+    adversarial: false,
+    onProgress: onSolverProgress,
+  })
   if (solverResult.wasmDur !== undefined) {
     const stats = solverResult.runtimeStats
     const statsTail = stats
@@ -57,9 +59,13 @@ export async function optimizeRecipe(
       `[bperf] solve ${recipe.name} wasmDur=${solverResult.wasmDur.toFixed(0)}ms steps=${solverResult.actions.length}${statsTail}`
     )
   }
-  const simResult = await simulateCraft(solverConfig, solverResult.actions)
+  const simResult = await simulateCraftForRecipe(recipe, gearset, {
+    buffs,
+    adversarial: false,
+    actions: solverResult.actions,
+  })
 
-  if (recipe.canHq && solverConfig.hq_target) {
+  if (recipe.canHq) {
     const predicted = canReachHQQuality(recipe, gearset, buffs)
     const actualReached = simResult.quality >= simResult.max_quality
     console.debug(
@@ -215,7 +221,7 @@ export async function runBatchOptimization(
     })
   }
   const phase1Settled = await Promise.allSettled(targets.map(async (target, i) => {
-    if (isCancelled()) throw new Error(SOLVE_CANCELLED)
+    if (isCancelled()) throw new SolveCancelledError()
     const gearset = getGearset(target.recipe.job)
     // Hard-block only when the gearset is missing OR (below recipe level AND
     // the recipe has at least one hard-gate signal — stars, expert, required
@@ -237,7 +243,7 @@ export async function runBatchOptimization(
       emitAggregateProgress('')
       return { kind: 'ok' as const, target, result }
     } catch (err) {
-      if (err instanceof Error && err.message === SOLVE_CANCELLED) throw err
+      if (err instanceof SolveCancelledError) throw err
       completedCount++
       recipePercents[i] = 100
       emitAggregateProgress(target.recipe.name)
@@ -247,7 +253,7 @@ export async function runBatchOptimization(
 
   for (const settled of phase1Settled) {
     if (settled.status === 'rejected') {
-      if (settled.reason instanceof Error && settled.reason.message === SOLVE_CANCELLED) throw settled.reason
+      if (settled.reason instanceof SolveCancelledError) throw settled.reason
       continue
     }
     const v = settled.value
@@ -307,7 +313,7 @@ export async function runBatchOptimization(
     recipeResults.push(result)
   }
 
-  if (isCancelled()) throw new Error(SOLVE_CANCELLED)
+  if (isCancelled()) throw new SolveCancelledError()
 
   // === Phase 4: Early price query (materials + finished products) ===
   onProgress({ completed: 0, total: 0, name: '查詢市場價格', phase: 'pricing', solverPercent: 0 })
@@ -467,6 +473,7 @@ export async function runBatchOptimization(
         isCancelled,
       })
     } catch (err) {
+      if (err instanceof SolveCancelledError) throw err
       console.warn('[batch-optimizer] self-craft candidate production failed:', err)
       return []
     }
@@ -823,6 +830,20 @@ async function runQuickBuy(
 
   onProgress({ completed: 1, total: 1, name: '', phase: 'done', solverPercent: 0 })
 
+  // Quick-buy still requires the player to actually craft each target — only
+  // the ingredient supply path changes. Project targets into the TodoList so
+  // step 3 doubles as a checkable order. actions / hqAmounts are left empty:
+  // no solver ran in this mode, so macro buttons and the HQ hint row gate
+  // themselves off downstream.
+  const todoList: TodoItem[] = targets.map(t => ({
+    recipe: t.recipe,
+    quantity: Math.ceil(t.quantity / Math.max(1, t.recipe.amountResult)),
+    actions: [],
+    hqAmounts: [],
+    isSemiFinished: false,
+    done: false,
+  }))
+
   // serverGroups / grandTotal left empty here — the ShoppingList view
   // computes them reactively from quickBuyMaterials + current
   // bulkQualityMode + qualityOverrides.
@@ -830,7 +851,7 @@ async function runQuickBuy(
     serverGroups: [],
     crystals,
     selfCraftCandidates: [],
-    todoList: [],
+    todoList,
     exceptions: [],
     buyFinishedItems: [],
     grandTotal: 0,

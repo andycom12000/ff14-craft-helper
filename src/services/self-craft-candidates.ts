@@ -10,9 +10,8 @@ import { findRecipesByItemName, getRecipe } from '@/api/xivapi'
 import type { RecipeOptimizeResult } from '@/services/batch-optimizer'
 import type { FoodBuff } from '@/engine/food-medicine'
 import type { SelfCraftCandidate } from '@/stores/batch'
-import { simulateCraft } from '@/solver/worker'
+import { simulateCraftForRecipe, SolveCancelledError } from '@/solver/api'
 import { canReachHQQuality } from '@/services/feasibility-prefilter'
-import { craftParamsToSolverConfig, recipeToCraftParams } from '@/solver/config'
 
 export interface PrelimCandidate {
   itemId: number
@@ -161,18 +160,17 @@ async function validateNQ(
   buffs: { food: FoodBuff | null; medicine: FoodBuff | null } | undefined,
   optimizeRecipe: OptimizeRecipeFn,
 ): Promise<ValidateOutcome> {
-  // Use recipeToCraftParams's buffs param so stacking order matches
+  // Façade owns the buffs marshalling so stacking order matches
   // batch-optimizer (Soul → food → medicine, see ADR 0001).
-  const params = recipeToCraftParams(recipe, gearset, buffs)
-  const config = craftParamsToSolverConfig(params)
   const template = nqTemplate(recipe.level)
 
   try {
-    const sim = await simulateCraft(config, template)
+    const sim = await simulateCraftForRecipe(recipe, gearset, { actions: template, buffs })
     if (sim.progress >= sim.max_progress) {
       return { kind: 'accepted', via: 'template', actions: template, hqAmounts: [] }
     }
   } catch (err) {
+    if (err instanceof SolveCancelledError) throw err
     console.warn(`[self-craft] simulate failed for ${recipe.name}, falling back to solver`, err)
   }
 
@@ -186,6 +184,7 @@ async function validateNQ(
       solveDur: performance.now() - t0,
     }
   } catch (err) {
+    if (err instanceof SolveCancelledError) throw err
     console.warn(`[self-craft] solver failed for ${recipe.name}:`, err)
     return { kind: 'failed' }
   }
@@ -210,6 +209,7 @@ async function validateHQ(
       solveDur: performance.now() - t0,
     }
   } catch (err) {
+    if (err instanceof SolveCancelledError) throw err
     console.warn(`[self-craft] solver failed for ${recipe.name}:`, err)
     return { kind: 'failed' }
   }

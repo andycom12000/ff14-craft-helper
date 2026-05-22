@@ -9,10 +9,6 @@ on:
       - '.tmp/**'
   pull_request:
     branches: [main]
-    paths-ignore:
-      - 'docs/**'
-      - '*.md'
-      - '.tmp/**'
 
 # Cancel duplicate runs when a branch is pushed faster than CI finishes.
 concurrency:
