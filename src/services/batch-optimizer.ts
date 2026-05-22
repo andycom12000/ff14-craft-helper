@@ -823,6 +823,20 @@ async function runQuickBuy(
 
   onProgress({ completed: 1, total: 1, name: '', phase: 'done', solverPercent: 0 })
 
+  // Quick-buy still requires the player to actually craft each target — only
+  // the ingredient supply path changes. Project targets into the TodoList so
+  // step 3 doubles as a checkable order. actions / hqAmounts are left empty:
+  // no solver ran in this mode, so macro buttons and the HQ hint row gate
+  // themselves off downstream.
+  const todoList: TodoItem[] = targets.map(t => ({
+    recipe: t.recipe,
+    quantity: Math.ceil(t.quantity / Math.max(1, t.recipe.amountResult)),
+    actions: [],
+    hqAmounts: [],
+    isSemiFinished: false,
+    done: false,
+  }))
+
   // serverGroups / grandTotal left empty here — the ShoppingList view
   // computes them reactively from quickBuyMaterials + current
   // bulkQualityMode + qualityOverrides.
@@ -830,7 +844,7 @@ async function runQuickBuy(
     serverGroups: [],
     crystals,
     selfCraftCandidates: [],
-    todoList: [],
+    todoList,
     exceptions: [],
     buyFinishedItems: [],
     grandTotal: 0,

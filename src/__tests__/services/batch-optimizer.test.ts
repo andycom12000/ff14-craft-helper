@@ -508,6 +508,34 @@ describe('runBatchOptimization', () => {
     expect(result.grandTotal).toBe(0)
   })
 
+  it('quick-buy projects targets into todoList so step 3 has a checklist', async () => {
+    const { getAggregatedPrices } = await import('@/api/universalis')
+    vi.mocked(getAggregatedPrices).mockResolvedValue(new Map([
+      [200, { minPriceNQ: 1000, minPriceHQ: 2500, listings: [] } as any],
+      [201, { minPriceNQ: 500, minPriceHQ: 0, listings: [] } as any],
+    ]))
+
+    // amountResult=3 → 9 servings = 3 crafts; todoList quantity should be in crafts.
+    const foodRecipe: Recipe = { ...mockRecipe, amountResult: 3 }
+    const result = await runBatchOptimization(
+      [{ recipe: foodRecipe, quantity: 9 }],
+      () => mockGearset,
+      { ...defaultSettings, calcMode: 'quick-buy' },
+      () => {}, () => false,
+    )
+
+    expect(result.todoList).toHaveLength(1)
+    const todo = result.todoList[0]
+    expect(todo.recipe.itemId).toBe(foodRecipe.itemId)
+    expect(todo.quantity).toBe(3)
+    expect(todo.isSemiFinished).toBe(false)
+    expect(todo.done).toBe(false)
+    // Quick-buy did not run the solver — no actions / hqAmounts. TodoList
+    // gates macro buttons and the HQ hint row on these being empty.
+    expect(todo.actions).toEqual([])
+    expect(todo.hqAmounts).toEqual([])
+  })
+
   it('quick-buy returns hq=null when listings lack HQ data', async () => {
     const { getAggregatedPrices } = await import('@/api/universalis')
     vi.mocked(getAggregatedPrices).mockResolvedValue(new Map([
