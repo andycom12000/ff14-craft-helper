@@ -10,6 +10,7 @@ import { trackError } from '@/utils/analytics'
 import { registerWebVitals } from '@/utils/web-vitals-tracking'
 import { syncFromStores } from '@/utils/user-properties'
 import { pruneStaleCompletedEntries } from '@/stores/bom'
+import { SolveCancelledError } from '@/solver/api'
 
 const app = createApp(App)
 
@@ -22,6 +23,10 @@ window.addEventListener('error', (event) => {
 })
 
 window.addEventListener('unhandledrejection', (event) => {
+  if (event.reason instanceof SolveCancelledError) {
+    event.preventDefault()
+    return
+  }
   const reason = event.reason instanceof Error ? event.reason.message : String(event.reason)
   trackError(`Unhandled rejection: ${reason}`)
 })
