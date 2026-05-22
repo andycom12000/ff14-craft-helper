@@ -10,7 +10,12 @@ import { trackEvent, trackError } from '@/utils/analytics'
 import { classifyGearBucket } from '@/utils/gear-bucket'
 import { noteSolverFailed } from '@/composables/useSolverFailState'
 
-export const SOLVE_CANCELLED = '求解已取消'
+export class SolveCancelledError extends Error {
+  constructor(message = '求解已取消') {
+    super(message)
+    this.name = 'SolveCancelledError'
+  }
+}
 
 // Tab-session rerun counter: keyed by input fingerprint so we can flag
 // "user tried the same config 2+ times in a row". Cleared on page reload.
@@ -49,7 +54,7 @@ let wasmErrorMessage: string | null = null
 // the previous waiter and leave it hanging forever, which manifests as
 // "HQ 推薦消失" after navigating away and back. Keep a queue.
 const wasmReadyWaiters: Array<() => void> = []
-const wasmErrorWaiters: Array<(error: string) => void> = []
+const wasmErrorWaiters: Array<(error: Error) => void> = []
 
 // Request ID counter and pending callbacks for multiplexing
 let nextRequestId = 0
@@ -99,7 +104,8 @@ function ensurePool(): void {
       // Drain any waitForWasm() callers so they don't hang
       const errorWaiters = wasmErrorWaiters.splice(0)
       wasmReadyWaiters.length = 0
-      for (const cb of errorWaiters) cb(message)
+      const workerErr = new Error(message)
+      for (const cb of errorWaiters) cb(workerErr)
     })
   }
 }
@@ -138,7 +144,8 @@ function onSlotInitError(message: string): void {
   trackError(`WASM init failed: ${message}`)
   const waiters = wasmErrorWaiters.splice(0)
   wasmReadyWaiters.length = 0
-  for (const cb of waiters) cb(message)
+  const initErr = new Error(message)
+  for (const cb of waiters) cb(initErr)
 }
 
 function handleRoutedResponse(slot: WorkerSlot, data: SolverResponse): void {
@@ -199,7 +206,7 @@ export function waitForWasm(): Promise<void> {
 
   return new Promise<void>((resolve, reject) => {
     wasmReadyWaiters.push(resolve)
-    wasmErrorWaiters.push((err) => reject(new Error(err)))
+    wasmErrorWaiters.push(reject)
   })
 }
 
@@ -308,7 +315,15 @@ export function simulateCraftDetail(
  * WASM re-init on the next solve.
  */
 export function cancelSolve(): void {
-  if (pendingRequests.size === 0 && taskQueue.length === 0) return
+  // Nothing in flight, nothing queued, no awaiters mid-pool-init — no-op so
+  // callers that optimistically cancel (e.g. batchStore.resetAll after a
+  // finished batch) don't pay an extra WASM re-init on the next solve.
+  if (
+    pendingRequests.size === 0
+    && taskQueue.length === 0
+    && wasmReadyWaiters.length === 0
+    && wasmErrorWaiters.length === 0
+  ) return
   for (const slot of slots) slot.worker.terminate()
   slots.length = 0
   readySlotCount = 0
@@ -316,9 +331,18 @@ export function cancelSolve(): void {
   wasmReadyT0 = null
   wasmStatus = 'loading'
   wasmErrorMessage = null
-  for (const [, pending] of pendingRequests) pending.reject(new Error(SOLVE_CANCELLED))
+  for (const [, pending] of pendingRequests) pending.reject(new SolveCancelledError())
   pendingRequests.clear()
   taskQueue.length = 0
+  // Drain any waitForWasm() callers that queued before pool init finished —
+  // otherwise their promises hang forever and the UI sticks at
+  // 'preparing solver'. Reject with SolveCancelledError to match the
+  // pendingRequests path; callers that catch SolveCancelledError (e.g.
+  // batch-optimizer) propagate cancellation up to BatchView's outer catch.
+  const errorWaiters = wasmErrorWaiters.splice(0)
+  wasmReadyWaiters.length = 0
+  const cancelErr = new SolveCancelledError()
+  for (const cb of errorWaiters) cb(cancelErr)
 }
 
 /**

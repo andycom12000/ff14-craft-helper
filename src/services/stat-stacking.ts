@@ -1,5 +1,7 @@
 import type { GearsetStats } from '@/stores/gearsets'
 import type { FoodBuff, EnhancedStats } from '@/engine/food-medicine'
+import type { CraftParams } from '@/engine/simulator'
+import type { Recipe } from '@/stores/recipe'
 import { applyBuffsToStats } from '@/engine/food-medicine'
 import { applyCrafterSoulBonus } from '@/services/specialist-state'
 
@@ -26,4 +28,29 @@ export function gearsetToBuffedStats(
     cp: withSoul.cp,
   }
   return applyBuffsToStats(base, buffs)
+}
+
+/**
+ * Recipe + Gearset (+ optional food/medicine) → CraftParams for the WASM
+ * solver. ADR-0001 canonical entry point — Soul of the Crafter, food, and
+ * medicine are stacked in the documented order via `gearsetToBuffedStats`.
+ * Callers MUST NOT post-process the returned params with `applyFoodBuff` —
+ * pass buffs in here instead.
+ */
+export function recipeToCraftParams(
+  recipe: Recipe,
+  gearset: GearsetStats,
+  buffs?: { food: FoodBuff | null; medicine: FoodBuff | null },
+): CraftParams {
+  const buffed = gearsetToBuffedStats(gearset, buffs)
+  return {
+    craftsmanship: buffed.craftsmanship,
+    control: buffed.control,
+    cp: buffed.cp,
+    crafterLevel: gearset.level,
+    recipeLevelTable: recipe.recipeLevelTable,
+    canHq: recipe.canHq,
+    initialQuality: 0,
+    isExpert: recipe.isExpert ?? false,
+  }
 }
