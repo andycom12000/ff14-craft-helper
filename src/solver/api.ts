@@ -35,7 +35,7 @@ export function solveCraftForRecipe(
   const { buffs, onProgress, strictQuality, ...skills } = options
   const params = recipeToCraftParams(recipe, gearset, buffs)
   const config = craftParamsToSolverConfig(params, skills)
-  if (strictQuality) config.strict_quality = true
+  if (strictQuality !== undefined) config.strict_quality = strictQuality
   return solveCraft(config, onProgress)
 }
 

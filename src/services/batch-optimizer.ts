@@ -473,6 +473,7 @@ export async function runBatchOptimization(
         isCancelled,
       })
     } catch (err) {
+      if (err instanceof SolveCancelledError) throw err
       console.warn('[batch-optimizer] self-craft candidate production failed:', err)
       return []
     }
