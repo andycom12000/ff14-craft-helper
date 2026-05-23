@@ -124,6 +124,7 @@ function buildConfig(): SolverConfig | null {
     // here so logs/inspectors see the effective value.
     adversarial: adversarialActive.value,
     taxonomy: tax && {
+      rlv: tax.rlv,
       stars: tax.stars,
       is_expert: tax.is_expert,
       is_collectable: tax.is_collectable,

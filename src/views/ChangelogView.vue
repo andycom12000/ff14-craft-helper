@@ -18,6 +18,13 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: "v2.18.1",
+    date: "2026-05-24",
+    highlights: [
+      "【內部】/admin/ga v2 接 live GA 後抓出的資料/埋點修正：① `rlv` 之前誤記成工匠職等（recipeLevelTable.classJobLevel ≤90/100）而非真正的 RLV index，導致所有配方都落在「< 600」桶 → 改抓 `RecipeRecord.rlv`，配方難度直方圖與工具偏好分組才有正確分佈。② `solver_complete` 漏帶 `is_expert`/`is_collectable`（`solver_start` 有、complete 忘了透傳），導致「高難度 × 收藏品」矩陣的完成率全擠進『一般×一般』格、其餘格顯示 0% → 補上 taxonomy 透傳；`solver_start` 也補 `rlv`。③ `api_failure` 之前記整條 URL（含 URL-encoded 世界名，且 50 字截斷會切在 %XX 中間變亂碼）→ 改記 path，dashboard 端再 strip origin + decode + 安全截斷（舊資料一併變可讀）。④ 未選市場伺服器時 Universalis 會送出畸形的 `/api/v2//<id>` 請求（必 404）→ 加守衛提早擋下、不再污染 api_failure。⑤ 新手里程碑漏斗的 drop 可能變負數（里程碑是各自獨立的 localStorage 旗標、本來就不是嚴格依序漏斗）→ clamp ≥ 0，不再顯示 −2500% 這種爛數字。對一般使用者不可見",
+    ],
+  },
+  {
     version: "v2.18.0",
     date: "2026-05-23",
     highlights: [

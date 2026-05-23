@@ -51,6 +51,7 @@ export interface SolverConfig {
    * solver_start events they trigger.
    */
   taxonomy?: {
+    rlv: number
     stars: number
     is_expert: boolean
     is_collectable: boolean
