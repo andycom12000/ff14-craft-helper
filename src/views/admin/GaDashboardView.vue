@@ -7,10 +7,13 @@ import { fmtInt, fmtPct } from '@/components/ga-dashboard/formatters'
 import type { WindowKey } from '@/types/ga-snapshot'
 
 import HeroBand from '@/components/ga-dashboard/pieces/HeroBand.vue'
-import LedgerGlance from '@/components/ga-dashboard/pieces/LedgerGlance.vue'
+import RegionSplitLedger from '@/components/ga-dashboard/pieces/RegionSplitLedger.vue'
 import WindowSelector from '@/components/ga-dashboard/pieces/WindowSelector.vue'
 import SectionHead from '@/components/ga-dashboard/pieces/SectionHead.vue'
+import SubHead from '@/components/ga-dashboard/pieces/SubHead.vue'
 import TldrLine from '@/components/ga-dashboard/pieces/TldrLine.vue'
+import RailNav from '@/components/ga-dashboard/pieces/RailNav.vue'
+import EmptyChart from '@/components/ga-dashboard/pieces/EmptyChart.vue'
 
 import PagesTreemap from '@/components/ga-dashboard/charts/PagesTreemap.vue'
 import ChannelsBar from '@/components/ga-dashboard/charts/ChannelsBar.vue'
@@ -24,12 +27,36 @@ import FlipBands from '@/components/ga-dashboard/charts/FlipBands.vue'
 import ReturningEventsBar from '@/components/ga-dashboard/charts/ReturningEventsBar.vue'
 import PagesCompareBar from '@/components/ga-dashboard/charts/PagesCompareBar.vue'
 
+// v2 — sections IV / V / VI
+import OnboardingMilestoneFunnel from '@/components/ga-dashboard/charts/OnboardingMilestoneFunnel.vue'
+import ToolUsageByRlv from '@/components/ga-dashboard/charts/ToolUsageByRlv.vue'
+import RecipeDifficultyKind from '@/components/ga-dashboard/charts/RecipeDifficultyKind.vue'
+import ExpertCollectableMatrix from '@/components/ga-dashboard/charts/ExpertCollectableMatrix.vue'
+import MisuseHintTally from '@/components/ga-dashboard/charts/MisuseHintTally.vue'
+import RecipeEntrySource from '@/components/ga-dashboard/charts/RecipeEntrySource.vue'
+import TimeToFirstAction from '@/components/ga-dashboard/charts/TimeToFirstAction.vue'
+import ApiFailureEndpoints from '@/components/ga-dashboard/charts/ApiFailureEndpoints.vue'
+import LocaleMissTop from '@/components/ga-dashboard/charts/LocaleMissTop.vue'
+import WasmLoadProfile from '@/components/ga-dashboard/charts/WasmLoadProfile.vue'
+
+import { useScrollReveal } from '@/composables/useScrollReveal'
 import '@/components/ga-dashboard/tokens.css'
+import '@/components/ga-dashboard/dashboard.css'
 
 const { snapshot, loading, error, isStale, staleHours, load } = useGaSnapshot()
 const win = ref<WindowKey>('7d')
 
 onMounted(load)
+
+// On-scroll reveal — adds `.reveal` (initial hidden state) then registers the
+// element with the shared IntersectionObserver, which toggles `.in-view`.
+const { attach } = useScrollReveal()
+const vReveal = {
+  mounted(el: HTMLElement) {
+    el.classList.add('reveal')
+    attach(el)
+  },
+}
 
 const bucket = computed(() => snapshot.value?.windows[win.value] ?? null)
 
@@ -79,16 +106,17 @@ const tldrQ3 = computed(() => {
       </template>
 
       <template v-else-if="snapshot">
-        <HeroBand :snapshot="snapshot" :window="win" />
+        <RailNav />
+        <HeroBand id="hero" :snapshot="snapshot" :window="win" />
 
         <div v-if="isStale" class="stale-badge">
           SNAPSHOT {{ staleHours }}h OLD · CRON MAY HAVE FAILED
         </div>
 
         <WindowSelector v-model="win" />
-        <LedgerGlance :snapshot="snapshot" :window="win" />
+        <RegionSplitLedger :snapshot="snapshot" :window="win" />
 
-        <section class="q">
+        <section id="sec-1" class="q">
           <SectionHead num="i." title="Q1 — Where attention landed" aside="pages · channels · per-page health" />
           <TldrLine :text="tldrQ1" />
           <h3 class="sub-head">Pages by view share</h3>
@@ -99,7 +127,7 @@ const tldrQ3 = computed(() => {
           <PagesTable :data="snapshot.windows[win].pages" />
         </section>
 
-        <section class="q">
+        <section id="sec-2" class="q">
           <SectionHead num="ii." title="Q2 — Where the flow leaks" aside="funnels · drop rates · friction" />
           <TldrLine :text="tldrQ2" />
           <h3 class="sub-head">Funnels — solver &amp; batch</h3>
@@ -114,7 +142,7 @@ const tldrQ3 = computed(() => {
           <WebVitalsStack :data="snapshot.windows[win].vitals" />
         </section>
 
-        <section class="q">
+        <section id="sec-3" class="q">
           <SectionHead num="iii." title="Q3 — Who brings the weight" aside="new vs returning · what they do" />
           <TldrLine :text="tldrQ3" />
           <h3 class="sub-head">The flip — users vs sessions</h3>
@@ -123,6 +151,66 @@ const tldrQ3 = computed(() => {
           <ReturningEventsBar :data="snapshot.windows[win].returningEvents" />
           <h3 class="sub-head">Pages — all users vs returning</h3>
           <PagesCompareBar :data="{ all: snapshot.windows[win].pages, returning: snapshot.windows[win].returningPages }" />
+        </section>
+
+        <!-- ============ IV. Q4 — 新訪客在哪一階停下 ============ -->
+        <section id="sec-4" class="q">
+          <SectionHead v-reveal num="iv." title="Q4 — 新訪客在哪一階停下" aside="新手引導 · 配方分類 · 漫長爬坡" />
+
+          <SubHead v-reveal title="新手里程碑漏斗" aside="viewed_recipe → ran_solver → saw_macro → used_batch" />
+          <OnboardingMilestoneFunnel v-if="snapshot.windows[win].onboardingFunnel" v-reveal :data="snapshot.windows[win].onboardingFunnel!" />
+          <EmptyChart v-else v-reveal label="資料累積中" />
+
+          <SubHead v-reveal title="工具偏好 · 依配方等級分組" aside="不同 RLV 區間的玩家偏向哪個工具：模擬器 · 批量 · BOM" />
+          <ToolUsageByRlv v-if="snapshot.windows[win].toolUsageByRlv" v-reveal :data="snapshot.windows[win].toolUsageByRlv!" />
+          <EmptyChart v-else v-reveal label="資料累積中" />
+
+          <SubHead v-reveal title="配方難度與類型" aside="RLV 直方圖 · craft_kind 完成率" />
+          <RecipeDifficultyKind v-if="snapshot.windows[win].taxonomy" v-reveal :data="snapshot.windows[win].taxonomy!" />
+          <EmptyChart v-else v-reveal label="資料累積中" />
+
+          <SubHead v-reveal title="高難度 × 收藏品 矩陣" aside="每格的求解完成率與巨集複製率" />
+          <ExpertCollectableMatrix v-if="snapshot.windows[win].taxonomy" v-reveal :data="snapshot.windows[win].taxonomy!.matrix" />
+          <EmptyChart v-else v-reveal label="資料累積中" />
+        </section>
+
+        <!-- ============ V. Q5 — 摩擦發生在哪裡 ============ -->
+        <section id="sec-5" class="q section-break">
+          <SectionHead v-reveal num="v." title="Q5 — 摩擦發生在哪裡" aside="達不到的期望 · 進入路徑 · 第一個動作" />
+
+          <div class="two-col">
+            <div class="col">
+              <SubHead v-reveal title="誤用提示統計" aside="未來 in-app 引導優先序" />
+              <MisuseHintTally v-if="snapshot.windows[win].misuseSignals" v-reveal :data="snapshot.windows[win].misuseSignals!" />
+              <EmptyChart v-else v-reveal label="資料累積中" />
+            </div>
+            <div class="col">
+              <SubHead v-reveal title="配方進入路徑" aside="使用者實際從哪裡打開配方" />
+              <RecipeEntrySource v-if="snapshot.windows[win].recipeEntrySource" v-reveal :data="snapshot.windows[win].recipeEntrySource!" />
+              <EmptyChart v-else v-reveal label="資料累積中" />
+            </div>
+          </div>
+
+          <SubHead v-reveal title="首動作時間 × 第一個事件" aside="進站 → 第一個動作 · 他們先碰什麼" />
+          <TimeToFirstAction v-if="snapshot.windows[win].timeToFirstAction" v-reveal :data="snapshot.windows[win].timeToFirstAction!" />
+          <EmptyChart v-else v-reveal label="資料累積中" />
+        </section>
+
+        <!-- ============ VI. Q6 — 系統哪裡正在裂 ============ -->
+        <section id="sec-6" class="q section-break">
+          <SectionHead v-reveal num="vi." title="Q6 — 系統哪裡正在裂" aside="API 失敗 · 中文名缺失 · WASM 載入" />
+
+          <SubHead v-reveal title="API 失敗 · 端點排行，按 API 與狀態碼分類" aside="補完既有 FailuresBar（只看 reason）" />
+          <ApiFailureEndpoints v-if="snapshot.windows[win].apiFailures" v-reveal :data="snapshot.windows[win].apiFailures!" />
+          <EmptyChart v-else v-reveal label="資料累積中" />
+
+          <SubHead v-reveal title="中文名缺失 · top items 排行" aside="資料補完優先序" />
+          <LocaleMissTop v-if="snapshot.windows[win].localeMissTop" v-reveal :data="snapshot.windows[win].localeMissTop!" />
+          <EmptyChart v-else v-reveal label="資料累積中" />
+
+          <SubHead v-reveal title="正式環境 WASM 載入分佈" aside="wasm_load_ms · worker_pool_init_ms · p50 / p95 · cold-start share" />
+          <WasmLoadProfile v-if="snapshot.windows[win].perfProfile" v-reveal :data="snapshot.windows[win].perfProfile!" />
+          <EmptyChart v-else v-reveal label="資料累積中" />
         </section>
       </template>
     </div>
@@ -161,6 +249,13 @@ const tldrQ3 = computed(() => {
   letter-spacing: 0.18em; text-transform: uppercase;
 }
 section.q { margin-bottom: 96px; }
+.section-break { margin-top: 120px; }
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+}
+.two-col .col > .subhead { margin-top: 24px; }
 .sub-head {
   font-family: 'Noto Serif TC', serif;
   font-weight: 600; font-size: 16px; color: var(--ink);
