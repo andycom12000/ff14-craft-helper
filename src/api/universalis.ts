@@ -93,6 +93,12 @@ async function fetchUniversalis<T>(
   timeoutMs = REQUEST_TIMEOUT_MS,
   tracking?: FetchTracking,
 ): Promise<T> {
+  // Guard against an unset market server: encodeURIComponent('') yields '' so the
+  // path collapses to '/<id>' and the request URL becomes '.../v2//<id>' (a
+  // malformed 404). Fail fast instead of firing a bogus api_failure.
+  if (!path || path.startsWith('/')) {
+    throw new Error('Universalis: 尚未選擇市場伺服器')
+  }
   const startedAt = performance.now()
   let lastErr: unknown
   let finalStatus = 0
@@ -122,7 +128,7 @@ async function fetchUniversalis<T>(
       break
     }
   }
-  emitApiFailure('universalis', `${BASE_URL}/${path}`, finalStatus, finalAttempt)
+  emitApiFailure('universalis', path, finalStatus, finalAttempt)
   if (tracking) {
     trackEvent('universalis_fetch', {
       server: tracking.server,

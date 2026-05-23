@@ -1204,6 +1204,18 @@ function gaBool(value) {
   return value === 'true' || value === '1'
 }
 
+// Make an api_failure endpoint readable: strip the request origin (older events
+// logged the full URL incl. URL-encoded world names), decode percent-escapes so
+// the result is human-readable, then truncate on a whole-character boundary (the
+// old .slice(0, 50) cut mid-%XX and produced garbled strings).
+function cleanApiEndpoint(raw) {
+  let s = String(raw || '')
+  s = s.replace(/^https?:\/\/universalis\.app\/api\/v2\//, '')
+    .replace(/^https?:\/\/[^/]+\//, '')
+  try { s = decodeURIComponent(s) } catch { /* keep raw if escapes are malformed */ }
+  return s.length > 60 ? s.slice(0, 59) + '…' : s
+}
+
 async function buildV2Fields(client, property, dateRanges, _ctx) {
   // _ctx = { evCounts, flip } — reserved for future cross-field reuse;
   // every v2 field below queries GA directly so the existing buildBundle
@@ -1237,7 +1249,10 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
     for (const step of STEP_ORDER) {
       const hit = byStep.get(step)
       if (!hit) continue
-      const dropFromPrev = first ? 0 : (prevUsers > 0 ? 1 - hit.users / prevUsers : 0)
+      // first_session_milestone steps are independent localStorage flags, not a
+      // strict funnel, so a later step can exceed an earlier one. Clamp to >= 0
+      // so the chart never renders a nonsensical negative "drop".
+      const dropFromPrev = first ? 0 : (prevUsers > 0 ? Math.max(0, 1 - hit.users / prevUsers) : 0)
       funnel.push({ step, users: hit.users, eventCount: hit.eventCount, dropFromPrev })
       prevUsers = hit.users
       first = false
@@ -1337,7 +1352,7 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
     const topEndpoints = apiEndpointRows
       .map((r) => ({
         api: r.dimensionValues[0].value,
-        endpoint: (r.dimensionValues[1].value || '').slice(0, 50),
+        endpoint: cleanApiEndpoint(r.dimensionValues[1].value),
         status: Number(r.dimensionValues[2].value) || 0,
         count: Number(r.metricValues[0].value),
       }))

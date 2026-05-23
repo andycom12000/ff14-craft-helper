@@ -23,7 +23,7 @@ function bucketActionCount(count: number | undefined | null): ActionCountBucket 
 export function computeRecipeTaxonomy(recipe: Recipe, actionCount?: number): RecipeTaxonomy {
   const r = recipe as Partial<Recipe>
   return {
-    rlv: r.recipeLevelTable?.classJobLevel ?? 0,
+    rlv: r.rlv ?? r.recipeLevelTable?.classJobLevel ?? 0,
     stars: typeof r.stars === 'number' ? r.stars : 0,
     is_expert: r.isExpert === true,
     requires_specialist: r.requiresSpecialist === true,

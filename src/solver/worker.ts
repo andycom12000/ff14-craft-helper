@@ -256,6 +256,7 @@ export function solveCraft(
           duration_ms: Math.round(performance.now() - startedAt),
           action_count: r.actions.length, steps: r.steps,
           wasm_duration_ms: r.wasmDur !== undefined ? Math.round(r.wasmDur) : undefined,
+          ...(config.taxonomy ?? {}),
         })
         resolve(r)
       },

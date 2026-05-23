@@ -65,6 +65,9 @@ export interface Recipe {
   requiresSpecialist?: boolean
   isCollectable?: boolean      // ← derived from result Item.IsCollectable
   craftKind?: 'normal' | 'quick' | 'expert' | 'company'
+  // Real recipe level (RLV index, e.g. 640) from RecipeRecord.rlv — distinct
+  // from recipeLevelTable.classJobLevel (the crafter job level, ≤90/100).
+  rlv?: number
 }
 
 export const useRecipeStore = defineStore('recipe', () => {

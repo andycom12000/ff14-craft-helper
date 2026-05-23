@@ -181,6 +181,7 @@ export async function getRecipe(id: number): Promise<Recipe> {
     requiresSpecialist: recipe.requiresSpecialist === true,
     isCollectable: resultItem?.isCollectable === true,
     craftKind: recipe.craftKind ?? 'normal',
+    rlv: recipe.rlv,
   }
 }
 
