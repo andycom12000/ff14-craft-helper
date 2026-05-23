@@ -35,7 +35,7 @@ function renderLeft() {
     .style('font-family', "'Fira Code', monospace")
     .style('font-size', '10.5px').style('letter-spacing', '0.20em')
     .style('text-transform', 'uppercase').style('fill', C.inkFaint)
-    .text('Recipe level · solver_start events')
+    .text('Recipe level · recipe_select events')
 
   const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`)
   // Axis

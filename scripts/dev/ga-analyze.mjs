@@ -1369,14 +1369,21 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
   }
 
   // --- Chart #4: taxonomy -------------------------------------------------
-  // TODO: confirm solver_start carries these custom dims; markdown path uses recipe_select
-  // rlvHistogram: solver_start × customEvent:rlv bucketed wide.
+  // Dimension coverage confirmed against live GA:
+  //   - rlv lives on recipe_select (NOT solver_start), so rlvHistogram queries
+  //     recipe_select — it reads as "recipe difficulty being opened".
+  //   - is_expert / is_collectable ARE on solver_start (matrix starts split
+  //     correctly) but are largely (not set) on solver_complete, so per-cell
+  //     completeRate for the expert/collectable cells is unreliable. TODO:
+  //     emit is_expert/is_collectable on solver_complete too.
+  //   - craft_kind is largely (not set) on both — craftKind rates are weak.
+  // rlvHistogram: recipe_select × customEvent:rlv bucketed wide.
   const rlvHistRes = await runReport(client, {
     property, dateRanges,
     dimensions: [{ name: 'customEvent:rlv' }],
     metrics: [{ name: 'eventCount' }],
     dimensionFilter: { filter: {
-      fieldName: 'eventName', stringFilter: { value: 'solver_start' } } },
+      fieldName: 'eventName', stringFilter: { value: 'recipe_select' } } },
     limit: 100,
   }, { soft: true })
   // matrix: solver_start/solver_complete grouped by (is_expert, is_collectable),
