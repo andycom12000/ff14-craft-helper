@@ -1165,20 +1165,24 @@ const MISUSE_META = {
   },
 }
 
-// market_region raw value → cht | intl | unset
-// TODO: confirm market_region raw values map correctly to cht/intl/unset
+// market_region raw value → cht | intl | unset.
+// Confirmed against live GA + buildMarketRegion(): the app emits the literal
+// values 'cht' / 'intl' / 'unset', and GA reports '(not set)' when the user
+// property was never set. Everything that isn't 'cht'/'intl' collapses to unset.
 function regionBucket(value) {
-  if (value === null || value === undefined) return 'unset'
-  const v = String(value).trim()
-  if (v === '' || v === '(not set)' || v === 'unset') return 'unset'
-  if (/tw|taiwan|台|zh-tw/i.test(v)) return 'cht'
-  return 'intl'
+  const v = value === null || value === undefined ? '' : String(value).trim()
+  if (v === 'cht') return 'cht'
+  if (v === 'intl') return 'intl'
+  return 'unset'
 }
 
 // Bucket an RLV value per-100 into the wide taxonomy labels.
+// n <= 0 (incl. empty-string rlv → Number('') === 0) is treated as unset and
+// dropped, so not-set events don't inflate the lowest bucket. Recipe levels
+// are always >= 1.
 function rlvWideBucket(rlv) {
   const n = Number(rlv)
-  if (!Number.isFinite(n)) return null
+  if (!Number.isFinite(n) || n <= 0) return null
   if (n < 600) return '< 600'
   if (n < 700) return '600-700'
   if (n < 800) return '700-800'
@@ -1186,9 +1190,10 @@ function rlvWideBucket(rlv) {
 }
 
 // Bucket an RLV value per-100 into the Chart #3 (toolUsageByRlv) labels.
+// Same unset handling as rlvWideBucket.
 function rlvToolBucket(rlv) {
   const n = Number(rlv)
-  if (!Number.isFinite(n)) return null
+  if (!Number.isFinite(n) || n <= 0) return null
   if (n < 600) return '< 600'
   if (n < 700) return '600–699'
   if (n < 800) return '700–799'
@@ -1472,7 +1477,10 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
     }
     const craftKindBreakdown = [...kindStarts.entries()].map(([kind, starts]) => {
       const completes = kindCompletes.get(kind) ?? 0
-      return { kind, starts, completeRate: starts > 0 ? completes / starts : 0 }
+      // Clamp: completes/starts can exceed 1 because the two counts come from
+      // separate queries and craft_kind is unreliable across event types
+      // (largely '(not set)' on solver_start/complete — see TODO above).
+      return { kind, starts, completeRate: starts > 0 ? Math.min(1, completes / starts) : 0 }
     })
 
     out.taxonomy = { rlvHistogram, matrix, craftKindBreakdown }
