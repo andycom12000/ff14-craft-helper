@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="public/toast-workshop-logo.svg" alt="吐司工坊 Toast Workshop · FFXIV 製作助手" width="480"/>
+</p>
+
 # 吐司工坊 · FFXIV 製作助手
 
 > *Toast Workshop — a web-based crafting assistant for Final Fantasy XIV.*
