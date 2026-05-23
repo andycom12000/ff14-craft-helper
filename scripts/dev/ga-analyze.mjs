@@ -1083,6 +1083,9 @@ async function buildBundle(client, propertyId, days) {
   }, { soft: true })
   const marketRegion = buildMarketRegion(mrRes?.rows ?? [])
 
+  // --- v2 dashboard fields (additive; OMITs unavailable fields) -----------
+  const v2 = await buildV2Fields(client, property, dateRanges, { evCounts, flip })
+
   // --- glance summary -----------------------------------------------------
   const flipUsers = flip.users.new + flip.users.returning + flip.users.other
   const glance = {
@@ -1122,7 +1125,506 @@ async function buildBundle(client, propertyId, days) {
     window: { days, startDate: fmt(start), endDate: fmt(today) },
     glance, pages, channels, solverFunnel, batchFunnel, simulatorFunnel,
     failures, vitals, flip, returningEvents, returningPages, q4Funnels, marketRegion,
+    ...v2,
   }
+}
+
+// ===========================================================================
+//  v2 dashboard fields — DRAFT (unverified against live GA).
+//  Purely additive: every field is OMITTED when its source data is unavailable
+//  so the chart degrades to a "資料累積中" placeholder. Never throws.
+//  Every runReport here uses { soft: true } and guards `.rows ?? []`.
+//  Reuses the exact custom-dimension names proven in the analyze() markdown
+//  path (lines ~255–382): customEvent:step / source / type / kind / item_id /
+//  api / endpoint / status / rlv / craft_kind / is_expert / is_collectable,
+//  and customUser:market_region.
+// ===========================================================================
+
+const SOURCE_LABELS = {
+  search: '搜尋',
+  queue: '佇列',
+  batch_target: '批量目標',
+  bom_drilldown: 'BOM 下鑽',
+  company_craft: '公司製作',
+  deep_link: '深層連結',
+  unknown: '未知 · 待查',
+}
+
+const MISUSE_META = {
+  single_recipe_in_batch: {
+    label: '批量頁只放單一配方',
+    gloss: 'Used the batch optimizer for a single recipe — the simulator fits better.',
+  },
+  large_queue_in_simulator: {
+    label: '模擬器塞入大量佇列',
+    gloss: 'Queued many recipes in the single-recipe simulator — batch crafting is the intended tool.',
+  },
+  bom_without_quantity: {
+    label: 'BOM 未填數量',
+    gloss: 'Opened the bill of materials without a target quantity, so totals stayed empty.',
+  },
+}
+
+// market_region raw value → cht | intl | unset
+// TODO: confirm market_region raw values map correctly to cht/intl/unset
+function regionBucket(value) {
+  if (value === null || value === undefined) return 'unset'
+  const v = String(value).trim()
+  if (v === '' || v === '(not set)' || v === 'unset') return 'unset'
+  if (/tw|taiwan|台|zh-tw/i.test(v)) return 'cht'
+  return 'intl'
+}
+
+// Bucket an RLV value per-100 into the wide taxonomy labels.
+function rlvWideBucket(rlv) {
+  const n = Number(rlv)
+  if (!Number.isFinite(n)) return null
+  if (n < 600) return '< 600'
+  if (n < 700) return '600-700'
+  if (n < 800) return '700-800'
+  return '800+'
+}
+
+// Bucket an RLV value per-100 into the Chart #3 (toolUsageByRlv) labels.
+function rlvToolBucket(rlv) {
+  const n = Number(rlv)
+  if (!Number.isFinite(n)) return null
+  if (n < 600) return '< 600'
+  if (n < 700) return '600–699'
+  if (n < 800) return '700–799'
+  return '800+'
+}
+
+function gaBool(value) {
+  return value === 'true' || value === '1'
+}
+
+async function buildV2Fields(client, property, dateRanges, _ctx) {
+  // _ctx = { evCounts, flip } — reserved for future cross-field reuse;
+  // every v2 field below queries GA directly so the existing buildBundle
+  // aggregates are never mutated.
+  const out = {}
+
+  // --- Chart #2: onboardingFunnel ----------------------------------------
+  // first_session_milestone × customEvent:step (eventCount + totalUsers).
+  // Order canonically; map whatever step values exist, skip missing.
+  const onboardingRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'customEvent:step' }],
+    metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
+    dimensionFilter: { filter: {
+      fieldName: 'eventName', stringFilter: { value: 'first_session_milestone' } } },
+    limit: 20,
+  }, { soft: true })
+  const onboardingRows = onboardingRes?.rows ?? []
+  if (onboardingRows.length) {
+    const byStep = new Map()
+    for (const r of onboardingRows) {
+      byStep.set(r.dimensionValues[0].value, {
+        eventCount: Number(r.metricValues[0].value),
+        users: Number(r.metricValues[1].value),
+      })
+    }
+    const STEP_ORDER = ['viewed_recipe', 'ran_solver', 'saw_macro', 'used_batch']
+    const funnel = []
+    let prevUsers = 0
+    let first = true
+    for (const step of STEP_ORDER) {
+      const hit = byStep.get(step)
+      if (!hit) continue
+      const dropFromPrev = first ? 0 : (prevUsers > 0 ? 1 - hit.users / prevUsers : 0)
+      funnel.push({ step, users: hit.users, eventCount: hit.eventCount, dropFromPrev })
+      prevUsers = hit.users
+      first = false
+    }
+    if (funnel.length) out.onboardingFunnel = funnel
+  }
+
+  // --- Chart #6: recipeEntrySource ---------------------------------------
+  // recipe_select × customEvent:source (eventCount + totalUsers).
+  const sourceRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'customEvent:source' }],
+    metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
+    dimensionFilter: { filter: {
+      fieldName: 'eventName', stringFilter: { value: 'recipe_select' } } },
+    orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+    limit: 30,
+  }, { soft: true })
+  const sourceRows = sourceRes?.rows ?? []
+  if (sourceRows.length) {
+    out.recipeEntrySource = sourceRows.map((r) => {
+      const source = r.dimensionValues[0].value || 'unknown'
+      return {
+        source,
+        label: SOURCE_LABELS[source] ?? source,
+        eventCount: Number(r.metricValues[0].value),
+        uniqueUsers: Number(r.metricValues[1].value),
+      }
+    })
+  }
+
+  // --- Chart #5: misuseSignals -------------------------------------------
+  // page_misuse_hint × customEvent:type (eventCount + totalUsers→affectedUsers).
+  const misuseRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'customEvent:type' }],
+    metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
+    dimensionFilter: { filter: {
+      fieldName: 'eventName', stringFilter: { value: 'page_misuse_hint' } } },
+    orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+    limit: 30,
+  }, { soft: true })
+  const misuseRows = misuseRes?.rows ?? []
+  if (misuseRows.length) {
+    out.misuseSignals = misuseRows.map((r) => {
+      const type = r.dimensionValues[0].value
+      const meta = MISUSE_META[type] ?? { label: type, gloss: '' }
+      return {
+        type,
+        label: meta.label,
+        gloss: meta.gloss,
+        eventCount: Number(r.metricValues[0].value),
+        affectedUsers: Number(r.metricValues[1].value),
+      }
+    })
+  }
+
+  // --- Chart #7: apiFailures ---------------------------------------------
+  // matrix: api_failure × (api, status). topEndpoints: × (api, endpoint, status).
+  const apiMatrixRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'customEvent:api' }, { name: 'customEvent:status' }],
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: { filter: {
+      fieldName: 'eventName', stringFilter: { value: 'api_failure' } } },
+    orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+    limit: 50,
+  }, { soft: true })
+  const apiEndpointRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [
+      { name: 'customEvent:api' },
+      { name: 'customEvent:endpoint' },
+      { name: 'customEvent:status' },
+    ],
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: { filter: {
+      fieldName: 'eventName', stringFilter: { value: 'api_failure' } } },
+    orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+    limit: 50,
+  }, { soft: true })
+  const apiMatrixRows = apiMatrixRes?.rows ?? []
+  const apiEndpointRows = apiEndpointRes?.rows ?? []
+  if (apiMatrixRows.length || apiEndpointRows.length) {
+    const matrixMap = new Map()
+    for (const r of apiMatrixRows) {
+      const api = r.dimensionValues[0].value
+      const status = Number(r.dimensionValues[1].value) || 0
+      const key = `${api}|${status}`
+      const count = Number(r.metricValues[0].value)
+      matrixMap.set(key, (matrixMap.get(key) ?? 0) + count)
+    }
+    const matrix = [...matrixMap.entries()].map(([key, count]) => {
+      const [api, status] = key.split('|')
+      return { api, status: Number(status) || 0, count }
+    })
+    const topEndpoints = apiEndpointRows
+      .map((r) => ({
+        api: r.dimensionValues[0].value,
+        endpoint: (r.dimensionValues[1].value || '').slice(0, 50),
+        status: Number(r.dimensionValues[2].value) || 0,
+        count: Number(r.metricValues[0].value),
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10)
+    out.apiFailures = { matrix, topEndpoints }
+  }
+
+  // --- Chart #8: localeMissTop -------------------------------------------
+  // recipe_name_locale_miss × (kind, item_id), top ~30 by occurrences.
+  const localeRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'customEvent:kind' }, { name: 'customEvent:item_id' }],
+    metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
+    dimensionFilter: { filter: {
+      fieldName: 'eventName', stringFilter: { value: 'recipe_name_locale_miss' } } },
+    orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+    limit: 30,
+  }, { soft: true })
+  const localeRows = localeRes?.rows ?? []
+  if (localeRows.length) {
+    // TODO: join recipes.json/XIVAPI for itemName
+    out.localeMissTop = localeRows.map((r) => ({
+      kind: r.dimensionValues[0].value,
+      itemId: Number(r.dimensionValues[1].value),
+      occurrences: Number(r.metricValues[0].value),
+      affectedUsers: Number(r.metricValues[1].value),
+    }))
+  }
+
+  // --- Chart #4: taxonomy -------------------------------------------------
+  // TODO: confirm solver_start carries these custom dims; markdown path uses recipe_select
+  // rlvHistogram: solver_start × customEvent:rlv bucketed wide.
+  const rlvHistRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'customEvent:rlv' }],
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: { filter: {
+      fieldName: 'eventName', stringFilter: { value: 'solver_start' } } },
+    limit: 100,
+  }, { soft: true })
+  // matrix: solver_start/solver_complete grouped by (is_expert, is_collectable),
+  // macroCopies from solver_macro_copy grouped the same way.
+  const matrixDims = [{ name: 'customEvent:is_expert' }, { name: 'customEvent:is_collectable' }]
+  const taxStartsRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: matrixDims,
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: { filter: {
+      fieldName: 'eventName', stringFilter: { value: 'solver_start' } } },
+    limit: 50,
+  }, { soft: true })
+  const taxCompletesRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: matrixDims,
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: { filter: {
+      fieldName: 'eventName', stringFilter: { value: 'solver_complete' } } },
+    limit: 50,
+  }, { soft: true })
+  const taxMacroRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: matrixDims,
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: { filter: {
+      fieldName: 'eventName', stringFilter: { value: 'solver_macro_copy' } } },
+    limit: 50,
+  }, { soft: true })
+  // craftKindBreakdown: solver_start / solver_complete × customEvent:craft_kind.
+  const kindStartsRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'customEvent:craft_kind' }],
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: { filter: {
+      fieldName: 'eventName', stringFilter: { value: 'solver_start' } } },
+    limit: 50,
+  }, { soft: true })
+  const kindCompletesRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'customEvent:craft_kind' }],
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: { filter: {
+      fieldName: 'eventName', stringFilter: { value: 'solver_complete' } } },
+    limit: 50,
+  }, { soft: true })
+  const rlvHistRows = rlvHistRes?.rows ?? []
+  const taxStartsRows = taxStartsRes?.rows ?? []
+  const taxCompletesRows = taxCompletesRes?.rows ?? []
+  const taxMacroRows = taxMacroRes?.rows ?? []
+  const kindStartsRows = kindStartsRes?.rows ?? []
+  const kindCompletesRows = kindCompletesRes?.rows ?? []
+  const hasTaxonomy = rlvHistRows.length || taxStartsRows.length
+    || taxCompletesRows.length || kindStartsRows.length
+  if (hasTaxonomy) {
+    // rlvHistogram
+    const histMap = new Map([['< 600', 0], ['600-700', 0], ['700-800', 0], ['800+', 0]])
+    for (const r of rlvHistRows) {
+      const bucket = rlvWideBucket(r.dimensionValues[0].value)
+      if (!bucket) continue
+      histMap.set(bucket, histMap.get(bucket) + Number(r.metricValues[0].value))
+    }
+    const rlvHistogram = [...histMap.entries()].map(([bucket, events]) => ({ bucket, events }))
+
+    // matrix — accumulate the 4 (is_expert, is_collectable) cells.
+    const cellKey = (e, c) => `${e}|${c}`
+    const cells = new Map()
+    for (const e of [false, true]) {
+      for (const c of [false, true]) {
+        cells.set(cellKey(e, c), { isExpert: e, isCollectable: c, starts: 0, completes: 0, macroCopies: 0 })
+      }
+    }
+    const accumulate = (rows, field) => {
+      for (const r of rows) {
+        const e = gaBool(r.dimensionValues[0].value)
+        const c = gaBool(r.dimensionValues[1].value)
+        const cell = cells.get(cellKey(e, c))
+        if (cell) cell[field] += Number(r.metricValues[0].value)
+      }
+    }
+    accumulate(taxStartsRows, 'starts')
+    accumulate(taxCompletesRows, 'completes')
+    accumulate(taxMacroRows, 'macroCopies')
+    const matrix = [...cells.values()].map((cell) => ({
+      ...cell,
+      completeRate: cell.starts > 0 ? cell.completes / cell.starts : 0,
+      macroCopyRate: cell.completes > 0 ? cell.macroCopies / cell.completes : 0,
+    }))
+
+    // craftKindBreakdown
+    const kindStarts = new Map()
+    for (const r of kindStartsRows) {
+      kindStarts.set(r.dimensionValues[0].value, Number(r.metricValues[0].value))
+    }
+    const kindCompletes = new Map()
+    for (const r of kindCompletesRows) {
+      kindCompletes.set(r.dimensionValues[0].value, Number(r.metricValues[0].value))
+    }
+    const craftKindBreakdown = [...kindStarts.entries()].map(([kind, starts]) => {
+      const completes = kindCompletes.get(kind) ?? 0
+      return { kind, starts, completeRate: starts > 0 ? completes / starts : 0 }
+    })
+
+    out.taxonomy = { rlvHistogram, matrix, craftKindBreakdown }
+  }
+
+  // --- Chart #1: byRegion -------------------------------------------------
+  // (a) users by region; (b) events by region (eventName × market_region).
+  const regionUsersRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'customUser:market_region' }],
+    metrics: [{ name: 'totalUsers' }, { name: 'newUsers' }],
+    limit: 50,
+  }, { soft: true })
+  const regionEventsRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'eventName' }, { name: 'customUser:market_region' }],
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: { filter: { fieldName: 'eventName', inListFilter: { values: [
+      'solver_start', 'solver_complete',
+      'batch_optimization_start', 'batch_optimization_complete',
+      'bom_calculate', 'bom_send_to_batch',
+      'sab_unavailable', 'wasm_load_failed',
+    ] } } },
+    limit: 200,
+  }, { soft: true })
+  const regionUsersRows = regionUsersRes?.rows ?? []
+  const regionEventsRows = regionEventsRes?.rows ?? []
+  if (regionUsersRows.length) {
+    // Per-region user totals.
+    const userAgg = { cht: { total: 0, fresh: 0 }, intl: { total: 0, fresh: 0 }, unset: { total: 0, fresh: 0 } }
+    for (const r of regionUsersRows) {
+      const bucket = regionBucket(r.dimensionValues[0].value)
+      userAgg[bucket].total += Number(r.metricValues[0].value)
+      userAgg[bucket].fresh += Number(r.metricValues[1].value)
+    }
+    // Per-region event totals.
+    const evAgg = {
+      cht: {}, intl: {}, unset: {},
+    }
+    for (const r of regionEventsRows) {
+      const event = r.dimensionValues[0].value
+      const bucket = regionBucket(r.dimensionValues[1].value)
+      evAgg[bucket][event] = (evAgg[bucket][event] ?? 0) + Number(r.metricValues[0].value)
+    }
+    const ev = (bucket, name) => evAgg[bucket][name] ?? 0
+    const glanceRow = (bucket) => {
+      const u = userAgg[bucket]
+      const returning = Math.max(0, u.total - u.fresh)
+      // activeUsers
+      const activeUsers = { value: u.total }
+      if (u.total > 0) activeUsers.sparkPct = returning / u.total
+      activeUsers.secondary = `新 ${u.fresh} · 回訪 ${returning}`
+      // solver
+      const sStarts = ev(bucket, 'solver_start')
+      const sCompletes = ev(bucket, 'solver_complete')
+      const solver = { value: sStarts, secondary: `${sCompletes} 完成` }
+      if (sStarts > 0) solver.sparkPct = sCompletes / sStarts
+      // batch
+      const bStarts = ev(bucket, 'batch_optimization_start')
+      const bCompletes = ev(bucket, 'batch_optimization_complete')
+      const batch = { value: bStarts, secondary: `${bCompletes} 完成` }
+      if (bStarts > 0) batch.sparkPct = bCompletes / bStarts
+      // bom
+      const bomCalc = ev(bucket, 'bom_calculate')
+      const bomSent = ev(bucket, 'bom_send_to_batch')
+      const bom = { value: bomCalc, secondary: `${bomSent} → 批次` }
+      if (bomCalc > 0) bom.sparkPct = bomSent / bomCalc
+      // infra (sab + wasm warnings)
+      const sab = ev(bucket, 'sab_unavailable')
+      const wasm = ev(bucket, 'wasm_load_failed')
+      const infraValue = sab + wasm
+      const infra = { value: infraValue, secondary: `SAB ${sab} · WASM ${wasm}` }
+      if (infraValue > 0) infra.tone = infraValue >= 5 ? 'danger' : 'warn'
+      return { activeUsers, solver, batch, bom, infra }
+    }
+    const cht = glanceRow('cht')
+    const intl = glanceRow('intl')
+    const unset = glanceRow('unset')
+    out.byRegion = {
+      activeUsers: { cht: cht.activeUsers, intl: intl.activeUsers, unset: unset.activeUsers },
+      solver: { cht: cht.solver, intl: intl.solver, unset: unset.solver },
+      batch: { cht: cht.batch, intl: intl.batch, unset: unset.batch },
+      bom: { cht: cht.bom, intl: intl.bom, unset: unset.bom },
+      infra: { cht: cht.infra, intl: intl.infra, unset: unset.infra },
+    }
+  }
+
+  // --- Chart #3: toolUsageByRlv ------------------------------------------
+  // DRAFT — bom/batch RLV attribution is INCOMPLETE pending a recipes.json join.
+  // selectCount: recipe_select × rlv. simulatorCount: solver_start × rlv.
+  // bomTargetCount: bom_target_add × rlv IF the event carries rlv, else 0.
+  // batchTargetCount: 0 (see TODO below).
+  const selectRlvRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'customEvent:rlv' }],
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: { filter: {
+      fieldName: 'eventName', stringFilter: { value: 'recipe_select' } } },
+    limit: 100,
+  }, { soft: true })
+  const simRlvRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'customEvent:rlv' }],
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: { filter: {
+      fieldName: 'eventName', stringFilter: { value: 'solver_start' } } },
+    limit: 100,
+  }, { soft: true })
+  const bomRlvRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'customEvent:rlv' }],
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: { filter: {
+      fieldName: 'eventName', stringFilter: { value: 'bom_target_add' } } },
+    limit: 100,
+  }, { soft: true })
+  const selectRlvRows = selectRlvRes?.rows ?? []
+  const simRlvRows = simRlvRes?.rows ?? []
+  const bomRlvRows = bomRlvRes?.rows ?? []
+  if (selectRlvRows.length || simRlvRows.length) {
+    const BUCKETS = ['< 600', '600–699', '700–799', '800+']
+    const mk = () => new Map(BUCKETS.map((b) => [b, 0]))
+    const selectMap = mk()
+    const simMap = mk()
+    const bomMap = mk()
+    const fill = (rows, target) => {
+      for (const r of rows) {
+        const bucket = rlvToolBucket(r.dimensionValues[0].value)
+        if (!bucket) continue
+        target.set(bucket, target.get(bucket) + Number(r.metricValues[0].value))
+      }
+    }
+    fill(selectRlvRows, selectMap)
+    fill(simRlvRows, simMap)
+    fill(bomRlvRows, bomMap)
+    out.toolUsageByRlv = BUCKETS.map((bucket) => ({
+      bucket,
+      selectCount: selectMap.get(bucket),
+      simulatorCount: simMap.get(bucket),
+      // TODO: batch_optimization_start carries multi-RLV targets; needs per-target
+      // rlv expansion + recipes.json join — not implemented
+      batchTargetCount: 0,
+      bomTargetCount: bomMap.get(bucket),
+    }))
+  }
+
+  // --- Charts #9 & #10: perfProfile / timeToFirstAction ------------------
+  // TODO: perfProfile/timeToFirstAction need numeric perf events (wasm_load_ms,
+  // worker_pool_init_ms, time_to_first_action) instrumented + percentile
+  // aggregation — not available yet; charts show placeholder. OMITTED.
+
+  return out
 }
 
 // helpers
