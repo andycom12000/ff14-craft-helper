@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 180" role="img" aria-label="吐司工坊 Toast Workshop - FFXIV 製作助手">
+  <title>吐司工坊 · Toast Workshop · FFXIV Craft Helper</title>
+  <defs>
+    <linearGradient id="cardFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFAEF"/>
+      <stop offset="100%" stop-color="#FFEFD2"/>
+    </linearGradient>
+    <linearGradient id="toastFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#EAC07F"/>
+      <stop offset="55%" stop-color="#D29F4F"/>
+      <stop offset="100%" stop-color="#A66E2A"/>
+    </linearGradient>
+    <radialGradient id="warmGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFD27A" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#FFD27A" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Card background -->
+  <rect x="1" y="1" width="558" height="178" rx="20" ry="20"
+        fill="url(#cardFill)" stroke="#EDD9B2" stroke-width="1"/>
+
+  <!-- Warm halo behind toast (pulses) -->
+  <circle cx="95" cy="104" r="64" fill="url(#warmGlow)">
+    <animate attributeName="r" values="58;72;58" dur="4s" repeatCount="indefinite"
+             calcMode="spline" keySplines="0.42 0 0.58 1; 0.42 0 0.58 1"/>
+    <animate attributeName="opacity" values="0.55;0.9;0.55" dur="4s" repeatCount="indefinite"
+             calcMode="spline" keySplines="0.42 0 0.58 1; 0.42 0 0.58 1"/>
+  </circle>
+
+  <!-- Steam wisps (rise + fade, staggered) -->
+  <g stroke="#B7A088" stroke-width="3" stroke-linecap="round" fill="none">
+    <path d="M 80 56 q 5 -7 0 -14 t 0 -14">
+      <animate attributeName="opacity" values="0;0.6;0" dur="3.6s" begin="0s" repeatCount="indefinite"/>
+      <animateTransform attributeName="transform" type="translate"
+                        values="0 4; 0 -10; 0 -28" dur="3.6s" begin="0s" repeatCount="indefinite"/>
+    </path>
+    <path d="M 96 56 q 5 -7 0 -14 t 0 -14">
+      <animate attributeName="opacity" values="0;0.6;0" dur="3.6s" begin="1.2s" repeatCount="indefinite"/>
+      <animateTransform attributeName="transform" type="translate"
+                        values="0 4; 0 -10; 0 -28" dur="3.6s" begin="1.2s" repeatCount="indefinite"/>
+    </path>
+    <path d="M 112 56 q 5 -7 0 -14 t 0 -14">
+      <animate attributeName="opacity" values="0;0.6;0" dur="3.6s" begin="2.4s" repeatCount="indefinite"/>
+      <animateTransform attributeName="transform" type="translate"
+                        values="0 4; 0 -10; 0 -28" dur="3.6s" begin="2.4s" repeatCount="indefinite"/>
+    </path>
+  </g>
+
+  <!-- Toast (gentle bob) -->
+  <g>
+    <animateTransform attributeName="transform" type="translate"
+                      values="55 66; 55 62; 55 66"
+                      dur="3s" repeatCount="indefinite"
+                      calcMode="spline" keySplines="0.42 0 0.58 1; 0.42 0 0.58 1"/>
+
+    <!-- Toast slice silhouette -->
+    <path d="M 12 76 L 12 36 Q 12 8 44 8 Q 76 8 76 36 L 76 76 Q 76 80 72 80 L 16 80 Q 12 80 12 76 Z"
+          fill="url(#toastFill)" stroke="#7A3A18" stroke-width="3" stroke-linejoin="round"/>
+
+    <!-- Crust highlight -->
+    <path d="M 22 32 Q 44 14 66 32" fill="none" stroke="#FFFFFF"
+          stroke-opacity="0.5" stroke-width="2.5" stroke-linecap="round"/>
+
+    <!-- Grill marks (pulse) -->
+    <line x1="26" y1="50" x2="62" y2="50" stroke="#7A3A18" stroke-width="2.5"
+          stroke-linecap="round" stroke-opacity="0.55">
+      <animate attributeName="stroke-opacity" values="0.35;0.75;0.35"
+               dur="3s" begin="0s" repeatCount="indefinite"/>
+    </line>
+    <line x1="26" y1="64" x2="62" y2="64" stroke="#7A3A18" stroke-width="2.5"
+          stroke-linecap="round" stroke-opacity="0.55">
+      <animate attributeName="stroke-opacity" values="0.35;0.75;0.35"
+               dur="3s" begin="0.6s" repeatCount="indefinite"/>
+    </line>
+
+    <!-- Jam dollop accents: 草莓醬 / 抹茶 / 藍莓 brand colors -->
+    <circle cx="44" cy="20" r="3.2" fill="#D8425C">
+      <animate attributeName="r" values="2.6;3.6;2.6" dur="2.4s" begin="0s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="32" cy="44" r="2.4" fill="#7BAE4D">
+      <animate attributeName="r" values="1.8;2.8;1.8" dur="2.4s" begin="0.8s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="60" cy="44" r="2.4" fill="#4E7FBE">
+      <animate attributeName="r" values="1.8;2.8;1.8" dur="2.4s" begin="1.6s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- Wordmark -->
+  <g font-family="'Noto Serif TC','Source Han Serif TC','Songti TC',serif">
+    <text x="178" y="94" font-size="48" font-weight="900" fill="#3A2616" letter-spacing="3">
+      <animate attributeName="opacity" values="0;1" dur="1s" begin="0s" fill="freeze"/>
+      吐司工坊
+    </text>
+    <text x="180" y="126" font-size="14" font-weight="500" fill="#7A5A3A" letter-spacing="3"
+          font-family="'Inter','Helvetica Neue','Source Sans Pro',sans-serif">
+      <animate attributeName="opacity" values="0;1" dur="1s" begin="0.4s" fill="freeze"/>
+      TOAST WORKSHOP · FFXIV CRAFT HELPER
+    </text>
+
+    <!-- Subtle underline accent that draws in -->
+    <line x1="180" y1="138" x2="180" y2="138"
+          stroke="#D29F4F" stroke-width="2" stroke-linecap="round">
+      <animate attributeName="x2" from="180" to="356" dur="1s" begin="0.8s" fill="freeze"
+               calcMode="spline" keySplines="0.4 0 0.2 1"/>
+    </line>
+  </g>
+</svg>
