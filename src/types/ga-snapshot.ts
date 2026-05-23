@@ -142,7 +142,7 @@ export interface ToolUsageRow {
 /** Chart #4 — Taxonomy bundle */
 export interface RlvBucket {
   bucket: '< 600' | '600-700' | '700-800' | '800+' // wider buckets vs Chart #3
-  events: number // solver_start count
+  events: number // recipe_select count (rlv lives on recipe_select, not solver_start)
 }
 
 export interface TaxonomyCell {

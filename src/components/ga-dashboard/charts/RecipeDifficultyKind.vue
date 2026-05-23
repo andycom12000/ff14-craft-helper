@@ -53,7 +53,7 @@ function renderLeft() {
       .style('cursor', 'pointer')
       .on('mouseenter', (ev: MouseEvent) => tipShow(`
             <strong>RLV ${d.bucket}</strong>
-            <div class="row"><span>solver_start</span><span>${fmtInt(d.events)}</span></div>
+            <div class="row"><span>recipe_select</span><span>${fmtInt(d.events)}</span></div>
           `, ev))
       .on('mousemove', (ev: MouseEvent) => tipMove(ev))
       .on('mouseleave', tipHide)
