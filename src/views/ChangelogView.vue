@@ -18,6 +18,13 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: "v2.18.0",
+    date: "2026-05-23",
+    highlights: [
+      "【內部】Owner-only /admin/ga dashboard v2：延伸既有 Q1–Q3，往下接三段 ɪᴠ / ᴠ / ᴠɪ 共 10 張新圖 —— 新手里程碑漏斗、工具偏好（依 RLV 區間分組，模擬器 / 批量 / BOM 三條獨立 max bar + 偏向 X callout）、配方難度（recipe_select RLV 直方圖）+ craft_kind 完成率、高難度 × 收藏品 2×2 矩陣、誤用提示統計、配方進入路徑（100% 堆疊條 + unknown>0 紅色異常 banner）、首動作時間 × 第一個事件、API 失敗端點排行（端點列表為主視覺、matrix 為輔）、中文名缺失 top items、正式環境 WASM 載入分佈（整體實心圓 + 冷啟動子集空心菱形）。RegionSplitLedger 取代 LedgerGlance：5 列 ledger 右側拆「台服 / 國際服 / 未設定」三欄 spark + 次數/比例 toggle（localStorage 持久化）；新增左側 scroll-spy RailNav（56→248px hover 展開）與進場淡入（respects prefers-reduced-motion）。型別全 additive（schemaVersion 維持 1、欄位全 optional，舊 snapshot 照樣 parse），任一欄位缺資料時圖表降級為「資料累積中」placeholder。buildBundle() 對 live GA 驗證後接上 8/10 個 v2 聚合（byRegion / onboardingFunnel / toolUsageByRlv / taxonomy / misuseSignals / recipeEntrySource / apiFailures / localeMissTop）；驗證時順手修掉 region 字面映射、rlv 空值誤塞 < 600、completeRate >1 三個聚合 bug。perfProfile 與 timeToFirstAction 待 client 端補發 wasm_load_ms / worker_pool_init_ms / time_to_first_action 數值事件，toolUsageByRlv 的 batch RLV 歸戶待 recipes.json join——在此之前那幾張圖維持 placeholder。設計來源 Claude Design handoff，留底於 `docs/superpowers/specs/2026-05-23-ga-dashboard-v2-design-brief.md`。對一般使用者完全不可見",
+    ],
+  },
+  {
     version: "v2.17.0",
     date: "2026-05-22",
     highlights: [
