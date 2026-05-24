@@ -18,6 +18,13 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: "v2.18.2",
+    date: "2026-05-24",
+    highlights: [
+      "【內部】/admin/ga v2 圖表誠實度與資料修正（接 live GA 第二批）：① market_region 之前誤接 `settings.region`（Universalis 市場區，沒有台服值）導致台服永遠 0 → 改接 `settings.language`（UI locale），cht 桶才會累積真實資料（這條會進 production gtag）。② 新手里程碑「漏斗」其實是各自獨立的計數（used_batch 可能 > viewed_recipe），舊梯形漏斗會往外膨脹說謊 → 改平行水平條 +「非嚴格漏斗」標註、標出最少抵達的里程碑。③ ToolUsageByRlv / RecipeDifficultyKind / ExpertCollectableMatrix 在稀疏資料下會把 0/0 算成 NaN 寫進 `<rect width>`（console 噴數百次）→ 全補 denominator floor；樣本太少時不再亂下「偏向 X」「完成率紅燈」結論，改中性灰 +「樣本不足」。④ Q4 漏斗顏色改方向感知（轉換率越高越綠），消除「34.2% 是綠色卻被 TL;DR 點名最大流失」的矛盾；頁面健康表低於中位數的 Δ 從琥珀改紅。⑤ raw event 名（solver_rerun 等）補進中文對照不再外漏；中文名缺失列空白改顯示「名稱待補」；FailuresBar 過長 reason 截斷 + hover 看全文；Q6 重排讓頁面收在有資料的圖而非空盒；空狀態變輕並加「此區間尚無事件」。設計收尾走 impeccable critique（修掉 P0 假漏斗、NaN storm、顏色矛盾）。對一般使用者不可見",
+    ],
+  },
+  {
     version: "v2.18.1",
     date: "2026-05-24",
     highlights: [
