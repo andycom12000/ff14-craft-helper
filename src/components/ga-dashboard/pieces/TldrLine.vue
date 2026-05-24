@@ -11,7 +11,7 @@ defineProps<{ text: string }>()
   font-family: 'Noto Serif TC', serif;
   font-size: 16px; line-height: 1.7;
   color: var(--ink-mid);
-  max-width: 78ch;
+  max-width: 74ch;
   margin: -6px 0 36px;
 }
 .kicker {

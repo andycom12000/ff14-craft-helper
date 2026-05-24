@@ -26,7 +26,11 @@ function renderLeft() {
   const innerW = w - margin.left - margin.right
   const innerH = h - margin.top - margin.bottom
   const x = d3.scaleBand().domain(data.map(d => d.bucket)).range([0, innerW]).padding(0.32)
-  const y = d3.scaleLinear().domain([0, (d3.max(data, d => d.events) ?? 0) * 1.10]).range([innerH, 0])
+  // Floor the domain top: an all-zero histogram gives domain [0,0], which makes
+  // the linear scale return NaN for every bar (the same class of bug that
+  // produced `<rect width=NaN>` elsewhere).
+  const maxEvents = d3.max(data, d => d.events) ?? 0
+  const y = d3.scaleLinear().domain([0, maxEvents > 0 ? maxEvents * 1.10 : 1]).range([innerH, 0])
 
   const svg = d3.select(left).append('svg').attr('width', w).attr('height', h)
 
@@ -108,7 +112,10 @@ function renderRight() {
     .style('text-transform', 'uppercase').style('fill', C.inkFaint)
     .text('Craft kind · complete rate · weighted by starts')
 
-  const maxStarts = d3.max(data, d => d.starts) ?? 0
+  // Floor so an all-zero column never makes startsW NaN. MIN_RATE_SAMPLE gates
+  // the complete-rate colour: below it, a green/red verdict is noise.
+  const maxStarts = (d3.max(data, d => d.starts) ?? 0) || 1
+  const MIN_RATE_SAMPLE = 20
 
   data.forEach((d, i) => {
     const y = margin.top + i * rowH + rowH / 2
@@ -130,7 +137,8 @@ function renderRight() {
 
     // Complete-rate fill (clipped within starts)
     const completeRateW = startsW * d.completeRate
-    const rateColor = d.completeRate >= 0.95 ? C.success
+    const rateColor = d.starts < MIN_RATE_SAMPLE ? C.inkFaint
+                   : d.completeRate >= 0.95 ? C.success
                    : d.completeRate >= 0.85 ? C.warning
                    : C.danger
     svg.append('rect')

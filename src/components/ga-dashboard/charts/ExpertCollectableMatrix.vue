@@ -79,7 +79,17 @@ function render(w: number, _h: number) {
       .style('fill', C.ink)
       .text(fmtInt(cell.starts))
 
-    // (Subline removed — bar values below convey complete & macro-copy rates)
+    // Below this many starts the rates are noise: a quadrant with 3 starts at
+    // "0.0% complete" should not glow danger-red as if it were a real failure.
+    const SPARSE = cell.starts < 20
+    if (SPARSE) {
+      svg.append('text')
+        .attr('x', cx + padX).attr('y', cy + 76)
+        .style('font-family', "'Cormorant Garamond', 'Noto Serif TC', serif")
+        .style('font-style', 'italic').style('font-size', '12.5px')
+        .style('fill', C.inkFaint)
+        .text('樣本不足 · 比率僅供參考')
+    }
 
     // Two mini bar rows (own band, no overlap with number)
     const barLabelW = 120
@@ -87,8 +97,11 @@ function render(w: number, _h: number) {
     const barTrackW = cellW - padX * 2 - barLabelW - 56
     const bands = [
       { y: cy + 104, label: '求解完成率',   rate: cell.completeRate,
-        color: cell.completeRate >= 0.95 ? C.success : cell.completeRate >= 0.85 ? C.warning : C.danger },
-      { y: cy + 134, label: '巨集複製率', rate: cell.macroCopyRate, color: C.gold },
+        color: SPARSE ? C.inkFaint
+             : cell.completeRate >= 0.95 ? C.success
+             : cell.completeRate >= 0.85 ? C.warning : C.danger },
+      { y: cy + 134, label: '巨集複製率', rate: cell.macroCopyRate,
+        color: SPARSE ? C.inkFaint : C.gold },
     ]
 
     bands.forEach(b => {
