@@ -128,7 +128,7 @@ function render(w: number, _h: number) {
     .style('font-style', 'italic')
     .style('font-size', '14px')
     .style('fill', C.gold)
-    .text(`the flip — ${sessionsPerReturnee} sessions per returnee`)
+    .text(`the flip · ${sessionsPerReturnee} sessions per returnee`)
 }
 
 useD3Resize(root, render)

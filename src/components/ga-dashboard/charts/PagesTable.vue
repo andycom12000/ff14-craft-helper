@@ -183,6 +183,8 @@ td.left { text-align: left; }
   text-align: right;
 }
 .delta.good { color: var(--success); }
-.delta.bad { color: var(--warning); }
+/* below target reads as danger-red, not mild amber, so true outliers
+   (+134% bounce, -36% engagement) actually stand out on a scan. */
+.delta.bad { color: var(--danger); }
 .delta.flat { color: var(--ink-faint); }
 </style>

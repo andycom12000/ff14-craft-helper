@@ -38,7 +38,11 @@ export function computeEndgameTier(gearsets: Record<string, GearsetLike>): Endga
 }
 
 export interface UserPropertySnapshot {
-  region: string
+  // UI locale ('zh-TW' | 'zh-CN' | 'en' | 'ja'). market_region is derived from
+  // this — NOT the Universalis market region. The market region has no Taiwan
+  // value (TW players use Oceania/Japan worlds, 國服 reports as CN), so sourcing
+  // it from settings.region made cht permanently 0.
+  locale: string
   gearsets: Record<string, GearsetLike>
   themeMode: 'light' | 'dark'
   viewportWidth: number
@@ -47,7 +51,7 @@ export interface UserPropertySnapshot {
 }
 
 export function syncUserProperties(snapshot: UserPropertySnapshot): void {
-  setUserProperty('market_region', inferMarketRegion(snapshot.region))
+  setUserProperty('market_region', inferMarketRegion(snapshot.locale))
   setUserProperty('endgame_tier', computeEndgameTier(snapshot.gearsets))
   setUserProperty('theme_mode', snapshot.themeMode)
   setUserProperty('viewport_bucket', computeViewportBucket(snapshot.viewportWidth))
@@ -64,7 +68,7 @@ export function syncFromStores(): void {
   const theme = useThemeStore()
 
   syncUserProperties({
-    region: settings.region,
+    locale: settings.language,
     gearsets: gearsets.gearsets as Record<string, GearsetLike>,
     themeMode: theme.mode === 'dark' ? 'dark' : 'light',
     viewportWidth: window.innerWidth,

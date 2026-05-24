@@ -21,6 +21,9 @@ function render(w: number, _h: number) {
   const rowH = 32
   const data = [...props.data].sort((a, b) => b.count - a.count)
   const h = margin.top + margin.bottom + data.length * rowH
+  // Reason text lives in the 80px..margin.left gutter; long zh reasons used to
+  // run into the bar. Truncate to fit and expose the full string on hover.
+  const truncate = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + '…' : s)
 
   d3.select(el).selectAll('svg').remove()
 
@@ -51,7 +54,8 @@ function render(w: number, _h: number) {
       .style('font-family', "'Noto Sans TC', sans-serif")
       .style('font-size', '13px')
       .style('fill', C.ink)
-      .text(d.reason)
+      .text(truncate(d.reason, 22))
+      .append('title').text(d.reason)
   })
 
   const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`)

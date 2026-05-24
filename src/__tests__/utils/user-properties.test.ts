@@ -59,7 +59,7 @@ describe('syncUserProperties', () => {
 
   it('calls setUserProperty for each computed property', () => {
     syncUserProperties({
-      region: 'zh-TW',
+      locale: 'zh-TW',
       gearsets: { CRP: { level: 100 } },
       themeMode: 'light',
       viewportWidth: 1500,

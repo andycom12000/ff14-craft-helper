@@ -90,7 +90,10 @@ function render(w: number, _h: number) {
     const bh = 18
     metrics.forEach((m, idx) => {
       const bx = margin.left + idx * colSlot
-      const sw = (m.v / m.max) * colW
+      // Guard the width: an all-zero column makes d3.max 0, and 0/0 = NaN, which
+      // D3 then writes as `<rect width="NaN">` (it fired hundreds of times on
+      // sparse windows). Floor the denominator instead.
+      const sw = m.max > 0 ? (m.v / m.max) * colW : 0
 
       // bg rail
       svg.append('rect')
@@ -120,17 +123,23 @@ function render(w: number, _h: number) {
         .text(fmtInt(m.v))
     })
 
-    // --- Right: italic "偏向 X" callout for dominant tool in this bucket
-    const dom = metrics
-      .map((m, i) => ({ idx: i, ratio: m.v / m.max }))
-      .reduce((a, b) => (a.ratio > b.ratio ? a : b)).idx
-    const domLabels = ['偏向模擬器', '偏向批量最佳化', '偏向 BOM 採購']
-    svg.append('text')
-      .attr('x', w - 12).attr('y', y + 5).attr('text-anchor', 'end')
-      .style('font-family', "'Cormorant Garamond', 'Noto Serif TC', serif")
-      .style('font-style', 'italic').style('font-weight', 500)
-      .style('font-size', '17px').style('fill', metrics[dom].c)
-      .text(domLabels[dom])
+    // --- Right: italic "偏向 X" callout — only when the row has enough events to
+    // mean something. A verdict drawn from n=1 (one solve in a whole RLV band) is
+    // noise dressed as a finding, so gate it behind a minimum sample.
+    const MIN_VERDICT_SAMPLE = 8
+    const rowTotal = row.simulatorCount + row.batchTargetCount + row.bomTargetCount
+    if (rowTotal >= MIN_VERDICT_SAMPLE) {
+      const dom = metrics
+        .map((m, i) => ({ idx: i, ratio: m.max > 0 ? m.v / m.max : 0 }))
+        .reduce((a, b) => (a.ratio > b.ratio ? a : b)).idx
+      const domLabels = ['偏向模擬器', '偏向批量最佳化', '偏向 BOM 採購']
+      svg.append('text')
+        .attr('x', w - 12).attr('y', y + 5).attr('text-anchor', 'end')
+        .style('font-family', "'Cormorant Garamond', 'Noto Serif TC', serif")
+        .style('font-style', 'italic').style('font-weight', 500)
+        .style('font-size', '17px').style('fill', metrics[dom].c)
+        .text(domLabels[dom])
+    }
 
     // --- Row separator
     if (i < data.length - 1) {

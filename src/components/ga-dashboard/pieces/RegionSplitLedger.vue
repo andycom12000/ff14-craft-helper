@@ -377,11 +377,6 @@ const renderRows = computed<RenderRow[]>(() =>
   padding: 2px 0 2px 10px;
 }
 .rl-spark-cell.first { border-left: 0; padding-left: 0; }
-.rl-spark-region {
-  font-family: 'Fira Code', monospace;
-  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
-  color: var(--ink-faint);
-}
 .rl-spark-sub {
   font-family: 'Cormorant Garamond', serif;
   font-style: italic;
@@ -400,7 +395,7 @@ const renderRows = computed<RenderRow[]>(() =>
 .rl-spark-value.warn  { color: var(--warning); }
 .rl-spark-value.danger { color: var(--danger); }
 .rl-spark-bar {
-  position: relative; height: 3px; background: var(--surface);
+  position: relative; height: 5px; background: var(--surface);
   border-radius: 2px; overflow: hidden;
 }
 .rl-spark-bar > i {

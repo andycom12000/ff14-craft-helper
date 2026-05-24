@@ -86,6 +86,7 @@ interface EndpointView {
   rank: string
   barWidth: string
   color: string
+  pillBg: string
   pillLabel: string
 }
 
@@ -95,6 +96,7 @@ const endpoints = computed<EndpointView[]>(() =>
     rank: String(i + 1).padStart(2, '0'),
     barWidth: epMax.value > 0 ? (ep.count / epMax.value) * 100 + '%' : '0%',
     color: statusColor(ep.status),
+    pillBg: `color-mix(in oklch, ${statusColor(ep.status)} 16%, transparent)`,
     pillLabel: ep.status === 0 ? 'network' : String(ep.status),
   })),
 )
@@ -138,7 +140,7 @@ const endpoints = computed<EndpointView[]>(() =>
 
     <!-- ---------- TOP ENDPOINTS (right) ---------- -->
     <div class="ep-wrap">
-      <div class="eyebrow">top failing endpoints — most-broken first</div>
+      <div class="eyebrow">top failing endpoints · most-broken first</div>
       <div class="ep-table">
         <div v-for="row in endpoints" :key="row.ep.endpoint + '-' + row.ep.status" class="ep-row">
           <div class="ep-rank">{{ row.rank }}</div>
@@ -150,7 +152,7 @@ const endpoints = computed<EndpointView[]>(() =>
             </div>
           </div>
           <div class="ep-pill-cell">
-            <span class="ep-pill" :style="{ color: row.color, borderColor: row.color }">
+            <span class="ep-pill" :style="{ color: row.color, borderColor: row.color, backgroundColor: row.pillBg }">
               {{ row.pillLabel }}
             </span>
           </div>
@@ -247,7 +249,7 @@ const endpoints = computed<EndpointView[]>(() =>
 
 .ep-bar {
   position: relative;
-  height: 3px;
+  height: 5px;
   background: var(--surface);
   margin-top: 6px;
   border-radius: 1px;
@@ -272,7 +274,6 @@ const endpoints = computed<EndpointView[]>(() =>
   letter-spacing: 0.06em;
   padding: 3px 7px;
   border-radius: 2px;
-  background: oklch(0.68 0.2 22 / 0.14);
   border: 1px solid;
 }
 

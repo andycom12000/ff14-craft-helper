@@ -945,23 +945,27 @@ async function buildBundle(client, propertyId, days) {
     'batch_optimization_failed', 'batch_optimization_cancelled',
     'page_view', 'solver_macro_copy', 'recipe_select',
     'bom_calculate', 'bom_send_to_batch', 'bom_item_check',
-    'bom_copy_list', 'bom_target_add',
+    'bom_copy_list', 'bom_target_add', 'aetheryte_tp_copy',
     'batch_add_recipe',
     'web_vitals',
     'wasm_load_failed', 'sab_unavailable',
   ])
 
+  // Conversion funnels — entry → the value endpoint, NOT ending at failures.
+  // Solver converges on solver_macro_copy (the user actually exported a macro);
+  // batch has no macro-copy event, so its endpoint is optimization-complete.
+  // Failure/cancel counts are surfaced in the failures breakdown + glance, not
+  // as a funnel terminal, so the funnel reads as "how many converted".
   const solverFunnel = [
-    { step: 'solver_start',    count: evCounts.get('solver_start') ?? 0,    tone: 'neutral' },
-    { step: 'solver_complete', count: evCounts.get('solver_complete') ?? 0, tone: 'success' },
-    { step: 'solver_failed',   count: evCounts.get('solver_failed') ?? 0,   tone: 'danger' },
+    { step: 'solver_start',      count: evCounts.get('solver_start') ?? 0,      tone: 'neutral' },
+    { step: 'solver_complete',   count: evCounts.get('solver_complete') ?? 0,   tone: 'success' },
+    { step: 'solver_macro_copy', count: evCounts.get('solver_macro_copy') ?? 0, tone: 'success' },
   ]
 
   const batchFunnel = [
-    { step: 'add → start',     count: evCounts.get('batch_optimization_start') ?? 0, tone: 'neutral' },
-    { step: 'batch_complete',  count: evCounts.get('batch_optimization_complete') ?? 0, tone: 'success' },
-    { step: 'batch_failed',    count: evCounts.get('batch_optimization_failed') ?? 0, tone: 'danger' },
-    { step: 'batch_cancelled', count: evCounts.get('batch_optimization_cancelled') ?? 0, tone: 'warn' },
+    { step: 'batch_add',      count: evCounts.get('batch_add_recipe') ?? 0,            tone: 'neutral' },
+    { step: 'batch_start',    count: evCounts.get('batch_optimization_start') ?? 0,    tone: 'neutral' },
+    { step: 'batch_complete', count: evCounts.get('batch_optimization_complete') ?? 0, tone: 'success' },
   ]
 
   // --- Q2: simulator funnel (inferred) ------------------------------------
@@ -1053,22 +1057,34 @@ async function buildBundle(client, propertyId, days) {
   }))
 
   // --- Q4: funnel drop rates (reuse existing helpers) ---------------------
-  const q4Funnels = [
-    { name: 'Recipe → Solver',       label: 'recipe_select → solver_start',
-      from: evCounts.get('recipe_select') ?? 0, to: evCounts.get('solver_start') ?? 0,
-      note: 'inflated · batch internal solves', flag: 'noise' },
-    { name: 'Solver → Macro',        label: 'solver_complete → solver_macro_copy',
-      from: evCounts.get('solver_complete') ?? 0, to: evCounts.get('solver_macro_copy') ?? 0,
-      note: 'user-facing only', flag: 'danger' },
+  // Only comparable, single-meaning conversions. Dropped:
+  //   - Recipe → Solver: solver_start is inflated by the batch optimiser's
+  //     per-recipe internal solves, so it exceeds recipe_select (>100% "drop").
+  //   - Solver → Macro: better served by the simulator funnel, which uses a
+  //     clean /simulator page_view denominator instead of inflated solver_complete.
+  // Conversion colour is direction-aware and threshold-based so the same rate
+  // always reads the same way across funnels: higher conversion = greener.
+  // (Flags used to be hand-set, which made the lowest-rate funnel render GREEN
+  // even as the Q2 TL;DR called that same funnel the biggest leak — color and
+  // prose contradicting each other. Derive both from the rate instead.)
+  const rateVerdict = (from, to) => {
+    const rate = from > 0 ? to / from : 0
+    if (rate >= 0.5) return { flag: 'ok', note: '轉換健康' }
+    if (rate >= 0.3) return { flag: 'warn', note: '轉換待觀察' }
+    return { flag: 'danger', note: '轉換偏低' }
+  }
+  const q4FunnelsRaw = [
     { name: 'Batch prep → Optimize', label: 'batch_add_recipe → batch_opt_start',
-      from: evCounts.get('batch_add_recipe') ?? 0, to: evCounts.get('batch_optimization_start') ?? 0,
-      note: 'healthy halfway', flag: 'ok' },
-    { name: 'BOM → Consumed',        label: 'bom_calculate → (any consume)',
+      from: evCounts.get('batch_add_recipe') ?? 0, to: evCounts.get('batch_optimization_start') ?? 0 },
+    // "Consumed" = downstream uses of the calculated BOM. bom_target_add is
+    // UPSTREAM (you add a target before calculating), so including it pushed the
+    // rate over 100%; use aetheryte_tp_copy instead, matching derivePageFunnel.
+    { name: 'BOM → Consumed', label: 'bom_calculate → (any consume)',
       from: evCounts.get('bom_calculate') ?? 0,
-      to: ['bom_item_check', 'bom_copy_list', 'bom_send_to_batch', 'bom_target_add']
-        .map((n) => evCounts.get(n) ?? 0).reduce((a, b) => a + b, 0),
-      note: 'low handoff', flag: 'warn' },
+      to: ['bom_item_check', 'bom_copy_list', 'bom_send_to_batch', 'aetheryte_tp_copy']
+        .map((n) => evCounts.get(n) ?? 0).reduce((a, b) => a + b, 0) },
   ]
+  const q4Funnels = q4FunnelsRaw.map((f) => ({ ...f, ...rateVerdict(f.from, f.to) }))
 
   // --- Q4: market_region --------------------------------------------------
   const mrRes = await runReport(client, {
@@ -1096,17 +1112,19 @@ async function buildBundle(client, propertyId, days) {
       returningPct: flipUsers ? flip.users.returning / flipUsers : 0,
     },
     solver: {
-      starts: solverFunnel[0].count,
-      completes: solverFunnel[1].count,
-      fails: solverFunnel[2].count,
-      completePct: solverFunnel[0].count ? solverFunnel[1].count / solverFunnel[0].count : 0,
+      starts: evCounts.get('solver_start') ?? 0,
+      completes: evCounts.get('solver_complete') ?? 0,
+      fails: evCounts.get('solver_failed') ?? 0,
+      completePct: (evCounts.get('solver_start') ?? 0)
+        ? (evCounts.get('solver_complete') ?? 0) / (evCounts.get('solver_start') ?? 1) : 0,
     },
     batch: {
-      starts: batchFunnel[0].count,
-      completes: batchFunnel[1].count,
-      fails: batchFunnel[2].count,
-      cancelled: batchFunnel[3].count,
-      completePct: batchFunnel[0].count ? batchFunnel[1].count / batchFunnel[0].count : 0,
+      starts: evCounts.get('batch_optimization_start') ?? 0,
+      completes: evCounts.get('batch_optimization_complete') ?? 0,
+      fails: evCounts.get('batch_optimization_failed') ?? 0,
+      cancelled: evCounts.get('batch_optimization_cancelled') ?? 0,
+      completePct: (evCounts.get('batch_optimization_start') ?? 0)
+        ? (evCounts.get('batch_optimization_complete') ?? 0) / (evCounts.get('batch_optimization_start') ?? 1) : 0,
     },
     bom: {
       calculates: evCounts.get('bom_calculate') ?? 0,
@@ -1176,29 +1194,24 @@ function regionBucket(value) {
   return 'unset'
 }
 
-// Bucket an RLV value per-100 into the wide taxonomy labels.
+// Bucket an RLV value into expansion-aligned ranges. Real rlv spans 1–770
+// (ARR≈1–300, StB/ShB≈301–510, EW≈511–600, DT≈601–770), so per-100 buckets
+// crammed everything pre-endgame into one "< 600" bar and left 700-800/800+
+// near-empty. These cuts follow the data-patch boundaries instead.
 // n <= 0 (incl. empty-string rlv → Number('') === 0) is treated as unset and
-// dropped, so not-set events don't inflate the lowest bucket. Recipe levels
-// are always >= 1.
+// dropped, so not-set events don't inflate the lowest bucket.
 function rlvWideBucket(rlv) {
   const n = Number(rlv)
   if (!Number.isFinite(n) || n <= 0) return null
-  if (n < 600) return '< 600'
-  if (n < 700) return '600-700'
-  if (n < 800) return '700-800'
-  return '800+'
+  if (n <= 300) return '≤300'
+  if (n <= 510) return '301–510'
+  if (n <= 600) return '511–600'
+  if (n <= 680) return '601–680'
+  return '681+'
 }
 
-// Bucket an RLV value per-100 into the Chart #3 (toolUsageByRlv) labels.
-// Same unset handling as rlvWideBucket.
-function rlvToolBucket(rlv) {
-  const n = Number(rlv)
-  if (!Number.isFinite(n) || n <= 0) return null
-  if (n < 600) return '< 600'
-  if (n < 700) return '600–699'
-  if (n < 800) return '700–799'
-  return '800+'
-}
+// Chart #3 (toolUsageByRlv) shares the same expansion-aligned buckets.
+const rlvToolBucket = rlvWideBucket
 
 function gaBool(value) {
   return value === 'true' || value === '1'
@@ -1455,7 +1468,7 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
     || taxCompletesRows.length || kindStartsRows.length
   if (hasTaxonomy) {
     // rlvHistogram
-    const histMap = new Map([['< 600', 0], ['600-700', 0], ['700-800', 0], ['800+', 0]])
+    const histMap = new Map([['≤300', 0], ['301–510', 0], ['511–600', 0], ['601–680', 0], ['681+', 0]])
     for (const r of rlvHistRows) {
       const bucket = rlvWideBucket(r.dimensionValues[0].value)
       if (!bucket) continue
@@ -1623,7 +1636,7 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
   const simRlvRows = simRlvRes?.rows ?? []
   const bomRlvRows = bomRlvRes?.rows ?? []
   if (selectRlvRows.length || simRlvRows.length) {
-    const BUCKETS = ['< 600', '600–699', '700–799', '800+']
+    const BUCKETS = ['≤300', '301–510', '511–600', '601–680', '681+']
     const mk = () => new Map(BUCKETS.map((b) => [b, 0]))
     const selectMap = mk()
     const simMap = mk()

@@ -153,7 +153,7 @@ function render(w: number, _h: number) {
     .style('font-family', "'Cormorant Garamond', 'Noto Serif TC', serif")
     .style('font-style', 'italic')
     .style('font-size', '14.5px').style('fill', C.gold)
-    .html(`冷啟動占 <tspan style="font-family:'Fira Code',monospace;font-weight:500;">${fmtPct(prof.coldStartShare)}</tspan> sessions — 上方虛線即代表這個子集`)
+    .html(`冷啟動占 <tspan style="font-family:'Fira Code',monospace;font-weight:500;">${fmtPct(prof.coldStartShare)}</tspan> sessions，上方虛線即代表這個子集`)
 }
 
 useD3Resize(root, render)

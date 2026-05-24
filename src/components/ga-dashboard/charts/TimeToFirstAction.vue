@@ -155,14 +155,6 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Editorial annotation — the theme_change observation (v2.1 follow-up) -->
-        <div class="ev-note">
-          <span class="ev-note-lead">An editorial aside —</span>
-          <span class="ev-note-body">
-            theme_change as the first move (88 users, median 3.1s) suggests the visual identity is
-            doing the seducing before the tools do. Worth a follow-up cohort.
-          </span>
-        </div>
       </div>
     </div>
   </div>

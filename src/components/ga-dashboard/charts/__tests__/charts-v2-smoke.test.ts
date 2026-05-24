@@ -37,14 +37,14 @@ const onboarding = [
 ] as const
 
 const toolUsage = [
-  { bucket: '< 600', selectCount: 152, simulatorCount: 24, batchTargetCount: 12, bomTargetCount: 88 },
-  { bucket: '800+', selectCount: 1284, simulatorCount: 921, batchTargetCount: 287, bomTargetCount: 142 },
+  { bucket: '≤300', selectCount: 152, simulatorCount: 24, batchTargetCount: 12, bomTargetCount: 88 },
+  { bucket: '681+', selectCount: 1284, simulatorCount: 921, batchTargetCount: 287, bomTargetCount: 142 },
 ]
 
 const taxonomy = {
   rlvHistogram: [
-    { bucket: '< 600', events: 88 },
-    { bucket: '800+', events: 1284 },
+    { bucket: '≤300', events: 88 },
+    { bucket: '681+', events: 1284 },
   ],
   matrix: [
     { isExpert: false, isCollectable: false, starts: 2104, completes: 2043, macroCopies: 622, completeRate: 0.971, macroCopyRate: 0.304 },
