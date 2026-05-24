@@ -157,7 +157,7 @@ const tldrQ3 = computed(() => {
         <section id="sec-4" class="q">
           <SectionHead v-reveal num="iv." title="Q4：新訪客在哪一階停下" aside="新手引導 · 配方分類 · 漫長爬坡" />
 
-          <SubHead v-reveal title="新手里程碑漏斗" aside="viewed_recipe → ran_solver → saw_macro → used_batch" />
+          <SubHead v-reveal title="新手里程碑 · 獨立計數" aside="viewed_recipe · ran_solver · saw_macro · used_batch（彼此獨立，非漏斗）" />
           <OnboardingMilestoneFunnel v-if="snapshot.windows[win].onboardingFunnel" v-reveal :data="snapshot.windows[win].onboardingFunnel!" />
           <EmptyChart v-else v-reveal label="資料累積中" />
 

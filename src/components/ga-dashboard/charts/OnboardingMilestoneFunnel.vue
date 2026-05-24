@@ -11,128 +11,107 @@ const props = defineProps<{ data: OnboardingStep[] }>()
 const root = ref<HTMLDivElement | null>(null)
 const { show, move, hide } = useTooltip()
 
+// These four milestones are INDEPENDENT first-session localStorage flags, not a
+// strict sequential funnel: a user can reach used_batch without ever hitting
+// saw_macro, so the counts do not monotonically decrease (e.g. used_batch > the
+// "earlier" viewed_recipe). The previous trapezoid funnel lied about that — it
+// scaled height to users/max, so the tallest step could land LAST, bulging the
+// funnel back outward. Render parallel horizontal bars instead, and mark only
+// the least-reached milestone — the honest "where do new visitors stop" signal.
 function render(w: number, _h: number) {
   if (!root.value) return
   const steps = props.data
+  if (!steps.length) return
 
-  const h = 260
-  const labelStripH = 76 // labels + drop-pct below
-  const total = h - labelStripH
-  const innerTop = 8
-  const innerBottom = total - 8
-  const max = d3.max(steps, d => d.users) ?? 1
+  const rowH = 60
+  const padTop = 16
+  const padBottom = 40
+  const h = padTop + steps.length * rowH + padBottom
 
   d3.select(root.value).selectAll('svg').remove()
   const svg = d3.select(root.value).append('svg').attr('width', w).attr('height', h)
 
-  const padLeft = 56, padRight = 56
-  const usable = w - padLeft - padRight
-  const stepW = usable / steps.length
+  const labelW = 240
+  const trailW = 124
+  const barMaxW = Math.max(0, w - labelW - trailW)
+  const barH = 22
+
+  // maxUsers is floored at 1 so width math can never divide by zero -> no NaN
+  // ever reaches a rect width attribute.
+  const maxUsers = Math.max(d3.max(steps, (d) => d.users) ?? 0, 1)
+  const hasData = (d3.max(steps, (d) => d.users) ?? 0) > 0
+  // Least-reached milestone — the honest bottleneck marker (only when we have data).
+  const minIdx = steps.reduce((best, s, i) => (s.users < steps[best].users ? i : best), 0)
 
   steps.forEach((s, i) => {
-    const next = steps[i + 1]
-    const xLeft = padLeft + i * stepW
-    const xRight = xLeft + stepW - 14 // gap between trapezoids
+    const cy = padTop + i * rowH + rowH / 2
+    const isBottleneck = hasData && i === minIdx
+    const fill = isBottleneck ? C.strawberry : C.cocoa
+    const fillW = (s.users / maxUsers) * barMaxW
 
-    const hL = (s.users / max) * (innerBottom - innerTop)
-    const hR = next ? (next.users / max) * (innerBottom - innerTop) : hL * 0.78
-    const cy = (innerTop + innerBottom) / 2
+    // milestone name (mono, left) + events sub
+    svg.append('text')
+      .attr('x', 0).attr('y', cy - 6)
+      .style('font-family', "'Fira Code', monospace")
+      .style('font-size', '12px').style('letter-spacing', '0.14em')
+      .style('text-transform', 'uppercase').style('fill', C.inkMid)
+      .text(s.step)
+    svg.append('text')
+      .attr('x', 0).attr('y', cy + 14)
+      .style('font-family', "'Cormorant Garamond', 'Noto Serif TC', serif")
+      .style('font-style', 'italic').style('font-size', '13px').style('fill', C.inkMuted)
+      .text(`${fmtInt(s.eventCount)} events`)
 
-    // Color tone: first step gold, others cocoa, biggest drop step strawberry
-    let fill: string = C.cocoa
-    if (i === 0) fill = C.gold
-    // Find the max dropFromPrev step index
-    const maxDropIdx = steps.reduce((best, st, idx) => st.dropFromPrev > steps[best].dropFromPrev ? idx : best, 0)
-    const isBiggestDropExit = i + 1 === maxDropIdx // the segment users LEAVE through
-    if (isBiggestDropExit) fill = C.strawberry
+    // bg rail
+    svg.append('rect')
+      .attr('x', labelW).attr('y', cy - barH / 2)
+      .attr('width', barMaxW).attr('height', barH)
+      .attr('fill', C.surface).attr('rx', 1)
 
-    // Trapezoid path: left edge tall, right edge tapers to next step's height
-    const path = `
-      M${xLeft},${cy - hL/2}
-      L${xRight},${cy - hR/2}
-      L${xRight},${cy + hR/2}
-      L${xLeft},${cy + hL/2} Z
-    `
-
-    const baseOp = isBiggestDropExit ? 0.55 : 0.28
-    svg.append('path')
-      .attr('d', path)
-      .attr('fill', fill).attr('fill-opacity', 0)
-      .attr('stroke', fill).attr('stroke-width', isBiggestDropExit ? 1.5 : 1)
+    // value fill
+    svg.append('rect')
+      .attr('x', labelW).attr('y', cy - barH / 2)
+      .attr('width', 0).attr('height', barH)
+      .attr('fill', fill).attr('fill-opacity', isBottleneck ? 0.92 : 0.82).attr('rx', 1)
       .style('cursor', 'pointer')
       .on('mouseenter', function (ev: MouseEvent) {
-        d3.select(this).attr('fill-opacity', Math.min(0.75, baseOp + 0.2))
         show(`
           <strong>${s.step}</strong>
           <div class="row"><span>Users</span><span>${fmtInt(s.users)}</span></div>
           <div class="row"><span>Events</span><span>${fmtInt(s.eventCount)}</span></div>
-          ${i > 0 ? `<div class="row"><span>Drop from prev</span><span>${fmtPct(s.dropFromPrev)}</span></div>` : ''}
-          <div class="row"><span>Conv from start</span><span>${fmtPct(s.users / steps[0].users)}</span></div>
+          <div class="row"><span>佔最高里程碑</span><span>${fmtPct(s.users / maxUsers)}</span></div>
         `, ev)
       })
-      .on('mousemove', function (ev: MouseEvent) { move(ev) })
-      .on('mouseleave', function () { d3.select(this).attr('fill-opacity', baseOp); hide() })
-      .transition().duration(600).ease(d3.easeCubicOut)
-      .attr('fill-opacity', baseOp)
+      .on('mousemove', (ev: MouseEvent) => move(ev))
+      .on('mouseleave', hide)
+      .transition().duration(500).ease(d3.easeCubicOut)
+      .attr('width', fillW)
 
-    // Centerline (mid)
-    svg.append('line')
-      .attr('x1', xLeft).attr('x2', xRight).attr('y1', cy).attr('y2', cy)
-      .attr('stroke', fill).attr('stroke-opacity', 0.35).attr('stroke-width', 0.5)
-
-    // Step name (above)
+    // trailing users count
     svg.append('text')
-      .attr('x', xLeft + stepW / 2).attr('y', cy - hL/2 - 14)
-      .attr('text-anchor', 'middle')
+      .attr('x', labelW + barMaxW + 12).attr('y', cy + 4)
       .style('font-family', "'Fira Code', monospace")
-      .style('font-size', '11px').style('letter-spacing', '0.16em')
-      .style('text-transform', 'uppercase').style('fill', C.inkMuted)
-      .text(s.step)
-
-    // Users count (inside, big)
-    svg.append('text')
-      .attr('x', xLeft + (xRight - xLeft) / 2).attr('y', cy - 2)
-      .attr('text-anchor', 'middle')
-      .style('font-family', "'Fira Code', monospace")
-      .style('font-size', '20px').style('font-weight', 500)
+      .style('font-size', '15px').style('font-weight', 500)
       .style('fill', C.ink)
       .text(fmtInt(s.users))
 
-    svg.append('text')
-      .attr('x', xLeft + (xRight - xLeft) / 2).attr('y', cy + 18)
-      .attr('text-anchor', 'middle')
-      .style('font-family', "'Cormorant Garamond', serif")
-      .style('font-style', 'italic')
-      .style('font-size', '13.5px').style('fill', C.inkMuted)
-      .text(`${fmtInt(s.eventCount)} events`)
-
-    // Drop % below
-    if (i > 0) {
-      const isMaxDrop = i === maxDropIdx
-      const dropColor = isMaxDrop ? C.strawberry : C.inkFaint
+    // bottleneck marker (second line, never overlaps the bar)
+    if (isBottleneck) {
       svg.append('text')
-        .attr('x', xLeft - 6).attr('y', h - 36)
-        .attr('text-anchor', 'middle')
+        .attr('x', labelW + barMaxW + 12).attr('y', cy + 20)
         .style('font-family', "'Cormorant Garamond', 'Noto Serif TC', serif")
-        .style('font-style', 'italic')
-        .style('font-size', isMaxDrop ? '18px' : '15px').style('font-weight', 500)
-        .style('fill', dropColor)
-        .text(`− ${fmtPct(s.dropFromPrev)}`)
-      svg.append('text')
-        .attr('x', xLeft - 6).attr('y', h - 20)
-        .attr('text-anchor', 'middle')
-        .style('font-family', "'Noto Sans TC', system-ui, sans-serif")
-        .style('font-size', '10.5px').style('letter-spacing', '0.10em')
-        .style('fill', dropColor)
-        .text(isMaxDrop ? '最大流失' : '上一階流失')
+        .style('font-style', 'italic').style('font-size', '12.5px')
+        .style('fill', C.strawberry)
+        .text('最少抵達')
     }
   })
 
-  // Baseline rule
-  svg.append('line')
-    .attr('x1', padLeft - 6).attr('x2', w - padRight + 6)
-    .attr('y1', h - labelStripH + 8).attr('y2', h - labelStripH + 8)
-    .attr('stroke', C.border).attr('stroke-width', 1)
+  // Honest framing caption — kills the funnel claim outright.
+  svg.append('text')
+    .attr('x', labelW).attr('y', h - 12)
+    .style('font-family', "'Cormorant Garamond', 'Noto Serif TC', serif")
+    .style('font-style', 'italic').style('font-size', '13.5px').style('fill', C.inkFaint)
+    .text('獨立里程碑，非嚴格漏斗：各計數彼此獨立，不保證逐階遞減')
 }
 
 useD3Resize(root, render)
@@ -144,7 +123,7 @@ onMounted(() => {
 })
 </script>
 
-<template><div ref="root" class="chart" role="img" aria-label="新手里程碑漏斗" /></template>
+<template><div ref="root" class="chart" role="img" aria-label="新手里程碑 · 獨立計數平行條" /></template>
 
 <style scoped>
 .chart { margin: 12px 0 8px; position: relative; }

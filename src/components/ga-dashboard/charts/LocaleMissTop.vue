@@ -26,7 +26,9 @@ const kindColor = (kind: LocaleMissRow['kind']) => (kind === 'recipe' ? C.cocoa 
       <div class="rank">{{ String(i + 1).padStart(2, '0') }}</div>
       <div class="kind" :style="{ color: kindColor(it.kind) }">{{ it.kind }}</div>
       <div class="id">#{{ it.itemId }}</div>
-      <div class="name">{{ it.itemName ?? '' }}</div>
+      <div class="name" :class="{ 'name--missing': !it.itemName }">
+        {{ it.itemName || '名稱待補' }}
+      </div>
       <div class="bar">
         <i :style="{ width: (it.occurrences / max) * 100 + '%' }" />
         <span>{{ fmtInt(it.occurrences) }}</span>
@@ -89,6 +91,14 @@ const kindColor = (kind: LocaleMissRow['kind']) => (kind === 'recipe' ? C.cocoa 
   font-family: 'Noto Serif TC', serif;
   font-size: 15px;
   color: var(--ink);
+}
+
+/* honest gap marker: the data layer has no zh name yet, so say so rather than
+   render a blank cell that reads as a broken row. */
+.name--missing {
+  font-family: 'Cormorant Garamond', 'Noto Serif TC', serif;
+  font-style: italic;
+  color: var(--ink-faint);
 }
 
 .bar {

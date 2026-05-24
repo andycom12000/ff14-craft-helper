@@ -1062,19 +1062,29 @@ async function buildBundle(client, propertyId, days) {
   //     per-recipe internal solves, so it exceeds recipe_select (>100% "drop").
   //   - Solver → Macro: better served by the simulator funnel, which uses a
   //     clean /simulator page_view denominator instead of inflated solver_complete.
-  const q4Funnels = [
+  // Conversion colour is direction-aware and threshold-based so the same rate
+  // always reads the same way across funnels: higher conversion = greener.
+  // (Flags used to be hand-set, which made the lowest-rate funnel render GREEN
+  // even as the Q2 TL;DR called that same funnel the biggest leak — color and
+  // prose contradicting each other. Derive both from the rate instead.)
+  const rateVerdict = (from, to) => {
+    const rate = from > 0 ? to / from : 0
+    if (rate >= 0.5) return { flag: 'ok', note: '轉換健康' }
+    if (rate >= 0.3) return { flag: 'warn', note: '轉換待觀察' }
+    return { flag: 'danger', note: '轉換偏低' }
+  }
+  const q4FunnelsRaw = [
     { name: 'Batch prep → Optimize', label: 'batch_add_recipe → batch_opt_start',
-      from: evCounts.get('batch_add_recipe') ?? 0, to: evCounts.get('batch_optimization_start') ?? 0,
-      note: 'healthy halfway', flag: 'ok' },
+      from: evCounts.get('batch_add_recipe') ?? 0, to: evCounts.get('batch_optimization_start') ?? 0 },
     // "Consumed" = downstream uses of the calculated BOM. bom_target_add is
     // UPSTREAM (you add a target before calculating), so including it pushed the
     // rate over 100%; use aetheryte_tp_copy instead, matching derivePageFunnel.
-    { name: 'BOM → Consumed',        label: 'bom_calculate → (any consume)',
+    { name: 'BOM → Consumed', label: 'bom_calculate → (any consume)',
       from: evCounts.get('bom_calculate') ?? 0,
       to: ['bom_item_check', 'bom_copy_list', 'bom_send_to_batch', 'aetheryte_tp_copy']
-        .map((n) => evCounts.get(n) ?? 0).reduce((a, b) => a + b, 0),
-      note: 'low handoff', flag: 'warn' },
+        .map((n) => evCounts.get(n) ?? 0).reduce((a, b) => a + b, 0) },
   ]
+  const q4Funnels = q4FunnelsRaw.map((f) => ({ ...f, ...rateVerdict(f.from, f.to) }))
 
   // --- Q4: market_region --------------------------------------------------
   const mrRes = await runReport(client, {

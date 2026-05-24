@@ -145,7 +145,10 @@ function onLeave(ev: MouseEvent, seg: Segment) {
   gap: 12px;
   padding: 10px 14px;
   margin: 0 0 16px;
-  border-left: 2px solid v-bind('C.danger');
+  /* full hairline border + tint + leading 異常 chip carry the alert — not a
+     2px side-stripe (an absolute ban; the leading chip already does the work). */
+  border: 1px solid v-bind('C.danger');
+  border-radius: 2px;
   background: oklch(0.68 0.2 22 / 0.1);
 }
 
