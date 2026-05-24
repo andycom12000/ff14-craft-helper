@@ -92,7 +92,7 @@ function onLeave(ev: MouseEvent, seg: Segment) {
       <span class="anomaly-text">
         有
         <strong class="anomaly-count">{{ fmtInt(unknown.eventCount) }}</strong>
-        次配方開啟事件 source 解析失敗。依規格應為 0 — 需要追查 client side instrument。
+        次配方開啟事件 source 解析失敗。依規格應為 0，需要追查 client side instrument。
       </span>
     </div>
 

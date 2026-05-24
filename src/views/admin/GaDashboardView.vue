@@ -117,45 +117,45 @@ const tldrQ3 = computed(() => {
         <RegionSplitLedger :snapshot="snapshot" :window="win" />
 
         <section id="sec-1" class="q">
-          <SectionHead num="i." title="Q1 — Where attention landed" aside="pages · channels · per-page health" />
+          <SectionHead num="i." title="Q1：注意力落在哪裡" aside="頁面 · 來源 · 各頁健康度" />
           <TldrLine :text="tldrQ1" />
-          <h3 class="sub-head">Pages by view share</h3>
+          <SubHead title="頁面瀏覽佔比" />
           <PagesTreemap :data="snapshot.windows[win].pages" />
-          <h3 class="sub-head">How they arrived</h3>
+          <SubHead title="進站來源" />
           <ChannelsBar :data="snapshot.windows[win].channels" />
-          <h3 class="sub-head">Per-page health vs median</h3>
+          <SubHead title="各頁健康度 · 對照中位數" />
           <PagesTable :data="snapshot.windows[win].pages" />
         </section>
 
         <section id="sec-2" class="q">
-          <SectionHead num="ii." title="Q2 — Where the flow leaks" aside="funnels · drop rates · friction" />
+          <SectionHead num="ii." title="Q2：流程在哪裡漏" aside="漏斗 · 流失率 · 摩擦" />
           <TldrLine :text="tldrQ2" />
-          <h3 class="sub-head">Funnels — solver &amp; batch</h3>
+          <SubHead title="漏斗 · Solver 與批量" />
           <SolverBatchFunnels :data="{ solver: snapshot.windows[win].solverFunnel, batch: snapshot.windows[win].batchFunnel }" />
-          <h3 class="sub-head">Simulator: visit → macro export</h3>
+          <SubHead title="模擬器 · 造訪 → 巨集匯出" />
           <SimulatorFunnel :data="snapshot.windows[win].simulatorFunnel" />
-          <h3 class="sub-head">Page-level drop rates</h3>
+          <SubHead title="頁面流失率" />
           <Q4FunnelDrops :data="snapshot.windows[win].q4Funnels" />
-          <h3 class="sub-head">Top failure reasons</h3>
+          <SubHead title="主要失敗原因" />
           <FailuresBar :data="snapshot.windows[win].failures" />
-          <h3 class="sub-head">Web vitals</h3>
+          <SubHead title="Web Vitals" />
           <WebVitalsStack :data="snapshot.windows[win].vitals" />
         </section>
 
         <section id="sec-3" class="q">
-          <SectionHead num="iii." title="Q3 — Who brings the weight" aside="new vs returning · what they do" />
+          <SectionHead num="iii." title="Q3：誰把份量帶進來" aside="新訪客 vs 回訪 · 他們做什麼" />
           <TldrLine :text="tldrQ3" />
-          <h3 class="sub-head">The flip — users vs sessions</h3>
+          <SubHead title="翻轉 · 用戶 vs 工作階段" />
           <FlipBands :data="snapshot.windows[win].flip" />
-          <h3 class="sub-head">What returnees do</h3>
+          <SubHead title="回訪者在做什麼" />
           <ReturningEventsBar :data="snapshot.windows[win].returningEvents" />
-          <h3 class="sub-head">Pages — all users vs returning</h3>
+          <SubHead title="頁面 · 全部 vs 回訪" />
           <PagesCompareBar :data="{ all: snapshot.windows[win].pages, returning: snapshot.windows[win].returningPages }" />
         </section>
 
         <!-- ============ IV. Q4 — 新訪客在哪一階停下 ============ -->
         <section id="sec-4" class="q">
-          <SectionHead v-reveal num="iv." title="Q4 — 新訪客在哪一階停下" aside="新手引導 · 配方分類 · 漫長爬坡" />
+          <SectionHead v-reveal num="iv." title="Q4：新訪客在哪一階停下" aside="新手引導 · 配方分類 · 漫長爬坡" />
 
           <SubHead v-reveal title="新手里程碑漏斗" aside="viewed_recipe → ran_solver → saw_macro → used_batch" />
           <OnboardingMilestoneFunnel v-if="snapshot.windows[win].onboardingFunnel" v-reveal :data="snapshot.windows[win].onboardingFunnel!" />
@@ -176,7 +176,7 @@ const tldrQ3 = computed(() => {
 
         <!-- ============ V. Q5 — 摩擦發生在哪裡 ============ -->
         <section id="sec-5" class="q section-break">
-          <SectionHead v-reveal num="v." title="Q5 — 摩擦發生在哪裡" aside="達不到的期望 · 進入路徑 · 第一個動作" />
+          <SectionHead v-reveal num="v." title="Q5：摩擦發生在哪裡" aside="達不到的期望 · 進入路徑 · 第一個動作" />
 
           <div class="two-col">
             <div class="col">
@@ -198,7 +198,7 @@ const tldrQ3 = computed(() => {
 
         <!-- ============ VI. Q6 — 系統哪裡正在裂 ============ -->
         <section id="sec-6" class="q section-break">
-          <SectionHead v-reveal num="vi." title="Q6 — 系統哪裡正在裂" aside="API 失敗 · 中文名缺失 · WASM 載入" />
+          <SectionHead v-reveal num="vi." title="Q6：系統哪裡正在裂" aside="API 失敗 · 中文名缺失 · WASM 載入" />
 
           <SubHead v-reveal title="API 失敗 · 端點排行，按 API 與狀態碼分類" aside="補完既有 FailuresBar（只看 reason）" />
           <ApiFailureEndpoints v-if="snapshot.windows[win].apiFailures" v-reveal :data="snapshot.windows[win].apiFailures!" />
@@ -256,14 +256,4 @@ section.q { margin-bottom: 96px; }
   gap: 80px;
 }
 .two-col .col > .subhead { margin-top: 24px; }
-.sub-head {
-  font-family: 'Noto Serif TC', serif;
-  font-weight: 600; font-size: 16px; color: var(--ink);
-  margin: 44px 0 14px;
-  display: flex; align-items: center; gap: 12px;
-}
-.sub-head::before {
-  content: ''; width: 18px; height: 1px;
-  background: var(--gold); flex-shrink: 0;
-}
 </style>

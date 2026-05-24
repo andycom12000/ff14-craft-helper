@@ -56,7 +56,7 @@ function render(w: number, _h: number) {
     .attr('x', 8).attr('y', 102)
     .style('font-family', "'Fira Code', monospace")
     .style('font-size', '11px').style('fill', C.inkFaint)
-    .text('entries — 7-day, all users')
+    .text('entries · all users')
 
   svg.append('text')
     .attr('x', 8).attr('y', 172)
@@ -67,7 +67,7 @@ function render(w: number, _h: number) {
     .attr('x', 8).attr('y', 192)
     .style('font-family', "'Fira Code', monospace")
     .style('font-size', '11px').style('fill', C.inkFaint)
-    .text('endpoint — simulator-exclusive')
+    .text('endpoint · simulator-exclusive · 寬度非等比')
 
   // Trapezoid
   svg.append('path')
@@ -156,7 +156,7 @@ function render(w: number, _h: number) {
     .style('letter-spacing', '0.14em')
     .style('text-transform', 'uppercase')
     .style('fill', C.inkFaint)
-    .text('UNSLICEABLE MID-STEPS · GLOBAL COUNTS (attribution bug — see note below)')
+    .text('UNSLICEABLE MID-STEPS · GLOBAL COUNTS · 含批量內部解算，無法依工具切片')
 
   sim.globalContext.forEach((gc, i) => {
     const gx = labelLeft + i * ((w - labelLeft - 20) / sim.globalContext.length)

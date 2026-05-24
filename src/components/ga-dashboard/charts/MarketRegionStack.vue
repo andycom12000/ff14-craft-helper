@@ -4,7 +4,7 @@ import * as d3 from 'd3'
 import { useD3Resize } from '@/composables/useD3Resize'
 import { useTooltip } from '@/composables/useTooltip'
 import type { MarketRegionRow } from '@/types/ga-snapshot'
-import { C } from '@/components/ga-dashboard/palette'
+import { C, regionColor } from '@/components/ga-dashboard/palette'
 
 const props = defineProps<{ data: MarketRegionRow[] }>()
 const root = ref<HTMLDivElement | null>(null)
@@ -50,14 +50,14 @@ function render(w: number, _h: number) {
 
     let cumX = 0
 
-    // notset segment (grey, 0.5 opacity)
+    // notset segment — neutral, the faintest (historical events, no dim value)
     const notsetW = x(d.notset ?? 0)
     svg.append('rect')
       .attr('x', margin.left + cumX).attr('y', y)
       .attr('height', bh).attr('rx', 2)
       .attr('width', 0)
-      .attr('fill', C.inkFaint)
-      .attr('fill-opacity', 0.5)
+      .attr('fill', regionColor.unset)
+      .attr('fill-opacity', 0.4)
       .style('cursor', 'pointer')
       .on('mouseenter', function (ev: MouseEvent) {
         tip.show(`
@@ -69,40 +69,41 @@ function render(w: number, _h: number) {
       })
       .on('mousemove', function (ev: MouseEvent) { tip.move(ev) })
       .on('mouseleave', function () { tip.hide() })
-      .transition().duration(600).ease(d3.easeCubicOut)
+      .transition().duration(220).ease(d3.easeCubicOut)
       .attr('width', notsetW)
     cumX += notsetW
 
-    // unset segment (gold)
+    // unset segment — neutral, brighter than notset (resolved, pre-onboarding)
     const unsetW = x(d.unset ?? 0)
     svg.append('rect')
       .attr('x', margin.left + cumX).attr('y', y)
       .attr('height', bh).attr('rx', 2)
       .attr('width', 0)
-      .attr('fill', C.gold)
+      .attr('fill', regionColor.unset)
+      .attr('fill-opacity', 0.85)
       .style('cursor', 'pointer')
       .on('mouseenter', function (ev: MouseEvent) {
         tip.show(`
           <strong>${d.event}</strong>
           <div class="row"><span>(unset)</span><span>${fmt(d.unset ?? 0)}</span></div>
           <div class="row"><span>Share</span><span>${total > 0 ? ((d.unset ?? 0) / total * 100).toFixed(1) : '0.0'}%</span></div>
-          <div style="margin-top:6px;color:${C.gold};font-size:11.5px;font-style:italic">PR #40 live · pre-onboarding</div>
+          <div style="margin-top:6px;color:${C.inkMuted};font-size:11.5px;font-style:italic">PR #40 live · pre-onboarding</div>
         `, ev)
       })
       .on('mousemove', function (ev: MouseEvent) { tip.move(ev) })
       .on('mouseleave', function () { tip.hide() })
-      .transition().duration(600).ease(d3.easeCubicOut).delay(600)
+      .transition().duration(220).ease(d3.easeCubicOut)
       .attr('width', unsetW)
     cumX += unsetW
 
-    // cht segment (cocoa)
+    // cht segment (gold — matches the region ledger)
     if ((d.cht ?? 0) > 0) {
       const chtW = x(d.cht ?? 0)
       svg.append('rect')
         .attr('x', margin.left + cumX).attr('y', y)
         .attr('height', bh).attr('rx', 2)
         .attr('width', 0)
-        .attr('fill', C.cocoa)
+        .attr('fill', regionColor.cht)
         .style('cursor', 'pointer')
         .on('mouseenter', function (ev: MouseEvent) {
           tip.show(`
@@ -113,19 +114,19 @@ function render(w: number, _h: number) {
         })
         .on('mousemove', function (ev: MouseEvent) { tip.move(ev) })
         .on('mouseleave', function () { tip.hide() })
-        .transition().duration(600).ease(d3.easeCubicOut).delay(1200)
+        .transition().duration(220).ease(d3.easeCubicOut)
         .attr('width', chtW)
       cumX += chtW
     }
 
-    // intl segment (success/green)
+    // intl segment (strawberry — matches the region ledger)
     if ((d.intl ?? 0) > 0) {
       const intlW = x(d.intl ?? 0)
       svg.append('rect')
         .attr('x', margin.left + cumX).attr('y', y)
         .attr('height', bh).attr('rx', 2)
         .attr('width', 0)
-        .attr('fill', C.success)
+        .attr('fill', regionColor.intl)
         .style('cursor', 'pointer')
         .on('mouseenter', function (ev: MouseEvent) {
           tip.show(`
@@ -136,7 +137,7 @@ function render(w: number, _h: number) {
         })
         .on('mousemove', function (ev: MouseEvent) { tip.move(ev) })
         .on('mouseleave', function () { tip.hide() })
-        .transition().duration(600).ease(d3.easeCubicOut).delay(1200)
+        .transition().duration(220).ease(d3.easeCubicOut)
         .attr('width', intlW)
     }
 
@@ -154,7 +155,7 @@ function render(w: number, _h: number) {
 
   // notset swatch
   lg.append('rect').attr('width', 12).attr('height', 12).attr('y', -2)
-    .attr('fill', C.inkFaint).attr('fill-opacity', 0.5).attr('rx', 2)
+    .attr('fill', regionColor.unset).attr('fill-opacity', 0.4).attr('rx', 2)
   lg.append('text').attr('x', 18).attr('y', 8)
     .style('font-family', "'Fira Code', monospace")
     .style('font-size', '10.5px')
@@ -164,37 +165,37 @@ function render(w: number, _h: number) {
 
   // unset swatch
   lg.append('rect').attr('width', 12).attr('height', 12).attr('x', 200).attr('y', -2)
-    .attr('fill', C.gold).attr('rx', 2)
+    .attr('fill', regionColor.unset).attr('fill-opacity', 0.85).attr('rx', 2)
   lg.append('text').attr('x', 218).attr('y', 8)
     .style('font-family', "'Fira Code', monospace")
     .style('font-size', '10.5px')
     .style('letter-spacing', '0.14em')
-    .style('fill', C.gold)
+    .style('fill', C.inkMuted)
     .text('(UNSET) · PR #40 live')
 
   // optional cht swatch
   if (hasCht.value) {
     lg.append('rect').attr('width', 12).attr('height', 12).attr('x', 400).attr('y', -2)
-      .attr('fill', C.cocoa).attr('rx', 2)
+      .attr('fill', regionColor.cht).attr('rx', 2)
     lg.append('text').attr('x', 418).attr('y', 8)
       .style('font-family', "'Fira Code', monospace")
       .style('font-size', '10.5px')
       .style('letter-spacing', '0.14em')
-      .style('fill', C.cocoa)
-      .text('cht')
+      .style('fill', regionColor.cht)
+      .text('cht · 台服')
   }
 
   // optional intl swatch
   if (hasIntl.value) {
     const intlX = hasCht.value ? 470 : 400
     lg.append('rect').attr('width', 12).attr('height', 12).attr('x', intlX).attr('y', -2)
-      .attr('fill', C.success).attr('rx', 2)
+      .attr('fill', regionColor.intl).attr('rx', 2)
     lg.append('text').attr('x', intlX + 18).attr('y', 8)
       .style('font-family', "'Fira Code', monospace")
       .style('font-size', '10.5px')
       .style('letter-spacing', '0.14em')
-      .style('fill', C.success)
-      .text('intl')
+      .style('fill', regionColor.intl)
+      .text('intl · 國際服')
   }
 }
 

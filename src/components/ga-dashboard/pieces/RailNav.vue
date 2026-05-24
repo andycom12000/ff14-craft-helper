@@ -71,7 +71,6 @@ onBeforeUnmount(() => {
   background: oklch(0.16 0.014 60 / 0.94);
   border-right: 1px solid oklch(0.42 0.035 60 / 0.22);
   overflow: hidden;
-  transition: width 220ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .rail-nav:hover, .rail-nav:focus-within { width: 248px; }
 .rail-nav ul {
@@ -87,8 +86,7 @@ onBeforeUnmount(() => {
   text-decoration: none;
   color: oklch(0.66 0.024 68);
   padding: 16px 0;
-  border-left: 2px solid transparent;
-  transition: color 160ms ease-out, background 160ms ease-out, border-left-color 160ms ease-out;
+  transition: color 160ms ease-out, background 160ms ease-out;
   cursor: pointer;
 }
 .rail-nav a:hover {
@@ -97,8 +95,7 @@ onBeforeUnmount(() => {
 }
 .rail-nav a.active {
   color: oklch(0.78 0.15 72);
-  background: oklch(0.78 0.15 72 / 0.08);
-  border-left-color: oklch(0.78 0.15 72);
+  background: oklch(0.78 0.15 72 / 0.10);
 }
 .rail-nav .num {
   font-family: 'Cormorant Garamond', serif;

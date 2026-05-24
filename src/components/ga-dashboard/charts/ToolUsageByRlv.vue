@@ -120,17 +120,21 @@ function render(w: number, _h: number) {
         .text(fmtInt(m.v))
     })
 
-    // --- Right: italic "偏向 X" callout for dominant tool in this bucket
-    const dom = metrics
-      .map((m, i) => ({ idx: i, ratio: m.v / m.max }))
-      .reduce((a, b) => (a.ratio > b.ratio ? a : b)).idx
-    const domLabels = ['偏向模擬器', '偏向批量最佳化', '偏向 BOM 採購']
-    svg.append('text')
-      .attr('x', w - 12).attr('y', y + 5).attr('text-anchor', 'end')
-      .style('font-family', "'Cormorant Garamond', 'Noto Serif TC', serif")
-      .style('font-style', 'italic').style('font-weight', 500)
-      .style('font-size', '17px').style('fill', metrics[dom].c)
-      .text(domLabels[dom])
+    // --- Right: italic "偏向 X" callout — only when the row actually has data.
+    // An all-zero bucket has no dominant tool; a confident verdict there is noise.
+    const rowTotal = row.simulatorCount + row.batchTargetCount + row.bomTargetCount
+    if (rowTotal > 0) {
+      const dom = metrics
+        .map((m, i) => ({ idx: i, ratio: m.max > 0 ? m.v / m.max : 0 }))
+        .reduce((a, b) => (a.ratio > b.ratio ? a : b)).idx
+      const domLabels = ['偏向模擬器', '偏向批量最佳化', '偏向 BOM 採購']
+      svg.append('text')
+        .attr('x', w - 12).attr('y', y + 5).attr('text-anchor', 'end')
+        .style('font-family', "'Cormorant Garamond', 'Noto Serif TC', serif")
+        .style('font-style', 'italic').style('font-weight', 500)
+        .style('font-size', '17px').style('fill', metrics[dom].c)
+        .text(domLabels[dom])
+    }
 
     // --- Row separator
     if (i < data.length - 1) {
