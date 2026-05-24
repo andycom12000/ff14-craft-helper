@@ -126,7 +126,7 @@ export interface OnboardingStep {
 
 /** Chart #3 — Tool usage row per RLV bucket */
 export interface ToolUsageRow {
-  /** RLV range label, per 100 RLV: '< 600' | '600–699' | '700–799' | '800+'. */
+  /** Expansion-aligned RLV range label: '≤300' | '301–510' | '511–600' | '601–680' | '681+'. */
   bucket: string
   /** Total times any recipe in this bucket was opened (recipe_select). */
   selectCount: number
@@ -141,7 +141,7 @@ export interface ToolUsageRow {
 
 /** Chart #4 — Taxonomy bundle */
 export interface RlvBucket {
-  bucket: '< 600' | '600-700' | '700-800' | '800+' // wider buckets vs Chart #3
+  bucket: '≤300' | '301–510' | '511–600' | '601–680' | '681+' // expansion-aligned RLV buckets
   events: number // recipe_select count (rlv lives on recipe_select, not solver_start)
 }
 
