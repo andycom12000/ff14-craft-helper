@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-05-24T06:13:35.168Z",
+  "generatedAt": "2026-05-24T06:21:09.163Z",
   "propertyId": "527587379",
   "windows": {
     "7d": {
@@ -17,17 +17,17 @@
           "returningPct": 0.45223880597014926
         },
         "solver": {
-          "starts": 4267,
+          "starts": 4269,
           "completes": 4128,
           "fails": 130,
-          "completePct": 0.9674244199671901
+          "completePct": 0.9669711876317639
         },
         "batch": {
-          "starts": 573,
+          "starts": 574,
           "completes": 490,
           "fails": 76,
           "cancelled": 2,
-          "completePct": 0.8551483420593369
+          "completePct": 0.8536585365853658
         },
         "bom": {
           "calculates": 250,
@@ -44,22 +44,22 @@
           "path": "/batch",
           "title": "批量製作",
           "family": "craft",
-          "views": 1238,
+          "views": 1239,
           "users": 291,
-          "sessions": 657,
-          "engagement": 0.837138508371385,
-          "bounce": 0.1628614916286149,
-          "avgSession": 11.684931506849315
+          "sessions": 658,
+          "engagement": 0.8358662613981763,
+          "bounce": 0.1641337386018237,
+          "avgSession": 11.667173252279635
         },
         {
           "path": "/simulator",
           "title": "製作模擬",
           "family": "craft",
-          "views": 1169,
+          "views": 1170,
           "users": 233,
           "sessions": 551,
-          "engagement": 0.838475499092559,
-          "bounce": 0.16152450090744103,
+          "engagement": 0.8402903811252269,
+          "bounce": 0.15970961887477314,
           "avgSession": 7.809437386569873
         },
         {
@@ -88,12 +88,12 @@
           "path": "/bom",
           "title": "購物清單",
           "family": "craft",
-          "views": 753,
+          "views": 755,
           "users": 180,
           "sessions": 337,
           "engagement": 0.8249258160237388,
           "bounce": 0.17507418397626112,
-          "avgSession": 12.71513353115727
+          "avgSession": 12.741839762611276
         },
         {
           "path": "/company-craft",
@@ -203,7 +203,7 @@
           "sessions": 1854,
           "engagement": 0.6407766990291263,
           "bounce": 0.3592233009708738,
-          "avgSession": 85.74271844660194
+          "avgSession": 85.76429341963322
         },
         {
           "path": "/ff14-craft-helper/",
@@ -306,7 +306,7 @@
       "solverFunnel": [
         {
           "step": "solver_start",
-          "count": 4267,
+          "count": 4269,
           "tone": "neutral"
         },
         {
@@ -328,7 +328,7 @@
         },
         {
           "step": "batch_start",
-          "count": 573,
+          "count": 574,
           "tone": "neutral"
         },
         {
@@ -340,7 +340,7 @@
       "simulatorFunnel": {
         "entry": {
           "label": "/simulator page_view",
-          "count": 1169,
+          "count": 1170,
           "users": 233
         },
         "macroCopy": {
@@ -355,7 +355,7 @@
           },
           {
             "label": "solver_start (any page)",
-            "count": 4267
+            "count": 4269
           },
           {
             "label": "solver_complete (any page)",
@@ -429,26 +429,26 @@
         },
         {
           "metric": "TTFB",
-          "good": 1375,
+          "good": 1377,
           "ni": 90,
           "poor": 20
         },
         {
           "metric": "CLS",
-          "good": 1142,
+          "good": 1143,
           "ni": 49,
           "poor": 10
         },
         {
           "metric": "FCP",
           "good": 976,
-          "ni": 41,
+          "ni": 42,
           "poor": 21
         },
         {
           "metric": "LCP",
           "good": 931,
-          "ni": 35,
+          "ni": 36,
           "poor": 25
         }
       ],
@@ -468,25 +468,25 @@
         {
           "event": "universalis_fetch",
           "family": "market",
-          "count": 9960,
+          "count": 9966,
           "users": 187
         },
         {
           "event": "web_vitals",
           "family": "meta",
-          "count": 4428,
+          "count": 4433,
           "users": 286
         },
         {
           "event": "page_view",
           "family": "meta",
-          "count": 4238,
+          "count": 4242,
           "users": 290
         },
         {
           "event": "solver_start",
           "family": "craft",
-          "count": 3815,
+          "count": 3817,
           "users": 141
         },
         {
@@ -522,7 +522,7 @@
         {
           "event": "scroll",
           "family": "meta",
-          "count": 1120,
+          "count": 1121,
           "users": 270
         },
         {
@@ -552,13 +552,13 @@
         {
           "event": "wasm_load_ms",
           "family": "meta",
-          "count": 521,
+          "count": 522,
           "users": 91
         },
         {
           "event": "worker_pool_init_ms",
           "family": "meta",
-          "count": 521,
+          "count": 522,
           "users": 91
         },
         {
@@ -570,13 +570,13 @@
         {
           "event": "bom_breakdown_expand",
           "family": "craft",
-          "count": 460,
+          "count": 461,
           "users": 36
         },
         {
           "event": "batch_optimization_start",
           "family": "craft",
-          "count": 455,
+          "count": 456,
           "users": 105
         },
         {
@@ -594,13 +594,13 @@
         {
           "event": "gearset_sheet_open",
           "family": "craft",
-          "count": 366,
+          "count": 367,
           "users": 91
         },
         {
           "event": "user_engagement",
           "family": "meta",
-          "count": 316,
+          "count": 317,
           "users": 164
         },
         {
@@ -619,15 +619,15 @@
       "returningPages": [
         {
           "path": "/simulator",
-          "returningViews": 962,
+          "returningViews": 963,
           "returningUsers": 152,
-          "engagement": 0.804147465437788
+          "engagement": 0.8064516129032258
         },
         {
           "path": "/batch",
-          "returningViews": 935,
+          "returningViews": 936,
           "returningUsers": 178,
-          "engagement": 0.802
+          "engagement": 0.8003992015968064
         },
         {
           "path": "/gearset",
@@ -637,7 +637,7 @@
         },
         {
           "path": "/bom",
-          "returningViews": 602,
+          "returningViews": 604,
           "returningUsers": 104,
           "engagement": 0.7611336032388664
         },
@@ -689,7 +689,7 @@
           "name": "Batch prep → Optimize",
           "label": "batch_add_recipe → batch_opt_start",
           "from": 1676,
-          "to": 573,
+          "to": 574,
           "flag": "warn",
           "note": "轉換待觀察"
         },
@@ -707,22 +707,22 @@
           "event": "solver_start",
           "notset": 2162,
           "unset": 174,
-          "cht": 18,
-          "intl": 1894
+          "cht": 19,
+          "intl": 1895
         },
         {
           "event": "solver_complete",
           "notset": 2143,
           "unset": 178,
-          "cht": 17,
-          "intl": 1770
+          "cht": 18,
+          "intl": 1771
         },
         {
           "event": "batch_optimization_start",
           "notset": 301,
           "unset": 33,
           "cht": 4,
-          "intl": 233
+          "intl": 234
         },
         {
           "event": "batch_optimization_complete",
@@ -1024,10 +1024,10 @@
             "isExpert": false,
             "isCollectable": false,
             "starts": 4144,
-            "completes": 4114,
+            "completes": 4116,
             "macroCopies": 66,
-            "completeRate": 0.9927606177606177,
-            "macroCopyRate": 0.016042780748663103
+            "completeRate": 0.9932432432432432,
+            "macroCopyRate": 0.016034985422740525
           },
           {
             "isExpert": false,
@@ -1066,7 +1066,7 @@
           {
             "kind": "quick",
             "starts": 415,
-            "completeRate": 0.01927710843373494
+            "completeRate": 0.016867469879518072
           },
           {
             "kind": "normal",
@@ -1088,9 +1088,9 @@
       "byRegion": {
         "activeUsers": {
           "cht": {
-            "value": 15,
+            "value": 14,
             "sparkPct": 1,
-            "secondary": "新 0 · 回訪 15"
+            "secondary": "新 0 · 回訪 14"
           },
           "intl": {
             "value": 199,
@@ -1105,14 +1105,14 @@
         },
         "solver": {
           "cht": {
-            "value": 18,
-            "secondary": "17 完成",
-            "sparkPct": 0.9444444444444444
+            "value": 19,
+            "secondary": "18 完成",
+            "sparkPct": 0.9473684210526315
           },
           "intl": {
-            "value": 1894,
-            "secondary": "1770 完成",
-            "sparkPct": 0.9345300950369588
+            "value": 1895,
+            "secondary": "1771 完成",
+            "sparkPct": 0.9345646437994723
           },
           "unset": {
             "value": 2355,
@@ -1127,9 +1127,9 @@
             "sparkPct": 0.5
           },
           "intl": {
-            "value": 233,
+            "value": 234,
             "secondary": "225 完成",
-            "sparkPct": 0.9656652360515021
+            "sparkPct": 0.9615384615384616
           },
           "unset": {
             "value": 336,
@@ -1194,7 +1194,7 @@
         },
         {
           "bucket": "601–680",
-          "selectCount": 3,
+          "selectCount": 2,
           "simulatorCount": 1,
           "batchTargetCount": 0,
           "bomTargetCount": 10
@@ -1222,17 +1222,17 @@
           "returningPct": 0.2698684962835906
         },
         "solver": {
-          "starts": 9919,
+          "starts": 9921,
           "completes": 9623,
           "fails": 245,
-          "completePct": 0.9701582820848876
+          "completePct": 0.9699627053724423
         },
         "batch": {
-          "starts": 1382,
+          "starts": 1383,
           "completes": 1186,
           "fails": 159,
           "cancelled": 9,
-          "completePct": 0.8581765557163531
+          "completePct": 0.8575560375994216
         },
         "bom": {
           "calculates": 487,
@@ -1260,22 +1260,22 @@
           "path": "/batch",
           "title": "批量製作",
           "family": "craft",
-          "views": 3159,
+          "views": 3160,
           "users": 721,
-          "sessions": 1595,
-          "engagement": 0.8996865203761756,
-          "bounce": 0.10031347962382445,
-          "avgSession": 16.470219435736677
+          "sessions": 1596,
+          "engagement": 0.8991228070175439,
+          "bounce": 0.10087719298245613,
+          "avgSession": 16.459899749373434
         },
         {
           "path": "/simulator",
           "title": "製作模擬",
           "family": "craft",
-          "views": 2462,
+          "views": 2463,
           "users": 572,
           "sessions": 1298,
-          "engagement": 0.8921417565485362,
-          "bounce": 0.10785824345146379,
+          "engagement": 0.8929121725731896,
+          "bounce": 0.10708782742681047,
           "avgSession": 12.684899845916796
         },
         {
@@ -1293,12 +1293,12 @@
           "path": "/bom",
           "title": "購物清單",
           "family": "craft",
-          "views": 1713,
+          "views": 1715,
           "users": 535,
           "sessions": 923,
           "engagement": 0.8894907908992417,
           "bounce": 0.1105092091007584,
-          "avgSession": 16.175514626218852
+          "avgSession": 16.185265438786566
         },
         {
           "path": "/timer",
@@ -1452,7 +1452,7 @@
           "sessions": 3980,
           "engagement": 0.6957286432160804,
           "bounce": 0.3042713567839196,
-          "avgSession": 100.28819095477387
+          "avgSession": 100.29824120603016
         },
         {
           "path": "/ff14-craft-helper/",
@@ -1555,7 +1555,7 @@
       "solverFunnel": [
         {
           "step": "solver_start",
-          "count": 9919,
+          "count": 9921,
           "tone": "neutral"
         },
         {
@@ -1577,7 +1577,7 @@
         },
         {
           "step": "batch_start",
-          "count": 1382,
+          "count": 1383,
           "tone": "neutral"
         },
         {
@@ -1589,7 +1589,7 @@
       "simulatorFunnel": {
         "entry": {
           "label": "/simulator page_view",
-          "count": 2462,
+          "count": 2463,
           "users": 572
         },
         "macroCopy": {
@@ -1604,7 +1604,7 @@
           },
           {
             "label": "solver_start (any page)",
-            "count": 9919
+            "count": 9921
           },
           {
             "label": "solver_complete (any page)",
@@ -1693,26 +1693,26 @@
         },
         {
           "metric": "TTFB",
-          "good": 3195,
+          "good": 3197,
           "ni": 162,
           "poor": 43
         },
         {
           "metric": "CLS",
-          "good": 2916,
+          "good": 2917,
           "ni": 132,
           "poor": 30
         },
         {
           "metric": "FCP",
           "good": 2667,
-          "ni": 126,
+          "ni": 127,
           "poor": 68
         },
         {
           "metric": "LCP",
           "good": 2531,
-          "ni": 113,
+          "ni": 114,
           "poor": 86
         }
       ],
@@ -1732,25 +1732,25 @@
         {
           "event": "universalis_fetch",
           "family": "market",
-          "count": 15343,
+          "count": 15349,
           "users": 275
         },
         {
           "event": "web_vitals",
           "family": "meta",
-          "count": 8793,
+          "count": 8798,
           "users": 437
         },
         {
           "event": "page_view",
           "family": "meta",
-          "count": 8036,
+          "count": 8040,
           "users": 446
         },
         {
           "event": "solver_start",
           "family": "craft",
-          "count": 7967,
+          "count": 7969,
           "users": 211
         },
         {
@@ -1780,7 +1780,7 @@
         {
           "event": "scroll",
           "family": "meta",
-          "count": 2160,
+          "count": 2161,
           "users": 403
         },
         {
@@ -1798,7 +1798,7 @@
         {
           "event": "batch_optimization_start",
           "family": "craft",
-          "count": 991,
+          "count": 992,
           "users": 169
         },
         {
@@ -1810,7 +1810,7 @@
         {
           "event": "gearset_sheet_open",
           "family": "craft",
-          "count": 746,
+          "count": 747,
           "users": 172
         },
         {
@@ -1822,7 +1822,7 @@
         {
           "event": "user_engagement",
           "family": "meta",
-          "count": 730,
+          "count": 731,
           "users": 272
         },
         {
@@ -1852,19 +1852,19 @@
         {
           "event": "wasm_load_ms",
           "family": "meta",
-          "count": 521,
+          "count": 522,
           "users": 91
         },
         {
           "event": "worker_pool_init_ms",
           "family": "meta",
-          "count": 521,
+          "count": 522,
           "users": 91
         },
         {
           "event": "bom_breakdown_expand",
           "family": "craft",
-          "count": 460,
+          "count": 461,
           "users": 36
         },
         {
@@ -1883,15 +1883,15 @@
       "returningPages": [
         {
           "path": "/batch",
-          "returningViews": 1951,
+          "returningViews": 1952,
           "returningUsers": 305,
-          "engagement": 0.846309403437816
+          "engagement": 0.8454545454545455
         },
         {
           "path": "/simulator",
-          "returningViews": 1688,
+          "returningViews": 1689,
           "returningUsers": 258,
-          "engagement": 0.8398576512455516
+          "engagement": 0.8410438908659549
         },
         {
           "path": "/gearset",
@@ -1907,7 +1907,7 @@
         },
         {
           "path": "/bom",
-          "returningViews": 1079,
+          "returningViews": 1081,
           "returningUsers": 203,
           "engagement": 0.8048289738430584
         },
@@ -1971,7 +1971,7 @@
           "name": "Batch prep → Optimize",
           "label": "batch_add_recipe → batch_opt_start",
           "from": 2933,
-          "to": 1382,
+          "to": 1383,
           "flag": "warn",
           "note": "轉換待觀察"
         },
@@ -1989,22 +1989,22 @@
           "event": "solver_start",
           "notset": 7814,
           "unset": 174,
-          "cht": 18,
-          "intl": 1894
+          "cht": 19,
+          "intl": 1895
         },
         {
           "event": "solver_complete",
           "notset": 7638,
           "unset": 178,
-          "cht": 17,
-          "intl": 1770
+          "cht": 18,
+          "intl": 1771
         },
         {
           "event": "batch_optimization_start",
           "notset": 1110,
           "unset": 33,
           "cht": 4,
-          "intl": 233
+          "intl": 234
         },
         {
           "event": "batch_optimization_complete",
@@ -2306,10 +2306,10 @@
             "isExpert": false,
             "isCollectable": false,
             "starts": 9796,
-            "completes": 9611,
+            "completes": 9609,
             "macroCopies": 66,
-            "completeRate": 0.9811147407104941,
-            "macroCopyRate": 0.006867131411923837
+            "completeRate": 0.9809105757452021,
+            "macroCopyRate": 0.006868560724320949
           },
           {
             "isExpert": false,
@@ -2347,8 +2347,8 @@
           },
           {
             "kind": "quick",
-            "starts": 415,
-            "completeRate": 0.01927710843373494
+            "starts": 416,
+            "completeRate": 0.019230769230769232
           },
           {
             "kind": "normal",
@@ -2357,7 +2357,7 @@
           },
           {
             "kind": "",
-            "starts": 92,
+            "starts": 93,
             "completeRate": 1
           },
           {
@@ -2370,9 +2370,9 @@
       "byRegion": {
         "activeUsers": {
           "cht": {
-            "value": 15,
+            "value": 14,
             "sparkPct": 1,
-            "secondary": "新 0 · 回訪 15"
+            "secondary": "新 0 · 回訪 14"
           },
           "intl": {
             "value": 199,
@@ -2388,13 +2388,13 @@
         "solver": {
           "cht": {
             "value": 18,
-            "secondary": "18 完成",
-            "sparkPct": 1
+            "secondary": "17 完成",
+            "sparkPct": 0.9444444444444444
           },
           "intl": {
             "value": 1894,
-            "secondary": "1771 完成",
-            "sparkPct": 0.9350580781414994
+            "secondary": "1770 完成",
+            "sparkPct": 0.9345300950369588
           },
           "unset": {
             "value": 8007,
@@ -2504,17 +2504,17 @@
           "returningPct": 0.253550762756444
         },
         "solver": {
-          "starts": 10903,
+          "starts": 10905,
           "completes": 10561,
           "fails": 291,
-          "completePct": 0.9686324864716133
+          "completePct": 0.9684548372306282
         },
         "batch": {
-          "starts": 1508,
+          "starts": 1509,
           "completes": 1287,
           "fails": 183,
           "cancelled": 10,
-          "completePct": 0.853448275862069
+          "completePct": 0.852882703777336
         },
         "bom": {
           "calculates": 550,
@@ -2542,22 +2542,22 @@
           "path": "/batch",
           "title": "批量製作",
           "family": "craft",
-          "views": 3621,
+          "views": 3622,
           "users": 768,
-          "sessions": 1743,
-          "engagement": 0.9059093516924842,
-          "bounce": 0.09409064830751578,
-          "avgSession": 18.832472748135398
+          "sessions": 1744,
+          "engagement": 0.9053899082568807,
+          "bounce": 0.09461009174311927,
+          "avgSession": 18.821674311926607
         },
         {
           "path": "/simulator",
           "title": "製作模擬",
           "family": "craft",
-          "views": 2843,
+          "views": 2844,
           "users": 615,
           "sessions": 1446,
-          "engagement": 0.8976486860304288,
-          "bounce": 0.10235131396957123,
+          "engagement": 0.8983402489626556,
+          "bounce": 0.1016597510373444,
           "avgSession": 13.6701244813278
         },
         {
@@ -2575,12 +2575,12 @@
           "path": "/bom",
           "title": "購物清單",
           "family": "craft",
-          "views": 2144,
+          "views": 2146,
           "users": 579,
           "sessions": 1030,
           "engagement": 0.9,
           "bounce": 0.1,
-          "avgSession": 18.805825242718445
+          "avgSession": 18.814563106796115
         },
         {
           "path": "/timer",
@@ -2635,7 +2635,7 @@
           "sessions": 4317,
           "engagement": 0.7134584201992125,
           "bounce": 0.2865415798007876,
-          "avgSession": 151.37804030576788
+          "avgSession": 151.38730599953672
         },
         {
           "path": "/admin/ga",
@@ -2837,7 +2837,7 @@
       "solverFunnel": [
         {
           "step": "solver_start",
-          "count": 10903,
+          "count": 10905,
           "tone": "neutral"
         },
         {
@@ -2859,7 +2859,7 @@
         },
         {
           "step": "batch_start",
-          "count": 1508,
+          "count": 1509,
           "tone": "neutral"
         },
         {
@@ -2871,7 +2871,7 @@
       "simulatorFunnel": {
         "entry": {
           "label": "/simulator page_view",
-          "count": 2843,
+          "count": 2844,
           "users": 615
         },
         "macroCopy": {
@@ -2886,7 +2886,7 @@
           },
           {
             "label": "solver_start (any page)",
-            "count": 10903
+            "count": 10905
           },
           {
             "label": "solver_complete (any page)",
@@ -3014,25 +3014,25 @@
         {
           "event": "universalis_fetch",
           "family": "market",
-          "count": 16095,
+          "count": 16101,
           "users": 280
         },
         {
           "event": "web_vitals",
           "family": "meta",
-          "count": 10240,
+          "count": 10245,
           "users": 443
         },
         {
           "event": "page_view",
           "family": "meta",
-          "count": 9514,
+          "count": 9518,
           "users": 454
         },
         {
           "event": "solver_start",
           "family": "craft",
-          "count": 8840,
+          "count": 8842,
           "users": 216
         },
         {
@@ -3050,7 +3050,7 @@
         {
           "event": "scroll",
           "family": "meta",
-          "count": 2745,
+          "count": 2746,
           "users": 410
         },
         {
@@ -3080,13 +3080,13 @@
         {
           "event": "user_engagement",
           "family": "meta",
-          "count": 1138,
+          "count": 1139,
           "users": 278
         },
         {
           "event": "batch_optimization_start",
           "family": "craft",
-          "count": 1074,
+          "count": 1075,
           "users": 175
         },
         {
@@ -3104,7 +3104,7 @@
         {
           "event": "gearset_sheet_open",
           "family": "craft",
-          "count": 779,
+          "count": 780,
           "users": 179
         },
         {
@@ -3134,19 +3134,19 @@
         {
           "event": "wasm_load_ms",
           "family": "meta",
-          "count": 521,
+          "count": 522,
           "users": 91
         },
         {
           "event": "worker_pool_init_ms",
           "family": "meta",
-          "count": 521,
+          "count": 522,
           "users": 91
         },
         {
           "event": "bom_breakdown_expand",
           "family": "craft",
-          "count": 460,
+          "count": 461,
           "users": 36
         },
         {
@@ -3165,15 +3165,15 @@
       "returningPages": [
         {
           "path": "/batch",
-          "returningViews": 2256,
+          "returningViews": 2257,
           "returningUsers": 311,
-          "engagement": 0.8558052434456929
+          "engagement": 0.8550046772684752
         },
         {
           "path": "/simulator",
-          "returningViews": 1962,
+          "returningViews": 1963,
           "returningUsers": 263,
-          "engagement": 0.8486140724946695
+          "engagement": 0.849680170575693
         },
         {
           "path": "/gearset",
@@ -3183,7 +3183,7 @@
         },
         {
           "path": "/bom",
-          "returningViews": 1405,
+          "returningViews": 1407,
           "returningUsers": 209,
           "engagement": 0.8245931283905967
         },
@@ -3259,7 +3259,7 @@
           "name": "Batch prep → Optimize",
           "label": "batch_add_recipe → batch_opt_start",
           "from": 3024,
-          "to": 1508,
+          "to": 1509,
           "flag": "warn",
           "note": "轉換待觀察"
         },
@@ -3359,7 +3359,7 @@
         {
           "source": "search",
           "label": "搜尋",
-          "eventCount": 640,
+          "eventCount": 639,
           "uniqueUsers": 69
         },
         {
@@ -3381,7 +3381,7 @@
           "type": "single_recipe_in_batch",
           "label": "批量頁只放單一配方",
           "gloss": "Used the batch optimizer for a single recipe — the simulator fits better.",
-          "eventCount": 41,
+          "eventCount": 42,
           "affectedUsers": 31
         },
         {
@@ -3658,9 +3658,9 @@
       "byRegion": {
         "activeUsers": {
           "cht": {
-            "value": 14,
+            "value": 15,
             "sparkPct": 1,
-            "secondary": "新 0 · 回訪 14"
+            "secondary": "新 0 · 回訪 15"
           },
           "intl": {
             "value": 199,
@@ -3676,13 +3676,13 @@
         "solver": {
           "cht": {
             "value": 18,
-            "secondary": "18 完成",
-            "sparkPct": 1
+            "secondary": "17 完成",
+            "sparkPct": 0.9444444444444444
           },
           "intl": {
             "value": 1894,
-            "secondary": "1771 完成",
-            "sparkPct": 0.9350580781414994
+            "secondary": "1770 完成",
+            "sparkPct": 0.9345300950369588
           },
           "unset": {
             "value": 8991,
