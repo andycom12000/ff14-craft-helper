@@ -47,6 +47,13 @@ const missingSet = computed(() => new Set(props.missingJobs ?? []))
 const currentSpecialistCount = computed(() => specialistCount(store.gearsets))
 const specialistOverLimit = computed(() => currentSpecialistCount.value > SPECIALIST_TOKEN_LIMIT)
 
+// Defer mounting the heavy 8×4 el-input-number grid until after the drawer's
+// open frame has painted. Mounting 32 el-input-number synchronously inside the
+// click handler forced ~290ms of Element Plus layout reflow → a poor INP
+// (~550ms measured on a throttled mid-tier profile). Initialised from `open` so
+// an already-open mount still renders the body immediately.
+const bodyReady = ref(props.open)
+
 const bulkOpen = ref(false)
 const bulkLevel = ref<number | undefined>(undefined)
 const bulkCraftsmanship = ref<number | undefined>(undefined)
@@ -104,16 +111,24 @@ watch(() => props.open, (open) => {
       focus_job: props.focusJob ?? '',
       missing_count: props.missingJobs?.length ?? 0,
     })
-    if (props.focusJob) {
-      nextTick(() => {
-        const el = document.querySelector(
-          `[data-gs-row="${props.focusJob}"] [data-gs-field="craftsmanship"] input`,
-        ) as HTMLInputElement | null
-        el?.focus()
-        el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      })
-    }
+    // Two rAFs: the first lets the drawer-open frame paint with just the shell,
+    // the second mounts the input grid in the next frame — off the interaction's
+    // critical path. Autofocus waits for the grid to exist.
+    bodyReady.value = false
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      bodyReady.value = true
+      if (props.focusJob) {
+        nextTick(() => {
+          const el = document.querySelector(
+            `[data-gs-row="${props.focusJob}"] [data-gs-field="craftsmanship"] input`,
+          ) as HTMLInputElement | null
+          el?.focus()
+          el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        })
+      }
+    }))
   } else {
+    bodyReady.value = false
     bulkOpen.value = false
   }
 })
@@ -232,8 +247,11 @@ onUnmounted(() => {
         </Transition>
       </div>
 
-      <!-- 8 jobs list -->
-      <div class="job-list">
+      <!-- 8 jobs list — deferred one frame after open so the 32 el-input-number
+           mount doesn't block the opening interaction (INP). Placeholder reserves
+           height so the drawer doesn't visibly resize while it fills in. -->
+      <div v-if="!bodyReady" class="job-list-placeholder" aria-hidden="true" />
+      <div v-else class="job-list">
         <div
           v-for="row in tableData"
           :key="row.job"
@@ -562,6 +580,12 @@ onUnmounted(() => {
   min-height: 0;
   padding: 2px;
   margin: 0 -2px;
+}
+/* Reserves roughly the grid's height for the ~1 frame before the inputs mount,
+   so the bottom-anchored drawer doesn't jump as the body fills in. */
+.job-list-placeholder {
+  flex: 1;
+  min-height: 420px;
 }
 .job-row {
   display: grid;
