@@ -28,7 +28,7 @@ import type { MarketData } from '@/api/universalis'
 import { solveCraftForRecipe, simulateCraftForRecipe } from '@/solver/api'
 import type { CraftStat, BiSReference, MateriaGrade } from '@/engine/materia'
 import {
-  SLOT_STRUCTURE, OVERMELD_SUCCESS_LADDER,
+  SLOT_STRUCTURE,
   expectedCountForOvermeldDepth, materiaForStat,
 } from '@/engine/materia'
 import {
