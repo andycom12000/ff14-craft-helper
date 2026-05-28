@@ -135,7 +135,6 @@ onUnmounted(() => {
         <el-menu-item index="/bom">
           <el-icon><List /></el-icon>
           <span>購物清單</span>
-          <span class="menu-badge menu-badge--beta">實驗中</span>
         </el-menu-item>
         <el-menu-item index="/company-craft">
           <el-icon><Tools /></el-icon>
@@ -983,6 +982,24 @@ html, body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* In-page beta pill — paired with section labels for features still
+ * stabilising. Toast-gold (warm "in progress") to match the sidebar's
+ * .menu-badge--beta semantics. Inline-flex so it sits next to a heading. */
+.beta-pill {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-toast-gold, oklch(0.78 0.14 78)) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--app-toast-gold, oklch(0.78 0.14 78)) 40%, transparent);
+  color: var(--app-toast-gold, oklch(0.78 0.14 78));
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.5px;
 }
 </style>
 

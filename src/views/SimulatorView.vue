@@ -523,7 +523,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
 
               <section class="cockpit-section cockpit-section--hq">
                 <header class="cockpit-section-head">
-                  <span class="cockpit-section-label">鑲嵌建議</span>
+                  <span class="cockpit-section-label">鑲嵌建議<span class="beta-pill" aria-label="實驗中">實驗中</span></span>
                 </header>
                 <MeldAdvisorCard :advice="meldAdvice" />
               </section>
@@ -582,7 +582,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
 
           <section class="rail-section">
             <header class="rail-section-head">
-              <span class="rail-section-label">鑲嵌建議</span>
+              <span class="rail-section-label">鑲嵌建議<span class="beta-pill" aria-label="實驗中">實驗中</span></span>
             </header>
             <MeldAdvisorCard :advice="meldAdvice" />
           </section>
@@ -763,7 +763,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
         </section>
 
         <section v-if="canSimulate && !gearsetBlocking" class="m-flat">
-          <h3 class="m-flat-title">鑲嵌建議</h3>
+          <h3 class="m-flat-title">鑲嵌建議<span class="beta-pill" aria-label="實驗中">實驗中</span></h3>
           <MeldAdvisorCard :advice="meldAdvice" />
         </section>
 

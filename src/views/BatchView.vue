@@ -588,7 +588,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
       class="batch-section meld-advisor-section"
     >
       <div class="section-header">
-        <h3 class="section-title">鑲嵌建議(依職業)</h3>
+        <h3 class="section-title">鑲嵌建議(依職業)<span class="beta-pill" aria-label="實驗中">實驗中</span></h3>
         <span class="section-desc">依職業列出建議鑲嵌的魔晶石</span>
       </div>
       <div class="meld-cards-grid">
