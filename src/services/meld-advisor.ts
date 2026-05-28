@@ -294,7 +294,7 @@ function allocateForStat(
   }
 
   // Phase B: overmeld slots, applying the fail ladder — one step per depth level.
-  while (remaining > 0 && cursor.overmeldDepth < OVERMELD_SUCCESS_LADDER.length) {
+  while (remaining > 0 && cursor.overmeldDepth < SLOT_STRUCTURE.overmeldSlots) {
     const placed = 1
     const expected = expectedCountForOvermeldDepth(cursor.overmeldDepth, placed)
     steps.push(emitStep(top, placed, expected, priceMap))

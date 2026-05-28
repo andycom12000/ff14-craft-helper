@@ -12,7 +12,7 @@ exports[`adviseMeld golden snapshot > produces a stable MeldAdvice shape for the
     },
     "feasible": false,
     "reason": "槽位不足,需換底裝",
-    "steps": 5,
+    "steps": 36,
     "totalGil": null,
   },
   "costOptimal": {
@@ -22,10 +22,9 @@ exports[`adviseMeld golden snapshot > produces a stable MeldAdvice shape for the
       "cp": 0,
       "craftsmanship": 1830,
     },
-    "feasible": false,
-    "reason": "槽位不足,需換底裝",
-    "steps": 5,
-    "totalGil": null,
+    "feasible": true,
+    "steps": 10,
+    "totalGil": 250148,
   },
   "gapGil": null,
 }
