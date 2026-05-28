@@ -75,6 +75,33 @@ export interface NoRecipeBomTarget extends BaseBomTarget {
 export type BomTarget = RecipeBomTarget | CompanyCraftProjectBomTarget | NoRecipeBomTarget
 
 /**
+ * A `company-craft-project` target is a "完成品 meta" row that links a workshop
+ * project to the BOM. It carries a placeholder `itemId: -1` (the project is
+ * not a single market item) and must NEVER reach Universalis — sending -1
+ * produces 404s, dead retry chips, and dead /market/-1 links. Use this
+ * helper everywhere a per-target market query is about to fire.
+ *
+ * Centralised so the rule lives in one place instead of sprinkling
+ * `t.kind !== 'company-craft-project'` (or worse: `itemId === -1` magic
+ * numbers) across stores, components, and composables.
+ */
+export function isMarketableTarget(t: BomTarget): boolean {
+  return t.kind !== 'company-craft-project'
+}
+
+/**
+ * Item-id-level counterpart to `isMarketableTarget`. Use at the boundary of
+ * `fetchPrices` / acquisition lookups so a placeholder id (the company-craft
+ * meta target's -1) can never reach Universalis or Garlandtools regardless
+ * of which intermediate path (targets union, flatMaterials default, caller-
+ * supplied list) the id arrived through. FFXIV item ids are always positive,
+ * so `id > 0` is a safe gate.
+ */
+export function isMarketableItemId(id: number): boolean {
+  return id > 0
+}
+
+/**
  * Up-converts a legacy target object (pre-discriminant-union) to a typed
  * `BomTarget`. If the object already has a `kind` field it is returned
  * as-is (idempotent). Exported for test access and future persist migration.
@@ -95,6 +122,20 @@ export function migrateLegacyTarget(t: unknown): BomTarget {
     recipeId: Number(recipeId),
     amountResult: obj.amountResult !== undefined ? Number(obj.amountResult) : undefined,
   }
+}
+
+/**
+ * Stable, unique identity key for a target row. `company-craft-project`
+ * targets share a placeholder `itemId` (-1) across multiple submarines, so
+ * itemId can't identify them — they are keyed by their unique `projectId`
+ * instead. recipe / no-recipe targets keep their itemId identity (the same
+ * craftable/raw item never appears twice). Used as the v-for `:key` and as
+ * the lookup key for `updateTargetQuantity` / `removeTarget`.
+ */
+export function targetKey(target: BomTarget): string {
+  return target.kind === 'company-craft-project'
+    ? `project:${target.projectId}`
+    : `item:${target.itemId}`
 }
 
 export interface MaterialNode {
@@ -517,8 +558,13 @@ export const useBomStore = defineStore('bom', () => {
     trackEvent('bom_target_add', base)
   }
 
-  function removeTarget(itemId: number) {
-    targets.value = targets.value.filter(t => t.itemId !== itemId)
+  /**
+   * Remove a target by its stable key (see `targetKey`). Keying by itemId
+   * would delete *every* company-craft-project at once since they share the
+   * placeholder itemId (-1); the key disambiguates them by projectId.
+   */
+  function removeTarget(key: string) {
+    targets.value = targets.value.filter(t => targetKey(t) !== key)
   }
 
   function removeProjectTarget(projectId: string) {
@@ -527,8 +573,13 @@ export const useBomStore = defineStore('bom', () => {
     )
   }
 
-  function updateTargetQuantity(itemId: number, quantity: number) {
-    const target = targets.value.find(t => t.itemId === itemId)
+  /**
+   * Update a single target's quantity by its stable key (see `targetKey`).
+   * Keying by itemId would always hit the first company-craft-project since
+   * they share the placeholder itemId (-1), leaving the others stuck at 1.
+   */
+  function updateTargetQuantity(key: string, quantity: number) {
+    const target = targets.value.find(t => targetKey(t) === key)
     if (target) {
       target.quantity = quantity
     }
@@ -559,8 +610,21 @@ export const useBomStore = defineStore('bom', () => {
    */
   async function fetchPrices(itemIds?: number[]): Promise<{ ok: boolean }> {
     const settings = useSettingsStore()
-    const ids = itemIds ?? flatMaterials.value.map((m) => m.itemId)
+    // Filter -1 (and any other non-positive placeholder) out *up front*.
+    // Without this, `flatMaterials` can contain the company-craft meta
+    // target's -1 (calculator falls back to treating it as a raw material
+    // when no workshop-projects entry resolves), and BomView passes that
+    // list straight in as `itemIds` — so the per-target skip below was not
+    // enough on its own. The batch would then 404 and flip every id in
+    // `ids` to status='failed', producing a "N 列查價失敗" totals alert.
+    const ids = (itemIds ?? flatMaterials.value.map((m) => m.itemId)).filter(
+      isMarketableItemId,
+    )
     for (const t of targets.value) {
+      // Skip company-craft-project meta targets — their placeholder itemId
+      // (-1) is not a real Universalis id; sending it produces 404s and
+      // poisons priceFetchStatus with a 'failed' entry that has no retry path.
+      if (!isMarketableTarget(t)) continue
       if (!ids.includes(t.itemId)) ids.push(t.itemId)
     }
     if (ids.length === 0) return { ok: true }
@@ -1003,6 +1067,10 @@ export const useBomStore = defineStore('bom', () => {
     if (!settings.dataCenter) return
 
     const targetIds = targets.value
+      // Exclude company-craft-project meta rows: their placeholder itemId
+      // (-1) 404s on Universalis and would render a permanent "跨服查價失敗
+      // 重試" chip on a row that has no market price by definition.
+      .filter(isMarketableTarget)
       .map((t) => t.itemId)
       .filter((id) => !crossWorldBestPriceMap.value.has(id))
 
