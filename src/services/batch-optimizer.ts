@@ -689,7 +689,8 @@ export async function runBatchOptimization(
     let materiaPrices: Map<number, MarketData>
     try {
       materiaPrices = await fetchMateriaPriceMap(priceSource)
-    } catch {
+    } catch (err) {
+      console.warn('[meld-advisor] fetchMateriaPriceMap failed, continuing with empty price map:', err)
       materiaPrices = new Map()
     }
     for (const [job, list] of recipesByJob) {

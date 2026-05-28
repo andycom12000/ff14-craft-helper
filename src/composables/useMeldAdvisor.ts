@@ -33,7 +33,8 @@ export function useMeldAdvisor(world: () => string) {
       )
       if (token.cancelled) return
       advice.value = out
-    } catch {
+    } catch (err) {
+      console.warn('[meld-advisor] advisor run failed:', err)
       if (!token.cancelled) advice.value = null
     }
   }
