@@ -1,6 +1,11 @@
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 import type { BatchException, BatchTarget, BatchResults, TodoItem, BuyFinishedDecision, BuffRecommendation, SelfCraftCandidate } from '@/stores/batch'
+import { adviseMeld } from '@/services/meld-advisor'
+import type { MeldAdvice } from '@/services/meld-advisor'
+import { fetchMateriaPriceMap } from '@/api/universalis'
+import { BIS_REFERENCE } from '@/engine/materia'
+import { calculateInitialQuality } from '@/engine/quality'
 import type { MaterialWithPrice, MaterialBase, QuickBuyMaterial, QuickBuyMaterialPricing } from '@/services/shopping-list'
 import { markRaw } from 'vue'
 import { waitForWasm } from '@/solver/worker'
@@ -671,7 +676,56 @@ export async function runBatchOptimization(
     })
   }
 
-  return { serverGroups, crystals, selfCraftCandidates, todoList, exceptions, buyFinishedItems, grandTotal, crossWorldCache, buffRecommendation, npcPurchaseCandidates }
+  // === Phase 6: Meld advice per job ===
+  const meldAdvicePerJob = new Map<string, MeldAdvice>()
+  const recipesByJob = new Map<string, RecipeOptimizeResult[]>()
+  for (const r of recipesToCraft) {
+    const list = recipesByJob.get(r.recipe.job) ?? []
+    list.push(r)
+    recipesByJob.set(r.recipe.job, list)
+  }
+
+  if (!isCancelled() && recipesByJob.size > 0) {
+    let materiaPrices: Map<number, MarketData>
+    try {
+      materiaPrices = await fetchMateriaPriceMap(settings.server)
+    } catch {
+      materiaPrices = new Map()
+    }
+    for (const [job, list] of recipesByJob) {
+      if (isCancelled()) break
+      const gs = getGearset(job)
+      if (!gs) continue
+      // Pick the binding recipe (highest progress, tiebreak by quality) to drive initialQuality.
+      const binding = list.reduce(
+        (best, r) =>
+          r.recipe.recipeLevelTable.progress > best.recipe.recipeLevelTable.progress
+            ? r
+            : best,
+        list[0],
+      )
+      // Re-compute initialQuality from the binding recipe's hqAmounts (parallel to recipe.ingredients).
+      const initialQuality = calculateInitialQuality(
+        binding.recipe.recipeLevelTable.quality,
+        binding.recipe.materialQualityFactor,
+        binding.recipe.ingredients.map((ing, i) => ({
+          amount: ing.amount,
+          hqAmount: binding.hqAmounts[i] ?? 0,
+          level: ing.level,
+          canHq: ing.canHq,
+        })),
+      )
+      const advice = await adviseMeld(
+        list.map(r => r.recipe),
+        gs,
+        materiaPrices,
+        { bisReference: BIS_REFERENCE, initialQuality, isCancelled },
+      )
+      meldAdvicePerJob.set(job, advice)
+    }
+  }
+
+  return { serverGroups, crystals, selfCraftCandidates, todoList, exceptions, buyFinishedItems, grandTotal, crossWorldCache, buffRecommendation, npcPurchaseCandidates, meldAdvicePerJob }
 }
 
 /**
