@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { Loading } from '@element-plus/icons-vue'
 import type { MeldAdvice } from '@/services/meld-advisor'
+import { formatGil } from '@/utils/format'
 
 const props = defineProps<{
   advice: MeldAdvice | 'loading' | 'stale' | null
@@ -14,11 +15,6 @@ const result = computed(() => {
   if (isLoading.value || isStale.value || isEmpty.value) return null
   return props.advice as MeldAdvice
 })
-
-function fmtGil(n: number | null): string {
-  if (n === null) return '—'
-  return n.toLocaleString('en-US')
-}
 </script>
 
 <template>
@@ -43,20 +39,20 @@ function fmtGil(n: number | null): string {
       <template v-if="result.alreadyMeetsThreshold">
         <p class="met-message">你的裝備已能保證 HQ，無需鑲嵌</p>
         <p class="bis-context">
-          往全 BiS 還需 <span class="amount-inline">{{ fmtGil(result.bis.totalGil) }}</span> gil（over-meld 空間）
+          往全 BiS 還需 <span class="amount-inline">{{ formatGil(result.bis.totalGil) }}</span> gil（over-meld 空間）
         </p>
       </template>
 
       <template v-else>
         <div class="gap-headline">
           <span class="gap-label">你能省</span>
-          <span class="gap-amount">{{ fmtGil(result.gapGil) }} gil</span>
+          <span class="gap-amount">{{ formatGil(result.gapGil) }} gil</span>
         </div>
 
         <div class="two-cards">
           <section class="card-side cost-optimal">
             <h4 class="side-title">最省錢達標</h4>
-            <p class="side-total">{{ fmtGil(result.costOptimal.totalGil) }} gil</p>
+            <p class="side-total">{{ formatGil(result.costOptimal.totalGil) }} gil</p>
             <p v-if="!result.costOptimal.feasible" class="infeasible-reason">
               {{ result.costOptimal.reason ?? '不可行' }}
             </p>
@@ -70,7 +66,7 @@ function fmtGil(n: number | null): string {
 
           <section class="card-side bis">
             <h4 class="side-title">全 BiS pentameld</h4>
-            <p class="side-total">{{ fmtGil(result.bis.totalGil) }} gil</p>
+            <p class="side-total">{{ formatGil(result.bis.totalGil) }} gil</p>
             <small class="caveat">含 overmeld 失敗耗損</small>
           </section>
         </div>
