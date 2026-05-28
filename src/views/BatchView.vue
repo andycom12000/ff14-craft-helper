@@ -21,12 +21,13 @@ import TodoList from '@/components/batch/TodoList.vue'
 import ExceptionList from '@/components/batch/ExceptionList.vue'
 import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
 import BuffRecommendationCard from '@/components/batch/BuffRecommendationCard.vue'
+import MeldAdvisorCard from '@/components/MeldAdvisorCard.vue'
 import FlowBreadcrumb from '@/components/common/FlowBreadcrumb.vue'
 import ConfirmNewBatch from '@/components/batch/ConfirmNewBatch.vue'
 import GearsetSheet from '@/components/gearset/GearsetSheet.vue'
 import BenchPanel from '@/components/batch/BenchPanel.vue'
 import { useStickyToolbarHeight } from '@/composables/useStickyToolbarHeight'
-import { JOB_NAMES } from '@/utils/jobs'
+import { JOB_NAMES, getJobLabel } from '@/utils/jobs'
 
 const batchStore = useBatchStore()
 const settings = useSettingsStore()
@@ -579,6 +580,27 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
         @reorder="handleTodoReorder"
         @request-new-batch="startNewBatch"
       />
+    </section>
+
+    <!-- Section: 鑲嵌建議 (per-job meld advisor) -->
+    <section
+      v-if="batchStore.results?.meldAdvicePerJob && batchStore.results.meldAdvicePerJob.size > 0"
+      class="batch-section meld-advisor-section"
+    >
+      <div class="section-header">
+        <h3 class="section-title">鑲嵌建議(依職業)</h3>
+        <span class="section-desc">依職業列出建議鑲嵌的魔晶石</span>
+      </div>
+      <div class="meld-cards-grid">
+        <div
+          v-for="[job, advice] in batchStore.results.meldAdvicePerJob"
+          :key="job"
+          class="meld-card-wrap"
+        >
+          <h4 class="meld-card-job">{{ getJobLabel(job) }}</h4>
+          <MeldAdvisorCard :advice="advice" />
+        </div>
+      </div>
     </section>
 
     <!-- Search Sidebar (shared) -->
@@ -1259,5 +1281,25 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
 }
 [data-theme="dark"] .batch-lvl-alert.is-soft .batch-lvl-alert-cta:hover {
   background: oklch(0.62 0.12 70 / 0.18);
+}
+
+/* Meld advisor section */
+.meld-advisor-section {
+  margin-top: 1.5rem;
+}
+.meld-cards-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 1024px) {
+  .meld-cards-grid {
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  }
+}
+.meld-card-job {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  color: var(--app-text-muted, var(--el-text-color-secondary));
 }
 </style>
