@@ -124,6 +124,20 @@ export function migrateLegacyTarget(t: unknown): BomTarget {
   }
 }
 
+/**
+ * Stable, unique identity key for a target row. `company-craft-project`
+ * targets share a placeholder `itemId` (-1) across multiple submarines, so
+ * itemId can't identify them — they are keyed by their unique `projectId`
+ * instead. recipe / no-recipe targets keep their itemId identity (the same
+ * craftable/raw item never appears twice). Used as the v-for `:key` and as
+ * the lookup key for `updateTargetQuantity` / `removeTarget`.
+ */
+export function targetKey(target: BomTarget): string {
+  return target.kind === 'company-craft-project'
+    ? `project:${target.projectId}`
+    : `item:${target.itemId}`
+}
+
 export interface MaterialNode {
   itemId: number
   /**
@@ -544,8 +558,13 @@ export const useBomStore = defineStore('bom', () => {
     trackEvent('bom_target_add', base)
   }
 
-  function removeTarget(itemId: number) {
-    targets.value = targets.value.filter(t => t.itemId !== itemId)
+  /**
+   * Remove a target by its stable key (see `targetKey`). Keying by itemId
+   * would delete *every* company-craft-project at once since they share the
+   * placeholder itemId (-1); the key disambiguates them by projectId.
+   */
+  function removeTarget(key: string) {
+    targets.value = targets.value.filter(t => targetKey(t) !== key)
   }
 
   function removeProjectTarget(projectId: string) {
@@ -554,8 +573,13 @@ export const useBomStore = defineStore('bom', () => {
     )
   }
 
-  function updateTargetQuantity(itemId: number, quantity: number) {
-    const target = targets.value.find(t => t.itemId === itemId)
+  /**
+   * Update a single target's quantity by its stable key (see `targetKey`).
+   * Keying by itemId would always hit the first company-craft-project since
+   * they share the placeholder itemId (-1), leaving the others stuck at 1.
+   */
+  function updateTargetQuantity(key: string, quantity: number) {
+    const target = targets.value.find(t => targetKey(t) === key)
     if (target) {
       target.quantity = quantity
     }

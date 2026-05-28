@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { flushPromises } from '@vue/test-utils'
-import { useBomStore, getPrice, migrateLegacyTarget } from '@/stores/bom'
+import { useBomStore, getPrice, migrateLegacyTarget, targetKey } from '@/stores/bom'
 import { useSettingsStore } from '@/stores/settings'
 import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
 import type { PriceInfo, MaterialNode } from '@/stores/bom'
@@ -714,6 +714,76 @@ describe('BomTarget migration', () => {
       quantity: 1,
     })
     expect(bom.targets).toHaveLength(2)
+  })
+
+  it('updateTargetQuantity updates the right company-craft-project by projectId', () => {
+    const bom = useBomStore()
+    bom.addTarget({
+      kind: 'company-craft-project',
+      projectId: 'proj-1',
+      itemId: -1,
+      name: 'Sub 1',
+      icon: '',
+      quantity: 1,
+    })
+    bom.addTarget({
+      kind: 'company-craft-project',
+      projectId: 'proj-2',
+      itemId: -1,
+      name: 'Sub 2',
+      icon: '',
+      quantity: 1,
+    })
+
+    // Updating the second project must not touch the first.
+    bom.updateTargetQuantity(targetKey(bom.targets[1]), 5)
+
+    expect(bom.targets[0].quantity).toBe(1)
+    expect(bom.targets[1].quantity).toBe(5)
+
+    // And the first can still be updated independently.
+    bom.updateTargetQuantity(targetKey(bom.targets[0]), 3)
+    expect(bom.targets[0].quantity).toBe(3)
+    expect(bom.targets[1].quantity).toBe(5)
+  })
+
+  it('removeTarget removes only the targeted company-craft-project, keeping the rest', () => {
+    const bom = useBomStore()
+    bom.addTarget({
+      kind: 'company-craft-project',
+      projectId: 'proj-1',
+      itemId: -1,
+      name: 'Sub 1',
+      icon: '',
+      quantity: 1,
+    })
+    bom.addTarget({
+      kind: 'company-craft-project',
+      projectId: 'proj-2',
+      itemId: -1,
+      name: 'Sub 2',
+      icon: '',
+      quantity: 1,
+    })
+
+    bom.removeTarget(targetKey(bom.targets[0]))
+
+    expect(bom.targets).toHaveLength(1)
+    expect(bom.targets[0]).toMatchObject({ kind: 'company-craft-project', projectId: 'proj-2' })
+  })
+
+  it('updateTargetQuantity / removeTarget still key recipe & no-recipe targets by itemId', () => {
+    const bom = useBomStore()
+    bom.addTarget({ kind: 'recipe', recipeId: 10, itemId: 100, name: 'A', icon: '', quantity: 1 })
+    bom.addTarget({ kind: 'no-recipe', itemId: 200, name: 'B', icon: '', quantity: 1 })
+
+    bom.updateTargetQuantity(targetKey(bom.targets[0]), 7)
+    expect(bom.targets.find(t => t.itemId === 100)!.quantity).toBe(7)
+    expect(bom.targets.find(t => t.itemId === 200)!.quantity).toBe(1)
+
+    bom.removeTarget(targetKey(bom.targets.find(t => t.itemId === 200)!))
+    expect(bom.targets).toHaveLength(1)
+    expect(bom.targets[0].itemId).toBe(100)
   })
 })
 
