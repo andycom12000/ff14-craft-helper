@@ -3,6 +3,7 @@ import { useMeldAdvisor } from '@/composables/useMeldAdvisor'
 import type { MeldAdvice } from '@/services/meld-advisor'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
+import type { MarketData } from '@/api/universalis'
 
 // Mock the heavy async dependencies
 vi.mock('@/api/universalis', () => ({
@@ -26,7 +27,7 @@ const stubGearset: GearsetStats = {
   craftsmanship: 4000,
   control: 3900,
   cp: 600,
-  specialist: false,
+  isSpecialist: false,
 }
 
 const stubAdvice: MeldAdvice = {
@@ -89,7 +90,7 @@ describe('useMeldAdvisor', () => {
     // First call hangs
     let resolveFirst!: () => void
     vi.mocked(fetchMateriaPriceMap).mockImplementationOnce(
-      () => new Promise<Map<number, never>>((res) => { resolveFirst = () => res(new Map()) }),
+      () => new Promise<Map<number, MarketData>>((res) => { resolveFirst = () => res(new Map()) }),
     )
     // Second call resolves immediately
     vi.mocked(fetchMateriaPriceMap).mockResolvedValueOnce(new Map())
