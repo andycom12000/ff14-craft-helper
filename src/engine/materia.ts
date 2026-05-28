@@ -62,3 +62,26 @@ export const SLOT_STRUCTURE = {
 export const OVERMELD_SUCCESS_LADDER: number[] = [
   0.17, 0.17, 0.10, 0.05,
 ]
+
+/**
+ * BiS reference stats (fully pentamelded community-standard set).
+ * One triple per patch, shared across crafter jobs (per-job variance
+ * is below the precision of ②-lite). Maintain this when a major patch
+ * lands or BiS gear changes. Snapshot test enforces a manual review on
+ * change.
+ *
+ * Last verified patch: 7.x (Dawntrail).
+ */
+export interface BiSReference {
+  patch: string
+  craftsmanship: number
+  control: number
+  cp: number
+}
+
+export const BIS_REFERENCE: BiSReference = {
+  patch: '7.x',
+  craftsmanship: 5050,
+  control: 5050,
+  cp: 691,
+}

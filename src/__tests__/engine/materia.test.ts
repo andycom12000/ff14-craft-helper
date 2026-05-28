@@ -3,6 +3,7 @@ import {
   MATERIA_GRADES,
   SLOT_STRUCTURE,
   OVERMELD_SUCCESS_LADDER,
+  BIS_REFERENCE,
 } from '@/engine/materia'
 
 describe('MATERIA_GRADES', () => {
@@ -47,5 +48,17 @@ describe('OVERMELD_SUCCESS_LADDER', () => {
         expect(OVERMELD_SUCCESS_LADDER[i]).toBeLessThanOrEqual(OVERMELD_SUCCESS_LADDER[i - 1])
       }
     }
+  })
+})
+
+describe('BIS_REFERENCE', () => {
+  it('matches the maintained reference (snapshot)', () => {
+    expect(BIS_REFERENCE).toMatchSnapshot()
+  })
+
+  it('has positive values for all three stats', () => {
+    expect(BIS_REFERENCE.craftsmanship).toBeGreaterThan(0)
+    expect(BIS_REFERENCE.control).toBeGreaterThan(0)
+    expect(BIS_REFERENCE.cp).toBeGreaterThan(0)
   })
 })
