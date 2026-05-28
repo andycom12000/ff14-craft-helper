@@ -26,7 +26,11 @@ import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 import type { MarketData } from '@/api/universalis'
 import { solveCraftForRecipe, simulateCraftForRecipe } from '@/solver/api'
-import type { CraftStat, BiSReference } from '@/engine/materia'
+import type { CraftStat, BiSReference, MateriaGrade } from '@/engine/materia'
+import {
+  SLOT_STRUCTURE, OVERMELD_SUCCESS_LADDER,
+  expectedCountForOvermeldDepth, materiaForStat,
+} from '@/engine/materia'
 import {
   computeBaseProgress,
   computeBaseQuality,
@@ -248,6 +252,139 @@ export async function confirmBreakpointWithSolver(
     }
   }
   return { deltaStats: delta, confirmedBySolver: false }
+}
+
+interface AllocationCursor {
+  guaranteedRemaining: number
+  overmeldDepth: number  // next overmeld slot index
+}
+
+function priceForItemNq(priceMap: MateriaPriceMap, itemId: number): number | null {
+  const md = priceMap.get(itemId)
+  if (!md) return null
+  if (md.minPriceNQ && md.minPriceNQ > 0) return md.minPriceNQ
+  if (md.minPriceHQ && md.minPriceHQ > 0) return md.minPriceHQ
+  return null
+}
+
+function allocateForStat(
+  stat: CraftStat,
+  delta: number,
+  cursor: AllocationCursor,
+  priceMap: MateriaPriceMap,
+): { steps: MeldStep[]; remaining: number } {
+  const steps: MeldStep[] = []
+  if (delta <= 0) return { steps, remaining: 0 }
+
+  // Always use the top grade for this stat — cap waste is ②-lite scope-out.
+  const grades = materiaForStat(stat)
+  if (grades.length === 0) return { steps, remaining: delta }
+  const top = grades[0]
+
+  let remaining = delta
+
+  // Phase A: guaranteed slots (100%, zero failure) — emit one batched step.
+  if (remaining > 0 && cursor.guaranteedRemaining > 0) {
+    const neededSlots = Math.ceil(remaining / top.value)
+    const usedSlots = Math.min(neededSlots, cursor.guaranteedRemaining)
+    const placed = usedSlots
+    steps.push(emitStep(top, placed, placed, priceMap))
+    cursor.guaranteedRemaining -= usedSlots
+    remaining -= usedSlots * top.value
+  }
+
+  // Phase B: overmeld slots, applying the fail ladder — one step per depth level.
+  while (remaining > 0 && cursor.overmeldDepth < OVERMELD_SUCCESS_LADDER.length) {
+    const placed = 1
+    const expected = expectedCountForOvermeldDepth(cursor.overmeldDepth, placed)
+    steps.push(emitStep(top, placed, expected, priceMap))
+    cursor.overmeldDepth += 1
+    remaining -= top.value
+  }
+
+  // If we ran out of slots, the caller marks the plan infeasible.
+  return { steps, remaining }
+}
+
+function emitStep(
+  grade: MateriaGrade,
+  placed: number,
+  expected: number,
+  priceMap: MateriaPriceMap,
+): MeldStep {
+  const unitPrice = priceForItemNq(priceMap, grade.itemId)
+  const subtotal = unitPrice === null ? null : Math.round(unitPrice * expected)
+  return {
+    stat: grade.stat,
+    grade: grade.grade,
+    placedCount: placed,
+    expectedCount: expected,
+    unitPrice,
+    subtotal,
+  }
+}
+
+/**
+ * Step 5 — translate a Δstats triple into a MeldPlan. Greedy big-grade-first,
+ * fill guaranteed slots, overflow into overmeld with fail-ladder cost.
+ * Returns feasible=false when total required slots exceed SLOT_STRUCTURE.
+ */
+export function translateDeltaToMeldPlan(
+  deltaStats: { craftsmanship: number; control: number; cp: number },
+  priceMap: MateriaPriceMap,
+): MeldPlan {
+  if (
+    deltaStats.craftsmanship === 0 &&
+    deltaStats.control === 0 &&
+    deltaStats.cp === 0
+  ) {
+    return {
+      feasible: true,
+      deltaStats,
+      steps: [],
+      totalGil: 0,
+      confirmedBySolver: false,
+    }
+  }
+
+  const cursor: AllocationCursor = {
+    guaranteedRemaining: SLOT_STRUCTURE.guaranteedSlots,
+    overmeldDepth: 0,
+  }
+
+  const allSteps: MeldStep[] = []
+  let infeasible = false
+
+  for (const stat of ['craftsmanship', 'control', 'cp'] as const) {
+    const { steps, remaining } = allocateForStat(stat, deltaStats[stat], cursor, priceMap)
+    allSteps.push(...steps)
+    if (remaining > 0) infeasible = true
+  }
+
+  if (infeasible) {
+    return {
+      feasible: false,
+      reason: '槽位不足,需換底裝',
+      deltaStats,
+      steps: allSteps,
+      totalGil: null,
+      confirmedBySolver: false,
+    }
+  }
+
+  let totalGil: number | null = 0
+  for (const s of allSteps) {
+    if (s.subtotal === null) { totalGil = null; break }
+    totalGil += s.subtotal
+  }
+
+  return {
+    feasible: true,
+    deltaStats,
+    steps: allSteps,
+    totalGil,
+    confirmedBySolver: false,
+  }
 }
 
 /** Stub — will be filled in over Tasks 6-12. */

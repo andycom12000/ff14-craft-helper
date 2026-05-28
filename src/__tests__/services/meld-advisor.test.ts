@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { MeldAdvice, MeldPlan, MeldStep } from '@/services/meld-advisor'
-import { adviseMeld, findBindingRecipe, solveProgressBreakpoint, solveQualityBreakpoint, confirmBreakpointWithSolver } from '@/services/meld-advisor'
+import { adviseMeld, findBindingRecipe, solveProgressBreakpoint, solveQualityBreakpoint, confirmBreakpointWithSolver, translateDeltaToMeldPlan } from '@/services/meld-advisor'
 import type { Recipe } from '@/stores/recipe'
-import { BIS_REFERENCE } from '@/engine/materia'
+import { BIS_REFERENCE, MATERIA_GRADES } from '@/engine/materia'
 
 const makeRecipe = (id: number, progress: number, quality: number): Recipe => ({
   id, name: `r${id}`, job: 'CRP', canHq: true, isExpert: false,
@@ -105,6 +105,60 @@ describe('solveQualityBreakpoint', () => {
     const noHq = solveQualityBreakpoint(recipe, gearset, 0, 0)
     const someHq = solveQualityBreakpoint(recipe, gearset, 0, 2000)
     expect(someHq.control).toBeLessThanOrEqual(noHq.control)
+  })
+})
+
+describe('translateDeltaToMeldPlan', () => {
+  const priceMap = new Map<number, any>(
+    MATERIA_GRADES.map(m => [
+      m.itemId,
+      { minPriceNQ: 1000 + m.value, minPriceHQ: 0, listings: [] },
+    ]),
+  )
+
+  it('returns an empty feasible plan when delta is zero', () => {
+    const plan = translateDeltaToMeldPlan(
+      { craftsmanship: 0, control: 0, cp: 0 },
+      priceMap,
+    )
+    expect(plan.feasible).toBe(true)
+    expect(plan.steps).toHaveLength(0)
+    expect(plan.totalGil).toBe(0)
+  })
+
+  it('fits a small delta into guaranteed slots (no failure multiplier)', () => {
+    const plan = translateDeltaToMeldPlan(
+      { craftsmanship: 60, control: 0, cp: 0 },
+      priceMap,
+    )
+    expect(plan.feasible).toBe(true)
+    expect(plan.steps).toHaveLength(1)
+    expect(plan.steps[0].placedCount).toBe(plan.steps[0].expectedCount)
+    expect(plan.steps[0].subtotal).toBeGreaterThan(0)
+  })
+
+  it('applies the fail ladder when overflow lands in overmeld slots', () => {
+    const huge = { craftsmanship: 5000, control: 0, cp: 0 }
+    const plan = translateDeltaToMeldPlan(huge, priceMap)
+    const overmeldStep = plan.steps.find(s => s.expectedCount > s.placedCount)
+    expect(overmeldStep).toBeDefined()
+  })
+
+  it('marks plan infeasible when delta exceeds total slots', () => {
+    const beyond = { craftsmanship: 50_000, control: 50_000, cp: 50_000 }
+    const plan = translateDeltaToMeldPlan(beyond, priceMap)
+    expect(plan.feasible).toBe(false)
+    expect(plan.reason).toMatch(/槽位/)
+  })
+
+  it('reports null subtotal when a step has no price data', () => {
+    const empty = new Map()
+    const plan = translateDeltaToMeldPlan(
+      { craftsmanship: 60, control: 0, cp: 0 },
+      empty,
+    )
+    expect(plan.steps[0].subtotal).toBeNull()
+    expect(plan.totalGil).toBeNull()
   })
 })
 
