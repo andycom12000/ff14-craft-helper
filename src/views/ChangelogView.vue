@@ -18,6 +18,16 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: "v2.19.0",
+    date: "2026-05-28",
+    highlights: [
+      "【新增「鑲嵌建議」卡片】模擬器與批量頁多了一張卡，反推「要 100% HQ 最少要鑲多少魔晶石」並對照「全頂級五鑲（BiS）」的天花板 —— 標頭直接給你「跟全頂級鑲比省了 X gil」，量化你之前過度鑲嵌花了多少冤枉錢。模擬器版本跟著現有 solve 按鈕跑、解完才填卡（編配裝中途不會偷跑 solver、會標成「stale」灰掉等你重算）；批量版本在批量管線跑完後針對每個職別各出一張卡，HQ 副材料會餵進 initialQuality 不讓控制需求被高估。BiS 端永遠不真的 solve，走每個版本維護的參考表",
+      "【批量採購清單：潛水艇／飛空艇／工坊專案修正】把多筆「公司製作專案」（潛艇、飛空艇、工坊材料）丟進採購清單時兩個 bug：① 改數量 / 移除任一列都只會打到第一列（所有公司製作專案共用佔位 itemId=-1，store action 是用 itemId 找列、永遠中第一個）；② 那個 -1 還會被送進 Universalis 跨服／單服查價跟 Garlandtools，每列掛永久「跨服查價失敗 重試」、總表跳「N 列查價失敗」、點查價連結直接 404。修法：① 引入 targetKey()（公司製作走 project:<id>、其他走 item:<id>）讓 store + UI 都用穩定 key；② 在 fetchPrices / fetchCrossWorldBestForTargets / fetchItemAcquisition 三個邊界補 isMarketableTarget() / isMarketableItemId() 守衛，並在採購列上把市場 chip 換成「⚒ 工坊製作」label。網路面板實測 0 筆 /-1 請求",
+      "【內部】鑲嵌建議的 overmeld 階梯每軸獨立重置：原本 craftsmanship → control → cp 共用同一個 overmeldDepth cursor，導致 control / cp 的第一顆 overmeld 被誤套到階梯地板價（0.05）而不是頂端（0.17），craftsmanship 只要動到 overmeld，control / cp 成本就會被吹大約 3.4×。把 ladder index 拉進 allocateForStat() local（結構性 reset、不靠 caller 記得重置），全域的 35 槽 overmeldRemaining 維持共用所以可行性 cap 不變。pin 兩個 regression：(a) craftsmanship 重配後 control 第一顆 overmeld = 1/0.17；(b) 總 meld > 60 仍報 infeasible",
+      "【遊戲資料更新】例行重抓上游 datamining（zh-TW / zh-CN / en / ja / recipes / RLT）",
+    ],
+  },
+  {
     version: "v2.18.3",
     date: "2026-05-26",
     highlights: [
