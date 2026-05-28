@@ -90,6 +90,18 @@ export function isMarketableTarget(t: BomTarget): boolean {
 }
 
 /**
+ * Item-id-level counterpart to `isMarketableTarget`. Use at the boundary of
+ * `fetchPrices` / acquisition lookups so a placeholder id (the company-craft
+ * meta target's -1) can never reach Universalis or Garlandtools regardless
+ * of which intermediate path (targets union, flatMaterials default, caller-
+ * supplied list) the id arrived through. FFXIV item ids are always positive,
+ * so `id > 0` is a safe gate.
+ */
+export function isMarketableItemId(id: number): boolean {
+  return id > 0
+}
+
+/**
  * Up-converts a legacy target object (pre-discriminant-union) to a typed
  * `BomTarget`. If the object already has a `kind` field it is returned
  * as-is (idempotent). Exported for test access and future persist migration.
@@ -574,7 +586,16 @@ export const useBomStore = defineStore('bom', () => {
    */
   async function fetchPrices(itemIds?: number[]): Promise<{ ok: boolean }> {
     const settings = useSettingsStore()
-    const ids = itemIds ?? flatMaterials.value.map((m) => m.itemId)
+    // Filter -1 (and any other non-positive placeholder) out *up front*.
+    // Without this, `flatMaterials` can contain the company-craft meta
+    // target's -1 (calculator falls back to treating it as a raw material
+    // when no workshop-projects entry resolves), and BomView passes that
+    // list straight in as `itemIds` — so the per-target skip below was not
+    // enough on its own. The batch would then 404 and flip every id in
+    // `ids` to status='failed', producing a "N 列查價失敗" totals alert.
+    const ids = (itemIds ?? flatMaterials.value.map((m) => m.itemId)).filter(
+      isMarketableItemId,
+    )
     for (const t of targets.value) {
       // Skip company-craft-project meta targets — their placeholder itemId
       // (-1) is not a real Universalis id; sending it produces 404s and

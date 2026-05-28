@@ -795,6 +795,46 @@ describe('company-craft-project target excluded from market lookups', () => {
     expect(r.ok).toBe(true)
     expect(vi.mocked(getAggregatedPrices)).not.toHaveBeenCalled()
   })
+
+  it('fetchPrices: filters out -1 even when caller passes it via itemIds (BomView flatMaterials path)', async () => {
+    // Regression for the partial bug-2 fix: the per-target skip wasn't enough
+    // because BomView.vue calls `fetchPrices(flat.map(m => m.itemId))` and the
+    // bom-calculator's company-craft fallback can land itemId=-1 inside
+    // flatMaterials. The batch would then 404 and flip every id (including
+    // the legitimate ones) to status='failed', producing a "N 列查價失敗"
+    // alert in BomTotalsReceipt.
+    vi.mocked(getAggregatedPrices).mockResolvedValue(
+      new Map() as unknown as Awaited<ReturnType<typeof getAggregatedPrices>>,
+    )
+    const bom = useBomStore()
+
+    await bom.fetchPrices([-1, 999])
+
+    expect(vi.mocked(getAggregatedPrices)).toHaveBeenCalledTimes(1)
+    const callIds = vi.mocked(getAggregatedPrices).mock.calls[0][1]
+    expect(callIds).not.toContain(-1)
+    expect(callIds).toContain(999)
+    expect(bom.priceFetchStatus.has(-1)).toBe(false)
+  })
+
+  it('fetchPrices: filters out -1 from flatMaterials default when itemIds is omitted', async () => {
+    vi.mocked(getAggregatedPrices).mockResolvedValue(
+      new Map() as unknown as Awaited<ReturnType<typeof getAggregatedPrices>>,
+    )
+    const bom = useBomStore()
+    bom.flatMaterials = [
+      { itemId: -1, name: '潛水艇 meta', icon: '', amount: 1 },
+      { itemId: 5057, name: '冰結晶', icon: '', amount: 8 },
+    ]
+
+    await bom.fetchPrices()
+
+    expect(vi.mocked(getAggregatedPrices)).toHaveBeenCalledTimes(1)
+    const callIds = vi.mocked(getAggregatedPrices).mock.calls[0][1]
+    expect(callIds).not.toContain(-1)
+    expect(callIds).toContain(5057)
+    expect(bom.priceFetchStatus.has(-1)).toBe(false)
+  })
 })
 
 describe('toggleChecked tracking', () => {
