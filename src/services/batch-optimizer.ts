@@ -1,7 +1,7 @@
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 import type { BatchException, BatchTarget, BatchResults, TodoItem, BuyFinishedDecision, BuffRecommendation, SelfCraftCandidate } from '@/stores/batch'
-import { adviseMeld } from '@/services/meld-advisor'
+import { adviseMeld, findBindingRecipe } from '@/services/meld-advisor'
 import type { MeldAdvice } from '@/services/meld-advisor'
 import { fetchMateriaPriceMap } from '@/api/universalis'
 import { BIS_REFERENCE } from '@/engine/materia'
@@ -696,14 +696,10 @@ export async function runBatchOptimization(
       if (isCancelled()) break
       const gs = getGearset(job)
       if (!gs) continue
-      // Pick the binding recipe (highest progress, tiebreak by quality) to drive initialQuality.
-      const binding = list.reduce(
-        (best, r) =>
-          r.recipe.recipeLevelTable.progress > best.recipe.recipeLevelTable.progress
-            ? r
-            : best,
-        list[0],
-      )
+      // Pick the binding recipe (highest difficulty, tiebreak by quality) to drive initialQuality.
+      const bindingRecipe = findBindingRecipe(list.map(r => r.recipe))
+      if (!bindingRecipe) continue
+      const binding = list.find(r => r.recipe === bindingRecipe)!
       // Re-compute initialQuality from the binding recipe's hqAmounts (parallel to recipe.ingredients).
       const initialQuality = calculateInitialQuality(
         binding.recipe.recipeLevelTable.quality,

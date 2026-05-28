@@ -68,7 +68,7 @@ const sampleRecipe = {
   recipeLevelTable: {
     classJobLevel: 100, progressDivider: 1, qualityDivider: 1,
     progressModifier: 100, qualityModifier: 100,
-    progress: 1000, quality: 5000, durability: 80,
+    difficulty: 1000, quality: 5000, durability: 80,
   },
 } as unknown as Recipe
 

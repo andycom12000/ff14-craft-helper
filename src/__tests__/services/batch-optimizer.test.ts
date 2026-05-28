@@ -35,14 +35,18 @@ vi.mock('@/services/buff-recommender', () => ({
 vi.mock('@/services/self-craft-candidates', () => ({
   produceSelfCraftCandidates: vi.fn().mockResolvedValue([]),
 }))
-vi.mock('@/services/meld-advisor', () => ({
-  adviseMeld: vi.fn().mockResolvedValue({
-    costOptimal: { feasible: true, deltaStats: { craftsmanship: 0, control: 0, cp: 0 }, steps: [], totalGil: 0, confirmedBySolver: false },
-    bis: { feasible: true, deltaStats: { craftsmanship: 0, control: 0, cp: 0 }, steps: [], totalGil: 0, confirmedBySolver: false },
-    gapGil: 0,
-    alreadyMeetsThreshold: false,
-  }),
-}))
+vi.mock('@/services/meld-advisor', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/services/meld-advisor')>()
+  return {
+    ...actual,
+    adviseMeld: vi.fn().mockResolvedValue({
+      costOptimal: { feasible: true, deltaStats: { craftsmanship: 0, control: 0, cp: 0 }, steps: [], totalGil: 0, confirmedBySolver: false },
+      bis: { feasible: true, deltaStats: { craftsmanship: 0, control: 0, cp: 0 }, steps: [], totalGil: 0, confirmedBySolver: false },
+      gapGil: 0,
+      alreadyMeetsThreshold: false,
+    }),
+  }
+})
 
 import { optimizeRecipe, runBatchOptimization } from '@/services/batch-optimizer'
 import { solveCraft, simulateCraft, SolveCancelledError } from '@/solver/worker'

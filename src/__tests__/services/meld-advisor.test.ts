@@ -9,7 +9,7 @@ const makeRecipe = (id: number, progress: number, quality: number): Recipe => ({
   recipeLevelTable: {
     classJobLevel: 100, progressDivider: 130, qualityDivider: 115,
     progressModifier: 90, qualityModifier: 15,
-    progress, quality, durability: 80,
+    difficulty: progress, quality, durability: 80,
   },
 } as unknown as Recipe)
 

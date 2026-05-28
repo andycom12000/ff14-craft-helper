@@ -84,9 +84,9 @@ export function findBindingRecipe(targets: Recipe[]): Recipe | null {
   if (targets.length === 0) return null
   let best = targets[0]
   for (const r of targets.slice(1)) {
-    const bestP = best.recipeLevelTable.progress
+    const bestP = best.recipeLevelTable.difficulty
     const bestQ = best.recipeLevelTable.quality
-    const rP = r.recipeLevelTable.progress
+    const rP = r.recipeLevelTable.difficulty
     const rQ = r.recipeLevelTable.quality
     if (rP > bestP || (rP === bestP && rQ > bestQ)) best = r
   }
@@ -109,16 +109,16 @@ export function solveProgressBreakpoint(
   const rlt = recipe.recipeLevelTable
   const bp = computeBaseProgress(buffed.craftsmanship, gearset.level, rlt)
   const reachable = bp * PROGRESS_STEP_UPPER_BOUND
-  if (reachable >= rlt.progress) return 0
+  if (reachable >= rlt.difficulty) return 0
 
   // Binary search for the minimum craftsmanship delta that flips
-  // computeBaseProgress * step upper bound >= recipe.progress.
+  // computeBaseProgress * step upper bound >= recipe.difficulty.
   let lo = 0
   let hi = 10_000
   while (lo < hi) {
     const mid = Math.floor((lo + hi) / 2)
     const bumped = computeBaseProgress(buffed.craftsmanship + mid, gearset.level, rlt)
-    if (bumped * PROGRESS_STEP_UPPER_BOUND >= rlt.progress) hi = mid
+    if (bumped * PROGRESS_STEP_UPPER_BOUND >= rlt.difficulty) hi = mid
     else lo = mid + 1
   }
   return lo
