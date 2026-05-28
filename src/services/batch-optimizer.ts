@@ -697,9 +697,14 @@ export async function runBatchOptimization(
       const gs = getGearset(job)
       if (!gs) continue
       // Pick the binding recipe (highest difficulty, tiebreak by quality) to drive initialQuality.
-      const bindingRecipe = findBindingRecipe(list.map(r => r.recipe))
+      // Prefer non-isDoubleMax recipes so the binding's hqAmounts (and thus initialQuality)
+      // are real — isDoubleMax recipes always have hqAmounts:[] which would zero out initialQuality
+      // and cause Step 0 of adviseMeld to incorrectly think the gearset needs melds.
+      const nonMaxed = list.filter(r => !r.isDoubleMax)
+      const candidates = nonMaxed.length > 0 ? nonMaxed : list
+      const bindingRecipe = findBindingRecipe(candidates.map(r => r.recipe))
       if (!bindingRecipe) continue
-      const binding = list.find(r => r.recipe === bindingRecipe)!
+      const binding = candidates.find(r => r.recipe === bindingRecipe)!
       // Re-compute initialQuality from the binding recipe's hqAmounts (parallel to recipe.ingredients).
       const initialQuality = calculateInitialQuality(
         binding.recipe.recipeLevelTable.quality,
