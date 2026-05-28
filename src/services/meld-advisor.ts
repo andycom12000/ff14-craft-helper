@@ -62,6 +62,24 @@ export interface AdviseMeldOptions {
   isCancelled?: () => boolean
 }
 
+/**
+ * Pick the single hardest recipe to drive the breakpoint.
+ * v1: highest progress; tie-break by highest quality.
+ * Multi-recipe per-axis dominance is v2.
+ */
+export function findBindingRecipe(targets: Recipe[]): Recipe | null {
+  if (targets.length === 0) return null
+  let best = targets[0]
+  for (const r of targets.slice(1)) {
+    const bestP = best.recipeLevelTable.progress
+    const bestQ = best.recipeLevelTable.quality
+    const rP = r.recipeLevelTable.progress
+    const rQ = r.recipeLevelTable.quality
+    if (rP > bestP || (rP === bestP && rQ > bestQ)) best = r
+  }
+  return best
+}
+
 /** Stub — will be filled in over Tasks 6-12. */
 export async function adviseMeld(
   _targets: Recipe[],

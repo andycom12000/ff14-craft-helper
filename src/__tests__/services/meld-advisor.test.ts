@@ -1,7 +1,17 @@
 import { describe, it, expect } from 'vitest'
 import type { MeldAdvice, MeldPlan, MeldStep } from '@/services/meld-advisor'
-import { adviseMeld } from '@/services/meld-advisor'
+import { adviseMeld, findBindingRecipe } from '@/services/meld-advisor'
+import type { Recipe } from '@/stores/recipe'
 import { BIS_REFERENCE } from '@/engine/materia'
+
+const makeRecipe = (id: number, progress: number, quality: number): Recipe => ({
+  id, name: `r${id}`, job: 'CRP', canHq: true, isExpert: false,
+  recipeLevelTable: {
+    classJobLevel: 100, progressDivider: 1, qualityDivider: 1,
+    progressModifier: 100, qualityModifier: 100,
+    progress, quality, durability: 80,
+  },
+} as unknown as Recipe)
 
 describe('adviseMeld (stub)', () => {
   it('returns a MeldAdvice with both plans present', async () => {
@@ -27,3 +37,21 @@ const _planShape: MeldPlan = {
   steps: [_stepShape], totalGil: null, confirmedBySolver: false,
 }
 void _stepShape; void _planShape
+
+describe('findBindingRecipe', () => {
+  it('returns null for an empty list', () => {
+    expect(findBindingRecipe([])).toBeNull()
+  })
+
+  it('picks the recipe with the highest progress requirement', () => {
+    const a = makeRecipe(1, 1000, 5000)
+    const b = makeRecipe(2, 2000, 4000)
+    expect(findBindingRecipe([a, b])).toBe(b)
+  })
+
+  it('breaks ties by highest quality', () => {
+    const a = makeRecipe(1, 1000, 4000)
+    const b = makeRecipe(2, 1000, 5000)
+    expect(findBindingRecipe([a, b])).toBe(b)
+  })
+})
