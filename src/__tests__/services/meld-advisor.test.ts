@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import type { MeldAdvice, MeldPlan, MeldStep } from '@/services/meld-advisor'
-import { adviseMeld, findBindingRecipe, solveProgressBreakpoint } from '@/services/meld-advisor'
+import { adviseMeld, findBindingRecipe, solveProgressBreakpoint, solveQualityBreakpoint } from '@/services/meld-advisor'
 import type { Recipe } from '@/stores/recipe'
 import { BIS_REFERENCE } from '@/engine/materia'
 
 const makeRecipe = (id: number, progress: number, quality: number): Recipe => ({
   id, name: `r${id}`, job: 'CRP', canHq: true, isExpert: false,
   recipeLevelTable: {
-    classJobLevel: 100, progressDivider: 1, qualityDivider: 1,
-    progressModifier: 100, qualityModifier: 100,
+    classJobLevel: 100, progressDivider: 130, qualityDivider: 115,
+    progressModifier: 90, qualityModifier: 15,
     progress, quality, durability: 80,
   },
 } as unknown as Recipe)
@@ -78,5 +78,32 @@ describe('solveProgressBreakpoint', () => {
     const lo = solveProgressBreakpoint(hard, { ...baseGearset, craftsmanship: 100 })
     const hi = solveProgressBreakpoint(hard, { ...baseGearset, craftsmanship: 2000 })
     expect(hi).toBeLessThanOrEqual(lo)
+  })
+})
+
+describe('solveQualityBreakpoint', () => {
+  const gearset = {
+    level: 100, craftsmanship: 5000, control: 1000, cp: 300, isSpecialist: false,
+  }
+
+  it('returns zeros when gearset already reaches quality', () => {
+    const easy = makeRecipe(1, 100, 100)
+    const strong = { ...gearset, control: 5000, cp: 600 }
+    const delta = solveQualityBreakpoint(easy, strong, 0, 0)
+    expect(delta.control).toBe(0)
+    expect(delta.cp).toBe(0)
+  })
+
+  it('returns a positive control delta on a hard recipe', () => {
+    const hard = makeRecipe(1, 1000, 8000)
+    const delta = solveQualityBreakpoint(hard, gearset, 0, 0)
+    expect(delta.control + delta.cp).toBeGreaterThan(0)
+  })
+
+  it('higher initialQuality (HQ ingredients) lowers the control delta', () => {
+    const recipe = makeRecipe(1, 1000, 8000)
+    const noHq = solveQualityBreakpoint(recipe, gearset, 0, 0)
+    const someHq = solveQualityBreakpoint(recipe, gearset, 0, 2000)
+    expect(someHq.control).toBeLessThanOrEqual(noHq.control)
   })
 })

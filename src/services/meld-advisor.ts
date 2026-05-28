@@ -26,7 +26,13 @@ import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 import type { MarketData } from '@/api/universalis'
 import type { CraftStat, BiSReference } from '@/engine/materia'
-import { computeBaseProgress } from '@/services/feasibility-prefilter'
+import {
+  computeBaseProgress,
+  computeBaseQuality,
+  QUALITY_PHASE_UPPER_BOUND_MULTIPLIER,
+  AVG_QUALITY_CP_COST,
+  MARGIN,
+} from '@/services/feasibility-prefilter'
 import { gearsetToBuffedStats } from '@/services/stat-stacking'
 
 export type MateriaPriceMap = Map<number, MarketData>
@@ -111,6 +117,79 @@ export function solveProgressBreakpoint(
     else lo = mid + 1
   }
   return lo
+}
+
+/**
+ * Internal: does the closed-form upper bound allow reaching max quality
+ * for this gearset (after Soul/buffs), given an initialQuality head start?
+ *
+ * Mirrors the math of `canReachHQQuality` but accepts an explicit
+ * initialQuality so HQ sub-materials are honoured.
+ */
+function quietCanReachHQQuality(
+  recipe: Recipe,
+  gearset: GearsetStats,
+  initialQuality: number,
+): boolean {
+  const buffed = gearsetToBuffedStats(gearset, undefined)
+  const baseQuality = computeBaseQuality(buffed.control, gearset.level, recipe.recipeLevelTable)
+  const maxQualitySteps = Math.floor(buffed.cp / AVG_QUALITY_CP_COST)
+  const maxAchievable =
+    baseQuality * QUALITY_PHASE_UPPER_BOUND_MULTIPLIER * maxQualitySteps * MARGIN
+  return (maxAchievable + initialQuality) >= recipe.recipeLevelTable.quality
+}
+
+const CP_STEP = 6
+const CP_SEARCH_LIMIT = 600
+
+/**
+ * Step 3 — closed-form: minimum Δcontrol + Δcp on top of an existing
+ * Δcraftsmanship so the binding recipe is quality-feasible. v1 greedy:
+ * binary-search Δcontrol at each candidate Δcp.
+ */
+export function solveQualityBreakpoint(
+  recipe: Recipe,
+  gearset: GearsetStats,
+  craftsmanshipDelta: number,
+  initialQuality: number,
+): { control: number; cp: number } {
+  const withCraft: GearsetStats = {
+    ...gearset,
+    craftsmanship: gearset.craftsmanship + craftsmanshipDelta,
+  }
+
+  const tryControlBinary = (cpDelta: number): number | null => {
+    const withCp: GearsetStats = { ...withCraft, cp: withCraft.cp + cpDelta }
+    if (quietCanReachHQQuality(recipe, withCp, initialQuality)) return 0
+    let lo = 1
+    let hi = 10_000
+    let last: number | null = null
+    while (lo <= hi) {
+      const mid = Math.floor((lo + hi) / 2)
+      const probe: GearsetStats = { ...withCp, control: withCp.control + mid }
+      if (quietCanReachHQQuality(recipe, probe, initialQuality)) {
+        last = mid
+        hi = mid - 1
+      } else {
+        lo = mid + 1
+      }
+    }
+    return last
+  }
+
+  let bestControl = tryControlBinary(0)
+  let bestCp = 0
+  if (bestControl === null) {
+    for (let cpDelta = CP_STEP; cpDelta <= CP_SEARCH_LIMIT; cpDelta += CP_STEP) {
+      const c = tryControlBinary(cpDelta)
+      if (c !== null) {
+        bestControl = c
+        bestCp = cpDelta
+        break
+      }
+    }
+  }
+  return { control: bestControl ?? 10_000, cp: bestCp }
 }
 
 /** Stub — will be filled in over Tasks 6-12. */
