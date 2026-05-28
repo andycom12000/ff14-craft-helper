@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { useBomStore, pruneStaleCompletedEntries } from '@/stores/bom'
+import { useBomStore, pruneStaleCompletedEntries, targetKey } from '@/stores/bom'
 
 beforeEach(() => {
   setActivePinia(createPinia())
@@ -28,7 +28,7 @@ describe('bomCompletedKey', () => {
     const s = useBomStore()
     addRecipeTarget(s, 100, 1)
     const key1 = s.bomCompletedKey
-    s.updateTargetQuantity(100, 3)
+    s.updateTargetQuantity(targetKey(s.targets[0]), 3)
     expect(s.bomCompletedKey).not.toBe(key1)
   })
 
@@ -83,7 +83,7 @@ describe('recalc behavior', () => {
     addRecipeTarget(s, 100, 1)
     s.toggleBomCompleted(500)
     expect(s.isBomCompleted(500)).toBe(true)
-    s.updateTargetQuantity(100, 5)
+    s.updateTargetQuantity(targetKey(s.targets[0]), 5)
     expect(s.isBomCompleted(500)).toBe(false)
   })
 
@@ -93,10 +93,10 @@ describe('recalc behavior', () => {
     s.toggleBomCompleted(500)
     vi.advanceTimersByTime(600)
 
-    s.updateTargetQuantity(100, 5)
+    s.updateTargetQuantity(targetKey(s.targets[0]), 5)
     expect(s.isBomCompleted(500)).toBe(false)
 
-    s.updateTargetQuantity(100, 1)
+    s.updateTargetQuantity(targetKey(s.targets[0]), 1)
     expect(s.isBomCompleted(500)).toBe(true)
   })
 

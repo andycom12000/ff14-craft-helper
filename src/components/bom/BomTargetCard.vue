@@ -2,13 +2,18 @@
 import { computed } from 'vue'
 import { Delete } from '@element-plus/icons-vue'
 import ItemName from '@/components/common/ItemName.vue'
-import type { BomTarget } from '@/stores/bom'
+import { targetKey, type BomTarget } from '@/stores/bom'
 
 const props = defineProps<{ target: BomTarget }>()
 const emit = defineEmits<{
-  'update:quantity': [itemId: number, qty: number]
-  remove: [itemId: number]
+  'update:quantity': [key: string, qty: number]
+  remove: [key: string]
 }>()
+
+// Stable identity key — projectId for company-craft-project, itemId otherwise.
+// Multiple submarines share itemId -1, so the parent store must key updates by
+// this instead of itemId or only the first row would ever be addressable.
+const key = computed(() => targetKey(props.target))
 
 const yieldPerCraft = computed(() => Math.max(1, (props.target.kind === 'recipe' ? props.target.amountResult : undefined) ?? 1))
 const crafts = computed(() => Math.ceil(props.target.quantity / yieldPerCraft.value))
@@ -44,7 +49,7 @@ const showYieldHint = computed(() => yieldPerCraft.value > 1)
         :max="999"
         size="small"
         :aria-label="`數量：${target.name}`"
-        @update:model-value="(v: number) => emit('update:quantity', target.itemId, v)"
+        @update:model-value="(v: number) => emit('update:quantity', key, v)"
       />
       <el-button
         :icon="Delete"
@@ -52,7 +57,7 @@ const showYieldHint = computed(() => yieldPerCraft.value > 1)
         type="danger"
         text
         :aria-label="`移除 ${target.name}`"
-        @click="emit('remove', target.itemId)"
+        @click="emit('remove', key)"
       />
     </div>
   </div>
