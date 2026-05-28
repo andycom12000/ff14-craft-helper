@@ -151,6 +151,40 @@ describe('translateDeltaToMeldPlan', () => {
     expect(plan.reason).toMatch(/槽位/)
   })
 
+  it('resets overmeld depth per stat axis (control overmeld starts at ladder top, not floor)', () => {
+    // Craftsmanship: 29 melds × 54 = 1566 → 25 guaranteed + 4 overmeld
+    //   After craft, the old shared cursor had overmeldDepth = 4, which
+    //   clamps to OVERMELD_SUCCESS_LADDER's floor (0.05).
+    // Control: 1 overmeld attempt → with per-stat reset, depth = 0 (rate 0.17).
+    const plan = translateDeltaToMeldPlan(
+      { craftsmanship: 29 * 54, control: 54, cp: 0 },
+      priceMap,
+    )
+    expect(plan.feasible).toBe(true)
+    const controlOvermeld = plan.steps.find(
+      s => s.stat === 'control' && s.expectedCount > s.placedCount,
+    )
+    expect(controlOvermeld).toBeDefined()
+    // Top-of-ladder rate = 0.17 → expectedCount = 1 / 0.17 ≈ 5.882
+    expect(controlOvermeld!.expectedCount).toBeCloseTo(1 / 0.17, 4)
+    // With the bug, this would have been 1 / 0.05 = 20 — ~3.4× inflated.
+    expect(controlOvermeld!.expectedCount).toBeLessThan(10)
+  })
+
+  it('preserves the global overmeld slot cap across stats (regression guard for naive per-stat reset)', () => {
+    // 20 + 20 + 25 = 65 melds vs. 25 guaranteed + 35 overmeld = 60 capacity.
+    // A naive fix that gives each stat a fresh 35-slot overmeld budget would
+    // mark this feasible. The correct fix keeps the global cap.
+    const plan = translateDeltaToMeldPlan(
+      { craftsmanship: 20 * 54, control: 20 * 54, cp: 25 * 14 },
+      priceMap,
+    )
+    expect(plan.feasible).toBe(false)
+    expect(plan.reason).toMatch(/槽位/)
+    const overmeldSteps = plan.steps.filter(s => s.expectedCount > s.placedCount)
+    expect(overmeldSteps.length).toBeLessThanOrEqual(35)
+  })
+
   it('reports null subtotal when a step has no price data', () => {
     const empty = new Map()
     const plan = translateDeltaToMeldPlan(
