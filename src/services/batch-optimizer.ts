@@ -688,7 +688,7 @@ export async function runBatchOptimization(
   if (!isCancelled() && recipesByJob.size > 0) {
     let materiaPrices: Map<number, MarketData>
     try {
-      materiaPrices = await fetchMateriaPriceMap(settings.server)
+      materiaPrices = await fetchMateriaPriceMap(priceSource)
     } catch {
       materiaPrices = new Map()
     }
