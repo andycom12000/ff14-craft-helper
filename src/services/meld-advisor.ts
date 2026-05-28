@@ -407,24 +407,109 @@ export function computeBisPlan(
   return translateDeltaToMeldPlan(deltaStats, priceMap)
 }
 
-/** Stub — will be filled in over Tasks 6-12. */
+export interface AdviseMeldDeps extends ConfirmDeps {}
+
 export async function adviseMeld(
-  _targets: Recipe[],
-  _gearset: GearsetStats,
-  _priceMap: MateriaPriceMap,
-  _options: AdviseMeldOptions,
+  targets: Recipe[],
+  gearset: GearsetStats,
+  priceMap: MateriaPriceMap,
+  options: AdviseMeldOptions,
+  deps: AdviseMeldDeps = { solve: solveCraftForRecipe, simulate: simulateCraftForRecipe },
 ): Promise<MeldAdvice> {
-  const empty: MeldPlan = {
+  const initialQuality = options.initialQuality ?? 0
+  const isCancelled = options.isCancelled
+
+  const bis = computeBisPlan(gearset, options.bisReference, priceMap)
+
+  const binding = findBindingRecipe(targets)
+  if (!binding) {
+    return {
+      costOptimal: {
+        feasible: true,
+        deltaStats: { craftsmanship: 0, control: 0, cp: 0 },
+        steps: [],
+        totalGil: 0,
+        confirmedBySolver: false,
+      },
+      bis,
+      gapGil: bis.totalGil,
+      alreadyMeetsThreshold: true,
+    }
+  }
+
+  // Step 0: already meets?
+  try {
+    const solverResult = await deps.solve(binding, gearset, { initialQuality })
+    if (isCancelled?.()) return bailout(bis)
+    const simResult = await deps.simulate(binding, gearset, {
+      actions: solverResult.actions,
+      initialQuality,
+    })
+    const passes =
+      simResult.progress >= simResult.max_progress &&
+      simResult.quality >= simResult.max_quality
+    if (passes) {
+      const emptyPlan: MeldPlan = {
+        feasible: true,
+        deltaStats: { craftsmanship: 0, control: 0, cp: 0 },
+        steps: [],
+        totalGil: 0,
+        confirmedBySolver: true,
+      }
+      return {
+        costOptimal: emptyPlan,
+        bis,
+        gapGil: bis.totalGil,
+        alreadyMeetsThreshold: true,
+      }
+    }
+  } catch {
+    return bailout(bis)
+  }
+
+  if (isCancelled?.()) return bailout(bis)
+
+  // Steps 2 + 3: closed-form breakpoints.
+  const craftDelta = solveProgressBreakpoint(binding, gearset)
+  const qualityDelta = solveQualityBreakpoint(binding, gearset, craftDelta, initialQuality)
+  const candidate = {
+    craftsmanship: craftDelta,
+    control: qualityDelta.control,
+    cp: qualityDelta.cp,
+  }
+
+  if (isCancelled?.()) return bailout(bis)
+
+  // Step 4: confirm.
+  const confirmed = await confirmBreakpointWithSolver(
+    binding, gearset, candidate, initialQuality, deps, isCancelled,
+  )
+
+  // Step 5: translate.
+  const costOptimal = translateDeltaToMeldPlan(confirmed.deltaStats, priceMap)
+  costOptimal.confirmedBySolver = confirmed.confirmedBySolver
+
+  // Step 7: gap.
+  const gapGil =
+    bis.totalGil !== null && costOptimal.totalGil !== null
+      ? bis.totalGil - costOptimal.totalGil
+      : null
+
+  return { costOptimal, bis, gapGil, alreadyMeetsThreshold: false }
+}
+
+function bailout(bis: MeldPlan): MeldAdvice {
+  const conservative: MeldPlan = {
     feasible: true,
     deltaStats: { craftsmanship: 0, control: 0, cp: 0 },
     steps: [],
-    totalGil: 0,
+    totalGil: null,
     confirmedBySolver: false,
   }
   return {
-    costOptimal: empty,
-    bis: { ...empty },
-    gapGil: 0,
-    alreadyMeetsThreshold: true,
+    costOptimal: conservative,
+    bis,
+    gapGil: null,
+    alreadyMeetsThreshold: false,
   }
 }

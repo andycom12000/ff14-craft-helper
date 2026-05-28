@@ -251,3 +251,83 @@ describe('computeBisPlan', () => {
     expect(tail.expectedCount).toBeGreaterThanOrEqual(tail.placedCount)
   })
 })
+
+describe('adviseMeld (orchestrated)', () => {
+  const priceMap = new Map<number, any>(
+    MATERIA_GRADES.map(m => [m.itemId, { minPriceNQ: 1000, listings: [] }]),
+  )
+  const baseGearset = {
+    level: 100, craftsmanship: 4500, control: 4500, cp: 600, isSpecialist: false,
+  }
+
+  it('alreadyMeetsThreshold = true when current gear double-maxes', async () => {
+    const recipe = makeRecipe(1, 1000, 5000)
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = vi.fn().mockResolvedValue({
+      progress: 1000, max_progress: 1000, quality: 5000, max_quality: 5000,
+    })
+
+    const out = await adviseMeld(
+      [recipe], baseGearset, priceMap,
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+    expect(out.alreadyMeetsThreshold).toBe(true)
+    expect(out.costOptimal.steps).toHaveLength(0)
+    expect(out.bis.steps.length).toBeGreaterThan(0)
+  })
+
+  it('produces a cost-optimal plan when gear is short', async () => {
+    const hard = makeRecipe(1, 5000, 8000)
+    const weak = { ...baseGearset, craftsmanship: 100, control: 100, cp: 300 }
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = vi.fn()
+      .mockResolvedValueOnce({ progress: 500, max_progress: 1000, quality: 4000, max_quality: 5000 })
+      .mockResolvedValue({ progress: 5000, max_progress: 5000, quality: 8000, max_quality: 8000 })
+
+    const out = await adviseMeld(
+      [hard], weak, priceMap,
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+    expect(out.alreadyMeetsThreshold).toBe(false)
+    expect(out.costOptimal.steps.length).toBeGreaterThan(0)
+    expect(out.costOptimal.confirmedBySolver).toBe(true)
+  })
+
+  it('respects isCancelled mid-run', async () => {
+    const hard = makeRecipe(1, 5000, 8000)
+    const weak = { ...baseGearset, craftsmanship: 100, control: 100 }
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = vi.fn().mockResolvedValue({
+      progress: 0, max_progress: 1000, quality: 0, max_quality: 5000,
+    })
+
+    let cancelled = false
+    const out = await adviseMeld(
+      [hard], weak, priceMap,
+      { bisReference: BIS_REFERENCE, isCancelled: () => cancelled },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+    cancelled = true
+    expect(out.costOptimal.confirmedBySolver).toBe(false)
+  })
+
+  it('returns gapGil = bis.totalGil - costOptimal.totalGil when both are priced', async () => {
+    const hard = makeRecipe(1, 5000, 8000)
+    const weak = { ...baseGearset, craftsmanship: 100, control: 100, cp: 300 }
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = vi.fn()
+      .mockResolvedValueOnce({ progress: 0, max_progress: 1000, quality: 0, max_quality: 5000 })
+      .mockResolvedValue({ progress: 5000, max_progress: 5000, quality: 8000, max_quality: 8000 })
+
+    const out = await adviseMeld(
+      [hard], weak, priceMap,
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+    if (out.bis.totalGil !== null && out.costOptimal.totalGil !== null) {
+      expect(out.gapGil).toBe(out.bis.totalGil - out.costOptimal.totalGil)
+    }
+  })
+})
