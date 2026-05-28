@@ -257,7 +257,11 @@ export async function confirmBreakpointWithSolver(
 
 interface AllocationCursor {
   guaranteedRemaining: number
-  overmeldDepth: number  // next overmeld slot index
+  // Global overmeld-slot budget (shared across stats — gear pieces are finite).
+  // The ladder *index* is per-stat and lives as a local in allocateForStat:
+  // in-game, overmeld depth is per-piece, and ②-lite approximates that as
+  // per-stat since stats land on different pieces.
+  overmeldRemaining: number
 }
 
 function priceForItemNq(priceMap: MateriaPriceMap, itemId: number): number | null {
@@ -295,11 +299,15 @@ function allocateForStat(
   }
 
   // Phase B: overmeld slots, applying the fail ladder — one step per depth level.
-  while (remaining > 0 && cursor.overmeldDepth < SLOT_STRUCTURE.overmeldSlots) {
+  // `depth` is local so each stat starts at the top of the ladder; the
+  // overmeld-slot budget is global and lives on the cursor.
+  let depth = 0
+  while (remaining > 0 && cursor.overmeldRemaining > 0) {
     const placed = 1
-    const expected = expectedCountForOvermeldDepth(cursor.overmeldDepth, placed)
+    const expected = expectedCountForOvermeldDepth(depth, placed)
     steps.push(emitStep(top, placed, expected, priceMap))
-    cursor.overmeldDepth += 1
+    depth += 1
+    cursor.overmeldRemaining -= 1
     remaining -= top.value
   }
 
@@ -350,7 +358,7 @@ export function translateDeltaToMeldPlan(
 
   const cursor: AllocationCursor = {
     guaranteedRemaining: SLOT_STRUCTURE.guaranteedSlots,
-    overmeldDepth: 0,
+    overmeldRemaining: SLOT_STRUCTURE.overmeldSlots,
   }
 
   const allSteps: MeldStep[] = []
