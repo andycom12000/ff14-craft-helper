@@ -408,14 +408,12 @@ export function computeBisPlan(
   return translateDeltaToMeldPlan(deltaStats, priceMap)
 }
 
-export interface AdviseMeldDeps extends ConfirmDeps {}
-
 export async function adviseMeld(
   targets: Recipe[],
   gearset: GearsetStats,
   priceMap: MateriaPriceMap,
   options: AdviseMeldOptions,
-  deps: AdviseMeldDeps = { solve: solveCraftForRecipe, simulate: simulateCraftForRecipe },
+  deps: ConfirmDeps = { solve: solveCraftForRecipe, simulate: simulateCraftForRecipe },
 ): Promise<MeldAdvice> {
   const initialQuality = options.initialQuality ?? 0
   const isCancelled = options.isCancelled
