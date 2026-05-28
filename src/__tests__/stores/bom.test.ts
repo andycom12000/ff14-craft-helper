@@ -717,6 +717,86 @@ describe('BomTarget migration', () => {
   })
 })
 
+describe('company-craft-project target excluded from market lookups', () => {
+  // Regression for issue #90 bug 2: a company-craft-project target carries a
+  // placeholder itemId of -1 (the "完成品 meta" row that links a workshop
+  // project to the BOM). It must NEVER hit Universalis — there is no such
+  // item id on the API, and sending -1 produces 404s + dead retry chips.
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.mocked(getAggregatedPrices).mockReset()
+    vi.mocked(getMarketDataByDC).mockReset()
+    vi.mocked(aggregateByWorld).mockReset()
+    useCrossWorldPricing().invalidateCrossWorldCache()
+    const settings = useSettingsStore()
+    settings.server = 'TestServer'
+    settings.dataCenter = 'TestDC'
+  })
+
+  it('fetchPrices: does not include a company-craft-project target itemId in the Universalis batch', async () => {
+    vi.mocked(getAggregatedPrices).mockResolvedValue(
+      new Map() as unknown as Awaited<ReturnType<typeof getAggregatedPrices>>,
+    )
+    const bom = useBomStore()
+    bom.targets = [
+      { kind: 'company-craft-project', projectId: 'proj-abc', itemId: -1, name: 'Tatanora 號', icon: '', quantity: 1 },
+      { kind: 'recipe', itemId: 200, recipeId: 9001, name: 'Regular', icon: '', quantity: 1 },
+    ]
+
+    await bom.fetchPrices()
+
+    expect(vi.mocked(getAggregatedPrices)).toHaveBeenCalledTimes(1)
+    const callIds = vi.mocked(getAggregatedPrices).mock.calls[0][1]
+    expect(callIds).not.toContain(-1)
+    expect(callIds).toContain(200)
+    // Status map should not register -1 at all
+    expect(bom.priceFetchStatus.has(-1)).toBe(false)
+  })
+
+  it('fetchCrossWorldBestForTargets: skips company-craft-project targets entirely', async () => {
+    vi.mocked(getMarketDataByDC).mockResolvedValue({ listings: [] } as never)
+    vi.mocked(aggregateByWorld).mockReturnValue([
+      { worldName: 'Tonberry', minPriceNQ: 1500, minPriceHQ: 0, avgPriceNQ: 1600, avgPriceHQ: 0, lastUploadTime: 0, listingCount: 1 },
+    ])
+    const bom = useBomStore()
+    bom.targets = [
+      { kind: 'company-craft-project', projectId: 'proj-abc', itemId: -1, name: 'Tatanora 號', icon: '', quantity: 1 },
+      { kind: 'recipe', itemId: 200, recipeId: 9001, name: 'Regular', icon: '', quantity: 1 },
+    ]
+    bom.materialTree = [
+      { itemId: 200, name: 'Regular', icon: '', amount: 1, recipeId: 9001, children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }] },
+    ]
+
+    await bom.fetchCrossWorldBestForTargets()
+
+    // getMarketDataByDC must NOT be called for itemId = -1.
+    const calls = vi.mocked(getMarketDataByDC).mock.calls
+    for (const args of calls) {
+      expect(args[1]).not.toBe(-1)
+    }
+    // The project meta row must not leak a 'failed' status that would render
+    // the "跨服查價失敗 重試" chip.
+    expect(bom.crossWorldFetchStatus.has(-1)).toBe(false)
+    // The companion recipe target IS fetched.
+    expect(bom.crossWorldBestPriceMap.get(200)?.minPrice).toBe(1500)
+  })
+
+  it('fetchPrices: pure-project target list short-circuits without calling Universalis', async () => {
+    vi.mocked(getAggregatedPrices).mockResolvedValue(
+      new Map() as unknown as Awaited<ReturnType<typeof getAggregatedPrices>>,
+    )
+    const bom = useBomStore()
+    bom.targets = [
+      { kind: 'company-craft-project', projectId: 'proj-abc', itemId: -1, name: 'Tatanora 號', icon: '', quantity: 1 },
+    ]
+
+    const r = await bom.fetchPrices()
+
+    expect(r.ok).toBe(true)
+    expect(vi.mocked(getAggregatedPrices)).not.toHaveBeenCalled()
+  })
+})
+
 describe('toggleChecked tracking', () => {
   beforeEach(() => {
     setActivePinia(createPinia())

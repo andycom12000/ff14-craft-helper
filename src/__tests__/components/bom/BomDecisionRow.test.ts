@@ -38,6 +38,7 @@ function makeProps(overrides: Partial<{
   isCraftable: boolean
   isTarget: boolean
   immutable: boolean
+  isProjectMeta: boolean
 }> = {}) {
   return {
     itemId: overrides.itemId ?? 100,
@@ -47,6 +48,7 @@ function makeProps(overrides: Partial<{
     isCraftable: overrides.isCraftable ?? false,
     isTarget: overrides.isTarget,
     immutable: overrides.immutable,
+    isProjectMeta: overrides.isProjectMeta,
   }
 }
 
@@ -192,5 +194,75 @@ describe('BomDecisionRow — target market-mode visuals', () => {
 
     const retry = w.find('[data-testid="cross-world-retry"]')
     expect(retry.exists()).toBe(true)
+  })
+})
+
+describe('BomDecisionRow — company-craft-project meta row', () => {
+  // Regression for issue #90 bug 2: project-meta rows are bound to placeholder
+  // itemId (-1) and have no market form. The row must not render any market
+  // affordance (cross-world chip, retry chip, market link).
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    _settingsState.crossServer = true
+    _settingsState.server = 'Tonberry'
+    _settingsState.dataCenter = 'Materia'
+  })
+
+  it('does NOT render a cross-world pill even when a stale entry exists', async () => {
+    const bom = useBomStore()
+    // Simulate the broken state: an old fetch left a -1 entry in the map.
+    bom.crossWorldBestPriceMap.set(-1, { worldName: 'Mandragora', minPrice: 800, fetchedAt: 1 })
+
+    const w = mount(BomDecisionRow, {
+      props: makeProps({ itemId: -1, name: 'Tatanora 號', isCraftable: true, isTarget: true, immutable: true, isProjectMeta: true }),
+    })
+    await w.vm.$nextTick()
+
+    expect(w.find('[data-testid="cross-world-pill"]').exists()).toBe(false)
+  })
+
+  it('does NOT render the "跨服查價失敗 重試" retry chip when fetch status is failed', async () => {
+    const bom = useBomStore()
+    bom.crossWorldFetchStatus.set(-1, 'failed')
+
+    const w = mount(BomDecisionRow, {
+      props: makeProps({ itemId: -1, name: 'Tatanora 號', isCraftable: true, isTarget: true, immutable: true, isProjectMeta: true }),
+    })
+    await w.vm.$nextTick()
+
+    expect(w.find('[data-testid="cross-world-retry"]').exists()).toBe(false)
+  })
+
+  it('does NOT render the single-world "查價失敗 重試" chip even when priceFetchStatus is failed', async () => {
+    const bom = useBomStore()
+    bom.priceFetchStatus.set(-1, 'failed')
+
+    const w = mount(BomDecisionRow, {
+      props: makeProps({ itemId: -1, name: 'Tatanora 號', isCraftable: true, isTarget: true, immutable: true, isProjectMeta: true }),
+    })
+    await w.vm.$nextTick()
+
+    // The retry button class lives only in the unit cell when isPriceFailed.
+    expect(w.find('.dec-row__retry').exists()).toBe(false)
+  })
+
+  it('renders the locked "工坊製作" chip (not the generic "自製")', async () => {
+    const w = mount(BomDecisionRow, {
+      props: makeProps({ itemId: -1, name: 'Tatanora 號', isCraftable: true, isTarget: true, immutable: true, isProjectMeta: true }),
+    })
+    await w.vm.$nextTick()
+
+    const locked = w.find('.dec-seg--locked')
+    expect(locked.exists()).toBe(true)
+    expect(locked.text()).toContain('工坊製作')
+  })
+
+  it('is still toggleable (drill into the supply tree) even though immutable', async () => {
+    const w = mount(BomDecisionRow, {
+      props: makeProps({ itemId: -1, name: 'Tatanora 號', isCraftable: true, isTarget: true, immutable: true, isProjectMeta: true }),
+    })
+    await w.vm.$nextTick()
+
+    expect(w.find('.dec-row').classes()).toContain('is-row-toggleable')
   })
 })

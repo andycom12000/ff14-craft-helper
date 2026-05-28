@@ -75,6 +75,21 @@ export interface NoRecipeBomTarget extends BaseBomTarget {
 export type BomTarget = RecipeBomTarget | CompanyCraftProjectBomTarget | NoRecipeBomTarget
 
 /**
+ * A `company-craft-project` target is a "完成品 meta" row that links a workshop
+ * project to the BOM. It carries a placeholder `itemId: -1` (the project is
+ * not a single market item) and must NEVER reach Universalis — sending -1
+ * produces 404s, dead retry chips, and dead /market/-1 links. Use this
+ * helper everywhere a per-target market query is about to fire.
+ *
+ * Centralised so the rule lives in one place instead of sprinkling
+ * `t.kind !== 'company-craft-project'` (or worse: `itemId === -1` magic
+ * numbers) across stores, components, and composables.
+ */
+export function isMarketableTarget(t: BomTarget): boolean {
+  return t.kind !== 'company-craft-project'
+}
+
+/**
  * Up-converts a legacy target object (pre-discriminant-union) to a typed
  * `BomTarget`. If the object already has a `kind` field it is returned
  * as-is (idempotent). Exported for test access and future persist migration.
@@ -561,6 +576,10 @@ export const useBomStore = defineStore('bom', () => {
     const settings = useSettingsStore()
     const ids = itemIds ?? flatMaterials.value.map((m) => m.itemId)
     for (const t of targets.value) {
+      // Skip company-craft-project meta targets — their placeholder itemId
+      // (-1) is not a real Universalis id; sending it produces 404s and
+      // poisons priceFetchStatus with a 'failed' entry that has no retry path.
+      if (!isMarketableTarget(t)) continue
       if (!ids.includes(t.itemId)) ids.push(t.itemId)
     }
     if (ids.length === 0) return { ok: true }
@@ -1003,6 +1022,10 @@ export const useBomStore = defineStore('bom', () => {
     if (!settings.dataCenter) return
 
     const targetIds = targets.value
+      // Exclude company-craft-project meta rows: their placeholder itemId
+      // (-1) 404s on Universalis and would render a permanent "跨服查價失敗
+      // 重試" chip on a row that has no market price by definition.
+      .filter(isMarketableTarget)
       .map((t) => t.itemId)
       .filter((id) => !crossWorldBestPriceMap.value.has(id))
 
