@@ -265,4 +265,22 @@ describe('BomDecisionRow — company-craft-project meta row', () => {
 
     expect(w.find('.dec-row').classes()).toContain('is-row-toggleable')
   })
+
+  it('does NOT render the "已完成" checkbox (every company-craft project shares -1, so one toggle would mark all)', async () => {
+    const w = mount(BomDecisionRow, {
+      props: makeProps({ itemId: -1, name: 'Tatanora 號', isCraftable: true, isTarget: true, immutable: true, isProjectMeta: true }),
+    })
+    await w.vm.$nextTick()
+
+    expect(w.find('.dec-row__check').exists()).toBe(false)
+  })
+
+  it('non-project-meta target rows still render the checkbox (regression guard)', async () => {
+    const w = mount(BomDecisionRow, {
+      props: makeProps({ itemId: 5057, name: '冰結晶', isTarget: true }),
+    })
+    await w.vm.$nextTick()
+
+    expect(w.find('.dec-row__check').exists()).toBe(true)
+  })
 })

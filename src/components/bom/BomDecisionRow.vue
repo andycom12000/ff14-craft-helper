@@ -257,9 +257,13 @@ function toggleCompleted() {
   >
     <!-- Nested rows are intermediate craft children; their completion is
          implicit when the parent is done, so no checkbox + they don't
-         contribute to BomDecisionTable's progress pool. -->
+         contribute to BomDecisionTable's progress pool.
+         Project-meta rows are display-only (every company-craft-project
+         shares placeholder itemId=-1, so a single bomCompleted entry
+         would mark every project row complete at once); completion lives
+         on the per-material rows in the supply tree instead. -->
     <span
-      v-if="!nested"
+      v-if="!nested && !isProjectMeta"
       class="dec-row__check"
       @click.stop
       @keydown.enter.stop

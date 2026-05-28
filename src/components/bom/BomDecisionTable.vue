@@ -199,8 +199,12 @@ function onAnnounceExpand(detail: { modeLabel: string; itemName: string }) {
 }
 
 // 水晶 rollup 不入池：已是匯總，逐顆勾沒意義。
+// Project-meta rows (company-craft 完成品) are excluded too — every project
+// shares placeholder itemId=-1, so leaving them in would (a) collapse all
+// project rows to a single bomCompleted entry (toggling one marks all),
+// and (b) inflate the denominator by counting -1 once per project.
 const checkableItemIds = computed<number[]>(() => [
-  ...targetRows.value.map(r => r.itemId),
+  ...targetRows.value.filter(r => !r.isProjectMeta).map(r => r.itemId),
   ...materialRows.value.map(r => r.itemId),
 ])
 const completedCount = computed(() =>
