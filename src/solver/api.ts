@@ -22,6 +22,8 @@ export { SolveCancelledError } from './worker'
 
 export interface CraftRequestOptions extends SolverSkillOptions {
   buffs?: { food: FoodBuff | null; medicine: FoodBuff | null }
+  /** Override initial quality from HQ sub-materials (default 0). */
+  initialQuality?: number
   /** When true, sets SolverConfig.strict_quality (disables non-max-quality solutions). */
   strictQuality?: boolean
   onProgress?: (percent: number) => void
@@ -32,8 +34,8 @@ export function solveCraftForRecipe(
   gearset: GearsetStats,
   options: CraftRequestOptions = {},
 ): Promise<SolverResultWithTiming> {
-  const { buffs, onProgress, strictQuality, ...skills } = options
-  const params = recipeToCraftParams(recipe, gearset, buffs)
+  const { buffs, onProgress, strictQuality, initialQuality, ...skills } = options
+  const params = recipeToCraftParams(recipe, gearset, buffs, initialQuality)
   const config = craftParamsToSolverConfig(params, skills)
   if (strictQuality !== undefined) config.strict_quality = strictQuality
   return solveCraft(config, onProgress)
@@ -50,8 +52,8 @@ export function simulateCraftForRecipe(
   gearset: GearsetStats,
   options: SimulateRequestOptions,
 ): Promise<SimulateResult> {
-  const { buffs, actions, conditions, ...skills } = options
-  const params = recipeToCraftParams(recipe, gearset, buffs)
+  const { buffs, actions, conditions, initialQuality, ...skills } = options
+  const params = recipeToCraftParams(recipe, gearset, buffs, initialQuality)
   const config = craftParamsToSolverConfig(params, skills)
   return simulateCraft(config, actions, conditions)
 }
