@@ -331,3 +331,34 @@ describe('adviseMeld (orchestrated)', () => {
     }
   })
 })
+
+describe('adviseMeld golden snapshot', () => {
+  it('produces a stable MeldAdvice shape for the fixture', async () => {
+    const fixtureRecipe = makeRecipe(99, 3500, 6500)
+    const fixtureGearset = {
+      level: 100, craftsmanship: 3200, control: 3200, cp: 540, isSpecialist: false,
+    }
+    const fixturePrices = new Map<number, any>(
+      MATERIA_GRADES.map(m => [m.itemId, { minPriceNQ: 1500, listings: [] }]),
+    )
+
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = vi.fn()
+      .mockResolvedValueOnce({ progress: 0, max_progress: 3500, quality: 0, max_quality: 6500 })
+      .mockResolvedValue({ progress: 3500, max_progress: 3500, quality: 6500, max_quality: 6500 })
+
+    const out = await adviseMeld(
+      [fixtureRecipe], fixtureGearset, fixturePrices,
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+
+    const sanitized = {
+      alreadyMeetsThreshold: out.alreadyMeetsThreshold,
+      costOptimal: { ...out.costOptimal, steps: out.costOptimal.steps.length },
+      bis: { ...out.bis, steps: out.bis.steps.length },
+      gapGil: out.gapGil,
+    }
+    expect(sanitized).toMatchSnapshot()
+  })
+})
