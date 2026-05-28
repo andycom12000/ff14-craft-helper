@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { MeldAdvice, MeldPlan, MeldStep } from '@/services/meld-advisor'
-import { adviseMeld, findBindingRecipe, solveProgressBreakpoint, solveQualityBreakpoint, confirmBreakpointWithSolver, translateDeltaToMeldPlan } from '@/services/meld-advisor'
+import { adviseMeld, findBindingRecipe, solveProgressBreakpoint, solveQualityBreakpoint, confirmBreakpointWithSolver, translateDeltaToMeldPlan, computeBisPlan } from '@/services/meld-advisor'
 import type { Recipe } from '@/stores/recipe'
 import { BIS_REFERENCE, MATERIA_GRADES } from '@/engine/materia'
 
@@ -219,5 +219,35 @@ describe('confirmBreakpointWithSolver', () => {
     )
     expect(out.confirmedBySolver).toBe(false)
     expect(fakeSolve.mock.calls.length).toBeLessThanOrEqual(3)
+  })
+})
+
+describe('computeBisPlan', () => {
+  const priceMap = new Map<number, any>(
+    MATERIA_GRADES.map(m => [m.itemId, { minPriceNQ: 1000, listings: [] }]),
+  )
+
+  it('returns zero-delta plan when current gearset already matches BiS', () => {
+    const atBis = {
+      level: 100, isSpecialist: false,
+      craftsmanship: BIS_REFERENCE.craftsmanship,
+      control: BIS_REFERENCE.control,
+      cp: BIS_REFERENCE.cp,
+    }
+    const plan = computeBisPlan(atBis, BIS_REFERENCE, priceMap)
+    expect(plan.deltaStats).toEqual({ craftsmanship: 0, control: 0, cp: 0 })
+    expect(plan.steps).toHaveLength(0)
+    expect(plan.totalGil).toBe(0)
+  })
+
+  it('computes a deep-overmeld plan when current is far below BiS', () => {
+    const low = {
+      level: 100, isSpecialist: false,
+      craftsmanship: 100, control: 100, cp: 100,
+    }
+    const plan = computeBisPlan(low, BIS_REFERENCE, priceMap)
+    expect(plan.steps.length).toBeGreaterThan(0)
+    const tail = plan.steps[plan.steps.length - 1]
+    expect(tail.expectedCount).toBeGreaterThanOrEqual(tail.placedCount)
   })
 })

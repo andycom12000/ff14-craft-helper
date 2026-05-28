@@ -387,6 +387,26 @@ export function translateDeltaToMeldPlan(
   }
 }
 
+/**
+ * Step 6 — BiS ceiling plan: melds needed to lift current gear stats up to
+ * BIS_REFERENCE, costed with the same slot/fail-ladder model.
+ *
+ * Operates on RAW gear stats (no Soul/food adjustment) because BIS_REFERENCE
+ * is itself a raw-gear target. Δ is the raw delta to reach that target.
+ */
+export function computeBisPlan(
+  gearset: GearsetStats,
+  bisReference: BiSReference,
+  priceMap: MateriaPriceMap,
+): MeldPlan {
+  const deltaStats = {
+    craftsmanship: Math.max(0, bisReference.craftsmanship - gearset.craftsmanship),
+    control: Math.max(0, bisReference.control - gearset.control),
+    cp: Math.max(0, bisReference.cp - gearset.cp),
+  }
+  return translateDeltaToMeldPlan(deltaStats, priceMap)
+}
+
 /** Stub — will be filled in over Tasks 6-12. */
 export async function adviseMeld(
   _targets: Recipe[],
