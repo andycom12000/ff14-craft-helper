@@ -9,6 +9,8 @@ import { useRecipeStore, type Recipe } from '@/stores/recipe'
 import { useGearsetsStore } from '@/stores/gearsets'
 import { useBomStore } from '@/stores/bom'
 import { useSimulatorStore } from '@/stores/simulator'
+import { useSettingsStore } from '@/stores/settings'
+import { useMeldAdvisor } from '@/composables/useMeldAdvisor'
 import { createInitialState, type CraftParams, type CraftState, type StepResult } from '@/engine/simulator'
 import type { BuffType } from '@/engine/buffs'
 import type { EnhancedStats } from '@/engine/food-medicine'
@@ -33,6 +35,11 @@ export function useSimulator() {
   const gearsetsStore = useGearsetsStore()
   const bomStore = useBomStore()
   const simStore = useSimulatorStore()
+  const settingsStore = useSettingsStore()
+
+  const { advice: meldAdvice, runAdvisor, markStale } = useMeldAdvisor(
+    () => settingsStore.server || settingsStore.dataCenter || '',
+  )
 
   const recipe = computed(() => recipeStore.currentRecipe)
   const searchSidebarOpen = ref(false)
@@ -213,7 +220,19 @@ export function useSimulator() {
 
   function onSolveComplete(result: { actions: string[] }) {
     simStore.setSolverResult(result)
+    // Ride-along: fire-and-forget the meld advisor with the same inputs.
+    if (recipe.value && gearset.value) {
+      void runAdvisor(recipe.value, gearset.value, initialQuality.value)
+    }
   }
+
+  // Mark advice stale when recipe, gearset, or initialQuality changes without
+  // a new solve being triggered.
+  watch(
+    [gearset, recipe, initialQuality],
+    () => markStale(),
+    { deep: true },
+  )
 
   function handleApplyHq(hqAmounts: number[]) {
     if (!recipe.value) return
@@ -300,6 +319,7 @@ export function useSimulator() {
     searchSidebarOpen,
     solverResult,
     modeOptions,
+    meldAdvice,
     // handlers
     onInitialQualityUpdate,
     onEnhancedStatsUpdate,

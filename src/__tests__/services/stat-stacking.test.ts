@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { gearsetToBuffedStats } from '@/services/stat-stacking'
+import { gearsetToBuffedStats, recipeToCraftParams } from '@/services/stat-stacking'
 import { COMMON_FOODS, COMMON_MEDICINES } from '@/engine/food-medicine'
 import { SPECIALIST_BONUS } from '@/services/specialist-state'
 import type { GearsetStats } from '@/stores/gearsets'
+import type { Recipe } from '@/stores/recipe'
 
 const gearset = (over: Partial<GearsetStats> = {}): GearsetStats => ({
   level: 100, craftsmanship: 4000, control: 3800, cp: 600, isSpecialist: false,
@@ -59,5 +60,30 @@ describe('gearsetToBuffedStats — canonical order', () => {
     )
     // control: 3800 (no Soul) → +5% cap 76 → 3876 → +3% of 3876 = 116 → cap 63 → 3939
     expect(buffed.control).toBe(3939)
+  })
+})
+
+const sampleRecipe = {
+  id: 1, name: 'x', job: 'CRP', canHq: true, isExpert: false,
+  recipeLevelTable: {
+    classJobLevel: 100, progressDivider: 1, qualityDivider: 1,
+    progressModifier: 100, qualityModifier: 100,
+    difficulty: 1000, quality: 5000, durability: 80,
+  },
+} as unknown as Recipe
+
+const sampleGearset = {
+  level: 100, craftsmanship: 4000, control: 4000, cp: 600, isSpecialist: false,
+}
+
+describe('recipeToCraftParams initialQuality override', () => {
+  it('defaults initialQuality to 0', () => {
+    const params = recipeToCraftParams(sampleRecipe, sampleGearset)
+    expect(params.initialQuality).toBe(0)
+  })
+
+  it('honours an explicit initialQuality override', () => {
+    const params = recipeToCraftParams(sampleRecipe, sampleGearset, undefined, 1200)
+    expect(params.initialQuality).toBe(1200)
   })
 })

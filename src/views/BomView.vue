@@ -383,7 +383,6 @@ const { targetRef: stickySentinel, flag: stickyStuck } = useObserverFlag(
     <header class="bom-view__header">
       <h2>
         購物清單
-        <span class="bom-view__beta" aria-label="實驗中">實驗中</span>
       </h2>
       <p v-if="!calculated" class="view-desc">想做什麼就加進來，我會幫你算好材料、查市價、估省下多少錢。</p>
     </header>

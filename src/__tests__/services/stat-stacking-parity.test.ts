@@ -5,6 +5,7 @@ import { applyCrafterSoulBonus } from '@/services/specialist-state'
 import { gearsetToBuffedStats, recipeToCraftParams } from '@/services/stat-stacking'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
+import type { FoodBuff } from '@/engine/food-medicine'
 
 const recipe: Recipe = {
   id: 1, itemId: 100, name: 'Parity', icon: '', job: 'CRP',
@@ -58,5 +59,55 @@ describe('Cross-caller stacking parity (#34)', () => {
 
     expect(b).toEqual(a)
     expect(c).toEqual(a)
+  })
+})
+
+describe('materia delta is applied at raw gear (ADR-0001)', () => {
+  it('ordering matters when materia causes food percent to cross the cap boundary', () => {
+    // Use food 36060 (高山茶 HQ): control { percent: 5, max: 76 }.
+    //
+    // Cap fires when floor(base * 5 / 100) >= 76, i.e. base >= 1520.
+    // Without materia: base=1460 → floor(1460*0.05)=73  (< 76, percent wins, +73)
+    // With materia 60: base=1520 → floor(1520*0.05)=76  (== 76, cap kicks in, +76)
+    //
+    // Correct path (materia at raw gear, ADR-0001):
+    //   gearsetToBuffedStats({control: 1460+60=1520}, buffs) → 1520 + 76 = 1596
+    //
+    // Wrong path (materia added after full stacking — the forbidden anti-pattern):
+    //   gearsetToBuffedStats({control: 1460}, buffs) → 1460 + 73 = 1533, then +60 = 1593
+    //
+    // 1596 ≠ 1593 — order provably matters.
+
+    const food = COMMON_FOODS.find((f): f is FoodBuff & { control: NonNullable<FoodBuff['control']> } =>
+      f.id === 36060 && f.control !== undefined,
+    )!
+    expect(food).toBeDefined()
+
+    const { percent, max } = food.control
+    // Verify our math: base=1460 is below cap, base+60=1520 is at the cap.
+    const BASE_CONTROL = 1460
+    const MATERIA_DELTA = 60
+    expect(Math.floor(BASE_CONTROL * percent / 100)).toBeLessThan(max)
+    expect(Math.floor((BASE_CONTROL + MATERIA_DELTA) * percent / 100)).toBeGreaterThanOrEqual(max)
+
+    const gearset: GearsetStats = {
+      level: 100, craftsmanship: 1000, control: BASE_CONTROL, cp: 600, isSpecialist: false,
+    }
+    const buffs = { food, medicine: null }
+
+    // Correct: materia baked into raw gear before gearsetToBuffedStats (ADR-0001 compliant).
+    const correct = gearsetToBuffedStats(
+      { ...gearset, control: gearset.control + MATERIA_DELTA },
+      buffs,
+    )
+
+    // Wrong: apply full stacking first, then tack materia on at the end.
+    const stacked = gearsetToBuffedStats(gearset, buffs)
+    const wrong = { ...stacked, control: stacked.control + MATERIA_DELTA }
+
+    // The two paths MUST disagree on control — that is what proves the order matters.
+    expect(correct.control).toBe(BASE_CONTROL + MATERIA_DELTA + max)  // 1520 + 76 = 1596
+    expect(wrong.control).toBe(BASE_CONTROL + Math.floor(BASE_CONTROL * percent / 100) + MATERIA_DELTA)  // 1460 + 73 + 60 = 1593
+    expect(correct.control).not.toBe(wrong.control)
   })
 })

@@ -26,6 +26,7 @@ import ConditionChips from '@/components/simulator/ConditionChips.vue'
 import ManualControls from '@/components/simulator/ManualControls.vue'
 import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
 import CustomRecipeDialog from '@/components/simulator/CustomRecipeDialog.vue'
+import MeldAdvisorCard from '@/components/MeldAdvisorCard.vue'
 import { CUSTOM_RECIPE_ICON } from '@/composables/useCustomRecipes'
 import AppEmptyState from '@/components/common/AppEmptyState.vue'
 import ItemName from '@/components/common/ItemName.vue'
@@ -54,6 +55,7 @@ const {
   effectiveStats, craftParams, currentState,
   initialQuality, initialQualityHqAmounts, enhancedStats,
   searchSidebarOpen, solverResult, modeOptions,
+  meldAdvice,
   onInitialQualityUpdate, onEnhancedStatsUpdate, onHqAmountsUpdate,
   handleAddFromSearch, handleRemoveFromQueue, handleClearQueue,
   handleRemoveAction, handleClearActions,
@@ -518,6 +520,13 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
                 />
                 <p v-else class="rail-empty">切到自動求解、按啟動求解後顯示。</p>
               </section>
+
+              <section class="cockpit-section cockpit-section--hq">
+                <header class="cockpit-section-head">
+                  <span class="cockpit-section-label">鑲嵌建議<span class="beta-pill" aria-label="實驗中">實驗中</span></span>
+                </header>
+                <MeldAdvisorCard :advice="meldAdvice" />
+              </section>
             </template>
           </template>
 
@@ -569,6 +578,13 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
               @self-craft="handleSelfCraft"
             />
             <p v-else class="rail-empty">切到自動求解、按啟動求解後顯示。</p>
+          </section>
+
+          <section class="rail-section">
+            <header class="rail-section-head">
+              <span class="rail-section-label">鑲嵌建議<span class="beta-pill" aria-label="實驗中">實驗中</span></span>
+            </header>
+            <MeldAdvisorCard :advice="meldAdvice" />
           </section>
         </aside>
       </div>
@@ -744,6 +760,11 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
             @apply-hq="handleApplyHq"
             @self-craft="handleSelfCraft"
           />
+        </section>
+
+        <section v-if="canSimulate && !gearsetBlocking" class="m-flat">
+          <h3 class="m-flat-title">鑲嵌建議<span class="beta-pill" aria-label="實驗中">實驗中</span></h3>
+          <MeldAdvisorCard :advice="meldAdvice" />
         </section>
 
         <section v-if="canSimulate" class="m-flat">

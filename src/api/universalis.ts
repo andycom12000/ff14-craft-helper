@@ -1,5 +1,6 @@
 import { trackEvent } from '@/utils/analytics'
 import { emitApiFailure } from '@/utils/api-failure'
+import { MATERIA_GRADES } from '@/engine/materia'
 
 const BASE_URL = 'https://universalis.app/api/v2'
 const REQUEST_TIMEOUT_MS = 20000
@@ -259,6 +260,18 @@ export function getMarketDataByDC(dcName: string, itemId: number): Promise<Marke
     REQUEST_TIMEOUT_MS,
     { server: dcName, item_count: 1 },
   )
+}
+
+/**
+ * Fetch market data for all materia in MATERIA_GRADES from the given world
+ * (or DC). Returns a Map keyed by itemId so the meld advisor can price each
+ * recommended grade.
+ *
+ * Thin wrapper over `getAggregatedPrices`.
+ */
+export async function fetchMateriaPriceMap(world: string): Promise<Map<number, MarketData>> {
+  const ids = MATERIA_GRADES.map(m => m.itemId)
+  return getAggregatedPrices(world, ids)
 }
 
 export function aggregateByWorld(listings: MarketListing[]): WorldPriceSummary[] {

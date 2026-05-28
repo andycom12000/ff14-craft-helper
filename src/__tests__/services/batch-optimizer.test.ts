@@ -35,6 +35,18 @@ vi.mock('@/services/buff-recommender', () => ({
 vi.mock('@/services/self-craft-candidates', () => ({
   produceSelfCraftCandidates: vi.fn().mockResolvedValue([]),
 }))
+vi.mock('@/services/meld-advisor', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/services/meld-advisor')>()
+  return {
+    ...actual,
+    adviseMeld: vi.fn().mockResolvedValue({
+      costOptimal: { feasible: true, deltaStats: { craftsmanship: 0, control: 0, cp: 0 }, steps: [], totalGil: 0, confirmedBySolver: false },
+      bis: { feasible: true, deltaStats: { craftsmanship: 0, control: 0, cp: 0 }, steps: [], totalGil: 0, confirmedBySolver: false },
+      gapGil: 0,
+      alreadyMeetsThreshold: false,
+    }),
+  }
+})
 
 import { optimizeRecipe, runBatchOptimization } from '@/services/batch-optimizer'
 import { solveCraft, simulateCraft, SolveCancelledError } from '@/solver/worker'
@@ -660,5 +672,110 @@ describe('runBatchOptimization · Phase 4.6 concurrency', () => {
       () => {}, () => false,
     )
     expect(bothActive).toBe(true)
+  })
+})
+
+describe('runBatchOptimization · Phase 6 meld advice', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const defaultSettings = {
+    crossServer: false, recursivePricing: false, maxRecursionDepth: 3,
+    exceptionStrategy: 'skip' as const, server: 'Chocobo', dataCenter: 'Mana',
+  }
+
+  it('populates meldAdvicePerJob in the result for each crafting job', async () => {
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory', 'groundwork'], progress: 3500, quality: 7200, steps: 2 })
+    vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
+
+    const result = await runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 1 }],
+      () => mockGearset,
+      defaultSettings,
+      () => {}, () => false,
+    )
+
+    expect(result.meldAdvicePerJob).toBeDefined()
+    expect(result.meldAdvicePerJob).toBeInstanceOf(Map)
+    expect(result.meldAdvicePerJob!.has('CRP')).toBe(true)
+  })
+
+  it('calls adviseMeld with initialQuality > 0 when the binding recipe has HQ ingredients', async () => {
+    // Set up a quality-deficit solve so hqAmounts will be populated.
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory'], progress: 3500, quality: 5000, steps: 1 })
+    vi.mocked(simulateCraft).mockResolvedValue(qualityDeficitSim as any)
+
+    const { adviseMeld } = await import('@/services/meld-advisor')
+
+    await runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 1 }],
+      () => mockGearset,
+      defaultSettings,
+      () => {}, () => false,
+    )
+
+    expect(adviseMeld).toHaveBeenCalled()
+    const call = vi.mocked(adviseMeld).mock.calls[0]
+    // 4th arg is options; initialQuality comes from HQ ingredients
+    const options = call[3]
+    // mockRecipe has Mat A (canHq=true, amount=3, level=50).
+    // qualityDeficitSim returns quality=5000, max=7200 → deficit 2200.
+    // findOptimalHqCombinations will recommend some HQ for Mat A.
+    // initialQuality should be > 0 when hqAmounts are non-zero.
+    expect(options.initialQuality).toBeGreaterThan(0)
+  })
+
+  it('result contains meldAdvicePerJob as empty map when all recipes are exceptions', async () => {
+    // All recipes fail → recipesToCraft is empty → no jobs → meldAdvicePerJob is empty Map.
+    const result = await runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 1 }],
+      () => null, // no gearset → level-insufficient exception
+      defaultSettings,
+      () => {}, () => false,
+    )
+
+    expect(result.meldAdvicePerJob).toBeDefined()
+    expect(result.meldAdvicePerJob!.size).toBe(0)
+  })
+
+  it('gracefully degrades when fetchMateriaPriceMap throws', async () => {
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory', 'groundwork'], progress: 3500, quality: 7200, steps: 2 })
+    vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
+
+    const { getAggregatedPrices } = await import('@/api/universalis')
+    let callCount = 0
+    vi.mocked(getAggregatedPrices).mockImplementation(async () => {
+      callCount++
+      if (callCount === 1) return new Map() // batch price query succeeds
+      throw new Error('network error')      // fetchMateriaPriceMap (Phase 6) fails
+    })
+
+    const result = await runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 1 }],
+      () => mockGearset,
+      defaultSettings,
+      () => {}, () => false,
+    )
+
+    // Should not throw; meldAdvicePerJob is still populated (adviseMeld was called with empty priceMap).
+    expect(result.meldAdvicePerJob).toBeDefined()
+    expect(result.meldAdvicePerJob!.has('CRP')).toBe(true)
+  })
+
+  it('skips meld advice per job in quick-buy mode', async () => {
+    const { getAggregatedPrices } = await import('@/api/universalis')
+    vi.mocked(getAggregatedPrices).mockResolvedValue(new Map([
+      [200, { minPriceNQ: 1000, minPriceHQ: 0, listings: [] } as any],
+      [201, { minPriceNQ: 500, minPriceHQ: 0, listings: [] } as any],
+    ]))
+
+    const result = await runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 1 }],
+      () => mockGearset,
+      { ...defaultSettings, calcMode: 'quick-buy' },
+      () => {}, () => false,
+    )
+
+    // Quick-buy path does not run Phase 6.
+    expect(result.meldAdvicePerJob).toBeUndefined()
   })
 })

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { aggregateByWorld, getMarketData } from '@/api/universalis'
+import { aggregateByWorld, getMarketData, fetchMateriaPriceMap } from '@/api/universalis'
 import type { MarketListing } from '@/api/universalis'
+import { MATERIA_GRADES } from '@/engine/materia'
 import { trackEvent } from '@/utils/analytics'
 
 vi.mock('@/utils/analytics', () => ({
@@ -151,5 +152,60 @@ describe('fetchUniversalis retry on transient failures', () => {
 
     await expect(getMarketData('Tonberry', 5057)).rejects.toThrow(/Failed to fetch/)
     expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+})
+
+describe('fetchMateriaPriceMap', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('returns a Map keyed by every materia itemId', async () => {
+    // Build a fake Universalis multi-item response: { items: { [id]: MarketData } }
+    const fakeItems: Record<string, object> = {}
+    for (const m of MATERIA_GRADES) {
+      fakeItems[String(m.itemId)] = {
+        itemID: m.itemId,
+        lastUploadTime: 0,
+        currentAveragePrice: 0,
+        currentAveragePriceNQ: 0,
+        currentAveragePriceHQ: 0,
+        minPriceNQ: 1000,
+        minPriceHQ: 1200,
+        listings: [],
+        recentHistory: [],
+      }
+    }
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ items: fakeItems }), { status: 200 }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const map = await fetchMateriaPriceMap('Tonberry')
+
+    expect(map).toBeInstanceOf(Map)
+    for (const m of MATERIA_GRADES) {
+      expect(map.has(m.itemId)).toBe(true)
+    }
+  })
+
+  it('calls Universalis with all materia item IDs in one request', async () => {
+    const fakeItems: Record<string, object> = {}
+    for (const m of MATERIA_GRADES) {
+      fakeItems[String(m.itemId)] = { itemID: m.itemId, listings: [] }
+    }
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ items: fakeItems }), { status: 200 }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await fetchMateriaPriceMap('Chocobo')
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const calledUrl: string = fetchMock.mock.calls[0][0]
+    // URL should contain the world name
+    expect(calledUrl).toContain('Chocobo')
+    // URL should include at least one materia item ID
+    expect(calledUrl).toContain(String(MATERIA_GRADES[0].itemId))
   })
 })

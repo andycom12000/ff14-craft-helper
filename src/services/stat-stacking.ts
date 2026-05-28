@@ -41,6 +41,7 @@ export function recipeToCraftParams(
   recipe: Recipe,
   gearset: GearsetStats,
   buffs?: { food: FoodBuff | null; medicine: FoodBuff | null },
+  initialQuality: number = 0,
 ): CraftParams {
   const buffed = gearsetToBuffedStats(gearset, buffs)
   return {
@@ -50,7 +51,7 @@ export function recipeToCraftParams(
     crafterLevel: gearset.level,
     recipeLevelTable: recipe.recipeLevelTable,
     canHq: recipe.canHq,
-    initialQuality: 0,
+    initialQuality,
     isExpert: recipe.isExpert ?? false,
   }
 }

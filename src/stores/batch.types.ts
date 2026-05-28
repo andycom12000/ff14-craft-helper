@@ -14,6 +14,7 @@ import type { Recipe } from '@/stores/recipe'
 import type { MaterialWithPrice as ShoppingItem, ServerGroup, CrystalSummary, QuickBuyMaterial } from '@/services/shopping-list'
 import type { WorldPriceSummary } from '@/api/universalis'
 import type { FoodBuff } from '@/engine/food-medicine'
+import type { MeldAdvice } from '@/services/meld-advisor'
 
 export interface BatchTarget {
   recipe: Recipe
@@ -133,4 +134,10 @@ export interface BatchResults {
    */
   quickBuyMaterials?: QuickBuyMaterial[]
   npcPurchaseCandidates: NpcPurchaseCandidate[]
+  /**
+   * Populated in macro mode after Phase 6 (meld advice). One entry per
+   * crafting job present in recipesToCraft. Absent in quick-buy mode and
+   * when cancelled before Phase 6 completes.
+   */
+  meldAdvicePerJob?: Map<string, MeldAdvice>
 }
