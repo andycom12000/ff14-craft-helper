@@ -490,10 +490,11 @@ export async function adviseMeld(
   const costOptimal = translateDeltaToMeldPlan(confirmed.deltaStats, priceMap)
   costOptimal.confirmedBySolver = confirmed.confirmedBySolver
 
-  // Step 7: gap.
+  // Step 7: gap (clamped to ≥ 0 — if optimal cost exceeds BiS cost the user
+  // is already paying more than needed, so the "saving" is 0, not negative).
   const gapGil =
     bis.totalGil !== null && costOptimal.totalGil !== null
-      ? bis.totalGil - costOptimal.totalGil
+      ? Math.max(0, bis.totalGil - costOptimal.totalGil)
       : null
 
   return { costOptimal, bis, gapGil, alreadyMeetsThreshold: false }
