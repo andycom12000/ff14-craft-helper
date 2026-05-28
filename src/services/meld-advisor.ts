@@ -244,11 +244,12 @@ export async function confirmBreakpointWithSolver(
       simResult.progress >= simResult.max_progress &&
       simResult.quality >= simResult.max_quality
     if (passes) return { deltaStats: delta, confirmedBySolver: true }
-    // Bump up and retry.
+    // Bump up and retry — only bump axes that already have a positive delta
+    // to avoid inflating zero-cost axes (e.g. craftsmanship already sufficient).
     delta = {
-      craftsmanship: Math.ceil(delta.craftsmanship * (1 + BUMP_FACTOR)) + 1,
-      control: Math.ceil(delta.control * (1 + BUMP_FACTOR)) + 1,
-      cp: Math.ceil(delta.cp * (1 + BUMP_FACTOR)),
+      craftsmanship: delta.craftsmanship === 0 ? 0 : Math.ceil(delta.craftsmanship * (1 + BUMP_FACTOR)) + 1,
+      control: delta.control === 0 ? 0 : Math.ceil(delta.control * (1 + BUMP_FACTOR)) + 1,
+      cp: delta.cp === 0 ? 0 : Math.ceil(delta.cp * (1 + BUMP_FACTOR)),
     }
   }
   return { deltaStats: delta, confirmedBySolver: false }
