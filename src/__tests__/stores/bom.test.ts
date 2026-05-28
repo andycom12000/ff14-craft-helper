@@ -893,8 +893,8 @@ describe('company-craft-project target excluded from market lookups', () => {
     )
     const bom = useBomStore()
     bom.flatMaterials = [
-      { itemId: -1, name: '潛水艇 meta', icon: '', amount: 1 },
-      { itemId: 5057, name: '冰結晶', icon: '', amount: 8 },
+      { itemId: -1, name: '潛水艇 meta', icon: '', totalAmount: 1, isRaw: true },
+      { itemId: 5057, name: '冰結晶', icon: '', totalAmount: 8, isRaw: true },
     ]
 
     await bom.fetchPrices()
