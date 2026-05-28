@@ -85,3 +85,26 @@ export const BIS_REFERENCE: BiSReference = {
   control: 5050,
   cp: 691,
 }
+
+/** Return all materia entries for a stat, sorted descending by grade. */
+export function materiaForStat(stat: CraftStat): MateriaGrade[] {
+  return MATERIA_GRADES
+    .filter(m => m.stat === stat)
+    .sort((a, b) => b.grade - a.grade)
+}
+
+/** Return the highest-grade materia for a stat, or null if none. */
+export function topGradeForStat(stat: CraftStat): MateriaGrade | null {
+  return materiaForStat(stat)[0] ?? null
+}
+
+/**
+ * Expected number of materia to purchase to successfully place `placed`
+ * melds at overmeld depth `depth` (0-indexed beyond the guaranteed slots).
+ * Depths past the ladder length clamp to the final (lowest) rate.
+ */
+export function expectedCountForOvermeldDepth(depth: number, placed: number): number {
+  const idx = Math.min(depth, OVERMELD_SUCCESS_LADDER.length - 1)
+  const rate = OVERMELD_SUCCESS_LADDER[idx]
+  return placed / rate
+}

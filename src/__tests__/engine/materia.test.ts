@@ -4,6 +4,9 @@ import {
   SLOT_STRUCTURE,
   OVERMELD_SUCCESS_LADDER,
   BIS_REFERENCE,
+  materiaForStat,
+  topGradeForStat,
+  expectedCountForOvermeldDepth,
 } from '@/engine/materia'
 
 describe('MATERIA_GRADES', () => {
@@ -60,5 +63,37 @@ describe('BIS_REFERENCE', () => {
     expect(BIS_REFERENCE.craftsmanship).toBeGreaterThan(0)
     expect(BIS_REFERENCE.control).toBeGreaterThan(0)
     expect(BIS_REFERENCE.cp).toBeGreaterThan(0)
+  })
+})
+
+describe('topGradeForStat', () => {
+  it('returns the highest-grade materia for a given stat', () => {
+    const top = topGradeForStat('craftsmanship')
+    expect(top).not.toBeNull()
+    expect(top!.grade).toBe(12)
+    expect(top!.value).toBeGreaterThan(0)
+  })
+})
+
+describe('materiaForStat', () => {
+  it('returns all materia of a given stat sorted descending by grade', () => {
+    const list = materiaForStat('control')
+    expect(list.length).toBeGreaterThan(0)
+    for (let i = 1; i < list.length; i++) {
+      expect(list[i].grade).toBeLessThanOrEqual(list[i - 1].grade)
+    }
+  })
+})
+
+describe('expectedCountForOvermeldDepth', () => {
+  it('returns placed count divided by success rate at the given depth', () => {
+    const placed = 5
+    const expected = expectedCountForOvermeldDepth(0, placed)
+    expect(expected).toBeCloseTo(placed / 0.17, 5)
+  })
+
+  it('depths beyond the ladder use the last entry (deepest, lowest rate)', () => {
+    const last = OVERMELD_SUCCESS_LADDER[OVERMELD_SUCCESS_LADDER.length - 1]
+    expect(expectedCountForOvermeldDepth(99, 1)).toBeCloseTo(1 / last, 5)
   })
 })
