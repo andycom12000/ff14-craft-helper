@@ -35,3 +35,30 @@ export const MATERIA_GRADES: MateriaGrade[] = [
   { grade: 10, stat: 'control',       value: 36, itemId: 33919 },
   { grade: 10, stat: 'cp',            value:  9, itemId: 33920 },
 ]
+
+/**
+ * Aggregate slot structure for a full crafter gear set (12 pieces:
+ * main + off + 5 armor + 5 accessories). Base meld slots are guaranteed
+ * (100% success); the rest are overmeld slots subject to OVERMELD_SUCCESS_LADDER.
+ *
+ * A crafter set has 12 pieces (main + off + 5 armor + 5 accessories), each
+ * meldable up to 5 materia (pentameld). Base meld slots vary by piece (weapon
+ * & armor: 2; accessories: 1; with some tier-by-tier variance), and the
+ * remainder are overmeld slots. v1 hardcodes one representative aggregate
+ * shape — ~25 guaranteed + ~35 overmeld — rather than reasoning per-piece;
+ * per-version refinement (with cap tables) is v2.
+ */
+export const SLOT_STRUCTURE = {
+  guaranteedSlots: 25,
+  overmeldSlots: 35,
+} as const
+
+/**
+ * Overmeld success-rate ladder indexed by overmeld depth (0 = first
+ * overmeld attempt past the guaranteed slots, ...). Game constant.
+ * Source: in-game advanced melding rates (high-grade tier). For lower
+ * grades the rate is higher, but ②-lite uses one representative ladder.
+ */
+export const OVERMELD_SUCCESS_LADDER: number[] = [
+  0.17, 0.17, 0.10, 0.05,
+]
