@@ -26,6 +26,8 @@ import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 import type { MarketData } from '@/api/universalis'
 import type { CraftStat, BiSReference } from '@/engine/materia'
+import { computeBaseProgress } from '@/services/feasibility-prefilter'
+import { gearsetToBuffedStats } from '@/services/stat-stacking'
 
 export type MateriaPriceMap = Map<number, MarketData>
 
@@ -78,6 +80,37 @@ export function findBindingRecipe(targets: Recipe[]): Recipe | null {
     if (rP > bestP || (rP === bestP && rQ > bestQ)) best = r
   }
   return best
+}
+
+/** Coarse upper bound on progress steps in a typical max-quality macro. */
+const PROGRESS_STEP_UPPER_BOUND = 10
+
+/**
+ * Step 2 — closed-form: minimum Δcraftsmanship so the binding recipe's
+ * progress is clearable. Returns 0 if the current gearset (after Soul) already
+ * suffices.
+ */
+export function solveProgressBreakpoint(
+  recipe: Recipe,
+  gearset: GearsetStats,
+): number {
+  const buffed = gearsetToBuffedStats(gearset, undefined)
+  const rlt = recipe.recipeLevelTable
+  const bp = computeBaseProgress(buffed.craftsmanship, gearset.level, rlt)
+  const reachable = bp * PROGRESS_STEP_UPPER_BOUND
+  if (reachable >= rlt.progress) return 0
+
+  // Binary search for the minimum craftsmanship delta that flips
+  // computeBaseProgress * step upper bound >= recipe.progress.
+  let lo = 0
+  let hi = 10_000
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2)
+    const bumped = computeBaseProgress(buffed.craftsmanship + mid, gearset.level, rlt)
+    if (bumped * PROGRESS_STEP_UPPER_BOUND >= rlt.progress) hi = mid
+    else lo = mid + 1
+  }
+  return lo
 }
 
 /** Stub — will be filled in over Tasks 6-12. */
