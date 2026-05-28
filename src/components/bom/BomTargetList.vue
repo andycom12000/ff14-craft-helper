@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useBomStore } from '@/stores/bom'
+import { useBomStore, targetKey } from '@/stores/bom'
 import { ElMessage } from 'element-plus'
 import { Search, Download } from '@element-plus/icons-vue'
 import AppEmptyState from '@/components/common/AppEmptyState.vue'
@@ -13,8 +13,8 @@ const emit = defineEmits<{
   'open-import': []
 }>()
 
-function handleQuantityChange(itemId: number, val: number | undefined) {
-  bomStore.updateTargetQuantity(itemId, val ?? 1)
+function handleQuantityChange(key: string, val: number | undefined) {
+  bomStore.updateTargetQuantity(key, val ?? 1)
 }
 
 function handleClearAll() {
@@ -71,7 +71,7 @@ function handleClearAll() {
     <div v-else class="bom-target-cards">
       <BomTargetCard
         v-for="row in bomStore.targets"
-        :key="row.itemId"
+        :key="targetKey(row)"
         :target="row"
         class="bom-target-cards__item"
         @update:quantity="handleQuantityChange"

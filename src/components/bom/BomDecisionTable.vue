@@ -30,9 +30,30 @@ interface RowDescriptor {
   amount: number
   isCraftable: boolean
   isTarget: boolean
+  /**
+   * Project-meta row: a 部隊工坊 (company-craft-project) target. There is no
+   * market price for it (the "item" is a workshop project, not a tradable
+   * stack), so the decision row must suppress every market affordance —
+   * cross-world chip, single-world price, retry chips, market drill — and
+   * route the drill to the supply-tree view instead.
+   */
+  isProjectMeta?: boolean
 }
 
 const targetSet = computed(() => new Set(props.targetItemIds))
+
+/**
+ * Set of itemIds whose target row is a company-craft-project meta. Built
+ * from bom.targets (the source of truth for kind) because the material tree
+ * itself carries only the placeholder itemId, not the discriminant.
+ */
+const projectMetaIds = computed(() => {
+  const out = new Set<number>()
+  for (const t of bom.targets) {
+    if (t.kind === 'company-craft-project') out.add(t.itemId)
+  }
+  return out
+})
 
 const targetRows = computed<RowDescriptor[]>(() => {
   const rows = props.materialTree.map((root) => ({
@@ -40,8 +61,15 @@ const targetRows = computed<RowDescriptor[]>(() => {
     name: root.name,
     icon: root.icon,
     amount: root.amount,
-    isCraftable: !!(root.recipeId && root.children && root.children.length > 0),
+    // Project-meta rows have children (the supply materials) but no recipeId;
+    // surface them as "drillable into a tree" by lifting isCraftable here so
+    // the drill panel renders BomCraftTreeNode for them.
+    isCraftable:
+      projectMetaIds.value.has(root.itemId)
+        ? !!(root.children && root.children.length > 0)
+        : !!(root.recipeId && root.children && root.children.length > 0),
     isTarget: true,
+    isProjectMeta: projectMetaIds.value.has(root.itemId),
   }))
   // Group by the cheapest cross-DC world the row's pill is showing, so the
   // user can shop one server at a time. Rows without a visible pill (craft
@@ -171,8 +199,12 @@ function onAnnounceExpand(detail: { modeLabel: string; itemName: string }) {
 }
 
 // 水晶 rollup 不入池：已是匯總，逐顆勾沒意義。
+// Project-meta rows (company-craft 完成品) are excluded too — every project
+// shares placeholder itemId=-1, so leaving them in would (a) collapse all
+// project rows to a single bomCompleted entry (toggling one marks all),
+// and (b) inflate the denominator by counting -1 once per project.
 const checkableItemIds = computed<number[]>(() => [
-  ...targetRows.value.map(r => r.itemId),
+  ...targetRows.value.filter(r => !r.isProjectMeta).map(r => r.itemId),
   ...materialRows.value.map(r => r.itemId),
 ])
 const completedCount = computed(() =>
@@ -225,15 +257,27 @@ const allCompleted = computed(() =>
           :amount="row.amount"
           :is-craftable="row.isCraftable"
           :is-target="true"
-          :immutable="false"
+          :immutable="row.isProjectMeta === true"
+          :is-project-meta="row.isProjectMeta === true"
           @announce-expand="onAnnounceExpand"
         />
         <!-- Targets get the same drill content as material rows: craft tree
              when crafting, vendor/location detail for NPC/gather, cross-DC
-             price table for market. -->
+             price table for market. Project-meta rows always drill into the
+             supply tree — they have no market form so the npc/gather/market
+             branches are unreachable for them. -->
         <template v-if="!isCockpitMobile && bom.isRowExpanded(row.itemId)">
           <div
-            v-if="bom.getEffectiveMode(row.itemId) === 'craft' && row.isCraftable"
+            v-if="row.isProjectMeta && row.isCraftable"
+            class="bdt-drill"
+          >
+            <BomCraftTreeNode
+              v-if="getNodeForRow(row.itemId)"
+              :parent="getNodeForRow(row.itemId)!"
+            />
+          </div>
+          <div
+            v-else-if="bom.getEffectiveMode(row.itemId) === 'craft' && row.isCraftable"
             class="bdt-drill"
           >
             <BomCraftTreeNode

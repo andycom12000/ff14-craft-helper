@@ -69,7 +69,20 @@ function isChildCraftable(node: MaterialNode): boolean {
 
 const { crossWorldData, crossWorldLoading, fetchCrossWorldData } = useCrossWorldPricing()
 
+/**
+ * A company-craft-project meta target hits the tree with a placeholder
+ * itemId (-1) — it has no market form. Suppress every market path that
+ * would otherwise fire a 404 fetch for that id (cross-world fetch on
+ * mount, "直購本品 vs 材料自製" verdict block, 跨服比價 panel).
+ */
+const isProjectMetaParent = computed(() =>
+  bom.targets.some(
+    (t) => t.kind === 'company-craft-project' && t.itemId === props.parent.itemId,
+  ),
+)
+
 const canMarketParent = computed(() => {
+  if (isProjectMetaParent.value) return false
   const a = bom.acquisitionAvailability.get(props.parent.itemId)
   return a ? a.canMarket : true
 })

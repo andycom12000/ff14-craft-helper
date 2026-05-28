@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { flushPromises } from '@vue/test-utils'
-import { useBomStore, getPrice, migrateLegacyTarget } from '@/stores/bom'
+import { useBomStore, getPrice, migrateLegacyTarget, targetKey } from '@/stores/bom'
 import { useSettingsStore } from '@/stores/settings'
 import { useCrossWorldPricing } from '@/composables/useCrossWorldPricing'
 import type { PriceInfo, MaterialNode } from '@/stores/bom'
@@ -714,6 +714,196 @@ describe('BomTarget migration', () => {
       quantity: 1,
     })
     expect(bom.targets).toHaveLength(2)
+  })
+
+  it('updateTargetQuantity updates the right company-craft-project by projectId', () => {
+    const bom = useBomStore()
+    bom.addTarget({
+      kind: 'company-craft-project',
+      projectId: 'proj-1',
+      itemId: -1,
+      name: 'Sub 1',
+      icon: '',
+      quantity: 1,
+    })
+    bom.addTarget({
+      kind: 'company-craft-project',
+      projectId: 'proj-2',
+      itemId: -1,
+      name: 'Sub 2',
+      icon: '',
+      quantity: 1,
+    })
+
+    // Updating the second project must not touch the first.
+    bom.updateTargetQuantity(targetKey(bom.targets[1]), 5)
+
+    expect(bom.targets[0].quantity).toBe(1)
+    expect(bom.targets[1].quantity).toBe(5)
+
+    // And the first can still be updated independently.
+    bom.updateTargetQuantity(targetKey(bom.targets[0]), 3)
+    expect(bom.targets[0].quantity).toBe(3)
+    expect(bom.targets[1].quantity).toBe(5)
+  })
+
+  it('removeTarget removes only the targeted company-craft-project, keeping the rest', () => {
+    const bom = useBomStore()
+    bom.addTarget({
+      kind: 'company-craft-project',
+      projectId: 'proj-1',
+      itemId: -1,
+      name: 'Sub 1',
+      icon: '',
+      quantity: 1,
+    })
+    bom.addTarget({
+      kind: 'company-craft-project',
+      projectId: 'proj-2',
+      itemId: -1,
+      name: 'Sub 2',
+      icon: '',
+      quantity: 1,
+    })
+
+    bom.removeTarget(targetKey(bom.targets[0]))
+
+    expect(bom.targets).toHaveLength(1)
+    expect(bom.targets[0]).toMatchObject({ kind: 'company-craft-project', projectId: 'proj-2' })
+  })
+
+  it('updateTargetQuantity / removeTarget still key recipe & no-recipe targets by itemId', () => {
+    const bom = useBomStore()
+    bom.addTarget({ kind: 'recipe', recipeId: 10, itemId: 100, name: 'A', icon: '', quantity: 1 })
+    bom.addTarget({ kind: 'no-recipe', itemId: 200, name: 'B', icon: '', quantity: 1 })
+
+    bom.updateTargetQuantity(targetKey(bom.targets[0]), 7)
+    expect(bom.targets.find(t => t.itemId === 100)!.quantity).toBe(7)
+    expect(bom.targets.find(t => t.itemId === 200)!.quantity).toBe(1)
+
+    bom.removeTarget(targetKey(bom.targets.find(t => t.itemId === 200)!))
+    expect(bom.targets).toHaveLength(1)
+    expect(bom.targets[0].itemId).toBe(100)
+  })
+})
+
+describe('company-craft-project target excluded from market lookups', () => {
+  // Regression for issue #90 bug 2: a company-craft-project target carries a
+  // placeholder itemId of -1 (the "完成品 meta" row that links a workshop
+  // project to the BOM). It must NEVER hit Universalis — there is no such
+  // item id on the API, and sending -1 produces 404s + dead retry chips.
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.mocked(getAggregatedPrices).mockReset()
+    vi.mocked(getMarketDataByDC).mockReset()
+    vi.mocked(aggregateByWorld).mockReset()
+    useCrossWorldPricing().invalidateCrossWorldCache()
+    const settings = useSettingsStore()
+    settings.server = 'TestServer'
+    settings.dataCenter = 'TestDC'
+  })
+
+  it('fetchPrices: does not include a company-craft-project target itemId in the Universalis batch', async () => {
+    vi.mocked(getAggregatedPrices).mockResolvedValue(
+      new Map() as unknown as Awaited<ReturnType<typeof getAggregatedPrices>>,
+    )
+    const bom = useBomStore()
+    bom.targets = [
+      { kind: 'company-craft-project', projectId: 'proj-abc', itemId: -1, name: 'Tatanora 號', icon: '', quantity: 1 },
+      { kind: 'recipe', itemId: 200, recipeId: 9001, name: 'Regular', icon: '', quantity: 1 },
+    ]
+
+    await bom.fetchPrices()
+
+    expect(vi.mocked(getAggregatedPrices)).toHaveBeenCalledTimes(1)
+    const callIds = vi.mocked(getAggregatedPrices).mock.calls[0][1]
+    expect(callIds).not.toContain(-1)
+    expect(callIds).toContain(200)
+    // Status map should not register -1 at all
+    expect(bom.priceFetchStatus.has(-1)).toBe(false)
+  })
+
+  it('fetchCrossWorldBestForTargets: skips company-craft-project targets entirely', async () => {
+    vi.mocked(getMarketDataByDC).mockResolvedValue({ listings: [] } as never)
+    vi.mocked(aggregateByWorld).mockReturnValue([
+      { worldName: 'Tonberry', minPriceNQ: 1500, minPriceHQ: 0, avgPriceNQ: 1600, avgPriceHQ: 0, lastUploadTime: 0, listingCount: 1 },
+    ])
+    const bom = useBomStore()
+    bom.targets = [
+      { kind: 'company-craft-project', projectId: 'proj-abc', itemId: -1, name: 'Tatanora 號', icon: '', quantity: 1 },
+      { kind: 'recipe', itemId: 200, recipeId: 9001, name: 'Regular', icon: '', quantity: 1 },
+    ]
+    bom.materialTree = [
+      { itemId: 200, name: 'Regular', icon: '', amount: 1, recipeId: 9001, children: [{ itemId: 50, name: 'c', icon: '', amount: 1 }] },
+    ]
+
+    await bom.fetchCrossWorldBestForTargets()
+
+    // getMarketDataByDC must NOT be called for itemId = -1.
+    const calls = vi.mocked(getMarketDataByDC).mock.calls
+    for (const args of calls) {
+      expect(args[1]).not.toBe(-1)
+    }
+    // The project meta row must not leak a 'failed' status that would render
+    // the "跨服查價失敗 重試" chip.
+    expect(bom.crossWorldFetchStatus.has(-1)).toBe(false)
+    // The companion recipe target IS fetched.
+    expect(bom.crossWorldBestPriceMap.get(200)?.minPrice).toBe(1500)
+  })
+
+  it('fetchPrices: pure-project target list short-circuits without calling Universalis', async () => {
+    vi.mocked(getAggregatedPrices).mockResolvedValue(
+      new Map() as unknown as Awaited<ReturnType<typeof getAggregatedPrices>>,
+    )
+    const bom = useBomStore()
+    bom.targets = [
+      { kind: 'company-craft-project', projectId: 'proj-abc', itemId: -1, name: 'Tatanora 號', icon: '', quantity: 1 },
+    ]
+
+    const r = await bom.fetchPrices()
+
+    expect(r.ok).toBe(true)
+    expect(vi.mocked(getAggregatedPrices)).not.toHaveBeenCalled()
+  })
+
+  it('fetchPrices: filters out -1 even when caller passes it via itemIds (BomView flatMaterials path)', async () => {
+    // Regression for the partial bug-2 fix: the per-target skip wasn't enough
+    // because BomView.vue calls `fetchPrices(flat.map(m => m.itemId))` and the
+    // bom-calculator's company-craft fallback can land itemId=-1 inside
+    // flatMaterials. The batch would then 404 and flip every id (including
+    // the legitimate ones) to status='failed', producing a "N 列查價失敗"
+    // alert in BomTotalsReceipt.
+    vi.mocked(getAggregatedPrices).mockResolvedValue(
+      new Map() as unknown as Awaited<ReturnType<typeof getAggregatedPrices>>,
+    )
+    const bom = useBomStore()
+
+    await bom.fetchPrices([-1, 999])
+
+    expect(vi.mocked(getAggregatedPrices)).toHaveBeenCalledTimes(1)
+    const callIds = vi.mocked(getAggregatedPrices).mock.calls[0][1]
+    expect(callIds).not.toContain(-1)
+    expect(callIds).toContain(999)
+    expect(bom.priceFetchStatus.has(-1)).toBe(false)
+  })
+
+  it('fetchPrices: filters out -1 from flatMaterials default when itemIds is omitted', async () => {
+    vi.mocked(getAggregatedPrices).mockResolvedValue(
+      new Map() as unknown as Awaited<ReturnType<typeof getAggregatedPrices>>,
+    )
+    const bom = useBomStore()
+    bom.flatMaterials = [
+      { itemId: -1, name: '潛水艇 meta', icon: '', totalAmount: 1, isRaw: true },
+      { itemId: 5057, name: '冰結晶', icon: '', totalAmount: 8, isRaw: true },
+    ]
+
+    await bom.fetchPrices()
+
+    expect(vi.mocked(getAggregatedPrices)).toHaveBeenCalledTimes(1)
+    const callIds = vi.mocked(getAggregatedPrices).mock.calls[0][1]
+    expect(callIds).not.toContain(-1)
+    expect(callIds).toContain(5057)
+    expect(bom.priceFetchStatus.has(-1)).toBe(false)
   })
 })
 

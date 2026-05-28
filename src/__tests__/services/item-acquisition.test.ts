@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   deriveAcquisition,
+  fetchItemAcquisition,
   type GarlandItemDetail,
 } from '@/services/item-acquisition'
 
@@ -89,5 +90,39 @@ describe('deriveAcquisition', () => {
       canNpc: false,
       npcPrice: null,
     })
+  })
+})
+
+describe('fetchItemAcquisition', () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch')
+  })
+
+  afterEach(() => {
+    fetchSpy.mockRestore()
+  })
+
+  it('short-circuits non-positive itemIds (placeholder -1) to PERMISSIVE without a network call', async () => {
+    // Regression for issue #90 bug 2 follow-up: BomView.fetchAcquisitionAvailability
+    // is called with flatMaterials' itemIds, which can include the company-craft
+    // meta target's -1. The Garlandtools endpoint 404s on /-1.json — defensive
+    // short-circuit avoids the wasted request + console error.
+    const result = await fetchItemAcquisition(-1)
+
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(result).toEqual({
+      canMarket: true,
+      canGather: true,
+      canNpc: true,
+      npcPrice: null,
+    })
+  })
+
+  it('also short-circuits itemId=0', async () => {
+    const result = await fetchItemAcquisition(0)
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(result.canMarket).toBe(true)
   })
 })

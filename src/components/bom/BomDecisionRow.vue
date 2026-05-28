@@ -27,6 +27,14 @@ interface Props {
   nested?: boolean
   /** Hide the segmented control (used for target/finished-goods rows). */
   immutable?: boolean
+  /**
+   * Project-meta row: a 部隊工坊 (company-craft-project) target. There is no
+   * market form for this "item" (the placeholder itemId is -1), so every
+   * market affordance — cross-world chip, unit / total prices, retry chips,
+   * market-mode drill — must be suppressed. The mode chip reads
+   * "工坊製作" (workshop craft), and the row drills into its supply tree.
+   */
+  isProjectMeta?: boolean
 }
 
 const props = defineProps<Props>()
@@ -83,6 +91,7 @@ const npcPrice = computed<number | null>(() => availability.value?.npcPrice ?? n
 const showCrossWorld = computed(
   () =>
     !!props.isTarget &&
+    !props.isProjectMeta &&
     mode.value === 'market' &&
     settings.crossServer,
 )
@@ -116,11 +125,13 @@ const lineTotal = computed<number | null>(() => {
 })
 
 const unitDisplay = computed(() => {
+  if (props.isProjectMeta) return '—'
   if (mode.value === 'gather' || mode.value === 'craft') return '—'
   return null
 })
 
 const totalDisplay = computed(() => {
+  if (props.isProjectMeta) return '—'
   if (mode.value === 'gather') return '免費'
   if (mode.value === 'craft') return '—'
   return null
@@ -128,6 +139,7 @@ const totalDisplay = computed(() => {
 
 const isPriceFailed = computed(
   () =>
+    !props.isProjectMeta &&
     mode.value === 'market' &&
     bom.priceFetchStatus.get(props.itemId) === 'failed',
 )
@@ -140,6 +152,10 @@ async function retryPrice() {
 
 const isExpanded = computed(() => bom.isRowExpanded(props.itemId))
 const isRowToggleable = computed(() => {
+  // Project-meta rows are locked immutable but still drill (into the supply
+  // tree). Without this branch, the row would render as a dead-end and the
+  // user could never see what the project actually needs.
+  if (props.isProjectMeta) return props.isCraftable
   if (props.immutable) return false
   if (mode.value === 'craft') return props.isCraftable
   // npc/gather drill = location detail; market drill = cross-world price table.
@@ -241,9 +257,13 @@ function toggleCompleted() {
   >
     <!-- Nested rows are intermediate craft children; their completion is
          implicit when the parent is done, so no checkbox + they don't
-         contribute to BomDecisionTable's progress pool. -->
+         contribute to BomDecisionTable's progress pool.
+         Project-meta rows are display-only (every company-craft-project
+         shares placeholder itemId=-1, so a single bomCompleted entry
+         would mark every project row complete at once); completion lives
+         on the per-material rows in the supply tree instead. -->
     <span
-      v-if="!nested"
+      v-if="!nested && !isProjectMeta"
       class="dec-row__check"
       @click.stop
       @keydown.enter.stop
@@ -366,7 +386,10 @@ function toggleCompleted() {
       </template>
     </div>
     <div v-else class="dec-row__locked">
-      <span class="dec-seg dec-seg--locked"><span class="dec-seg__icon">⚒</span><span class="dec-seg__label">自製</span></span>
+      <span class="dec-seg dec-seg--locked">
+        <span class="dec-seg__icon">⚒</span>
+        <span class="dec-seg__label">{{ isProjectMeta ? '工坊製作' : '自製' }}</span>
+      </span>
     </div>
 
     <div class="dec-row__unit">

@@ -69,6 +69,11 @@ export function deriveAcquisition(detail: GarlandItemDetail): ItemAcquisition {
 }
 
 export async function fetchItemAcquisition(itemId: number): Promise<ItemAcquisition> {
+  // Defensive: non-positive itemIds are placeholders (e.g. the company-craft
+  // project meta target's -1) and produce 404s at Garlandtools. Short-circuit
+  // to PERMISSIVE so callers that union flatMaterials don't burn a request
+  // and pollute the console with a 404 every time the BOM recomputes.
+  if (itemId <= 0) return PERMISSIVE
   if (cache.has(itemId)) return cache.get(itemId)!
   if (inflight.has(itemId)) return inflight.get(itemId)!
   const promise = (async () => {
