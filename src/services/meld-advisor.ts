@@ -25,6 +25,7 @@
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 import type { MarketData } from '@/api/universalis'
+import { solveCraftForRecipe, simulateCraftForRecipe } from '@/solver/api'
 import type { CraftStat, BiSReference } from '@/engine/materia'
 import {
   computeBaseProgress,
@@ -190,6 +191,63 @@ export function solveQualityBreakpoint(
     }
   }
   return { control: bestControl ?? 10_000, cp: bestCp }
+}
+
+const MAX_CONFIRM_ATTEMPTS = 3
+const BUMP_FACTOR = 0.05 // 5% upward bump on shortfall
+
+export interface ConfirmDeps {
+  solve: typeof solveCraftForRecipe
+  simulate: typeof simulateCraftForRecipe
+}
+
+export interface ConfirmedBreakpoint {
+  deltaStats: { craftsmanship: number; control: number; cp: number }
+  confirmedBySolver: boolean
+}
+
+/**
+ * Step 4 — confirm a closed-form candidate against the real solver.
+ * If the solver can't double-max with the candidate stats, bump all three
+ * deltas by 5% and retry. Bounded to MAX_CONFIRM_ATTEMPTS total solves.
+ *
+ * `deps` is injected so tests can mock the solver without bootstrapping WASM.
+ */
+export async function confirmBreakpointWithSolver(
+  recipe: Recipe,
+  gearset: GearsetStats,
+  candidate: { craftsmanship: number; control: number; cp: number },
+  initialQuality: number,
+  deps: ConfirmDeps = { solve: solveCraftForRecipe, simulate: simulateCraftForRecipe },
+  isCancelled?: () => boolean,
+): Promise<ConfirmedBreakpoint> {
+  let delta = { ...candidate }
+  for (let attempt = 0; attempt < MAX_CONFIRM_ATTEMPTS; attempt++) {
+    if (isCancelled?.()) return { deltaStats: delta, confirmedBySolver: false }
+    const bumped: GearsetStats = {
+      ...gearset,
+      craftsmanship: gearset.craftsmanship + delta.craftsmanship,
+      control: gearset.control + delta.control,
+      cp: gearset.cp + delta.cp,
+    }
+    const solverResult = await deps.solve(recipe, bumped, { initialQuality })
+    if (isCancelled?.()) return { deltaStats: delta, confirmedBySolver: false }
+    const simResult = await deps.simulate(recipe, bumped, {
+      actions: solverResult.actions,
+      initialQuality,
+    })
+    const passes =
+      simResult.progress >= simResult.max_progress &&
+      simResult.quality >= simResult.max_quality
+    if (passes) return { deltaStats: delta, confirmedBySolver: true }
+    // Bump up and retry.
+    delta = {
+      craftsmanship: Math.ceil(delta.craftsmanship * (1 + BUMP_FACTOR)) + 1,
+      control: Math.ceil(delta.control * (1 + BUMP_FACTOR)) + 1,
+      cp: Math.ceil(delta.cp * (1 + BUMP_FACTOR)),
+    }
+  }
+  return { deltaStats: delta, confirmedBySolver: false }
 }
 
 /** Stub — will be filled in over Tasks 6-12. */

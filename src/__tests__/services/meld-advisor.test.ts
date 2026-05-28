@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import type { MeldAdvice, MeldPlan, MeldStep } from '@/services/meld-advisor'
-import { adviseMeld, findBindingRecipe, solveProgressBreakpoint, solveQualityBreakpoint } from '@/services/meld-advisor'
+import { adviseMeld, findBindingRecipe, solveProgressBreakpoint, solveQualityBreakpoint, confirmBreakpointWithSolver } from '@/services/meld-advisor'
 import type { Recipe } from '@/stores/recipe'
 import { BIS_REFERENCE } from '@/engine/materia'
 
@@ -105,5 +105,65 @@ describe('solveQualityBreakpoint', () => {
     const noHq = solveQualityBreakpoint(recipe, gearset, 0, 0)
     const someHq = solveQualityBreakpoint(recipe, gearset, 0, 2000)
     expect(someHq.control).toBeLessThanOrEqual(noHq.control)
+  })
+})
+
+describe('confirmBreakpointWithSolver', () => {
+  it('returns confirmed=true on first solver pass', async () => {
+    const recipe = makeRecipe(1, 1000, 5000)
+    const gs = { level: 100, craftsmanship: 5000, control: 5000, cp: 600, isSpecialist: false }
+
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = vi.fn().mockResolvedValue({
+      progress: 1000, max_progress: 1000, quality: 5000, max_quality: 5000,
+    })
+
+    const out = await confirmBreakpointWithSolver(
+      recipe, gs,
+      { craftsmanship: 0, control: 0, cp: 0 },
+      0,
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+    expect(out.confirmedBySolver).toBe(true)
+    expect(fakeSolve).toHaveBeenCalledTimes(1)
+  })
+
+  it('bumps stats and retries when first attempt falls short', async () => {
+    const recipe = makeRecipe(1, 1000, 5000)
+    const gs = { level: 100, craftsmanship: 1000, control: 1000, cp: 600, isSpecialist: false }
+
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = vi.fn()
+      .mockResolvedValueOnce({ progress: 500, max_progress: 1000, quality: 4000, max_quality: 5000 })
+      .mockResolvedValueOnce({ progress: 1000, max_progress: 1000, quality: 5000, max_quality: 5000 })
+
+    const out = await confirmBreakpointWithSolver(
+      recipe, gs,
+      { craftsmanship: 100, control: 100, cp: 0 },
+      0,
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+    expect(out.confirmedBySolver).toBe(true)
+    expect(fakeSolve).toHaveBeenCalledTimes(2)
+    expect(out.deltaStats.craftsmanship).toBeGreaterThan(100)
+  })
+
+  it('returns confirmed=false after bounded retries fail', async () => {
+    const recipe = makeRecipe(1, 1000, 5000)
+    const gs = { level: 100, craftsmanship: 1000, control: 1000, cp: 600, isSpecialist: false }
+
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = vi.fn().mockResolvedValue({
+      progress: 500, max_progress: 1000, quality: 4000, max_quality: 5000,
+    })
+
+    const out = await confirmBreakpointWithSolver(
+      recipe, gs,
+      { craftsmanship: 100, control: 100, cp: 0 },
+      0,
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+    expect(out.confirmedBySolver).toBe(false)
+    expect(fakeSolve.mock.calls.length).toBeLessThanOrEqual(3)
   })
 })
