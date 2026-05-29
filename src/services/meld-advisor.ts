@@ -29,7 +29,7 @@ import { solveCraftForRecipe, simulateCraftForRecipe } from '@/solver/api'
 import type { CraftStat, BiSReference, MateriaGrade } from '@/engine/materia'
 import {
   SLOT_STRUCTURE,
-  expectedCountForOvermeldDepth, materiaForStat,
+  expectedCountForOvermeldDepth, topGradeForStat,
 } from '@/engine/materia'
 import {
   computeBaseProgress,
@@ -73,6 +73,21 @@ export interface AdviseMeldOptions {
    *  over-estimate the control breakpoint. */
   initialQuality?: number
   isCancelled?: () => boolean
+}
+
+/**
+ * A no-meld plan (zero Δ, no steps). `totalGil` is 0 when we know no spend is
+ * needed and null when cost is unknown (solver bailout); `confirmedBySolver`
+ * records whether a real solver pass established the result.
+ */
+function emptyMeldPlan(totalGil: number | null, confirmedBySolver: boolean): MeldPlan {
+  return {
+    feasible: true,
+    deltaStats: { craftsmanship: 0, control: 0, cp: 0 },
+    steps: [],
+    totalGil,
+    confirmedBySolver,
+  }
 }
 
 /**
@@ -163,20 +178,25 @@ export function solveProgressBreakpoint(
 }
 
 /**
- * Internal: does the closed-form upper bound allow reaching max quality
- * for this gearset (after Soul/buffs), given an initialQuality head start?
+ * Internal: does the closed-form upper bound allow reaching max quality given
+ * already-buffed control/cp (after Soul/food/medicine) and an initialQuality
+ * head start?
  *
- * Mirrors the math of `canReachHQQuality` but accepts an explicit
- * initialQuality so HQ sub-materials are honoured.
+ * Mirrors the math of `canReachHQQuality` but takes buffed stats directly so
+ * `solveQualityBreakpoint` can buff once and probe many candidates without
+ * re-running `gearsetToBuffedStats` per binary-search step (the Soul/buff fold
+ * is additive when buffs are absent, so adding a Δ to buffed stats is identical
+ * to buffing gearset+Δ).
  */
 function quietCanReachHQQuality(
   recipe: Recipe,
-  gearset: GearsetStats,
+  buffedControl: number,
+  buffedCp: number,
+  level: number,
   initialQuality: number,
 ): boolean {
-  const buffed = gearsetToBuffedStats(gearset, undefined)
-  const baseQuality = computeBaseQuality(buffed.control, gearset.level, recipe.recipeLevelTable)
-  const maxQualitySteps = Math.floor(buffed.cp / AVG_QUALITY_CP_COST)
+  const baseQuality = computeBaseQuality(buffedControl, level, recipe.recipeLevelTable)
+  const maxQualitySteps = Math.floor(buffedCp / AVG_QUALITY_CP_COST)
   const maxAchievable =
     baseQuality * QUALITY_PHASE_UPPER_BOUND_MULTIPLIER * maxQualitySteps * MARGIN
   return (maxAchievable + initialQuality) >= recipe.recipeLevelTable.quality
@@ -196,21 +216,28 @@ export function solveQualityBreakpoint(
   craftsmanshipDelta: number,
   initialQuality: number,
 ): { control: number; cp: number } {
+  // Buff once. The closed-form quality bound depends only on control/cp, which
+  // are additive through the Soul/buff fold (buffs absent here), so we probe
+  // candidates by adding Δ to the buffed baseline instead of re-buffing
+  // gearset+Δ on every binary-search step. craftsmanshipDelta is folded in for
+  // a faithful baseline even though it does not affect the quality math.
   const withCraft: GearsetStats = {
     ...gearset,
     craftsmanship: gearset.craftsmanship + craftsmanshipDelta,
   }
+  const buffed = gearsetToBuffedStats(withCraft, undefined)
 
   const tryControlBinary = (cpDelta: number): number | null => {
-    const withCp: GearsetStats = { ...withCraft, cp: withCraft.cp + cpDelta }
-    if (quietCanReachHQQuality(recipe, withCp, initialQuality)) return 0
+    const cp = buffed.cp + cpDelta
+    const reach = (controlDelta: number) =>
+      quietCanReachHQQuality(recipe, buffed.control + controlDelta, cp, gearset.level, initialQuality)
+    if (reach(0)) return 0
     let lo = 1
     let hi = 10_000
     let last: number | null = null
     while (lo <= hi) {
       const mid = Math.floor((lo + hi) / 2)
-      const probe: GearsetStats = { ...withCp, control: withCp.control + mid }
-      if (quietCanReachHQQuality(recipe, probe, initialQuality)) {
+      if (reach(mid)) {
         last = mid
         hi = mid - 1
       } else {
@@ -249,6 +276,23 @@ export interface ConfirmedBreakpoint {
 }
 
 /**
+ * Double-max predicate: a sim result "double-maxes" when it reaches both max
+ * progress and max quality (= guaranteed HQ). Shared by the Step 0 already-meets
+ * check and the Step 4 confirmation loop so the contract lives in one place.
+ */
+function isDoubleMax(simResult: {
+  progress: number
+  max_progress: number
+  quality: number
+  max_quality: number
+}): boolean {
+  return (
+    simResult.progress >= simResult.max_progress &&
+    simResult.quality >= simResult.max_quality
+  )
+}
+
+/**
  * Step 4 — confirm a closed-form candidate against the real solver.
  * If the solver can't double-max with the candidate stats, bump all three
  * deltas by 5% and retry. Bounded to MAX_CONFIRM_ATTEMPTS total solves.
@@ -278,10 +322,7 @@ export async function confirmBreakpointWithSolver(
       actions: solverResult.actions,
       initialQuality,
     })
-    const passes =
-      simResult.progress >= simResult.max_progress &&
-      simResult.quality >= simResult.max_quality
-    if (passes) return { deltaStats: delta, confirmedBySolver: true }
+    if (isDoubleMax(simResult)) return { deltaStats: delta, confirmedBySolver: true }
     // Bump up and retry — only bump axes that already have a positive delta
     // to avoid inflating zero-cost axes (e.g. craftsmanship already sufficient).
     delta = {
@@ -320,9 +361,8 @@ function allocateForStat(
   if (delta <= 0) return { steps, remaining: 0 }
 
   // Always use the top grade for this stat — cap waste is ②-lite scope-out.
-  const grades = materiaForStat(stat)
-  if (grades.length === 0) return { steps, remaining: delta }
-  const top = grades[0]
+  const top = topGradeForStat(stat)
+  if (top === null) return { steps, remaining: delta }
 
   let remaining = delta
 
@@ -330,8 +370,7 @@ function allocateForStat(
   if (remaining > 0 && cursor.guaranteedRemaining > 0) {
     const neededSlots = Math.ceil(remaining / top.value)
     const usedSlots = Math.min(neededSlots, cursor.guaranteedRemaining)
-    const placed = usedSlots
-    steps.push(emitStep(top, placed, placed, priceMap))
+    steps.push(emitStep(top, usedSlots, usedSlots, priceMap))
     cursor.guaranteedRemaining -= usedSlots
     remaining -= usedSlots * top.value
   }
@@ -385,13 +424,7 @@ export function translateDeltaToMeldPlan(
     deltaStats.control === 0 &&
     deltaStats.cp === 0
   ) {
-    return {
-      feasible: true,
-      deltaStats,
-      steps: [],
-      totalGil: 0,
-      confirmedBySolver: false,
-    }
+    return emptyMeldPlan(0, false)
   }
 
   const cursor: AllocationCursor = {
@@ -469,13 +502,7 @@ export async function adviseMeld(
   const binding = findBindingRecipe(targets)
   if (!binding) {
     return {
-      costOptimal: {
-        feasible: true,
-        deltaStats: { craftsmanship: 0, control: 0, cp: 0 },
-        steps: [],
-        totalGil: 0,
-        confirmedBySolver: false,
-      },
+      costOptimal: emptyMeldPlan(0, false),
       bis,
       gapGil: bis.totalGil,
       alreadyMeetsThreshold: true,
@@ -490,19 +517,9 @@ export async function adviseMeld(
       actions: solverResult.actions,
       initialQuality,
     })
-    const passes =
-      simResult.progress >= simResult.max_progress &&
-      simResult.quality >= simResult.max_quality
-    if (passes) {
-      const emptyPlan: MeldPlan = {
-        feasible: true,
-        deltaStats: { craftsmanship: 0, control: 0, cp: 0 },
-        steps: [],
-        totalGil: 0,
-        confirmedBySolver: true,
-      }
+    if (isDoubleMax(simResult)) {
       return {
-        costOptimal: emptyPlan,
+        costOptimal: emptyMeldPlan(0, true),
         bis,
         gapGil: bis.totalGil,
         alreadyMeetsThreshold: true,
@@ -545,15 +562,8 @@ export async function adviseMeld(
 }
 
 function bailout(bis: MeldPlan): MeldAdvice {
-  const conservative: MeldPlan = {
-    feasible: true,
-    deltaStats: { craftsmanship: 0, control: 0, cp: 0 },
-    steps: [],
-    totalGil: null,
-    confirmedBySolver: false,
-  }
   return {
-    costOptimal: conservative,
+    costOptimal: emptyMeldPlan(null, false),
     bis,
     gapGil: null,
     alreadyMeetsThreshold: false,
