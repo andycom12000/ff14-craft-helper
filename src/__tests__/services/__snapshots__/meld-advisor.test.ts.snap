@@ -20,11 +20,11 @@ exports[`adviseMeld golden snapshot > produces a stable MeldAdvice shape for the
     "deltaStats": {
       "control": 0,
       "cp": 0,
-      "craftsmanship": 1830,
+      "craftsmanship": 0,
     },
     "feasible": true,
-    "steps": 17,
-    "totalGil": 462253,
+    "steps": 0,
+    "totalGil": 0,
   },
   "gapGil": null,
 }

@@ -93,13 +93,43 @@ export function findBindingRecipe(targets: Recipe[]): Recipe | null {
   return best
 }
 
-/** Coarse upper bound on progress steps in a typical max-quality macro. */
-const PROGRESS_STEP_UPPER_BOUND = 10
+/**
+ * Coarse upper bound on progress steps in a typical max-quality macro, times a
+ * high-efficiency factor.
+ *
+ * `computeBaseProgress` is 1× efficiency, but real progress actions are far
+ * more efficient: Groundwork is 360% (at full durability) and even Prudent
+ * Synthesis / Careful Synthesis sit at 180%. A max-quality macro spends only a
+ * handful of steps on progress, but each clears 1.8-3.6× the base. The old
+ * code used a flat ×10 against 1× efficiency, which under-counted reachable
+ * progress by ~3× and so demanded ~3× too much craftsmanship — falsely flagging
+ * normally-craftable recipes as "槽位不足，需換底裝" (issue #99).
+ *
+ * This fallback bound is only used for custom recipes (suggestedCraftsmanship
+ * = 0). Catalogue recipes use the RLT's own suggestedCraftsmanship — see
+ * `solveProgressBreakpoint`. Factor chosen conservatively: ~6 effective
+ * progress steps at ~3× efficiency ≈ 18, biased toward over-accepting (the
+ * solver-confirmation step catches any genuine shortfall) rather than the
+ * old over-rejecting behaviour.
+ */
+const PROGRESS_REACHABLE_FACTOR = 18
 
 /**
- * Step 2 — closed-form: minimum Δcraftsmanship so the binding recipe's
- * progress is clearable. Returns 0 if the current gearset (after Soul) already
- * suffices.
+ * Step 2 — minimum Δcraftsmanship so the binding recipe's progress is
+ * clearable. Returns 0 if the current gearset (after Soul) already suffices.
+ *
+ * Catalogue recipes carry the RLT's `suggestedCraftsmanship` — FFXIV's own
+ * per-recipe-level recommendation for comfortably clearing progress. We trust
+ * it directly: Δcraft = max(0, suggestedCraftsmanship - buffed.craftsmanship).
+ * This is the robust fix for #99 — the old closed-form bound ignored
+ * high-efficiency progress actions and over-estimated by ~3×.
+ *
+ * Custom recipes set `suggestedCraftsmanship = 0`
+ * (useCustomRecipes.ts) — for those we fall back to a corrected closed-form
+ * bound (`computeBaseProgress` × `PROGRESS_REACHABLE_FACTOR`) which now folds
+ * in a high-efficiency factor. Both paths are biased toward over-accepting so
+ * the solver-confirmation step (Step 4) catches any residual shortfall, rather
+ * than the old behaviour of over-rejecting feasible recipes.
  */
 export function solveProgressBreakpoint(
   recipe: Recipe,
@@ -107,18 +137,26 @@ export function solveProgressBreakpoint(
 ): number {
   const buffed = gearsetToBuffedStats(gearset, undefined)
   const rlt = recipe.recipeLevelTable
+
+  // Preferred path: trust the recipe-level table's suggestedCraftsmanship.
+  if (rlt.suggestedCraftsmanship && rlt.suggestedCraftsmanship > 0) {
+    return Math.max(0, rlt.suggestedCraftsmanship - buffed.craftsmanship)
+  }
+
+  // Fallback (custom recipes, suggestedCraftsmanship = 0): corrected
+  // closed-form bound with a high-efficiency factor folded in.
   const bp = computeBaseProgress(buffed.craftsmanship, gearset.level, rlt)
-  const reachable = bp * PROGRESS_STEP_UPPER_BOUND
+  const reachable = bp * PROGRESS_REACHABLE_FACTOR
   if (reachable >= rlt.difficulty) return 0
 
   // Binary search for the minimum craftsmanship delta that flips
-  // computeBaseProgress * step upper bound >= recipe.difficulty.
+  // computeBaseProgress * reachable factor >= recipe.difficulty.
   let lo = 0
   let hi = 10_000
   while (lo < hi) {
     const mid = Math.floor((lo + hi) / 2)
     const bumped = computeBaseProgress(buffed.craftsmanship + mid, gearset.level, rlt)
-    if (bumped * PROGRESS_STEP_UPPER_BOUND >= rlt.difficulty) hi = mid
+    if (bumped * PROGRESS_REACHABLE_FACTOR >= rlt.difficulty) hi = mid
     else lo = mid + 1
   }
   return lo
