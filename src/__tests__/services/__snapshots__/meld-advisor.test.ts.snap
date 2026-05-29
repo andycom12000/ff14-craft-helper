@@ -6,13 +6,13 @@ exports[`adviseMeld golden snapshot > produces a stable MeldAdvice shape for the
   "bis": {
     "confirmedBySolver": false,
     "deltaStats": {
-      "control": 1850,
-      "cp": 151,
-      "craftsmanship": 1850,
+      "control": 2109,
+      "cp": 109,
+      "craftsmanship": 2611,
     },
     "feasible": false,
     "reason": "槽位不足,需換底裝",
-    "steps": 36,
+    "steps": 43,
     "totalGil": null,
   },
   "costOptimal": {
@@ -23,8 +23,8 @@ exports[`adviseMeld golden snapshot > produces a stable MeldAdvice shape for the
       "craftsmanship": 1830,
     },
     "feasible": true,
-    "steps": 10,
-    "totalGil": 250148,
+    "steps": 17,
+    "totalGil": 462253,
   },
   "gapGil": null,
 }

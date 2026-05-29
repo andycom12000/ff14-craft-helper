@@ -2,9 +2,9 @@
 
 exports[`BIS_REFERENCE > matches the maintained reference (snapshot) 1`] = `
 {
-  "control": 5050,
-  "cp": 691,
-  "craftsmanship": 5050,
-  "patch": "7.x",
+  "control": 5309,
+  "cp": 649,
+  "craftsmanship": 5811,
+  "patch": "7.3",
 }
 `;

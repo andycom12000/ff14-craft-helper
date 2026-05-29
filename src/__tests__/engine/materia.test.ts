@@ -39,9 +39,22 @@ describe('SLOT_STRUCTURE', () => {
     expect(total).toBeGreaterThanOrEqual(20)
     expect(total).toBeLessThanOrEqual(60)
   })
+
+  it('uses the corrected per-piece guaranteed/overmeld split (#105)', () => {
+    // weapon 2 + tool 1 + 5 armor x 2 (10) + 5 accessories x 1 (5) = 18 guaranteed
+    expect(SLOT_STRUCTURE.guaranteedSlots).toBe(18)
+    // 60 total - 18 guaranteed = 42 overmeld
+    expect(SLOT_STRUCTURE.overmeldSlots).toBe(42)
+    // a full crafter set is 12 pieces x 5 = 60 slots
+    expect(SLOT_STRUCTURE.guaranteedSlots + SLOT_STRUCTURE.overmeldSlots).toBe(60)
+  })
 })
 
 describe('OVERMELD_SUCCESS_LADDER', () => {
+  it('matches the corrected per-depth advanced-melding rates (#101)', () => {
+    expect(OVERMELD_SUCCESS_LADDER).toEqual([0.17, 0.10, 0.07, 0.05])
+  })
+
   it('is monotone non-increasing in (0, 1]', () => {
     expect(OVERMELD_SUCCESS_LADDER.length).toBeGreaterThan(0)
     for (let i = 0; i < OVERMELD_SUCCESS_LADDER.length; i++) {
@@ -57,6 +70,14 @@ describe('OVERMELD_SUCCESS_LADDER', () => {
 describe('BIS_REFERENCE', () => {
   it('matches the maintained reference (snapshot)', () => {
     expect(BIS_REFERENCE).toMatchSnapshot()
+  })
+
+  it('matches the corrected 7.3 community BiS (#102)', () => {
+    // i750 "Crested" + "Gold Thumb's" pentameld, per ffxivgillionaire.com
+    expect(BIS_REFERENCE.patch).toBe('7.3')
+    expect(BIS_REFERENCE.craftsmanship).toBe(5811)
+    expect(BIS_REFERENCE.control).toBe(5309)
+    expect(BIS_REFERENCE.cp).toBe(649)
   })
 
   it('has positive values for all three stats', () => {
@@ -90,6 +111,15 @@ describe('expectedCountForOvermeldDepth', () => {
     const placed = 5
     const expected = expectedCountForOvermeldDepth(0, placed)
     expect(expected).toBeCloseTo(placed / 0.17, 5)
+  })
+
+  it('uses the corrected per-depth rates (#101)', () => {
+    // depth 0 -> 1 / 0.17 = 5.88, depth 1 -> 1 / 0.10 = 10,
+    // depth 2 -> 1 / 0.07 = 14.29, depth 3 -> 1 / 0.05 = 20
+    expect(expectedCountForOvermeldDepth(0, 1)).toBeCloseTo(1 / 0.17, 5)
+    expect(expectedCountForOvermeldDepth(1, 1)).toBeCloseTo(1 / 0.10, 5)
+    expect(expectedCountForOvermeldDepth(2, 1)).toBeCloseTo(1 / 0.07, 5)
+    expect(expectedCountForOvermeldDepth(3, 1)).toBeCloseTo(1 / 0.05, 5)
   })
 
   it('depths beyond the ladder use the last entry (deepest, lowest rate)', () => {
