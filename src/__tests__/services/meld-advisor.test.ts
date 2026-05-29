@@ -81,6 +81,77 @@ describe('solveProgressBreakpoint', () => {
   })
 })
 
+// Regression for #99: solveProgressBreakpoint must NOT over-estimate the
+// required craftsmanship. Real RLT records carry a suggestedCraftsmanship that
+// FFXIV uses as the comfortable progress-clearing threshold; we trust it
+// directly instead of the old 1×-efficiency closed-form bound that ignored
+// high-efficiency progress actions (Groundwork, etc.) and demanded ~3× too much.
+describe('solveProgressBreakpoint — issue #99 (no craftsmanship over-estimate)', () => {
+  // Real rlv690 (Lv100, difficulty 6600, suggestedCraftsmanship 4207) — see
+  // public/data/rlt.json. progressDivider/Modifier copied from that record.
+  const rlv690 = {
+    classJobLevel: 100, stars: 0, difficulty: 6600, quality: 12000,
+    durability: 80, suggestedCraftsmanship: 4207,
+    progressDivider: 170, qualityDivider: 150,
+    progressModifier: 90, qualityModifier: 75,
+  }
+  // Real rlv641 (Lv90 4★, difficulty 4400, suggestedCraftsmanship 3700).
+  const rlv641 = {
+    classJobLevel: 90, stars: 4, difficulty: 4400, quality: 9040,
+    durability: 70, suggestedCraftsmanship: 3700,
+    progressDivider: 180, qualityDivider: 180,
+    progressModifier: 100, qualityModifier: 100,
+  }
+  const withRlt = (rlt: typeof rlv690): Recipe =>
+    ({ id: 1, name: 'r', job: 'CRP', canHq: true, isExpert: false, recipeLevelTable: rlt } as unknown as Recipe)
+
+  it('rlv690: base craft 4500 (> suggested 4207) → Δcraftsmanship 0', () => {
+    const gearset = { level: 100, craftsmanship: 4500, control: 4100, cp: 560, isSpecialist: false }
+    expect(solveProgressBreakpoint(withRlt(rlv690), gearset)).toBe(0)
+  })
+
+  it('rlv641: base craft 3700 (= suggested 3700) → Δcraftsmanship 0', () => {
+    const gearset = { level: 90, craftsmanship: 3700, control: 3700, cp: 560, isSpecialist: false }
+    const delta = solveProgressBreakpoint(withRlt(rlv641), gearset)
+    expect(delta).toBe(0)
+  })
+
+  it('returns a small, plausible Δ when base craft is just under suggested (NOT thousands)', () => {
+    // rlv690 suggested 4207, base 4000 → exactly 207, not the old ~7933.
+    const gearset = { level: 100, craftsmanship: 4000, control: 4100, cp: 560, isSpecialist: false }
+    const delta = solveProgressBreakpoint(withRlt(rlv690), gearset)
+    expect(delta).toBe(207)
+    expect(delta).toBeLessThan(1000)
+  })
+
+  it('custom recipe (suggestedCraftsmanship = 0) falls back to the corrected closed-form bound', () => {
+    // Mirrors useCustomRecipes: suggestedCraftsmanship = 0 → fallback path.
+    const customRlt = {
+      classJobLevel: 100, stars: 0, difficulty: 6600, quality: 12000,
+      durability: 80, suggestedCraftsmanship: 0,
+      progressDivider: 170, qualityDivider: 150,
+      progressModifier: 90, qualityModifier: 75,
+    }
+    // An easy custom recipe is cleared outright by the fallback bound.
+    const easy = { ...customRlt, difficulty: 800 }
+    const strong = { level: 100, craftsmanship: 4500, control: 4100, cp: 560, isSpecialist: false }
+    expect(solveProgressBreakpoint(withRlt(easy), strong)).toBe(0)
+
+    // The hard custom recipe still needs craftsmanship, but the corrected
+    // high-efficiency factor keeps the delta far below the old 1x-efficiency
+    // bound (which produced ~7900 here) — it must stay a few thousand, not
+    // balloon toward the 10k cap.
+    const delta = solveProgressBreakpoint(withRlt(customRlt), strong)
+    expect(delta).toBeGreaterThan(0)
+    expect(delta).toBeLessThan(3500)
+
+    // Result is monotonically non-increasing as base craftsmanship rises.
+    const weak = { ...strong, craftsmanship: 1000 }
+    const weakDelta = solveProgressBreakpoint(withRlt(customRlt), weak)
+    expect(weakDelta).toBeGreaterThanOrEqual(delta)
+  })
+})
+
 describe('solveQualityBreakpoint', () => {
   const gearset = {
     level: 100, craftsmanship: 5000, control: 1000, cp: 300, isSpecialist: false,
