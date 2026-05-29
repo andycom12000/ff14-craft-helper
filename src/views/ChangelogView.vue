@@ -18,6 +18,15 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: "v2.19.1",
+    date: "2026-05-29",
+    highlights: [
+      "【鑲嵌建議更準了】修掉三個讓成本估算失真的校準問題：① `solveProgressBreakpoint` 之前對當前星級配方會高估 craftsmanship 約 3×、誤報「槽位不足，需換底裝」→ 改信 RLT 自帶的 `suggestedCraftsmanship`（自訂配方走修正後的封閉式 fallback）；② overmeld 成功率階梯錯置修正為 `[0.17, 0.10, 0.07, 0.05]`（第 2、3 槽之前被高估、期望購買顆數被低估）；③ 自然槽拆分校正 25/35 → 18/42（之前把太多槽當免費、gil 系統性偏低）；④ BiS 參考表更新到 7.3（craftsmanship 5811 / control 5309 / cp 649）。合起來讓可行性判斷與 gil 估算更貼近實際遊戲",
+      "【鑲嵌建議卡片視覺打磨】MeldAdvisorCard 走一輪 impeccable 設計收尾",
+      "【內部】meld-advisor 服務層 simplify：抽出 `isDoubleMax` predicate 與 `emptyMeldPlan` factory、`solveQualityBreakpoint` 改單次 buff pass，零行為變更（golden snapshot 不動）；附帶 meld-advisor 實戰驗證報告進 `docs/audits/`。對核心行為無影響",
+    ],
+  },
+  {
     version: "v2.19.0",
     date: "2026-05-28",
     highlights: [
