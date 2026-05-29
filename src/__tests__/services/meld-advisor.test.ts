@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import type { MeldAdvice, MeldPlan, MeldStep } from '@/services/meld-advisor'
 import { adviseMeld, findBindingRecipe, solveProgressBreakpoint, solveQualityBreakpoint, confirmBreakpointWithSolver, translateDeltaToMeldPlan, computeBisPlan } from '@/services/meld-advisor'
 import type { Recipe } from '@/stores/recipe'
-import { BIS_REFERENCE, MATERIA_GRADES } from '@/engine/materia'
+import { BIS_REFERENCE, MATERIA_GRADES, SLOT_STRUCTURE } from '@/engine/materia'
 
 const makeRecipe = (id: number, progress: number, quality: number): Recipe => ({
   id, name: `r${id}`, job: 'CRP', canHq: true, isExpert: false,
@@ -172,8 +172,8 @@ describe('translateDeltaToMeldPlan', () => {
   })
 
   it('preserves the global overmeld slot cap across stats (regression guard for naive per-stat reset)', () => {
-    // 20 + 20 + 25 = 65 melds vs. 25 guaranteed + 35 overmeld = 60 capacity.
-    // A naive fix that gives each stat a fresh 35-slot overmeld budget would
+    // 20 + 20 + 25 = 65 melds vs. 18 guaranteed + 42 overmeld = 60 capacity.
+    // A naive fix that gives each stat a fresh overmeld budget would
     // mark this feasible. The correct fix keeps the global cap.
     const plan = translateDeltaToMeldPlan(
       { craftsmanship: 20 * 54, control: 20 * 54, cp: 25 * 14 },
@@ -182,7 +182,7 @@ describe('translateDeltaToMeldPlan', () => {
     expect(plan.feasible).toBe(false)
     expect(plan.reason).toMatch(/槽位/)
     const overmeldSteps = plan.steps.filter(s => s.expectedCount > s.placedCount)
-    expect(overmeldSteps.length).toBeLessThanOrEqual(35)
+    expect(overmeldSteps.length).toBeLessThanOrEqual(SLOT_STRUCTURE.overmeldSlots)
   })
 
   it('reports null subtotal when a step has no price data', () => {

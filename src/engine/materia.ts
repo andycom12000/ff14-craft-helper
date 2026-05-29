@@ -42,25 +42,34 @@ export const MATERIA_GRADES: MateriaGrade[] = [
  * (100% success); the rest are overmeld slots subject to OVERMELD_SUCCESS_LADDER.
  *
  * A crafter set has 12 pieces (main + off + 5 armor + 5 accessories), each
- * meldable up to 5 materia (pentameld). Base meld slots vary by piece (weapon
- * & armor: 2; accessories: 1; with some tier-by-tier variance), and the
- * remainder are overmeld slots. v1 hardcodes one representative aggregate
- * shape — ~25 guaranteed + ~35 overmeld — rather than reasoning per-piece;
- * per-version refinement (with cap tables) is v2.
+ * meldable up to 5 materia (pentameld) -> 12 x 5 = 60 slots total. Base meld
+ * slots (100% guaranteed) come from the per-piece breakdown:
+ *   main weapon          2
+ *   off-hand / tool      1
+ *   5 armor x 2         10
+ *   5 accessories x 1    5
+ *   -----------------------
+ *   guaranteed          18
+ * The remaining 60 - 18 = 42 are overmeld slots, subject to
+ * OVERMELD_SUCCESS_LADDER. v1 hardcodes this aggregate shape rather than
+ * reasoning per-piece; per-version refinement (with cap tables) is v2.
  */
 export const SLOT_STRUCTURE = {
-  guaranteedSlots: 25,
-  overmeldSlots: 35,
+  guaranteedSlots: 18,
+  overmeldSlots: 42,
 } as const
 
 /**
  * Overmeld success-rate ladder indexed by overmeld depth (0 = first
  * overmeld attempt past the guaranteed slots, ...). Game constant.
- * Source: in-game advanced melding rates (high-grade tier). For lower
- * grades the rate is higher, but ②-lite uses one representative ladder.
+ * Source: in-game advanced melding rates (Grade V+, two community sources
+ * agree). Per-depth rates: [0.17, 0.10, 0.07, 0.05], giving per-slot
+ * expected purchase counts of [5.88, 10, 14.29, 20] (1 / rate).
+ * The deeper even-vs-odd top-grade mechanic is out of scope; lite uses
+ * one representative ladder.
  */
 export const OVERMELD_SUCCESS_LADDER: number[] = [
-  0.17, 0.17, 0.10, 0.05,
+  0.17, 0.10, 0.07, 0.05,
 ]
 
 /**
@@ -70,7 +79,10 @@ export const OVERMELD_SUCCESS_LADDER: number[] = [
  * lands or BiS gear changes. Snapshot test enforces a manual review on
  * change.
  *
- * Last verified patch: 7.x (Dawntrail).
+ * Last verified patch: 7.3 (Dawntrail) — i750 "Crested" set + "Gold Thumb's"
+ * tools, fully pentamelded. Totals (5811 / 5309 / 649) verified against the
+ * community crafter BiS at ffxivgillionaire.com/crafter-bis-gear
+ * ("Level 100 i750 Pentameld (5811/5309/649)").
  */
 export interface BiSReference {
   patch: string
@@ -80,10 +92,10 @@ export interface BiSReference {
 }
 
 export const BIS_REFERENCE: BiSReference = {
-  patch: '7.x',
-  craftsmanship: 5050,
-  control: 5050,
-  cp: 691,
+  patch: '7.3',
+  craftsmanship: 5811,
+  control: 5309,
+  cp: 649,
 }
 
 /** Return all materia entries for a stat, sorted descending by grade. */
