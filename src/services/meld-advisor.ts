@@ -7,11 +7,14 @@
  * headline value.
  *
  * Algorithm (approach B = closed-form prefilter + bounded solver confirmation):
- *   0. already-meets check (skip if current gearset already double-maxes)
+ *   0. already-meets check at the MAX-HQ baseline (§2): if maxing every HQ
+ *      material alone double-maxes the binding recipe, HQ materials suffice and
+ *      no meld is needed (hqSufficient = true)
  *   1. pick binding recipe (single-axis-max binding for v1)
  *   2. solveProgressBreakpoint (closed-form)
- *   3. solveQualityBreakpoint (closed-form binary search, honours initialQuality
- *      from HQ ingredients)
+ *   3. solveQualityBreakpoint (closed-form binary search). Quality breakpoints
+ *      use the max-HQ initialQuality (all HQ ingredients), NOT the screen's
+ *      current selection — meld only covers the residual above max-HQ.
  *   4. confirmBreakpointWithSolver (1-3 real solves, bump up on shortfall)
  *   5. translateDeltaToMeldPlan (guaranteed → overmeld, fail ladder)
  *   6. computeBisPlan (current → BIS_REFERENCE, deep overmeld)
@@ -39,6 +42,7 @@ import {
   MARGIN,
 } from '@/services/feasibility-prefilter'
 import { gearsetToBuffedStats } from '@/services/stat-stacking'
+import { calculateInitialQuality } from '@/engine/quality'
 
 export type MateriaPriceMap = Map<number, MarketData>
 
@@ -65,6 +69,14 @@ export interface MeldAdvice {
   bis: MeldPlan
   gapGil: number | null     // bis.totalGil - costOptimal.totalGil; null if either is null
   alreadyMeetsThreshold: boolean
+  /**
+   * True when maxing out HQ materials alone already double-maxes the binding
+   * recipe — the meld lever is unnecessary. Consumed by the ability-mode UI
+   * (Slice B2) to hide the meld step entirely and show the "HQ 素材即可達標"
+   * success state. Distinct, dedicated flag so the UI does not have to infer
+   * intent from `alreadyMeetsThreshold` (kept for back-compat). See §2.
+   */
+  hqSufficient: boolean
 }
 
 export interface AdviseMeldOptions {
@@ -106,6 +118,32 @@ export function findBindingRecipe(targets: Recipe[]): Recipe | null {
     if (rP > bestP || (rP === bestP && rQ > bestQ)) best = r
   }
   return best
+}
+
+/**
+ * The `initialQuality` the binding recipe would start with if EVERY HQ-eligible
+ * ingredient were supplied HQ. This is the correct meld baseline (§2): HQ
+ * materials are the zero-cost lever and must be spent first, so meld only ever
+ * covers the residual above max-HQ. Returns 0 for recipes without HQ-eligible
+ * ingredient data (custom recipes / test stubs missing `ingredients` or
+ * `materialQualityFactor`).
+ */
+export function computeMaxHqInitialQuality(recipe: Recipe): number {
+  const ingredients = recipe.ingredients
+  if (!ingredients || ingredients.length === 0 || !recipe.materialQualityFactor) {
+    return 0
+  }
+  const maxHqIngredients = ingredients.map((ing) => ({
+    amount: ing.amount,
+    hqAmount: ing.canHq ? ing.amount : 0,
+    level: ing.level,
+    canHq: ing.canHq,
+  }))
+  return calculateInitialQuality(
+    recipe.recipeLevelTable.quality,
+    recipe.materialQualityFactor,
+    maxHqIngredients,
+  )
 }
 
 /**
@@ -539,16 +577,25 @@ export async function adviseMeld(
       bis,
       gapGil: bis.totalGil,
       alreadyMeetsThreshold: true,
+      hqSufficient: true,
     }
   }
 
-  // Step 0: already meets?
+  // §2 engine touchpoint: the meld residual is computed against the
+  // initialQuality the binding recipe would have with ALL HQ materials, not the
+  // screen's current (possibly partial) HQ selection. HQ materials are the
+  // zero-cost lever and are spent first; meld only covers what max-HQ can't.
+  // `Math.max` guards stub/edge cases where computeMaxHqInitialQuality degrades
+  // to 0 (custom recipes) — never worse than the screen baseline.
+  const maxHqInitialQuality = Math.max(initialQuality, computeMaxHqInitialQuality(binding))
+
+  // Step 0: already meets (at max-HQ baseline)? → HQ materials alone suffice.
   try {
-    const solverResult = await deps.solve(binding, gearset, { initialQuality })
+    const solverResult = await deps.solve(binding, gearset, { initialQuality: maxHqInitialQuality })
     if (isCancelled?.()) return bailout(bis)
     const simResult = await deps.simulate(binding, gearset, {
       actions: solverResult.actions,
-      initialQuality,
+      initialQuality: maxHqInitialQuality,
     })
     if (isDoubleMax(simResult)) {
       return {
@@ -556,6 +603,7 @@ export async function adviseMeld(
         bis,
         gapGil: bis.totalGil,
         alreadyMeetsThreshold: true,
+        hqSufficient: true,
       }
     }
   } catch {
@@ -564,9 +612,9 @@ export async function adviseMeld(
 
   if (isCancelled?.()) return bailout(bis)
 
-  // Steps 2 + 3: closed-form breakpoints.
+  // Steps 2 + 3: closed-form breakpoints (on top of max-HQ baseline).
   const craftDelta = solveProgressBreakpoint(binding, gearset)
-  const qualityDelta = solveQualityBreakpoint(binding, gearset, craftDelta, initialQuality)
+  const qualityDelta = solveQualityBreakpoint(binding, gearset, craftDelta, maxHqInitialQuality)
   const candidate = {
     craftsmanship: craftDelta,
     control: qualityDelta.control,
@@ -577,7 +625,7 @@ export async function adviseMeld(
 
   // Step 4: confirm.
   const confirmed = await confirmBreakpointWithSolver(
-    binding, gearset, candidate, initialQuality, deps, isCancelled,
+    binding, gearset, candidate, maxHqInitialQuality, deps, isCancelled,
   )
 
   // Step 5: translate.
@@ -591,7 +639,7 @@ export async function adviseMeld(
       ? Math.max(0, bis.totalGil - costOptimal.totalGil)
       : null
 
-  return { costOptimal, bis, gapGil, alreadyMeetsThreshold: false }
+  return { costOptimal, bis, gapGil, alreadyMeetsThreshold: false, hqSufficient: false }
 }
 
 function bailout(bis: MeldPlan): MeldAdvice {
@@ -600,5 +648,6 @@ function bailout(bis: MeldPlan): MeldAdvice {
     bis,
     gapGil: null,
     alreadyMeetsThreshold: false,
+    hqSufficient: false,
   }
 }

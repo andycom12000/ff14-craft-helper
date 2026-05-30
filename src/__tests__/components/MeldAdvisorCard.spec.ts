@@ -5,6 +5,7 @@ import type { MeldAdvice } from '@/services/meld-advisor'
 
 const fullAdvice: MeldAdvice = {
   alreadyMeetsThreshold: false,
+  hqSufficient: false,
   costOptimal: {
     feasible: true,
     deltaStats: { craftsmanship: 60, control: 0, cp: 0 },
