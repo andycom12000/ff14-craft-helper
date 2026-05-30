@@ -19,6 +19,7 @@ import { getRecipe, findRecipesByItemName } from '@/api/xivapi'
 import { simulateCraftDetail, waitForWasm } from '@/solver/worker'
 import { craftParamsToSolverConfig } from '@/solver/config'
 import { gearsetToBuffedStats } from '@/services/stat-stacking'
+import { formatMeldStepShort } from '@/engine/materia'
 import type { WasmEffects, StepDetail } from '@/solver/raphael'
 import { JOB_ORDER, type Job } from '@/engine/skill-icons-by-job'
 import { JOB_ABBR } from '@/utils/jobs'
@@ -45,6 +46,13 @@ export function useSimulator() {
   const searchSidebarOpen = ref(false)
   const initialQuality = ref(0)
   const enhancedStats = ref<EnhancedStats | null>(null)
+  /* Session-only meld override (Slice C): a RAW-gear Δstats triple applied on
+     top of the gearset's raw stats (ADR-0001 order), BEFORE soul/food/medicine.
+     Never written to the gearsets store / localStorage; cleared on recipe
+     switch / reset or by the removable chip. `meldOverrideLabel` is the
+     shopping-oriented chip text (e.g. 「8 顆 加工魔晶石Ⅻ」). */
+  const meldOverride = ref<{ craftsmanship: number; control: number; cp: number } | null>(null)
+  const meldOverrideLabel = ref<string | null>(null)
   /* HQ amounts hoisted here so apply-hq from recommendations can push values
      down into the InitialQuality component (which would otherwise own them
      internally and ignore external writes). */
@@ -53,6 +61,8 @@ export function useSimulator() {
   watch(() => recipe.value?.id ?? null, (id) => {
     initialQuality.value = 0
     initialQualityHqAmounts.value = []
+    meldOverride.value = null
+    meldOverrideLabel.value = null
     simStore.switchToRecipe(id)
   }, { immediate: true })
 
@@ -81,8 +91,18 @@ export function useSimulator() {
   const effectiveStats = computed(() => {
     if (!gearset.value) return null
     if (enhancedStats.value) return enhancedStats.value
-    // Fallback before FoodMedicine emits: still honour specialist soul bonus.
-    return gearsetToBuffedStats(gearset.value, undefined)
+    // Fallback before FoodMedicine emits: still honour specialist soul bonus,
+    // and fold the session meld override into raw gear first (ADR-0001 order).
+    const o = meldOverride.value
+    const raw = o
+      ? {
+          ...gearset.value,
+          craftsmanship: gearset.value.craftsmanship + o.craftsmanship,
+          control: gearset.value.control + o.control,
+          cp: gearset.value.cp + o.cp,
+        }
+      : gearset.value
+    return gearsetToBuffedStats(raw, undefined)
   })
 
   const craftParams = computed<CraftParams | null>(() => {
@@ -260,20 +280,52 @@ export function useSimulator() {
     initialQualityHqAmounts.value = value
   }
 
-  /** Apply the meld advisor's cost-optimal Δstats onto the current job's raw
-   *  gear stats, so the user can re-solve and confirm it now double-maxes.
-   *  Clears the stale solver result and marks advice stale (via the gearset
-   *  watcher) so the cockpit prompts a fresh solve. */
+  /** Apply the meld advisor's cost-optimal Δstats as a SESSION-ONLY override
+   *  (Slice C): does NOT write the gearsets store / localStorage. The override
+   *  folds into raw gear before soul/food/medicine (via FoodMedicine's
+   *  `override` prop and the effectiveStats fallback). A removable chip in the
+   *  食藥 area surfaces it; recipe switch / reset auto-restore. */
   function handleApplyMeld(delta: { craftsmanship: number; control: number; cp: number }) {
-    const g = gearset.value
-    if (!g) return
-    gearsetsStore.updateGearset(g.job, {
-      craftsmanship: g.craftsmanship + delta.craftsmanship,
-      control: g.control + delta.control,
-      cp: g.cp + delta.cp,
-    })
+    if (!gearset.value) return
+    meldOverride.value = { ...delta }
+    // Shopping-oriented chip text, sourced from the current advice's
+    // cost-optimal steps so it matches the card sentence verbatim.
+    const a = meldAdvice.value
+    if (a && typeof a === 'object' && a.costOptimal.steps.length > 0) {
+      meldOverrideLabel.value = a.costOptimal.steps.map(formatMeldStepShort).join('、')
+    } else {
+      meldOverrideLabel.value = null
+    }
     simStore.setSolverResult(null)
-    ElMessage.success('已套用建議鑲嵌到配裝，請重新求解確認可保證 HQ')
+    ElMessage.success('已套用模擬鑲嵌（未寫入配裝）')
+  }
+
+  /** Remove the session meld override (chip ✕ / reset). */
+  function clearMeldOverride() {
+    meldOverride.value = null
+    meldOverrideLabel.value = null
+  }
+
+  /** Reverse-gate (Slice C): permanently write the active meld override into
+   *  the gearset(s). 'this' writes the current job's raw stats; 'all' folds the
+   *  delta on top of EVERY job's existing raw gear (shared-gear intent). After
+   *  the write the override is cleared (its effect is now in the gearset). */
+  function handleSaveMeldToGearset(scope: 'this' | 'all') {
+    const g = gearset.value
+    const delta = meldOverride.value
+    if (!g || !delta) return
+    if (scope === 'this') {
+      gearsetsStore.updateGearset(g.job, {
+        craftsmanship: g.craftsmanship + delta.craftsmanship,
+        control: g.control + delta.control,
+        cp: g.cp + delta.cp,
+      })
+      ElMessage.success('已存入此職業配裝')
+    } else {
+      gearsetsStore.applyDeltaToAllGearsets(delta)
+      ElMessage.success('已套用到全部職業配裝')
+    }
+    clearMeldOverride()
   }
 
   function handleAddToBom() {
@@ -336,6 +388,8 @@ export function useSimulator() {
     solverResult,
     modeOptions,
     meldAdvice,
+    meldOverride,
+    meldOverrideLabel,
     // handlers
     onInitialQualityUpdate,
     onEnhancedStatsUpdate,
@@ -349,6 +403,8 @@ export function useSimulator() {
     onSolveComplete,
     handleApplyHq,
     handleApplyMeld,
+    clearMeldOverride,
+    handleSaveMeldToGearset,
     handleAddToBom,
     handleSelfCraft,
   }

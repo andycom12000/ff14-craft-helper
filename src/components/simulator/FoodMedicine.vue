@@ -14,8 +14,19 @@ import {
 } from '@/engine/food-medicine'
 import { applyCrafterSoulBonus } from '@/services/specialist-state'
 
+const props = defineProps<{
+  /** Session-only meld override (Slice C): a RAW-gear Δstats triple folded into
+   *  the gearset's raw stats BEFORE soul/food/medicine (ADR-0001 order). When
+   *  null/zero the stacking is byte-identical to today (parity safe). */
+  override?: { craftsmanship: number; control: number; cp: number } | null
+  /** Shopping-oriented chip text for the active override, e.g.
+   *  「8 顆 加工魔晶石Ⅻ」. When set, a removable chip renders above 基礎能力值. */
+  overrideChipLabel?: string | null
+}>()
+
 const emit = defineEmits<{
   'update:enhancedStats': [value: EnhancedStats]
+  'clear-override': []
 }>()
 
 const recipeStore = useRecipeStore()
@@ -43,9 +54,18 @@ const baseStats = computed<EnhancedStats>(() => {
 })
 
 // Specialist bonus is gearset-derived (set in GearsetSheet); no local toggle here.
+// The session meld override (Slice C) folds into raw gear BEFORE soul, per
+// ADR-0001. When override is null/0 this is byte-identical to today.
 const afterSpecialist = computed<EnhancedStats>(() => {
   if (!gearset.value) return baseStats.value
-  const { craftsmanship, control, cp } = applyCrafterSoulBonus(gearset.value)
+  const o = props.override
+  const rawWithOverride = {
+    ...gearset.value,
+    craftsmanship: gearset.value.craftsmanship + (o?.craftsmanship ?? 0),
+    control: gearset.value.control + (o?.control ?? 0),
+    cp: gearset.value.cp + (o?.cp ?? 0),
+  }
+  const { craftsmanship, control, cp } = applyCrafterSoulBonus(rawWithOverride)
   return { craftsmanship, control, cp }
 })
 
@@ -130,6 +150,18 @@ const isRailNarrow = useMediaQuery('(min-width: 1100px) and (max-width: 1360px)'
       show-icon
       style="margin-bottom: 16px"
     />
+
+    <!-- Session meld override chip (Slice C): removable, shopping-oriented. -->
+    <el-tag
+      v-if="overrideChipLabel"
+      class="meld-override-chip"
+      type="warning"
+      closable
+      size="small"
+      @close="emit('clear-override')"
+    >
+      模擬鑲嵌：{{ overrideChipLabel }}
+    </el-tag>
 
     <!-- Base stats display -->
     <div class="stats-section">
@@ -344,6 +376,14 @@ const isRailNarrow = useMediaQuery('(min-width: 1100px) and (max-width: 1360px)'
 .stats-section h4,
 .buff-section h4 {
   margin: 0 0 10px 0;
+}
+
+.meld-override-chip {
+  margin-bottom: 12px;
+  max-width: 100%;
+}
+.meld-override-chip :deep(.el-tag__content) {
+  white-space: normal;
 }
 
 .buff-header {

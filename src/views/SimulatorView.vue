@@ -55,11 +55,12 @@ const {
   effectiveStats, craftParams, currentState,
   initialQuality, initialQualityHqAmounts, enhancedStats,
   searchSidebarOpen, solverResult, modeOptions,
-  meldAdvice,
+  meldAdvice, meldOverride, meldOverrideLabel,
   onInitialQualityUpdate, onEnhancedStatsUpdate, onHqAmountsUpdate,
   handleAddFromSearch, handleRemoveFromQueue, handleClearQueue,
   handleRemoveAction, handleClearActions,
   handleUseSkill, onSolveComplete, handleApplyHq, handleApplyMeld,
+  clearMeldOverride, handleSaveMeldToGearset,
   handleAddToBom, handleSelfCraft,
 } = useSimulator()
 
@@ -344,7 +345,12 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
                 </el-tooltip>
               </span>
             </header>
-            <FoodMedicine @update:enhanced-stats="onEnhancedStatsUpdate" />
+            <FoodMedicine
+              :override="meldOverride"
+              :override-chip-label="meldOverrideLabel"
+              @update:enhanced-stats="onEnhancedStatsUpdate"
+              @clear-override="clearMeldOverride"
+            />
           </section>
         </aside>
 
@@ -529,7 +535,13 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
                     <span class="hq-step-num" aria-hidden="true">2</span>
                     <span class="hq-step-title">再補鑲嵌<span class="beta-pill" aria-label="實驗中">實驗中</span></span>
                   </div>
-                  <MeldAdvisorCard :advice="meldAdvice" mode="ability" @apply="handleApplyMeld" />
+                  <MeldAdvisorCard
+                    :advice="meldAdvice"
+                    mode="ability"
+                    :override-active="!!meldOverride"
+                    @apply="handleApplyMeld"
+                    @save-to-gearset="handleSaveMeldToGearset"
+                  />
                 </div>
               </section>
             </template>
@@ -583,7 +595,13 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
                 <span class="hq-step-num" aria-hidden="true">2</span>
                 <span class="hq-step-title">再補鑲嵌<span class="beta-pill" aria-label="實驗中">實驗中</span></span>
               </div>
-              <MeldAdvisorCard :advice="meldAdvice" mode="ability" @apply="handleApplyMeld" />
+              <MeldAdvisorCard
+                :advice="meldAdvice"
+                mode="ability"
+                :override-active="!!meldOverride"
+                @apply="handleApplyMeld"
+                @save-to-gearset="handleSaveMeldToGearset"
+              />
             </div>
           </section>
         </aside>
@@ -683,7 +701,12 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
           </div>
           <div class="m-setup-group">
             <h4 class="m-setup-group-title">食藥</h4>
-            <FoodMedicine @update:enhanced-stats="onEnhancedStatsUpdate" />
+            <FoodMedicine
+              :override="meldOverride"
+              :override-chip-label="meldOverrideLabel"
+              @update:enhanced-stats="onEnhancedStatsUpdate"
+              @clear-override="clearMeldOverride"
+            />
           </div>
         </div>
 
@@ -776,7 +799,13 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
               <span class="hq-step-num" aria-hidden="true">2</span>
               <span class="hq-step-title">再補鑲嵌<span class="beta-pill" aria-label="實驗中">實驗中</span></span>
             </div>
-            <MeldAdvisorCard :advice="meldAdvice" mode="ability" @apply="handleApplyMeld" />
+            <MeldAdvisorCard
+              :advice="meldAdvice"
+              mode="ability"
+              :override-active="!!meldOverride"
+              @apply="handleApplyMeld"
+              @save-to-gearset="handleSaveMeldToGearset"
+            />
           </div>
         </section>
 

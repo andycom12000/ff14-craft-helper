@@ -175,4 +175,42 @@ describe('MeldAdvisorCard', () => {
     expect(w.text()).toContain('槽位不足')
     expect(w.findAll('button').some(b => b.text().includes('套用鑲嵌'))).toBe(false)
   })
+
+  // --- Slice C (#121): 存成配裝 reverse-gate ---
+
+  it('ability mode: no 存成配裝 gate when overrideActive is false', () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: fullAdvice, mode: 'ability', overrideActive: false } })
+    expect(w.findAll('button').some(b => b.text().includes('存成配裝'))).toBe(false)
+  })
+
+  it('ability mode: overrideActive reveals the inline 存成配裝 gate', () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: fullAdvice, mode: 'ability', overrideActive: true } })
+    expect(w.findAll('button').some(b => b.text().includes('存成配裝'))).toBe(true)
+  })
+
+  it('ability mode: 只存此職業 / 套用到全部職業 emit save-to-gearset with the right scope', async () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: fullAdvice, mode: 'ability', overrideActive: true } })
+    // open the inline gate
+    await w.findAll('button').find(b => b.text().includes('存成配裝'))!.trigger('click')
+
+    const thisBtn = w.findAll('button').find(b => b.text().includes('只存此職業'))
+    const allBtn = w.findAll('button').find(b => b.text().includes('套用到全部職業'))
+    expect(thisBtn).toBeTruthy()
+    expect(allBtn).toBeTruthy()
+
+    await thisBtn!.trigger('click')
+    expect(w.emitted('save-to-gearset')?.[0]).toEqual(['this'])
+
+    // re-open and pick 全部職業
+    await w.findAll('button').find(b => b.text().includes('存成配裝'))!.trigger('click')
+    await w.findAll('button').find(b => b.text().includes('套用到全部職業'))!.trigger('click')
+    expect(w.emitted('save-to-gearset')?.[1]).toEqual(['all'])
+  })
+
+  it('cost mode never shows the 存成配裝 gate (even with overrideActive)', () => {
+    const w = mount(MeldAdvisorCard, {
+      props: { advice: fullAdvice, mode: 'cost', showApply: false, overrideActive: true },
+    })
+    expect(w.findAll('button').some(b => b.text().includes('存成配裝'))).toBe(false)
+  })
 })

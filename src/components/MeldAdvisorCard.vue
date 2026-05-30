@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { Loading } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 // ElMessage's style side-effect is loaded by useSimulator (the only host of this
@@ -7,6 +7,7 @@ import { ElMessage } from 'element-plus'
 // CSS here — and importing it here would break the jsdom component test.
 import type { MeldAdvice, MeldStep } from '@/services/meld-advisor'
 import type { CraftStat } from '@/engine/materia'
+import { formatMeldStepShort } from '@/engine/materia'
 import { formatGil } from '@/utils/format'
 
 const props = withDefaults(defineProps<{
@@ -17,13 +18,19 @@ const props = withDefaults(defineProps<{
   /** Whether the "套用" CTA renders. Defaults to true; cost mode (batch) closes
    *  it regardless. When effectively off, no path may emit `apply`. */
   showApply?: boolean
+  /** Ability mode (Slice C): a session-only meld override is currently active,
+   *  so the inline 「存成配裝…」 reverse-gate may be offered to write it down
+   *  permanently. */
+  overrideActive?: boolean
 }>(), {
   mode: 'ability',
   showApply: true,
+  overrideActive: false,
 })
 
 const emit = defineEmits<{
   apply: [delta: { craftsmanship: number; control: number; cp: number }]
+  'save-to-gearset': [scope: 'this' | 'all']
 }>()
 
 /** Resolved CTA visibility. Cost mode is cost-oriented (batch) and has no
@@ -51,20 +58,14 @@ const gradeLabel = (g: number) => GRADE_ROMAN[g] ?? String(g)
 const stepText = (s: MeldStep) =>
   `${statLabel(s.stat)} 魔晶石${gradeLabel(s.grade)} × ${Math.ceil(s.expectedCount)} 顆`
 
-/** Materia name for the ability sentence, e.g. 「加工魔晶石Ⅻ」. */
-const materiaName = (s: MeldStep) => `${statLabel(s.stat)}魔晶石${gradeLabel(s.grade)}`
-
 /**
  * Ability-mode clauses: one per materia type, each「{顆數} 顆 {魔晶石名}」.
- * 顆數 = Math.ceil(expectedCount) (rounds the overmeld-waste expectation up to a
- * whole materia the user must actually buy).
+ * Built from the shared `formatMeldStepShort` helper so the sentence and the
+ * session-override chip in FoodMedicine never drift.
  */
 const abilityClauses = computed(() => {
   if (!result.value) return []
-  return result.value.costOptimal.steps.map((s) => ({
-    count: Math.ceil(s.expectedCount),
-    name: materiaName(s),
-  }))
+  return result.value.costOptimal.steps.map((s) => formatMeldStepShort(s))
 })
 
 /** Whether the cost-optimal plan has a concrete, actionable meld list. */
@@ -80,6 +81,20 @@ function applyToGearset() {
   // future path reaches here (spec Slice A acceptance).
   if (!result.value || !effectiveShowApply.value) return
   emit('apply', result.value.costOptimal.deltaStats)
+}
+
+/* Inline "存成配裝…" reverse-gate (Slice C). DESIGN.md forbids reaching for a
+   modal first — this is an inline confirm row revealed in place, not a dialog. */
+const saveGateOpen = ref(false)
+function openSaveGate() {
+  saveGateOpen.value = true
+}
+function cancelSaveGate() {
+  saveGateOpen.value = false
+}
+function saveToGearset(scope: 'this' | 'all') {
+  saveGateOpen.value = false
+  emit('save-to-gearset', scope)
 }
 
 async function copyShoppingList() {
@@ -134,8 +149,7 @@ async function copyShoppingList() {
           <p class="ability-sentence">
             補
             <template v-for="(c, i) in abilityClauses" :key="i"
-              ><span class="ability-clause"
-                ><span class="ability-count">{{ c.count }}</span> 顆 {{ c.name }}</span
+              ><span class="ability-clause">{{ c }}</span
               ><span v-if="i < abilityClauses.length - 1" class="ability-join">、</span></template
             >
             即可保證 HQ
@@ -151,6 +165,33 @@ async function copyShoppingList() {
             <button type="button" class="cta-btn cta-primary" @click="applyToGearset">
               套用鑲嵌（模擬）
             </button>
+          </div>
+
+          <!-- Reverse-gate (Slice C): only when a session override is live.
+               Inline confirm row, not a modal (DESIGN.md). -->
+          <div v-if="effectiveShowApply && overrideActive" class="save-gate">
+            <button
+              v-if="!saveGateOpen"
+              type="button"
+              class="save-gate-trigger"
+              @click="openSaveGate"
+            >
+              存成配裝…
+            </button>
+            <div v-else class="save-gate-confirm">
+              <span class="save-gate-prompt">永久寫入哪個範圍？</span>
+              <div class="save-gate-actions">
+                <button type="button" class="cta-btn cta-ghost" @click="saveToGearset('this')">
+                  只存此職業
+                </button>
+                <button type="button" class="cta-btn cta-ghost" @click="saveToGearset('all')">
+                  套用到全部職業
+                </button>
+                <button type="button" class="save-gate-cancel" @click="cancelSaveGate">
+                  取消
+                </button>
+              </div>
+            </div>
           </div>
         </template>
 
@@ -353,10 +394,11 @@ async function copyShoppingList() {
 }
 .ability-clause {
   white-space: nowrap;
-}
-.ability-count {
-  font-family: 'Fira Code', ui-monospace, monospace;
-  font-size: 21px;
+  /* Fira Code first so the 顆數 renders in the mono number face (DESIGN.md:
+     numbers are always Fira Code); CJK has no glyphs there and falls back to
+     the serif face, so 「8 顆 加工魔晶石Ⅻ」 mixes mono digits + serif text. */
+  font-family: 'Fira Code', 'Noto Serif TC', serif;
+  font-variant-numeric: tabular-nums;
 }
 .ability-join {
   /* allow wrapping between clauses, keep the 、 with the preceding clause */
@@ -531,6 +573,58 @@ async function copyShoppingList() {
 .cta-ghost:hover {
   border-color: var(--app-accent, oklch(0.72 0.15 65));
   color: var(--app-accent-strong, oklch(0.5 0.12 60));
+}
+
+/* Reverse-gate (Slice C) — inline confirm row that escalates the session
+   override into a permanent gearset write. Quiet trigger; the confirm row
+   reveals the two scope choices in place (no modal). */
+.save-gate {
+  margin-top: 6px;
+}
+.save-gate-trigger {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--app-text-muted, oklch(0.5 0.03 60));
+  font-family: 'Noto Serif TC', serif;
+  font-size: 12.5px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: color 140ms ease;
+}
+.save-gate-trigger:hover {
+  color: var(--app-craft, oklch(0.50 0.16 40));
+}
+.save-gate-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--app-border, oklch(0.65 0.04 65 / 0.3));
+  border-radius: 8px;
+}
+.save-gate-prompt {
+  font-size: 12.5px;
+  color: var(--app-text, oklch(0.28 0.04 55));
+}
+.save-gate-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.save-gate-cancel {
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: var(--app-text-muted, oklch(0.5 0.03 60));
+  font-size: 12.5px;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.save-gate-cancel:hover {
+  color: var(--app-text, oklch(0.28 0.04 55));
 }
 
 /* Disclaimer — honest about estimate vs exact, in plain language */
