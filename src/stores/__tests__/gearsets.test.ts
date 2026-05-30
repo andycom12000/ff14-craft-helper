@@ -71,4 +71,22 @@ describe('useGearsetsStore', () => {
       expect(Object.keys(store.gearsets).length).toBeGreaterThanOrEqual(8)
     })
   })
+
+  describe('applyDeltaToAllGearsets', () => {
+    it('adds the delta on top of each job\'s existing raw stats (not absolute)', () => {
+      const store = useGearsetsStore()
+      store.updateGearset('CRP', { craftsmanship: 4000, control: 3800, cp: 600 })
+      store.updateGearset('BSM', { craftsmanship: 1000, control: 900, cp: 500 })
+
+      store.applyDeltaToAllGearsets({ craftsmanship: 0, control: 432, cp: 10 })
+
+      // each job keeps its distinct raw stats, with the delta folded on top
+      expect(store.gearsets.CRP.control).toBe(4232)
+      expect(store.gearsets.CRP.cp).toBe(610)
+      expect(store.gearsets.CRP.craftsmanship).toBe(4000)
+      expect(store.gearsets.BSM.control).toBe(1332)
+      expect(store.gearsets.BSM.cp).toBe(510)
+      expect(store.gearsets.BSM.craftsmanship).toBe(1000)
+    })
+  })
 })

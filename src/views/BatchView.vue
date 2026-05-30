@@ -598,7 +598,7 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
           class="meld-card-wrap"
         >
           <h4 class="meld-card-job">{{ getJobLabel(job) }}</h4>
-          <MeldAdvisorCard :advice="advice" />
+          <MeldAdvisorCard :advice="advice" mode="cost" :show-apply="false" />
         </div>
       </div>
     </section>
@@ -1296,6 +1296,14 @@ function handleTodoReorder(fromIndex: number, toIndex: number) {
   .meld-cards-grid {
     grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
   }
+}
+/* Per-job container owns the frame + title now that MeldAdvisorCard is
+   de-shelled (Slice A). One box per job, single 職業名 title — no box-in-box. */
+.meld-card-wrap {
+  padding: 14px 16px;
+  border: 1px solid var(--app-border, var(--el-border-color));
+  border-radius: 8px;
+  background: var(--app-surface, var(--el-bg-color));
 }
 .meld-card-job {
   margin: 0 0 0.5rem 0;

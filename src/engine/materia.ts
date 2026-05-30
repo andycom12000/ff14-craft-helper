@@ -98,6 +98,25 @@ export const BIS_REFERENCE: BiSReference = {
   cp: 649,
 }
 
+const STAT_SHORT_LABELS: Record<CraftStat, string> = {
+  craftsmanship: '作業',
+  control: '加工',
+  cp: 'CP',
+}
+const GRADE_ROMAN: Record<number, string> = { 12: 'Ⅻ', 11: 'Ⅺ', 10: 'Ⅹ' }
+
+/**
+ * Shopping-oriented short label for one meld step, e.g. 「8 顆 加工魔晶石Ⅻ」.
+ * `count` = the whole-materia purchase count (overmeld-waste expectation
+ * rounded up). Shared by MeldAdvisorCard's ability sentence and the
+ * session-override chip in FoodMedicine so the two never drift.
+ */
+export function formatMeldStepShort(step: { stat: CraftStat; grade: number; expectedCount: number }): string {
+  const stat = STAT_SHORT_LABELS[step.stat] ?? step.stat
+  const grade = GRADE_ROMAN[step.grade] ?? String(step.grade)
+  return `${Math.ceil(step.expectedCount)} 顆 ${stat}魔晶石${grade}`
+}
+
 /** Return all materia entries for a stat, sorted descending by grade. */
 export function materiaForStat(stat: CraftStat): MateriaGrade[] {
   return MATERIA_GRADES

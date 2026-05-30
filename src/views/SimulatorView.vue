@@ -55,11 +55,12 @@ const {
   effectiveStats, craftParams, currentState,
   initialQuality, initialQualityHqAmounts, enhancedStats,
   searchSidebarOpen, solverResult, modeOptions,
-  meldAdvice,
+  meldAdvice, meldOverride, meldOverrideLabel,
   onInitialQualityUpdate, onEnhancedStatsUpdate, onHqAmountsUpdate,
   handleAddFromSearch, handleRemoveFromQueue, handleClearQueue,
   handleRemoveAction, handleClearActions,
   handleUseSkill, onSolveComplete, handleApplyHq, handleApplyMeld,
+  clearMeldOverride, handleSaveMeldToGearset,
   handleAddToBom, handleSelfCraft,
 } = useSimulator()
 
@@ -144,6 +145,16 @@ watch(
 )
 onBeforeUnmount(() => {
   if (macroCueTimer) clearTimeout(macroCueTimer)
+})
+
+/* HQ cascade — when HQ materials alone already guarantee HQ, the meld advisor
+   card shows its own self-explanatory success state ("無需鑲嵌"). In that case
+   the "Step 2 — 再補鑲嵌" sub-heading would be a dangling/contradictory label,
+   so we drop it and let the success state stand alone. The label shows for
+   every other advice state (loading / stale / empty / actionable / infeasible). */
+const meldHqSufficient = computed(() => {
+  const a = meldAdvice.value
+  return !!a && typeof a === 'object' && a.hqSufficient
 })
 
 /* Mobile helpers */
@@ -334,7 +345,12 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
                 </el-tooltip>
               </span>
             </header>
-            <FoodMedicine @update:enhanced-stats="onEnhancedStatsUpdate" />
+            <FoodMedicine
+              :override="meldOverride"
+              :override-chip-label="meldOverrideLabel"
+              @update:enhanced-stats="onEnhancedStatsUpdate"
+              @clear-override="clearMeldOverride"
+            />
           </section>
         </aside>
 
@@ -483,49 +499,50 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
                  sections (not as a side rail pushed below).
                  At 3-col they live in rail-right instead. -->
             <template v-if="isTwoCol">
-              <section class="cockpit-section cockpit-section--hq">
+              <section class="cockpit-section cockpit-section--hq hq-cascade">
                 <header class="cockpit-section-head">
-                  <span class="cockpit-section-label">
-                初期品質<span class="optional-tag">選填</span>
-                <el-tooltip
-                  content="把已備好的 HQ 素材換算成「製作開始就帶的品質」。HQ 素材越多、需加工的量越少。"
-                  placement="top"
-                >
-                  <span class="rail-help-icon" aria-label="初期品質說明">?</span>
-                </el-tooltip>
-              </span>
+                  <span class="cockpit-section-label hq-cascade-title">如何保證 HQ</span>
                 </header>
-                <InitialQuality :hq-amounts="initialQualityHqAmounts" @update:initial-quality="onInitialQualityUpdate" @update:hq-amounts="onHqAmountsUpdate" />
-              </section>
 
-              <section class="cockpit-section cockpit-section--hq">
-                <header class="cockpit-section-head">
-                  <span class="cockpit-section-label">
-                最佳手法 / HQ 推薦
-                <el-tooltip
-                  content="求解完成後，這裡顯示推薦的 HQ 素材組合（哪幾樣要 HQ、多少數量），可一鍵套用回初期品質。"
-                  placement="top"
-                >
-                  <span class="rail-help-icon" aria-label="最佳手法說明">?</span>
-                </el-tooltip>
-              </span>
-                </header>
-                <CraftRecommendation
-                  v-if="simStore.mode === 'solver'"
-                  :craft-params="craftParams"
-                  :recipe="recipe"
-                  :solver-result="solverResult"
-                  @apply-hq="handleApplyHq"
-                  @self-craft="handleSelfCraft"
-                />
-                <p v-else class="rail-empty">切到自動求解、按啟動求解後顯示。</p>
-              </section>
+                <!-- Step 1 — 備齊 HQ 素材 (initialQuality + HQ recommendation) -->
+                <div class="hq-step">
+                  <div class="hq-step-head">
+                    <span class="hq-step-num" aria-hidden="true">1</span>
+                    <span class="hq-step-title">備齊 HQ 素材<span class="optional-tag">選填</span></span>
+                    <el-tooltip
+                      content="把已備好的 HQ 素材換算成「製作開始就帶的品質」。HQ 素材越多、需加工的量越少。求解完成後會推薦該備哪幾樣 HQ、多少數量，可一鍵套用。"
+                      placement="top"
+                    >
+                      <span class="rail-help-icon" aria-label="HQ 素材說明">?</span>
+                    </el-tooltip>
+                  </div>
+                  <InitialQuality :hq-amounts="initialQualityHqAmounts" @update:initial-quality="onInitialQualityUpdate" @update:hq-amounts="onHqAmountsUpdate" />
+                  <CraftRecommendation
+                    v-if="simStore.mode === 'solver'"
+                    :craft-params="craftParams"
+                    :recipe="recipe"
+                    :solver-result="solverResult"
+                    @apply-hq="handleApplyHq"
+                    @self-craft="handleSelfCraft"
+                  />
+                  <p v-else class="rail-empty">切到自動求解、按啟動求解後顯示推薦 HQ 素材組合。</p>
+                </div>
 
-              <section class="cockpit-section cockpit-section--hq">
-                <header class="cockpit-section-head">
-                  <span class="cockpit-section-label">鑲嵌建議<span class="beta-pill" aria-label="實驗中">實驗中</span></span>
-                </header>
-                <MeldAdvisorCard :advice="meldAdvice" @apply="handleApplyMeld" />
+                <!-- Step 2 — 再補鑲嵌. When HQ materials alone suffice, the card
+                     shows its own success state, so we drop the sub-heading. -->
+                <div class="hq-step">
+                  <div v-if="!meldHqSufficient" class="hq-step-head">
+                    <span class="hq-step-num" aria-hidden="true">2</span>
+                    <span class="hq-step-title">再補鑲嵌<span class="beta-pill" aria-label="實驗中">實驗中</span></span>
+                  </div>
+                  <MeldAdvisorCard
+                    :advice="meldAdvice"
+                    mode="ability"
+                    :override-active="!!meldOverride"
+                    @apply="handleApplyMeld"
+                    @save-to-gearset="handleSaveMeldToGearset"
+                  />
+                </div>
               </section>
             </template>
           </template>
@@ -542,49 +559,50 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
         <!-- Right rail: only at 3-col mode (>1720); at 2-col these sections
              render inside b-main instead. -->
         <aside v-if="!isTwoCol" class="rail rail-right">
-          <section class="rail-section">
+          <section class="rail-section hq-cascade">
             <header class="rail-section-head">
-              <span class="rail-section-label">
-                初期品質<span class="optional-tag">選填</span>
+              <span class="rail-section-label hq-cascade-title">如何保證 HQ</span>
+            </header>
+
+            <!-- Step 1 — 備齊 HQ 素材 (initialQuality + HQ recommendation) -->
+            <div class="hq-step">
+              <div class="hq-step-head">
+                <span class="hq-step-num" aria-hidden="true">1</span>
+                <span class="hq-step-title">備齊 HQ 素材<span class="optional-tag">選填</span></span>
                 <el-tooltip
-                  content="把已備好的 HQ 素材換算成「製作開始就帶的品質」。HQ 素材越多、需加工的量越少。"
+                  content="把已備好的 HQ 素材換算成「製作開始就帶的品質」。HQ 素材越多、需加工的量越少。求解完成後會推薦該備哪幾樣 HQ、多少數量，可一鍵套用。"
                   placement="top"
                 >
-                  <span class="rail-help-icon" aria-label="初期品質說明">?</span>
+                  <span class="rail-help-icon" aria-label="HQ 素材說明">?</span>
                 </el-tooltip>
-              </span>
-            </header>
-            <InitialQuality :hq-amounts="initialQualityHqAmounts" @update:initial-quality="onInitialQualityUpdate" @update:hq-amounts="onHqAmountsUpdate" />
-          </section>
+              </div>
+              <InitialQuality :hq-amounts="initialQualityHqAmounts" @update:initial-quality="onInitialQualityUpdate" @update:hq-amounts="onHqAmountsUpdate" />
+              <CraftRecommendation
+                v-if="canSimulate && simStore.mode === 'solver'"
+                :craft-params="craftParams"
+                :recipe="recipe"
+                :solver-result="solverResult"
+                @apply-hq="handleApplyHq"
+                @self-craft="handleSelfCraft"
+              />
+              <p v-else class="rail-empty">切到自動求解、按啟動求解後顯示推薦 HQ 素材組合。</p>
+            </div>
 
-          <section class="rail-section">
-            <header class="rail-section-head">
-              <span class="rail-section-label">
-                最佳手法 / HQ 推薦
-                <el-tooltip
-                  content="求解完成後，這裡顯示推薦的 HQ 素材組合（哪幾樣要 HQ、多少數量），可一鍵套用回初期品質。"
-                  placement="top"
-                >
-                  <span class="rail-help-icon" aria-label="最佳手法說明">?</span>
-                </el-tooltip>
-              </span>
-            </header>
-            <CraftRecommendation
-              v-if="canSimulate && simStore.mode === 'solver'"
-              :craft-params="craftParams"
-              :recipe="recipe"
-              :solver-result="solverResult"
-              @apply-hq="handleApplyHq"
-              @self-craft="handleSelfCraft"
-            />
-            <p v-else class="rail-empty">切到自動求解、按啟動求解後顯示。</p>
-          </section>
-
-          <section class="rail-section">
-            <header class="rail-section-head">
-              <span class="rail-section-label">鑲嵌建議<span class="beta-pill" aria-label="實驗中">實驗中</span></span>
-            </header>
-            <MeldAdvisorCard :advice="meldAdvice" @apply="handleApplyMeld" />
+            <!-- Step 2 — 再補鑲嵌. When HQ materials alone suffice, the card
+                 shows its own success state, so we drop the sub-heading. -->
+            <div class="hq-step">
+              <div v-if="!meldHqSufficient" class="hq-step-head">
+                <span class="hq-step-num" aria-hidden="true">2</span>
+                <span class="hq-step-title">再補鑲嵌<span class="beta-pill" aria-label="實驗中">實驗中</span></span>
+              </div>
+              <MeldAdvisorCard
+                :advice="meldAdvice"
+                mode="ability"
+                :override-active="!!meldOverride"
+                @apply="handleApplyMeld"
+                @save-to-gearset="handleSaveMeldToGearset"
+              />
+            </div>
           </section>
         </aside>
       </div>
@@ -683,7 +701,12 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
           </div>
           <div class="m-setup-group">
             <h4 class="m-setup-group-title">食藥</h4>
-            <FoodMedicine @update:enhanced-stats="onEnhancedStatsUpdate" />
+            <FoodMedicine
+              :override="meldOverride"
+              :override-chip-label="meldOverrideLabel"
+              @update:enhanced-stats="onEnhancedStatsUpdate"
+              @clear-override="clearMeldOverride"
+            />
           </div>
         </div>
 
@@ -751,20 +774,39 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
           />
         </section>
 
-        <section v-if="canSimulate && !gearsetBlocking && simStore.mode === 'solver'" class="m-flat">
-          <h3 class="m-flat-title">最佳手法</h3>
-          <CraftRecommendation
-            :craft-params="craftParams"
-            :recipe="recipe"
-            :solver-result="solverResult"
-            @apply-hq="handleApplyHq"
-            @self-craft="handleSelfCraft"
-          />
-        </section>
+        <!-- 如何保證 HQ — mobile cascade. The 備齊 HQ 素材 inputs (初期品質) live
+             in the collapsible 設定 row above; here we group the contiguous
+             Step 1 (HQ 推薦) + Step 2 (鑲嵌) under one title. -->
+        <section v-if="canSimulate && !gearsetBlocking" class="m-flat hq-cascade">
+          <h3 class="m-flat-title hq-cascade-title">如何保證 HQ</h3>
 
-        <section v-if="canSimulate && !gearsetBlocking" class="m-flat">
-          <h3 class="m-flat-title">鑲嵌建議<span class="beta-pill" aria-label="實驗中">實驗中</span></h3>
-          <MeldAdvisorCard :advice="meldAdvice" @apply="handleApplyMeld" />
+          <div v-if="simStore.mode === 'solver'" class="hq-step">
+            <div class="hq-step-head">
+              <span class="hq-step-num" aria-hidden="true">1</span>
+              <span class="hq-step-title">備齊 HQ 素材</span>
+            </div>
+            <CraftRecommendation
+              :craft-params="craftParams"
+              :recipe="recipe"
+              :solver-result="solverResult"
+              @apply-hq="handleApplyHq"
+              @self-craft="handleSelfCraft"
+            />
+          </div>
+
+          <div class="hq-step">
+            <div v-if="!meldHqSufficient" class="hq-step-head">
+              <span class="hq-step-num" aria-hidden="true">2</span>
+              <span class="hq-step-title">再補鑲嵌<span class="beta-pill" aria-label="實驗中">實驗中</span></span>
+            </div>
+            <MeldAdvisorCard
+              :advice="meldAdvice"
+              mode="ability"
+              :override-active="!!meldOverride"
+              @apply="handleApplyMeld"
+              @save-to-gearset="handleSaveMeldToGearset"
+            />
+          </div>
         </section>
 
         <section v-if="canSimulate" class="m-flat">
@@ -1355,6 +1397,64 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0;
+}
+
+/* ============================================================
+   "如何保證 HQ" cascade — one frame, one title, internal Step 1 / Step 2.
+   Shared across the 2-col cockpit section, the 3-col rail section, and the
+   mobile m-flat. The 備齊 HQ 素材 + 再補鑲嵌 levers read as one ordered
+   decision instead of three sibling headers (spec §3 de-shell / no box-in-box).
+   ============================================================ */
+/* The cascade title is Chinese prose — DESIGN.md forbids uppercasing 中文.
+   The base rail/cockpit/m-flat labels carry text-transform:uppercase +
+   letter-spacing for English eyebrows; override here. */
+.hq-cascade-title {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 13px;
+}
+.hq-cascade {
+  display: flex;
+  flex-direction: column;
+}
+.hq-step {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+/* Step separator — a quiet rule between the two levers, matching the flat
+   border-bottom aesthetic of the surrounding sections (no nested cards). */
+.hq-step + .hq-step {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--app-border);
+}
+.hq-step-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+.hq-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--app-craft);
+  color: white;
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+.hq-step-title {
+  font-family: 'Noto Serif TC', serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--app-text);
 }
 
 /* Sequence column wraps both 序列 and 巨集 sections; flows with the page */

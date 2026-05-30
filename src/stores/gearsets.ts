@@ -64,6 +64,26 @@ export const useGearsetsStore = defineStore('gearsets', () => {
     syncFromStores()
   }
 
+  /**
+   * Add a per-stat delta on top of EVERY job's existing raw gear (shared-gear
+   * intent, spec Slice C 全部職業). Unlike `updateAllGearsets` — which writes the
+   * SAME absolute value to every job — this preserves each job's distinct raw
+   * stats and folds the meld delta on top of each.
+   */
+  function applyDeltaToAllGearsets(delta: { craftsmanship: number; control: number; cp: number }) {
+    for (const job of Object.keys(gearsets.value)) {
+      const g = gearsets.value[job]
+      gearsets.value[job] = {
+        ...g,
+        craftsmanship: g.craftsmanship + delta.craftsmanship,
+        control: g.control + delta.control,
+        cp: g.cp + delta.cp,
+      }
+    }
+    trackEvent('gearset_apply_all', { fields: 'meld_delta' })
+    syncFromStores()
+  }
+
   // Migrate from old array format and ensure all jobs exist
   function ensureAllJobs() {
     if (Array.isArray(gearsets.value)) {
@@ -95,7 +115,7 @@ export const useGearsetsStore = defineStore('gearsets', () => {
     }
   }
 
-  return { gearsets, getGearsetForJob, updateGearset, updateAllGearsets, ensureAllJobs }
+  return { gearsets, getGearsetForJob, updateGearset, updateAllGearsets, applyDeltaToAllGearsets, ensureAllJobs }
 }, {
   persist: {
     afterHydrate(ctx) {

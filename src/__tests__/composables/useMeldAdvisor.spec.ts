@@ -47,6 +47,7 @@ const stubAdvice: MeldAdvice = {
   },
   gapGil: 100000,
   alreadyMeetsThreshold: true,
+  hqSufficient: true,
 }
 
 describe('useMeldAdvisor', () => {

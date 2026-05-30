@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { MeldAdvice, MeldPlan, MeldStep } from '@/services/meld-advisor'
-import { adviseMeld, findBindingRecipe, solveProgressBreakpoint, solveQualityBreakpoint, confirmBreakpointWithSolver, translateDeltaToMeldPlan, computeBisPlan } from '@/services/meld-advisor'
+import { adviseMeld, findBindingRecipe, solveProgressBreakpoint, solveQualityBreakpoint, confirmBreakpointWithSolver, translateDeltaToMeldPlan, computeBisPlan, computeMaxHqInitialQuality } from '@/services/meld-advisor'
 import type { Recipe } from '@/stores/recipe'
 import { BIS_REFERENCE, MATERIA_GRADES, SLOT_STRUCTURE } from '@/engine/materia'
 
@@ -464,6 +464,130 @@ describe('adviseMeld (orchestrated)', () => {
     if (out.bis.totalGil !== null && out.costOptimal.totalGil !== null) {
       expect(out.gapGil).toBe(out.bis.totalGil - out.costOptimal.totalGil)
     }
+  })
+})
+
+// §2 engine touchpoint: meld baseline = max-HQ initialQuality (all HQ
+// materials), not the screen's current (partial) HQ selection.
+describe('computeMaxHqInitialQuality', () => {
+  const withIngredients = (
+    quality: number,
+    materialQualityFactor: number,
+    ingredients: { amount: number; canHq: boolean; level: number }[],
+  ): Recipe =>
+    ({
+      id: 1, name: 'r', job: 'CRP', canHq: true, isExpert: false,
+      materialQualityFactor,
+      ingredients: ingredients.map((ing, i) => ({
+        itemId: i, name: `i${i}`, icon: '', ...ing,
+      })),
+      recipeLevelTable: {
+        classJobLevel: 100, progressDivider: 130, qualityDivider: 115,
+        progressModifier: 90, qualityModifier: 15,
+        difficulty: 3500, quality, durability: 80,
+      },
+    } as unknown as Recipe)
+
+  it('returns 0 for recipes without ingredient data (stub / custom)', () => {
+    expect(computeMaxHqInitialQuality(makeRecipe(1, 3500, 6500))).toBe(0)
+  })
+
+  it('returns 0 when no ingredient is HQ-eligible', () => {
+    const r = withIngredients(6500, 50, [
+      { amount: 2, canHq: false, level: 100 },
+      { amount: 3, canHq: false, level: 90 },
+    ])
+    expect(computeMaxHqInitialQuality(r)).toBe(0)
+  })
+
+  it('returns a positive value, capped at maxQuality, when HQ materials exist', () => {
+    const r = withIngredients(6500, 50, [
+      { amount: 2, canHq: true, level: 100 },
+      { amount: 1, canHq: false, level: 90 },
+    ])
+    const iq = computeMaxHqInitialQuality(r)
+    expect(iq).toBeGreaterThan(0)
+    expect(iq).toBeLessThanOrEqual(6500)
+  })
+})
+
+describe('adviseMeld — max-HQ baseline (§2 engine touchpoint)', () => {
+  const priceMap = new Map<number, any>(
+    MATERIA_GRADES.map(m => [m.itemId, { minPriceNQ: 1000, listings: [] }]),
+  )
+  const baseGearset = {
+    level: 100, craftsmanship: 4500, control: 4500, cp: 600, isSpecialist: false,
+  }
+  const recipeWithHq = (): Recipe =>
+    ({
+      id: 7, name: 'r', job: 'CRP', canHq: true, isExpert: false,
+      materialQualityFactor: 75,
+      ingredients: [
+        { itemId: 1, name: 'a', icon: '', amount: 3, canHq: true, level: 100 },
+      ],
+      recipeLevelTable: {
+        classJobLevel: 100, progressDivider: 130, qualityDivider: 115,
+        progressModifier: 90, qualityModifier: 15,
+        difficulty: 5000, quality: 8000, durability: 80,
+      },
+    } as unknown as Recipe)
+
+  it('feeds the max-HQ initialQuality (not options.initialQuality) into the solver', async () => {
+    const recipe = recipeWithHq()
+    const expectedBaseline = computeMaxHqInitialQuality(recipe)
+    expect(expectedBaseline).toBeGreaterThan(0)
+
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = vi.fn().mockResolvedValue({
+      progress: 5000, max_progress: 5000, quality: 8000, max_quality: 8000,
+    })
+
+    await adviseMeld(
+      [recipe], baseGearset, priceMap,
+      { bisReference: BIS_REFERENCE, initialQuality: 0 },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+    // Step 0 solve is driven by the max-HQ baseline, NOT the screen value (0).
+    expect(fakeSolve).toHaveBeenCalledWith(
+      recipe, baseGearset, { initialQuality: expectedBaseline },
+    )
+  })
+
+  it('hqSufficient = true when max-HQ materials alone double-max', async () => {
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = vi.fn().mockResolvedValue({
+      progress: 5000, max_progress: 5000, quality: 8000, max_quality: 8000,
+    })
+    const out = await adviseMeld(
+      [recipeWithHq()], baseGearset, priceMap,
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+    expect(out.hqSufficient).toBe(true)
+    expect(out.costOptimal.steps).toHaveLength(0)
+  })
+
+  it('hqSufficient = false when meld residual is still required', async () => {
+    const hard = makeRecipe(1, 5000, 8000)
+    const weak = { ...baseGearset, craftsmanship: 100, control: 100, cp: 300 }
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = vi.fn()
+      .mockResolvedValueOnce({ progress: 500, max_progress: 1000, quality: 4000, max_quality: 5000 })
+      .mockResolvedValue({ progress: 5000, max_progress: 5000, quality: 8000, max_quality: 8000 })
+    const out = await adviseMeld(
+      [hard], weak, priceMap,
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+    expect(out.hqSufficient).toBe(false)
+    expect(out.costOptimal.steps.length).toBeGreaterThan(0)
+  })
+
+  it('empty-targets path is hqSufficient (no meld needed)', async () => {
+    const out = await adviseMeld(
+      [], baseGearset, priceMap, { bisReference: BIS_REFERENCE },
+    )
+    expect(out.hqSufficient).toBe(true)
   })
 })
 
