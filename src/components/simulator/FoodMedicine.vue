@@ -13,12 +13,13 @@ import {
   type EnhancedStats,
 } from '@/engine/food-medicine'
 import { applyCrafterSoulBonus } from '@/services/specialist-state'
+import { applyRawStatDelta, type RawStatDelta } from '@/services/stat-stacking'
 
 const props = defineProps<{
   /** Session-only meld override (Slice C): a RAW-gear Δstats triple folded into
    *  the gearset's raw stats BEFORE soul/food/medicine (ADR-0001 order). When
    *  null/zero the stacking is byte-identical to today (parity safe). */
-  override?: { craftsmanship: number; control: number; cp: number } | null
+  override?: RawStatDelta | null
   /** Shopping-oriented chip text for the active override, e.g.
    *  「8 顆 加工魔晶石Ⅻ」. When set, a removable chip renders above 基礎能力值. */
   overrideChipLabel?: string | null
@@ -58,14 +59,9 @@ const baseStats = computed<EnhancedStats>(() => {
 // ADR-0001. When override is null/0 this is byte-identical to today.
 const afterSpecialist = computed<EnhancedStats>(() => {
   if (!gearset.value) return baseStats.value
-  const o = props.override
-  const rawWithOverride = {
-    ...gearset.value,
-    craftsmanship: gearset.value.craftsmanship + (o?.craftsmanship ?? 0),
-    control: gearset.value.control + (o?.control ?? 0),
-    cp: gearset.value.cp + (o?.cp ?? 0),
-  }
-  const { craftsmanship, control, cp } = applyCrafterSoulBonus(rawWithOverride)
+  const { craftsmanship, control, cp } = applyCrafterSoulBonus(
+    applyRawStatDelta(gearset.value, props.override),
+  )
   return { craftsmanship, control, cp }
 })
 

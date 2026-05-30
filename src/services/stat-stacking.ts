@@ -17,6 +17,34 @@ import { applyCrafterSoulBonus } from '@/services/specialist-state'
  * doing so silently drops the specialist Soul bonus or applies food before
  * Soul, which is non-commutative when a food cap is hit.
  */
+/** A raw-gear stat delta — e.g. the session meld override (Slice C). */
+export interface RawStatDelta {
+  craftsmanship: number
+  control: number
+  cp: number
+}
+
+/**
+ * Fold a raw-gear stat delta (the session meld override) onto a gearset's raw
+ * stats, returning a NEW gearset. Per ADR-0001 the override is a raw-gear delta
+ * that MUST be applied BEFORE Soul/food/medicine — feed the result into
+ * `gearsetToBuffedStats` / `applyCrafterSoulBonus`, never after. Returns the
+ * gearset unchanged (no allocation) when `delta` is null/undefined, so the
+ * no-override path stays byte-identical to today.
+ */
+export function applyRawStatDelta(
+  gearset: GearsetStats,
+  delta: RawStatDelta | null | undefined,
+): GearsetStats {
+  if (!delta) return gearset
+  return {
+    ...gearset,
+    craftsmanship: gearset.craftsmanship + delta.craftsmanship,
+    control: gearset.control + delta.control,
+    cp: gearset.cp + delta.cp,
+  }
+}
+
 export function gearsetToBuffedStats(
   gearset: GearsetStats,
   buffs: { food: FoodBuff | null; medicine: FoodBuff | null } | undefined,

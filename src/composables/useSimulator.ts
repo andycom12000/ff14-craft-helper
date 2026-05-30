@@ -18,7 +18,7 @@ import { calculateInitialQuality } from '@/engine/quality'
 import { getRecipe, findRecipesByItemName } from '@/api/xivapi'
 import { simulateCraftDetail, waitForWasm } from '@/solver/worker'
 import { craftParamsToSolverConfig } from '@/solver/config'
-import { gearsetToBuffedStats } from '@/services/stat-stacking'
+import { gearsetToBuffedStats, applyRawStatDelta, type RawStatDelta } from '@/services/stat-stacking'
 import { formatMeldStepShort } from '@/engine/materia'
 import type { WasmEffects, StepDetail } from '@/solver/raphael'
 import { JOB_ORDER, type Job } from '@/engine/skill-icons-by-job'
@@ -51,7 +51,7 @@ export function useSimulator() {
      Never written to the gearsets store / localStorage; cleared on recipe
      switch / reset or by the removable chip. `meldOverrideLabel` is the
      shopping-oriented chip text (e.g. 「8 顆 加工魔晶石Ⅻ」). */
-  const meldOverride = ref<{ craftsmanship: number; control: number; cp: number } | null>(null)
+  const meldOverride = ref<RawStatDelta | null>(null)
   const meldOverrideLabel = ref<string | null>(null)
   /* HQ amounts hoisted here so apply-hq from recommendations can push values
      down into the InitialQuality component (which would otherwise own them
@@ -93,16 +93,7 @@ export function useSimulator() {
     if (enhancedStats.value) return enhancedStats.value
     // Fallback before FoodMedicine emits: still honour specialist soul bonus,
     // and fold the session meld override into raw gear first (ADR-0001 order).
-    const o = meldOverride.value
-    const raw = o
-      ? {
-          ...gearset.value,
-          craftsmanship: gearset.value.craftsmanship + o.craftsmanship,
-          control: gearset.value.control + o.control,
-          cp: gearset.value.cp + o.cp,
-        }
-      : gearset.value
-    return gearsetToBuffedStats(raw, undefined)
+    return gearsetToBuffedStats(applyRawStatDelta(gearset.value, meldOverride.value), undefined)
   })
 
   const craftParams = computed<CraftParams | null>(() => {
@@ -285,7 +276,7 @@ export function useSimulator() {
    *  folds into raw gear before soul/food/medicine (via FoodMedicine's
    *  `override` prop and the effectiveStats fallback). A removable chip in the
    *  食藥 area surfaces it; recipe switch / reset auto-restore. */
-  function handleApplyMeld(delta: { craftsmanship: number; control: number; cp: number }) {
+  function handleApplyMeld(delta: RawStatDelta) {
     if (!gearset.value) return
     meldOverride.value = { ...delta }
     // Shopping-oriented chip text, sourced from the current advice's
