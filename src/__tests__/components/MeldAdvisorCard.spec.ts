@@ -56,4 +56,28 @@ describe('MeldAdvisorCard', () => {
     const w = mount(MeldAdvisorCard, { props: { advice: met } })
     expect(w.text()).toMatch(/已能保證 HQ|無需鑲嵌/)
   })
+
+  it('renders the meld step with a localized stat name (not the raw English key)', () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: fullAdvice } })
+    expect(w.text()).toContain('作業') // craftsmanship → 作業
+    expect(w.text()).not.toContain('craftsmanship')
+    expect(w.text()).toContain('魔晶石')
+  })
+
+  it('emits "apply" with the cost-optimal deltaStats when 套用到配裝 is clicked', async () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: fullAdvice } })
+    const applyBtn = w.findAll('button').find(b => b.text().includes('套用到配裝'))
+    expect(applyBtn).toBeTruthy()
+    await applyBtn!.trigger('click')
+    expect(w.emitted('apply')?.[0]).toEqual([fullAdvice.costOptimal.deltaStats])
+  })
+
+  it('hides the CTA row when the plan is infeasible (nothing to apply)', () => {
+    const infeasible: MeldAdvice = {
+      ...fullAdvice,
+      costOptimal: { ...fullAdvice.costOptimal, feasible: false, reason: '槽位不足,需換底裝', steps: [] },
+    }
+    const w = mount(MeldAdvisorCard, { props: { advice: infeasible } })
+    expect(w.findAll('button').some(b => b.text().includes('套用到配裝'))).toBe(false)
+  })
 })
