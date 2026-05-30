@@ -1,20 +1,62 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Loading } from '@element-plus/icons-vue'
-import type { MeldAdvice } from '@/services/meld-advisor'
+import { ElMessage } from 'element-plus'
+// ElMessage's style side-effect is loaded by useSimulator (the only host of this
+// card) at module scope, so the toast renders correctly without re-importing the
+// CSS here — and importing it here would break the jsdom component test.
+import type { MeldAdvice, MeldStep } from '@/services/meld-advisor'
+import type { CraftStat } from '@/engine/materia'
 import { formatGil } from '@/utils/format'
 
 const props = defineProps<{
-  advice: MeldAdvice | 'loading' | 'stale' | null
+  advice: MeldAdvice | 'loading' | 'stale' | 'no-market' | null
+}>()
+
+const emit = defineEmits<{
+  apply: [delta: { craftsmanship: number; control: number; cp: number }]
 }>()
 
 const isLoading = computed(() => props.advice === 'loading')
 const isStale = computed(() => props.advice === 'stale')
+const isNoMarket = computed(() => props.advice === 'no-market')
 const isEmpty = computed(() => props.advice === null)
 const result = computed(() => {
-  if (isLoading.value || isStale.value || isEmpty.value) return null
+  if (isLoading.value || isStale.value || isNoMarket.value || isEmpty.value) return null
   return props.advice as MeldAdvice
 })
+
+const STAT_LABELS: Record<CraftStat, string> = {
+  craftsmanship: '作業',
+  control: '加工',
+  cp: 'CP',
+}
+const GRADE_ROMAN: Record<number, string> = { 12: 'Ⅻ', 11: 'Ⅺ', 10: 'Ⅹ' }
+const statLabel = (s: CraftStat) => STAT_LABELS[s] ?? s
+const gradeLabel = (g: number) => GRADE_ROMAN[g] ?? String(g)
+const stepText = (s: MeldStep) =>
+  `${statLabel(s.stat)} 魔晶石${gradeLabel(s.grade)} × ${Math.ceil(s.expectedCount)} 顆`
+
+/** Whether the cost-optimal plan has a concrete, actionable meld list. */
+const hasActionablePlan = computed(() =>
+  !!result.value && result.value.costOptimal.feasible && result.value.costOptimal.steps.length > 0,
+)
+
+function applyToGearset() {
+  if (!result.value) return
+  emit('apply', result.value.costOptimal.deltaStats)
+}
+
+async function copyShoppingList() {
+  if (!result.value) return
+  const lines = result.value.costOptimal.steps.map(stepText)
+  try {
+    await navigator.clipboard.writeText(lines.join('\n'))
+    ElMessage.success('已複製鑲嵌清單')
+  } catch {
+    ElMessage.error('複製失敗，請手動複製')
+  }
+}
 </script>
 
 <template>
@@ -28,6 +70,15 @@ const result = computed(() => {
 
     <div class="mac-body" aria-live="polite">
       <p v-if="isEmpty" class="empty-hint">尚未求解，按 solve 後將算出鑲嵌建議</p>
+
+      <div v-else-if="isNoMarket" class="no-market-state">
+        <p class="no-market-title">尚未選擇市場伺服器</p>
+        <p class="no-market-hint">
+          鑲嵌建議需要魔晶石的市場價來估算成本，請先到
+          <a class="no-market-link" href="#/settings">設定</a>
+          選擇地區與伺服器。
+        </p>
+      </div>
 
       <div v-else-if="isLoading" class="loading-state">
         <el-icon data-test="spinner" class="is-loading mac-spinner"><Loading /></el-icon>
@@ -65,10 +116,19 @@ const result = computed(() => {
             </p>
             <ul v-else-if="result.costOptimal.steps.length" class="steps-list">
               <li v-for="(s, i) in result.costOptimal.steps" :key="i">
-                {{ s.stat }} Ⅻ × {{ Math.ceil(s.expectedCount) }}
+                {{ stepText(s) }}
               </li>
             </ul>
             <small v-if="!result.costOptimal.confirmedBySolver" class="caveat">保守估計</small>
+
+            <div v-if="hasActionablePlan" class="plan-cta">
+              <button type="button" class="cta-btn cta-primary" @click="applyToGearset">
+                套用到配裝
+              </button>
+              <button type="button" class="cta-btn cta-ghost" @click="copyShoppingList">
+                複製清單
+              </button>
+            </div>
           </section>
 
           <div class="plan-divider" role="presentation"></div>
@@ -159,6 +219,40 @@ const result = computed(() => {
   margin: 0;
   font-size: 13px;
   color: var(--app-text-muted, oklch(0.5 0.03 60));
+}
+
+/* No-market state — the advisor can't cost a plan without market prices.
+   Tell the user exactly why and link straight to the server settings. */
+.no-market-state {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.no-market-title {
+  margin: 0;
+  font-family: 'Noto Serif TC', serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--app-text, oklch(0.28 0.04 55));
+}
+
+.no-market-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--app-text-muted, oklch(0.5 0.03 60));
+}
+
+.no-market-link {
+  color: var(--app-accent-strong, oklch(0.5 0.12 60));
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.no-market-link:hover {
+  color: var(--app-accent, oklch(0.72 0.15 65));
 }
 
 /* Result state */
@@ -284,6 +378,47 @@ const result = computed(() => {
 .caveat {
   font-size: 12px;
   color: var(--app-text-muted, oklch(0.5 0.03 60));
+}
+
+/* CTA row — the actionable part: push the plan onto the gearset, or copy the
+   shopping list. Primary is filled (吐司金), secondary is a quiet ghost. */
+.plan-cta {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.cta-btn {
+  flex: 1 1 auto;
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-family: 'Noto Serif TC', serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 140ms ease, border-color 140ms ease, opacity 140ms ease;
+}
+
+.cta-primary {
+  background: var(--app-accent, oklch(0.72 0.15 65));
+  color: var(--app-on-accent, oklch(0.22 0.04 55));
+}
+
+.cta-primary:hover {
+  background: var(--app-accent-strong, oklch(0.66 0.16 60));
+}
+
+.cta-ghost {
+  background: transparent;
+  border-color: var(--app-border, oklch(0.65 0.04 65 / 0.4));
+  color: var(--app-text, oklch(0.28 0.04 55));
+  flex: 0 0 auto;
+}
+
+.cta-ghost:hover {
+  border-color: var(--app-accent, oklch(0.72 0.15 65));
+  color: var(--app-accent-strong, oklch(0.5 0.12 60));
 }
 
 /* Disclaimer — honest about estimate vs exact, in plain language */

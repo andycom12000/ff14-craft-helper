@@ -42,6 +42,17 @@ describe('MeldAdvisorCard', () => {
     expect(w.classes()).toContain('is-stale')
   })
 
+  it('shows a market-server hint (not the "not solved" empty state) when no market is set', () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: 'no-market' } })
+    expect(w.text()).toContain('尚未選擇市場伺服器')
+    // must NOT misleadingly claim the user hasn't solved yet
+    expect(w.text()).not.toContain('尚未求解')
+    // and offers a way straight to settings
+    const link = w.find('a.no-market-link')
+    expect(link.exists()).toBe(true)
+    expect(link.attributes('href')).toBe('#/settings')
+  })
+
   it('shows "需換底裝" when infeasible', () => {
     const infeasible: MeldAdvice = {
       ...fullAdvice,
@@ -55,5 +66,29 @@ describe('MeldAdvisorCard', () => {
     const met: MeldAdvice = { ...fullAdvice, alreadyMeetsThreshold: true }
     const w = mount(MeldAdvisorCard, { props: { advice: met } })
     expect(w.text()).toMatch(/已能保證 HQ|無需鑲嵌/)
+  })
+
+  it('renders the meld step with a localized stat name (not the raw English key)', () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: fullAdvice } })
+    expect(w.text()).toContain('作業') // craftsmanship → 作業
+    expect(w.text()).not.toContain('craftsmanship')
+    expect(w.text()).toContain('魔晶石')
+  })
+
+  it('emits "apply" with the cost-optimal deltaStats when 套用到配裝 is clicked', async () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: fullAdvice } })
+    const applyBtn = w.findAll('button').find(b => b.text().includes('套用到配裝'))
+    expect(applyBtn).toBeTruthy()
+    await applyBtn!.trigger('click')
+    expect(w.emitted('apply')?.[0]).toEqual([fullAdvice.costOptimal.deltaStats])
+  })
+
+  it('hides the CTA row when the plan is infeasible (nothing to apply)', () => {
+    const infeasible: MeldAdvice = {
+      ...fullAdvice,
+      costOptimal: { ...fullAdvice.costOptimal, feasible: false, reason: '槽位不足,需換底裝', steps: [] },
+    }
+    const w = mount(MeldAdvisorCard, { props: { advice: infeasible } })
+    expect(w.findAll('button').some(b => b.text().includes('套用到配裝'))).toBe(false)
   })
 })

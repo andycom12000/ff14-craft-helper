@@ -59,7 +59,7 @@ const {
   onInitialQualityUpdate, onEnhancedStatsUpdate, onHqAmountsUpdate,
   handleAddFromSearch, handleRemoveFromQueue, handleClearQueue,
   handleRemoveAction, handleClearActions,
-  handleUseSkill, onSolveComplete, handleApplyHq,
+  handleUseSkill, onSolveComplete, handleApplyHq, handleApplyMeld,
   handleAddToBom, handleSelfCraft,
 } = useSimulator()
 
@@ -525,7 +525,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
                 <header class="cockpit-section-head">
                   <span class="cockpit-section-label">鑲嵌建議<span class="beta-pill" aria-label="實驗中">實驗中</span></span>
                 </header>
-                <MeldAdvisorCard :advice="meldAdvice" />
+                <MeldAdvisorCard :advice="meldAdvice" @apply="handleApplyMeld" />
               </section>
             </template>
           </template>
@@ -584,7 +584,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
             <header class="rail-section-head">
               <span class="rail-section-label">鑲嵌建議<span class="beta-pill" aria-label="實驗中">實驗中</span></span>
             </header>
-            <MeldAdvisorCard :advice="meldAdvice" />
+            <MeldAdvisorCard :advice="meldAdvice" @apply="handleApplyMeld" />
           </section>
         </aside>
       </div>
@@ -764,7 +764,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
 
         <section v-if="canSimulate && !gearsetBlocking" class="m-flat">
           <h3 class="m-flat-title">鑲嵌建議<span class="beta-pill" aria-label="實驗中">實驗中</span></h3>
-          <MeldAdvisorCard :advice="meldAdvice" />
+          <MeldAdvisorCard :advice="meldAdvice" @apply="handleApplyMeld" />
         </section>
 
         <section v-if="canSimulate" class="m-flat">
@@ -981,16 +981,15 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
 }
 
 /* ============================================================
-   Rails — single sticky container, sections inside are separated
-   by dividers, NOT individual cards.
+   Rails — single flowing container, sections inside are separated
+   by dividers, NOT individual cards. The whole page is one scroll
+   context (no sticky / no nested scrollbar) so content that runs
+   past the fold — e.g. the meld advisor at the rail bottom — is
+   always reachable by scrolling the page.
    ============================================================ */
 .rail {
-  position: sticky;
-  top: 16px;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 32px);
-  overflow-y: auto;
   min-width: 0;
   background: var(--app-surface);
   border: 1px solid var(--app-border);
@@ -1358,16 +1357,12 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
   letter-spacing: 0;
 }
 
-/* Sequence column wraps both 序列 and 巨集 sections, sticky as a whole */
+/* Sequence column wraps both 序列 and 巨集 sections; flows with the page */
 .cockpit-sequence-col {
-  position: sticky;
-  top: 200px;
   display: flex;
   flex-direction: column;
   gap: 20px;
-  max-height: calc(100vh - 220px);
   min-width: 0;
-  overflow-y: auto;
   padding-right: 4px;
 }
 .cockpit-section--sequence > :deep(.action-list) { padding: 0; }

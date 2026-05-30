@@ -260,6 +260,22 @@ export function useSimulator() {
     initialQualityHqAmounts.value = value
   }
 
+  /** Apply the meld advisor's cost-optimal Δstats onto the current job's raw
+   *  gear stats, so the user can re-solve and confirm it now double-maxes.
+   *  Clears the stale solver result and marks advice stale (via the gearset
+   *  watcher) so the cockpit prompts a fresh solve. */
+  function handleApplyMeld(delta: { craftsmanship: number; control: number; cp: number }) {
+    const g = gearset.value
+    if (!g) return
+    gearsetsStore.updateGearset(g.job, {
+      craftsmanship: g.craftsmanship + delta.craftsmanship,
+      control: g.control + delta.control,
+      cp: g.cp + delta.cp,
+    })
+    simStore.setSolverResult(null)
+    ElMessage.success('已套用建議鑲嵌到配裝，請重新求解確認可保證 HQ')
+  }
+
   function handleAddToBom() {
     if (!recipe.value) return
     if (recipe.value.isCustom) {
@@ -332,6 +348,7 @@ export function useSimulator() {
     handleUseSkill,
     onSolveComplete,
     handleApplyHq,
+    handleApplyMeld,
     handleAddToBom,
     handleSelfCraft,
   }

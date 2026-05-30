@@ -264,6 +264,26 @@ export function solveQualityBreakpoint(
 
 const MAX_CONFIRM_ATTEMPTS = 3
 const BUMP_FACTOR = 0.05 // 5% upward bump on shortfall
+// Safety margin applied when seeding a zero axis from a shortfall ratio, so the
+// first seeded attempt overshoots slightly rather than landing just short.
+const SEED_MARGIN = 1.1
+
+/**
+ * Estimate the raw stat delta to seed a *zero* axis that the closed-form
+ * pre-filter optimistically left at 0, using the shortfall observed by the
+ * solver. Quality and progress are both ~linear in their driving stat
+ * (control / craftsmanship), so scaling the buffed stat by the achieved-vs-target
+ * ratio is a good first guess; the bump loop refines from there.
+ *
+ * `buffedAxis` is the buffed value of the driving stat at the current candidate
+ * (raw delta is additive through the Soul/buff fold, so the raw seed equals the
+ * buffed seed). Falls back to a 10% nudge when the solver achieved nothing.
+ */
+function seedZeroAxis(achieved: number, target: number, buffedAxis: number): number {
+  if (achieved <= 0) return Math.max(1, Math.round(buffedAxis * 0.1))
+  const ratio = target / achieved
+  return Math.max(1, Math.ceil(buffedAxis * (ratio - 1) * SEED_MARGIN))
+}
 
 export interface ConfirmDeps {
   solve: typeof solveCraftForRecipe
@@ -294,8 +314,9 @@ function isDoubleMax(simResult: {
 
 /**
  * Step 4 — confirm a closed-form candidate against the real solver.
- * If the solver can't double-max with the candidate stats, bump all three
- * deltas by 5% and retry. Bounded to MAX_CONFIRM_ATTEMPTS total solves.
+ * If the solver can't double-max with the candidate stats, bump the short axes
+ * (and seed any zero axis whose dimension is short) and retry. Bounded to
+ * MAX_CONFIRM_ATTEMPTS total solves.
  *
  * `deps` is injected so tests can mock the solver without bootstrapping WASM.
  */
@@ -323,12 +344,24 @@ export async function confirmBreakpointWithSolver(
       initialQuality,
     })
     if (isDoubleMax(simResult)) return { deltaStats: delta, confirmedBySolver: true }
-    // Bump up and retry — only bump axes that already have a positive delta
-    // to avoid inflating zero-cost axes (e.g. craftsmanship already sufficient).
+    // Retry: bump axes that already carry a positive delta. A zero axis is only
+    // touched when the solver shows that *its* dimension is short — then it is
+    // SEEDED from the shortfall (the closed-form pre-filter over-accepts and can
+    // hand us Δ=0 on an axis that is actually needed; the old `=== 0 ? 0` guard
+    // could never lift it, so the advisor silently recommended "0 melds" for an
+    // unsolvable gearset). Axes whose dimension is already met stay untouched so
+    // we don't inflate cost.
+    const progressShort = simResult.progress < simResult.max_progress
+    const qualityShort = simResult.quality < simResult.max_quality
+    const buffed = gearsetToBuffedStats(bumped, undefined)
     delta = {
-      craftsmanship: delta.craftsmanship === 0 ? 0 : Math.ceil(delta.craftsmanship * (1 + BUMP_FACTOR)) + 1,
-      control: delta.control === 0 ? 0 : Math.ceil(delta.control * (1 + BUMP_FACTOR)) + 1,
-      cp: delta.cp === 0 ? 0 : Math.ceil(delta.cp * (1 + BUMP_FACTOR)),
+      craftsmanship: delta.craftsmanship > 0
+        ? Math.ceil(delta.craftsmanship * (1 + BUMP_FACTOR)) + 1
+        : (progressShort ? seedZeroAxis(simResult.progress, simResult.max_progress, buffed.craftsmanship) : 0),
+      control: delta.control > 0
+        ? Math.ceil(delta.control * (1 + BUMP_FACTOR)) + 1
+        : (qualityShort ? seedZeroAxis(simResult.quality, simResult.max_quality, buffed.control) : 0),
+      cp: delta.cp > 0 ? Math.ceil(delta.cp * (1 + BUMP_FACTOR)) : 0,
     }
   }
   return { deltaStats: delta, confirmedBySolver: false }
