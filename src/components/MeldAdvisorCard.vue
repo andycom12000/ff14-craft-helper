@@ -10,7 +10,7 @@ import type { CraftStat } from '@/engine/materia'
 import { formatGil } from '@/utils/format'
 
 const props = defineProps<{
-  advice: MeldAdvice | 'loading' | 'stale' | null
+  advice: MeldAdvice | 'loading' | 'stale' | 'no-market' | null
 }>()
 
 const emit = defineEmits<{
@@ -19,9 +19,10 @@ const emit = defineEmits<{
 
 const isLoading = computed(() => props.advice === 'loading')
 const isStale = computed(() => props.advice === 'stale')
+const isNoMarket = computed(() => props.advice === 'no-market')
 const isEmpty = computed(() => props.advice === null)
 const result = computed(() => {
-  if (isLoading.value || isStale.value || isEmpty.value) return null
+  if (isLoading.value || isStale.value || isNoMarket.value || isEmpty.value) return null
   return props.advice as MeldAdvice
 })
 
@@ -69,6 +70,15 @@ async function copyShoppingList() {
 
     <div class="mac-body" aria-live="polite">
       <p v-if="isEmpty" class="empty-hint">尚未求解，按 solve 後將算出鑲嵌建議</p>
+
+      <div v-else-if="isNoMarket" class="no-market-state">
+        <p class="no-market-title">尚未選擇市場伺服器</p>
+        <p class="no-market-hint">
+          鑲嵌建議需要魔晶石的市場價來估算成本，請先到
+          <a class="no-market-link" href="#/settings">設定</a>
+          選擇地區與伺服器。
+        </p>
+      </div>
 
       <div v-else-if="isLoading" class="loading-state">
         <el-icon data-test="spinner" class="is-loading mac-spinner"><Loading /></el-icon>
@@ -209,6 +219,40 @@ async function copyShoppingList() {
   margin: 0;
   font-size: 13px;
   color: var(--app-text-muted, oklch(0.5 0.03 60));
+}
+
+/* No-market state — the advisor can't cost a plan without market prices.
+   Tell the user exactly why and link straight to the server settings. */
+.no-market-state {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.no-market-title {
+  margin: 0;
+  font-family: 'Noto Serif TC', serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--app-text, oklch(0.28 0.04 55));
+}
+
+.no-market-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--app-text-muted, oklch(0.5 0.03 60));
+}
+
+.no-market-link {
+  color: var(--app-accent-strong, oklch(0.5 0.12 60));
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.no-market-link:hover {
+  color: var(--app-accent, oklch(0.72 0.15 65));
 }
 
 /* Result state */

@@ -42,6 +42,17 @@ describe('MeldAdvisorCard', () => {
     expect(w.classes()).toContain('is-stale')
   })
 
+  it('shows a market-server hint (not the "not solved" empty state) when no market is set', () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: 'no-market' } })
+    expect(w.text()).toContain('尚未選擇市場伺服器')
+    // must NOT misleadingly claim the user hasn't solved yet
+    expect(w.text()).not.toContain('尚未求解')
+    // and offers a way straight to settings
+    const link = w.find('a.no-market-link')
+    expect(link.exists()).toBe(true)
+    expect(link.attributes('href')).toBe('#/settings')
+  })
+
   it('shows "需換底裝" when infeasible', () => {
     const infeasible: MeldAdvice = {
       ...fullAdvice,
