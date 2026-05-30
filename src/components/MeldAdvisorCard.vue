@@ -9,13 +9,27 @@ import type { MeldAdvice, MeldStep } from '@/services/meld-advisor'
 import type { CraftStat } from '@/engine/materia'
 import { formatGil } from '@/utils/format'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   advice: MeldAdvice | 'loading' | 'stale' | 'no-market' | null
-}>()
+  /** Framing: simulator is ability-oriented, batch is cost-oriented. Slice A
+   *  only carries the switch; the ability-mode layout/copy lands in Slice B2. */
+  mode?: 'ability' | 'cost'
+  /** Whether the "套用" CTA renders. Defaults to true; cost mode (batch) closes
+   *  it regardless. When effectively off, no path may emit `apply`. */
+  showApply?: boolean
+}>(), {
+  mode: 'ability',
+  showApply: true,
+})
 
 const emit = defineEmits<{
   apply: [delta: { craftsmanship: number; control: number; cp: number }]
 }>()
+
+/** Resolved CTA visibility. Cost mode is cost-oriented (batch) and has no
+ *  single-gearset apply semantics, so it never shows the CTA; ability mode
+ *  honours the `showApply` flag (default true). */
+const effectiveShowApply = computed(() => props.mode === 'ability' && props.showApply)
 
 const isLoading = computed(() => props.advice === 'loading')
 const isStale = computed(() => props.advice === 'stale')
@@ -43,7 +57,9 @@ const hasActionablePlan = computed(() =>
 )
 
 function applyToGearset() {
-  if (!result.value) return
+  // Guard: cost mode / showApply=false must never emit apply, even if some
+  // future path reaches here (spec Slice A acceptance).
+  if (!result.value || !effectiveShowApply.value) return
   emit('apply', result.value.costOptimal.deltaStats)
 }
 
@@ -62,12 +78,8 @@ async function copyShoppingList() {
 <template>
   <div
     class="meld-advisor-card"
-    :class="{ 'is-stale': isStale }"
+    :class="[`mode-${mode}`, { 'is-stale': isStale }]"
   >
-    <div class="mac-header">
-      <span class="mac-title">鑲嵌建議</span>
-    </div>
-
     <div class="mac-body" aria-live="polite">
       <p v-if="isEmpty" class="empty-hint">尚未求解，按 solve 後將算出鑲嵌建議</p>
 
@@ -121,7 +133,7 @@ async function copyShoppingList() {
             </ul>
             <small v-if="!result.costOptimal.confirmedBySolver" class="caveat">保守估計</small>
 
-            <div v-if="hasActionablePlan" class="plan-cta">
+            <div v-if="hasActionablePlan && effectiveShowApply" class="plan-cta">
               <button type="button" class="cta-btn cta-primary" @click="applyToGearset">
                 套用到配裝
               </button>
@@ -149,11 +161,10 @@ async function copyShoppingList() {
 </template>
 
 <style scoped>
+/* De-shelled (Slice A): no frame, no background, no self-title — the card is an
+   embeddable segment. The host section (simulator cockpit/rail/m-flat, batch
+   meld-card-wrap) provides the single frame + single title. */
 .meld-advisor-card {
-  background: var(--app-surface, oklch(0.975 0.018 85));
-  border: 1px solid var(--app-border, oklch(0.65 0.04 65 / 0.3));
-  border-radius: 8px;
-  overflow: hidden;
   transition: opacity 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -161,22 +172,8 @@ async function copyShoppingList() {
   opacity: 0.62;
 }
 
-.mac-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--app-border, oklch(0.65 0.04 65 / 0.3));
-  background: var(--app-surface-2, oklch(0.93 0.04 80));
-}
-
-.mac-title {
-  font-family: 'Noto Serif TC', serif;
-  font-weight: 600;
-  font-size: 17px;
-  line-height: 1.4;
-  color: var(--app-text, oklch(0.28 0.04 55));
-}
-
 .mac-body {
-  padding: 16px;
+  padding: 0;
 }
 
 /* Empty state */

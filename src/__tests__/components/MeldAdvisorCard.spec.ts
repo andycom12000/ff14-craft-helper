@@ -92,4 +92,37 @@ describe('MeldAdvisorCard', () => {
     const w = mount(MeldAdvisorCard, { props: { advice: infeasible } })
     expect(w.findAll('button').some(b => b.text().includes('套用到配裝'))).toBe(false)
   })
+
+  // --- Slice A (#118): de-shell + mode/showApply ---
+
+  it('is de-shelled — renders no self-contained header/title (host section owns it)', () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: fullAdvice } })
+    expect(w.find('.mac-header').exists()).toBe(false)
+  })
+
+  it('cost mode (showApply=false): renders no 套用到配裝 CTA', () => {
+    const w = mount(MeldAdvisorCard, {
+      props: { advice: fullAdvice, mode: 'cost', showApply: false },
+    })
+    expect(w.findAll('button').some(b => b.text().includes('套用到配裝'))).toBe(false)
+  })
+
+  it('cost mode: never emits apply even if applyToGearset is reached', async () => {
+    const w = mount(MeldAdvisorCard, {
+      props: { advice: fullAdvice, mode: 'cost', showApply: false },
+    })
+    // No CTA button exists to click; assert the contract directly: nothing emitted.
+    expect(w.emitted('apply')).toBeUndefined()
+    // And via the component's own apply path (vm) — the guard must hold.
+    ;(w.vm as unknown as { applyToGearset?: () => void }).applyToGearset?.()
+    expect(w.emitted('apply')).toBeUndefined()
+  })
+
+  it('ability mode (default): renders the CTA and emits apply', async () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: fullAdvice, mode: 'ability' } })
+    const applyBtn = w.findAll('button').find(b => b.text().includes('套用到配裝'))
+    expect(applyBtn).toBeTruthy()
+    await applyBtn!.trigger('click')
+    expect(w.emitted('apply')?.[0]).toEqual([fullAdvice.costOptimal.deltaStats])
+  })
 })
