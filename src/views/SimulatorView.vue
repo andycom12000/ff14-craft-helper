@@ -27,6 +27,7 @@ import ManualControls from '@/components/simulator/ManualControls.vue'
 import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
 import CustomRecipeDialog from '@/components/simulator/CustomRecipeDialog.vue'
 import MeldAdvisorCard from '@/components/MeldAdvisorCard.vue'
+import MeldPlaygroundCard from '@/components/MeldPlaygroundCard.vue'
 import { CUSTOM_RECIPE_ICON } from '@/composables/useCustomRecipes'
 import AppEmptyState from '@/components/common/AppEmptyState.vue'
 import ItemName from '@/components/common/ItemName.vue'
@@ -542,6 +543,14 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
                     @apply="handleApplyMeld"
                     @save-to-gearset="handleSaveMeldToGearset"
                   />
+                  <MeldPlaygroundCard
+                    class="meld-playground"
+                    :recipe="recipe"
+                    :gearset="gearset"
+                    :advice="meldAdvice"
+                    :initial-quality="initialQuality"
+                    @apply="handleApplyMeld"
+                  />
                 </div>
               </section>
             </template>
@@ -601,6 +610,14 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
                 :override-active="!!meldOverride"
                 @apply="handleApplyMeld"
                 @save-to-gearset="handleSaveMeldToGearset"
+              />
+              <MeldPlaygroundCard
+                class="meld-playground"
+                :recipe="recipe"
+                :gearset="gearset"
+                :advice="meldAdvice"
+                :initial-quality="initialQuality"
+                @apply="handleApplyMeld"
               />
             </div>
           </section>
@@ -805,6 +822,14 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
               :override-active="!!meldOverride"
               @apply="handleApplyMeld"
               @save-to-gearset="handleSaveMeldToGearset"
+            />
+            <MeldPlaygroundCard
+              class="meld-playground"
+              :recipe="recipe"
+              :gearset="gearset"
+              :advice="meldAdvice"
+              :initial-quality="initialQuality"
+              @apply="handleApplyMeld"
             />
           </div>
         </section>
@@ -1428,6 +1453,14 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px solid var(--app-border);
+}
+/* The forward playground (#130) sits under the reverse advisor card inside the
+   same Step 2 「再補鑲嵌」 lever — a quiet dashed rule separates the逆向 answer
+   from the正向 what-if without introducing a nested card frame. */
+.meld-playground {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--app-border);
 }
 .hq-step-head {
   display: flex;
