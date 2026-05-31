@@ -6,6 +6,7 @@ import type { MeldAdvice } from '@/services/meld-advisor'
 const fullAdvice: MeldAdvice = {
   alreadyMeetsThreshold: false,
   hqSufficient: false,
+  rankedByCount: false,
   costOptimal: {
     feasible: true,
     deltaStats: { craftsmanship: 60, control: 0, cp: 0 },
@@ -205,6 +206,34 @@ describe('MeldAdvisorCard', () => {
     await w.findAll('button').find(b => b.text().includes('存成配裝'))!.trigger('click')
     await w.findAll('button').find(b => b.text().includes('套用到全部職業'))!.trigger('click')
     expect(w.emitted('save-to-gearset')?.[1]).toEqual(['all'])
+  })
+
+  // --- #128: 「無市場資料，依鑲嵌數量估算」hint when the plan was ranked by count ---
+
+  const countRankedAdvice: MeldAdvice = {
+    ...fullAdvice,
+    rankedByCount: true,
+    costOptimal: {
+      ...fullAdvice.costOptimal,
+      steps: [{ stat: 'craftsmanship', grade: 12, placedCount: 2, expectedCount: 2, unitPrice: null, subtotal: null }],
+      totalGil: null,
+    },
+    gapGil: null,
+  }
+
+  it('cost mode: shows the 依鑲嵌數量估算 hint when rankedByCount is true', () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: countRankedAdvice, mode: 'cost', showApply: false } })
+    expect(w.text()).toContain('依鑲嵌數量估算')
+  })
+
+  it('ability mode: shows the 依鑲嵌數量估算 hint when rankedByCount is true', () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: countRankedAdvice, mode: 'ability' } })
+    expect(w.text()).toContain('依鑲嵌數量估算')
+  })
+
+  it('does NOT show the 依鑲嵌數量估算 hint when prices are present (rankedByCount false)', () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: fullAdvice, mode: 'cost', showApply: false } })
+    expect(w.text()).not.toContain('依鑲嵌數量估算')
   })
 
   it('cost mode never shows the 存成配裝 gate (even with overrideActive)', () => {

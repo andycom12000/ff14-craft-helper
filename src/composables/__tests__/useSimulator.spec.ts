@@ -56,6 +56,7 @@ const RECIPE: Recipe = {
 const ADVICE: MeldAdvice = {
   alreadyMeetsThreshold: false,
   hqSufficient: false,
+  rankedByCount: false,
   costOptimal: {
     feasible: true,
     deltaStats: { craftsmanship: 0, control: 432, cp: 0 },

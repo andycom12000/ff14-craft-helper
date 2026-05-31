@@ -1008,6 +1008,122 @@ describe('adviseMeld — craftsmanship ladder, 3D bounded cost search (#127)', (
   })
 })
 
+// #128: robust candidate ranking when market prices are incomplete.
+// Two distinct missing-price regimes must be handled WITHOUT crashing on null
+// gil and WITHOUT silently producing an empty / false-pass plan:
+//   - FULLY-MISSING: the priceMap has no listing for any materia → every
+//     candidate is unpriced → rank by total materia / occupied slots (#127),
+//     and surface a `rankedByCount` flag so the UI can show the estimate hint.
+//   - PARTIAL-MISSING: some grades priced, some not. The representative
+//     (chosen) cost-optimal plan still has an unpriced step (e.g. control has no
+//     listing) → its totalGil is null → it must be ranked by count, and
+//     `rankedByCount` must be true.
+// FULLY-PRICED stays gil-ranked with `rankedByCount` false (criterion 4).
+describe('adviseMeld — incomplete market prices, rank by count (#128)', () => {
+  const SIM_EXTRAS = {
+    durability: 80, cp: 600, max_durability: 80, max_cp: 600,
+    effects: {} as any, is_finished: true, is_success: true, steps_used: 1,
+  }
+
+  // Progress trivially met; quality short by ~243 until control is bumped.
+  const reproGearset = {
+    level: 100, craftsmanship: 4500, control: 3200, cp: 600, isSpecialist: false,
+  }
+  const reproRecipe = () => makeRecipe(128, 100, 6500)
+
+  const gearsetAwareSimulate = (baseControl: number, controlGate: number) =>
+    vi.fn(async (_recipe: any, gs: any) => {
+      const controlMet = gs.control >= baseControl + controlGate
+      return {
+        ...SIM_EXTRAS,
+        progress: 3500, max_progress: 3500,
+        quality: controlMet ? 6500 : 6257, max_quality: 6500,
+      }
+    })
+
+  const fullPrices = new Map<number, any>(
+    MATERIA_GRADES.map(m => [m.itemId, { minPriceNQ: 1000 + m.value, listings: [] }]),
+  )
+
+  it('criterion 1: fully-missing prices → solver-confirmed feasible fewest-slot plan, ranked by count', async () => {
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = gearsetAwareSimulate(reproGearset.control, 54)
+
+    const out = await adviseMeld(
+      [reproRecipe()], reproGearset, new Map(),  // empty priceMap = fully missing
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+
+    // Non-empty, non-false-pass: a real solver-confirmed feasible plan.
+    expect(out.costOptimal.feasible).toBe(true)
+    expect(out.costOptimal.confirmedBySolver).toBe(true)
+    expect(out.costOptimal.steps.length).toBeGreaterThan(0)
+    // Fewest-slot minimal: a single control meld.
+    expect(out.costOptimal.deltaStats.control).toBe(54)
+    expect(out.costOptimal.totalGil).toBeNull()
+    // The flag the UI consumes to show 「無市場資料，依鑲嵌數量估算」.
+    expect(out.rankedByCount).toBe(true)
+  })
+
+  it('criterion 2: partial-missing prices → ranks by count without crashing on null gil', async () => {
+    // Craftsmanship grades priced, control grades NOT — the chosen control-only
+    // plan therefore has an unpriced step (null subtotal). The advisor must not
+    // throw and must fall back to count ranking.
+    const partialPrices = new Map<number, any>(
+      MATERIA_GRADES
+        .filter(m => m.stat === 'craftsmanship')
+        .map(m => [m.itemId, { minPriceNQ: 1000 + m.value, listings: [] }]),
+    )
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = gearsetAwareSimulate(reproGearset.control, 54)
+
+    const out = await adviseMeld(
+      [reproRecipe()], reproGearset, partialPrices,
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+
+    expect(out.costOptimal.feasible).toBe(true)
+    expect(out.costOptimal.confirmedBySolver).toBe(true)
+    expect(out.costOptimal.steps.length).toBeGreaterThan(0)
+    expect(out.costOptimal.deltaStats.control).toBe(54)
+    // Control step is unpriced → plan gil null → ranked by count.
+    expect(out.costOptimal.totalGil).toBeNull()
+    expect(out.rankedByCount).toBe(true)
+  })
+
+  it('criterion 4: fully-priced → gil-ranked, rankedByCount is false (behavior unchanged)', async () => {
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = gearsetAwareSimulate(reproGearset.control, 54)
+
+    const out = await adviseMeld(
+      [reproRecipe()], reproGearset, fullPrices,
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+
+    expect(out.costOptimal.feasible).toBe(true)
+    expect(out.costOptimal.totalGil).not.toBeNull()
+    expect(out.rankedByCount).toBe(false)
+  })
+
+  it('already-meets / hqSufficient → not ranked by count (priced or zero-spend, no estimate hint)', async () => {
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = vi.fn().mockResolvedValue({
+      progress: 3500, max_progress: 3500, quality: 6500, max_quality: 6500,
+    })
+    const out = await adviseMeld(
+      [reproRecipe()], reproGearset, fullPrices,
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+    expect(out.alreadyMeetsThreshold).toBe(true)
+    // Zero-spend plan: nothing to estimate, so no count-ranking hint.
+    expect(out.rankedByCount).toBe(false)
+  })
+})
+
 describe('adviseMeld golden snapshot', () => {
   it('produces a stable MeldAdvice shape for the fixture', async () => {
     const fixtureRecipe = makeRecipe(99, 3500, 6500)

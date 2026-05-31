@@ -77,6 +77,22 @@ export interface MeldAdvice {
    * intent from `alreadyMeetsThreshold` (kept for back-compat). See §2.
    */
   hqSufficient: boolean
+  /**
+   * #128 — true when the cost-optimal plan could NOT be ranked by gil because
+   * the market price for at least one of its materia steps was missing, so the
+   * advisor fell back to ranking candidates by total materia / occupied slot
+   * count (ADR-0002 "缺市場價時：改以總鑲嵌顆數 / 占用格數最少為排序依據").
+   *
+   * It is set precisely when the chosen plan has spend but no `totalGil`
+   * (`steps.length > 0 && totalGil === null`) — covering BOTH the fully-missing
+   * regime (no listing for any materia) and the partial-missing regime (some
+   * grades priced, the chosen plan's grade not). A zero-spend plan
+   * (already-meets / hqSufficient) has nothing to estimate and is always false,
+   * even with an empty price map. The UI consumes it to show the
+   * 「無市場資料，依鑲嵌數量估算」estimate hint, distinct from `confirmedBySolver`
+   * (a solver-confidence signal, not a price-completeness one).
+   */
+  rankedByCount: boolean
 }
 
 export interface AdviseMeldOptions {
@@ -807,6 +823,20 @@ function compareCandidatePlans(a: MeldPlan, b: MeldPlan): number {
 }
 
 /**
+ * #128 — was the cost-optimal plan ranked by materia/slot count rather than gil?
+ *
+ * True iff the plan actually spends materia (has steps) but its gil is unknown
+ * (`totalGil === null`, i.e. at least one step had no market price). In that
+ * case `compareCandidatePlans` ranked it by `totalMeldCount` (ADR-0002 no-price
+ * fallback), so the headline gil/gap is unusable and the UI must show the
+ * 「依鑲嵌數量估算」estimate hint. A zero-spend plan (already-meets / hqSufficient)
+ * has `totalGil === 0` with no steps and is never count-ranked.
+ */
+function isRankedByCount(plan: MeldPlan): boolean {
+  return plan.steps.length > 0 && plan.totalGil === null
+}
+
+/**
  * Step 6 — BiS ceiling plan: melds needed to lift current gear stats up to
  * BIS_REFERENCE, costed with the same slot/fail-ladder model.
  *
@@ -846,6 +876,7 @@ export async function adviseMeld(
       gapGil: bis.totalGil,
       alreadyMeetsThreshold: true,
       hqSufficient: true,
+      rankedByCount: false,
     }
   }
 
@@ -872,6 +903,7 @@ export async function adviseMeld(
         gapGil: bis.totalGil,
         alreadyMeetsThreshold: true,
         hqSufficient: true,
+        rankedByCount: false,
       }
     }
   } catch {
@@ -937,7 +969,14 @@ export async function adviseMeld(
       ? Math.max(0, bis.totalGil - costOptimal.totalGil)
       : null
 
-  return { costOptimal, bis, gapGil, alreadyMeetsThreshold: false, hqSufficient: false }
+  return {
+    costOptimal,
+    bis,
+    gapGil,
+    alreadyMeetsThreshold: false,
+    hqSufficient: false,
+    rankedByCount: isRankedByCount(costOptimal),
+  }
 }
 
 function bailout(bis: MeldPlan): MeldAdvice {
@@ -947,5 +986,6 @@ function bailout(bis: MeldPlan): MeldAdvice {
     gapGil: null,
     alreadyMeetsThreshold: false,
     hqSufficient: false,
+    rankedByCount: false,
   }
 }

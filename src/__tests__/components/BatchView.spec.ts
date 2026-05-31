@@ -35,6 +35,7 @@ vi.mock('@/components/batch/BenchPanel.vue', () => ({ default: { template: '<div
 const advice = (): MeldAdvice => ({
   alreadyMeetsThreshold: false,
   hqSufficient: false,
+  rankedByCount: false,
   costOptimal: {
     feasible: true,
     deltaStats: { craftsmanship: 60, control: 0, cp: 0 },
