@@ -76,6 +76,15 @@ const hasActionablePlan = computed(() =>
 /** ability mode: HQ materials alone already double-max → meld unnecessary. */
 const isHqSufficient = computed(() => !!result.value && result.value.hqSufficient)
 
+/**
+ * #128 — the cost-optimal plan could not be priced (some/all materia had no
+ * market listing), so the advisor ranked candidates by materia/slot count
+ * instead of gil. The headline gil/gap is then meaningless, so we surface an
+ * explicit estimate hint「無市場資料，依鑲嵌數量估算」. This is a data-completeness
+ * signal, distinct from the solver-confidence caveat（保守估計）.
+ */
+const isRankedByCount = computed(() => !!result.value && result.value.rankedByCount)
+
 function applyToGearset() {
   // Guard: cost mode / showApply=false must never emit apply, even if some
   // future path reaches here (spec Slice A acceptance).
@@ -155,7 +164,10 @@ async function copyShoppingList() {
             即可保證 HQ
           </p>
 
-          <p class="ability-cost">
+          <!-- #128: no market price → estimate-by-count hint replaces the gil
+               line (the gil/gap is unusable when the plan was ranked by slots). -->
+          <p v-if="isRankedByCount" class="estimate-hint">無市場資料，依鑲嵌數量估算</p>
+          <p v-else class="ability-cost">
             所需鑲嵌費用 約
             <span class="ability-cost-gil">{{ formatGil(result.costOptimal.totalGil) }}</span> gil
             <span v-if="!result.costOptimal.confirmedBySolver" class="caveat">（保守估計）</span>
@@ -231,7 +243,9 @@ async function copyShoppingList() {
                 {{ stepText(s) }}
               </li>
             </ul>
-            <small v-if="!result.costOptimal.confirmedBySolver" class="caveat">保守估計</small>
+            <!-- #128: ranked by materia/slot count (no market price). -->
+            <small v-if="isRankedByCount" class="estimate-hint">無市場資料，依鑲嵌數量估算</small>
+            <small v-else-if="!result.costOptimal.confirmedBySolver" class="caveat">保守估計</small>
 
             <div v-if="hasActionablePlan && effectiveShowApply" class="plan-cta">
               <button type="button" class="cta-btn cta-primary" @click="applyToGearset">
@@ -532,6 +546,16 @@ async function copyShoppingList() {
 .caveat {
   font-size: 12px;
   color: var(--app-text-muted, oklch(0.5 0.03 60));
+}
+
+/* #128 estimate hint — a data-completeness signal (no market price), distinct
+   from the solver-confidence caveat. Cocoa accent (the same craft-emphasis
+   token used by the hero sentence) so it reads as a deliberate "prices
+   unavailable, estimating by count" note rather than a quiet grey aside. */
+.estimate-hint {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--app-craft, oklch(0.50 0.16 40));
 }
 
 /* CTA row — the actionable part: push the plan onto the gearset, or copy the
