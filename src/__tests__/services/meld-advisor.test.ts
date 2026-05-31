@@ -818,6 +818,196 @@ describe('adviseMeld — quality-gap solver search (#126)', () => {
   })
 })
 
+// #127: the OUTER craftsmanship ladder around the #126 inner quality search.
+// Completes the 3D (craftsmanship × control × CP) bounded cost search. Adding
+// craftsmanship beyond securing progress only has value when finishing progress
+// in fewer steps frees durability+CP budget for quality (CONTEXT.md 「製作能力與
+// 資源耦合」). The ladder is SHORT and BOUNDED: exactly-secure-progress up to
+// progress-done-in-1-step. Every candidate is solver double-max confirmed before
+// the gil comparison; the global cheapest plan wins; no-price falls back to slot
+// count.
+describe('adviseMeld — craftsmanship ladder, 3D bounded cost search (#127)', () => {
+  const priceMap = new Map<number, any>(
+    MATERIA_GRADES.map(m => [m.itemId, { minPriceNQ: 1000 + m.value, listings: [] }]),
+  )
+
+  const SIM_EXTRAS = {
+    durability: 80, cp: 600, max_durability: 80, max_cp: 600,
+    effects: {} as any, is_finished: true, is_success: true, steps_used: 1,
+  }
+
+  // High-quality recipe whose progress IS secured by the bare gearset
+  // (solveProgressBreakpoint → 0, the #126 baseline rung) but still takes
+  // SEVERAL progress steps at the baseline. The coupling means a craftsmanship
+  // bump compresses those steps and frees CP budget, so quality becomes reachable
+  // with FAR less control. (difficulty 3500: secured by craft 4500 yet multi-step,
+  // so the ladder has > 1 rung.)
+  const ladderRecipe = () => makeRecipe(127, 3500, 8000)
+  const ladderGearset = {
+    level: 100, craftsmanship: 4500, control: 3200, cp: 600, isSpecialist: false,
+  }
+
+  // Coupling-aware mock. Two solver-passing routes to double-max:
+  //   (A) control-ONLY: needs control +540 (10 melds) — the direct, expensive lever.
+  //   (B) craftsmanship-assisted: a craftsmanship bump of >= 108 (2 melds) frees
+  //       enough budget that control +108 (2 melds) suffices — 4 melds total, cheaper.
+  // The mock keys on BOTH craftsmanship and control (the coupling), so a flat
+  // mock that only watches one axis cannot express it. Progress is always met
+  // (recipe difficulty is trivial), so it never gates double-max.
+  const couplingAwareSimulate = (
+    baseCraft: number,
+    baseControl: number,
+    maxQuality = 8000,
+  ) =>
+    vi.fn(async (_recipe: any, gs: any) => {
+      const craftBump = gs.craftsmanship - baseCraft
+      const controlBump = gs.control - baseControl
+      // Route A: pure control.
+      const directOk = controlBump >= 540
+      // Route B: craftsmanship frees budget; cheaper control suffices.
+      const assistedOk = craftBump >= 108 && controlBump >= 108
+      const ok = directOk || assistedOk
+      return {
+        ...SIM_EXTRAS,
+        progress: 3500,
+        max_progress: 3500,
+        quality: ok ? maxQuality : maxQuality - 500,
+        max_quality: maxQuality,
+      }
+    })
+
+  it('criterion 1: picks the cheaper craftsmanship-assisted plan over direct control', async () => {
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = couplingAwareSimulate(ladderGearset.craftsmanship, ladderGearset.control)
+
+    const out = await adviseMeld(
+      [ladderRecipe()], ladderGearset, priceMap,
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+
+    // The cheaper route bumps craftsmanship (NON-ZERO) instead of paying for
+    // 10 control melds.
+    expect(out.costOptimal.feasible).toBe(true)
+    expect(out.costOptimal.confirmedBySolver).toBe(true)
+    expect(out.costOptimal.deltaStats.craftsmanship).toBeGreaterThan(0)
+    // The assisted route needs only ~2 control melds (108) vs. the direct 540.
+    expect(out.costOptimal.deltaStats.control).toBeLessThan(540)
+    // Total melds for the assisted route (2 craft + 2 control = 4) must be far
+    // cheaper than the direct route (10 control).
+    const directGil = (1000 + 54) * Math.ceil(540 / 54)
+    expect(out.costOptimal.totalGil).not.toBeNull()
+    expect(out.costOptimal.totalGil!).toBeLessThan(directGil)
+  })
+
+  it('criterion 4: the winning craftsmanship-assisted candidate is solver double-max confirmed', async () => {
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = couplingAwareSimulate(ladderGearset.craftsmanship, ladderGearset.control)
+
+    const out = await adviseMeld(
+      [ladderRecipe()], ladderGearset, priceMap,
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+
+    expect(out.costOptimal.confirmedBySolver).toBe(true)
+    // The chosen delta must itself double-max under the coupling mock.
+    const d = out.costOptimal.deltaStats
+    const sim = await fakeSimulate(ladderRecipe(), {
+      ...ladderGearset,
+      craftsmanship: ladderGearset.craftsmanship + d.craftsmanship,
+      control: ladderGearset.control + d.control,
+      cp: ladderGearset.cp + d.cp,
+    })
+    expect(sim.quality).toBeGreaterThanOrEqual(sim.max_quality)
+    expect(sim.progress).toBeGreaterThanOrEqual(sim.max_progress)
+  })
+
+  it('criterion 3: the craftsmanship ladder is bounded (never explodes the solve budget)', async () => {
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = couplingAwareSimulate(ladderGearset.craftsmanship, ladderGearset.control)
+
+    await adviseMeld(
+      [ladderRecipe()], ladderGearset, priceMap,
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+
+    // Each rung runs at most MAX_QUALITY_PROBES (11) inner solves; the ladder is
+    // short (progress steps are few). The documented budget upper bound is well
+    // under a hundred solves even with the Step 0 probe. A runaway ladder would
+    // blow far past this.
+    expect(fakeSolve.mock.calls.length).toBeLessThan(100)
+  })
+
+  it('criterion 2 (no regression): progress already met + control-only cheapest behaves like #126', async () => {
+    // Here the direct-control route is CHEAPER than any craftsmanship detour: a
+    // single control meld (54) double-maxes, no coupling shortcut helps.
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const baseControl = ladderGearset.control
+    const fakeSimulate = vi.fn(async (_recipe: any, gs: any) => {
+      const controlMet = gs.control >= baseControl + 54
+      return {
+        ...SIM_EXTRAS,
+        progress: 3500, max_progress: 3500,
+        quality: controlMet ? 6500 : 6257, max_quality: 6500,
+      }
+    })
+
+    const out = await adviseMeld(
+      [makeRecipe(126, 100, 6500)], ladderGearset, priceMap,
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+
+    // Identical to the #126 outcome: minimal control, zero craftsmanship.
+    expect(out.costOptimal.deltaStats.control).toBe(54)
+    expect(out.costOptimal.deltaStats.craftsmanship).toBe(0)
+    expect(out.costOptimal.deltaStats.cp).toBe(0)
+    expect(out.costOptimal.confirmedBySolver).toBe(true)
+  })
+
+  it('no-price fallback: still picks the fewest-slot 3D candidate', async () => {
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = couplingAwareSimulate(ladderGearset.craftsmanship, ladderGearset.control)
+
+    const out = await adviseMeld(
+      [ladderRecipe()], ladderGearset, new Map(),
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+
+    expect(out.costOptimal.feasible).toBe(true)
+    expect(out.costOptimal.totalGil).toBeNull()
+    // Assisted route = 2 craft + 2 control = 4 melds; direct = 10 control melds.
+    // Fewest slots wins → the assisted (non-zero craftsmanship) plan.
+    expect(out.costOptimal.deltaStats.craftsmanship).toBeGreaterThan(0)
+    const totalMelds =
+      Math.ceil(out.costOptimal.deltaStats.craftsmanship / 54) +
+      Math.ceil(out.costOptimal.deltaStats.control / 54)
+    expect(totalMelds).toBeLessThan(10)
+  })
+
+  it('honors isCancelled across the ladder', async () => {
+    let cancelled = false
+    const fakeSolve = vi.fn(async () => {
+      cancelled = true
+      return { actions: ['x'], progress: 0, quality: 0, steps: 1 }
+    })
+    const fakeSimulate = couplingAwareSimulate(ladderGearset.craftsmanship, ladderGearset.control)
+
+    const out = await adviseMeld(
+      [ladderRecipe()], ladderGearset, priceMap,
+      { bisReference: BIS_REFERENCE, isCancelled: () => cancelled },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+
+    expect(out.costOptimal.confirmedBySolver).toBe(false)
+    // After the Step 0 solve flips cancel, the ladder must not keep probing.
+    expect(fakeSolve.mock.calls.length).toBeLessThanOrEqual(2)
+  })
+})
+
 describe('adviseMeld golden snapshot', () => {
   it('produces a stable MeldAdvice shape for the fixture', async () => {
     const fixtureRecipe = makeRecipe(99, 3500, 6500)
