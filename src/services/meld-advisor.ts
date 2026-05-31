@@ -426,6 +426,107 @@ const MAX_QUALITY_PROBES = 11
 /** Top-grade control materia value (one meld worth of control). */
 const CONTROL_GRADE_STEP = topGradeForStat('control')?.value ?? 54
 
+/** Top-grade craftsmanship materia value (one meld worth of craftsmanship). */
+const CRAFTSMANSHIP_GRADE_STEP = topGradeForStat('craftsmanship')?.value ?? 54
+
+/**
+ * Per-step progress-action efficiency used ONLY to enumerate the craftsmanship
+ * ladder rungs (#127). A max-quality macro clears each progress step at far more
+ * than 1× base efficiency (Groundwork 360%, Careful/Prudent Synthesis 180%);
+ * 3.6 is the high-efficiency end. This is a NON-BINDING seed — it picks how much
+ * craftsmanship to try per rung, not whether a rung is feasible. The inner
+ * `searchMinimalQualityDelta` solver pass is the authority for every candidate
+ * (ADR-0002). Wrong rung craftsmanship only wastes/saves solves, never changes
+ * correctness.
+ */
+const PROGRESS_STEP_EFFICIENCY = 3.6
+
+/**
+ * Hard upper bound on the number of craftsmanship rungs the outer ladder probes
+ * (#127). The ladder is intrinsically short — it runs from "exactly secure
+ * progress" to "progress done in 1 step", and a max-quality macro only spends a
+ * handful of steps on progress. This cap is a backstop so a pathological recipe
+ * (e.g. a degenerate closed-form step count) can never expand the ladder
+ * unbounded. With each rung issuing at most MAX_QUALITY_PROBES inner solves, the
+ * documented advisor budget is 1 (Step 0) + MAX_CRAFTSMANSHIP_RUNGS ×
+ * MAX_QUALITY_PROBES solves per run.
+ */
+const MAX_CRAFTSMANSHIP_RUNGS = 6
+
+/**
+ * #127 — enumerate the OUTER craftsmanship ladder for the bounded 3D cost search.
+ *
+ * Adding craftsmanship beyond securing progress only has value because clearing
+ * progress in fewer steps frees the shared durability+CP budget for quality
+ * (CONTEXT.md 「製作能力與資源耦合」). So the ladder is SHORT and BOUNDED:
+ *
+ *   - rung 0: `baseCraftDelta` — exactly secure progress (the #126 baseline).
+ *   - rung k: enough extra craftsmanship to clear progress in one FEWER step.
+ *   - cap:    "progress finished in 1 step" (hard upper bound — progress steps
+ *             are few, so this is a handful of rungs), and `MAX_CRAFTSMANSHIP_RUNGS`.
+ *
+ * Returns ascending, de-duplicated craftsmanship deltas (raw points on top of the
+ * bare gearset). Every value is a NON-BINDING seed for the inner solver search;
+ * the closed-form step model here only chooses WHICH craftsmanship to try.
+ *
+ * The step count is derived from the corrected high-efficiency progress model
+ * (`computeBaseProgress` × `PROGRESS_STEP_EFFICIENCY`). When the recipe's progress
+ * is already comfortably cleared in 1 step at the baseline (typical normal
+ * recipe), the ladder degenerates to the single baseline rung — so a
+ * progress-already-met recipe behaves identically to #126 (criterion 2).
+ */
+export function enumerateCraftsmanshipLadder(
+  recipe: Recipe,
+  gearset: GearsetStats,
+  baseCraftDelta: number,
+): number[] {
+  const rlt = recipe.recipeLevelTable
+  const buffed = gearsetToBuffedStats(gearset, undefined)
+  const baseCraftsmanship = buffed.craftsmanship + baseCraftDelta
+
+  // Progress steps cleared at a given buffed craftsmanship under the
+  // high-efficiency model. Clamped to >= 1 (you always do at least one step).
+  const stepsAt = (craftsmanship: number): number => {
+    const perStep = computeBaseProgress(craftsmanship, gearset.level, rlt) * PROGRESS_STEP_EFFICIENCY
+    if (perStep <= 0) return Number.POSITIVE_INFINITY
+    return Math.max(1, Math.ceil(rlt.difficulty / perStep))
+  }
+
+  // Minimum extra craftsmanship (raw) above the baseline so progress clears in
+  // `targetSteps` or fewer. Binary search on the monotone step-count function.
+  const craftForSteps = (targetSteps: number): number => {
+    if (stepsAt(baseCraftsmanship) <= targetSteps) return baseCraftDelta
+    let lo = 0
+    let hi = 10_000
+    while (lo < hi) {
+      const mid = Math.floor((lo + hi) / 2)
+      if (stepsAt(baseCraftsmanship + mid) <= targetSteps) hi = mid
+      else lo = mid + 1
+    }
+    return baseCraftDelta + lo
+  }
+
+  // Round a raw craftsmanship delta UP to the top-grade materia grid so each
+  // rung is achievable with whole materia (no fractional meld). The extra
+  // craftsmanship over the closed-form minimum is the rounding remainder, kept
+  // because under-shooting the grid would make the rung non-meldable; the inner
+  // solver still confirms feasibility either way.
+  const toGrid = (raw: number) =>
+    Math.ceil(raw / CRAFTSMANSHIP_GRADE_STEP) * CRAFTSMANSHIP_GRADE_STEP
+
+  const rungs = new Set<number>([baseCraftDelta])
+  const baseSteps = stepsAt(baseCraftsmanship)
+  // Walk down from (baseSteps - 1) to 1 (progress done in 1 step = hard cap),
+  // bounded by MAX_CRAFTSMANSHIP_RUNGS additional rungs.
+  const lowestTarget = Math.max(1, baseSteps - MAX_CRAFTSMANSHIP_RUNGS)
+  for (let target = baseSteps - 1; target >= lowestTarget; target--) {
+    const raw = craftForSteps(target)
+    // Keep the baseline component exact; grid-align only the extra above it.
+    rungs.add(baseCraftDelta + toGrid(raw - baseCraftDelta))
+  }
+  return [...rungs].sort((a, b) => a - b)
+}
+
 /**
  * #126 — solver-authoritative minimal-Δ search over the QUALITY axis only.
  *
@@ -669,6 +770,43 @@ export function translateDeltaToMeldPlan(
 }
 
 /**
+ * Total expected materia (whole-purchase count) a plan implies — the no-price
+ * ranking key (#127, ADR-0002). When gil is unavailable across candidates, the
+ * cheapest plan is the one occupying the fewest slots / buying the fewest
+ * materia, which is `Σ expectedCount` (overmeld waste included so a deep-overmeld
+ * detour is correctly penalised against a shallow one). A plan with no steps
+ * (zero delta) sums to 0.
+ */
+function totalMeldCount(plan: MeldPlan): number {
+  let sum = 0
+  for (const s of plan.steps) sum += s.expectedCount
+  return sum
+}
+
+/**
+ * Rank two FEASIBLE candidate plans (#127). Primary key: total gil (lower wins);
+ * a priced plan always beats an unpriced one. When BOTH are unpriced (no market
+ * data), fall back to fewest total melds (slot minimality), honoring the
+ * ADR-0002 no-price fallback. Final tie-break is the smaller craftsmanship
+ * detour so a zero-craftsmanship plan is preferred on an exact tie (keeps #126
+ * behaviour for progress-already-met recipes). Returns < 0 when `a` is cheaper.
+ */
+function compareCandidatePlans(a: MeldPlan, b: MeldPlan): number {
+  if (a.totalGil !== null && b.totalGil !== null) {
+    if (a.totalGil !== b.totalGil) return a.totalGil - b.totalGil
+  } else if (a.totalGil !== null) {
+    return -1
+  } else if (b.totalGil !== null) {
+    return 1
+  } else {
+    const ma = totalMeldCount(a)
+    const mb = totalMeldCount(b)
+    if (ma !== mb) return ma - mb
+  }
+  return a.deltaStats.craftsmanship - b.deltaStats.craftsmanship
+}
+
+/**
  * Step 6 — BiS ceiling plan: melds needed to lift current gear stats up to
  * BIS_REFERENCE, costed with the same slot/fail-ladder model.
  *
@@ -742,34 +880,55 @@ export async function adviseMeld(
 
   if (isCancelled?.()) return bailout(bis)
 
-  // Steps 2 + 3: closed-form breakpoints (on top of max-HQ baseline).
-  // solveProgressBreakpoint stays the craftsmanship delta — that ladder is #127
-  // and is unchanged here. solveQualityBreakpoint is demoted from authority to a
-  // NON-BINDING SEED handed to searchMinimalQualityDelta (ADR-0002).
+  // Steps 2 + 3: closed-form breakpoints (on top of max-HQ baseline), demoted to
+  // NON-BINDING SEEDS (ADR-0002). solveProgressBreakpoint gives the BASE rung of
+  // the #127 craftsmanship ladder; solveQualityBreakpoint seeds the inner control
+  // search's first probe point.
   const craftDelta = solveProgressBreakpoint(binding, gearset)
-  const qualityDelta = solveQualityBreakpoint(binding, gearset, craftDelta, maxHqInitialQuality)
-  const seed = {
-    craftsmanship: craftDelta,
-    control: qualityDelta.control,
-    cp: qualityDelta.cp,
-  }
 
   if (isCancelled?.()) return bailout(bis)
 
-  // Step 4: solver-authoritative minimal quality search. The solver is now the
-  // minimality + feasibility authority; the closed-form result above is only its
-  // starting probe point. Because the search only ever returns a
-  // solver-confirmed, grade-grid-minimal control delta (and never inflates
-  // craftsmanship beyond the progress breakpoint), the false "槽位不足,需換底裝"
-  // trigger — caused by an over-inflated seed reaching translateDeltaToMeldPlan
-  // — can no longer fire on the quality-gap path.
-  const confirmed = await searchMinimalQualityDelta(
-    binding, gearset, seed, maxHqInitialQuality, deps, isCancelled,
-  )
+  // Step 4 (#127): the OUTER craftsmanship ladder around the #126 inner quality
+  // search, completing the 3D (craftsmanship × control × CP) bounded cost search.
+  // For each bounded rung — exactly-secure-progress up to progress-done-in-1-step
+  // — run the solver-authoritative inner search for the cheapest confirmed
+  // Δcontrol(+ΔCP), translate to a MeldPlan, and keep the globally cheapest
+  // FEASIBLE + solver-confirmed candidate. Adding craftsmanship only helps when
+  // finishing progress in fewer steps frees CP budget for quality; the search
+  // ranks that coupling against direct control on real gil (ADR-0002).
+  const ladder = enumerateCraftsmanshipLadder(binding, gearset, craftDelta)
 
-  // Step 5: translate.
-  const costOptimal = translateDeltaToMeldPlan(confirmed.deltaStats, priceMap)
-  costOptimal.confirmedBySolver = confirmed.confirmedBySolver
+  let best: MeldPlan | null = null
+  let bestConfirmed = false
+  for (const rungCraft of ladder) {
+    if (isCancelled?.()) break
+    // Re-seed the inner control search at this rung's craftsmanship. The seed is
+    // non-binding (search speed only); recompute it so the probe starts near the
+    // answer for THIS rung rather than the stale baseline-craftsmanship hint.
+    const qualityDelta = solveQualityBreakpoint(binding, gearset, rungCraft, maxHqInitialQuality)
+    const seed = { craftsmanship: rungCraft, control: qualityDelta.control, cp: qualityDelta.cp }
+
+    const confirmed = await searchMinimalQualityDelta(
+      binding, gearset, seed, maxHqInitialQuality, deps, isCancelled,
+    )
+    // Criterion 4: only solver double-max-confirmed candidates enter the price
+    // comparison. An unconfirmed rung (cancelled or genuinely unsolvable within
+    // the cap) is skipped — unless NO rung confirms, in which case the last
+    // unconfirmed plan is surfaced so the UI still shows the bailout shape.
+    const plan = translateDeltaToMeldPlan(confirmed.deltaStats, priceMap)
+    plan.confirmedBySolver = confirmed.confirmedBySolver
+
+    if (confirmed.confirmedBySolver && plan.feasible) {
+      if (best === null || !bestConfirmed || compareCandidatePlans(plan, best) < 0) {
+        best = plan
+        bestConfirmed = true
+      }
+    } else if (!bestConfirmed && best === null) {
+      best = plan
+    }
+  }
+
+  const costOptimal = best ?? emptyMeldPlan(null, false)
 
   // Step 7: gap (clamped to ≥ 0 — if optimal cost exceeds BiS cost the user
   // is already paying more than needed, so the "saving" is 0, not negative).
