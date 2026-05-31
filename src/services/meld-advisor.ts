@@ -160,10 +160,15 @@ export function computeMaxHqInitialQuality(recipe: Recipe): number {
  *
  * This fallback bound is only used for custom recipes (suggestedCraftsmanship
  * = 0). Catalogue recipes use the RLT's own suggestedCraftsmanship — see
- * `solveProgressBreakpoint`. Factor chosen conservatively: ~6 effective
- * progress steps at ~3× efficiency ≈ 18, biased toward over-accepting (the
- * solver-confirmation step catches any genuine shortfall) rather than the
- * old over-rejecting behaviour.
+ * `solveProgressBreakpoint`.
+ *
+ * 18 is a TUNED constant (≈ 6 effective progress steps × ~1.8-3.6× action
+ * efficiency, a 10.8-21.6 band), NOT a derived authority. It is used ONLY as a
+ * NON-BINDING seed on the custom-recipe fallback path to pick a search starting
+ * point — correctness comes from solver confirmation (the bounded quality-gap
+ * search in `searchMinimalQualityDelta` and `adviseMeld`'s solver-double-max
+ * authority), not from this number. See ADR-0002. The value is left at 18 so
+ * the existing #99 fallback tests (which pin current seed behaviour) stay green.
  */
 const PROGRESS_REACHABLE_FACTOR = 18
 
@@ -405,6 +410,131 @@ export async function confirmBreakpointWithSolver(
   return { deltaStats: delta, confirmedBySolver: false }
 }
 
+/**
+ * Hard-cap backstop on the number of solver calls a single bounded quality-gap
+ * search may issue (ADR-0002). The search probes ascending control grades and
+ * then bisects downward; this cap guarantees termination on a pathological /
+ * genuinely-unsolvable recipe rather than looping unbounded. With the top grade
+ * = 54 control per materia, 11 probes covers a control delta well past any
+ * single gear set's slot budget, so it never binds on a solvable recipe.
+ *
+ * The search runs after `adviseMeld`'s Step 0 already-meets probe (1 solve), so
+ * the documented overall advisor budget is 1 + 11 = 12 solves per run.
+ */
+const MAX_QUALITY_PROBES = 11
+
+/** Top-grade control materia value (one meld worth of control). */
+const CONTROL_GRADE_STEP = topGradeForStat('control')?.value ?? 54
+
+/**
+ * #126 — solver-authoritative minimal-Δ search over the QUALITY axis only.
+ *
+ * The craftsmanship outer ladder (trading craftsmanship to compress progress
+ * steps and free CP for quality) is #127 and is explicitly OUT of scope here:
+ * craftsmanship is FIXED at the progress breakpoint carried in `seed`
+ * (typically 0 for the #123 repro). This search finds the cheapest Δcontrol
+ * such that `deps.solve` + `deps.simulate` double-maxes the binding recipe.
+ *
+ * Contract / algorithm:
+ *   1. SEED Δcontrol from the closed-form `seed.control` — NON-BINDING: it only
+ *      picks the first probe point to reduce solver calls. A wrong seed (the
+ *      over-accept Δ=0 bug, or an over-large value) never changes the answer.
+ *   2. Probe control deltas on the top-grade grid (multiples of
+ *      `CONTROL_GRADE_STEP` = 54). Each probe runs `deps.solve` then
+ *      `deps.simulate` on the bumped gearset and accepts only when
+ *      `isDoubleMax`. Find an UPPER bound: probe the seed grid point, then march
+ *      up by one grade until a double-max is found or `MAX_QUALITY_PROBES` is
+ *      hit (the hard cap is the real backstop against unbounded probing).
+ *   3. BISECT downward in [0, upperBound] on the grade grid for the MINIMAL
+ *      confirmed delta — re-confirming via solver at each midpoint rather than
+ *      trusting closed-form interpolation. Double-max is monotone in control, so
+ *      bisection is sound.
+ *   4. `isCancelled` is honoured between every solve.
+ *
+ * Returns the confirmed `deltaStats` (craftsmanship/cp pinned from the seed,
+ * control = minimal confirmed) and `confirmedBySolver`. Cost ranking across
+ * candidates is the caller's job via `translateDeltaToMeldPlan`; because the
+ * grade-grid bisection already yields the single minimal control delta, that
+ * delta is also the cheapest (fewer materia = fewer slots = lower gil under a
+ * uniform top-grade price), and a null-price set simply ranks by that same
+ * fewest-slots delta.
+ */
+export async function searchMinimalQualityDelta(
+  recipe: Recipe,
+  gearset: GearsetStats,
+  seed: { craftsmanship: number; control: number; cp: number },
+  initialQuality: number,
+  deps: ConfirmDeps = { solve: solveCraftForRecipe, simulate: simulateCraftForRecipe },
+  isCancelled?: () => boolean,
+): Promise<ConfirmedBreakpoint> {
+  const craftsmanship = seed.craftsmanship
+  const cp = seed.cp
+  const pin = (control: number) => ({ craftsmanship, control, cp })
+
+  let solveCount = 0
+  const cache = new Map<number, boolean>()
+
+  // Probe `controlDelta` raw control points. Returns null when cancelled or the
+  // hard cap is exhausted (caller treats null as "could not confirm here").
+  const probe = async (controlDelta: number): Promise<boolean | null> => {
+    if (cache.has(controlDelta)) return cache.get(controlDelta)!
+    if (isCancelled?.()) return null
+    if (solveCount >= MAX_QUALITY_PROBES) return null
+    const bumped: GearsetStats = {
+      ...gearset,
+      craftsmanship: gearset.craftsmanship + craftsmanship,
+      control: gearset.control + controlDelta,
+      cp: gearset.cp + cp,
+    }
+    solveCount++
+    const solverResult = await deps.solve(recipe, bumped, { initialQuality })
+    if (isCancelled?.()) return null
+    const simResult = await deps.simulate(recipe, bumped, {
+      actions: solverResult.actions,
+      initialQuality,
+    })
+    const ok = isDoubleMax(simResult)
+    cache.set(controlDelta, ok)
+    return ok
+  }
+
+  // Grade-grid steps: 0, 1, 2, ... → 0, 54, 108, ...
+  const toSteps = (raw: number) => Math.max(0, Math.ceil(raw / CONTROL_GRADE_STEP))
+  const toDelta = (steps: number) => steps * CONTROL_GRADE_STEP
+
+  // Phase 1 — find an upper bound starting from the (non-binding) seed grid
+  // point and marching upward by one grade per probe.
+  let hiSteps: number | null = null
+  let step = toSteps(seed.control)
+  while (solveCount < MAX_QUALITY_PROBES) {
+    const ok = await probe(toDelta(step))
+    if (ok === null) {
+      return { deltaStats: pin(toDelta(step)), confirmedBySolver: false }
+    }
+    if (ok) { hiSteps = step; break }
+    step += 1
+  }
+  if (hiSteps === null) {
+    // Exhausted the probe budget without ever double-maxing → unsolvable within
+    // the bounded search.
+    return { deltaStats: pin(toDelta(step)), confirmedBySolver: false }
+  }
+
+  // Phase 2 — bisect downward in [0, hiSteps] for the minimal confirmed delta,
+  // re-confirming via the solver at each midpoint.
+  let lo = 0
+  let hi = hiSteps
+  let best = hiSteps
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2)
+    const ok = await probe(toDelta(mid))
+    if (ok === null) break // cancelled or cap hit; keep current best (confirmed)
+    if (ok) { best = mid; hi = mid } else { lo = mid + 1 }
+  }
+
+  return { deltaStats: pin(toDelta(best)), confirmedBySolver: true }
+}
+
 interface AllocationCursor {
   guaranteedRemaining: number
   // Global overmeld-slot budget (shared across stats — gear pieces are finite).
@@ -613,9 +743,12 @@ export async function adviseMeld(
   if (isCancelled?.()) return bailout(bis)
 
   // Steps 2 + 3: closed-form breakpoints (on top of max-HQ baseline).
+  // solveProgressBreakpoint stays the craftsmanship delta — that ladder is #127
+  // and is unchanged here. solveQualityBreakpoint is demoted from authority to a
+  // NON-BINDING SEED handed to searchMinimalQualityDelta (ADR-0002).
   const craftDelta = solveProgressBreakpoint(binding, gearset)
   const qualityDelta = solveQualityBreakpoint(binding, gearset, craftDelta, maxHqInitialQuality)
-  const candidate = {
+  const seed = {
     craftsmanship: craftDelta,
     control: qualityDelta.control,
     cp: qualityDelta.cp,
@@ -623,9 +756,15 @@ export async function adviseMeld(
 
   if (isCancelled?.()) return bailout(bis)
 
-  // Step 4: confirm.
-  const confirmed = await confirmBreakpointWithSolver(
-    binding, gearset, candidate, maxHqInitialQuality, deps, isCancelled,
+  // Step 4: solver-authoritative minimal quality search. The solver is now the
+  // minimality + feasibility authority; the closed-form result above is only its
+  // starting probe point. Because the search only ever returns a
+  // solver-confirmed, grade-grid-minimal control delta (and never inflates
+  // craftsmanship beyond the progress breakpoint), the false "槽位不足,需換底裝"
+  // trigger — caused by an over-inflated seed reaching translateDeltaToMeldPlan
+  // — can no longer fire on the quality-gap path.
+  const confirmed = await searchMinimalQualityDelta(
+    binding, gearset, seed, maxHqInitialQuality, deps, isCancelled,
   )
 
   // Step 5: translate.

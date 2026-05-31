@@ -591,6 +591,233 @@ describe('adviseMeld — max-HQ baseline (§2 engine touchpoint)', () => {
   })
 })
 
+// #126: the quality-gap path is now solver-authoritative. For a recipe whose
+// PROGRESS is already cleared by the bare gearset but whose QUALITY is short by
+// a small residual, the advisor must converge on a few control melds — NOT
+// inflate craftsmanship out of thin air (the #123 「400+ 作業 / ~83k gil」 symptom).
+//
+// Mocks are GEARSET-AWARE: the bounded search probes MANY distinct deltas in a
+// single run, so a flat mockResolvedValue cannot express "a control bump unlocks
+// HQ but a craftsmanship bump never does". fakeSimulate inspects the gearset arg
+// (the RAW bumped gearset passed by adviseMeld / searchMinimalQualityDelta) to
+// decide double-max vs shortfall.
+describe('adviseMeld — quality-gap solver search (#126)', () => {
+  const priceMap = new Map<number, any>(
+    MATERIA_GRADES.map(m => [m.itemId, { minPriceNQ: 1000 + m.value, listings: [] }]),
+  )
+
+  // Progress trivially clearable by the bare gearset (low difficulty, ample
+  // craftsmanship) → solveProgressBreakpoint returns 0. Quality short by ~243.
+  const reproGearset = {
+    level: 100, craftsmanship: 4500, control: 3200, cp: 600, isSpecialist: false,
+  }
+  const reproRecipe = () => makeRecipe(123, 100, 6500)
+
+  // fakeSimulate factory: double-maxes iff control is bumped by >= `controlGate`
+  // raw points above the base; otherwise progress is always met (the recipe's
+  // progress is trivial) and quality is left short by `qualityShort`. NEVER keys
+  // on craftsmanship, so any craftsmanship bump is wasted — exactly the trap that
+  // produced the #123 symptom.
+  // Fields SimulateResult requires beyond the progress/quality the gate cares
+  // about. Mocks don't exercise these, but the ConfirmDeps.simulate signature is
+  // strictly typed (typeof simulateCraftForRecipe), so they must be present.
+  const SIM_EXTRAS = {
+    durability: 80, cp: 600, max_durability: 80, max_cp: 600,
+    effects: {} as any, is_finished: true, is_success: true, steps_used: 1,
+  }
+
+  const gearsetAwareSimulate = (
+    baseControl: number,
+    controlGate: number,
+    maxQuality = 6500,
+    qualityShort = 243,
+  ) =>
+    vi.fn(async (_recipe: any, gs: any) => {
+      const controlMet = gs.control >= baseControl + controlGate
+      return {
+        ...SIM_EXTRAS,
+        progress: 3500,
+        max_progress: 3500,
+        quality: controlMet ? maxQuality : maxQuality - qualityShort,
+        max_quality: maxQuality,
+      }
+    })
+
+  it('REPRO #123: recommends a few control melds, not 400+ craftsmanship / ~83k gil', async () => {
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    // Any candidate with control bumped >= 150 double-maxes; craftsmanship-only
+    // bumps never help.
+    const fakeSimulate = gearsetAwareSimulate(reproGearset.control, 150)
+
+    const out = await adviseMeld(
+      [reproRecipe()], reproGearset, priceMap,
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+
+    expect(out.costOptimal.deltaStats.craftsmanship).toBe(0)
+    expect(out.costOptimal.deltaStats.control).toBeGreaterThan(0)
+    expect(out.costOptimal.deltaStats.control).toBeLessThanOrEqual(5 * 54)
+    expect(out.costOptimal.deltaStats.cp).toBe(0)
+    expect(out.costOptimal.feasible).toBe(true)
+    expect(out.costOptimal.confirmedBySolver).toBe(true)
+    expect(out.costOptimal.totalGil).not.toBeNull()
+    expect(out.costOptimal.totalGil!).toBeLessThan(10000)
+  })
+
+  it('Δprogress=0 when progress already met (criterion 3): never probes a craftsmanship bump', async () => {
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    // progress always met regardless of gearset; quality only met once control bumped.
+    const fakeSimulate = gearsetAwareSimulate(reproGearset.control, 150)
+
+    const out = await adviseMeld(
+      [reproRecipe()], reproGearset, priceMap,
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+
+    // Every solve probed the SAME craftsmanship as the base gearset.
+    for (const call of fakeSolve.mock.calls) {
+      expect(call[1].craftsmanship).toBe(reproGearset.craftsmanship)
+    }
+    expect(out.costOptimal.deltaStats.craftsmanship).toBe(0)
+  })
+
+  it('no false 槽位不足 for a solvable 裸裝差一點 recipe (criterion 4)', async () => {
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = gearsetAwareSimulate(reproGearset.control, 150)
+
+    const out = await adviseMeld(
+      [reproRecipe()], reproGearset, priceMap,
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+
+    expect(out.costOptimal.feasible).toBe(true)
+    expect(out.costOptimal.reason).toBeUndefined()
+  })
+
+  it('closed-form is a non-binding seed; every returned candidate is solver-confirmed (criterion 5)', async () => {
+    // Even if the closed-form seed blesses Δcontrol=0 (over-accept bug), the
+    // search must reject it because the solver does not double-max there. Only
+    // the true minimal control delta (>= 54) double-maxes.
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = gearsetAwareSimulate(reproGearset.control, 54)
+
+    const out = await adviseMeld(
+      [reproRecipe()], reproGearset, priceMap,
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+
+    expect(out.costOptimal.confirmedBySolver).toBe(true)
+    expect(out.costOptimal.deltaStats.control).toBeGreaterThan(0)
+    // The last successful sim must be a genuine double-max.
+    const results = await Promise.all(fakeSimulate.mock.results.map(r => r.value))
+    const doubleMaxed = results.filter(
+      r => r.quality >= r.max_quality && r.progress >= r.max_progress,
+    )
+    expect(doubleMaxed.length).toBeGreaterThan(0)
+  })
+
+  it('returns the cheapest confirmed candidate among several solver-passing control deltas (minimality)', async () => {
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    // control deltas of 54, 108, 162 all double-max (gate = 54) → minimal is 54.
+    const fakeSimulate = gearsetAwareSimulate(reproGearset.control, 54)
+
+    const out = await adviseMeld(
+      [reproRecipe()], reproGearset, priceMap,
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+
+    expect(out.costOptimal.deltaStats.control).toBe(54)
+  })
+
+  it('no-market-price fallback ranks by slot/meld count when gil unavailable', async () => {
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = gearsetAwareSimulate(reproGearset.control, 54)
+
+    const out = await adviseMeld(
+      [reproRecipe()], reproGearset, new Map(),
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+
+    expect(out.costOptimal.feasible).toBe(true)
+    expect(out.costOptimal.totalGil).toBeNull()
+    // smallest delta = fewest occupied slots = 1 materia (54 control)
+    expect(out.costOptimal.deltaStats.control).toBe(54)
+  })
+
+  it('already-meets at max-HQ baseline still short-circuits before search (Step 0 preserved)', async () => {
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = vi.fn().mockResolvedValue({
+      progress: 3500, max_progress: 3500, quality: 6500, max_quality: 6500,
+    })
+
+    const out = await adviseMeld(
+      [reproRecipe()], reproGearset, priceMap,
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+
+    expect(out.hqSufficient).toBe(true)
+    expect(out.alreadyMeetsThreshold).toBe(true)
+    expect(out.costOptimal.steps).toHaveLength(0)
+    expect(out.costOptimal.deltaStats).toEqual({ craftsmanship: 0, control: 0, cp: 0 })
+    expect(fakeSolve).toHaveBeenCalledTimes(1)
+  })
+
+  it('genuinely unsolvable quality gap returns confirmedBySolver=false within the hard cap', async () => {
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    // quality < max for EVERY candidate (gate impossibly high).
+    const fakeSimulate = gearsetAwareSimulate(reproGearset.control, 100_000)
+
+    const out = await adviseMeld(
+      [reproRecipe()], reproGearset, priceMap,
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+
+    expect(out.costOptimal.confirmedBySolver).toBe(false)
+    expect(fakeSolve.mock.calls.length).toBeLessThanOrEqual(12)
+  })
+
+  it('isCancelled mid-search aborts cleanly', async () => {
+    let cancelled = false
+    const fakeSolve = vi.fn(async () => {
+      cancelled = true // flip after first solve
+      return { actions: ['x'], progress: 0, quality: 0, steps: 1 }
+    })
+    const fakeSimulate = gearsetAwareSimulate(reproGearset.control, 100_000)
+
+    const out = await adviseMeld(
+      [reproRecipe()], reproGearset, priceMap,
+      { bisReference: BIS_REFERENCE, isCancelled: () => cancelled },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+
+    expect(out.costOptimal.confirmedBySolver).toBe(false)
+    // After Step 0 solve (which flips cancel), the search must not keep probing.
+    expect(fakeSolve.mock.calls.length).toBeLessThanOrEqual(2)
+  })
+
+  it('cost panel quality-gap and meld card agree (criterion 2): recommendation targets the QUALITY axis', async () => {
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = gearsetAwareSimulate(reproGearset.control, 150)
+
+    const out = await adviseMeld(
+      [reproRecipe()], reproGearset, priceMap,
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+
+    expect(out.costOptimal.deltaStats.control).toBeGreaterThan(0)
+    expect(out.costOptimal.deltaStats.craftsmanship).toBe(0)
+  })
+})
+
 describe('adviseMeld golden snapshot', () => {
   it('produces a stable MeldAdvice shape for the fixture', async () => {
     const fixtureRecipe = makeRecipe(99, 3500, 6500)
@@ -602,9 +829,20 @@ describe('adviseMeld golden snapshot', () => {
     )
 
     const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
-    const fakeSimulate = vi.fn()
-      .mockResolvedValueOnce({ progress: 0, max_progress: 3500, quality: 0, max_quality: 6500 })
-      .mockResolvedValue({ progress: 3500, max_progress: 3500, quality: 6500, max_quality: 6500 })
+    // Gearset-aware: Step 0 (base gear) is short; once control is bumped by one
+    // materia (54) the search converges and double-maxes. Progress is always met
+    // so the search stays on the quality axis (craftsmanship delta stays 0).
+    const fakeSimulate = vi.fn(async (_recipe: any, gs: any) => {
+      const controlMet = gs.control >= fixtureGearset.control + 54
+      return {
+        durability: 80, cp: 540, max_durability: 80, max_cp: 540,
+        effects: {} as any, is_finished: true, is_success: true, steps_used: 1,
+        progress: 3500,
+        max_progress: 3500,
+        quality: controlMet ? 6500 : 6257,
+        max_quality: 6500,
+      }
+    })
 
     const out = await adviseMeld(
       [fixtureRecipe], fixtureGearset, fixturePrices,

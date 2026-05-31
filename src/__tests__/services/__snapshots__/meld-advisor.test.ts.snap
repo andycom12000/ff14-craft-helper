@@ -18,13 +18,13 @@ exports[`adviseMeld golden snapshot > produces a stable MeldAdvice shape for the
   "costOptimal": {
     "confirmedBySolver": true,
     "deltaStats": {
-      "control": 0,
+      "control": 54,
       "cp": 0,
       "craftsmanship": 0,
     },
     "feasible": true,
-    "steps": 0,
-    "totalGil": 0,
+    "steps": 1,
+    "totalGil": 1500,
   },
   "gapGil": null,
 }
