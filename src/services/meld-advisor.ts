@@ -460,6 +460,14 @@ export function enumerateCraftsmanshipLadder(
 
   const rungs = new Set<number>([baseCraftDelta])
   const baseSteps = stepsAt(baseCraftsmanship)
+  // #140 finite guard: if the baseline already has non-positive per-step progress
+  // (e.g. a recipe with progressModifier === 0 → computeBaseProgress <= 0),
+  // stepsAt returns Infinity. The descending loop below would then spin forever on
+  // the main thread (Infinity - 1 === Infinity, Infinity >= Infinity always true),
+  // and #132's async wall-clock deadline cannot interrupt a synchronous spin. There
+  // is no meaningful craftsmanship ladder when progress cannot advance, so bail to
+  // the single baseline rung.
+  if (!Number.isFinite(baseSteps)) return [baseCraftDelta]
   // Walk down from (baseSteps - 1) to 1 (progress done in 1 step = hard cap),
   // bounded by MAX_CRAFTSMANSHIP_RUNGS additional rungs.
   const lowestTarget = Math.max(1, baseSteps - MAX_CRAFTSMANSHIP_RUNGS)

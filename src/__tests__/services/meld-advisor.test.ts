@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { MeldAdvice, MeldPlan, MeldStep } from '@/services/meld-advisor'
-import { adviseMeld, findBindingRecipe, solveProgressBreakpoint, solveQualityBreakpoint, translateDeltaToMeldPlan, computeBisPlan, computeMaxHqInitialQuality } from '@/services/meld-advisor'
+import { adviseMeld, findBindingRecipe, solveProgressBreakpoint, solveQualityBreakpoint, translateDeltaToMeldPlan, computeBisPlan, computeMaxHqInitialQuality, enumerateCraftsmanshipLadder } from '@/services/meld-advisor'
 import type { Recipe } from '@/stores/recipe'
 import { BIS_REFERENCE, MATERIA_GRADES, SLOT_STRUCTURE } from '@/engine/materia'
 
@@ -1105,5 +1105,39 @@ describe('adviseMeld golden snapshot', () => {
       gapGil: out.gapGil,
     }
     expect(sanitized).toMatchSnapshot()
+  })
+})
+
+describe('enumerateCraftsmanshipLadder — #140 finite guard', () => {
+  // progressModifier:0 with crafterLevel <= classJobLevel makes computeBaseProgress
+  // return 0 → perStep === 0 → stepsAt() === Infinity → baseSteps === Infinity.
+  // Without the guard the descending ladder loop `for (target = baseSteps - 1;
+  // target >= lowestTarget; target--)` spins forever on the main thread
+  // (Infinity - 1 === Infinity, Infinity >= Infinity is always true). #132's async
+  // wall-clock deadline cannot interrupt a synchronous spin, so the ladder must
+  // bail to the single baseline rung itself.
+  it('returns the single baseline rung instead of spinning when baseline per-step progress is <= 0', () => {
+    const base = makeRecipe(1, 3000, 9000)
+    const recipe = {
+      ...base,
+      recipeLevelTable: { ...base.recipeLevelTable, progressModifier: 0 },
+    } as Recipe
+    const gearset = { level: 100, craftsmanship: 4000, control: 4000, cp: 600, isSpecialist: false }
+
+    const ladder = enumerateCraftsmanshipLadder(recipe, gearset, 0)
+
+    expect(ladder).toEqual([0])
+  })
+
+  it('still enumerates multiple rungs for a normal recipe (unchanged behaviour)', () => {
+    const recipe = makeRecipe(1, 3000, 9000)
+    const gearset = { level: 100, craftsmanship: 3000, control: 4000, cp: 600, isSpecialist: false }
+
+    const ladder = enumerateCraftsmanshipLadder(recipe, gearset, 0)
+
+    // ascending, de-duplicated, baseline included
+    expect(ladder[0]).toBe(0)
+    expect(ladder.length).toBeGreaterThanOrEqual(1)
+    expect([...ladder].sort((a, b) => a - b)).toEqual(ladder)
   })
 })
