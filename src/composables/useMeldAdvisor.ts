@@ -1,6 +1,7 @@
 import { shallowRef } from 'vue'
 import { adviseMeld, type MeldAdvice } from '@/services/meld-advisor'
 import { fetchMateriaPriceMap } from '@/api/universalis'
+import type { MarketData } from '@/api/universalis'
 import { BIS_REFERENCE } from '@/engine/materia'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
@@ -22,16 +23,15 @@ export function useMeldAdvisor(world: () => string) {
     cancelToken.cancelled = true
     const token = { cancelled: false }
     cancelToken = token
-    // Costing a plan needs a market server. Without one, surface that
-    // explicitly instead of falling back to the blank "not solved yet" state —
-    // which wrongly reads as "you haven't pressed solve" when the solve did run.
-    if (!world()) {
-      advice.value = 'no-market'
-      return
-    }
     advice.value = 'loading'
     try {
-      const priceMap = await fetchMateriaPriceMap(world())
+      // Costing a plan by gil needs a market server. Without one, run the engine
+      // with an EMPTY price map instead of hard-blocking — adviseMeld then
+      // degrades to the count-ranked fallback (ADR-0002) and the card shows the
+      // 「無市場資料，依鑲嵌數量估算」hint, rather than dead-ending at no-market (#135).
+      const priceMap = world()
+        ? await fetchMateriaPriceMap(world())
+        : new Map<number, MarketData>()
       if (token.cancelled) return
       const out = await adviseMeld(
         [recipe],

@@ -88,6 +88,49 @@ describe('useMeldAdvisor', () => {
     expect(advice.value).toBe('loading')
   })
 
+  // #135: no market server must NOT hard-block before the engine. The advisor
+  // runs with an empty price map so adviseMeld degrades to the count-ranked
+  // fallback (ADR-0002), instead of short-circuiting to the 'no-market' state.
+  it('with no market server, runs the engine with an empty price map instead of hard-blocking (#135)', async () => {
+    const rankedAdvice: MeldAdvice = {
+      ...stubAdvice,
+      alreadyMeetsThreshold: false,
+      hqSufficient: false,
+      rankedByCount: true,
+    }
+    vi.mocked(adviseMeld).mockResolvedValue(rankedAdvice)
+
+    const { advice, runAdvisor } = useMeldAdvisor(() => '') // no server selected
+    await runAdvisor(stubRecipe, stubGearset, 0)
+
+    // Did NOT short-circuit to the no-market hard block.
+    expect(advice.value).not.toBe('no-market')
+    // The engine ran exactly once, with an empty price map (count-ranked path).
+    expect(vi.mocked(adviseMeld)).toHaveBeenCalledTimes(1)
+    const priceMapArg = vi.mocked(adviseMeld).mock.calls[0][2]
+    expect(priceMapArg instanceof Map).toBe(true)
+    expect(priceMapArg.size).toBe(0)
+    // No fetch is attempted without a server.
+    expect(vi.mocked(fetchMateriaPriceMap)).not.toHaveBeenCalled()
+    expect(advice.value).toEqual(rankedAdvice)
+  })
+
+  // #135: with a server, behaviour is unchanged — fetch the price map and cost
+  // the plan by gil.
+  it('with a market server, fetches the price map and costs by gil (#135 — server branch unchanged)', async () => {
+    // clearAllMocks() does not restore mockImplementation, so re-assert the
+    // default resolving fetch (a prior test leaves a hanging implementation).
+    vi.mocked(fetchMateriaPriceMap).mockResolvedValue(new Map())
+    const { runAdvisor } = useMeldAdvisor(() => 'Gilgamesh')
+    await runAdvisor(stubRecipe, stubGearset, 0)
+
+    expect(vi.mocked(fetchMateriaPriceMap)).toHaveBeenCalledWith('Gilgamesh')
+    expect(vi.mocked(adviseMeld)).toHaveBeenCalledTimes(1)
+    // The price map handed to the engine is the one fetched for the server.
+    const fetched = await vi.mocked(fetchMateriaPriceMap).mock.results[0].value
+    expect(vi.mocked(adviseMeld).mock.calls[0][2]).toBe(fetched)
+  })
+
   it('second runAdvisor call cancels the first', async () => {
     // First call hangs
     let resolveFirst!: () => void
