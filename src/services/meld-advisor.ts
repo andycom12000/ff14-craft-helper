@@ -11,17 +11,19 @@
  *      material alone double-maxes the binding recipe, HQ materials suffice and
  *      no meld is needed (hqSufficient = true)
  *   1. pick binding recipe (single-axis-max binding for v1)
- *   2. solveProgressBreakpoint / solveQualityBreakpoint (closed-form), demoted to
+ *   2-3. solveProgressBreakpoint / solveQualityBreakpoint (closed-form), demoted to
  *      NON-BINDING SEEDS — they only choose where to start probing, never the
  *      answer. Quality uses the max-HQ initialQuality (all HQ ingredients), NOT
  *      the screen's current selection — meld only covers the residual above max-HQ.
- *   3. enumerateCraftsmanshipLadder × searchMinimalQualityDelta (#126/#127): the
+ *   4. enumerateCraftsmanshipLadder × searchMinimalQualityDelta (#126/#127): the
  *      OUTER craftsmanship ladder around the inner solver-authoritative quality
  *      search. Each bounded rung runs real solves and keeps the globally cheapest
  *      FEASIBLE, solver-confirmed Δ (craftsmanship × control × CP bounded 3D search).
- *   4. translateDeltaToMeldPlan (guaranteed → overmeld, fail ladder)
- *   5. computeBisPlan (current → BIS_REFERENCE, deep overmeld)
- *   6. assemble MeldAdvice with gapGil
+ *      This bounded solver pass is the authority that replaced the old
+ *      per-candidate closed-form confirmation step.
+ *   5. translateDeltaToMeldPlan (guaranteed → overmeld, fail ladder)
+ *   6. computeBisPlan (current → BIS_REFERENCE, deep overmeld)
+ *   7. assemble MeldAdvice with gapGil
  *
  * Stat-stacking (ADR-0001): the Δstats produced by this service are RAW gear
  * deltas. They MUST be folded into the gearset before Soul/food/medicine.
@@ -337,7 +339,8 @@ export interface ConfirmedBreakpoint {
 /**
  * Double-max predicate: a sim result "double-maxes" when it reaches both max
  * progress and max quality (= guaranteed HQ). Shared by the Step 0 already-meets
- * check and the Step 4 confirmation loop so the contract lives in one place.
+ * check and the Step 4 bounded solver search (searchMinimalQualityDelta) so the
+ * contract lives in one place.
  */
 function isDoubleMax(simResult: {
   progress: number
