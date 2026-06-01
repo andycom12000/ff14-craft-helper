@@ -712,14 +712,16 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
           @click="setupOpen = !setupOpen"
         >
           <span class="m-setup-summary">
-            初期品質 <b>{{ initialQuality.toLocaleString() }}</b>
-            <span class="m-rs-dot">·</span>
+            <template v-if="recipeSupportsHq">
+              初期品質 <b>{{ initialQuality.toLocaleString() }}</b>
+              <span class="m-rs-dot">·</span>
+            </template>
             食藥 <span :class="{ muted: !enhancedStats }">{{ foodMedicineSummary }}</span>
           </span>
           <span class="m-chev" :class="{ 'is-open': setupOpen }">▾</span>
         </button>
         <div v-if="setupOpen" class="m-setup-body">
-          <div class="m-setup-group">
+          <div v-if="recipeSupportsHq" class="m-setup-group">
             <h4 class="m-setup-group-title">初期品質</h4>
             <InitialQuality :hq-amounts="initialQualityHqAmounts" @update:initial-quality="onInitialQualityUpdate" @update:hq-amounts="onHqAmountsUpdate" />
           </div>
