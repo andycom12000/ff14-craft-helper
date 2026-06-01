@@ -528,8 +528,10 @@ function isDoubleMax(simResult: {
  * = 54 control per materia, 11 probes covers a control delta well past any
  * single gear set's slot budget, so it never binds on a solvable recipe.
  *
- * The search runs after `adviseMeld`'s Step 0 already-meets probe (1 solve), so
- * the documented overall advisor budget is 1 + 11 = 12 solves per run.
+ * The search runs after `adviseMeld`'s Step 0 already-meets probe and the #134
+ * full-pentameld feasibility prefilter (2 baseline solves), so the documented
+ * worst-case advisor budget is 2 + MAX_CRAFTSMANSHIP_RUNGS × MAX_QUALITY_PROBES
+ * solves per run (the shared probe cache lowers the effective count via hits).
  */
 const MAX_QUALITY_PROBES = 11
 
@@ -592,8 +594,8 @@ const PROGRESS_STEP_EFFICIENCY = 3.6
  * handful of steps on progress. This cap is a backstop so a pathological recipe
  * (e.g. a degenerate closed-form step count) can never expand the ladder
  * unbounded. With each rung issuing at most MAX_QUALITY_PROBES inner solves, the
- * documented advisor budget is 1 (Step 0) + MAX_CRAFTSMANSHIP_RUNGS ×
- * MAX_QUALITY_PROBES solves per run.
+ * documented worst-case advisor budget is 2 (Step 0 + #134 prefilter) +
+ * MAX_CRAFTSMANSHIP_RUNGS × MAX_QUALITY_PROBES solves per run.
  */
 const MAX_CRAFTSMANSHIP_RUNGS = 6
 

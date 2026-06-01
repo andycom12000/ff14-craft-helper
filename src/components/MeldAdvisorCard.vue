@@ -614,16 +614,19 @@ async function copyShoppingList() {
 }
 
 /* #134 no-HQ-lever preface — a custom recipe (0% quality factor) has no
-   HQ-ingredient head start, so melds must solo-fill. A quiet 草莓醬-tinted note
-   bar (warning, not error) sitting above the result so a large meld ask reads
-   as expected rather than surprising. */
+   HQ-ingredient head start, so melds must solo-fill. A quiet caution note bar
+   sitting above the result so a large meld ask reads as expected rather than
+   surprising. Uses the severity (warning) tokens, NOT a jam-jar wayfinding hue:
+   DESIGN.md's Jam-Jar Rule reserves strawberry for the market zone and assigns
+   cocoa to crafting, so a craft-screen note must not borrow strawberry. */
 .no-hq-lever-hint {
   margin: 0 0 8px;
   padding: 6px 10px;
+  border: 1px solid var(--app-warning-border, oklch(0.82 0.09 75));
   border-radius: 8px;
   font-size: 12.5px;
   color: var(--app-text, oklch(0.28 0.04 55));
-  background: var(--app-strawberry-soft, oklch(0.94 0.04 20));
+  background: var(--app-warning-tint, oklch(0.95 0.04 75));
 }
 
 /* #128 estimate hint — a data-completeness signal (no market price), distinct
