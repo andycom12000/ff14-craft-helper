@@ -26,9 +26,10 @@ test('with no market server selected, the advisor no longer hard-blocks but runs
   // It must also never show the pre-solve「尚未求解」hint — the solve did run.
   await expect(page.getByText('尚未求解，按 solve 後將算出鑲嵌建議')).toHaveCount(0)
 
-  // The advisor proceeds to compute. On this rlv770 fixture the bounded search
-  // does not converge yet (blocked on #132 wall-clock deadline + #136 basis), so
-  // we assert it entered the compute path rather than the terminal count-ranked
-  // 「無市場資料，依鑲嵌數量估算」state — a follow-up pins that once it converges.
+  // The advisor proceeds to compute (no hard block). This backbone spec stays
+  // FAST: it only asserts the engine entered the compute path. The bounded
+  // terminal verdict that #132's wall-clock deadline now guarantees on this hard
+  // fixture (~minutes) is locked in by the @wasm-heavy meld-reverse spec, so it
+  // doesn't bloat the fast subset here.
   await expect(page.locator('.meld-advisor-card').getByText('計算中…')).toBeVisible()
 })
