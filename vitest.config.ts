@@ -11,6 +11,8 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     setupFiles: ['src/__tests__/setup.ts'],
-    exclude: ['**/node_modules/**', '**/dist/**', '**/.worktrees/**', '**/.claude/worktrees/**', 'scripts/**'],
+    // `e2e/**` holds Playwright specs (own runner) — keep them out of vitest,
+    // which would otherwise pick up their *.spec.ts via the default include.
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.worktrees/**', '**/.claude/worktrees/**', 'scripts/**', 'e2e/**'],
   },
 })
