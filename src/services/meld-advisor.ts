@@ -47,7 +47,15 @@ import {
   MARGIN,
 } from '@/services/feasibility-prefilter'
 import { gearsetToBuffedStats } from '@/services/stat-stacking'
+import type { FoodBuff } from '@/engine/food-medicine'
 import { calculateInitialQuality } from '@/engine/quality'
+
+/**
+ * Active food/medicine buffs to fold after Soul (ADR-0001 order), so the advisor
+ * solves on the SAME effectiveStats the screen uses (#136). `undefined` = no
+ * buffs — byte-identical to the pre-#136 advisor.
+ */
+type AdvisorBuffs = { food: FoodBuff | null; medicine: FoodBuff | null } | undefined
 
 export type MateriaPriceMap = Map<number, MarketData>
 
@@ -105,6 +113,9 @@ export interface AdviseMeldOptions {
   /** initialQuality from HQ ingredients (default 0). Required so we don't
    *  over-estimate the control breakpoint. */
   initialQuality?: number
+  /** Active food/medicine buffs (#136). Folded after Soul (ADR-0001) so the
+   *  advisor solves on the same effectiveStats as the screen. Absent = no buffs. */
+  buffs?: AdvisorBuffs
   isCancelled?: () => boolean
 }
 
@@ -213,8 +224,9 @@ const PROGRESS_REACHABLE_FACTOR = 18
 export function solveProgressBreakpoint(
   recipe: Recipe,
   gearset: GearsetStats,
+  buffs?: AdvisorBuffs,
 ): number {
-  const buffed = gearsetToBuffedStats(gearset, undefined)
+  const buffed = gearsetToBuffedStats(gearset, buffs)
   const rlt = recipe.recipeLevelTable
 
   // Preferred path: trust the recipe-level table's suggestedCraftsmanship.
@@ -248,9 +260,12 @@ export function solveProgressBreakpoint(
  *
  * Mirrors the math of `canReachHQQuality` but takes buffed stats directly so
  * `solveQualityBreakpoint` can buff once and probe many candidates without
- * re-running `gearsetToBuffedStats` per binary-search step (the Soul/buff fold
- * is additive when buffs are absent, so adding a Δ to buffed stats is identical
- * to buffing gearset+Δ).
+ * re-running `gearsetToBuffedStats` per binary-search step. Without buffs the
+ * fold is additive, so adding a Δ to buffed stats is EXACT; with food % (#136)
+ * a hit cap makes "buffed + Δ" only APPROXIMATE — acceptable because this only
+ * seeds the inner search's first probe (ADR-0002 non-binding), and
+ * `searchMinimalQualityDelta` re-confirms every candidate through the real
+ * solver with the same buffs.
  */
 function quietCanReachHQQuality(
   recipe: Recipe,
@@ -279,17 +294,22 @@ export function solveQualityBreakpoint(
   gearset: GearsetStats,
   craftsmanshipDelta: number,
   initialQuality: number,
+  buffs?: AdvisorBuffs,
 ): { control: number; cp: number } {
-  // Buff once. The closed-form quality bound depends only on control/cp, which
-  // are additive through the Soul/buff fold (buffs absent here), so we probe
-  // candidates by adding Δ to the buffed baseline instead of re-buffing
-  // gearset+Δ on every binary-search step. craftsmanshipDelta is folded in for
-  // a faithful baseline even though it does not affect the quality math.
+  // Buff once (now WITH food/medicine, #136, so the baseline matches the screen).
+  // We then probe candidates by adding Δ to the buffed baseline instead of
+  // re-buffing gearset+Δ per binary-search step. With food % (capped) the
+  // add-Δ-to-buffed shortcut is only APPROXIMATE — but this breakpoint is a
+  // NON-BINDING seed (ADR-0002): it picks the inner search's first probe point,
+  // and `searchMinimalQualityDelta` re-confirms every candidate through the real
+  // solver with the same buffs, so an approximate seed never changes the answer.
+  // craftsmanshipDelta is folded in for a faithful baseline even though it does
+  // not affect the quality math.
   const withCraft: GearsetStats = {
     ...gearset,
     craftsmanship: gearset.craftsmanship + craftsmanshipDelta,
   }
-  const buffed = gearsetToBuffedStats(withCraft, undefined)
+  const buffed = gearsetToBuffedStats(withCraft, buffs)
 
   const tryControlBinary = (cpDelta: number): number | null => {
     const cp = buffed.cp + cpDelta
@@ -423,9 +443,10 @@ export function enumerateCraftsmanshipLadder(
   recipe: Recipe,
   gearset: GearsetStats,
   baseCraftDelta: number,
+  buffs?: AdvisorBuffs,
 ): number[] {
   const rlt = recipe.recipeLevelTable
-  const buffed = gearsetToBuffedStats(gearset, undefined)
+  const buffed = gearsetToBuffedStats(gearset, buffs)
   const baseCraftsmanship = buffed.craftsmanship + baseCraftDelta
 
   // Progress steps cleared at a given buffed craftsmanship under the
@@ -519,6 +540,7 @@ export async function searchMinimalQualityDelta(
   initialQuality: number,
   deps: ConfirmDeps = { solve: solveCraftForRecipe, simulate: simulateCraftForRecipe },
   isCancelled?: () => boolean,
+  buffs?: AdvisorBuffs,
 ): Promise<ConfirmedBreakpoint> {
   const craftsmanship = seed.craftsmanship
   const cp = seed.cp
@@ -540,11 +562,12 @@ export async function searchMinimalQualityDelta(
       cp: gearset.cp + cp,
     }
     solveCount++
-    const solverResult = await deps.solve(recipe, bumped, { initialQuality })
+    const solverResult = await deps.solve(recipe, bumped, { initialQuality, buffs })
     if (isCancelled?.()) return null
     const simResult = await deps.simulate(recipe, bumped, {
       actions: solverResult.actions,
       initialQuality,
+      buffs,
     })
     const ok = isDoubleMax(simResult)
     cache.set(controlDelta, ok)
@@ -801,6 +824,9 @@ export async function adviseMeld(
 ): Promise<MeldAdvice> {
   const initialQuality = options.initialQuality ?? 0
   const isCancelled = options.isCancelled
+  // #136: fold the screen's active food/medicine into every solver call + the
+  // closed-form seeds, so the advisor judges HQ on the same effectiveStats.
+  const buffs = options.buffs
 
   const bis = computeBisPlan(gearset, options.bisReference, priceMap)
 
@@ -826,11 +852,12 @@ export async function adviseMeld(
 
   // Step 0: already meets (at max-HQ baseline)? → HQ materials alone suffice.
   try {
-    const solverResult = await deps.solve(binding, gearset, { initialQuality: maxHqInitialQuality })
+    const solverResult = await deps.solve(binding, gearset, { initialQuality: maxHqInitialQuality, buffs })
     if (isCancelled?.()) return bailout(bis)
     const simResult = await deps.simulate(binding, gearset, {
       actions: solverResult.actions,
       initialQuality: maxHqInitialQuality,
+      buffs,
     })
     if (isDoubleMax(simResult)) {
       return {
@@ -852,7 +879,7 @@ export async function adviseMeld(
   // NON-BINDING SEEDS (ADR-0002). solveProgressBreakpoint gives the BASE rung of
   // the #127 craftsmanship ladder; solveQualityBreakpoint seeds the inner control
   // search's first probe point.
-  const craftDelta = solveProgressBreakpoint(binding, gearset)
+  const craftDelta = solveProgressBreakpoint(binding, gearset, buffs)
 
   if (isCancelled?.()) return bailout(bis)
 
@@ -864,7 +891,7 @@ export async function adviseMeld(
   // FEASIBLE + solver-confirmed candidate. Adding craftsmanship only helps when
   // finishing progress in fewer steps frees CP budget for quality; the search
   // ranks that coupling against direct control on real gil (ADR-0002).
-  const ladder = enumerateCraftsmanshipLadder(binding, gearset, craftDelta)
+  const ladder = enumerateCraftsmanshipLadder(binding, gearset, craftDelta, buffs)
 
   let best: MeldPlan | null = null
   let bestConfirmed = false
@@ -873,11 +900,11 @@ export async function adviseMeld(
     // Re-seed the inner control search at this rung's craftsmanship. The seed is
     // non-binding (search speed only); recompute it so the probe starts near the
     // answer for THIS rung rather than the stale baseline-craftsmanship hint.
-    const qualityDelta = solveQualityBreakpoint(binding, gearset, rungCraft, maxHqInitialQuality)
+    const qualityDelta = solveQualityBreakpoint(binding, gearset, rungCraft, maxHqInitialQuality, buffs)
     const seed = { craftsmanship: rungCraft, control: qualityDelta.control, cp: qualityDelta.cp }
 
     const confirmed = await searchMinimalQualityDelta(
-      binding, gearset, seed, maxHqInitialQuality, deps, isCancelled,
+      binding, gearset, seed, maxHqInitialQuality, deps, isCancelled, buffs,
     )
     // Criterion 4: only solver double-max-confirmed candidates enter the price
     // comparison. An unconfirmed rung (cancelled or genuinely unsolvable within

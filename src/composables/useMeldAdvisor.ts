@@ -5,6 +5,7 @@ import type { MarketData } from '@/api/universalis'
 import { BIS_REFERENCE } from '@/engine/materia'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
+import type { FoodBuff } from '@/engine/food-medicine'
 
 /**
  * The pricing API throws this when no market server/DC is selected. Since #135
@@ -25,6 +26,7 @@ export function useMeldAdvisor(world: () => string) {
     recipe: Recipe,
     gearset: GearsetStats,
     initialQuality: number,
+    buffs?: { food: FoodBuff | null; medicine: FoodBuff | null },
   ) {
     cancelToken.cancelled = true
     const token = { cancelled: false }
@@ -46,6 +48,9 @@ export function useMeldAdvisor(world: () => string) {
         {
           bisReference: BIS_REFERENCE,
           initialQuality,
+          // #136: solve on the same effectiveStats the screen uses — fold the
+          // active food/medicine in (ADR-0001 order), not just raw gear + Soul.
+          buffs,
           isCancelled: () => token.cancelled,
         },
       )

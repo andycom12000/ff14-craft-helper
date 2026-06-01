@@ -1108,6 +1108,77 @@ describe('adviseMeld golden snapshot', () => {
   })
 })
 
+// #136: the reverse advisor must solve on the SAME effectiveStats the screen
+// uses. Before this, runAdvisor/adviseMeld dropped the food/medicine buffs, so
+// with food on the advisor over-recommended (it under-counted the buff) or
+// false-reported unreachable. The fix threads buffs through every solver call
+// and the closed-form baselines (ADR-0001 fold: Soul → food → medicine).
+describe('adviseMeld — food/medicine buff basis (#136)', () => {
+  const priceMap = new Map<number, any>(
+    MATERIA_GRADES.map(m => [m.itemId, { minPriceNQ: 1000, listings: [] }]),
+  )
+  const gearset = {
+    level: 100, craftsmanship: 4500, control: 4500, cp: 600, isSpecialist: false,
+  }
+  const buffs = {
+    food: { id: 1, name: 'f', craftsmanship: { percent: 5, max: 200 }, control: { percent: 5, max: 200 } },
+    medicine: null,
+  }
+
+  it('forwards food/medicine buffs to every solver + sim call (same basis as the screen)', async () => {
+    const recipe = makeRecipe(1, 1000, 5000)
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = vi.fn().mockResolvedValue({
+      progress: 1000, max_progress: 1000, quality: 5000, max_quality: 5000,
+    })
+    await adviseMeld(
+      [recipe], gearset, priceMap,
+      { bisReference: BIS_REFERENCE, buffs },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+    expect(fakeSolve).toHaveBeenCalled()
+    for (const call of fakeSolve.mock.calls) {
+      expect(call[2]).toMatchObject({ buffs })
+    }
+    for (const call of fakeSimulate.mock.calls) {
+      expect(call[2]).toMatchObject({ buffs })
+    }
+  })
+
+  it('without buffs, the solver receives no buffs (byte-parity with pre-#136)', async () => {
+    const recipe = makeRecipe(1, 1000, 5000)
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = vi.fn().mockResolvedValue({
+      progress: 1000, max_progress: 1000, quality: 5000, max_quality: 5000,
+    })
+    await adviseMeld(
+      [recipe], gearset, priceMap,
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+    expect(fakeSolve.mock.calls[0][2].buffs).toBeUndefined()
+  })
+
+  it('food craftsmanship buff folds into the progress breakpoint baseline (smaller Δ)', () => {
+    // Real rlv690 (suggestedCraftsmanship 4207). Base craft 4000:
+    //   no food   → Δ = 4207 - 4000 = 207
+    //   +5% food (cap 200) → buffed 4200 → Δ = 4207 - 4200 = 7
+    const rlv690 = {
+      classJobLevel: 100, stars: 0, difficulty: 6600, quality: 12000,
+      durability: 80, suggestedCraftsmanship: 4207,
+      progressDivider: 170, qualityDivider: 150,
+      progressModifier: 90, qualityModifier: 75,
+    }
+    const recipe = { id: 1, name: 'r', job: 'CRP', canHq: true, isExpert: false, recipeLevelTable: rlv690 } as unknown as Recipe
+    const g = { level: 100, craftsmanship: 4000, control: 4100, cp: 560, isSpecialist: false }
+
+    const withoutFood = solveProgressBreakpoint(recipe, g)
+    const withFood = solveProgressBreakpoint(recipe, g, buffs)
+    expect(withoutFood).toBe(207)
+    expect(withFood).toBeLessThan(withoutFood)
+  })
+})
+
 describe('enumerateCraftsmanshipLadder — #140 finite guard', () => {
   // progressModifier:0 with crafterLevel <= classJobLevel makes computeBaseProgress
   // return 0 → perStep === 0 → stepsAt() === Infinity → baseSteps === Infinity.

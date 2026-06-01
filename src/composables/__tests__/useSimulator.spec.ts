@@ -30,10 +30,11 @@ vi.mock('@/api/xivapi', () => ({
 // the cost-optimal steps for the chip label.
 const adviceRef = ref<MeldAdvice | 'loading' | 'stale' | 'no-market' | null>(null)
 const markStaleMock = vi.fn()
+const runAdvisorMock = vi.fn()
 vi.mock('@/composables/useMeldAdvisor', () => ({
   useMeldAdvisor: () => ({
     advice: adviceRef,
-    runAdvisor: vi.fn(),
+    runAdvisor: runAdvisorMock,
     markStale: markStaleMock,
   }),
 }))
@@ -80,6 +81,40 @@ describe('useSimulator — session-only meld override (Slice C)', () => {
     localStorage.clear()
     adviceRef.value = null
     markStaleMock.mockClear()
+    runAdvisorMock.mockClear()
+  })
+
+  // #136: the ride-along advisor must solve on the screen's effectiveStats — so
+  // onSolveComplete hands it the active food/medicine buffs captured from the
+  // FoodMedicine card.
+  it('#136: onSolveComplete forwards the active food/medicine buffs to the advisor', () => {
+    seedCrpGearset()
+    useRecipeStore().setRecipe(RECIPE)
+    const sim = useSimulator()
+    const food = { id: 1, name: 'f', control: { percent: 5, max: 100 } }
+
+    sim.onBuffsUpdate({ food, medicine: null })
+    runAdvisorMock.mockClear()
+    sim.onSolveComplete({ actions: ['x'] })
+
+    expect(runAdvisorMock).toHaveBeenCalledWith(
+      RECIPE, expect.anything(), expect.any(Number), { food, medicine: null },
+    )
+  })
+
+  // #136: changing food/medicine after a solve shifts the solve basis, so the
+  // prior advice must go stale (same contract as meldOverride in #137).
+  it('#136: changing the active buffs marks prior advice stale', async () => {
+    seedCrpGearset()
+    useRecipeStore().setRecipe(RECIPE)
+    adviceRef.value = ADVICE
+    const sim = useSimulator()
+    markStaleMock.mockClear()
+
+    sim.onBuffsUpdate({ food: { id: 1, name: 'f', control: { percent: 5, max: 100 } }, medicine: null })
+    await nextTick()
+
+    expect(markStaleMock).toHaveBeenCalled()
   })
 
   // #137: applying a meld only changes the session meldOverride (folded into
