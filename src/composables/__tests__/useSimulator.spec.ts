@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 import type { MeldAdvice } from '@/services/meld-advisor'
 
@@ -29,11 +29,12 @@ vi.mock('@/api/xivapi', () => ({
 // useMeldAdvisor — inject a controllable advice ref so handleApplyMeld can read
 // the cost-optimal steps for the chip label.
 const adviceRef = ref<MeldAdvice | 'loading' | 'stale' | 'no-market' | null>(null)
+const markStaleMock = vi.fn()
 vi.mock('@/composables/useMeldAdvisor', () => ({
   useMeldAdvisor: () => ({
     advice: adviceRef,
     runAdvisor: vi.fn(),
-    markStale: vi.fn(),
+    markStale: markStaleMock,
   }),
 }))
 
@@ -78,6 +79,25 @@ describe('useSimulator — session-only meld override (Slice C)', () => {
     setActivePinia(createPinia())
     localStorage.clear()
     adviceRef.value = null
+    markStaleMock.mockClear()
+  })
+
+  // #137: applying a meld only changes the session meldOverride (folded into
+  // effectiveStats), not the gearset — so unless meldOverride is watched, the
+  // advisor card keeps showing the pre-apply numbers until a manual re-solve.
+  it('applying a meld marks the advice stale so the card stops showing pre-apply numbers (#137)', async () => {
+    seedCrpGearset()
+    const recipeStore = useRecipeStore()
+    recipeStore.setRecipe(RECIPE)
+    adviceRef.value = ADVICE
+
+    const sim = useSimulator()
+    markStaleMock.mockClear() // ignore any stale marks during setup wiring
+
+    sim.handleApplyMeld({ craftsmanship: 0, control: 432, cp: 0 })
+    await nextTick()
+
+    expect(markStaleMock).toHaveBeenCalled()
   })
 
   it('handleApplyMeld sets a session override and does NOT mutate the gearset store', () => {
