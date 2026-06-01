@@ -556,7 +556,9 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
                     :gearset="gearset"
                     :advice="meldAdvice"
                     :initial-quality="initialQuality"
+                    :override-active="!!meldOverride"
                     @apply="handleApplyMeld"
+                    @clear-override="clearMeldOverride"
                   />
                 </div>
               </section>
@@ -624,7 +626,9 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
                 :gearset="gearset"
                 :advice="meldAdvice"
                 :initial-quality="initialQuality"
+                :override-active="!!meldOverride"
                 @apply="handleApplyMeld"
+                @clear-override="clearMeldOverride"
               />
             </div>
           </section>
@@ -838,7 +842,9 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
               :gearset="gearset"
               :advice="meldAdvice"
               :initial-quality="initialQuality"
+              :override-active="!!meldOverride"
               @apply="handleApplyMeld"
+              @clear-override="clearMeldOverride"
             />
           </div>
         </section>

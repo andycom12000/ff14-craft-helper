@@ -198,4 +198,41 @@ describe('useMeldPlayground', () => {
     expect(pg.selections.value).toEqual([])
     expect(pg.deltaStats.value.control).toBe(0)
   })
+
+  // #141 AC1 (priority): the forward sim returns RAW quality (the solver subtracts
+  // initialQuality from the target and never adds it back), so the double-max判定
+  // must add `initialQuality` back — same axis as the host's `runSimulation`. A
+  // real recipe with HQ ingredients (iq>0) used to systematically false-report
+  // cannot-hq because the raw quality landed just below max_quality.
+  it('#141 AC1: adds initialQuality back when judging double-max', async () => {
+    // raw sim quality 11,000 < 12,000 max — alone this would read cannot-hq.
+    vi.mocked(simulateCraftForRecipe).mockResolvedValue({ ...simResult(false), quality: 11000 })
+
+    // With no head start (iq=0) the raw quality stays below max → cannot-hq.
+    const cold = useMeldPlayground(() => stubRecipe, () => stubGearset, undefined, () => 0)
+    cold.setSelection('control', 12, 8)
+    await cold.runForwardCheck()
+    expect(cold.verdict.value).toBe('cannot-hq')
+
+    // With a 2,000 HQ-ingredient head start, 11,000 + 2,000 ≥ 12,000 → can-hq.
+    const warm = useMeldPlayground(() => stubRecipe, () => stubGearset, undefined, () => 2000)
+    warm.setSelection('control', 12, 8)
+    await warm.runForwardCheck()
+    expect(warm.verdict.value).toBe('can-hq')
+  })
+
+  // #141 AC5: changing grade must keep an already-computed verdict STALE (awaiting
+  // recompute), not silently drop it back to idle. The two-step "clear old grade
+  // then set new grade" used to transiently empty selections → reset to idle.
+  it('#141 AC5: changing grade marks a computed verdict stale, not idle', async () => {
+    const pg = useMeldPlayground(() => stubRecipe, () => stubGearset)
+    pg.setSelection('control', 12, 8)
+    await pg.runForwardCheck()
+    expect(pg.verdict.value).toBe('can-hq')
+
+    pg.changeGrade('control', 11)
+    expect(pg.verdict.value).toBe('stale')
+    // the placed count moves onto the new grade (no row is lost)
+    expect(pg.selections.value).toEqual([{ stat: 'control', grade: 11, count: 8 }])
+  })
 })

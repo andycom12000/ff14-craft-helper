@@ -7,7 +7,7 @@ import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 import type { MeldAdvice } from '@/services/meld-advisor'
 import type { CraftStat } from '@/engine/materia'
-import { materiaForStat } from '@/engine/materia'
+import { materiaForStat, MAX_MELD_COUNT } from '@/engine/materia'
 import { gearsetToBuffedStats } from '@/services/stat-stacking'
 import { useMeldPlayground, type MeldVerdict } from '@/composables/useMeldPlayground'
 
@@ -29,10 +29,15 @@ const props = defineProps<{
   advice: MeldAdvice | 'loading' | 'stale' | 'no-market' | null
   /** HQ ingredients head-start so the forward check matches the screen baseline. */
   initialQuality?: number
+  /** Whether the host currently holds a meld override applied from this card —
+   *  gates the in-place「撤銷」undo (criterion 3). */
+  overrideActive?: boolean
 }>()
 
 const emit = defineEmits<{
   apply: [delta: { craftsmanship: number; control: number; cp: number }]
+  /** Revoke the host's session meld override (clear / in-place undo, criterion 3). */
+  'clear-override': []
 }>()
 
 const pg = useMeldPlayground(
@@ -68,17 +73,15 @@ function gradeFor(stat: CraftStat): number {
 }
 
 function onCount(stat: CraftStat, raw: string | number) {
-  const count = Math.max(0, Math.floor(Number(raw) || 0))
+  // #141 AC2: clamp to the physical slot budget so an absurd entry (e.g. 999)
+  // can't reach the solver and read can-hq / emit an override.
+  const count = Math.min(MAX_MELD_COUNT, Math.max(0, Math.floor(Number(raw) || 0)))
   pg.setSelection(stat, gradeFor(stat), count)
 }
 
 function onGrade(stat: CraftStat, raw: string | number) {
-  const grade = Number(raw)
-  const count = countFor(stat)
-  // Move the existing count onto the new grade (clear the old grade row first).
-  const old = selections.value.find((s) => s.stat === stat)
-  if (old && old.grade !== grade) pg.setSelection(stat, old.grade, 0)
-  pg.setSelection(stat, grade, count)
+  // #141 AC5: atomic grade move keeps a computed verdict stale (not idle).
+  pg.changeGrade(stat, Number(raw))
 }
 
 /** Buffed stats the solver actually sees (Soul/food fold; food/medicine are
@@ -102,6 +105,15 @@ function loadReverse() {
 
 function clearAll() {
   pg.clear()
+  // #141 AC3: clearing also revokes any override this card applied, so the host
+  // drops its chip instead of stranding a phantom +Δ.
+  emit('clear-override')
+}
+
+/** #141 AC3: in-place undo — revoke the applied override without hunting for the
+ *  distant FoodMedicine chip ✕. Leaves the picker selections intact. */
+function undoOverride() {
+  emit('clear-override')
 }
 
 async function runCheck() {
@@ -110,8 +122,8 @@ async function runCheck() {
 
 function applyOverride() {
   if (!hasSelections.value) return
+  // #141 AC4: the host owns the single「已套用模擬鑲嵌」toast; don't double it.
   emit('apply', { ...deltaStats.value })
-  ElMessage.success('已套用模擬鑲嵌（未寫入配裝）')
 }
 
 const VERDICT_TEXT: Record<MeldVerdict, string> = {
@@ -171,6 +183,7 @@ const verdictClass = computed(() => {
           class="mpg-count"
           type="number"
           min="0"
+          :max="MAX_MELD_COUNT"
           :data-test="`count-${s.key}`"
           :value="countFor(s.key)"
           @input="onCount(s.key, ($event.target as HTMLInputElement).value)"
@@ -212,6 +225,16 @@ const verdictClass = computed(() => {
         清除
       </button>
     </div>
+
+    <button
+      v-if="props.overrideActive"
+      type="button"
+      class="mpg-undo"
+      data-test="undo-override"
+      @click="undoOverride"
+    >
+      撤銷已套用的模擬鑲嵌
+    </button>
 
     <p class="mpg-verdict" :class="verdictClass" data-test="verdict" aria-live="polite">
       {{ VERDICT_TEXT[verdict] }}
@@ -336,6 +359,19 @@ const verdictClass = computed(() => {
   background: transparent;
   border-color: var(--app-border, oklch(0.65 0.04 65 / 0.4));
   color: var(--app-text-muted, oklch(0.5 0.03 60));
+}
+
+.mpg-undo {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--app-craft, oklch(0.5 0.16 40));
+  font-family: 'Noto Serif TC', serif;
+  font-size: 12.5px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
 }
 
 .mpg-verdict {
