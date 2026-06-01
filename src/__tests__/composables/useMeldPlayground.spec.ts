@@ -59,6 +59,7 @@ function simResult(doubleMax: boolean): SimulateResult {
 }
 
 const reverseAdvice: MeldAdvice = {
+  status: 'feasible',
   costOptimal: {
     feasible: true,
     // grade-12 control = 54 each; 8 placed melds → 432 control

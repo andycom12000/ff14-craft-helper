@@ -33,6 +33,7 @@ vi.mock('@/components/gearset/GearsetSheet.vue', () => ({ default: { template: '
 vi.mock('@/components/batch/BenchPanel.vue', () => ({ default: { template: '<div />' } }))
 
 const advice = (): MeldAdvice => ({
+  status: 'feasible',
   alreadyMeetsThreshold: false,
   hqSufficient: false,
   rankedByCount: false,

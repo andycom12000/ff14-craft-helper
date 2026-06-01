@@ -4,6 +4,7 @@ import MeldAdvisorCard from '@/components/MeldAdvisorCard.vue'
 import type { MeldAdvice } from '@/services/meld-advisor'
 
 const fullAdvice: MeldAdvice = {
+  status: 'feasible',
   alreadyMeetsThreshold: false,
   hqSufficient: false,
   rankedByCount: false,
@@ -76,6 +77,7 @@ describe('MeldAdvisorCard', () => {
   it('cost mode shows "需換底裝" when infeasible', () => {
     const infeasible: MeldAdvice = {
       ...fullAdvice,
+      status: 'infeasible',
       costOptimal: { ...fullAdvice.costOptimal, feasible: false, reason: '槽位不足,需換底裝' },
     }
     const w = mount(MeldAdvisorCard, { props: { advice: infeasible, mode: 'cost', showApply: false } })
@@ -185,6 +187,7 @@ describe('MeldAdvisorCard', () => {
   it('ability mode: infeasible plan surfaces the reason and no CTA', () => {
     const infeasible: MeldAdvice = {
       ...fullAdvice,
+      status: 'infeasible',
       costOptimal: { ...fullAdvice.costOptimal, feasible: false, reason: '槽位不足,需換底裝', steps: [] },
     }
     const w = mount(MeldAdvisorCard, { props: { advice: infeasible, mode: 'ability' } })
@@ -256,5 +259,51 @@ describe('MeldAdvisorCard', () => {
       props: { advice: fullAdvice, mode: 'cost', showApply: false, overrideActive: true },
     })
     expect(w.findAll('button').some(b => b.text().includes('存成配裝'))).toBe(false)
+  })
+
+  // --- #133: honest status rendering — never claim 保證 HQ on a non-feasible run ---
+
+  it('ability mode: status timed-out shows the 逾時 message, not 保證 HQ', () => {
+    const advice: MeldAdvice = {
+      ...fullAdvice,
+      status: 'timed-out',
+      costOptimal: { ...fullAdvice.costOptimal, confirmedBySolver: false },
+    }
+    const w = mount(MeldAdvisorCard, { props: { advice, mode: 'ability' } })
+    expect(w.text()).toContain('逾時')
+    expect(w.text()).not.toContain('保證 HQ')
+    expect(w.findAll('button').some(b => b.text().includes('套用鑲嵌'))).toBe(false)
+  })
+
+  it('ability mode: status error shows the 失敗 message, not 保證 HQ', () => {
+    const advice: MeldAdvice = {
+      ...fullAdvice,
+      status: 'error',
+      costOptimal: { ...fullAdvice.costOptimal, confirmedBySolver: false },
+    }
+    const w = mount(MeldAdvisorCard, { props: { advice, mode: 'ability' } })
+    expect(w.text()).toContain('失敗')
+    expect(w.text()).not.toContain('保證 HQ')
+  })
+
+  // The core #123/#133 bug: an unconfirmed-but-feasible-looking plan (status
+  // infeasible) must NOT render the「即可保證 HQ」sentence or the 套用 CTA — it
+  // claimed guaranteed HQ right after the solver failed to confirm one.
+  it('ability mode: infeasible status with a leftover plan never claims 保證 HQ nor offers 套用', () => {
+    const advice: MeldAdvice = {
+      ...fullAdvice,
+      status: 'infeasible',
+      costOptimal: { ...fullAdvice.costOptimal, confirmedBySolver: false }, // still feasible:true, has steps
+    }
+    const w = mount(MeldAdvisorCard, { props: { advice, mode: 'ability' } })
+    expect(w.text()).toContain('無法只靠鑲嵌保證 HQ')
+    expect(w.text()).not.toContain('即可保證 HQ')
+    expect(w.findAll('button').some(b => b.text().includes('套用鑲嵌'))).toBe(false)
+  })
+
+  it('ability mode: feasible + confirmed still shows the 保證 HQ sentence and 套用 CTA (regression)', () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: fullAdvice, mode: 'ability' } })
+    expect(w.text()).toContain('即可保證 HQ')
+    expect(w.findAll('button').some(b => b.text().includes('套用鑲嵌'))).toBe(true)
   })
 })

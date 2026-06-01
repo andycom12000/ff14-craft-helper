@@ -101,8 +101,14 @@ function raceDeadline<T>(
   let timer: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
-      controller.abort()
+      // #133: reject the race with SolveDeadlineError BEFORE aborting. The abort
+      // makes the worker synchronously reject `runPromise` with a
+      // SolveCancelledError (cancelRequest); if that fires first it would win the
+      // race and a genuine deadline would be mislabelled `cancelled`. Settling
+      // the timeout first latches `timed-out`; the worker's later cancel is then
+      // swallowed by `runPromise.catch`.
       reject(new SolveDeadlineError())
+      controller.abort()
     }, ms)
   })
 
@@ -161,7 +167,30 @@ export interface MeldPlan {
   confirmedBySolver: boolean
 }
 
+/**
+ * #133 — honest outcome discriminant for a reverse-advisor run. Replaces the
+ * old bit-identical bailout: infeasible / timed-out / error / cancelled all used
+ * to return the same `MeldAdvice` shape, so the UI could not tell "this recipe
+ * can't be HQ-guaranteed by melds" from "the solve timed out" from "the solve
+ * crashed". The UI renders each honestly and never asserts a 保證 HQ *guarantee*
+ * (the「即可保證 HQ」sentence + 套用 CTA) on a non-`feasible` status — note the
+ * infeasible copy「此配方無法只靠鑲嵌保證 HQ」denies the guarantee rather than claiming it.
+ *
+ * - `feasible`   — a solver-confirmed plan exists (incl. hqSufficient = 0 melds).
+ * - `infeasible` — the full bounded ladder ran and no rung double-maxed: melds
+ *                  alone cannot guarantee HQ on this recipe + gear.
+ * - `timed-out`  — a solve hit the wall-clock deadline (#132) before converging.
+ * - `error`      — a solve threw for a non-deadline/cancel reason.
+ * - `cancelled`  — the run was superseded/aborted (rarely reaches the UI; the
+ *                  composable drops a cancelled run's result).
+ */
+export type MeldAdviceStatus = 'feasible' | 'infeasible' | 'timed-out' | 'error' | 'cancelled'
+
 export interface MeldAdvice {
+  /** #133 — see {@link MeldAdviceStatus}. Drives honest no-result rendering and
+   *  gates the apply / load-reverse CTAs (only `feasible` + a solver-confirmed
+   *  plan may act). */
+  status: MeldAdviceStatus
   costOptimal: MeldPlan
   bis: MeldPlan
   gapGil: number | null     // bis.totalGil - costOptimal.totalGil; null if either is null
@@ -928,6 +957,7 @@ export async function adviseMeld(
   const binding = findBindingRecipe(targets)
   if (!binding) {
     return {
+      status: 'feasible',
       costOptimal: emptyMeldPlan(0, false),
       bis,
       gapGil: bis.totalGil,
@@ -950,7 +980,7 @@ export async function adviseMeld(
   // bailout, same as any other Step-0 solver failure.
   try {
     const solverResult = await guardedDeps.solve(binding, gearset, { initialQuality: maxHqInitialQuality, buffs })
-    if (isCancelled?.()) return bailout(bis)
+    if (isCancelled?.()) return bailout(bis, 'cancelled')
     const simResult = await guardedDeps.simulate(binding, gearset, {
       actions: solverResult.actions,
       initialQuality: maxHqInitialQuality,
@@ -958,6 +988,7 @@ export async function adviseMeld(
     })
     if (isDoubleMax(simResult)) {
       return {
+        status: 'feasible',
         costOptimal: emptyMeldPlan(0, true),
         bis,
         gapGil: bis.totalGil,
@@ -966,11 +997,13 @@ export async function adviseMeld(
         rankedByCount: false,
       }
     }
-  } catch {
-    return bailout(bis)
+  } catch (err) {
+    // #133: distinguish deadline (timed-out) / cancel (cancelled) / other
+    // (error) instead of the old bit-identical bailout.
+    return bailout(bis, statusForError(err))
   }
 
-  if (isCancelled?.()) return bailout(bis)
+  if (isCancelled?.()) return bailout(bis, 'cancelled')
 
   // Steps 2 + 3: closed-form breakpoints (on top of max-HQ baseline), demoted to
   // NON-BINDING SEEDS (ADR-0002). solveProgressBreakpoint gives the BASE rung of
@@ -978,7 +1011,7 @@ export async function adviseMeld(
   // search's first probe point.
   const craftDelta = solveProgressBreakpoint(binding, gearset, buffs)
 
-  if (isCancelled?.()) return bailout(bis)
+  if (isCancelled?.()) return bailout(bis, 'cancelled')
 
   // Step 4 (#127): the OUTER craftsmanship ladder around the #126 inner quality
   // search, completing the 3D (craftsmanship × control × CP) bounded cost search.
@@ -992,8 +1025,11 @@ export async function adviseMeld(
 
   let best: MeldPlan | null = null
   let bestConfirmed = false
+  // #133: why the ladder stopped without a confirmed plan — drives the honest
+  // terminal status. Stays null while the ladder runs to completion (→ infeasible).
+  let interruptedStatus: Exclude<MeldAdviceStatus, 'feasible' | 'infeasible'> | null = null
   for (const rungCraft of ladder) {
-    if (isCancelled?.()) break
+    if (isCancelled?.()) { interruptedStatus = 'cancelled'; break }
     // Re-seed the inner control search at this rung's craftsmanship. The seed is
     // non-binding (search speed only); recompute it so the probe starts near the
     // answer for THIS rung rather than the stale baseline-craftsmanship hint.
@@ -1009,7 +1045,11 @@ export async function adviseMeld(
       // #132: a wall-clock deadline or run-level abort tore down an in-flight
       // solve. Stop the ladder and keep the best confirmed candidate so far
       // (the bailout shape if none) rather than rejecting the whole advisor.
-      if (err instanceof SolveDeadlineError || err instanceof SolveCancelledError) break
+      // #133: remember WHY so the terminal status is honest (timed-out / cancelled).
+      if (err instanceof SolveDeadlineError || err instanceof SolveCancelledError) {
+        interruptedStatus = statusForError(err)
+        break
+      }
       throw err
     }
     // Criterion 4: only solver double-max-confirmed candidates enter the price
@@ -1031,6 +1071,14 @@ export async function adviseMeld(
 
   const costOptimal = best ?? emptyMeldPlan(null, false)
 
+  // #133: honest terminal status. A solver-confirmed plan → feasible. Otherwise
+  // the run either ran the full ladder with nothing confirmed (genuinely
+  // infeasible by melds) or was cut short by a deadline/cancel (timed-out /
+  // cancelled) — never claim feasibility for an unconfirmed best.
+  const status: MeldAdviceStatus = bestConfirmed
+    ? 'feasible'
+    : interruptedStatus ?? 'infeasible'
+
   // Step 7: gap (clamped to ≥ 0 — if optimal cost exceeds BiS cost the user
   // is already paying more than needed, so the "saving" is 0, not negative).
   const gapGil =
@@ -1039,6 +1087,7 @@ export async function adviseMeld(
       : null
 
   return {
+    status,
     costOptimal,
     bis,
     gapGil,
@@ -1048,8 +1097,9 @@ export async function adviseMeld(
   }
 }
 
-function bailout(bis: MeldPlan): MeldAdvice {
+function bailout(bis: MeldPlan, status: Exclude<MeldAdviceStatus, 'feasible'>): MeldAdvice {
   return {
+    status,
     costOptimal: emptyMeldPlan(null, false),
     bis,
     gapGil: null,
@@ -1057,4 +1107,13 @@ function bailout(bis: MeldPlan): MeldAdvice {
     hqSufficient: false,
     rankedByCount: false,
   }
+}
+
+/** #133 — map a thrown solver error to the honest non-feasible status it
+ *  represents. Deadline → timed-out, deliberate cancel → cancelled, anything
+ *  else → error. */
+function statusForError(err: unknown): Exclude<MeldAdviceStatus, 'feasible' | 'infeasible'> {
+  if (err instanceof SolveDeadlineError) return 'timed-out'
+  if (err instanceof SolveCancelledError) return 'cancelled'
+  return 'error'
 }

@@ -56,6 +56,7 @@ const RECIPE: Recipe = {
 }
 
 const ADVICE: MeldAdvice = {
+  status: 'feasible',
   alreadyMeetsThreshold: false,
   hqSufficient: false,
   rankedByCount: false,
