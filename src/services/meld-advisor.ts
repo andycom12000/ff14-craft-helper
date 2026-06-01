@@ -6,19 +6,22 @@
  * to a maintained per-patch BiS reference. The gap between the two is the
  * headline value.
  *
- * Algorithm (approach B = closed-form prefilter + bounded solver confirmation):
+ * Algorithm (ADR-0002 = closed-form seeds + solver-authoritative bounded search):
  *   0. already-meets check at the MAX-HQ baseline (§2): if maxing every HQ
  *      material alone double-maxes the binding recipe, HQ materials suffice and
  *      no meld is needed (hqSufficient = true)
  *   1. pick binding recipe (single-axis-max binding for v1)
- *   2. solveProgressBreakpoint (closed-form)
- *   3. solveQualityBreakpoint (closed-form binary search). Quality breakpoints
- *      use the max-HQ initialQuality (all HQ ingredients), NOT the screen's
- *      current selection — meld only covers the residual above max-HQ.
- *   4. confirmBreakpointWithSolver (1-3 real solves, bump up on shortfall)
- *   5. translateDeltaToMeldPlan (guaranteed → overmeld, fail ladder)
- *   6. computeBisPlan (current → BIS_REFERENCE, deep overmeld)
- *   7. assemble MeldAdvice with gapGil
+ *   2. solveProgressBreakpoint / solveQualityBreakpoint (closed-form), demoted to
+ *      NON-BINDING SEEDS — they only choose where to start probing, never the
+ *      answer. Quality uses the max-HQ initialQuality (all HQ ingredients), NOT
+ *      the screen's current selection — meld only covers the residual above max-HQ.
+ *   3. enumerateCraftsmanshipLadder × searchMinimalQualityDelta (#126/#127): the
+ *      OUTER craftsmanship ladder around the inner solver-authoritative quality
+ *      search. Each bounded rung runs real solves and keeps the globally cheapest
+ *      FEASIBLE, solver-confirmed Δ (craftsmanship × control × CP bounded 3D search).
+ *   4. translateDeltaToMeldPlan (guaranteed → overmeld, fail ladder)
+ *   5. computeBisPlan (current → BIS_REFERENCE, deep overmeld)
+ *   6. assemble MeldAdvice with gapGil
  *
  * Stat-stacking (ADR-0001): the Δstats produced by this service are RAW gear
  * deltas. They MUST be folded into the gearset before Soul/food/medicine.
@@ -321,29 +324,6 @@ export function solveQualityBreakpoint(
   return { control: bestControl ?? 10_000, cp: bestCp }
 }
 
-const MAX_CONFIRM_ATTEMPTS = 3
-const BUMP_FACTOR = 0.05 // 5% upward bump on shortfall
-// Safety margin applied when seeding a zero axis from a shortfall ratio, so the
-// first seeded attempt overshoots slightly rather than landing just short.
-const SEED_MARGIN = 1.1
-
-/**
- * Estimate the raw stat delta to seed a *zero* axis that the closed-form
- * pre-filter optimistically left at 0, using the shortfall observed by the
- * solver. Quality and progress are both ~linear in their driving stat
- * (control / craftsmanship), so scaling the buffed stat by the achieved-vs-target
- * ratio is a good first guess; the bump loop refines from there.
- *
- * `buffedAxis` is the buffed value of the driving stat at the current candidate
- * (raw delta is additive through the Soul/buff fold, so the raw seed equals the
- * buffed seed). Falls back to a 10% nudge when the solver achieved nothing.
- */
-function seedZeroAxis(achieved: number, target: number, buffedAxis: number): number {
-  if (achieved <= 0) return Math.max(1, Math.round(buffedAxis * 0.1))
-  const ratio = target / achieved
-  return Math.max(1, Math.ceil(buffedAxis * (ratio - 1) * SEED_MARGIN))
-}
-
 export interface ConfirmDeps {
   solve: typeof solveCraftForRecipe
   simulate: typeof simulateCraftForRecipe
@@ -369,61 +349,6 @@ function isDoubleMax(simResult: {
     simResult.progress >= simResult.max_progress &&
     simResult.quality >= simResult.max_quality
   )
-}
-
-/**
- * Step 4 — confirm a closed-form candidate against the real solver.
- * If the solver can't double-max with the candidate stats, bump the short axes
- * (and seed any zero axis whose dimension is short) and retry. Bounded to
- * MAX_CONFIRM_ATTEMPTS total solves.
- *
- * `deps` is injected so tests can mock the solver without bootstrapping WASM.
- */
-export async function confirmBreakpointWithSolver(
-  recipe: Recipe,
-  gearset: GearsetStats,
-  candidate: { craftsmanship: number; control: number; cp: number },
-  initialQuality: number,
-  deps: ConfirmDeps = { solve: solveCraftForRecipe, simulate: simulateCraftForRecipe },
-  isCancelled?: () => boolean,
-): Promise<ConfirmedBreakpoint> {
-  let delta = { ...candidate }
-  for (let attempt = 0; attempt < MAX_CONFIRM_ATTEMPTS; attempt++) {
-    if (isCancelled?.()) return { deltaStats: delta, confirmedBySolver: false }
-    const bumped: GearsetStats = {
-      ...gearset,
-      craftsmanship: gearset.craftsmanship + delta.craftsmanship,
-      control: gearset.control + delta.control,
-      cp: gearset.cp + delta.cp,
-    }
-    const solverResult = await deps.solve(recipe, bumped, { initialQuality })
-    if (isCancelled?.()) return { deltaStats: delta, confirmedBySolver: false }
-    const simResult = await deps.simulate(recipe, bumped, {
-      actions: solverResult.actions,
-      initialQuality,
-    })
-    if (isDoubleMax(simResult)) return { deltaStats: delta, confirmedBySolver: true }
-    // Retry: bump axes that already carry a positive delta. A zero axis is only
-    // touched when the solver shows that *its* dimension is short — then it is
-    // SEEDED from the shortfall (the closed-form pre-filter over-accepts and can
-    // hand us Δ=0 on an axis that is actually needed; the old `=== 0 ? 0` guard
-    // could never lift it, so the advisor silently recommended "0 melds" for an
-    // unsolvable gearset). Axes whose dimension is already met stay untouched so
-    // we don't inflate cost.
-    const progressShort = simResult.progress < simResult.max_progress
-    const qualityShort = simResult.quality < simResult.max_quality
-    const buffed = gearsetToBuffedStats(bumped, undefined)
-    delta = {
-      craftsmanship: delta.craftsmanship > 0
-        ? Math.ceil(delta.craftsmanship * (1 + BUMP_FACTOR)) + 1
-        : (progressShort ? seedZeroAxis(simResult.progress, simResult.max_progress, buffed.craftsmanship) : 0),
-      control: delta.control > 0
-        ? Math.ceil(delta.control * (1 + BUMP_FACTOR)) + 1
-        : (qualityShort ? seedZeroAxis(simResult.quality, simResult.max_quality, buffed.control) : 0),
-      cp: delta.cp > 0 ? Math.ceil(delta.cp * (1 + BUMP_FACTOR)) : 0,
-    }
-  }
-  return { deltaStats: delta, confirmedBySolver: false }
 }
 
 /**

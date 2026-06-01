@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { MeldAdvice, MeldPlan, MeldStep } from '@/services/meld-advisor'
-import { adviseMeld, findBindingRecipe, solveProgressBreakpoint, solveQualityBreakpoint, confirmBreakpointWithSolver, translateDeltaToMeldPlan, computeBisPlan, computeMaxHqInitialQuality } from '@/services/meld-advisor'
+import { adviseMeld, findBindingRecipe, solveProgressBreakpoint, solveQualityBreakpoint, translateDeltaToMeldPlan, computeBisPlan, computeMaxHqInitialQuality } from '@/services/meld-advisor'
 import type { Recipe } from '@/stores/recipe'
 import { BIS_REFERENCE, MATERIA_GRADES, SLOT_STRUCTURE } from '@/engine/materia'
 
@@ -264,96 +264,6 @@ describe('translateDeltaToMeldPlan', () => {
     )
     expect(plan.steps[0].subtotal).toBeNull()
     expect(plan.totalGil).toBeNull()
-  })
-})
-
-describe('confirmBreakpointWithSolver', () => {
-  it('returns confirmed=true on first solver pass', async () => {
-    const recipe = makeRecipe(1, 1000, 5000)
-    const gs = { level: 100, craftsmanship: 5000, control: 5000, cp: 600, isSpecialist: false }
-
-    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
-    const fakeSimulate = vi.fn().mockResolvedValue({
-      progress: 1000, max_progress: 1000, quality: 5000, max_quality: 5000,
-    })
-
-    const out = await confirmBreakpointWithSolver(
-      recipe, gs,
-      { craftsmanship: 0, control: 0, cp: 0 },
-      0,
-      { solve: fakeSolve, simulate: fakeSimulate },
-    )
-    expect(out.confirmedBySolver).toBe(true)
-    expect(fakeSolve).toHaveBeenCalledTimes(1)
-  })
-
-  it('bumps stats and retries when first attempt falls short', async () => {
-    const recipe = makeRecipe(1, 1000, 5000)
-    const gs = { level: 100, craftsmanship: 1000, control: 1000, cp: 600, isSpecialist: false }
-
-    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
-    const fakeSimulate = vi.fn()
-      .mockResolvedValueOnce({ progress: 500, max_progress: 1000, quality: 4000, max_quality: 5000 })
-      .mockResolvedValueOnce({ progress: 1000, max_progress: 1000, quality: 5000, max_quality: 5000 })
-
-    const out = await confirmBreakpointWithSolver(
-      recipe, gs,
-      { craftsmanship: 100, control: 100, cp: 0 },
-      0,
-      { solve: fakeSolve, simulate: fakeSimulate },
-    )
-    expect(out.confirmedBySolver).toBe(true)
-    expect(fakeSolve).toHaveBeenCalledTimes(2)
-    expect(out.deltaStats.craftsmanship).toBeGreaterThan(100)
-  })
-
-  // Regression: the closed-form quality breakpoint over-accepts and can hand
-  // the confirm loop an all-zero candidate even when the recipe is NOT actually
-  // double-maxable with the bare gearset. The old bump guard (`x === 0 ? 0 : …`)
-  // could never lift a zero axis, so the advisor silently returned a "0 meld"
-  // plan for an unsolvable gearset. The confirm loop must now SEED a zero axis
-  // from the observed shortfall on the dimension that is short.
-  it('seeds a zero axis from the quality shortfall so a Δ=0 candidate can still be confirmed', async () => {
-    const recipe = makeRecipe(1, 1000, 12000)
-    const gs = { level: 100, craftsmanship: 5000, control: 4500, cp: 560, isSpecialist: false }
-
-    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
-    const fakeSimulate = vi.fn()
-      // attempt 0 (Δ=0): progress fine, quality short → must seed control
-      .mockResolvedValueOnce({ progress: 1000, max_progress: 1000, quality: 11000, max_quality: 12000 })
-      // attempt 1 (control seeded): double-maxes
-      .mockResolvedValue({ progress: 1000, max_progress: 1000, quality: 12000, max_quality: 12000 })
-
-    const out = await confirmBreakpointWithSolver(
-      recipe, gs,
-      { craftsmanship: 0, control: 0, cp: 0 },
-      0,
-      { solve: fakeSolve, simulate: fakeSimulate },
-    )
-    expect(out.confirmedBySolver).toBe(true)
-    expect(out.deltaStats.control).toBeGreaterThan(0)
-    // progress was never short, so craftsmanship must not be inflated.
-    expect(out.deltaStats.craftsmanship).toBe(0)
-    expect(fakeSolve).toHaveBeenCalledTimes(2)
-  })
-
-  it('returns confirmed=false after bounded retries fail', async () => {
-    const recipe = makeRecipe(1, 1000, 5000)
-    const gs = { level: 100, craftsmanship: 1000, control: 1000, cp: 600, isSpecialist: false }
-
-    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
-    const fakeSimulate = vi.fn().mockResolvedValue({
-      progress: 500, max_progress: 1000, quality: 4000, max_quality: 5000,
-    })
-
-    const out = await confirmBreakpointWithSolver(
-      recipe, gs,
-      { craftsmanship: 100, control: 100, cp: 0 },
-      0,
-      { solve: fakeSolve, simulate: fakeSimulate },
-    )
-    expect(out.confirmedBySolver).toBe(false)
-    expect(fakeSolve.mock.calls.length).toBeLessThanOrEqual(3)
   })
 })
 
@@ -718,6 +628,38 @@ describe('adviseMeld — quality-gap solver search (#126)', () => {
       r => r.quality >= r.max_quality && r.progress >= r.max_progress,
     )
     expect(doubleMaxed.length).toBeGreaterThan(0)
+  })
+
+  // Regression #100/#139 — migrated to the LIVE path. The closed-form quality
+  // breakpoint over-accepts and can seed Δcontrol=0 even when the bare gearset is
+  // quality-short. The old `confirmBreakpointWithSolver` (now deleted dead code)
+  // used to guard this via a zero-axis seed; the live ladder→search path
+  // (`searchMinimalQualityDelta` inside `adviseMeld`) must itself lift the short
+  // zero axis through solver confirmation — never returning a silent "0 meld"
+  // plan for an under-provisioned gearset, nor inflating the already-met progress
+  // axis (the #123 symptom). This pins the #100 class on the path that actually runs.
+  it('REGRESSION #100/#139 (live path): lifts a quality-short zero axis instead of returning a 0-meld plan', async () => {
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    // Progress trivially met; quality only double-maxes once control is bumped
+    // (>= 108 raw = 2 top-grade melds). The closed-form seed of Δcontrol=0 does
+    // NOT double-max, so a correct live path must search the zero axis upward.
+    const fakeSimulate = gearsetAwareSimulate(reproGearset.control, 108)
+
+    const out = await adviseMeld(
+      [reproRecipe()], reproGearset, priceMap,
+      { bisReference: BIS_REFERENCE },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+
+    // The short axis (control) was lifted by the live solver search...
+    expect(out.costOptimal.deltaStats.control).toBeGreaterThan(0)
+    expect(out.costOptimal.confirmedBySolver).toBe(true)
+    expect(out.costOptimal.feasible).toBe(true)
+    // ...and it is NOT a silent zero-spend / already-meets plan.
+    expect(out.costOptimal.steps.length).toBeGreaterThan(0)
+    expect(out.alreadyMeetsThreshold).toBe(false)
+    // The already-met progress axis must not be inflated (the #123 symptom).
+    expect(out.costOptimal.deltaStats.craftsmanship).toBe(0)
   })
 
   it('returns the cheapest confirmed candidate among several solver-passing control deltas (minimality)', async () => {
