@@ -27,6 +27,9 @@ export interface CraftRequestOptions extends SolverSkillOptions {
   /** When true, sets SolverConfig.strict_quality (disables non-max-quality solutions). */
   strictQuality?: boolean
   onProgress?: (percent: number) => void
+  /** Abort handle (#132): aborting terminates the worker slot running this
+   *  request and frees the pool, instead of letting a runaway WASM solve hold it. */
+  signal?: AbortSignal
 }
 
 export function solveCraftForRecipe(
@@ -34,11 +37,11 @@ export function solveCraftForRecipe(
   gearset: GearsetStats,
   options: CraftRequestOptions = {},
 ): Promise<SolverResultWithTiming> {
-  const { buffs, onProgress, strictQuality, initialQuality, ...skills } = options
+  const { buffs, onProgress, strictQuality, initialQuality, signal, ...skills } = options
   const params = recipeToCraftParams(recipe, gearset, buffs, initialQuality)
   const config = craftParamsToSolverConfig(params, skills)
   if (strictQuality !== undefined) config.strict_quality = strictQuality
-  return solveCraft(config, onProgress)
+  return solveCraft(config, onProgress, signal)
 }
 
 export interface SimulateRequestOptions
@@ -52,8 +55,8 @@ export function simulateCraftForRecipe(
   gearset: GearsetStats,
   options: SimulateRequestOptions,
 ): Promise<SimulateResult> {
-  const { buffs, actions, conditions, initialQuality, ...skills } = options
+  const { buffs, actions, conditions, initialQuality, signal, ...skills } = options
   const params = recipeToCraftParams(recipe, gearset, buffs, initialQuality)
   const config = craftParamsToSolverConfig(params, skills)
-  return simulateCraft(config, actions, conditions)
+  return simulateCraft(config, actions, conditions, signal)
 }

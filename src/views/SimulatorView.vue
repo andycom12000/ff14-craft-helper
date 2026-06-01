@@ -62,7 +62,7 @@ const {
   handleRemoveAction, handleClearActions,
   handleUseSkill, onSolveComplete, handleApplyHq, handleApplyMeld,
   clearMeldOverride, handleSaveMeldToGearset,
-  handleAddToBom, handleSelfCraft,
+  handleAddToBom, handleSelfCraft, cancelAdvisor,
 } = useSimulator()
 
 useSolverInputAudit({
@@ -550,6 +550,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
                     :override-active="!!meldOverride"
                     @apply="handleApplyMeld"
                     @save-to-gearset="handleSaveMeldToGearset"
+                    @cancel="cancelAdvisor"
                   />
                   <MeldPlaygroundCard
                     class="meld-playground"
@@ -620,6 +621,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
                 :override-active="!!meldOverride"
                 @apply="handleApplyMeld"
                 @save-to-gearset="handleSaveMeldToGearset"
+                @cancel="cancelAdvisor"
               />
               <MeldPlaygroundCard
                 class="meld-playground"
@@ -837,6 +839,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
               :override-active="!!meldOverride"
               @apply="handleApplyMeld"
               @save-to-gearset="handleSaveMeldToGearset"
+              @cancel="cancelAdvisor"
             />
             <MeldPlaygroundCard
               class="meld-playground"

@@ -31,6 +31,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   apply: [delta: { craftsmanship: number; control: number; cp: number }]
   'save-to-gearset': [scope: 'this' | 'all']
+  cancel: []
 }>()
 
 /** Resolved CTA visibility. Cost mode is cost-oriented (batch) and has no
@@ -138,6 +139,15 @@ async function copyShoppingList() {
       <div v-else-if="isLoading" class="loading-state">
         <el-icon data-test="spinner" class="is-loading mac-spinner"><Loading /></el-icon>
         <span>計算中…</span>
+        <el-button
+          data-test="cancel-advisor"
+          size="small"
+          text
+          class="cancel-advisor-btn"
+          @click="emit('cancel')"
+        >
+          取消
+        </el-button>
       </div>
 
       <div v-else-if="isStale" class="stale-state">

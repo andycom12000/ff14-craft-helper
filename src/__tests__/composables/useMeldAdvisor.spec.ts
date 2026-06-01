@@ -150,6 +150,51 @@ describe('useMeldAdvisor', () => {
     expect(vi.mocked(adviseMeld).mock.calls[0][3].buffs).toBeUndefined()
   })
 
+  // #132: the run is abortable. runAdvisor threads an AbortSignal into adviseMeld
+  // so a superseded/cancelled run truly tears down its in-flight WASM solve (the
+  // worker slot is freed), not just cooperatively ignored on return.
+  it('#132: forwards an AbortSignal to adviseMeld', async () => {
+    const { runAdvisor } = useMeldAdvisor(() => 'Carbuncle')
+    await runAdvisor(stubRecipe, stubGearset, 0)
+    const opts = vi.mocked(adviseMeld).mock.calls[0][3]
+    expect(opts.signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('#132: cancel() aborts the in-flight signal and clears advice to null', async () => {
+    let captured: AbortSignal | undefined
+    vi.mocked(adviseMeld).mockImplementation((_r, _g, _p, opts: any) => {
+      captured = opts.signal
+      return new Promise(() => { /* hang */ })
+    })
+    const { advice, runAdvisor, cancel } = useMeldAdvisor(() => '') // empty world → straight to adviseMeld
+    void runAdvisor(stubRecipe, stubGearset, 0)
+    await Promise.resolve()
+    expect(captured).toBeInstanceOf(AbortSignal)
+    expect(captured!.aborted).toBe(false)
+    expect(advice.value).toBe('loading')
+
+    cancel()
+    expect(captured!.aborted).toBe(true)
+    expect(advice.value).toBeNull()
+  })
+
+  it('#132: a second runAdvisor aborts the first run\'s signal', async () => {
+    const signals: AbortSignal[] = []
+    vi.mocked(adviseMeld).mockImplementation((_r, _g, _p, opts: any) => {
+      signals.push(opts.signal)
+      return new Promise(() => { /* hang */ })
+    })
+    const { runAdvisor } = useMeldAdvisor(() => '')
+    void runAdvisor(stubRecipe, stubGearset, 0)
+    await Promise.resolve()
+    void runAdvisor(stubRecipe, stubGearset, 0)
+    await Promise.resolve()
+
+    expect(signals).toHaveLength(2)
+    expect(signals[0].aborted).toBe(true)  // superseded
+    expect(signals[1].aborted).toBe(false)
+  })
+
   it('second runAdvisor call cancels the first', async () => {
     // First call hangs
     let resolveFirst!: () => void

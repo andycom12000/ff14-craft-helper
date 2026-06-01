@@ -33,7 +33,7 @@
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 import type { MarketData } from '@/api/universalis'
-import { solveCraftForRecipe, simulateCraftForRecipe } from '@/solver/api'
+import { solveCraftForRecipe, simulateCraftForRecipe, SolveCancelledError } from '@/solver/api'
 import type { CraftStat, BiSReference, MateriaGrade } from '@/engine/materia'
 import {
   SLOT_STRUCTURE,
@@ -56,6 +56,90 @@ import { calculateInitialQuality } from '@/engine/quality'
  * buffs — byte-identical to the pre-#136 advisor.
  */
 type AdvisorBuffs = { food: FoodBuff | null; medicine: FoodBuff | null } | undefined
+
+/**
+ * Per-`solve`/`simulate` wall-clock budget for the bounded search (#132).
+ * Default only — the final tolerance policy is #129 (HITL). A single WASM call
+ * exceeding this is treated as "this recipe is too hard within the budget": the
+ * call is aborted (worker slot freed) and the run bails to its best-so-far,
+ * rather than the old behaviour of blocking indefinitely (>3 min observed on a
+ * 0%-HQ custom recipe with a 7,400 quality gap). 8s comfortably covers a normal
+ * solve (seconds) while capping a pathological one.
+ */
+export const DEFAULT_ADVISOR_SOLVE_DEADLINE_MS = 8000
+
+/** Thrown when a single solve/simulate exceeds the wall-clock deadline (#132). */
+export class SolveDeadlineError extends Error {
+  constructor(message = '求解逾時') {
+    super(message)
+    this.name = 'SolveDeadlineError'
+  }
+}
+
+/**
+ * Race `run(signal)` against a wall-clock deadline (#132). On timeout the signal
+ * is aborted — which, for the real solver, terminates the worker slot and frees
+ * the pool — and a `SolveDeadlineError` is thrown. A caller-supplied `runSignal`
+ * (run-level cancel: superseded run / input change / unmount / cancel button)
+ * also aborts the call. The underlying promise gets a no-op `.catch` so its
+ * late rejection (after the race already settled) is never unhandled.
+ */
+function raceDeadline<T>(
+  ms: number,
+  runSignal: AbortSignal | undefined,
+  run: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
+  const controller = new AbortController()
+  const onRunAbort = () => controller.abort()
+  if (runSignal) {
+    if (runSignal.aborted) controller.abort()
+    else runSignal.addEventListener('abort', onRunAbort, { once: true })
+  }
+  const runPromise = run(controller.signal)
+  runPromise.catch(() => { /* swallow late rejection if the deadline won */ })
+
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort()
+      reject(new SolveDeadlineError())
+    }, ms)
+  })
+
+  return Promise.race([runPromise, timeout]).finally(() => {
+    clearTimeout(timer)
+    if (runSignal) runSignal.removeEventListener('abort', onRunAbort)
+  })
+}
+
+/**
+ * Wrap a `ConfirmDeps` so every solve/simulate is bounded by `deadlineMs` and
+ * abortable via `runSignal` (#132). The injected `signal` reaches the solver
+ * façade, which threads it to the worker so a timed-out / cancelled call truly
+ * terminates the WASM and releases the slot. `deadlineMs <= 0` disables the
+ * deadline (tests / opt-out) while still threading the run signal.
+ */
+function withSolveDeadline(
+  deps: ConfirmDeps,
+  deadlineMs: number,
+  runSignal: AbortSignal | undefined,
+): ConfirmDeps {
+  if (deadlineMs <= 0 && !runSignal) return deps
+  const guard = <T>(run: (signal: AbortSignal) => Promise<T>): Promise<T> =>
+    deadlineMs > 0
+      ? raceDeadline(deadlineMs, runSignal, run)
+      : run(makeRunOnlySignal(runSignal))
+  return {
+    solve: (recipe, gearset, opts) => guard(signal => deps.solve(recipe, gearset, { ...opts, signal })),
+    simulate: (recipe, gearset, opts) => guard(signal => deps.simulate(recipe, gearset, { ...opts, signal })),
+  }
+}
+
+/** Forward a run-level signal as-is when there's no per-call deadline. */
+function makeRunOnlySignal(runSignal: AbortSignal | undefined): AbortSignal {
+  if (runSignal) return runSignal
+  return new AbortController().signal
+}
 
 export type MateriaPriceMap = Map<number, MarketData>
 
@@ -117,6 +201,12 @@ export interface AdviseMeldOptions {
    *  advisor solves on the same effectiveStats as the screen. Absent = no buffs. */
   buffs?: AdvisorBuffs
   isCancelled?: () => boolean
+  /** Per-solve wall-clock deadline in ms (#132). Defaults to
+   *  DEFAULT_ADVISOR_SOLVE_DEADLINE_MS; <= 0 disables it. */
+  deadlineMs?: number
+  /** Run-level abort (#132): superseded run / input change / unmount / cancel
+   *  button. Aborting terminates any in-flight WASM solve and bails the run. */
+  signal?: AbortSignal
 }
 
 /**
@@ -827,6 +917,11 @@ export async function adviseMeld(
   // #136: fold the screen's active food/medicine into every solver call + the
   // closed-form seeds, so the advisor judges HQ on the same effectiveStats.
   const buffs = options.buffs
+  // #132: bound every solve/simulate by a wall-clock deadline and make the run
+  // abortable, so a pathological recipe can't block indefinitely and a
+  // superseded/cancelled run truly tears down its in-flight WASM.
+  const deadlineMs = options.deadlineMs ?? DEFAULT_ADVISOR_SOLVE_DEADLINE_MS
+  const guardedDeps = withSolveDeadline(deps, deadlineMs, options.signal)
 
   const bis = computeBisPlan(gearset, options.bisReference, priceMap)
 
@@ -851,10 +946,12 @@ export async function adviseMeld(
   const maxHqInitialQuality = Math.max(initialQuality, computeMaxHqInitialQuality(binding))
 
   // Step 0: already meets (at max-HQ baseline)? → HQ materials alone suffice.
+  // Deadline/cancel (#132) throw out of guardedDeps and land in the catch →
+  // bailout, same as any other Step-0 solver failure.
   try {
-    const solverResult = await deps.solve(binding, gearset, { initialQuality: maxHqInitialQuality, buffs })
+    const solverResult = await guardedDeps.solve(binding, gearset, { initialQuality: maxHqInitialQuality, buffs })
     if (isCancelled?.()) return bailout(bis)
-    const simResult = await deps.simulate(binding, gearset, {
+    const simResult = await guardedDeps.simulate(binding, gearset, {
       actions: solverResult.actions,
       initialQuality: maxHqInitialQuality,
       buffs,
@@ -903,9 +1000,18 @@ export async function adviseMeld(
     const qualityDelta = solveQualityBreakpoint(binding, gearset, rungCraft, maxHqInitialQuality, buffs)
     const seed = { craftsmanship: rungCraft, control: qualityDelta.control, cp: qualityDelta.cp }
 
-    const confirmed = await searchMinimalQualityDelta(
-      binding, gearset, seed, maxHqInitialQuality, deps, isCancelled, buffs,
-    )
+    let confirmed: ConfirmedBreakpoint
+    try {
+      confirmed = await searchMinimalQualityDelta(
+        binding, gearset, seed, maxHqInitialQuality, guardedDeps, isCancelled, buffs,
+      )
+    } catch (err) {
+      // #132: a wall-clock deadline or run-level abort tore down an in-flight
+      // solve. Stop the ladder and keep the best confirmed candidate so far
+      // (the bailout shape if none) rather than rejecting the whole advisor.
+      if (err instanceof SolveDeadlineError || err instanceof SolveCancelledError) break
+      throw err
+    }
     // Criterion 4: only solver double-max-confirmed candidates enter the price
     // comparison. An unconfirmed rung (cancelled or genuinely unsolvable within
     // the cap) is skipped — unless NO rung confirms, in which case the last
