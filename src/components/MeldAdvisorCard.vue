@@ -74,6 +74,31 @@ const hasActionablePlan = computed(() =>
   !!result.value && result.value.costOptimal.feasible && result.value.costOptimal.steps.length > 0,
 )
 
+/**
+ * #133 — the honest gate for claiming「保證 HQ」+ offering the 套用 / 存成配裝 CTAs.
+ * Only a `feasible` status carries a solver-CONFIRMED plan; every other status
+ * (infeasible / timed-out / error / cancelled) may have a leftover unconfirmed
+ * plan that must NOT be presented as a guarantee.
+ */
+const isActionable = computed(() =>
+  !!result.value && result.value.status === 'feasible' && hasActionablePlan.value,
+)
+
+/** #133 — honest no-result copy for a non-feasible run. */
+const statusMessage = computed(() => {
+  if (!result.value) return ''
+  switch (result.value.status) {
+    case 'timed-out':
+      return '計算逾時，請重試或調整裝備後再求解'
+    case 'error':
+      return '計算失敗，請稍後重試'
+    case 'cancelled':
+      return '已取消計算'
+    default: // 'infeasible' (or any non-feasible without an actionable plan)
+      return result.value.costOptimal.reason ?? '此配方無法只靠鑲嵌保證 HQ'
+  }
+})
+
 /** ability mode: HQ materials alone already double-max → meld unnecessary. */
 const isHqSufficient = computed(() => !!result.value && result.value.hqSufficient)
 
@@ -88,8 +113,9 @@ const isRankedByCount = computed(() => !!result.value && result.value.rankedByCo
 
 function applyToGearset() {
   // Guard: cost mode / showApply=false must never emit apply, even if some
-  // future path reaches here (spec Slice A acceptance).
-  if (!result.value || !effectiveShowApply.value) return
+  // future path reaches here (spec Slice A acceptance). #133: a non-feasible
+  // (unconfirmed) plan must never be applied — it isn't a guarantee.
+  if (!result.value || !effectiveShowApply.value || result.value.status !== 'feasible') return
   emit('apply', result.value.costOptimal.deltaStats)
 }
 
@@ -163,8 +189,10 @@ async function copyShoppingList() {
           <p class="hq-sufficient-msg">只要備齊 HQ 素材即可保證 HQ，無需鑲嵌</p>
         </div>
 
-        <!-- Actionable meld plan: lead with the materia ability sentence. -->
-        <template v-else-if="hasActionablePlan">
+        <!-- Actionable meld plan: lead with the materia ability sentence.
+             #133: gated on a feasible (solver-confirmed) status — never claim
+             保證 HQ for an unconfirmed leftover plan. -->
+        <template v-else-if="isActionable">
           <p class="ability-sentence">
             補
             <template v-for="(c, i) in abilityClauses" :key="i"
@@ -217,9 +245,11 @@ async function copyShoppingList() {
           </div>
         </template>
 
-        <!-- Infeasible: surface the reason (e.g. 槽位不足,需換底裝). -->
-        <p v-else class="infeasible-reason">
-          {{ result.costOptimal.reason ?? '無法以鑲嵌達標' }}
+        <!-- #133: honest no-result state — infeasible / timed-out / error /
+             cancelled, never a false 保證 HQ. Infeasible surfaces the reason
+             (e.g. 槽位不足,需換底裝) when the solver provided one. -->
+        <p v-else class="infeasible-reason" data-test="status-message">
+          {{ statusMessage }}
         </p>
       </div>
 
@@ -257,7 +287,9 @@ async function copyShoppingList() {
             <small v-if="isRankedByCount" class="estimate-hint">無市場資料，依鑲嵌數量估算</small>
             <small v-else-if="!result.costOptimal.confirmedBySolver" class="caveat">保守估計</small>
 
-            <div v-if="hasActionablePlan && effectiveShowApply" class="plan-cta">
+            <!-- #133: 套用 gated on a solver-confirmed (feasible) plan; an
+                 unconfirmed 保守估計 plan shows the list but no apply CTA. -->
+            <div v-if="isActionable && effectiveShowApply" class="plan-cta">
               <button type="button" class="cta-btn cta-primary" @click="applyToGearset">
                 套用到配裝
               </button>

@@ -57,6 +57,7 @@ function simResult(doubleMax: boolean): SimulateResult {
 }
 
 const reverseAdvice: MeldAdvice = {
+  status: 'feasible',
   costOptimal: {
     feasible: true,
     deltaStats: { craftsmanship: 0, control: 432, cp: 0 },
@@ -108,6 +109,15 @@ describe('MeldPlaygroundCard', () => {
     const countInput = w.find('[data-test="count-control"]').element as HTMLInputElement
     expect(countInput.value).toBe('8')
     expect(w.find('[data-test="stat-control"]').text().replace(/,/g, '')).toContain(String(3900 + 432))
+  })
+
+  // #133: a non-feasible (unconfirmed) advice must NOT be loadable — seeding the
+  // playground from an unconfirmed plan would present it as a real starting point.
+  it('#133: load-reverse is disabled when the advice status is not feasible', () => {
+    const infeasible: MeldAdvice = { ...reverseAdvice, status: 'infeasible' }
+    const w = mountCard({ advice: infeasible })
+    const btn = w.find('[data-test="load-reverse"]').element as HTMLButtonElement
+    expect(btn.disabled).toBe(true)
   })
 
   it('criterion 6: load reverse → tweak grade/count → HQ判定 flips', async () => {

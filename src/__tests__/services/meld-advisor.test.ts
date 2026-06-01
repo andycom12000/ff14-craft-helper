@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { MeldAdvice, MeldPlan, MeldStep } from '@/services/meld-advisor'
 import { adviseMeld, findBindingRecipe, solveProgressBreakpoint, solveQualityBreakpoint, translateDeltaToMeldPlan, computeBisPlan, computeMaxHqInitialQuality, enumerateCraftsmanshipLadder } from '@/services/meld-advisor'
+import { SolveCancelledError } from '@/solver/api'
 import type { Recipe } from '@/stores/recipe'
 import { BIS_REFERENCE, MATERIA_GRADES, SLOT_STRUCTURE } from '@/engine/materia'
 
@@ -1251,6 +1252,8 @@ describe('adviseMeld — solve deadline + run-level abort (#132)', () => {
       expect(out.costOptimal.totalGil).toBeNull()
       expect(out.costOptimal.confirmedBySolver).toBe(false)
       expect(out.alreadyMeetsThreshold).toBe(false)
+      // #133: a deadline at Step 0 is honestly reported as timed-out.
+      expect(out.status).toBe('timed-out')
       // The deadline fired before the simulate could run.
       expect(simulate).not.toHaveBeenCalled()
     } finally {
@@ -1280,6 +1283,8 @@ describe('adviseMeld — solve deadline + run-level abort (#132)', () => {
 
       // No rung confirmed (the only ladder solve timed out) → bail shape.
       expect(out.costOptimal.confirmedBySolver).toBe(false)
+      // #133: ladder cut short by the deadline is timed-out, NOT infeasible.
+      expect(out.status).toBe('timed-out')
       expect(solve.mock.calls.length).toBeGreaterThanOrEqual(2) // Step 0 + at least one ladder probe
     } finally {
       vi.useRealTimers()
@@ -1324,5 +1329,97 @@ describe('adviseMeld — solve deadline + run-level abort (#132)', () => {
     expect(out.costOptimal.confirmedBySolver).toBe(true)
     expect(out.costOptimal.feasible).toBe(true)
     expect(out.costOptimal.deltaStats.control).toBeGreaterThan(0)
+    expect(out.status).toBe('feasible')
+  })
+})
+
+// #133: honest outcome discriminant. Before this, infeasible / timed-out /
+// error / cancelled were bit-identical MeldAdvice. Each must now carry a
+// distinct `status` so the UI can render honestly and never claim 保證 HQ.
+describe('adviseMeld — honest status discriminant (#133)', () => {
+  const priceMap = new Map<number, any>(
+    MATERIA_GRADES.map(m => [m.itemId, { minPriceNQ: 1000 + m.value, listings: [] }]),
+  )
+  const gearset = { level: 100, craftsmanship: 4500, control: 3200, cp: 600, isSpecialist: false }
+  const recipe = () => makeRecipe(133, 3500, 6500)
+  const SIM_EXTRAS = {
+    durability: 80, cp: 600, max_durability: 80, max_cp: 600,
+    effects: {} as any, is_finished: true, is_success: true, steps_used: 1,
+  }
+
+  it('status = feasible when HQ materials alone double-max (hqSufficient)', async () => {
+    const solve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const simulate = vi.fn().mockResolvedValue({
+      ...SIM_EXTRAS, progress: 3500, max_progress: 3500, quality: 6500, max_quality: 6500,
+    })
+    const out = await adviseMeld(
+      [recipe()], gearset, priceMap, { bisReference: BIS_REFERENCE }, { solve, simulate },
+    )
+    expect(out.status).toBe('feasible')
+    expect(out.hqSufficient).toBe(true)
+  })
+
+  it('status = infeasible when the full ladder runs and no rung double-maxes', async () => {
+    // Never reaches max quality regardless of any stat bump → no rung confirms,
+    // the ladder runs to completion → genuinely infeasible by melds.
+    const solve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const simulate = vi.fn().mockResolvedValue({
+      ...SIM_EXTRAS, progress: 3500, max_progress: 3500, quality: 6257, max_quality: 6500,
+    })
+    const out = await adviseMeld(
+      [recipe()], gearset, priceMap, { bisReference: BIS_REFERENCE }, { solve, simulate },
+    )
+    expect(out.status).toBe('infeasible')
+    expect(out.costOptimal.confirmedBySolver).toBe(false)
+  })
+
+  // #133 regression: the real worker rejects an aborted solve with
+  // SolveCancelledError. A DEADLINE abort must still be reported as `timed-out`,
+  // not `cancelled` — the raceDeadline must latch the deadline before the abort's
+  // synchronous worker rejection wins the race. (Caught a real ordering bug the
+  // hang-based deadline tests missed; surfaced by the e2e card showing 已取消計算.)
+  it('status = timed-out even when the deadline abort makes the solve reject (worker behaviour)', async () => {
+    vi.useFakeTimers()
+    try {
+      const solve = vi.fn().mockImplementation((_r: any, _g: any, opts: any) =>
+        new Promise((_resolve, reject) => {
+          opts.signal?.addEventListener('abort', () => reject(new SolveCancelledError()), { once: true })
+        }))
+      const simulate = vi.fn()
+      const promise = adviseMeld(
+        [recipe()], gearset, priceMap,
+        { bisReference: BIS_REFERENCE, deadlineMs: 50 }, { solve, simulate },
+      )
+      await vi.advanceTimersByTimeAsync(50)
+      const out = await promise
+      expect(out.status).toBe('timed-out')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('status = error when a Step 0 solve throws a non-deadline/cancel error', async () => {
+    const solve = vi.fn().mockRejectedValue(new Error('wasm boom'))
+    const simulate = vi.fn()
+    const out = await adviseMeld(
+      [recipe()], gearset, priceMap, { bisReference: BIS_REFERENCE, deadlineMs: 0 }, { solve, simulate },
+    )
+    expect(out.status).toBe('error')
+  })
+
+  it('status = cancelled when isCancelled trips after Step 0', async () => {
+    let calls = 0
+    const solve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const simulate = vi.fn().mockResolvedValue({
+      ...SIM_EXTRAS, progress: 3500, max_progress: 3500, quality: 6257, max_quality: 6500,
+    })
+    // Cancel right after the Step 0 solve+sim (not double-max) → bail cancelled
+    // before the ladder.
+    const isCancelled = () => { calls += 1; return calls > 2 }
+    const out = await adviseMeld(
+      [recipe()], gearset, priceMap,
+      { bisReference: BIS_REFERENCE, deadlineMs: 0, isCancelled }, { solve, simulate },
+    )
+    expect(out.status).toBe('cancelled')
   })
 })

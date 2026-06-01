@@ -31,6 +31,7 @@ const stubGearset: GearsetStats = {
 }
 
 const stubAdvice: MeldAdvice = {
+  status: 'feasible',
   costOptimal: {
     feasible: true,
     deltaStats: { craftsmanship: 0, control: 0, cp: 0 },

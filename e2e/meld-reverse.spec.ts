@@ -43,11 +43,12 @@ test('reverse advisor converges to an HQ-guaranteeing recommendation', { tag: '@
  * loading state and reach a DEFINITE terminal verdict within the deadline budget
  * — that boundedness is the win this locks in (issue #115 §4.1, 拍板 #4).
  *
- * Deliberately does NOT assert WHICH verdict (保證 HQ vs.「無法以鑲嵌達標」): on this
- * genuinely-hard fixture + sub-BiS gear the bounded search currently returns
- * 「無法以鑲嵌達標」, and whether that feasibility verdict is correct is a separate
- * question (the #123/#133 family), not what this @wasm-heavy guard is for. Tagged
- * @wasm-heavy (real convergence, ~minutes) so it runs nightly, not in PR CI.
+ * Deliberately does NOT assert WHICH verdict: on this genuinely-hard fixture +
+ * sub-BiS gear the bounded search currently hits the per-solve deadline and
+ * #133 honestly reports 「計算逾時」(timed-out) — NOT a false 無法以鑲嵌達標. Whether
+ * a longer budget would find a plan is a separate question (#134 prefilter),
+ * not what this @wasm-heavy guard is for. Tagged @wasm-heavy (real convergence,
+ * ~minutes) so it runs nightly, not PR CI.
  */
 test('reverse advisor reaches a bounded terminal verdict on a high-difficulty recipe', { tag: '@wasm-heavy' }, async ({ page }) => {
   test.setTimeout(240_000)
@@ -59,6 +60,7 @@ test('reverse advisor reaches a bounded terminal verdict on a high-difficulty re
   // 「計算中…」within the deadline budget instead of spinning forever.
   const card = page.locator('.meld-advisor-card').first()
   await expect(card.getByText('計算中…')).toBeHidden({ timeout: 200_000 })
-  // And it must land on a real terminal verdict, not vanish/blank out.
-  await expect(card.getByText(/保證 HQ|無法以鑲嵌達標|無市場資料/).first()).toBeVisible()
+  // And it must land on a real #133 terminal verdict, not vanish/blank out:
+  // 保證 HQ (success/hqSufficient) | 無法只靠鑲嵌 (infeasible) | 逾時 | 失敗 | 無市場資料.
+  await expect(card.getByText(/保證 HQ|無法只靠鑲嵌|逾時|失敗|無市場資料/).first()).toBeVisible()
 })

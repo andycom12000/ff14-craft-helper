@@ -92,13 +92,18 @@ const bumpedBuffed = computed(() => {
   return gearsetToBuffedStats(g, undefined)
 })
 
-/** Whether the #126 reverse suggestion is loadable (a resolved advice object). */
+/**
+ * Whether the #126 reverse suggestion is loadable: a resolved advice object
+ * whose status is `feasible` (#133). A non-feasible run (infeasible / timed-out
+ * / error / cancelled) carries no solver-confirmed plan, so seeding the picker
+ * from it would present an unconfirmed plan as a real starting point.
+ */
 const canLoadReverse = computed(
-  () => !!props.advice && typeof props.advice === 'object',
+  () => !!props.advice && typeof props.advice === 'object' && props.advice.status === 'feasible',
 )
 
 function loadReverse() {
-  if (!props.advice || typeof props.advice !== 'object') return
+  if (!props.advice || typeof props.advice !== 'object' || props.advice.status !== 'feasible') return
   pg.loadFromReverse(props.advice)
   ElMessage.success('已載入逆向建議，可微調魔晶石後重新試算')
 }
