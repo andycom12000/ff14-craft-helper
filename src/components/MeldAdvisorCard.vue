@@ -103,6 +103,15 @@ const statusMessage = computed(() => {
 const isHqSufficient = computed(() => !!result.value && result.value.hqSufficient)
 
 /**
+ * #134 — the binding recipe has no HQ-material lever (custom recipe / 0% quality
+ * factor / no HQ-eligible ingredient), so melds must solo-fill the whole quality
+ * gap. Prefaces the result with an explanatory hint so a large meld ask (or an
+ * infeasible verdict) reads as expected rather than surprising (review §5.9).
+ * Purely informational — coexists with any status, never claims a guarantee.
+ */
+const hasNoHqLever = computed(() => !!result.value && result.value.noHqLever)
+
+/**
  * #128 — the cost-optimal plan could not be priced (some/all materia had no
  * market listing), so the advisor ranked candidates by materia/slot count
  * instead of gil. The headline gil/gap is then meaningless, so we surface an
@@ -184,6 +193,13 @@ async function copyShoppingList() {
       <!-- ABILITY mode (simulator): ability-oriented — "補 N 顆 X 魔晶石即可保證 HQ".
            No BiS / over-meld ceiling, no gap framing, no 複製清單. -->
       <div v-else-if="result && mode === 'ability'" class="result-state result-ability">
+        <!-- #134: prefacing hint for custom recipes with no HQ-material lever.
+             Informational only; sits above whatever result state follows so a
+             large meld ask (or infeasible verdict) reads as expected. -->
+        <p v-if="hasNoHqLever" class="no-hq-lever-hint" data-test="no-hq-lever">
+          此配方無 HQ 素材槓桿，鑲嵌需獨力補滿
+        </p>
+
         <!-- HQ materials alone double-max → meld lever unnecessary. -->
         <div v-if="isHqSufficient" class="hq-sufficient">
           <p class="hq-sufficient-msg">只要備齊 HQ 素材即可保證 HQ，無需鑲嵌</p>
@@ -595,6 +611,22 @@ async function copyShoppingList() {
 .caveat {
   font-size: 12px;
   color: var(--app-text-muted, oklch(0.5 0.03 60));
+}
+
+/* #134 no-HQ-lever preface — a custom recipe (0% quality factor) has no
+   HQ-ingredient head start, so melds must solo-fill. A quiet caution note bar
+   sitting above the result so a large meld ask reads as expected rather than
+   surprising. Uses the severity (warning) tokens, NOT a jam-jar wayfinding hue:
+   DESIGN.md's Jam-Jar Rule reserves strawberry for the market zone and assigns
+   cocoa to crafting, so a craft-screen note must not borrow strawberry. */
+.no-hq-lever-hint {
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--app-warning-border, oklch(0.82 0.09 75));
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--app-text, oklch(0.28 0.04 55));
+  background: var(--app-warning-tint, oklch(0.95 0.04 75));
 }
 
 /* #128 estimate hint — a data-completeness signal (no market price), distinct

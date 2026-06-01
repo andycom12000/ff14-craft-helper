@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { MeldAdvice, MeldPlan, MeldStep } from '@/services/meld-advisor'
-import { adviseMeld, findBindingRecipe, solveProgressBreakpoint, solveQualityBreakpoint, translateDeltaToMeldPlan, computeBisPlan, computeMaxHqInitialQuality, enumerateCraftsmanshipLadder } from '@/services/meld-advisor'
+import { adviseMeld, findBindingRecipe, solveProgressBreakpoint, solveQualityBreakpoint, translateDeltaToMeldPlan, computeBisPlan, computeMaxHqInitialQuality, enumerateCraftsmanshipLadder, recipeHasHqLever } from '@/services/meld-advisor'
 import { SolveCancelledError } from '@/solver/api'
 import type { Recipe } from '@/stores/recipe'
-import { BIS_REFERENCE, MATERIA_GRADES, SLOT_STRUCTURE } from '@/engine/materia'
+import { BIS_REFERENCE, MATERIA_GRADES, SLOT_STRUCTURE, MAX_MELD_COUNT } from '@/engine/materia'
 
 const makeRecipe = (id: number, progress: number, quality: number): Recipe => ({
   id, name: `r${id}`, job: 'CRP', canHq: true, isExpert: false,
@@ -589,10 +589,14 @@ describe('adviseMeld — quality-gap solver search (#126)', () => {
       { solve: fakeSolve, simulate: fakeSimulate },
     )
 
-    // Every solve probed the SAME craftsmanship as the base gearset.
-    for (const call of fakeSolve.mock.calls) {
-      expect(call[1].craftsmanship).toBe(reproGearset.craftsmanship)
-    }
+    // The ladder/search itself never wastes a craftsmanship meld (the #123 trap).
+    // #134: the ONLY solve allowed to bump craftsmanship is the full-pentameld
+    // feasibility prefilter, which maxes ALL stats as a sound infeasibility
+    // over-bound (not a real ladder candidate).
+    const PREFILTER_CRAFT = reproGearset.craftsmanship + MAX_MELD_COUNT * 54
+    const craftBumped = fakeSolve.mock.calls.filter(c => c[1].craftsmanship !== reproGearset.craftsmanship)
+    expect(craftBumped.length).toBeLessThanOrEqual(1)
+    expect(craftBumped.every(c => c[1].craftsmanship === PREFILTER_CRAFT)).toBe(true)
     expect(out.costOptimal.deltaStats.craftsmanship).toBe(0)
   })
 
@@ -1359,9 +1363,9 @@ describe('adviseMeld — honest status discriminant (#133)', () => {
     expect(out.hqSufficient).toBe(true)
   })
 
-  it('status = infeasible when the full ladder runs and no rung double-maxes', async () => {
-    // Never reaches max quality regardless of any stat bump → no rung confirms,
-    // the ladder runs to completion → genuinely infeasible by melds.
+  it('status = infeasible when no stat bump can double-max', async () => {
+    // Never reaches max quality regardless of any stat bump → not even the
+    // #134 full-pentameld prefilter double-maxes → genuinely infeasible by melds.
     const solve = vi.fn().mockResolvedValue({ actions: ['x'] })
     const simulate = vi.fn().mockResolvedValue({
       ...SIM_EXTRAS, progress: 3500, max_progress: 3500, quality: 6257, max_quality: 6500,
@@ -1421,5 +1425,203 @@ describe('adviseMeld — honest status discriminant (#133)', () => {
       { bisReference: BIS_REFERENCE, deadlineMs: 0, isCancelled }, { solve, simulate },
     )
     expect(out.status).toBe('cancelled')
+  })
+})
+
+// #134: a full-pentameld feasibility prefilter before the bounded ladder. The
+// over-bound gives EVERY stat the whole 60-slot budget at once (physically
+// impossible — slots are shared — but a SOUND infeasibility certificate because
+// double-max is monotone non-decreasing in each stat). If even that can't
+// double-max, no real meld plan can → short-circuit to `infeasible` in ~1 extra
+// solve instead of running the worst-case ~66-solve ladder. It NEVER
+// false-positives infeasible (the #123 bug family).
+describe('adviseMeld — full-pentameld feasibility prefilter (#134)', () => {
+  const priceMap = new Map<number, any>(
+    MATERIA_GRADES.map(m => [m.itemId, { minPriceNQ: 1000 + m.value, listings: [] }]),
+  )
+  const gearset = { level: 100, craftsmanship: 4500, control: 3200, cp: 600, isSpecialist: false }
+  const recipe = () => makeRecipe(134, 3500, 6500)
+  const SIM_EXTRAS = {
+    durability: 80, cp: 600, max_durability: 80, max_cp: 600,
+    effects: {} as any, is_finished: true, is_success: true, steps_used: 1,
+  }
+
+  it('short-circuits to infeasible in ~1 extra solve when even full pentameld cannot double-max', async () => {
+    // Quality never reaches max regardless of stats → the full-pentameld
+    // over-bound fails → infeasible without running the ladder.
+    const solve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const simulate = vi.fn().mockResolvedValue({
+      ...SIM_EXTRAS, progress: 3500, max_progress: 3500, quality: 6257, max_quality: 6500,
+    })
+    const out = await adviseMeld(
+      [recipe()], gearset, priceMap, { bisReference: BIS_REFERENCE, deadlineMs: 0 }, { solve, simulate },
+    )
+    expect(out.status).toBe('infeasible')
+    expect(out.costOptimal.confirmedBySolver).toBe(false)
+    // Step 0 probe + ONE full-pentameld prefilter probe. The bounded ladder (up
+    // to MAX_CRAFTSMANSHIP_RUNGS × MAX_QUALITY_PROBES solves) is skipped entirely.
+    expect(solve).toHaveBeenCalledTimes(2)
+  })
+
+  it('passes through to the ladder for a recipe melds CAN reach (no false infeasible)', async () => {
+    const solve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    // Bare gear quality-short; double-maxes once control is bumped >= 150 raw
+    // points (within real meld reach) — the prefilter must let this through.
+    const simulate = vi.fn(async (_r: any, gs: any) => ({
+      ...SIM_EXTRAS, progress: 3500, max_progress: 3500,
+      quality: gs.control >= gearset.control + 150 ? 6500 : 6257, max_quality: 6500,
+    }))
+    const out = await adviseMeld(
+      [recipe()], gearset, priceMap, { bisReference: BIS_REFERENCE, deadlineMs: 0 }, { solve, simulate },
+    )
+    expect(out.status).toBe('feasible')
+    expect(out.costOptimal.feasible).toBe(true)
+    expect(out.costOptimal.confirmedBySolver).toBe(true)
+    // The ladder ran (more than Step 0 + the single prefilter probe).
+    expect(solve.mock.calls.length).toBeGreaterThan(2)
+  })
+
+  it('still reports infeasible when the prefilter passes but no real rung fits the slot budget', async () => {
+    // Double-max only at control +3000 raw (≈ 56 melds, past the 60-slot budget
+    // once craft/cp also need slots): the full-pentameld over-bound (control
+    // +3240) clears it, so the prefilter PASSES, but every bounded ladder rung
+    // (capped at MAX_QUALITY_PROBES grades from the seed) falls short → infeasible
+    // after the ladder, NOT short-circuited.
+    const solve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const simulate = vi.fn(async (_r: any, gs: any) => ({
+      ...SIM_EXTRAS, progress: 3500, max_progress: 3500,
+      quality: gs.control >= gearset.control + 3000 ? 6500 : 6257, max_quality: 6500,
+    }))
+    const out = await adviseMeld(
+      [recipe()], gearset, priceMap, { bisReference: BIS_REFERENCE, deadlineMs: 0 }, { solve, simulate },
+    )
+    expect(out.status).toBe('infeasible')
+    expect(out.costOptimal.confirmedBySolver).toBe(false)
+    // The ladder DID run (prefilter passed) — strictly more than 2 solves.
+    expect(solve.mock.calls.length).toBeGreaterThan(2)
+  })
+
+  it('reports timed-out (not infeasible) when the prefilter probe hits the deadline', async () => {
+    vi.useFakeTimers()
+    try {
+      const hang = () => new Promise<never>(() => { /* never settles */ })
+      const solve = vi.fn()
+        .mockResolvedValueOnce({ actions: ['x'] }) // Step 0 resolves
+        .mockImplementation(hang)                   // prefilter probe blocks
+      const simulate = vi.fn().mockResolvedValue({
+        ...SIM_EXTRAS, progress: 3500, max_progress: 3500, quality: 6257, max_quality: 6500,
+      })
+      const promise = adviseMeld(
+        [recipe()], gearset, priceMap, { bisReference: BIS_REFERENCE, deadlineMs: 50 }, { solve, simulate },
+      )
+      await vi.advanceTimersByTimeAsync(50)
+      const out = await promise
+      expect(out.status).toBe('timed-out')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+// #134: custom recipes (no HQ-eligible materials → quality factor locked 0%)
+// have no HQ-material lever, so melds must solo-fill the entire quality gap.
+// The advisor flags this so the UI can preface the result with a hint rather
+// than letting the user walk into a materia-only dead end (review §5.9).
+describe('recipeHasHqLever (#134)', () => {
+  const withIngredients = (mqf: number | undefined, canHq: boolean[]): Recipe => ({
+    ...makeRecipe(1, 3500, 6500),
+    materialQualityFactor: mqf,
+    ingredients: canHq.map((hq, i) => ({ itemId: i + 1, name: 'a', icon: '', amount: 2, canHq: hq, level: 100 })),
+  } as unknown as Recipe)
+
+  it('is false when the recipe has no ingredient data (custom recipe)', () => {
+    expect(recipeHasHqLever(makeRecipe(1, 3500, 6500))).toBe(false)
+  })
+
+  it('is false when materialQualityFactor is 0 even with HQ-eligible ingredients', () => {
+    expect(recipeHasHqLever(withIngredients(0, [true, true]))).toBe(false)
+  })
+
+  it('is false when no ingredient is HQ-eligible', () => {
+    expect(recipeHasHqLever(withIngredients(75, [false, false]))).toBe(false)
+  })
+
+  it('is true when an ingredient is HQ-eligible and materialQualityFactor > 0', () => {
+    expect(recipeHasHqLever(withIngredients(75, [false, true]))).toBe(true)
+  })
+})
+
+describe('adviseMeld — custom recipe no-HQ-lever flag (#134)', () => {
+  const priceMap = new Map<number, any>(MATERIA_GRADES.map(m => [m.itemId, { minPriceNQ: 1000, listings: [] }]))
+  const gearset = { level: 100, craftsmanship: 4500, control: 3200, cp: 600, isSpecialist: false }
+  const SIM_EXTRAS = {
+    durability: 80, cp: 600, max_durability: 80, max_cp: 600,
+    effects: {} as any, is_finished: true, is_success: true, steps_used: 1,
+  }
+  const withIngredients = (mqf: number, canHq: boolean): Recipe => ({
+    ...makeRecipe(1, 3500, 6500),
+    materialQualityFactor: mqf,
+    ingredients: [{ itemId: 1, name: 'a', icon: '', amount: 3, canHq, level: 100 }],
+  } as unknown as Recipe)
+  const dm = () => vi.fn().mockResolvedValue({
+    ...SIM_EXTRAS, progress: 3500, max_progress: 3500, quality: 6500, max_quality: 6500,
+  })
+
+  it('flags noHqLever for a recipe with no HQ-eligible materials (0% HQ lever)', async () => {
+    const out = await adviseMeld(
+      [withIngredients(75, false)], gearset, priceMap,
+      { bisReference: BIS_REFERENCE, deadlineMs: 0 }, { solve: vi.fn().mockResolvedValue({ actions: ['x'] }), simulate: dm() },
+    )
+    expect(out.noHqLever).toBe(true)
+  })
+
+  it('does NOT flag noHqLever when the recipe has HQ-eligible materials', async () => {
+    const out = await adviseMeld(
+      [withIngredients(75, true)], gearset, priceMap,
+      { bisReference: BIS_REFERENCE, deadlineMs: 0 }, { solve: vi.fn().mockResolvedValue({ actions: ['x'] }), simulate: dm() },
+    )
+    expect(out.noHqLever).toBe(false)
+  })
+})
+
+// #134: probe results are memoized across the whole run so the ladder never
+// re-solves a (craftsmanship, control, cp) point Step 0 already probed. The
+// always-present overlap is Step 0's zero-delta probe vs. the baseline rung's
+// downward bisection to control 0 — a shared cache must collapse those to one
+// real solve (review §5 nit).
+describe('adviseMeld — cross-rung probe cache (#134)', () => {
+  const priceMap = new Map<number, any>(
+    MATERIA_GRADES.map(m => [m.itemId, { minPriceNQ: 1000 + m.value, listings: [] }]),
+  )
+  const gearset = { level: 100, craftsmanship: 4500, control: 3200, cp: 600, isSpecialist: false }
+  // Progress trivially met (low difficulty, ample craftsmanship) → baseline rung
+  // craftsmanship = 0, so the rung-0 probe at control 0 is exactly Step 0's point.
+  const recipe = () => makeRecipe(134, 100, 6500)
+  const SIM_EXTRAS = {
+    durability: 80, cp: 600, max_durability: 80, max_cp: 600,
+    effects: {} as any, is_finished: true, is_success: true, steps_used: 1,
+  }
+
+  it('reuses the Step 0 zero-delta probe instead of re-solving it in the ladder', async () => {
+    const solve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    // Double-maxes once control bumped >= 54 (one grade). The bounded search
+    // bisects down to control 0 to confirm it's insufficient — the same bare
+    // gearset Step 0 already probed.
+    const simulate = vi.fn(async (_r: any, gs: any) => ({
+      ...SIM_EXTRAS, progress: 3500, max_progress: 3500,
+      quality: gs.control >= gearset.control + 54 ? 6500 : 6257, max_quality: 6500,
+    }))
+    await adviseMeld(
+      [recipe()], gearset, priceMap, { bisReference: BIS_REFERENCE, deadlineMs: 0 }, { solve, simulate },
+    )
+    // Solves probing the bare gearset (zero delta on ALL three axes) must occur
+    // exactly once — Step 0 — not twice (Step 0 + a redundant ladder re-probe).
+    const zeroDeltaSolves = solve.mock.calls.filter(
+      ([, gs]) =>
+        gs.craftsmanship === gearset.craftsmanship &&
+        gs.control === gearset.control &&
+        gs.cp === gearset.cp,
+    )
+    expect(zeroDeltaSolves.length).toBe(1)
   })
 })

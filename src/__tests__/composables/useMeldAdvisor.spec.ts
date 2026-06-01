@@ -50,6 +50,7 @@ const stubAdvice: MeldAdvice = {
   alreadyMeetsThreshold: true,
   hqSufficient: true,
   rankedByCount: false,
+  noHqLever: false,
 }
 
 describe('useMeldAdvisor', () => {

@@ -81,6 +81,7 @@ const reverseAdvice: MeldAdvice = {
   alreadyMeetsThreshold: false,
   hqSufficient: false,
   rankedByCount: false,
+  noHqLever: false,
 }
 
 describe('useMeldPlayground', () => {

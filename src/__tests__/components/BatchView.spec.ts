@@ -37,6 +37,7 @@ const advice = (): MeldAdvice => ({
   alreadyMeetsThreshold: false,
   hqSufficient: false,
   rankedByCount: false,
+  noHqLever: false,
   costOptimal: {
     feasible: true,
     deltaStats: { craftsmanship: 60, control: 0, cp: 0 },
