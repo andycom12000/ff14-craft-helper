@@ -260,9 +260,12 @@ export function solveProgressBreakpoint(
  *
  * Mirrors the math of `canReachHQQuality` but takes buffed stats directly so
  * `solveQualityBreakpoint` can buff once and probe many candidates without
- * re-running `gearsetToBuffedStats` per binary-search step (the Soul/buff fold
- * is additive when buffs are absent, so adding a Δ to buffed stats is identical
- * to buffing gearset+Δ).
+ * re-running `gearsetToBuffedStats` per binary-search step. Without buffs the
+ * fold is additive, so adding a Δ to buffed stats is EXACT; with food % (#136)
+ * a hit cap makes "buffed + Δ" only APPROXIMATE — acceptable because this only
+ * seeds the inner search's first probe (ADR-0002 non-binding), and
+ * `searchMinimalQualityDelta` re-confirms every candidate through the real
+ * solver with the same buffs.
  */
 function quietCanReachHQQuality(
   recipe: Recipe,
