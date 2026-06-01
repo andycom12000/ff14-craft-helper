@@ -1,6 +1,12 @@
 // src/__tests__/solver/worker-pool.test.ts
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
+// #132: assert that deliberate cancellations are NOT counted as solver failures.
+// Mock the fail-state + analytics sinks so we can observe what the reject wrapper
+// records. Re-evaluated per test via resetModules() in beforeEach.
+vi.mock('@/composables/useSolverFailState', () => ({ noteSolverFailed: vi.fn() }))
+vi.mock('@/utils/analytics', () => ({ trackEvent: vi.fn(), trackError: vi.fn() }))
+
 // Auto-ready FakeWorker: fires `{ type: 'ready' }` on construction so
 // waitForWasm() resolves immediately. Use `NeverReadyWorker` for tests that
 // need to observe mid-pool-init behaviour (e.g. cancel before ready).
@@ -47,6 +53,9 @@ beforeEach(() => {
   FakeWorker.instances = []
   vi.stubGlobal('Worker', FakeWorker)
   vi.resetModules()
+  // The fail-state/analytics mocks persist across module resets; clear their
+  // call history so per-test assertions (#132) start from a clean slate.
+  vi.clearAllMocks()
 })
 afterEach(() => { vi.unstubAllGlobals() })
 
@@ -148,6 +157,40 @@ describe('solver worker pool', () => {
     const owner = FakeWorker.instances.find(w => w.postedMessages.some(m => m.requestId === p3Solve.requestId))!
     owner.fireMessage({ type: 'result', requestId: p3Solve.requestId, result: stubResult })
     await expect(p3).resolves.toBeDefined()
+  })
+
+  // #132: a cancel is not a failure. cancelRequest rejects with
+  // SolveCancelledError, which must NOT fire solver_failed / noteSolverFailed —
+  // otherwise routine advisor supersedes/timeouts would inflate failure
+  // analytics and mis-arm the input-change-after-fail audit.
+  it('cancelRequest does not record a solver failure', async () => {
+    const { solveCraft, cancelRequest, waitForWasm } = await import('@/solver/worker')
+    const { noteSolverFailed } = await import('@/composables/useSolverFailState')
+    const { trackEvent } = await import('@/utils/analytics')
+    await waitForWasm()
+    const p1 = solveCraft({ progress: 100 } as any).catch(() => { /* expected cancel */ })
+    await new Promise<void>(resolve => queueMicrotask(() => resolve()))
+    const slot0Solve = FakeWorker.instances[0].postedMessages.find(m => m.type === 'solve')
+
+    cancelRequest(slot0Solve.requestId)
+    await p1
+
+    expect(vi.mocked(noteSolverFailed)).not.toHaveBeenCalled()
+    expect(vi.mocked(trackEvent)).not.toHaveBeenCalledWith('solver_failed', expect.anything())
+  })
+
+  it('a genuine solve error still records a solver failure', async () => {
+    const { solveCraft, waitForWasm } = await import('@/solver/worker')
+    const { noteSolverFailed } = await import('@/composables/useSolverFailState')
+    await waitForWasm()
+    const p1 = solveCraft({ progress: 100 } as any).catch(() => { /* expected error */ })
+    await new Promise<void>(resolve => queueMicrotask(() => resolve()))
+    const slot0Solve = FakeWorker.instances[0].postedMessages.find(m => m.type === 'solve')
+
+    FakeWorker.instances[0].fireMessage({ type: 'error', requestId: slot0Solve.requestId, error: 'boom' })
+    await p1
+
+    expect(vi.mocked(noteSolverFailed)).toHaveBeenCalledTimes(1)
   })
 
   it('cancelRequest is a no-op for an unknown / already-settled request', async () => {

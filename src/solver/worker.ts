@@ -305,9 +305,14 @@ export function solveCraft(
         resolve(r)
       },
       reject: (err: Error) => {
-        trackEvent('solver_failed', { reason: err.message })
-        trackError(`solver_failed: ${err.message}`)
-        noteSolverFailed()
+        // A deliberate cancellation (supersede / deadline / unmount / cancel
+        // button, #132) is not a solve failure — recording it would inflate
+        // `solver_failed` and mis-arm the input-change-after-fail audit.
+        if (!(err instanceof SolveCancelledError)) {
+          trackEvent('solver_failed', { reason: err.message })
+          trackError(`solver_failed: ${err.message}`)
+          noteSolverFailed()
+        }
         reject(err)
       },
     })
