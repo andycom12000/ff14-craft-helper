@@ -38,7 +38,7 @@ export function useSimulator() {
   const simStore = useSimulatorStore()
   const settingsStore = useSettingsStore()
 
-  const { advice: meldAdvice, runAdvisor, markStale } = useMeldAdvisor(
+  const { advice: meldAdvice, runAdvisor, markStale, cancel: cancelAdvisor } = useMeldAdvisor(
     () => settingsStore.server || settingsStore.dataCenter || '',
   )
 
@@ -415,5 +415,6 @@ export function useSimulator() {
     handleSaveMeldToGearset,
     handleAddToBom,
     handleSelfCraft,
+    cancelAdvisor,
   }
 }

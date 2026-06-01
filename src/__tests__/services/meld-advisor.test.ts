@@ -458,8 +458,10 @@ describe('adviseMeld — max-HQ baseline (§2 engine touchpoint)', () => {
       { solve: fakeSolve, simulate: fakeSimulate },
     )
     // Step 0 solve is driven by the max-HQ baseline, NOT the screen value (0).
+    // objectContaining tolerates the #132 deadline/abort signal the guarded deps
+    // threads into every solve's opts.
     expect(fakeSolve).toHaveBeenCalledWith(
-      recipe, baseGearset, { initialQuality: expectedBaseline },
+      recipe, baseGearset, expect.objectContaining({ initialQuality: expectedBaseline }),
     )
   })
 
@@ -1210,5 +1212,117 @@ describe('enumerateCraftsmanshipLadder — #140 finite guard', () => {
     expect(ladder[0]).toBe(0)
     expect(ladder.length).toBeGreaterThanOrEqual(1)
     expect([...ladder].sort((a, b) => a - b)).toEqual(ladder)
+  })
+})
+
+// #132: per-solve wall-clock deadline + run-level abort. A pathological recipe
+// that makes a single WASM call block indefinitely must not hang the advisor —
+// the deadline aborts the call (freeing the worker slot via the threaded signal)
+// and the run bails to its best-so-far. A run-level signal threads through so a
+// superseded/cancelled run truly tears down its in-flight solve.
+describe('adviseMeld — solve deadline + run-level abort (#132)', () => {
+  const priceMap = new Map<number, any>(
+    MATERIA_GRADES.map(m => [m.itemId, { minPriceNQ: 1000 + m.value, listings: [] }]),
+  )
+  const gearset = { level: 100, craftsmanship: 4500, control: 3200, cp: 600, isSpecialist: false }
+  const recipe = () => makeRecipe(123, 3500, 6500)
+  const SIM_EXTRAS = {
+    durability: 80, cp: 600, max_durability: 80, max_cp: 600,
+    effects: {} as any, is_finished: true, is_success: true, steps_used: 1,
+  }
+  const hang = () => new Promise<never>(() => { /* never settles */ })
+
+  it('bails out (does not hang) when the Step 0 solve exceeds the deadline', async () => {
+    vi.useFakeTimers()
+    try {
+      // Bare vi.fn() + mockImplementation keeps the `any` call signature that
+      // ConfirmDeps['solve'] expects (an inline impl would infer a too-narrow type).
+      const solve = vi.fn().mockImplementation(hang)
+      const simulate = vi.fn()
+      const promise = adviseMeld(
+        [recipe()], gearset, priceMap,
+        { bisReference: BIS_REFERENCE, deadlineMs: 50 },
+        { solve, simulate },
+      )
+      await vi.advanceTimersByTimeAsync(50)
+      const out = await promise
+
+      // Bail shape: emptyMeldPlan(null, false) — totalGil null, unconfirmed.
+      expect(out.costOptimal.totalGil).toBeNull()
+      expect(out.costOptimal.confirmedBySolver).toBe(false)
+      expect(out.alreadyMeetsThreshold).toBe(false)
+      // The deadline fired before the simulate could run.
+      expect(simulate).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('bails the ladder to best-so-far when an inner search solve exceeds the deadline', async () => {
+    vi.useFakeTimers()
+    try {
+      // Step 0 solve resolves (so we get past the already-meets probe), Step 0
+      // simulate is short of quality (not double-max), then the ladder's inner
+      // search solve hangs and must be torn down by the deadline.
+      const solve = vi.fn()
+        .mockResolvedValueOnce({ actions: ['x'] }) // Step 0
+        .mockImplementation(hang)                   // ladder probes block
+      const simulate = vi.fn().mockResolvedValue({
+        ...SIM_EXTRAS, progress: 3500, max_progress: 3500, quality: 6257, max_quality: 6500,
+      })
+      const promise = adviseMeld(
+        [recipe()], gearset, priceMap,
+        { bisReference: BIS_REFERENCE, deadlineMs: 50 },
+        { solve, simulate },
+      )
+      await vi.advanceTimersByTimeAsync(50)
+      const out = await promise
+
+      // No rung confirmed (the only ladder solve timed out) → bail shape.
+      expect(out.costOptimal.confirmedBySolver).toBe(false)
+      expect(solve.mock.calls.length).toBeGreaterThanOrEqual(2) // Step 0 + at least one ladder probe
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('threads the run-level signal into every solve/simulate call', async () => {
+    const solve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    // Double-max at Step 0 so the run stops after one solve+simulate.
+    const simulate = vi.fn().mockResolvedValue({
+      ...SIM_EXTRAS, progress: 3500, max_progress: 3500, quality: 6500, max_quality: 6500,
+    })
+    const controller = new AbortController()
+
+    await adviseMeld(
+      [recipe()], gearset, priceMap,
+      { bisReference: BIS_REFERENCE, signal: controller.signal, deadlineMs: 0 },
+      { solve, simulate },
+    )
+
+    // deadlineMs <= 0 forwards the run signal verbatim (no per-call controller).
+    expect(solve.mock.calls[0][2].signal).toBe(controller.signal)
+    expect(simulate.mock.calls[0][2].signal).toBe(controller.signal)
+  })
+
+  it('does not disturb a normal run that completes within the deadline', async () => {
+    const solve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    // progress trivially met; quality met once control bumped >= 150.
+    const simulate = vi.fn(async (_r: any, gs: any) => ({
+      ...SIM_EXTRAS,
+      progress: 3500, max_progress: 3500,
+      quality: gs.control >= gearset.control + 150 ? 6500 : 6257,
+      max_quality: 6500,
+    }))
+
+    const out = await adviseMeld(
+      [recipe()], gearset, priceMap,
+      { bisReference: BIS_REFERENCE, deadlineMs: 8000 },
+      { solve, simulate },
+    )
+
+    expect(out.costOptimal.confirmedBySolver).toBe(true)
+    expect(out.costOptimal.feasible).toBe(true)
+    expect(out.costOptimal.deltaStats.control).toBeGreaterThan(0)
   })
 })

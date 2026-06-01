@@ -42,6 +42,21 @@ describe('MeldAdvisorCard', () => {
     expect(w.find('[data-test=spinner]').exists()).toBe(true)
   })
 
+  // #132: the loading state offers a cancel button so a long/pathological solve
+  // can be torn down by the user instead of waiting it out.
+  it('renders a cancel button while loading and emits "cancel" on click', async () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: 'loading' } })
+    const btn = w.find('[data-test=cancel-advisor]')
+    expect(btn.exists()).toBe(true)
+    await btn.trigger('click')
+    expect(w.emitted('cancel')).toHaveLength(1)
+  })
+
+  it('shows no cancel button when not loading', () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: 'stale' } })
+    expect(w.find('[data-test=cancel-advisor]').exists()).toBe(false)
+  })
+
   it('greys the card when stale', () => {
     const w = mount(MeldAdvisorCard, { props: { advice: 'stale' } })
     expect(w.classes()).toContain('is-stale')
