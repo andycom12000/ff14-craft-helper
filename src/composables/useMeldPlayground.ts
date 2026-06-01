@@ -117,6 +117,22 @@ export function useMeldPlayground(
     markStaleAfterEdit()
   }
 
+  /**
+   * Move a stat's placed count onto a new grade in ONE selections update (#141
+   * AC5). Doing it atomically — rather than `setSelection(old, 0)` then
+   * `setSelection(new, count)` — avoids transiently emptying the row, which used
+   * to bounce an already-computed verdict back to idle instead of marking it
+   * stale.
+   */
+  function changeGrade(stat: CraftStat, grade: number) {
+    const existing = selections.value.find((s) => s.stat === stat)
+    const count = existing?.count ?? 0
+    const next = selections.value.filter((s) => s.stat !== stat)
+    if (count > 0) next.push({ stat, grade, count })
+    selections.value = next
+    markStaleAfterEdit()
+  }
+
   function markStaleAfterEdit() {
     // Only an already-computed verdict becomes stale; idle/checking are left as
     // is (nothing to invalidate). If everything was removed, drop back to idle.
@@ -185,8 +201,13 @@ export function useMeldPlayground(
         initialQuality: iq,
       })
       if (token.cancelled || version !== checkVersion) return
+      // #141 AC1: the solver subtracts `initialQuality` from the target and the
+      // sim never adds it back, so `sim.quality` is RAW. Judge double-max on the
+      // same axis as the host's `runSimulation` (`step.quality + initialQuality`),
+      // else iq>0 recipes (HQ ingredients — this feature's headline case) would
+      // systematically false-report cannot-hq.
       const doubleMax =
-        sim.progress >= sim.max_progress && sim.quality >= sim.max_quality
+        sim.progress >= sim.max_progress && sim.quality + iq >= sim.max_quality
       verdict.value = doubleMax ? 'can-hq' : 'cannot-hq'
     } catch (err) {
       console.warn('[meld-playground] forward check failed:', err)
@@ -201,6 +222,7 @@ export function useMeldPlayground(
     hasSelections,
     verdict,
     setSelection,
+    changeGrade,
     loadFromReverse,
     clear,
     runForwardCheck,

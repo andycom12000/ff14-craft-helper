@@ -60,6 +60,16 @@ export const SLOT_STRUCTURE = {
 } as const
 
 /**
+ * Physical upper bound on materia placed across a full gearset (#141): every
+ * guaranteed slot plus every overmeld slot. The forward 試算台 caps each stat's
+ * count here so a physically-impossible placement (e.g. 999 顆) can never read
+ * can-hq or emit an override. Per-stat budgeting *across* stats (60 shared
+ * between all three) is the full Workbench IA (#129) — out of scope here; this
+ * is the coarse single-axis guard that kills the absurd case.
+ */
+export const MAX_MELD_COUNT = SLOT_STRUCTURE.guaranteedSlots + SLOT_STRUCTURE.overmeldSlots
+
+/**
  * Overmeld success-rate ladder indexed by overmeld depth (0 = first
  * overmeld attempt past the guaranteed slots, ...). Game constant.
  * Source: in-game advanced melding rates (Grade V+, two community sources

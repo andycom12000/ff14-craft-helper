@@ -5,6 +5,7 @@ import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 import type { MeldAdvice } from '@/services/meld-advisor'
 import type { SolverResultWithTiming, SimulateResult } from '@/solver/raphael'
+import { MAX_MELD_COUNT } from '@/engine/materia'
 
 vi.mock('element-plus', () => ({
   ElMessage: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
@@ -144,5 +145,53 @@ describe('MeldPlaygroundCard', () => {
     await w.find('[data-test="clear"]').trigger('click')
     const countInput = w.find('[data-test="count-control"]').element as HTMLInputElement
     expect(countInput.value).toBe('0')
+  })
+
+  // #141 AC2: a physically-impossible count (e.g. 999 melds) must not slip through
+  // to a can-hq / override emit. The input is capped at the total slot budget.
+  it('#141 AC2: count is capped at the physical slot maximum', async () => {
+    const w = mountCard()
+    const input = w.find('[data-test="count-control"]')
+    expect((input.element as HTMLInputElement).max).toBe(String(MAX_MELD_COUNT))
+    await input.setValue('999')
+    expect(
+      (w.find('[data-test="count-control"]').element as HTMLInputElement).value,
+    ).toBe(String(MAX_MELD_COUNT))
+  })
+
+  // #141 AC4: only the host shows the single "已套用模擬鑲嵌" toast; the card
+  // must not double it.
+  it('#141 AC4: apply does not raise its own success toast (host owns it)', async () => {
+    const { ElMessage } = await import('element-plus')
+    const w = mountCard()
+    await w.find('[data-test="load-reverse"]').trigger('click')
+    vi.mocked(ElMessage.success).mockClear() // drop the load-reverse toast
+    await w.find('[data-test="apply-override"]').trigger('click')
+    expect(w.emitted('apply')).toBeTruthy()
+    expect(ElMessage.success).not.toHaveBeenCalled()
+  })
+
+  // #141 AC3: clearing the playground also revokes any override it applied, so the
+  // host drops the chip instead of stranding a phantom +Δ.
+  it('#141 AC3: clear emits clear-override', async () => {
+    const w = mountCard()
+    await w.find('[data-test="load-reverse"]').trigger('click')
+    await w.find('[data-test="clear"]').trigger('click')
+    expect(w.emitted('clear-override')).toBeTruthy()
+  })
+
+  // #141 AC3: in-place undo — the card itself can revoke the applied override,
+  // not only the distant FoodMedicine chip ✕.
+  it('#141 AC3: an in-place undo appears while an override is active and emits clear-override', async () => {
+    const w = mountCard({ overrideActive: true })
+    const undo = w.find('[data-test="undo-override"]')
+    expect(undo.exists()).toBe(true)
+    await undo.trigger('click')
+    expect(w.emitted('clear-override')).toBeTruthy()
+  })
+
+  it('#141 AC3: no in-place undo when no override is active', () => {
+    const w = mountCard({ overrideActive: false })
+    expect(w.find('[data-test="undo-override"]').exists()).toBe(false)
   })
 })
