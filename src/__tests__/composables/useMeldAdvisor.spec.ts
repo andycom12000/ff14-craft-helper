@@ -131,6 +131,25 @@ describe('useMeldAdvisor', () => {
     expect(vi.mocked(adviseMeld).mock.calls[0][2]).toBe(fetched)
   })
 
+  // #136: the advisor must solve on the SAME effectiveStats the screen uses, so
+  // runAdvisor threads the active food/medicine buffs straight into adviseMeld
+  // (the engine then folds them after Soul, per ADR-0001).
+  it('#136: forwards the active food/medicine buffs to adviseMeld', async () => {
+    const buffs = {
+      food: { id: 36060, name: '高山茶', craftsmanship: { percent: 5, max: 200 } },
+      medicine: null,
+    }
+    const { runAdvisor } = useMeldAdvisor(() => 'Carbuncle')
+    await runAdvisor(stubRecipe, stubGearset, 0, buffs)
+    expect(vi.mocked(adviseMeld).mock.calls[0][3]).toMatchObject({ buffs })
+  })
+
+  it('#136: omitting buffs leaves adviseMeld buff-free (parity with pre-#136)', async () => {
+    const { runAdvisor } = useMeldAdvisor(() => 'Carbuncle')
+    await runAdvisor(stubRecipe, stubGearset, 0)
+    expect(vi.mocked(adviseMeld).mock.calls[0][3].buffs).toBeUndefined()
+  })
+
   it('second runAdvisor call cancels the first', async () => {
     // First call hangs
     let resolveFirst!: () => void

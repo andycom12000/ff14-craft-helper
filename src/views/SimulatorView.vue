@@ -57,7 +57,7 @@ const {
   initialQuality, initialQualityHqAmounts, enhancedStats,
   searchSidebarOpen, solverResult, modeOptions,
   meldAdvice, meldOverride, meldOverrideLabel,
-  onInitialQualityUpdate, onEnhancedStatsUpdate, onHqAmountsUpdate,
+  onInitialQualityUpdate, onEnhancedStatsUpdate, onBuffsUpdate, onHqAmountsUpdate,
   handleAddFromSearch, handleRemoveFromQueue, handleClearQueue,
   handleRemoveAction, handleClearActions,
   handleUseSkill, onSolveComplete, handleApplyHq, handleApplyMeld,
@@ -357,6 +357,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
               :override="meldOverride"
               :override-chip-label="meldOverrideLabel"
               @update:enhanced-stats="onEnhancedStatsUpdate"
+              @update:buffs="onBuffsUpdate"
               @clear-override="clearMeldOverride"
             />
           </section>
@@ -735,6 +736,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
               :override="meldOverride"
               :override-chip-label="meldOverrideLabel"
               @update:enhanced-stats="onEnhancedStatsUpdate"
+              @update:buffs="onBuffsUpdate"
               @clear-override="clearMeldOverride"
             />
           </div>
