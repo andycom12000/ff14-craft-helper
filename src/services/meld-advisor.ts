@@ -172,8 +172,9 @@ export interface MeldPlan {
  * old bit-identical bailout: infeasible / timed-out / error / cancelled all used
  * to return the same `MeldAdvice` shape, so the UI could not tell "this recipe
  * can't be HQ-guaranteed by melds" from "the solve timed out" from "the solve
- * crashed". The UI renders each honestly and never claims 保證 HQ on a non-`feasible`
- * status.
+ * crashed". The UI renders each honestly and never asserts a 保證 HQ *guarantee*
+ * (the「即可保證 HQ」sentence + 套用 CTA) on a non-`feasible` status — note the
+ * infeasible copy「此配方無法只靠鑲嵌保證 HQ」denies the guarantee rather than claiming it.
  *
  * - `feasible`   — a solver-confirmed plan exists (incl. hqSufficient = 0 melds).
  * - `infeasible` — the full bounded ladder ran and no rung double-maxed: melds

@@ -246,14 +246,21 @@ async function copyShoppingList() {
         </template>
 
         <!-- #133: honest no-result state — infeasible / timed-out / error /
-             cancelled, never a false 保證 HQ. Infeasible surfaces the reason
-             (e.g. 槽位不足,需換底裝) when the solver provided one. -->
+             cancelled. Never asserts the「即可保證 HQ」guarantee (the infeasible copy
+             denies it). Infeasible surfaces the reason (e.g. 槽位不足,需換底裝) when
+             the solver provided one. -->
         <p v-else class="infeasible-reason" data-test="status-message">
           {{ statusMessage }}
         </p>
       </div>
 
-      <!-- COST mode (batch): cost-oriented framing — gap / 全 BiS / 最省錢達標. -->
+      <!-- COST mode (batch): cost-oriented framing — gap / 全 BiS / 最省錢達標.
+           #133 scope note: the status-honest no-result copy (計算逾時 / 計算失敗 /
+           此配方無法只靠鑲嵌保證 HQ) is wired into ABILITY mode only — that's the
+           reverse-advisor surface the issue targets. Cost mode keeps its existing
+           保守估計 caveat for unconfirmed plans and still gates the 套用 CTA on a
+           feasible status (no false guarantee, no bad apply); a fuller batch-side
+           honesty pass is a separate follow-up. -->
       <div v-else-if="result" class="result-state">
         <template v-if="result.alreadyMeetsThreshold">
           <p class="met-message">你的裝備已能保證 HQ，無需鑲嵌</p>
