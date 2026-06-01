@@ -33,14 +33,19 @@ export default defineConfig({
     // `localhost` to `::1`-only on this Windows host, which Playwright's
     // readiness probe (IPv4-first) can't reach.
     baseURL: 'http://127.0.0.1:5180/ff14-craft-helper/',
-    // The meld cascade (MeldAdvisorCard + MeldPlaygroundCard) only renders in a
-    // ≥2-column layout, so the e2e viewport must be wide.
-    viewport: { width: 1680, height: 1050 },
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    {
+      name: 'chromium',
+      // The meld cascade (MeldAdvisorCard + MeldPlaygroundCard) only renders in a
+      // ≥2-column layout, so the e2e viewport must be wide. Set it AFTER the
+      // device spread — `devices['Desktop Chrome']` carries its own 1280×720
+      // viewport, and project-level `use` overrides the top-level `use`, so a
+      // viewport set there would be silently clobbered.
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1680, height: 1050 } },
+    },
   ],
   webServer: {
     command: 'npm run dev -- --host 127.0.0.1 --port 5180 --strictPort',
