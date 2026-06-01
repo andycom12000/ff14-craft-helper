@@ -5,8 +5,9 @@ import { searchFillAndSolve } from './helpers/sim'
  * Meld-advisor backbone flow (issue #115) — market-free paths.
  *
  * These specs stay clear of the Universalis fetch entirely: the backbone proves
- * the search → gearset → real-WASM-solve spine, and the no-market spec exercises
- * the advisor path *before* any market call is made.
+ * the search → gearset → real-WASM-solve spine, and the no-market spec proves
+ * that with no server the advisor skips the fetch and still runs the engine with
+ * an empty price map (count-ranked fallback) instead of hard-blocking (#135).
  */
 
 test('search a recipe, fill the gearset, and the WASM solver finds a successful craft', async ({ page }) => {

@@ -6,7 +6,13 @@ import { BIS_REFERENCE } from '@/engine/materia'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 
-/** The pricing API throws this when no market server/DC is selected. */
+/**
+ * The pricing API throws this when no market server/DC is selected. Since #135
+ * the no-server path no longer fetches (it runs with an empty price map), so this
+ * is now a DEFENSIVE fallback: it only fires if a *truthy-but-invalid* world()
+ * still drives fetchMateriaPriceMap to reject, in which case surfacing 'no-market'
+ * beats dead-ending at the blank「尚未求解」hint.
+ */
 function isNoMarketError(err: unknown): boolean {
   return err instanceof Error && err.message.includes('尚未選擇市場伺服器')
 }
