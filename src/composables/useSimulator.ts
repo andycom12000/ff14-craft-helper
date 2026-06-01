@@ -237,10 +237,12 @@ export function useSimulator() {
     }
   }
 
-  // Mark advice stale when recipe, gearset, or initialQuality changes without
-  // a new solve being triggered.
+  // Mark advice stale when recipe, gearset, initialQuality, or an applied meld
+  // override changes without a new solve being triggered. meldOverride is folded
+  // into effectiveStats but never touches the gearset store, so applying a meld
+  // would otherwise leave the advisor card showing pre-apply numbers (#137).
   watch(
-    [gearset, recipe, initialQuality],
+    [gearset, recipe, initialQuality, meldOverride],
     () => markStale(),
     { deep: true },
   )
