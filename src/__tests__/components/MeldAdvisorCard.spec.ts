@@ -8,6 +8,7 @@ const fullAdvice: MeldAdvice = {
   alreadyMeetsThreshold: false,
   hqSufficient: false,
   rankedByCount: false,
+  noHqLever: false,
   costOptimal: {
     feasible: true,
     deltaStats: { craftsmanship: 60, control: 0, cp: 0 },
@@ -182,6 +183,34 @@ describe('MeldAdvisorCard', () => {
     expect(w.find('.ability-sentence').exists()).toBe(false)
     expect(w.find('.ability-cost').exists()).toBe(false)
     expect(w.findAll('button').some(b => b.text().includes('套用鑲嵌'))).toBe(false)
+  })
+
+  // --- #134: 「無 HQ 素材槓桿」prefacing hint for custom recipes (0% HQ) ---
+
+  it('ability mode: shows the no-HQ-lever preface when noHqLever is true', () => {
+    const advice: MeldAdvice = { ...fullAdvice, noHqLever: true }
+    const w = mount(MeldAdvisorCard, { props: { advice, mode: 'ability' } })
+    expect(w.find('[data-test=no-hq-lever]').exists()).toBe(true)
+    expect(w.text()).toContain('無 HQ 素材槓桿')
+  })
+
+  it('ability mode: hides the no-HQ-lever preface when noHqLever is false', () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: fullAdvice, mode: 'ability' } })
+    expect(w.find('[data-test=no-hq-lever]').exists()).toBe(false)
+  })
+
+  it('the no-HQ-lever preface coexists with an infeasible status (still no false guarantee)', () => {
+    const advice: MeldAdvice = {
+      ...fullAdvice,
+      status: 'infeasible',
+      noHqLever: true,
+      costOptimal: { ...fullAdvice.costOptimal, feasible: false, reason: '槽位不足,需換底裝', steps: [] },
+    }
+    const w = mount(MeldAdvisorCard, { props: { advice, mode: 'ability' } })
+    expect(w.find('[data-test=no-hq-lever]').exists()).toBe(true)
+    expect(w.text()).toContain('無 HQ 素材槓桿')
+    // never claims the 保證 HQ guarantee on a non-feasible status
+    expect(w.find('.ability-sentence').exists()).toBe(false)
   })
 
   it('ability mode: infeasible plan surfaces the reason and no CTA', () => {

@@ -72,6 +72,7 @@ const reverseAdvice: MeldAdvice = {
   alreadyMeetsThreshold: false,
   hqSufficient: false,
   rankedByCount: false,
+  noHqLever: false,
 }
 
 function mountCard(props: Record<string, unknown> = {}) {

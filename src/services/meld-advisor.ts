@@ -37,6 +37,7 @@ import { solveCraftForRecipe, simulateCraftForRecipe, SolveCancelledError } from
 import type { CraftStat, BiSReference, MateriaGrade } from '@/engine/materia'
 import {
   SLOT_STRUCTURE,
+  MAX_MELD_COUNT,
   expectedCountForOvermeldDepth, topGradeForStat,
 } from '@/engine/materia'
 import {
@@ -219,6 +220,17 @@ export interface MeldAdvice {
    * (a solver-confidence signal, not a price-completeness one).
    */
   rankedByCount: boolean
+  /**
+   * #134 — true when the binding recipe has NO HQ-material lever: either it
+   * carries no ingredient data (custom recipe) or its materialQualityFactor is 0
+   * or none of its ingredients are HQ-eligible. In that case the quality factor
+   * is locked at 0% and melds must solo-fill the entire quality gap — there is no
+   * zero-cost HQ-ingredient head start to spend first (review §5.9). The UI
+   * prefaces the result with a 「無 HQ 素材槓桿」hint so the user understands why
+   * the meld ask is large (or why no plan exists), rather than walking into a
+   * materia-only dead end. Purely informational; does not gate any CTA.
+   */
+  noHqLever: boolean
 }
 
 export interface AdviseMeldOptions {
@@ -295,6 +307,21 @@ export function computeMaxHqInitialQuality(recipe: Recipe): number {
     recipe.materialQualityFactor,
     maxHqIngredients,
   )
+}
+
+/**
+ * #134 — does this recipe have an HQ-material lever at all? True iff it carries
+ * ingredient data, a positive materialQualityFactor, AND at least one HQ-eligible
+ * ingredient. When false, the quality factor is locked at 0% (custom recipes, or
+ * recipes whose ingredients can't be HQ): there is no zero-cost HQ-ingredient
+ * head start, so melds must solo-fill the whole quality gap (review §5.9). The
+ * negation drives `MeldAdvice.noHqLever` and its prefacing UI hint.
+ */
+export function recipeHasHqLever(recipe: Recipe): boolean {
+  const ingredients = recipe.ingredients
+  if (!ingredients || ingredients.length === 0) return false
+  if (!recipe.materialQualityFactor || recipe.materialQualityFactor <= 0) return false
+  return ingredients.some((ing) => ing.canHq)
 }
 
 /**
@@ -512,6 +539,40 @@ const CONTROL_GRADE_STEP = topGradeForStat('control')?.value ?? 54
 /** Top-grade craftsmanship materia value (one meld worth of craftsmanship). */
 const CRAFTSMANSHIP_GRADE_STEP = topGradeForStat('craftsmanship')?.value ?? 54
 
+/** Top-grade CP materia value (one meld worth of CP). */
+const CP_GRADE_STEP = topGradeForStat('cp')?.value ?? 14
+
+/**
+ * #134 — the maximally optimistic full-pentameld stat bump used by the
+ * feasibility prefilter. It hands EVERY stat the entire {@link MAX_MELD_COUNT}
+ * slot budget of its own top-grade materia, simultaneously — a physically
+ * impossible allocation (the 60 slots are shared across all three stats), used
+ * purely as a SOUND infeasibility certificate: double-max is monotone
+ * non-decreasing in each stat, so if even this over-bound can't double-max, no
+ * real shared-slot meld plan can either. It therefore NEVER false-positives
+ * infeasible (the #123 bug family). The trade-off is that a recipe which is
+ * infeasible only under the real shared-slot constraint still clears the
+ * over-bound and falls through to the bounded ladder — reported correctly there,
+ * just without the fast short-circuit.
+ */
+const FULL_MELD_OVERBOUND = {
+  craftsmanship: MAX_MELD_COUNT * CRAFTSMANSHIP_GRADE_STEP,
+  control: MAX_MELD_COUNT * CONTROL_GRADE_STEP,
+  cp: MAX_MELD_COUNT * CP_GRADE_STEP,
+} as const
+
+/**
+ * #134 — stable cache key for a solver double-max probe, identified by its RAW
+ * Δstats triple relative to the bare gearset. Shared across Step 0, the
+ * prefilter, and every craftsmanship rung's inner search so a (craftsmanship,
+ * control, cp) point is solved at most once per advisor run (review §5 nit). The
+ * recipe / initialQuality / buffs are constant within one `adviseMeld` call, so
+ * the triple fully identifies the probe.
+ */
+function probeKey(craftsmanship: number, control: number, cp: number): string {
+  return `${craftsmanship}:${control}:${cp}`
+}
+
 /**
  * Per-step progress-action efficiency used ONLY to enumerate the craftsmanship
  * ladder rungs (#127). A max-quality macro clears each progress step at far more
@@ -660,18 +721,25 @@ export async function searchMinimalQualityDelta(
   deps: ConfirmDeps = { solve: solveCraftForRecipe, simulate: simulateCraftForRecipe },
   isCancelled?: () => boolean,
   buffs?: AdvisorBuffs,
+  // #134: shared across the whole advisor run (Step 0, prefilter, every rung) so
+  // an identical (craftsmanship, control, cp) probe is solved at most once. A
+  // cache HIT short-circuits before the solve-budget counter, so it costs nothing
+  // and frees the per-rung budget for genuinely new points. Defaults to a private
+  // map for standalone callers.
+  cache: Map<string, boolean> = new Map(),
 ): Promise<ConfirmedBreakpoint> {
   const craftsmanship = seed.craftsmanship
   const cp = seed.cp
   const pin = (control: number) => ({ craftsmanship, control, cp })
 
   let solveCount = 0
-  const cache = new Map<number, boolean>()
 
   // Probe `controlDelta` raw control points. Returns null when cancelled or the
   // hard cap is exhausted (caller treats null as "could not confirm here").
   const probe = async (controlDelta: number): Promise<boolean | null> => {
-    if (cache.has(controlDelta)) return cache.get(controlDelta)!
+    const key = probeKey(craftsmanship, controlDelta, cp)
+    const cached = cache.get(key)
+    if (cached !== undefined) return cached
     if (isCancelled?.()) return null
     if (solveCount >= MAX_QUALITY_PROBES) return null
     const bumped: GearsetStats = {
@@ -689,7 +757,7 @@ export async function searchMinimalQualityDelta(
       buffs,
     })
     const ok = isDoubleMax(simResult)
-    cache.set(controlDelta, ok)
+    cache.set(key, ok)
     return ok
   }
 
@@ -964,8 +1032,14 @@ export async function adviseMeld(
       alreadyMeetsThreshold: true,
       hqSufficient: true,
       rankedByCount: false,
+      noHqLever: false,
     }
   }
+
+  // #134: does the binding recipe have an HQ-material lever? When not (custom
+  // recipe / 0% quality factor / no HQ-eligible ingredient), melds must solo-fill
+  // the whole quality gap. Surfaced as a prefacing UI hint, computed once.
+  const noHqLever = !recipeHasHqLever(binding)
 
   // §2 engine touchpoint: the meld residual is computed against the
   // initialQuality the binding recipe would have with ALL HQ materials, not the
@@ -975,18 +1049,26 @@ export async function adviseMeld(
   // to 0 (custom recipes) — never worse than the screen baseline.
   const maxHqInitialQuality = Math.max(initialQuality, computeMaxHqInitialQuality(binding))
 
+  // #134: probe memo shared across Step 0 + every rung's inner search so an
+  // identical (craftsmanship, control, cp) point is solved at most once per run.
+  const probeCache = new Map<string, boolean>()
+
   // Step 0: already meets (at max-HQ baseline)? → HQ materials alone suffice.
   // Deadline/cancel (#132) throw out of guardedDeps and land in the catch →
   // bailout, same as any other Step-0 solver failure.
   try {
     const solverResult = await guardedDeps.solve(binding, gearset, { initialQuality: maxHqInitialQuality, buffs })
-    if (isCancelled?.()) return bailout(bis, 'cancelled')
+    if (isCancelled?.()) return bailout(bis, 'cancelled', noHqLever)
     const simResult = await guardedDeps.simulate(binding, gearset, {
       actions: solverResult.actions,
       initialQuality: maxHqInitialQuality,
       buffs,
     })
-    if (isDoubleMax(simResult)) {
+    const step0DoubleMax = isDoubleMax(simResult)
+    // #134: memoize the zero-Δ probe so the baseline rung's downward bisection to
+    // control 0 reuses it instead of re-solving the identical bare gearset.
+    probeCache.set(probeKey(0, 0, 0), step0DoubleMax)
+    if (step0DoubleMax) {
       return {
         status: 'feasible',
         costOptimal: emptyMeldPlan(0, true),
@@ -995,15 +1077,44 @@ export async function adviseMeld(
         alreadyMeetsThreshold: true,
         hqSufficient: true,
         rankedByCount: false,
+        noHqLever,
       }
     }
   } catch (err) {
     // #133: distinguish deadline (timed-out) / cancel (cancelled) / other
     // (error) instead of the old bit-identical bailout.
-    return bailout(bis, statusForError(err))
+    return bailout(bis, statusForError(err), noHqLever)
   }
 
-  if (isCancelled?.()) return bailout(bis, 'cancelled')
+  if (isCancelled?.()) return bailout(bis, 'cancelled', noHqLever)
+
+  // #134: full-pentameld feasibility prefilter. Before the worst-case ~66-solve
+  // bounded ladder, run ONE solve at the FULL_MELD_OVERBOUND — every stat handed
+  // the entire 60-slot budget at once. Double-max is monotone non-decreasing in
+  // each stat, so if even this physically-impossible over-bound can't double-max,
+  // no real shared-slot meld plan can either → short-circuit to `infeasible` in
+  // ~1 extra solve. A deadline/cancel here is reported honestly (timed-out /
+  // cancelled), never as infeasible. NEVER false-positives infeasible (#123).
+  const overbound: GearsetStats = {
+    ...gearset,
+    craftsmanship: gearset.craftsmanship + FULL_MELD_OVERBOUND.craftsmanship,
+    control: gearset.control + FULL_MELD_OVERBOUND.control,
+    cp: gearset.cp + FULL_MELD_OVERBOUND.cp,
+  }
+  try {
+    const solverResult = await guardedDeps.solve(binding, overbound, { initialQuality: maxHqInitialQuality, buffs })
+    if (isCancelled?.()) return bailout(bis, 'cancelled', noHqLever)
+    const simResult = await guardedDeps.simulate(binding, overbound, {
+      actions: solverResult.actions,
+      initialQuality: maxHqInitialQuality,
+      buffs,
+    })
+    if (!isDoubleMax(simResult)) return bailout(bis, 'infeasible', noHqLever)
+  } catch (err) {
+    return bailout(bis, statusForError(err), noHqLever)
+  }
+
+  if (isCancelled?.()) return bailout(bis, 'cancelled', noHqLever)
 
   // Steps 2 + 3: closed-form breakpoints (on top of max-HQ baseline), demoted to
   // NON-BINDING SEEDS (ADR-0002). solveProgressBreakpoint gives the BASE rung of
@@ -1011,7 +1122,7 @@ export async function adviseMeld(
   // search's first probe point.
   const craftDelta = solveProgressBreakpoint(binding, gearset, buffs)
 
-  if (isCancelled?.()) return bailout(bis, 'cancelled')
+  if (isCancelled?.()) return bailout(bis, 'cancelled', noHqLever)
 
   // Step 4 (#127): the OUTER craftsmanship ladder around the #126 inner quality
   // search, completing the 3D (craftsmanship × control × CP) bounded cost search.
@@ -1039,7 +1150,7 @@ export async function adviseMeld(
     let confirmed: ConfirmedBreakpoint
     try {
       confirmed = await searchMinimalQualityDelta(
-        binding, gearset, seed, maxHqInitialQuality, guardedDeps, isCancelled, buffs,
+        binding, gearset, seed, maxHqInitialQuality, guardedDeps, isCancelled, buffs, probeCache,
       )
     } catch (err) {
       // #132: a wall-clock deadline or run-level abort tore down an in-flight
@@ -1094,10 +1205,15 @@ export async function adviseMeld(
     alreadyMeetsThreshold: false,
     hqSufficient: false,
     rankedByCount: isRankedByCount(costOptimal),
+    noHqLever,
   }
 }
 
-function bailout(bis: MeldPlan, status: Exclude<MeldAdviceStatus, 'feasible'>): MeldAdvice {
+function bailout(
+  bis: MeldPlan,
+  status: Exclude<MeldAdviceStatus, 'feasible'>,
+  noHqLever = false,
+): MeldAdvice {
   return {
     status,
     costOptimal: emptyMeldPlan(null, false),
@@ -1106,6 +1222,7 @@ function bailout(bis: MeldPlan, status: Exclude<MeldAdviceStatus, 'feasible'>): 
     alreadyMeetsThreshold: false,
     hqSufficient: false,
     rankedByCount: false,
+    noHqLever,
   }
 }
 
