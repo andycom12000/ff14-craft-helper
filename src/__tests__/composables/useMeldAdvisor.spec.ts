@@ -14,10 +14,6 @@ vi.mock('@/services/meld-advisor', () => ({
   adviseMeld: vi.fn(),
 }))
 
-vi.mock('@/engine/materia', () => ({
-  BIS_REFERENCE: { craftsmanship: 4785, control: 4758, cp: 646 },
-}))
-
 const { fetchMateriaPriceMap } = await import('@/api/universalis')
 const { adviseMeld } = await import('@/services/meld-advisor')
 
