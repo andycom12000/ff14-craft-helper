@@ -57,11 +57,15 @@ const { selections, deltaStats, verdict, hasSelections } = pg
  * never hides live state. `expanded` is the manual toggle on top of that.
  */
 const expanded = ref(false)
-const isOpen = computed(
-  () => expanded.value || !!props.overrideActive || hasSelections.value,
-)
+/** Live state that force-opens the picker: collapsing must never hide an applied
+ *  override or in-progress selections. While pinned, the manual toggle is inert. */
+const pinnedOpen = computed(() => !!props.overrideActive || hasSelections.value)
+const isOpen = computed(() => expanded.value || pinnedOpen.value)
 function toggleOpen() {
-  expanded.value = !isOpen.value
+  // Flip the user's own `expanded` flag — never derive it from `isOpen`, or a
+  // pinned-open state would make every click a no-op (the toggle is disabled
+  // while pinned anyway, but keep the semantics honest).
+  expanded.value = !expanded.value
 }
 
 const STATS: { key: CraftStat; label: string }[] = [
@@ -176,6 +180,7 @@ const verdictClass = computed(() => {
         class="mpg-toggle"
         data-test="pg-toggle"
         :aria-expanded="isOpen"
+        :disabled="pinnedOpen"
         @click="toggleOpen"
       >
         <span class="mpg-caret" :class="{ open: isOpen }" aria-hidden="true">▸</span>
@@ -299,6 +304,11 @@ const verdictClass = computed(() => {
   background: transparent;
   cursor: pointer;
   text-align: left;
+}
+/* Pinned open by live state (override / selections) — the toggle can't collapse,
+   so it reads as a status indicator, not a clickable control. */
+.mpg-toggle:disabled {
+  cursor: default;
 }
 .mpg-caret {
   font-size: 11px;
