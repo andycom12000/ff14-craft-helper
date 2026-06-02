@@ -172,17 +172,24 @@ async function copyShoppingList() {
       </div>
 
       <div v-else-if="isLoading" class="loading-state">
-        <el-icon data-test="spinner" class="is-loading mac-spinner"><Loading /></el-icon>
-        <span>計算中…</span>
-        <el-button
-          data-test="cancel-advisor"
-          size="small"
-          text
-          class="cancel-advisor-btn"
-          @click="emit('cancel')"
-        >
-          取消
-        </el-button>
+        <div class="loading-row">
+          <el-icon data-test="spinner" class="is-loading mac-spinner"><Loading /></el-icon>
+          <span>計算中…</span>
+          <el-button
+            data-test="cancel-advisor"
+            size="small"
+            text
+            class="cancel-advisor-btn"
+            @click="emit('cancel')"
+          >
+            取消
+          </el-button>
+        </div>
+        <!-- #129 D: a hard CP-bound recipe runs the bounded search across several
+             craftsmanship rungs (each capped by the per-request 8s deadline), so
+             the wait can reach tens of seconds. Set that expectation so the
+             spinner doesn't read as a hang. -->
+        <p class="loading-hint" data-test="loading-hint">難配方可能需數十秒，請稍候</p>
       </div>
 
       <div v-else-if="isStale" class="stale-state">
@@ -346,9 +353,20 @@ async function copyShoppingList() {
 /* Loading state */
 .loading-state {
   display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  color: var(--app-text-muted, oklch(0.5 0.03 60));
+}
+.loading-row {
+  display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+}
+/* #129 D: long-wait expectation hint under the spinner. */
+.loading-hint {
+  margin: 0 0 0 28px;
+  font-size: 12.5px;
   color: var(--app-text-muted, oklch(0.5 0.03 60));
 }
 

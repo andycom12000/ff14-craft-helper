@@ -58,6 +58,17 @@ describe('MeldAdvisorCard', () => {
     expect(w.find('[data-test=cancel-advisor]').exists()).toBe(false)
   })
 
+  // #129 tweak D: a hard CP-bound recipe can keep the reverse search running for
+  // tens of seconds (per-request 8s deadline × multiple craftsmanship rungs), so
+  // the bare「計算中…」spinner reads like a hang. Surface a long-wait expectation
+  // hint so the wait reads as expected, not broken.
+  it('#129 D: the loading state surfaces a long-wait expectation hint', () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: 'loading' } })
+    const hint = w.find('[data-test=loading-hint]')
+    expect(hint.exists()).toBe(true)
+    expect(hint.text()).toContain('數十秒')
+  })
+
   it('greys the card when stale', () => {
     const w = mount(MeldAdvisorCard, { props: { advice: 'stale' } })
     expect(w.classes()).toContain('is-stale')
