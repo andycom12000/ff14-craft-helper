@@ -203,4 +203,56 @@ describe('MeldPlaygroundCard', () => {
     const w = mountCard({ overrideActive: false })
     expect(w.find('[data-test="undo-override"]').exists()).toBe(false)
   })
+
+  // #129 tweak B: the forward playground sat permanently expanded at the bottom
+  // of the Step 2 cascade, burying it below a long advisor card. Collapse it by
+  // default behind a toggle so its entry point is reachable without scrolling.
+  // v-show hides via inline `display: none`; this test-utils build's isVisible()
+  // ignores that, so assert the rendered style directly (the real browser hides).
+  const hidden = (w: ReturnType<typeof mountCard>) =>
+    (w.find('[data-test="mpg-body"]').attributes('style') ?? '').includes('display: none')
+
+  it('#129 B: the forward picker is collapsed by default and a toggle reveals it', async () => {
+    const w = mountCard()
+    const toggle = w.find('[data-test="pg-toggle"]')
+    expect(toggle.exists()).toBe(true)
+    expect(toggle.attributes('aria-expanded')).toBe('false')
+    expect(hidden(w)).toBe(true)
+
+    await toggle.trigger('click')
+    expect(toggle.attributes('aria-expanded')).toBe('true')
+    expect(hidden(w)).toBe(false)
+  })
+
+  it('#129 B: loading the reverse suggestion auto-expands the picker', async () => {
+    const w = mountCard()
+    expect(hidden(w)).toBe(true)
+    await w.find('[data-test="load-reverse"]').trigger('click')
+    expect(hidden(w)).toBe(false)
+  })
+
+  it('#129 B: an active override keeps the picker open so the applied state is visible', () => {
+    const w = mountCard({ overrideActive: true })
+    expect(hidden(w)).toBe(false)
+  })
+
+  // Code-review (PR #158): when live state (override / selections) pins the picker
+  // open, the toggle can't collapse it (by design — collapsing must never hide
+  // live state). So the toggle must read as inert, not a clickable no-op.
+  it('#129 B: the toggle is disabled while live state pins the picker open', () => {
+    const w = mountCard({ overrideActive: true })
+    const toggle = w.find('[data-test="pg-toggle"]')
+    expect((toggle.element as HTMLButtonElement).disabled).toBe(true)
+    expect(toggle.attributes('aria-expanded')).toBe('true')
+  })
+
+  it('#129 B: the toggle round-trips open→closed when nothing pins it open', async () => {
+    const w = mountCard({ advice: null })
+    const toggle = w.find('[data-test="pg-toggle"]')
+    expect(hidden(w)).toBe(true)
+    await toggle.trigger('click')
+    expect(hidden(w)).toBe(false)
+    await toggle.trigger('click')
+    expect(hidden(w)).toBe(true) // must be able to collapse again
+  })
 })

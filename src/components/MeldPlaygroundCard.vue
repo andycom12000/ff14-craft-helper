@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 // ElMessage's CSS side-effect is loaded once by useSimulator (the host); see
 // MeldAdvisorCard for the same note. Re-importing it here breaks the jsdom test.
@@ -47,6 +47,26 @@ const pg = useMeldPlayground(
   () => props.initialQuality ?? 0,
 )
 const { selections, deltaStats, verdict, hasSelections } = pg
+
+/**
+ * #129 tweak B — the forward picker used to sit permanently expanded at the
+ * bottom of the Step 2 cascade, burying it below a long reverse-advisor card.
+ * Collapse it behind a toggle so its entry point is reachable without scrolling.
+ * It auto-opens whenever there's something to show — the user loaded the reverse
+ * plan, placed materia, or the host holds an applied override — so collapsing
+ * never hides live state. `expanded` is the manual toggle on top of that.
+ */
+const expanded = ref(false)
+/** Live state that force-opens the picker: collapsing must never hide an applied
+ *  override or in-progress selections. While pinned, the manual toggle is inert. */
+const pinnedOpen = computed(() => !!props.overrideActive || hasSelections.value)
+const isOpen = computed(() => expanded.value || pinnedOpen.value)
+function toggleOpen() {
+  // Flip the user's own `expanded` flag — never derive it from `isOpen`, or a
+  // pinned-open state would make every click a no-op (the toggle is disabled
+  // while pinned anyway, but keep the semantics honest).
+  expanded.value = !expanded.value
+}
 
 const STATS: { key: CraftStat; label: string }[] = [
   { key: 'craftsmanship', label: '作業' },
@@ -105,6 +125,7 @@ const canLoadReverse = computed(
 function loadReverse() {
   if (!props.advice || typeof props.advice !== 'object' || props.advice.status !== 'feasible') return
   pg.loadFromReverse(props.advice)
+  expanded.value = true // #129 B: surface the seeded rows immediately
   ElMessage.success('已載入逆向建議，可微調魔晶石後重新試算')
 }
 
@@ -154,7 +175,18 @@ const verdictClass = computed(() => {
 <template>
   <div class="meld-playground-card">
     <div class="mpg-head">
-      <span class="mpg-title">鑲嵌試算台</span>
+      <button
+        type="button"
+        class="mpg-toggle"
+        data-test="pg-toggle"
+        :aria-expanded="isOpen"
+        :disabled="pinnedOpen"
+        @click="toggleOpen"
+      >
+        <span class="mpg-caret" :class="{ open: isOpen }" aria-hidden="true">▸</span>
+        <span class="mpg-title">正向試算台</span>
+        <span class="mpg-subtitle">自擺微調</span>
+      </button>
       <button
         type="button"
         class="mpg-link"
@@ -166,6 +198,7 @@ const verdictClass = computed(() => {
       </button>
     </div>
 
+    <div v-show="isOpen" class="mpg-body" data-test="mpg-body">
     <div class="mpg-rows">
       <div
         v-for="s in STATS"
@@ -244,6 +277,7 @@ const verdictClass = computed(() => {
     <p class="mpg-verdict" :class="verdictClass" data-test="verdict" aria-live="polite">
       {{ VERDICT_TEXT[verdict] }}
     </p>
+    </div>
   </div>
 </template>
 
@@ -256,15 +290,50 @@ const verdictClass = computed(() => {
 
 .mpg-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+/* #129 B: the title row is a collapse toggle for the forward picker. */
+.mpg-toggle {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+/* Pinned open by live state (override / selections) — the toggle can't collapse,
+   so it reads as a status indicator, not a clickable control. */
+.mpg-toggle:disabled {
+  cursor: default;
+}
+.mpg-caret {
+  font-size: 11px;
+  color: var(--app-text-muted, oklch(0.5 0.03 60));
+  transition: transform 140ms ease;
+  align-self: center;
+}
+.mpg-caret.open {
+  transform: rotate(90deg);
 }
 .mpg-title {
   font-family: 'Noto Serif TC', serif;
   font-size: 14px;
   font-weight: 600;
   color: var(--app-text, oklch(0.28 0.04 55));
+}
+.mpg-subtitle {
+  font-size: 12px;
+  color: var(--app-text-muted, oklch(0.5 0.03 60));
+}
+/* Collapsible body — the picker rows, actions, undo, and verdict. */
+.mpg-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 .mpg-link {
   padding: 0;
