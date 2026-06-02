@@ -3,7 +3,6 @@ import {
   MATERIA_GRADES,
   SLOT_STRUCTURE,
   OVERMELD_SUCCESS_LADDER,
-  BIS_REFERENCE,
   materiaForStat,
   topGradeForStat,
   expectedCountForOvermeldDepth,
@@ -64,26 +63,6 @@ describe('OVERMELD_SUCCESS_LADDER', () => {
         expect(OVERMELD_SUCCESS_LADDER[i]).toBeLessThanOrEqual(OVERMELD_SUCCESS_LADDER[i - 1])
       }
     }
-  })
-})
-
-describe('BIS_REFERENCE', () => {
-  it('matches the maintained reference (snapshot)', () => {
-    expect(BIS_REFERENCE).toMatchSnapshot()
-  })
-
-  it('matches the corrected 7.3 community BiS (#102)', () => {
-    // i750 "Crested" + "Gold Thumb's" pentameld, per ffxivgillionaire.com
-    expect(BIS_REFERENCE.patch).toBe('7.3')
-    expect(BIS_REFERENCE.craftsmanship).toBe(5811)
-    expect(BIS_REFERENCE.control).toBe(5309)
-    expect(BIS_REFERENCE.cp).toBe(649)
-  })
-
-  it('has positive values for all three stats', () => {
-    expect(BIS_REFERENCE.craftsmanship).toBeGreaterThan(0)
-    expect(BIS_REFERENCE.control).toBeGreaterThan(0)
-    expect(BIS_REFERENCE.cp).toBeGreaterThan(0)
   })
 })
 

@@ -15,22 +15,21 @@ const fullAdvice: MeldAdvice = {
     steps: [{ stat: 'craftsmanship', grade: 12, placedCount: 2, expectedCount: 2, unitPrice: 8000, subtotal: 16000 }],
     totalGil: 16000, confirmedBySolver: true,
   },
-  bis: {
-    feasible: true,
-    deltaStats: { craftsmanship: 400, control: 400, cp: 50 },
-    steps: [],
-    totalGil: 2_400_000, confirmedBySolver: false,
-  },
-  gapGil: 2_384_000,
 }
 
 describe('MeldAdvisorCard', () => {
   // Shared state tests are mode-agnostic; use cost mode where the assertion is
   // about the cost framing, ability mode for the new ability framing.
 
-  it('cost mode renders the gap as the headline', () => {
+  it('cost mode renders the absolute 最省錢達標 cost (no 你能省 / 全 BiS framing)', () => {
     const w = mount(MeldAdvisorCard, { props: { advice: fullAdvice, mode: 'cost', showApply: false } })
-    expect(w.text()).toContain('2,384,000')
+    // Absolute-cost framing: the cost-optimal plan total is the card's number.
+    expect(w.text()).toContain('最省錢達標')
+    expect(w.text()).toContain('16,000')
+    // The removed 全 BiS over-meld ceiling figure must not resurface.
+    expect(w.text()).not.toContain('2,384,000')
+    expect(w.text()).not.toContain('你能省')
+    expect(w.text()).not.toContain('全 BiS')
   })
 
   it('renders the empty state when advice is null', () => {
@@ -265,7 +264,6 @@ describe('MeldAdvisorCard', () => {
       steps: [{ stat: 'craftsmanship', grade: 12, placedCount: 2, expectedCount: 2, unitPrice: null, subtotal: null }],
       totalGil: null,
     },
-    gapGil: null,
   }
 
   it('cost mode: shows the 依鑲嵌數量估算 hint when rankedByCount is true', () => {

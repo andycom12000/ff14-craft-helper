@@ -4,7 +4,6 @@ import type { BatchException, BatchTarget, BatchResults, TodoItem, BuyFinishedDe
 import { adviseMeld, findBindingRecipe } from '@/services/meld-advisor'
 import type { MeldAdvice } from '@/services/meld-advisor'
 import { fetchMateriaPriceMap } from '@/api/universalis'
-import { BIS_REFERENCE } from '@/engine/materia'
 import { calculateInitialQuality } from '@/engine/quality'
 import type { MaterialWithPrice, MaterialBase, QuickBuyMaterial, QuickBuyMaterialPricing } from '@/services/shopping-list'
 import { markRaw } from 'vue'
@@ -721,7 +720,7 @@ export async function runBatchOptimization(
         list.map(r => r.recipe),
         gs,
         materiaPrices,
-        { bisReference: BIS_REFERENCE, initialQuality, isCancelled },
+        { initialQuality, isCancelled },
       )
       meldAdvicePerJob.set(job, advice)
     }

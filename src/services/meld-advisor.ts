@@ -22,8 +22,7 @@
  *      This bounded solver pass is the authority that replaced the old
  *      per-candidate closed-form confirmation step.
  *   5. translateDeltaToMeldPlan (guaranteed → overmeld, fail ladder)
- *   6. computeBisPlan (current → BIS_REFERENCE, deep overmeld)
- *   7. assemble MeldAdvice with gapGil
+ *   6. assemble MeldAdvice (cost-optimal plan + status)
  *
  * Stat-stacking (ADR-0001): the Δstats produced by this service are RAW gear
  * deltas. They MUST be folded into the gearset before Soul/food/medicine.
@@ -34,7 +33,7 @@ import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 import type { MarketData } from '@/api/universalis'
 import { solveCraftForRecipe, simulateCraftForRecipe, SolveCancelledError } from '@/solver/api'
-import type { CraftStat, BiSReference, MateriaGrade } from '@/engine/materia'
+import type { CraftStat, MateriaGrade } from '@/engine/materia'
 import {
   SLOT_STRUCTURE,
   MAX_MELD_COUNT,
@@ -193,8 +192,6 @@ export interface MeldAdvice {
    *  plan may act). */
   status: MeldAdviceStatus
   costOptimal: MeldPlan
-  bis: MeldPlan
-  gapGil: number | null     // bis.totalGil - costOptimal.totalGil; null if either is null
   alreadyMeetsThreshold: boolean
   /**
    * True when maxing out HQ materials alone already double-maxes the binding
@@ -234,7 +231,6 @@ export interface MeldAdvice {
 }
 
 export interface AdviseMeldOptions {
-  bisReference: BiSReference
   /** initialQuality from HQ ingredients (default 0). Required so we don't
    *  over-estimate the control breakpoint. */
   initialQuality?: number
@@ -984,26 +980,6 @@ function isRankedByCount(plan: MeldPlan): boolean {
   return plan.steps.length > 0 && plan.totalGil === null
 }
 
-/**
- * Step 6 — BiS ceiling plan: melds needed to lift current gear stats up to
- * BIS_REFERENCE, costed with the same slot/fail-ladder model.
- *
- * Operates on RAW gear stats (no Soul/food adjustment) because BIS_REFERENCE
- * is itself a raw-gear target. Δ is the raw delta to reach that target.
- */
-export function computeBisPlan(
-  gearset: GearsetStats,
-  bisReference: BiSReference,
-  priceMap: MateriaPriceMap,
-): MeldPlan {
-  const deltaStats = {
-    craftsmanship: Math.max(0, bisReference.craftsmanship - gearset.craftsmanship),
-    control: Math.max(0, bisReference.control - gearset.control),
-    cp: Math.max(0, bisReference.cp - gearset.cp),
-  }
-  return translateDeltaToMeldPlan(deltaStats, priceMap)
-}
-
 export async function adviseMeld(
   targets: Recipe[],
   gearset: GearsetStats,
@@ -1022,15 +998,11 @@ export async function adviseMeld(
   const deadlineMs = options.deadlineMs ?? DEFAULT_ADVISOR_SOLVE_DEADLINE_MS
   const guardedDeps = withSolveDeadline(deps, deadlineMs, options.signal)
 
-  const bis = computeBisPlan(gearset, options.bisReference, priceMap)
-
   const binding = findBindingRecipe(targets)
   if (!binding) {
     return {
       status: 'feasible',
       costOptimal: emptyMeldPlan(0, false),
-      bis,
-      gapGil: bis.totalGil,
       alreadyMeetsThreshold: true,
       hqSufficient: true,
       rankedByCount: false,
@@ -1060,7 +1032,7 @@ export async function adviseMeld(
   // bailout, same as any other Step-0 solver failure.
   try {
     const solverResult = await guardedDeps.solve(binding, gearset, { initialQuality: maxHqInitialQuality, buffs })
-    if (isCancelled?.()) return bailout(bis, 'cancelled', noHqLever)
+    if (isCancelled?.()) return bailout('cancelled', noHqLever)
     const simResult = await guardedDeps.simulate(binding, gearset, {
       actions: solverResult.actions,
       initialQuality: maxHqInitialQuality,
@@ -1074,8 +1046,6 @@ export async function adviseMeld(
       return {
         status: 'feasible',
         costOptimal: emptyMeldPlan(0, true),
-        bis,
-        gapGil: bis.totalGil,
         alreadyMeetsThreshold: true,
         hqSufficient: true,
         rankedByCount: false,
@@ -1085,10 +1055,10 @@ export async function adviseMeld(
   } catch (err) {
     // #133: distinguish deadline (timed-out) / cancel (cancelled) / other
     // (error) instead of the old bit-identical bailout.
-    return bailout(bis, statusForError(err), noHqLever)
+    return bailout(statusForError(err), noHqLever)
   }
 
-  if (isCancelled?.()) return bailout(bis, 'cancelled', noHqLever)
+  if (isCancelled?.()) return bailout('cancelled', noHqLever)
 
   // #134: full-pentameld feasibility prefilter. Before the worst-case ~66-solve
   // bounded ladder, run ONE solve at the FULL_MELD_OVERBOUND — every stat handed
@@ -1105,18 +1075,18 @@ export async function adviseMeld(
   }
   try {
     const solverResult = await guardedDeps.solve(binding, overbound, { initialQuality: maxHqInitialQuality, buffs })
-    if (isCancelled?.()) return bailout(bis, 'cancelled', noHqLever)
+    if (isCancelled?.()) return bailout('cancelled', noHqLever)
     const simResult = await guardedDeps.simulate(binding, overbound, {
       actions: solverResult.actions,
       initialQuality: maxHqInitialQuality,
       buffs,
     })
-    if (!isDoubleMax(simResult)) return bailout(bis, 'infeasible', noHqLever)
+    if (!isDoubleMax(simResult)) return bailout('infeasible', noHqLever)
   } catch (err) {
-    return bailout(bis, statusForError(err), noHqLever)
+    return bailout(statusForError(err), noHqLever)
   }
 
-  if (isCancelled?.()) return bailout(bis, 'cancelled', noHqLever)
+  if (isCancelled?.()) return bailout('cancelled', noHqLever)
 
   // Steps 2 + 3: closed-form breakpoints (on top of max-HQ baseline), demoted to
   // NON-BINDING SEEDS (ADR-0002). solveProgressBreakpoint gives the BASE rung of
@@ -1124,7 +1094,7 @@ export async function adviseMeld(
   // search's first probe point.
   const craftDelta = solveProgressBreakpoint(binding, gearset, buffs)
 
-  if (isCancelled?.()) return bailout(bis, 'cancelled', noHqLever)
+  if (isCancelled?.()) return bailout('cancelled', noHqLever)
 
   // Step 4 (#127): the OUTER craftsmanship ladder around the #126 inner quality
   // search, completing the 3D (craftsmanship × control × CP) bounded cost search.
@@ -1192,18 +1162,9 @@ export async function adviseMeld(
     ? 'feasible'
     : interruptedStatus ?? 'infeasible'
 
-  // Step 7: gap (clamped to ≥ 0 — if optimal cost exceeds BiS cost the user
-  // is already paying more than needed, so the "saving" is 0, not negative).
-  const gapGil =
-    bis.totalGil !== null && costOptimal.totalGil !== null
-      ? Math.max(0, bis.totalGil - costOptimal.totalGil)
-      : null
-
   return {
     status,
     costOptimal,
-    bis,
-    gapGil,
     alreadyMeetsThreshold: false,
     hqSufficient: false,
     rankedByCount: isRankedByCount(costOptimal),
@@ -1212,15 +1173,12 @@ export async function adviseMeld(
 }
 
 function bailout(
-  bis: MeldPlan,
   status: Exclude<MeldAdviceStatus, 'feasible'>,
   noHqLever = false,
 ): MeldAdvice {
   return {
     status,
     costOptimal: emptyMeldPlan(null, false),
-    bis,
-    gapGil: null,
     alreadyMeetsThreshold: false,
     hqSufficient: false,
     rankedByCount: false,

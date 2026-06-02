@@ -82,32 +82,6 @@ export const OVERMELD_SUCCESS_LADDER: number[] = [
   0.17, 0.10, 0.07, 0.05,
 ]
 
-/**
- * BiS reference stats (fully pentamelded community-standard set).
- * One triple per patch, shared across crafter jobs (per-job variance
- * is below the precision of ②-lite). Maintain this when a major patch
- * lands or BiS gear changes. Snapshot test enforces a manual review on
- * change.
- *
- * Last verified patch: 7.3 (Dawntrail) — i750 "Crested" set + "Gold Thumb's"
- * tools, fully pentamelded. Totals (5811 / 5309 / 649) verified against the
- * community crafter BiS at ffxivgillionaire.com/crafter-bis-gear
- * ("Level 100 i750 Pentameld (5811/5309/649)").
- */
-export interface BiSReference {
-  patch: string
-  craftsmanship: number
-  control: number
-  cp: number
-}
-
-export const BIS_REFERENCE: BiSReference = {
-  patch: '7.3',
-  craftsmanship: 5811,
-  control: 5309,
-  cp: 649,
-}
-
 const STAT_SHORT_LABELS: Record<CraftStat, string> = {
   craftsmanship: '作業',
   control: '加工',

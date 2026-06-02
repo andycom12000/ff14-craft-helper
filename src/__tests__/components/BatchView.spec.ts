@@ -44,12 +44,6 @@ const advice = (): MeldAdvice => ({
     steps: [{ stat: 'craftsmanship', grade: 12, placedCount: 2, expectedCount: 2, unitPrice: 8000, subtotal: 16000 }],
     totalGil: 16000, confirmedBySolver: true,
   },
-  bis: {
-    feasible: true,
-    deltaStats: { craftsmanship: 400, control: 400, cp: 50 },
-    steps: [], totalGil: 2_400_000, confirmedBySolver: false,
-  },
-  gapGil: 2_384_000,
 })
 
 /** Minimal BatchResults satisfying the shape; only meldAdvicePerJob varies. */

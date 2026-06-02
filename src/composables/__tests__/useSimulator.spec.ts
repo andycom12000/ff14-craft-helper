@@ -67,8 +67,6 @@ const ADVICE: MeldAdvice = {
     steps: [{ stat: 'control', grade: 12, placedCount: 8, expectedCount: 8, unitPrice: 8000, subtotal: 64000 }],
     totalGil: 64000, confirmedBySolver: true,
   },
-  bis: { feasible: true, deltaStats: { craftsmanship: 0, control: 0, cp: 0 }, steps: [], totalGil: 0, confirmedBySolver: false },
-  gapGil: 0,
 }
 
 function seedCrpGearset() {

@@ -2,7 +2,6 @@ import { shallowRef, onScopeDispose, getCurrentScope } from 'vue'
 import { adviseMeld, type MeldAdvice } from '@/services/meld-advisor'
 import { fetchMateriaPriceMap } from '@/api/universalis'
 import type { MarketData } from '@/api/universalis'
-import { BIS_REFERENCE } from '@/engine/materia'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 import type { FoodBuff } from '@/engine/food-medicine'
@@ -54,7 +53,6 @@ export function useMeldAdvisor(world: () => string) {
         gearset,
         priceMap,
         {
-          bisReference: BIS_REFERENCE,
           initialQuality,
           // #136: solve on the same effectiveStats the screen uses — fold the
           // active food/medicine in (ADR-0001 order), not just raw gear + Soul.

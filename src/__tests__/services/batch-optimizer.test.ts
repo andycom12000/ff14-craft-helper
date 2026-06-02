@@ -42,8 +42,6 @@ vi.mock('@/services/meld-advisor', async (importOriginal) => {
     adviseMeld: vi.fn().mockResolvedValue({
       status: 'feasible',
       costOptimal: { feasible: true, deltaStats: { craftsmanship: 0, control: 0, cp: 0 }, steps: [], totalGil: 0, confirmedBySolver: false },
-      bis: { feasible: true, deltaStats: { craftsmanship: 0, control: 0, cp: 0 }, steps: [], totalGil: 0, confirmedBySolver: false },
-      gapGil: 0,
       alreadyMeetsThreshold: false,
       hqSufficient: false,
     }),
