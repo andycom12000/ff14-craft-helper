@@ -517,19 +517,22 @@ function isDoubleMax(simResult: {
 }
 
 /**
- * Hard-cap backstop on the number of solver calls a single bounded quality-gap
- * search may issue (ADR-0002). The search probes ascending control grades and
- * then bisects downward; this cap guarantees termination on a pathological /
- * genuinely-unsolvable recipe rather than looping unbounded. With the top grade
- * = 54 control per materia, 11 probes covers a control delta well past any
- * single gear set's slot budget, so it never binds on a solvable recipe.
+ * Hard-cap backstop on the number of solver calls a single bounded quality-plane
+ * search may issue (ADR-0002). The #155 2D search walks CP grades and, at each,
+ * probes the control ceiling once then bisects control down; this cap guarantees
+ * termination on a pathological / genuinely-unsolvable recipe rather than looping
+ * unbounded. Sized for the 2D walk: a control-bound recipe settles at CP 0 in a
+ * single bisection (~log₂ ceiling) plus one confirming CP step, and a CP-bound
+ * recipe escalates CP at one probe per level (control-ceiling test) until feasible
+ * — 28 funds both the CP escalation and the control bisection with headroom,
+ * while still capping a hopeless recipe.
  *
  * The search runs after `adviseMeld`'s Step 0 already-meets probe and the #134
  * full-pentameld feasibility prefilter (2 baseline solves), so the documented
  * worst-case advisor budget is 2 + MAX_CRAFTSMANSHIP_RUNGS × MAX_QUALITY_PROBES
  * solves per run (the shared probe cache lowers the effective count via hits).
  */
-const MAX_QUALITY_PROBES = 11
+const MAX_QUALITY_PROBES = 28
 
 /** Top-grade control materia value (one meld worth of control). */
 const CONTROL_GRADE_STEP = topGradeForStat('control')?.value ?? 54
@@ -679,37 +682,46 @@ export function enumerateCraftsmanshipLadder(
 }
 
 /**
- * #126 — solver-authoritative minimal-Δ search over the QUALITY axis only.
+ * #126/#155 — solver-authoritative minimal-cost search over the QUALITY plane
+ * (control × CP). Craftsmanship is FIXED at the rung value carried in `seed`
+ * (the #127 outer ladder owns that axis). This search finds the CHEAPEST
+ * (Δcontrol, Δcp) combination such that `deps.solve` + `deps.simulate`
+ * double-maxes the binding recipe.
  *
- * The craftsmanship outer ladder (trading craftsmanship to compress progress
- * steps and free CP for quality) is #127 and is explicitly OUT of scope here:
- * craftsmanship is FIXED at the progress breakpoint carried in `seed`
- * (typically 0 for the #123 repro). This search finds the cheapest Δcontrol
- * such that `deps.solve` + `deps.simulate` double-maxes the binding recipe.
+ * Why 2D (#155): the original search varied ONLY control and pinned CP at the
+ * closed-form `seed.cp`, which is over-optimistic (`quietCanReachHQQuality` uses
+ * upper-bound multipliers) and routinely returns 0. When CP is the binding axis
+ * (low base CP + CP-hungry recipe — the current hardest standard recipes), a
+ * control-only search can never double-max → false `infeasible`, even though the
+ * #134 prefilter proved a plan exists. The seed is therefore NON-BINDING (search
+ * speed only): both axes are explored by the real solver here.
  *
- * Contract / algorithm:
- *   1. SEED Δcontrol from the closed-form `seed.control` — NON-BINDING: it only
- *      picks the first probe point to reduce solver calls. A wrong seed (the
- *      over-accept Δ=0 bug, or an over-large value) never changes the answer.
- *   2. Probe control deltas on the top-grade grid (multiples of
- *      `CONTROL_GRADE_STEP` = 54). Each probe runs `deps.solve` then
- *      `deps.simulate` on the bumped gearset and accepts only when
- *      `isDoubleMax`. Find an UPPER bound: probe the seed grid point, then march
- *      up by one grade until a double-max is found or `MAX_QUALITY_PROBES` is
- *      hit (the hard cap is the real backstop against unbounded probing).
- *   3. BISECT downward in [0, upperBound] on the grade grid for the MINIMAL
- *      confirmed delta — re-confirming via solver at each midpoint rather than
- *      trusting closed-form interpolation. Double-max is monotone in control, so
- *      bisection is sound.
- *   4. `isCancelled` is honoured between every solve.
+ * Algorithm (staircase walk on the feasible frontier):
+ *   Double-max is monotone non-decreasing in BOTH control and CP, so the feasible
+ *   region is an upper-right staircase and the cheapest feasible point lies on its
+ *   lower-left frontier. Walk CP upward on the top-grade grid; at each CP level:
+ *     1. Probe the control CEILING first — one solve testing "does max control at
+ *        this CP double-max?". If not, this CP is infeasible regardless of control
+ *        → escalate CP (costs a single probe, so the budget funds CP escalation
+ *        rather than burning out marching control on a hopeless level).
+ *     2. If the ceiling double-maxes, BISECT control down in [0, ceiling] for the
+ *        minimal control at this CP — sound because double-max is monotone in
+ *        control. Score the combo by total top-grade steps (control + CP) and keep
+ *        the fewest-step one (the frontier corner nearest the bare gear).
+ *     3. Once a CP level yields no fewer total steps than the best so far, STOP:
+ *        past the frontier minimum, control steps only fall and CP steps only rise,
+ *        so the total cannot dip again on the grade grid (unimodal frontier).
+ *   `MAX_QUALITY_PROBES` is the shared hard cap (termination backstop); the
+ *   monotone control ceiling (= best-so-far control once feasible) keeps each
+ *   higher-CP bisection cheap. `isCancelled` is honoured between every solve.
  *
- * Returns the confirmed `deltaStats` (craftsmanship/cp pinned from the seed,
- * control = minimal confirmed) and `confirmedBySolver`. Cost ranking across
- * candidates is the caller's job via `translateDeltaToMeldPlan`; because the
- * grade-grid bisection already yields the single minimal control delta, that
- * delta is also the cheapest (fewer materia = fewer slots = lower gil under a
- * uniform top-grade price), and a null-price set simply ranks by that same
- * fewest-slots delta.
+ * Returns the minimal-step confirmed `deltaStats` (control + CP) and
+ * `confirmedBySolver`. "Minimal" here = fewest total top-grade materia steps
+ * (control steps + CP steps) among double-maxing combinations — a slot-count
+ * proxy that lands on the frontier corner nearest the bare gear. `confirmedBySolver`
+ * stays slot-AGNOSTIC (= a double-max was found within budget); the caller's
+ * `translateDeltaToMeldPlan` owns slot-budget feasibility and gil ranking across
+ * rungs (ADR-0002), exactly as before — only the CP axis is now searched too.
  */
 export async function searchMinimalQualityDelta(
   recipe: Recipe,
@@ -727,15 +739,13 @@ export async function searchMinimalQualityDelta(
   cache: Map<string, boolean> = new Map(),
 ): Promise<ConfirmedBreakpoint> {
   const craftsmanship = seed.craftsmanship
-  const cp = seed.cp
-  const pin = (control: number) => ({ craftsmanship, control, cp })
 
   let solveCount = 0
 
-  // Probe `controlDelta` raw control points. Returns null when cancelled or the
-  // hard cap is exhausted (caller treats null as "could not confirm here").
-  const probe = async (controlDelta: number): Promise<boolean | null> => {
-    const key = probeKey(craftsmanship, controlDelta, cp)
+  // Probe a raw (control, cp) point. Returns null when cancelled or the hard cap
+  // is exhausted (callers treat null as "could not confirm here").
+  const probe = async (controlDelta: number, cpDelta: number): Promise<boolean | null> => {
+    const key = probeKey(craftsmanship, controlDelta, cpDelta)
     const cached = cache.get(key)
     if (cached !== undefined) return cached
     if (isCancelled?.()) return null
@@ -744,7 +754,7 @@ export async function searchMinimalQualityDelta(
       ...gearset,
       craftsmanship: gearset.craftsmanship + craftsmanship,
       control: gearset.control + controlDelta,
-      cp: gearset.cp + cp,
+      cp: gearset.cp + cpDelta,
     }
     solveCount++
     const solverResult = await deps.solve(recipe, bumped, { initialQuality, buffs })
@@ -759,41 +769,77 @@ export async function searchMinimalQualityDelta(
     return ok
   }
 
-  // Grade-grid steps: 0, 1, 2, ... → 0, 54, 108, ...
-  const toSteps = (raw: number) => Math.max(0, Math.ceil(raw / CONTROL_GRADE_STEP))
-  const toDelta = (steps: number) => steps * CONTROL_GRADE_STEP
+  // Grade-grid converters for each axis.
+  const ctrlDelta = (steps: number) => steps * CONTROL_GRADE_STEP
+  const cpDeltaOf = (steps: number) => steps * CP_GRADE_STEP
 
-  // Phase 1 — find an upper bound starting from the (non-binding) seed grid
-  // point and marching upward by one grade per probe.
-  let hiSteps: number | null = null
-  let step = toSteps(seed.control)
-  while (solveCount < MAX_QUALITY_PROBES) {
-    const ok = await probe(toDelta(step))
-    if (ok === null) {
-      return { deltaStats: pin(toDelta(step)), confirmedBySolver: false }
+  // Physical ceilings (full-gearset over-bound): probing AT the ceiling is the
+  // single-solve feasibility test per CP level; the plan's slot budget is what
+  // ultimately constrains the returned delta (via translateDeltaToMeldPlan).
+  const controlCeilingSteps = Math.max(1, Math.ceil(FULL_MELD_OVERBOUND.control / CONTROL_GRADE_STEP))
+  const cpCeilingSteps = Math.max(0, Math.ceil(FULL_MELD_OVERBOUND.cp / CP_GRADE_STEP))
+
+  // Minimal control STEPS that double-max at a fixed CP, searching [0, capSteps].
+  // Probe the cap first (1 solve) to settle feasibility, then bisect down.
+  // Returns the minimal control steps, or null if this CP can't double-max within
+  // the cap / remaining budget.
+  const minControlAt = async (cpDelta: number, capSteps: number): Promise<number | null> => {
+    const top = await probe(ctrlDelta(capSteps), cpDelta)
+    if (top === null || top === false) return null
+    let lo = 0
+    let hi = capSteps
+    let best = capSteps
+    while (lo < hi) {
+      const mid = Math.floor((lo + hi) / 2)
+      const ok = await probe(ctrlDelta(mid), cpDelta)
+      if (ok === null) break // budget/cancel — keep the confirmed `best`
+      if (ok) { best = mid; hi = mid } else { lo = mid + 1 }
     }
-    if (ok) { hiSteps = step; break }
-    step += 1
-  }
-  if (hiSteps === null) {
-    // Exhausted the probe budget without ever double-maxing → unsolvable within
-    // the bounded search.
-    return { deltaStats: pin(toDelta(step)), confirmedBySolver: false }
+    return best
   }
 
-  // Phase 2 — bisect downward in [0, hiSteps] for the minimal confirmed delta,
-  // re-confirming via the solver at each midpoint.
-  let lo = 0
-  let hi = hiSteps
-  let best = hiSteps
-  while (lo < hi) {
-    const mid = Math.floor((lo + hi) / 2)
-    const ok = await probe(toDelta(mid))
-    if (ok === null) break // cancelled or cap hit; keep current best (confirmed)
-    if (ok) { best = mid; hi = mid } else { lo = mid + 1 }
+  // Rank double-maxing combinations by FEWEST total top-grade steps
+  // (control + cp) — a slot-count proxy that lands on the frontier corner
+  // nearest the bare gear. Slot-budget feasibility and gil ranking across rungs
+  // stay with the caller (translateDeltaToMeldPlan / compareCandidatePlans), so
+  // `confirmedBySolver` here means only "a double-max was found within budget",
+  // exactly as the old control-only search did.
+  let best: { control: number; cp: number; totalSteps: number } | null = null
+
+  for (let cpSteps = 0; cpSteps <= cpCeilingSteps; cpSteps++) {
+    if (isCancelled?.() || solveCount >= MAX_QUALITY_PROBES) break
+    // Monotone control ceiling: once a combo double-maxes, a higher CP never
+    // needs MORE control, so cap the next bisection at the current best's control.
+    const capSteps = best ? best.control : controlCeilingSteps
+    const controlSteps = await minControlAt(cpDeltaOf(cpSteps), capSteps)
+    if (controlSteps === null) continue // can't double-max at this CP (or out of budget)
+
+    const totalSteps = controlSteps + cpSteps
+    if (best === null || totalSteps < best.totalSteps) {
+      best = { control: controlSteps, cp: cpSteps, totalSteps }
+    } else if (totalSteps > best.totalSteps) {
+      // STRICTLY past the frontier minimum: control only drops and CP only rises
+      // from here, so the total can't dip again on the grade grid. Stop.
+      break
+    }
+    // On a TIE (totalSteps === best.totalSteps) keep the lower-CP best but DON'T
+    // stop: F (min control at this CP) is non-increasing, so a tie can precede a
+    // strictly-deeper drop one CP level up — breaking here would return a
+    // suboptimal delta. The shared probe budget still bounds the walk.
   }
 
-  return { deltaStats: pin(toDelta(best)), confirmedBySolver: true }
+  if (best === null) {
+    // No (control, cp) within the bounded search double-maxed → could not
+    // confirm by melds here. Pin the seed for the (unconfirmed) bailout shape.
+    return {
+      deltaStats: { craftsmanship, control: ctrlDelta(Math.ceil(seed.control / CONTROL_GRADE_STEP)), cp: seed.cp },
+      confirmedBySolver: false,
+    }
+  }
+  return {
+    deltaStats: { craftsmanship, control: ctrlDelta(best.control), cp: cpDeltaOf(best.cp) },
+    confirmedBySolver: true,
+  }
 }
 
 interface AllocationCursor {
@@ -1060,8 +1106,9 @@ export async function adviseMeld(
 
   if (isCancelled?.()) return bailout('cancelled', noHqLever)
 
-  // #134: full-pentameld feasibility prefilter. Before the worst-case ~66-solve
-  // bounded ladder, run ONE solve at the FULL_MELD_OVERBOUND — every stat handed
+  // #134: full-pentameld feasibility prefilter. Before the worst-case
+  // MAX_CRAFTSMANSHIP_RUNGS × MAX_QUALITY_PROBES bounded ladder, run ONE solve at
+  // the FULL_MELD_OVERBOUND — every stat handed
   // the entire 60-slot budget at once. Double-max is monotone non-decreasing in
   // each stat, so if even this physically-impossible over-bound can't double-max,
   // no real shared-slot meld plan can either → short-circuit to `infeasible` in
