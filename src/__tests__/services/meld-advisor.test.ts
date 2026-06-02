@@ -718,6 +718,70 @@ describe('adviseMeld — quality-gap solver search (#126)', () => {
   })
 })
 
+// #155: CP-bound hardest recipe. The inner quality search (searchMinimalQualityDelta)
+// solver-searches ONLY the control axis; CP is pinned at the closed-form
+// `solveQualityBreakpoint` seed, which is over-optimistic (quietCanReachHQQuality
+// uses upper-bound multipliers) and reports control-only as sufficient → seed.cp = 0.
+// When CP is genuinely a binding axis (low base CP + CP-hungry recipe), the
+// control-only ladder can never double-max → the advisor falsely returns
+// `infeasible`, even though the #134 full-pentameld prefilter correctly certifies a
+// feasible plan EXISTS. A faithful fix must surface a feasible CP-containing plan.
+describe('adviseMeld — CP-bound recipe must not false-report infeasible (#155)', () => {
+  const priceMap = new Map<number, any>(
+    MATERIA_GRADES.map(m => [m.itemId, { minPriceNQ: 1000 + m.value, listings: [] }]),
+  )
+
+  // Same shape as the #126 repro (so the closed-form seeds cp = 0), but the fake
+  // makes CP a BINDING axis: double-max needs BOTH a control bump AND a cp bump.
+  const cpBoundGearset = {
+    level: 100, craftsmanship: 4500, control: 3200, cp: 600, isSpecialist: false,
+  }
+  const cpBoundRecipe = () => makeRecipe(155, 100, 6500)
+
+  const SIM_EXTRAS = {
+    durability: 80, cp: 600, max_durability: 80, max_cp: 600,
+    effects: {} as any, is_finished: true, is_success: true, steps_used: 1,
+  }
+
+  // Double-maxes iff control is bumped >= controlGate AND cp is bumped >= cpGate
+  // above base. Control alone (cp pinned at the seed) can NEVER satisfy this.
+  const cpControlAwareSimulate = (
+    baseControl: number,
+    baseCp: number,
+    controlGate: number,
+    cpGate: number,
+    maxQuality = 6500,
+    qualityShort = 243,
+  ) =>
+    vi.fn(async (_recipe: any, gs: any) => {
+      const met = gs.control >= baseControl + controlGate && gs.cp >= baseCp + cpGate
+      return {
+        ...SIM_EXTRAS,
+        progress: 3500, max_progress: 3500,
+        quality: met ? maxQuality : maxQuality - qualityShort,
+        max_quality: maxQuality,
+      }
+    })
+
+  it('RED #155: returns a feasible, solver-confirmed CP-containing plan (not infeasible)', async () => {
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = cpControlAwareSimulate(cpBoundGearset.control, cpBoundGearset.cp, 150, 54)
+
+    const out = await adviseMeld(
+      [cpBoundRecipe()], cpBoundGearset, priceMap,
+      {},
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+
+    // #134 prefilter must NOT short-circuit: the full-pentameld over-bound
+    // (cp + 840, control + 3240) double-maxes, so a feasible plan provably exists.
+    // The advisor must therefore deliver one — never `infeasible`.
+    expect(out.status).toBe('feasible')
+    expect(out.costOptimal.confirmedBySolver).toBe(true)
+    expect(out.costOptimal.deltaStats.cp).toBeGreaterThan(0)
+  })
+})
+
 // #127: the OUTER craftsmanship ladder around the #126 inner quality search.
 // Completes the 3D (craftsmanship × control × CP) bounded cost search. Adding
 // craftsmanship beyond securing progress only has value when finishing progress
@@ -1431,21 +1495,28 @@ describe('adviseMeld — full-pentameld feasibility prefilter (#134)', () => {
   })
 
   it('still reports infeasible when the prefilter passes but no real rung fits the slot budget', async () => {
-    // Double-max only at control +3000 raw (≈ 56 melds, past the 60-slot budget
-    // once craft/cp also need slots): the full-pentameld over-bound (control
-    // +3240) clears it, so the prefilter PASSES, but every bounded ladder rung
-    // (capped at MAX_QUALITY_PROBES grades from the seed) falls short → infeasible
-    // after the ladder, NOT short-circuited.
+    // Double-max only when BOTH control +3000 (≈ 56 melds) AND cp +200 (≈ 15
+    // melds) are met — ≈ 71 melds, past the 60-slot budget. The full-pentameld
+    // over-bound (control +3240 AND cp +840) clears both axes at once, so the
+    // prefilter PASSES; but the 2D ladder search confirms the double-maxing delta
+    // only at a (control, cp) combo that overflows the slot budget → the
+    // confirmed plan is slot-infeasible → status infeasible after the ladder, NOT
+    // short-circuited. (The old control-only search reported infeasible here only
+    // because it couldn't REACH +3000 within budget; the 2D search reaches it and
+    // correctly attributes the infeasibility to the slot budget, not the probe cap.)
     const solve = vi.fn().mockResolvedValue({ actions: ['x'] })
     const simulate = vi.fn(async (_r: any, gs: any) => ({
       ...SIM_EXTRAS, progress: 3500, max_progress: 3500,
-      quality: gs.control >= gearset.control + 3000 ? 6500 : 6257, max_quality: 6500,
+      quality: gs.control >= gearset.control + 3000 && gs.cp >= gearset.cp + 200 ? 6500 : 6257,
+      max_quality: 6500,
     }))
     const out = await adviseMeld(
       [recipe()], gearset, priceMap, { deadlineMs: 0 }, { solve, simulate },
     )
     expect(out.status).toBe('infeasible')
-    expect(out.costOptimal.confirmedBySolver).toBe(false)
+    // The solver DID confirm a double-maxing delta, but it overflows the slot
+    // budget — that's the real "no rung fits" signal, not a failure to confirm.
+    expect(out.costOptimal.feasible).toBe(false)
     // The ladder DID run (prefilter passed) — strictly more than 2 solves.
     expect(solve.mock.calls.length).toBeGreaterThan(2)
   })
