@@ -780,6 +780,40 @@ describe('adviseMeld — CP-bound recipe must not false-report infeasible (#155)
     expect(out.costOptimal.confirmedBySolver).toBe(true)
     expect(out.costOptimal.deltaStats.cp).toBeGreaterThan(0)
   })
+
+  // The min-control-at-CP function F is non-increasing, so total = F(cp) + cp is
+  // NOT strictly unimodal on the grade grid: F can drop by exactly 1 (total flat,
+  // a TIE) at one CP level and then by 2 at the next (total strictly lower). The
+  // frontier walk's early-stop must skip PAST ties, otherwise it returns a
+  // suboptimal delta — which can overflow the slot budget and false-report
+  // infeasible, the very #155 failure class. Here F (in control grade steps) is
+  // 4 @ cp0, 3 @ cp1 (total 4, tie with cp0), 1 @ cp≥2 (total 3, the true min).
+  it('walks past a tie on the frontier to the strictly-cheaper deeper-CP point', async () => {
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const { control: baseControl, cp: baseCp } = cpBoundGearset
+    const fakeSimulate = vi.fn(async (_r: any, gs: any) => {
+      const cpSteps = Math.floor((gs.cp - baseCp) / 14) // top-grade CP = 14
+      const needControl = (cpSteps <= 0 ? 4 : cpSteps === 1 ? 3 : 1) * 54 // top-grade control = 54
+      const met = gs.control - baseControl >= needControl
+      return {
+        ...SIM_EXTRAS, progress: 3500, max_progress: 3500,
+        quality: met ? 6500 : 6257, max_quality: 6500,
+      }
+    })
+
+    const out = await adviseMeld(
+      [cpBoundRecipe()], cpBoundGearset, priceMap,
+      {},
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+
+    expect(out.status).toBe('feasible')
+    expect(out.costOptimal.confirmedBySolver).toBe(true)
+    // The deeper-CP corner (1 control + 2 CP = 3 melds) beats the tie point
+    // (4 control + 0 CP = 4 melds). A break-on-tie returns the 4-meld plan.
+    expect(out.costOptimal.deltaStats.control).toBe(54)
+    expect(out.costOptimal.deltaStats.cp).toBe(28)
+  })
 })
 
 // #127: the OUTER craftsmanship ladder around the #126 inner quality search.

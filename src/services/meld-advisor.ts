@@ -817,11 +817,15 @@ export async function searchMinimalQualityDelta(
     const totalSteps = controlSteps + cpSteps
     if (best === null || totalSteps < best.totalSteps) {
       best = { control: controlSteps, cp: cpSteps, totalSteps }
-    } else {
-      // Past the frontier minimum: control only drops and CP only rises from
-      // here, so the total step count won't dip again on the grade grid. Stop.
+    } else if (totalSteps > best.totalSteps) {
+      // STRICTLY past the frontier minimum: control only drops and CP only rises
+      // from here, so the total can't dip again on the grade grid. Stop.
       break
     }
+    // On a TIE (totalSteps === best.totalSteps) keep the lower-CP best but DON'T
+    // stop: F (min control at this CP) is non-increasing, so a tie can precede a
+    // strictly-deeper drop one CP level up — breaking here would return a
+    // suboptimal delta. The shared probe budget still bounds the walk.
   }
 
   if (best === null) {
@@ -1102,8 +1106,9 @@ export async function adviseMeld(
 
   if (isCancelled?.()) return bailout('cancelled', noHqLever)
 
-  // #134: full-pentameld feasibility prefilter. Before the worst-case ~66-solve
-  // bounded ladder, run ONE solve at the FULL_MELD_OVERBOUND — every stat handed
+  // #134: full-pentameld feasibility prefilter. Before the worst-case
+  // MAX_CRAFTSMANSHIP_RUNGS × MAX_QUALITY_PROBES bounded ladder, run ONE solve at
+  // the FULL_MELD_OVERBOUND — every stat handed
   // the entire 60-slot budget at once. Double-max is monotone non-decreasing in
   // each stat, so if even this physically-impossible over-bound can't double-max,
   // no real shared-slot meld plan can either → short-circuit to `infeasible` in
