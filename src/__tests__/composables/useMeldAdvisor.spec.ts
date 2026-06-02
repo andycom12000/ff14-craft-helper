@@ -14,10 +14,6 @@ vi.mock('@/services/meld-advisor', () => ({
   adviseMeld: vi.fn(),
 }))
 
-vi.mock('@/engine/materia', () => ({
-  BIS_REFERENCE: { craftsmanship: 4785, control: 4758, cp: 646 },
-}))
-
 const { fetchMateriaPriceMap } = await import('@/api/universalis')
 const { adviseMeld } = await import('@/services/meld-advisor')
 
@@ -39,14 +35,6 @@ const stubAdvice: MeldAdvice = {
     totalGil: 0,
     confirmedBySolver: true,
   },
-  bis: {
-    feasible: true,
-    deltaStats: { craftsmanship: 785, control: 858, cp: 46 },
-    steps: [],
-    totalGil: 100000,
-    confirmedBySolver: false,
-  },
-  gapGil: 100000,
   alreadyMeetsThreshold: true,
   hqSufficient: true,
   rankedByCount: false,

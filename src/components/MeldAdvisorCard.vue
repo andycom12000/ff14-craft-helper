@@ -270,7 +270,7 @@ async function copyShoppingList() {
         </p>
       </div>
 
-      <!-- COST mode (batch): cost-oriented framing — gap / 全 BiS / 最省錢達標.
+      <!-- COST mode (batch): cost-oriented framing — absolute「最省錢達標」cost.
            #133 scope note: the status-honest no-result copy (計算逾時 / 計算失敗 /
            此配方無法只靠鑲嵌保證 HQ) is wired into ABILITY mode only — that's the
            reverse-advisor surface the issue targets. Cost mode keeps its existing
@@ -280,19 +280,9 @@ async function copyShoppingList() {
       <div v-else-if="result" class="result-state">
         <template v-if="result.alreadyMeetsThreshold">
           <p class="met-message">你的裝備已能保證 HQ，無需鑲嵌</p>
-          <p class="bis-context">
-            往全 BiS 還需 <span class="amount-inline">{{ formatGil(result.bis.totalGil) }}</span> gil（over-meld 空間）
-          </p>
         </template>
 
         <template v-else>
-          <div class="gap-headline">
-            <span class="gap-label">你能省</span>
-            <span class="gap-amount"
-              >{{ formatGil(result.gapGil) }}<span class="gap-unit"> gil</span></span
-            >
-          </div>
-
           <section class="plan plan-primary">
             <div class="plan-head">
               <h4 class="plan-title">最省錢達標</h4>
@@ -320,16 +310,6 @@ async function copyShoppingList() {
                 複製清單
               </button>
             </div>
-          </section>
-
-          <div class="plan-divider" role="presentation"></div>
-
-          <section class="plan plan-secondary">
-            <div class="plan-head">
-              <h4 class="plan-title">全 BiS pentameld</h4>
-              <span class="plan-total">{{ formatGil(result.bis.totalGil) }} gil</span>
-            </div>
-            <small class="caveat">含 overmeld 失敗耗損</small>
           </section>
 
           <p class="disclaimer">「達標門檻」為精確值；「最省配比」為估算，實際可能略有出入</p>
@@ -504,44 +484,8 @@ async function copyShoppingList() {
   color: var(--app-success, oklch(0.55 0.16 145));
 }
 
-.bis-context {
-  margin: 6px 0 0;
-  font-size: 13px;
-  color: var(--app-text-muted, oklch(0.5 0.03 60));
-}
-
-.amount-inline {
-  font-family: 'Fira Code', ui-monospace, monospace;
-  color: var(--app-text, oklch(0.28 0.04 55));
-}
-
-/* Gap headline — the hero number, largest element on the card */
-.gap-headline {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.gap-label {
-  font-size: 13px;
-  color: var(--app-text-muted, oklch(0.5 0.03 60));
-}
-
-.gap-amount {
-  font-family: 'Fira Code', ui-monospace, monospace;
-  font-size: 32px;
-  font-weight: 700;
-  line-height: 1.05;
-  color: var(--app-success, oklch(0.55 0.16 145));
-}
-
-.gap-unit {
-  font-size: 16px;
-  font-weight: 500;
-}
-
-/* Plans — primary recommendation is the focus, BiS is a quiet reference.
-   No nested card boxes; hierarchy comes from weight + a single divider. */
+/* Plans — the cost-optimal recommendation is the card's focus.
+   No nested card boxes; hierarchy comes from weight. */
 .plan {
   display: flex;
   flex-direction: column;
@@ -574,21 +518,6 @@ async function copyShoppingList() {
   font-size: 17px;
   font-weight: 600;
   color: var(--app-text, oklch(0.28 0.04 55));
-}
-
-.plan-secondary .plan-title {
-  font-size: 13px;
-  color: var(--app-text-muted, oklch(0.5 0.03 60));
-}
-
-.plan-secondary .plan-total {
-  font-size: 14px;
-  color: var(--app-text-muted, oklch(0.5 0.03 60));
-}
-
-.plan-divider {
-  height: 1px;
-  background: var(--app-border, oklch(0.65 0.04 65 / 0.3));
 }
 
 .infeasible-reason {

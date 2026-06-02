@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { MeldAdvice, MeldPlan, MeldStep } from '@/services/meld-advisor'
-import { adviseMeld, findBindingRecipe, solveProgressBreakpoint, solveQualityBreakpoint, translateDeltaToMeldPlan, computeBisPlan, computeMaxHqInitialQuality, enumerateCraftsmanshipLadder, recipeHasHqLever } from '@/services/meld-advisor'
+import { adviseMeld, findBindingRecipe, solveProgressBreakpoint, solveQualityBreakpoint, translateDeltaToMeldPlan, computeMaxHqInitialQuality, enumerateCraftsmanshipLadder, recipeHasHqLever } from '@/services/meld-advisor'
 import { SolveCancelledError } from '@/solver/api'
 import type { Recipe } from '@/stores/recipe'
-import { BIS_REFERENCE, MATERIA_GRADES, SLOT_STRUCTURE, MAX_MELD_COUNT } from '@/engine/materia'
+import { MATERIA_GRADES, SLOT_STRUCTURE, MAX_MELD_COUNT } from '@/engine/materia'
 
 const makeRecipe = (id: number, progress: number, quality: number): Recipe => ({
   id, name: `r${id}`, job: 'CRP', canHq: true, isExpert: false,
@@ -15,15 +15,14 @@ const makeRecipe = (id: number, progress: number, quality: number): Recipe => ({
 } as unknown as Recipe)
 
 describe('adviseMeld (stub)', () => {
-  it('returns a MeldAdvice with both plans present', async () => {
+  it('returns a MeldAdvice with the cost-optimal plan present', async () => {
     const advice: MeldAdvice = await adviseMeld(
       [],                       // empty targets — exercises the empty path
       { level: 100, craftsmanship: 4000, control: 4000, cp: 600, isSpecialist: false },
       new Map(),
-      { bisReference: BIS_REFERENCE },
+      {},
     )
     expect(advice.costOptimal).toBeDefined()
-    expect(advice.bis).toBeDefined()
     expect(typeof advice.alreadyMeetsThreshold).toBe('boolean')
   })
 })
@@ -268,36 +267,6 @@ describe('translateDeltaToMeldPlan', () => {
   })
 })
 
-describe('computeBisPlan', () => {
-  const priceMap = new Map<number, any>(
-    MATERIA_GRADES.map(m => [m.itemId, { minPriceNQ: 1000, listings: [] }]),
-  )
-
-  it('returns zero-delta plan when current gearset already matches BiS', () => {
-    const atBis = {
-      level: 100, isSpecialist: false,
-      craftsmanship: BIS_REFERENCE.craftsmanship,
-      control: BIS_REFERENCE.control,
-      cp: BIS_REFERENCE.cp,
-    }
-    const plan = computeBisPlan(atBis, BIS_REFERENCE, priceMap)
-    expect(plan.deltaStats).toEqual({ craftsmanship: 0, control: 0, cp: 0 })
-    expect(plan.steps).toHaveLength(0)
-    expect(plan.totalGil).toBe(0)
-  })
-
-  it('computes a deep-overmeld plan when current is far below BiS', () => {
-    const low = {
-      level: 100, isSpecialist: false,
-      craftsmanship: 100, control: 100, cp: 100,
-    }
-    const plan = computeBisPlan(low, BIS_REFERENCE, priceMap)
-    expect(plan.steps.length).toBeGreaterThan(0)
-    const tail = plan.steps[plan.steps.length - 1]
-    expect(tail.expectedCount).toBeGreaterThanOrEqual(tail.placedCount)
-  })
-})
-
 describe('adviseMeld (orchestrated)', () => {
   const priceMap = new Map<number, any>(
     MATERIA_GRADES.map(m => [m.itemId, { minPriceNQ: 1000, listings: [] }]),
@@ -315,12 +284,11 @@ describe('adviseMeld (orchestrated)', () => {
 
     const out = await adviseMeld(
       [recipe], baseGearset, priceMap,
-      { bisReference: BIS_REFERENCE },
+      {},
       { solve: fakeSolve, simulate: fakeSimulate },
     )
     expect(out.alreadyMeetsThreshold).toBe(true)
     expect(out.costOptimal.steps).toHaveLength(0)
-    expect(out.bis.steps.length).toBeGreaterThan(0)
   })
 
   it('produces a cost-optimal plan when gear is short', async () => {
@@ -333,7 +301,7 @@ describe('adviseMeld (orchestrated)', () => {
 
     const out = await adviseMeld(
       [hard], weak, priceMap,
-      { bisReference: BIS_REFERENCE },
+      {},
       { solve: fakeSolve, simulate: fakeSimulate },
     )
     expect(out.alreadyMeetsThreshold).toBe(false)
@@ -352,30 +320,13 @@ describe('adviseMeld (orchestrated)', () => {
     let cancelled = false
     const out = await adviseMeld(
       [hard], weak, priceMap,
-      { bisReference: BIS_REFERENCE, isCancelled: () => cancelled },
+      { isCancelled: () => cancelled },
       { solve: fakeSolve, simulate: fakeSimulate },
     )
     cancelled = true
     expect(out.costOptimal.confirmedBySolver).toBe(false)
   })
 
-  it('returns gapGil = bis.totalGil - costOptimal.totalGil when both are priced', async () => {
-    const hard = makeRecipe(1, 5000, 8000)
-    const weak = { ...baseGearset, craftsmanship: 100, control: 100, cp: 300 }
-    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
-    const fakeSimulate = vi.fn()
-      .mockResolvedValueOnce({ progress: 0, max_progress: 1000, quality: 0, max_quality: 5000 })
-      .mockResolvedValue({ progress: 5000, max_progress: 5000, quality: 8000, max_quality: 8000 })
-
-    const out = await adviseMeld(
-      [hard], weak, priceMap,
-      { bisReference: BIS_REFERENCE },
-      { solve: fakeSolve, simulate: fakeSimulate },
-    )
-    if (out.bis.totalGil !== null && out.costOptimal.totalGil !== null) {
-      expect(out.gapGil).toBe(out.bis.totalGil - out.costOptimal.totalGil)
-    }
-  })
 })
 
 // §2 engine touchpoint: meld baseline = max-HQ initialQuality (all HQ
@@ -455,7 +406,7 @@ describe('adviseMeld — max-HQ baseline (§2 engine touchpoint)', () => {
 
     await adviseMeld(
       [recipe], baseGearset, priceMap,
-      { bisReference: BIS_REFERENCE, initialQuality: 0 },
+      { initialQuality: 0 },
       { solve: fakeSolve, simulate: fakeSimulate },
     )
     // Step 0 solve is driven by the max-HQ baseline, NOT the screen value (0).
@@ -473,7 +424,7 @@ describe('adviseMeld — max-HQ baseline (§2 engine touchpoint)', () => {
     })
     const out = await adviseMeld(
       [recipeWithHq()], baseGearset, priceMap,
-      { bisReference: BIS_REFERENCE },
+      {},
       { solve: fakeSolve, simulate: fakeSimulate },
     )
     expect(out.hqSufficient).toBe(true)
@@ -489,7 +440,7 @@ describe('adviseMeld — max-HQ baseline (§2 engine touchpoint)', () => {
       .mockResolvedValue({ progress: 5000, max_progress: 5000, quality: 8000, max_quality: 8000 })
     const out = await adviseMeld(
       [hard], weak, priceMap,
-      { bisReference: BIS_REFERENCE },
+      {},
       { solve: fakeSolve, simulate: fakeSimulate },
     )
     expect(out.hqSufficient).toBe(false)
@@ -498,7 +449,7 @@ describe('adviseMeld — max-HQ baseline (§2 engine touchpoint)', () => {
 
   it('empty-targets path is hqSufficient (no meld needed)', async () => {
     const out = await adviseMeld(
-      [], baseGearset, priceMap, { bisReference: BIS_REFERENCE },
+      [], baseGearset, priceMap, {},
     )
     expect(out.hqSufficient).toBe(true)
   })
@@ -564,7 +515,7 @@ describe('adviseMeld — quality-gap solver search (#126)', () => {
 
     const out = await adviseMeld(
       [reproRecipe()], reproGearset, priceMap,
-      { bisReference: BIS_REFERENCE },
+      {},
       { solve: fakeSolve, simulate: fakeSimulate },
     )
 
@@ -585,7 +536,7 @@ describe('adviseMeld — quality-gap solver search (#126)', () => {
 
     const out = await adviseMeld(
       [reproRecipe()], reproGearset, priceMap,
-      { bisReference: BIS_REFERENCE },
+      {},
       { solve: fakeSolve, simulate: fakeSimulate },
     )
 
@@ -606,7 +557,7 @@ describe('adviseMeld — quality-gap solver search (#126)', () => {
 
     const out = await adviseMeld(
       [reproRecipe()], reproGearset, priceMap,
-      { bisReference: BIS_REFERENCE },
+      {},
       { solve: fakeSolve, simulate: fakeSimulate },
     )
 
@@ -623,7 +574,7 @@ describe('adviseMeld — quality-gap solver search (#126)', () => {
 
     const out = await adviseMeld(
       [reproRecipe()], reproGearset, priceMap,
-      { bisReference: BIS_REFERENCE },
+      {},
       { solve: fakeSolve, simulate: fakeSimulate },
     )
 
@@ -654,7 +605,7 @@ describe('adviseMeld — quality-gap solver search (#126)', () => {
 
     const out = await adviseMeld(
       [reproRecipe()], reproGearset, priceMap,
-      { bisReference: BIS_REFERENCE },
+      {},
       { solve: fakeSolve, simulate: fakeSimulate },
     )
 
@@ -676,7 +627,7 @@ describe('adviseMeld — quality-gap solver search (#126)', () => {
 
     const out = await adviseMeld(
       [reproRecipe()], reproGearset, priceMap,
-      { bisReference: BIS_REFERENCE },
+      {},
       { solve: fakeSolve, simulate: fakeSimulate },
     )
 
@@ -689,7 +640,7 @@ describe('adviseMeld — quality-gap solver search (#126)', () => {
 
     const out = await adviseMeld(
       [reproRecipe()], reproGearset, new Map(),
-      { bisReference: BIS_REFERENCE },
+      {},
       { solve: fakeSolve, simulate: fakeSimulate },
     )
 
@@ -707,7 +658,7 @@ describe('adviseMeld — quality-gap solver search (#126)', () => {
 
     const out = await adviseMeld(
       [reproRecipe()], reproGearset, priceMap,
-      { bisReference: BIS_REFERENCE },
+      {},
       { solve: fakeSolve, simulate: fakeSimulate },
     )
 
@@ -725,7 +676,7 @@ describe('adviseMeld — quality-gap solver search (#126)', () => {
 
     const out = await adviseMeld(
       [reproRecipe()], reproGearset, priceMap,
-      { bisReference: BIS_REFERENCE },
+      {},
       { solve: fakeSolve, simulate: fakeSimulate },
     )
 
@@ -743,7 +694,7 @@ describe('adviseMeld — quality-gap solver search (#126)', () => {
 
     const out = await adviseMeld(
       [reproRecipe()], reproGearset, priceMap,
-      { bisReference: BIS_REFERENCE, isCancelled: () => cancelled },
+      { isCancelled: () => cancelled },
       { solve: fakeSolve, simulate: fakeSimulate },
     )
 
@@ -758,7 +709,7 @@ describe('adviseMeld — quality-gap solver search (#126)', () => {
 
     const out = await adviseMeld(
       [reproRecipe()], reproGearset, priceMap,
-      { bisReference: BIS_REFERENCE },
+      {},
       { solve: fakeSolve, simulate: fakeSimulate },
     )
 
@@ -831,7 +782,7 @@ describe('adviseMeld — craftsmanship ladder, 3D bounded cost search (#127)', (
 
     const out = await adviseMeld(
       [ladderRecipe()], ladderGearset, priceMap,
-      { bisReference: BIS_REFERENCE },
+      {},
       { solve: fakeSolve, simulate: fakeSimulate },
     )
 
@@ -855,7 +806,7 @@ describe('adviseMeld — craftsmanship ladder, 3D bounded cost search (#127)', (
 
     const out = await adviseMeld(
       [ladderRecipe()], ladderGearset, priceMap,
-      { bisReference: BIS_REFERENCE },
+      {},
       { solve: fakeSolve, simulate: fakeSimulate },
     )
 
@@ -878,7 +829,7 @@ describe('adviseMeld — craftsmanship ladder, 3D bounded cost search (#127)', (
 
     await adviseMeld(
       [ladderRecipe()], ladderGearset, priceMap,
-      { bisReference: BIS_REFERENCE },
+      {},
       { solve: fakeSolve, simulate: fakeSimulate },
     )
 
@@ -905,7 +856,7 @@ describe('adviseMeld — craftsmanship ladder, 3D bounded cost search (#127)', (
 
     const out = await adviseMeld(
       [makeRecipe(126, 100, 6500)], ladderGearset, priceMap,
-      { bisReference: BIS_REFERENCE },
+      {},
       { solve: fakeSolve, simulate: fakeSimulate },
     )
 
@@ -922,7 +873,7 @@ describe('adviseMeld — craftsmanship ladder, 3D bounded cost search (#127)', (
 
     const out = await adviseMeld(
       [ladderRecipe()], ladderGearset, new Map(),
-      { bisReference: BIS_REFERENCE },
+      {},
       { solve: fakeSolve, simulate: fakeSimulate },
     )
 
@@ -947,7 +898,7 @@ describe('adviseMeld — craftsmanship ladder, 3D bounded cost search (#127)', (
 
     const out = await adviseMeld(
       [ladderRecipe()], ladderGearset, priceMap,
-      { bisReference: BIS_REFERENCE, isCancelled: () => cancelled },
+      { isCancelled: () => cancelled },
       { solve: fakeSolve, simulate: fakeSimulate },
     )
 
@@ -1000,7 +951,7 @@ describe('adviseMeld — incomplete market prices, rank by count (#128)', () => 
 
     const out = await adviseMeld(
       [reproRecipe()], reproGearset, new Map(),  // empty priceMap = fully missing
-      { bisReference: BIS_REFERENCE },
+      {},
       { solve: fakeSolve, simulate: fakeSimulate },
     )
 
@@ -1029,7 +980,7 @@ describe('adviseMeld — incomplete market prices, rank by count (#128)', () => 
 
     const out = await adviseMeld(
       [reproRecipe()], reproGearset, partialPrices,
-      { bisReference: BIS_REFERENCE },
+      {},
       { solve: fakeSolve, simulate: fakeSimulate },
     )
 
@@ -1048,7 +999,7 @@ describe('adviseMeld — incomplete market prices, rank by count (#128)', () => 
 
     const out = await adviseMeld(
       [reproRecipe()], reproGearset, fullPrices,
-      { bisReference: BIS_REFERENCE },
+      {},
       { solve: fakeSolve, simulate: fakeSimulate },
     )
 
@@ -1064,7 +1015,7 @@ describe('adviseMeld — incomplete market prices, rank by count (#128)', () => 
     })
     const out = await adviseMeld(
       [reproRecipe()], reproGearset, fullPrices,
-      { bisReference: BIS_REFERENCE },
+      {},
       { solve: fakeSolve, simulate: fakeSimulate },
     )
     expect(out.alreadyMeetsThreshold).toBe(true)
@@ -1101,15 +1052,13 @@ describe('adviseMeld golden snapshot', () => {
 
     const out = await adviseMeld(
       [fixtureRecipe], fixtureGearset, fixturePrices,
-      { bisReference: BIS_REFERENCE },
+      {},
       { solve: fakeSolve, simulate: fakeSimulate },
     )
 
     const sanitized = {
       alreadyMeetsThreshold: out.alreadyMeetsThreshold,
       costOptimal: { ...out.costOptimal, steps: out.costOptimal.steps.length },
-      bis: { ...out.bis, steps: out.bis.steps.length },
-      gapGil: out.gapGil,
     }
     expect(sanitized).toMatchSnapshot()
   })
@@ -1140,7 +1089,7 @@ describe('adviseMeld — food/medicine buff basis (#136)', () => {
     })
     await adviseMeld(
       [recipe], gearset, priceMap,
-      { bisReference: BIS_REFERENCE, buffs },
+      { buffs },
       { solve: fakeSolve, simulate: fakeSimulate },
     )
     expect(fakeSolve).toHaveBeenCalled()
@@ -1160,7 +1109,7 @@ describe('adviseMeld — food/medicine buff basis (#136)', () => {
     })
     await adviseMeld(
       [recipe], gearset, priceMap,
-      { bisReference: BIS_REFERENCE },
+      {},
       { solve: fakeSolve, simulate: fakeSimulate },
     )
     expect(fakeSolve.mock.calls[0][2].buffs).toBeUndefined()
@@ -1246,7 +1195,7 @@ describe('adviseMeld — solve deadline + run-level abort (#132)', () => {
       const simulate = vi.fn()
       const promise = adviseMeld(
         [recipe()], gearset, priceMap,
-        { bisReference: BIS_REFERENCE, deadlineMs: 50 },
+        { deadlineMs: 50 },
         { solve, simulate },
       )
       await vi.advanceTimersByTimeAsync(50)
@@ -1279,7 +1228,7 @@ describe('adviseMeld — solve deadline + run-level abort (#132)', () => {
       })
       const promise = adviseMeld(
         [recipe()], gearset, priceMap,
-        { bisReference: BIS_REFERENCE, deadlineMs: 50 },
+        { deadlineMs: 50 },
         { solve, simulate },
       )
       await vi.advanceTimersByTimeAsync(50)
@@ -1305,7 +1254,7 @@ describe('adviseMeld — solve deadline + run-level abort (#132)', () => {
 
     await adviseMeld(
       [recipe()], gearset, priceMap,
-      { bisReference: BIS_REFERENCE, signal: controller.signal, deadlineMs: 0 },
+      { signal: controller.signal, deadlineMs: 0 },
       { solve, simulate },
     )
 
@@ -1326,7 +1275,7 @@ describe('adviseMeld — solve deadline + run-level abort (#132)', () => {
 
     const out = await adviseMeld(
       [recipe()], gearset, priceMap,
-      { bisReference: BIS_REFERENCE, deadlineMs: 8000 },
+      { deadlineMs: 8000 },
       { solve, simulate },
     )
 
@@ -1357,7 +1306,7 @@ describe('adviseMeld — honest status discriminant (#133)', () => {
       ...SIM_EXTRAS, progress: 3500, max_progress: 3500, quality: 6500, max_quality: 6500,
     })
     const out = await adviseMeld(
-      [recipe()], gearset, priceMap, { bisReference: BIS_REFERENCE }, { solve, simulate },
+      [recipe()], gearset, priceMap, {}, { solve, simulate },
     )
     expect(out.status).toBe('feasible')
     expect(out.hqSufficient).toBe(true)
@@ -1371,7 +1320,7 @@ describe('adviseMeld — honest status discriminant (#133)', () => {
       ...SIM_EXTRAS, progress: 3500, max_progress: 3500, quality: 6257, max_quality: 6500,
     })
     const out = await adviseMeld(
-      [recipe()], gearset, priceMap, { bisReference: BIS_REFERENCE }, { solve, simulate },
+      [recipe()], gearset, priceMap, {}, { solve, simulate },
     )
     expect(out.status).toBe('infeasible')
     expect(out.costOptimal.confirmedBySolver).toBe(false)
@@ -1392,7 +1341,7 @@ describe('adviseMeld — honest status discriminant (#133)', () => {
       const simulate = vi.fn()
       const promise = adviseMeld(
         [recipe()], gearset, priceMap,
-        { bisReference: BIS_REFERENCE, deadlineMs: 50 }, { solve, simulate },
+        { deadlineMs: 50 }, { solve, simulate },
       )
       await vi.advanceTimersByTimeAsync(50)
       const out = await promise
@@ -1406,7 +1355,7 @@ describe('adviseMeld — honest status discriminant (#133)', () => {
     const solve = vi.fn().mockRejectedValue(new Error('wasm boom'))
     const simulate = vi.fn()
     const out = await adviseMeld(
-      [recipe()], gearset, priceMap, { bisReference: BIS_REFERENCE, deadlineMs: 0 }, { solve, simulate },
+      [recipe()], gearset, priceMap, { deadlineMs: 0 }, { solve, simulate },
     )
     expect(out.status).toBe('error')
   })
@@ -1422,7 +1371,7 @@ describe('adviseMeld — honest status discriminant (#133)', () => {
     const isCancelled = () => { calls += 1; return calls > 2 }
     const out = await adviseMeld(
       [recipe()], gearset, priceMap,
-      { bisReference: BIS_REFERENCE, deadlineMs: 0, isCancelled }, { solve, simulate },
+      { deadlineMs: 0, isCancelled }, { solve, simulate },
     )
     expect(out.status).toBe('cancelled')
   })
@@ -1454,7 +1403,7 @@ describe('adviseMeld — full-pentameld feasibility prefilter (#134)', () => {
       ...SIM_EXTRAS, progress: 3500, max_progress: 3500, quality: 6257, max_quality: 6500,
     })
     const out = await adviseMeld(
-      [recipe()], gearset, priceMap, { bisReference: BIS_REFERENCE, deadlineMs: 0 }, { solve, simulate },
+      [recipe()], gearset, priceMap, { deadlineMs: 0 }, { solve, simulate },
     )
     expect(out.status).toBe('infeasible')
     expect(out.costOptimal.confirmedBySolver).toBe(false)
@@ -1472,7 +1421,7 @@ describe('adviseMeld — full-pentameld feasibility prefilter (#134)', () => {
       quality: gs.control >= gearset.control + 150 ? 6500 : 6257, max_quality: 6500,
     }))
     const out = await adviseMeld(
-      [recipe()], gearset, priceMap, { bisReference: BIS_REFERENCE, deadlineMs: 0 }, { solve, simulate },
+      [recipe()], gearset, priceMap, { deadlineMs: 0 }, { solve, simulate },
     )
     expect(out.status).toBe('feasible')
     expect(out.costOptimal.feasible).toBe(true)
@@ -1493,7 +1442,7 @@ describe('adviseMeld — full-pentameld feasibility prefilter (#134)', () => {
       quality: gs.control >= gearset.control + 3000 ? 6500 : 6257, max_quality: 6500,
     }))
     const out = await adviseMeld(
-      [recipe()], gearset, priceMap, { bisReference: BIS_REFERENCE, deadlineMs: 0 }, { solve, simulate },
+      [recipe()], gearset, priceMap, { deadlineMs: 0 }, { solve, simulate },
     )
     expect(out.status).toBe('infeasible')
     expect(out.costOptimal.confirmedBySolver).toBe(false)
@@ -1512,7 +1461,7 @@ describe('adviseMeld — full-pentameld feasibility prefilter (#134)', () => {
         ...SIM_EXTRAS, progress: 3500, max_progress: 3500, quality: 6257, max_quality: 6500,
       })
       const promise = adviseMeld(
-        [recipe()], gearset, priceMap, { bisReference: BIS_REFERENCE, deadlineMs: 50 }, { solve, simulate },
+        [recipe()], gearset, priceMap, { deadlineMs: 50 }, { solve, simulate },
       )
       await vi.advanceTimersByTimeAsync(50)
       const out = await promise
@@ -1570,7 +1519,7 @@ describe('adviseMeld — custom recipe no-HQ-lever flag (#134)', () => {
   it('flags noHqLever for a recipe with no HQ-eligible materials (0% HQ lever)', async () => {
     const out = await adviseMeld(
       [withIngredients(75, false)], gearset, priceMap,
-      { bisReference: BIS_REFERENCE, deadlineMs: 0 }, { solve: vi.fn().mockResolvedValue({ actions: ['x'] }), simulate: dm() },
+      { deadlineMs: 0 }, { solve: vi.fn().mockResolvedValue({ actions: ['x'] }), simulate: dm() },
     )
     expect(out.noHqLever).toBe(true)
   })
@@ -1578,7 +1527,7 @@ describe('adviseMeld — custom recipe no-HQ-lever flag (#134)', () => {
   it('does NOT flag noHqLever when the recipe has HQ-eligible materials', async () => {
     const out = await adviseMeld(
       [withIngredients(75, true)], gearset, priceMap,
-      { bisReference: BIS_REFERENCE, deadlineMs: 0 }, { solve: vi.fn().mockResolvedValue({ actions: ['x'] }), simulate: dm() },
+      { deadlineMs: 0 }, { solve: vi.fn().mockResolvedValue({ actions: ['x'] }), simulate: dm() },
     )
     expect(out.noHqLever).toBe(false)
   })
@@ -1612,7 +1561,7 @@ describe('adviseMeld — cross-rung probe cache (#134)', () => {
       quality: gs.control >= gearset.control + 54 ? 6500 : 6257, max_quality: 6500,
     }))
     await adviseMeld(
-      [recipe()], gearset, priceMap, { bisReference: BIS_REFERENCE, deadlineMs: 0 }, { solve, simulate },
+      [recipe()], gearset, priceMap, { deadlineMs: 0 }, { solve, simulate },
     )
     // Solves probing the bare gearset (zero delta on ALL three axes) must occur
     // exactly once — Step 0 — not twice (Step 0 + a redundant ladder re-probe).

@@ -3,18 +3,6 @@
 exports[`adviseMeld golden snapshot > produces a stable MeldAdvice shape for the fixture 1`] = `
 {
   "alreadyMeetsThreshold": false,
-  "bis": {
-    "confirmedBySolver": false,
-    "deltaStats": {
-      "control": 2109,
-      "cp": 109,
-      "craftsmanship": 2611,
-    },
-    "feasible": false,
-    "reason": "槽位不足,需換底裝",
-    "steps": 43,
-    "totalGil": null,
-  },
   "costOptimal": {
     "confirmedBySolver": true,
     "deltaStats": {
@@ -26,6 +14,5 @@ exports[`adviseMeld golden snapshot > produces a stable MeldAdvice shape for the
     "steps": 1,
     "totalGil": 1500,
   },
-  "gapGil": null,
 }
 `;
