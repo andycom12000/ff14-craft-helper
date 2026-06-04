@@ -1,6 +1,12 @@
 // src/__tests__/solver/worker-pool.test.ts
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
+// #132: assert that deliberate cancellations are NOT counted as solver failures.
+// Mock the fail-state + analytics sinks so we can observe what the reject wrapper
+// records. Re-evaluated per test via resetModules() in beforeEach.
+vi.mock('@/composables/useSolverFailState', () => ({ noteSolverFailed: vi.fn() }))
+vi.mock('@/utils/analytics', () => ({ trackEvent: vi.fn(), trackError: vi.fn() }))
+
 // Auto-ready FakeWorker: fires `{ type: 'ready' }` on construction so
 // waitForWasm() resolves immediately. Use `NeverReadyWorker` for tests that
 // need to observe mid-pool-init behaviour (e.g. cancel before ready).
@@ -16,8 +22,9 @@ class FakeWorker {
   addEventListener(_: string, cb: (e: MessageEvent) => void) {
     FakeWorker.handlers.get(this)!.add(cb)
   }
+  terminated = false
   postMessage(data: any) { this.postedMessages.push(data) }
-  terminate() {}
+  terminate() { this.terminated = true }
   set onmessage(_cb: any) {}
   fireMessage(data: any) {
     for (const cb of FakeWorker.handlers.get(this)!) cb({ data } as MessageEvent)
@@ -46,6 +53,9 @@ beforeEach(() => {
   FakeWorker.instances = []
   vi.stubGlobal('Worker', FakeWorker)
   vi.resetModules()
+  // The fail-state/analytics mocks persist across module resets; clear their
+  // call history so per-test assertions (#132) start from a clean slate.
+  vi.clearAllMocks()
 })
 afterEach(() => { vi.unstubAllGlobals() })
 
@@ -91,6 +101,123 @@ describe('solver worker pool', () => {
     FakeWorker.instances[1].fireMessage({ type: 'result', requestId: after[1].requestId, result: stubResult })
     FakeWorker.instances[0].fireMessage({ type: 'result', requestId: after[2].requestId, result: stubResult })
     await Promise.all([p2, p3])
+  })
+
+  // #132: per-request abort. Aborting ONE request must terminate only the slot
+  // running it (freeing the pool slot) and leave any other in-flight request
+  // alone — unlike cancelSolve which nukes the whole pool.
+  it('cancelRequest rejects only the targeted request and terminates its slot', async () => {
+    const { solveCraft, cancelRequest, waitForWasm, SolveCancelledError } = await import('@/solver/worker')
+    await waitForWasm()
+    const p1 = solveCraft({ progress: 100 } as any).catch(e => e)
+    const p2 = solveCraft({ progress: 200 } as any).catch(e => e)
+    await new Promise<void>(resolve => queueMicrotask(() => resolve()))
+
+    // slot0 ran p1, slot1 ran p2 (dispatch order)
+    const slot0Solve = FakeWorker.instances[0].postedMessages.find(m => m.type === 'solve')
+    const slot1Solve = FakeWorker.instances[1].postedMessages.find(m => m.type === 'solve')
+
+    cancelRequest(slot0Solve.requestId)
+
+    const r1 = await p1
+    expect(r1).toBeInstanceOf(SolveCancelledError)
+    // The worker running p1 was terminated and a replacement spawned.
+    expect(FakeWorker.instances[0].terminated).toBe(true)
+    expect(FakeWorker.instances).toHaveLength(3) // 2 original + 1 replacement
+
+    // p2 is untouched — resolve it normally.
+    FakeWorker.instances[1].fireMessage({
+      type: 'result', requestId: slot1Solve.requestId, result: { ...stubResult, actions: ['b'] },
+    })
+    const r2 = await p2
+    expect(r2).not.toBeInstanceOf(Error)
+    expect(r2.actions).toEqual(['b'])
+  })
+
+  it('cancelRequest frees the slot: a later solve runs on the respawned worker', async () => {
+    const { solveCraft, cancelRequest, waitForWasm } = await import('@/solver/worker')
+    await waitForWasm()
+    const p1 = solveCraft({ progress: 100 } as any).catch(e => e)
+    await new Promise<void>(resolve => queueMicrotask(() => resolve()))
+    const slot0Solve = FakeWorker.instances[0].postedMessages.find(m => m.type === 'solve')
+
+    cancelRequest(slot0Solve.requestId)
+    await p1
+    // Replacement worker (index 2) auto-fires 'ready' on construction.
+    await new Promise<void>(resolve => queueMicrotask(() => resolve()))
+
+    // A new solve must dispatch (not hang in the queue) — the freed slot is live.
+    const p3 = solveCraft({ progress: 300 } as any)
+    await new Promise<void>(resolve => queueMicrotask(() => resolve()))
+    const dispatched = FakeWorker.instances.flatMap(w => w.postedMessages.filter(m => m.type === 'solve'))
+    // p1 (cancelled) + p3 = 2 solve messages total dispatched across live workers.
+    expect(dispatched.length).toBe(2)
+    const p3Solve = dispatched.find(m => m.requestId !== slot0Solve.requestId)!
+    // resolve p3 to settle the promise
+    const owner = FakeWorker.instances.find(w => w.postedMessages.some(m => m.requestId === p3Solve.requestId))!
+    owner.fireMessage({ type: 'result', requestId: p3Solve.requestId, result: stubResult })
+    await expect(p3).resolves.toBeDefined()
+  })
+
+  // #132: a cancel is not a failure. cancelRequest rejects with
+  // SolveCancelledError, which must NOT fire solver_failed / noteSolverFailed —
+  // otherwise routine advisor supersedes/timeouts would inflate failure
+  // analytics and mis-arm the input-change-after-fail audit.
+  it('cancelRequest does not record a solver failure', async () => {
+    const { solveCraft, cancelRequest, waitForWasm } = await import('@/solver/worker')
+    const { noteSolverFailed } = await import('@/composables/useSolverFailState')
+    const { trackEvent } = await import('@/utils/analytics')
+    await waitForWasm()
+    const p1 = solveCraft({ progress: 100 } as any).catch(() => { /* expected cancel */ })
+    await new Promise<void>(resolve => queueMicrotask(() => resolve()))
+    const slot0Solve = FakeWorker.instances[0].postedMessages.find(m => m.type === 'solve')
+
+    cancelRequest(slot0Solve.requestId)
+    await p1
+
+    expect(vi.mocked(noteSolverFailed)).not.toHaveBeenCalled()
+    expect(vi.mocked(trackEvent)).not.toHaveBeenCalledWith('solver_failed', expect.anything())
+  })
+
+  it('a genuine solve error still records a solver failure', async () => {
+    const { solveCraft, waitForWasm } = await import('@/solver/worker')
+    const { noteSolverFailed } = await import('@/composables/useSolverFailState')
+    await waitForWasm()
+    const p1 = solveCraft({ progress: 100 } as any).catch(() => { /* expected error */ })
+    await new Promise<void>(resolve => queueMicrotask(() => resolve()))
+    const slot0Solve = FakeWorker.instances[0].postedMessages.find(m => m.type === 'solve')
+
+    FakeWorker.instances[0].fireMessage({ type: 'error', requestId: slot0Solve.requestId, error: 'boom' })
+    await p1
+
+    expect(vi.mocked(noteSolverFailed)).toHaveBeenCalledTimes(1)
+  })
+
+  it('cancelRequest is a no-op for an unknown / already-settled request', async () => {
+    const { solveCraft, cancelRequest, waitForWasm } = await import('@/solver/worker')
+    await waitForWasm()
+    const p1 = solveCraft({ progress: 100 } as any)
+    await new Promise<void>(resolve => queueMicrotask(() => resolve()))
+    const slot0Solve = FakeWorker.instances[0].postedMessages.find(m => m.type === 'solve')
+    FakeWorker.instances[0].fireMessage({ type: 'result', requestId: slot0Solve.requestId, result: stubResult })
+    await p1
+    // request already settled → cancelRequest must not terminate anything.
+    cancelRequest(slot0Solve.requestId)
+    expect(FakeWorker.instances[0].terminated).toBe(false)
+    expect(FakeWorker.instances).toHaveLength(2)
+  })
+
+  // #132: AbortSignal threaded into solveCraft aborts via cancelRequest.
+  it('an AbortSignal passed to solveCraft aborts that request', async () => {
+    const { solveCraft, waitForWasm, SolveCancelledError } = await import('@/solver/worker')
+    await waitForWasm()
+    const controller = new AbortController()
+    const p1 = solveCraft({ progress: 100 } as any, undefined, controller.signal).catch(e => e)
+    await new Promise<void>(resolve => queueMicrotask(() => resolve()))
+    controller.abort()
+    const r1 = await p1
+    expect(r1).toBeInstanceOf(SolveCancelledError)
+    expect(FakeWorker.instances[0].terminated).toBe(true)
   })
 
   it('cancelSolve rejects in-flight and queued solves', async () => {

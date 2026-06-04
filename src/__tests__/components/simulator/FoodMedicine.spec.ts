@@ -70,6 +70,15 @@ describe('FoodMedicine — session meld override (Slice C)', () => {
     expect(chip.text()).toContain('模擬鑲嵌：8 顆 加工魔晶石Ⅻ')
   })
 
+  // #136: the card surfaces the active buff OBJECTS so the host can fold them
+  // into the meld advisor on the same basis as the screen solver.
+  it('#136: emits update:buffs (null/null when nothing is selected)', () => {
+    const w = mount(FoodMedicine, mountOpts)
+    const emitted = w.emitted('update:buffs') as Array<[{ food: unknown; medicine: unknown }]>
+    expect(emitted).toBeTruthy()
+    expect(emitted[emitted.length - 1][0]).toEqual({ food: null, medicine: null })
+  })
+
   it('closing the chip emits clear-override', async () => {
     const w = mount(FoodMedicine, {
       ...mountOpts,

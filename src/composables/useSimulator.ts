@@ -13,7 +13,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { useMeldAdvisor } from '@/composables/useMeldAdvisor'
 import { createInitialState, type CraftParams, type CraftState, type StepResult } from '@/engine/simulator'
 import type { BuffType } from '@/engine/buffs'
-import type { EnhancedStats } from '@/engine/food-medicine'
+import type { EnhancedStats, FoodBuff } from '@/engine/food-medicine'
 import { calculateInitialQuality } from '@/engine/quality'
 import { getRecipe, findRecipesByItemName } from '@/api/xivapi'
 import { simulateCraftDetail, waitForWasm } from '@/solver/worker'
@@ -38,7 +38,7 @@ export function useSimulator() {
   const simStore = useSimulatorStore()
   const settingsStore = useSettingsStore()
 
-  const { advice: meldAdvice, runAdvisor, markStale } = useMeldAdvisor(
+  const { advice: meldAdvice, runAdvisor, markStale, cancel: cancelAdvisor } = useMeldAdvisor(
     () => settingsStore.server || settingsStore.dataCenter || '',
   )
 
@@ -46,6 +46,12 @@ export function useSimulator() {
   const searchSidebarOpen = ref(false)
   const initialQuality = ref(0)
   const enhancedStats = ref<EnhancedStats | null>(null)
+  /* #136: the active food/medicine buff objects (from FoodMedicine), folded into
+     the meld advisor so it solves on the same effectiveStats as the screen. */
+  const activeBuffs = ref<{ food: FoodBuff | null; medicine: FoodBuff | null }>({
+    food: null,
+    medicine: null,
+  })
   /* Session-only meld override (Slice C): a RAW-gear Δstats triple applied on
      top of the gearset's raw stats (ADR-0001 order), BEFORE soul/food/medicine.
      Never written to the gearsets store / localStorage; cleared on recipe
@@ -86,6 +92,10 @@ export function useSimulator() {
 
   function onEnhancedStatsUpdate(val: EnhancedStats) {
     enhancedStats.value = val
+  }
+
+  function onBuffsUpdate(val: { food: FoodBuff | null; medicine: FoodBuff | null }) {
+    activeBuffs.value = val
   }
 
   const effectiveStats = computed(() => {
@@ -231,16 +241,22 @@ export function useSimulator() {
 
   function onSolveComplete(result: { actions: string[] }) {
     simStore.setSolverResult(result)
-    // Ride-along: fire-and-forget the meld advisor with the same inputs.
+    // Ride-along: fire-and-forget the meld advisor with the same inputs —
+    // including the active food/medicine buffs so it solves on the screen's
+    // effectiveStats basis (#136).
     if (recipe.value && gearset.value) {
-      void runAdvisor(recipe.value, gearset.value, initialQuality.value)
+      void runAdvisor(recipe.value, gearset.value, initialQuality.value, activeBuffs.value)
     }
   }
 
-  // Mark advice stale when recipe, gearset, or initialQuality changes without
-  // a new solve being triggered.
+  // Mark advice stale when recipe, gearset, initialQuality, an applied meld
+  // override, or the active food/medicine buffs change without a new solve.
+  // meldOverride is folded into effectiveStats but never touches the gearset
+  // store, so applying a meld would otherwise leave the advisor card showing
+  // pre-apply numbers (#137). activeBuffs likewise shifts the solve basis, so a
+  // food change after a solve must invalidate the prior advice too (#136).
   watch(
-    [gearset, recipe, initialQuality],
+    [gearset, recipe, initialQuality, meldOverride, activeBuffs],
     () => markStale(),
     { deep: true },
   )
@@ -384,6 +400,7 @@ export function useSimulator() {
     // handlers
     onInitialQualityUpdate,
     onEnhancedStatsUpdate,
+    onBuffsUpdate,
     onHqAmountsUpdate,
     handleAddFromSearch,
     handleRemoveFromQueue,
@@ -398,5 +415,6 @@ export function useSimulator() {
     handleSaveMeldToGearset,
     handleAddToBom,
     handleSelfCraft,
+    cancelAdvisor,
   }
 }

@@ -33,20 +33,17 @@ vi.mock('@/components/gearset/GearsetSheet.vue', () => ({ default: { template: '
 vi.mock('@/components/batch/BenchPanel.vue', () => ({ default: { template: '<div />' } }))
 
 const advice = (): MeldAdvice => ({
+  status: 'feasible',
   alreadyMeetsThreshold: false,
   hqSufficient: false,
+  rankedByCount: false,
+  noHqLever: false,
   costOptimal: {
     feasible: true,
     deltaStats: { craftsmanship: 60, control: 0, cp: 0 },
     steps: [{ stat: 'craftsmanship', grade: 12, placedCount: 2, expectedCount: 2, unitPrice: 8000, subtotal: 16000 }],
     totalGil: 16000, confirmedBySolver: true,
   },
-  bis: {
-    feasible: true,
-    deltaStats: { craftsmanship: 400, control: 400, cp: 50 },
-    steps: [], totalGil: 2_400_000, confirmedBySolver: false,
-  },
-  gapGil: 2_384_000,
 })
 
 /** Minimal BatchResults satisfying the shape; only meldAdvicePerJob varies. */

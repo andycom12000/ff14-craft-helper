@@ -27,6 +27,10 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:enhancedStats': [value: EnhancedStats]
+  /** #136: surface the active food/medicine buff OBJECTS (not the already-buffed
+   *  stats) so the host can fold them into the meld advisor on the SAME basis as
+   *  the screen solver (ADR-0001: melds → Soul → food → medicine). */
+  'update:buffs': [value: { food: FoodBuff | null; medicine: FoodBuff | null }]
   'clear-override': []
 }>()
 
@@ -87,6 +91,13 @@ const enhancedStats = computed<EnhancedStats>(() => {
 
 watch(enhancedStats, (val) => {
   emit('update:enhancedStats', val)
+}, { immediate: true })
+
+// #136: emit the active buff objects alongside the buffed stats. The advisor
+// needs the raw FoodBuff (percent/cap) to re-apply after each candidate meld Δ,
+// which the already-folded enhancedStats can't provide.
+watch([selectedFood, selectedMedicine], ([food, medicine]) => {
+  emit('update:buffs', { food, medicine })
 }, { immediate: true })
 
 // Bonus preview helpers

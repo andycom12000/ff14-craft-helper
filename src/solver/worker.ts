@@ -32,9 +32,16 @@ function solverInputFingerprint(config: SolverConfig): string {
   ].join('|')
 }
 
-interface WorkerSlot { worker: Worker; busy: boolean }
+// `ready` is per-slot (#132): a freshly (re)spawned worker only accepts work
+// AFTER it posts `ready` — the worker rejects any solve received before WASM
+// init. Dispatch therefore gates on `!busy && ready`, so a slot replaced by
+// `cancelRequest` never gets a solve routed to it mid-init.
+interface WorkerSlot { worker: Worker; busy: boolean; ready: boolean }
 
 const slots: WorkerSlot[] = []
+// requestId → the slot currently running it (only set once dispatched). Lets
+// cancelRequest find and terminate the exact worker to free its slot (#132).
+const requestSlots = new Map<number, WorkerSlot>()
 let readySlotCount = 0
 const taskQueue: Array<{
   type: 'solve' | 'simulate' | 'simulate-detail'
@@ -64,58 +71,71 @@ const pendingRequests = new Map<number, {
   onProgress?: (pct: number) => void
 }>()
 
+/** Create one worker, wire its listeners, and push it as a fresh (not-ready)
+ *  slot. Shared by the initial pool build (`ensurePool`) and the per-request
+ *  replacement in `cancelRequest` (#132). */
+function spawnSlot(): WorkerSlot {
+  const w = new Worker(new URL('./solver-worker.ts', import.meta.url), { type: 'module' })
+  const slot: WorkerSlot = { worker: w, busy: false, ready: false }
+  slots.push(slot)
+  wasmErrorMessage = null
+
+  w.addEventListener('message', (e: MessageEvent<SolverResponse>) => {
+    const data = e.data
+    if (data.type === 'ready') return onSlotReady(slot)
+    if (data.type === 'init-error') return onSlotInitError(data.error ?? 'WASM 初始化失敗')
+    if (data.requestId === undefined) return
+    handleRoutedResponse(slot, data)
+  })
+
+  w.addEventListener('error', (e: Event) => {
+    if (!(e instanceof ErrorEvent)) return
+    const message = e.message || 'Solver worker crashed'
+    trackError(`solver_worker_error: ${message}`)
+    // Catastrophic failure: tear down pool and reject everything in flight.
+    // Next call to ensurePool will rebuild from scratch.
+    const slotsSnapshot = slots.slice()
+    for (const s of slotsSnapshot) {
+      try { s.worker.terminate() } catch { /* ignore */ }
+    }
+    slots.length = 0
+    readySlotCount = 0
+    poolInitT0 = null
+    wasmReadyT0 = null
+    wasmStatus = 'error'
+    wasmErrorMessage = message
+    for (const [, pending] of pendingRequests) pending.reject(new Error(message))
+    pendingRequests.clear()
+    requestSlots.clear()
+    taskQueue.length = 0
+    // Drain any waitForWasm() callers so they don't hang
+    const errorWaiters = wasmErrorWaiters.splice(0)
+    wasmReadyWaiters.length = 0
+    const workerErr = new Error(message)
+    for (const cb of errorWaiters) cb(workerErr)
+  })
+
+  return slot
+}
+
 function ensurePool(): void {
   if (slots.length === POOL_SIZE) return
   if (poolInitT0 === null) poolInitT0 = performance.now()
-  for (let i = slots.length; i < POOL_SIZE; i++) {
-    const w = new Worker(new URL('./solver-worker.ts', import.meta.url), { type: 'module' })
-    const slot: WorkerSlot = { worker: w, busy: false }
-    slots.push(slot)
-    wasmStatus = 'loading'
-    wasmErrorMessage = null
-
-    w.addEventListener('message', (e: MessageEvent<SolverResponse>) => {
-      const data = e.data
-      if (data.type === 'ready') return onSlotReady()
-      if (data.type === 'init-error') return onSlotInitError(data.error ?? 'WASM 初始化失敗')
-      if (data.requestId === undefined) return
-      handleRoutedResponse(slot, data)
-    })
-
-    w.addEventListener('error', (e: Event) => {
-      if (!(e instanceof ErrorEvent)) return
-      const message = e.message || 'Solver worker crashed'
-      trackError(`solver_worker_error: ${message}`)
-      // Catastrophic failure: tear down pool and reject everything in flight.
-      // Next call to ensurePool will rebuild from scratch.
-      const slotsSnapshot = slots.slice()
-      for (const s of slotsSnapshot) {
-        try { s.worker.terminate() } catch { /* ignore */ }
-      }
-      slots.length = 0
-      readySlotCount = 0
-      poolInitT0 = null
-      wasmReadyT0 = null
-      wasmStatus = 'error'
-      wasmErrorMessage = message
-      for (const [, pending] of pendingRequests) pending.reject(new Error(message))
-      pendingRequests.clear()
-      taskQueue.length = 0
-      // Drain any waitForWasm() callers so they don't hang
-      const errorWaiters = wasmErrorWaiters.splice(0)
-      wasmReadyWaiters.length = 0
-      const workerErr = new Error(message)
-      for (const cb of errorWaiters) cb(workerErr)
-    })
-  }
+  wasmStatus = 'loading'
+  for (let i = slots.length; i < POOL_SIZE; i++) spawnSlot()
 }
 
-function onSlotReady(): void {
+function onSlotReady(slot: WorkerSlot): void {
+  if (slot.ready) return
+  slot.ready = true
   if (readySlotCount === 0) wasmReadyT0 = performance.now()
   readySlotCount++
   if (readySlotCount === POOL_SIZE) {
     const now = performance.now()
     const isColdStart = !sessionStorage.getItem('ff14ch.wasm_loaded_once')
+    // wasmReadyT0/poolInitT0 are nulled after the first full-ready emit so a
+    // per-request slot respawn (#132) re-reaching POOL_SIZE doesn't re-emit
+    // telemetry with a stale baseline.
     if (wasmReadyT0 !== null) {
       trackEvent('wasm_load_ms', {
         duration_ms: Math.round(now - wasmReadyT0),
@@ -130,11 +150,16 @@ function onSlotReady(): void {
         worker_count: POOL_SIZE,
       })
     }
+    poolInitT0 = null
+    wasmReadyT0 = null
     wasmStatus = 'ready'
     const waiters = wasmReadyWaiters.splice(0)
     wasmErrorWaiters.length = 0
     for (const cb of waiters) cb()
   }
+  // A newly-ready slot may be able to pick up queued work (cold-start dispatch
+  // gated on readiness, or a slot just respawned by cancelRequest).
+  drainQueue()
 }
 
 function onSlotInitError(message: string): void {
@@ -166,6 +191,7 @@ function handleRoutedResponse(slot: WorkerSlot, data: SolverResponse): void {
 
   if (terminal) {
     pendingRequests.delete(data.requestId)
+    requestSlots.delete(data.requestId)
     slot.busy = false
     drainQueue()
   }
@@ -173,10 +199,11 @@ function handleRoutedResponse(slot: WorkerSlot, data: SolverResponse): void {
 
 function drainQueue(): void {
   while (taskQueue.length > 0) {
-    const idle = slots.find(s => !s.busy)
+    const idle = slots.find(s => !s.busy && s.ready)
     if (!idle) return
     const task = taskQueue.shift()!
     idle.busy = true
+    requestSlots.set(task.requestId, idle)
     idle.worker.postMessage({ type: task.type, ...task.payload, requestId: task.requestId })
   }
 }
@@ -187,9 +214,10 @@ function dispatchOrQueue(
   requestId: number,
 ): void {
   ensurePool()
-  const idle = slots.find(s => !s.busy)
+  const idle = slots.find(s => !s.busy && s.ready)
   if (idle) {
     idle.busy = true
+    requestSlots.set(requestId, idle)
     idle.worker.postMessage({ type, ...payload, requestId })
   } else {
     taskQueue.push({ type, payload, requestId })
@@ -228,9 +256,25 @@ export function getWasmStatus(): { status: 'loading' | 'ready' | 'error'; error?
  * @param config - Solver configuration derived from recipe + gearset
  * @param onProgress - Optional callback for progress updates (0-100)
  */
+/**
+ * Wire an AbortSignal to a dispatched request: aborting calls `cancelRequest`,
+ * which terminates the slot running it and frees the pool (#132). A late abort
+ * (after the request already settled) is harmless — cancelRequest no-ops when
+ * the requestId is unknown.
+ */
+function bindAbort(requestId: number, signal?: AbortSignal): void {
+  if (!signal) return
+  if (signal.aborted) {
+    cancelRequest(requestId)
+    return
+  }
+  signal.addEventListener('abort', () => cancelRequest(requestId), { once: true })
+}
+
 export function solveCraft(
   config: SolverConfig,
   onProgress?: (percent: number) => void,
+  signal?: AbortSignal,
 ): Promise<SolverResultWithTiming> {
   const requestId = nextRequestId++
   const startedAt = performance.now()
@@ -261,13 +305,19 @@ export function solveCraft(
         resolve(r)
       },
       reject: (err: Error) => {
-        trackEvent('solver_failed', { reason: err.message })
-        trackError(`solver_failed: ${err.message}`)
-        noteSolverFailed()
+        // A deliberate cancellation (supersede / deadline / unmount / cancel
+        // button, #132) is not a solve failure — recording it would inflate
+        // `solver_failed` and mis-arm the input-change-after-fail audit.
+        if (!(err instanceof SolveCancelledError)) {
+          trackEvent('solver_failed', { reason: err.message })
+          trackError(`solver_failed: ${err.message}`)
+          noteSolverFailed()
+        }
         reject(err)
       },
     })
     dispatchOrQueue('solve', { config: { ...config } }, requestId)
+    bindAbort(requestId, signal)
   })
 }
 
@@ -278,6 +328,7 @@ export function simulateCraft(
   config: SolverConfig,
   actions: string[],
   conditions?: string[],
+  signal?: AbortSignal,
 ): Promise<SimulateResult> {
   const requestId = nextRequestId++
   return new Promise<SimulateResult>((resolve, reject) => {
@@ -287,6 +338,7 @@ export function simulateCraft(
       actions: [...actions],
       conditions: conditions ? [...conditions] : undefined,
     }, requestId)
+    bindAbort(requestId, signal)
   })
 }
 
@@ -307,6 +359,43 @@ export function simulateCraftDetail(
       conditions: conditions ? [...conditions] : undefined,
     }, requestId)
   })
+}
+
+/**
+ * Abort ONE in-flight (or queued) request without disturbing the rest of the
+ * pool (#132). For a dispatched request the worker is mid-synchronous-WASM and
+ * cannot honour a cancel message, so we terminate its worker and respawn a
+ * fresh slot in its place — freeing the pool slot immediately instead of
+ * letting a runaway solve poison it. A queued-but-undispatched request is just
+ * dropped from the queue. The request's promise rejects with
+ * SolveCancelledError. No-op for an unknown/already-settled requestId.
+ *
+ * Unlike `cancelSolve`, this leaves any OTHER in-flight request (e.g. a
+ * concurrent main-screen solve) running on its own slot.
+ */
+export function cancelRequest(requestId: number): void {
+  const pending = pendingRequests.get(requestId)
+  if (!pending) return
+  pendingRequests.delete(requestId)
+  const slot = requestSlots.get(requestId)
+  requestSlots.delete(requestId)
+  if (slot) {
+    const idx = slots.indexOf(slot)
+    try { slot.worker.terminate() } catch { /* ignore */ }
+    if (idx >= 0) {
+      slots.splice(idx, 1)
+      if (slot.ready) readySlotCount = Math.max(0, readySlotCount - 1)
+      // Replace it so the pool stays at POOL_SIZE; the fresh worker is gated
+      // (ready:false) until it posts `ready`, then drainQueue picks it up.
+      spawnSlot()
+    }
+  } else {
+    // Not dispatched yet — drop it from the queue.
+    const qi = taskQueue.findIndex(t => t.requestId === requestId)
+    if (qi >= 0) taskQueue.splice(qi, 1)
+  }
+  pending.reject(new SolveCancelledError())
+  drainQueue()
 }
 
 /**
@@ -334,6 +423,7 @@ export function cancelSolve(): void {
   wasmErrorMessage = null
   for (const [, pending] of pendingRequests) pending.reject(new SolveCancelledError())
   pendingRequests.clear()
+  requestSlots.clear()
   taskQueue.length = 0
   // Drain any waitForWasm() callers that queued before pool init finished —
   // otherwise their promises hang forever and the UI sticks at
@@ -358,6 +448,7 @@ export function disposeWorker(): void {
   wasmStatus = 'loading'
   wasmErrorMessage = null
   pendingRequests.clear()
+  requestSlots.clear()
   taskQueue.length = 0
   wasmReadyWaiters.length = 0
   wasmErrorWaiters.length = 0

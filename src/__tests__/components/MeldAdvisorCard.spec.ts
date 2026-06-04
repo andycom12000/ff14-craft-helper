@@ -4,30 +4,32 @@ import MeldAdvisorCard from '@/components/MeldAdvisorCard.vue'
 import type { MeldAdvice } from '@/services/meld-advisor'
 
 const fullAdvice: MeldAdvice = {
+  status: 'feasible',
   alreadyMeetsThreshold: false,
   hqSufficient: false,
+  rankedByCount: false,
+  noHqLever: false,
   costOptimal: {
     feasible: true,
     deltaStats: { craftsmanship: 60, control: 0, cp: 0 },
     steps: [{ stat: 'craftsmanship', grade: 12, placedCount: 2, expectedCount: 2, unitPrice: 8000, subtotal: 16000 }],
     totalGil: 16000, confirmedBySolver: true,
   },
-  bis: {
-    feasible: true,
-    deltaStats: { craftsmanship: 400, control: 400, cp: 50 },
-    steps: [],
-    totalGil: 2_400_000, confirmedBySolver: false,
-  },
-  gapGil: 2_384_000,
 }
 
 describe('MeldAdvisorCard', () => {
   // Shared state tests are mode-agnostic; use cost mode where the assertion is
   // about the cost framing, ability mode for the new ability framing.
 
-  it('cost mode renders the gap as the headline', () => {
+  it('cost mode renders the absolute 最省錢達標 cost (no 你能省 / 全 BiS framing)', () => {
     const w = mount(MeldAdvisorCard, { props: { advice: fullAdvice, mode: 'cost', showApply: false } })
-    expect(w.text()).toContain('2,384,000')
+    // Absolute-cost framing: the cost-optimal plan total is the card's number.
+    expect(w.text()).toContain('最省錢達標')
+    expect(w.text()).toContain('16,000')
+    // The removed 全 BiS over-meld ceiling figure must not resurface.
+    expect(w.text()).not.toContain('2,384,000')
+    expect(w.text()).not.toContain('你能省')
+    expect(w.text()).not.toContain('全 BiS')
   })
 
   it('renders the empty state when advice is null', () => {
@@ -39,6 +41,32 @@ describe('MeldAdvisorCard', () => {
   it('renders a spinner when loading', () => {
     const w = mount(MeldAdvisorCard, { props: { advice: 'loading' } })
     expect(w.find('[data-test=spinner]').exists()).toBe(true)
+  })
+
+  // #132: the loading state offers a cancel button so a long/pathological solve
+  // can be torn down by the user instead of waiting it out.
+  it('renders a cancel button while loading and emits "cancel" on click', async () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: 'loading' } })
+    const btn = w.find('[data-test=cancel-advisor]')
+    expect(btn.exists()).toBe(true)
+    await btn.trigger('click')
+    expect(w.emitted('cancel')).toHaveLength(1)
+  })
+
+  it('shows no cancel button when not loading', () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: 'stale' } })
+    expect(w.find('[data-test=cancel-advisor]').exists()).toBe(false)
+  })
+
+  // #129 tweak D: a hard CP-bound recipe can keep the reverse search running for
+  // tens of seconds (per-request 8s deadline × multiple craftsmanship rungs), so
+  // the bare「計算中…」spinner reads like a hang. Surface a long-wait expectation
+  // hint so the wait reads as expected, not broken.
+  it('#129 D: the loading state surfaces a long-wait expectation hint', () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: 'loading' } })
+    const hint = w.find('[data-test=loading-hint]')
+    expect(hint.exists()).toBe(true)
+    expect(hint.text()).toContain('數十秒')
   })
 
   it('greys the card when stale', () => {
@@ -60,6 +88,7 @@ describe('MeldAdvisorCard', () => {
   it('cost mode shows "需換底裝" when infeasible', () => {
     const infeasible: MeldAdvice = {
       ...fullAdvice,
+      status: 'infeasible',
       costOptimal: { ...fullAdvice.costOptimal, feasible: false, reason: '槽位不足,需換底裝' },
     }
     const w = mount(MeldAdvisorCard, { props: { advice: infeasible, mode: 'cost', showApply: false } })
@@ -166,9 +195,38 @@ describe('MeldAdvisorCard', () => {
     expect(w.findAll('button').some(b => b.text().includes('套用鑲嵌'))).toBe(false)
   })
 
+  // --- #134: 「無 HQ 素材槓桿」prefacing hint for custom recipes (0% HQ) ---
+
+  it('ability mode: shows the no-HQ-lever preface when noHqLever is true', () => {
+    const advice: MeldAdvice = { ...fullAdvice, noHqLever: true }
+    const w = mount(MeldAdvisorCard, { props: { advice, mode: 'ability' } })
+    expect(w.find('[data-test=no-hq-lever]').exists()).toBe(true)
+    expect(w.text()).toContain('無 HQ 素材槓桿')
+  })
+
+  it('ability mode: hides the no-HQ-lever preface when noHqLever is false', () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: fullAdvice, mode: 'ability' } })
+    expect(w.find('[data-test=no-hq-lever]').exists()).toBe(false)
+  })
+
+  it('the no-HQ-lever preface coexists with an infeasible status (still no false guarantee)', () => {
+    const advice: MeldAdvice = {
+      ...fullAdvice,
+      status: 'infeasible',
+      noHqLever: true,
+      costOptimal: { ...fullAdvice.costOptimal, feasible: false, reason: '槽位不足,需換底裝', steps: [] },
+    }
+    const w = mount(MeldAdvisorCard, { props: { advice, mode: 'ability' } })
+    expect(w.find('[data-test=no-hq-lever]').exists()).toBe(true)
+    expect(w.text()).toContain('無 HQ 素材槓桿')
+    // never claims the 保證 HQ guarantee on a non-feasible status
+    expect(w.find('.ability-sentence').exists()).toBe(false)
+  })
+
   it('ability mode: infeasible plan surfaces the reason and no CTA', () => {
     const infeasible: MeldAdvice = {
       ...fullAdvice,
+      status: 'infeasible',
       costOptimal: { ...fullAdvice.costOptimal, feasible: false, reason: '槽位不足,需換底裝', steps: [] },
     }
     const w = mount(MeldAdvisorCard, { props: { advice: infeasible, mode: 'ability' } })
@@ -207,10 +265,83 @@ describe('MeldAdvisorCard', () => {
     expect(w.emitted('save-to-gearset')?.[1]).toEqual(['all'])
   })
 
+  // --- #128: 「無市場資料，依鑲嵌數量估算」hint when the plan was ranked by count ---
+
+  const countRankedAdvice: MeldAdvice = {
+    ...fullAdvice,
+    rankedByCount: true,
+    costOptimal: {
+      ...fullAdvice.costOptimal,
+      steps: [{ stat: 'craftsmanship', grade: 12, placedCount: 2, expectedCount: 2, unitPrice: null, subtotal: null }],
+      totalGil: null,
+    },
+  }
+
+  it('cost mode: shows the 依鑲嵌數量估算 hint when rankedByCount is true', () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: countRankedAdvice, mode: 'cost', showApply: false } })
+    expect(w.text()).toContain('依鑲嵌數量估算')
+  })
+
+  it('ability mode: shows the 依鑲嵌數量估算 hint when rankedByCount is true', () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: countRankedAdvice, mode: 'ability' } })
+    expect(w.text()).toContain('依鑲嵌數量估算')
+  })
+
+  it('does NOT show the 依鑲嵌數量估算 hint when prices are present (rankedByCount false)', () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: fullAdvice, mode: 'cost', showApply: false } })
+    expect(w.text()).not.toContain('依鑲嵌數量估算')
+  })
+
   it('cost mode never shows the 存成配裝 gate (even with overrideActive)', () => {
     const w = mount(MeldAdvisorCard, {
       props: { advice: fullAdvice, mode: 'cost', showApply: false, overrideActive: true },
     })
     expect(w.findAll('button').some(b => b.text().includes('存成配裝'))).toBe(false)
+  })
+
+  // --- #133: honest status rendering — never claim 保證 HQ on a non-feasible run ---
+
+  it('ability mode: status timed-out shows the 逾時 message, not 保證 HQ', () => {
+    const advice: MeldAdvice = {
+      ...fullAdvice,
+      status: 'timed-out',
+      costOptimal: { ...fullAdvice.costOptimal, confirmedBySolver: false },
+    }
+    const w = mount(MeldAdvisorCard, { props: { advice, mode: 'ability' } })
+    expect(w.text()).toContain('逾時')
+    expect(w.text()).not.toContain('保證 HQ')
+    expect(w.findAll('button').some(b => b.text().includes('套用鑲嵌'))).toBe(false)
+  })
+
+  it('ability mode: status error shows the 失敗 message, not 保證 HQ', () => {
+    const advice: MeldAdvice = {
+      ...fullAdvice,
+      status: 'error',
+      costOptimal: { ...fullAdvice.costOptimal, confirmedBySolver: false },
+    }
+    const w = mount(MeldAdvisorCard, { props: { advice, mode: 'ability' } })
+    expect(w.text()).toContain('失敗')
+    expect(w.text()).not.toContain('保證 HQ')
+  })
+
+  // The core #123/#133 bug: an unconfirmed-but-feasible-looking plan (status
+  // infeasible) must NOT render the「即可保證 HQ」sentence or the 套用 CTA — it
+  // claimed guaranteed HQ right after the solver failed to confirm one.
+  it('ability mode: infeasible status with a leftover plan never claims 保證 HQ nor offers 套用', () => {
+    const advice: MeldAdvice = {
+      ...fullAdvice,
+      status: 'infeasible',
+      costOptimal: { ...fullAdvice.costOptimal, confirmedBySolver: false }, // still feasible:true, has steps
+    }
+    const w = mount(MeldAdvisorCard, { props: { advice, mode: 'ability' } })
+    expect(w.text()).toContain('無法只靠鑲嵌保證 HQ')
+    expect(w.text()).not.toContain('即可保證 HQ')
+    expect(w.findAll('button').some(b => b.text().includes('套用鑲嵌'))).toBe(false)
+  })
+
+  it('ability mode: feasible + confirmed still shows the 保證 HQ sentence and 套用 CTA (regression)', () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: fullAdvice, mode: 'ability' } })
+    expect(w.text()).toContain('即可保證 HQ')
+    expect(w.findAll('button').some(b => b.text().includes('套用鑲嵌'))).toBe(true)
   })
 })

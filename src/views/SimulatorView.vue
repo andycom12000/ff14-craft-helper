@@ -27,6 +27,7 @@ import ManualControls from '@/components/simulator/ManualControls.vue'
 import RecipeSearchSidebar from '@/components/recipe/RecipeSearchSidebar.vue'
 import CustomRecipeDialog from '@/components/simulator/CustomRecipeDialog.vue'
 import MeldAdvisorCard from '@/components/MeldAdvisorCard.vue'
+import MeldPlaygroundCard from '@/components/MeldPlaygroundCard.vue'
 import { CUSTOM_RECIPE_ICON } from '@/composables/useCustomRecipes'
 import AppEmptyState from '@/components/common/AppEmptyState.vue'
 import ItemName from '@/components/common/ItemName.vue'
@@ -56,12 +57,12 @@ const {
   initialQuality, initialQualityHqAmounts, enhancedStats,
   searchSidebarOpen, solverResult, modeOptions,
   meldAdvice, meldOverride, meldOverrideLabel,
-  onInitialQualityUpdate, onEnhancedStatsUpdate, onHqAmountsUpdate,
+  onInitialQualityUpdate, onEnhancedStatsUpdate, onBuffsUpdate, onHqAmountsUpdate,
   handleAddFromSearch, handleRemoveFromQueue, handleClearQueue,
   handleRemoveAction, handleClearActions,
   handleUseSkill, onSolveComplete, handleApplyHq, handleApplyMeld,
   clearMeldOverride, handleSaveMeldToGearset,
-  handleAddToBom, handleSelfCraft,
+  handleAddToBom, handleSelfCraft, cancelAdvisor,
 } = useSimulator()
 
 useSolverInputAudit({
@@ -156,6 +157,13 @@ const meldHqSufficient = computed(() => {
   const a = meldAdvice.value
   return !!a && typeof a === 'object' && a.hqSufficient
 })
+
+// #143: a recipe with canHq:false has no HQ concept, so the entire「如何保證 HQ」
+// cascade (備齊 HQ 素材 / 逆向鑲嵌建議 / 正向試算台) is meaningless and must not
+// render — otherwise the advisor contradicts itself by recommending melds to
+// "guarantee HQ" on a craft that can never be HQ. Default-safe: only hide on an
+// explicit false, so a missing/undefined flag keeps the cascade.
+const recipeSupportsHq = computed(() => recipe.value?.canHq !== false)
 
 /* Mobile helpers */
 const foodMedicineSummary = computed(() => (enhancedStats.value ? '已設定' : '未設定'))
@@ -349,6 +357,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
               :override="meldOverride"
               :override-chip-label="meldOverrideLabel"
               @update:enhanced-stats="onEnhancedStatsUpdate"
+              @update:buffs="onBuffsUpdate"
               @clear-override="clearMeldOverride"
             />
           </section>
@@ -498,7 +507,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
             <!-- 2-col mode: HQ-related panels render INSIDE b-main as cockpit
                  sections (not as a side rail pushed below).
                  At 3-col they live in rail-right instead. -->
-            <template v-if="isTwoCol">
+            <template v-if="isTwoCol && recipeSupportsHq">
               <section class="cockpit-section cockpit-section--hq hq-cascade">
                 <header class="cockpit-section-head">
                   <span class="cockpit-section-label hq-cascade-title">如何保證 HQ</span>
@@ -541,6 +550,17 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
                     :override-active="!!meldOverride"
                     @apply="handleApplyMeld"
                     @save-to-gearset="handleSaveMeldToGearset"
+                    @cancel="cancelAdvisor"
+                  />
+                  <MeldPlaygroundCard
+                    class="meld-playground"
+                    :recipe="recipe"
+                    :gearset="gearset"
+                    :advice="meldAdvice"
+                    :initial-quality="initialQuality"
+                    :override-active="!!meldOverride"
+                    @apply="handleApplyMeld"
+                    @clear-override="clearMeldOverride"
                   />
                 </div>
               </section>
@@ -558,7 +578,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
 
         <!-- Right rail: only at 3-col mode (>1720); at 2-col these sections
              render inside b-main instead. -->
-        <aside v-if="!isTwoCol" class="rail rail-right">
+        <aside v-if="!isTwoCol && recipeSupportsHq" class="rail rail-right">
           <section class="rail-section hq-cascade">
             <header class="rail-section-head">
               <span class="rail-section-label hq-cascade-title">如何保證 HQ</span>
@@ -601,6 +621,17 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
                 :override-active="!!meldOverride"
                 @apply="handleApplyMeld"
                 @save-to-gearset="handleSaveMeldToGearset"
+                @cancel="cancelAdvisor"
+              />
+              <MeldPlaygroundCard
+                class="meld-playground"
+                :recipe="recipe"
+                :gearset="gearset"
+                :advice="meldAdvice"
+                :initial-quality="initialQuality"
+                :override-active="!!meldOverride"
+                @apply="handleApplyMeld"
+                @clear-override="clearMeldOverride"
               />
             </div>
           </section>
@@ -688,14 +719,16 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
           @click="setupOpen = !setupOpen"
         >
           <span class="m-setup-summary">
-            初期品質 <b>{{ initialQuality.toLocaleString() }}</b>
-            <span class="m-rs-dot">·</span>
+            <template v-if="recipeSupportsHq">
+              初期品質 <b>{{ initialQuality.toLocaleString() }}</b>
+              <span class="m-rs-dot">·</span>
+            </template>
             食藥 <span :class="{ muted: !enhancedStats }">{{ foodMedicineSummary }}</span>
           </span>
           <span class="m-chev" :class="{ 'is-open': setupOpen }">▾</span>
         </button>
         <div v-if="setupOpen" class="m-setup-body">
-          <div class="m-setup-group">
+          <div v-if="recipeSupportsHq" class="m-setup-group">
             <h4 class="m-setup-group-title">初期品質</h4>
             <InitialQuality :hq-amounts="initialQualityHqAmounts" @update:initial-quality="onInitialQualityUpdate" @update:hq-amounts="onHqAmountsUpdate" />
           </div>
@@ -705,6 +738,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
               :override="meldOverride"
               :override-chip-label="meldOverrideLabel"
               @update:enhanced-stats="onEnhancedStatsUpdate"
+              @update:buffs="onBuffsUpdate"
               @clear-override="clearMeldOverride"
             />
           </div>
@@ -777,7 +811,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
         <!-- 如何保證 HQ — mobile cascade. The 備齊 HQ 素材 inputs (初期品質) live
              in the collapsible 設定 row above; here we group the contiguous
              Step 1 (HQ 推薦) + Step 2 (鑲嵌) under one title. -->
-        <section v-if="canSimulate && !gearsetBlocking" class="m-flat hq-cascade">
+        <section v-if="canSimulate && !gearsetBlocking && recipeSupportsHq" class="m-flat hq-cascade">
           <h3 class="m-flat-title hq-cascade-title">如何保證 HQ</h3>
 
           <div v-if="simStore.mode === 'solver'" class="hq-step">
@@ -805,6 +839,17 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
               :override-active="!!meldOverride"
               @apply="handleApplyMeld"
               @save-to-gearset="handleSaveMeldToGearset"
+              @cancel="cancelAdvisor"
+            />
+            <MeldPlaygroundCard
+              class="meld-playground"
+              :recipe="recipe"
+              :gearset="gearset"
+              :advice="meldAdvice"
+              :initial-quality="initialQuality"
+              :override-active="!!meldOverride"
+              @apply="handleApplyMeld"
+              @clear-override="clearMeldOverride"
             />
           </div>
         </section>
@@ -1428,6 +1473,14 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px solid var(--app-border);
+}
+/* The forward playground (#130) sits under the reverse advisor card inside the
+   same Step 2 「再補鑲嵌」 lever — a quiet dashed rule separates the逆向 answer
+   from the正向 what-if without introducing a nested card frame. */
+.meld-playground {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--app-border);
 }
 .hq-step-head {
   display: flex;

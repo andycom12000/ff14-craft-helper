@@ -60,6 +60,16 @@ export const SLOT_STRUCTURE = {
 } as const
 
 /**
+ * Physical upper bound on materia placed across a full gearset (#141): every
+ * guaranteed slot plus every overmeld slot. The forward 試算台 caps each stat's
+ * count here so a physically-impossible placement (e.g. 999 顆) can never read
+ * can-hq or emit an override. Per-stat budgeting *across* stats (60 shared
+ * between all three) is the full Workbench IA (#129) — out of scope here; this
+ * is the coarse single-axis guard that kills the absurd case.
+ */
+export const MAX_MELD_COUNT = SLOT_STRUCTURE.guaranteedSlots + SLOT_STRUCTURE.overmeldSlots
+
+/**
  * Overmeld success-rate ladder indexed by overmeld depth (0 = first
  * overmeld attempt past the guaranteed slots, ...). Game constant.
  * Source: in-game advanced melding rates (Grade V+, two community sources
@@ -71,32 +81,6 @@ export const SLOT_STRUCTURE = {
 export const OVERMELD_SUCCESS_LADDER: number[] = [
   0.17, 0.10, 0.07, 0.05,
 ]
-
-/**
- * BiS reference stats (fully pentamelded community-standard set).
- * One triple per patch, shared across crafter jobs (per-job variance
- * is below the precision of ②-lite). Maintain this when a major patch
- * lands or BiS gear changes. Snapshot test enforces a manual review on
- * change.
- *
- * Last verified patch: 7.3 (Dawntrail) — i750 "Crested" set + "Gold Thumb's"
- * tools, fully pentamelded. Totals (5811 / 5309 / 649) verified against the
- * community crafter BiS at ffxivgillionaire.com/crafter-bis-gear
- * ("Level 100 i750 Pentameld (5811/5309/649)").
- */
-export interface BiSReference {
-  patch: string
-  craftsmanship: number
-  control: number
-  cp: number
-}
-
-export const BIS_REFERENCE: BiSReference = {
-  patch: '7.3',
-  craftsmanship: 5811,
-  control: 5309,
-  cp: 649,
-}
 
 const STAT_SHORT_LABELS: Record<CraftStat, string> = {
   craftsmanship: '作業',

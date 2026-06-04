@@ -14,10 +14,6 @@ vi.mock('@/services/meld-advisor', () => ({
   adviseMeld: vi.fn(),
 }))
 
-vi.mock('@/engine/materia', () => ({
-  BIS_REFERENCE: { craftsmanship: 4785, control: 4758, cp: 646 },
-}))
-
 const { fetchMateriaPriceMap } = await import('@/api/universalis')
 const { adviseMeld } = await import('@/services/meld-advisor')
 
@@ -31,6 +27,7 @@ const stubGearset: GearsetStats = {
 }
 
 const stubAdvice: MeldAdvice = {
+  status: 'feasible',
   costOptimal: {
     feasible: true,
     deltaStats: { craftsmanship: 0, control: 0, cp: 0 },
@@ -38,16 +35,10 @@ const stubAdvice: MeldAdvice = {
     totalGil: 0,
     confirmedBySolver: true,
   },
-  bis: {
-    feasible: true,
-    deltaStats: { craftsmanship: 785, control: 858, cp: 46 },
-    steps: [],
-    totalGil: 100000,
-    confirmedBySolver: false,
-  },
-  gapGil: 100000,
   alreadyMeetsThreshold: true,
   hqSufficient: true,
+  rankedByCount: false,
+  noHqLever: false,
 }
 
 describe('useMeldAdvisor', () => {
@@ -85,6 +76,113 @@ describe('useMeldAdvisor', () => {
     expect(advice.value).toBe('loading')
     markStale()
     expect(advice.value).toBe('loading')
+  })
+
+  // #135: no market server must NOT hard-block before the engine. The advisor
+  // runs with an empty price map so adviseMeld degrades to the count-ranked
+  // fallback (ADR-0002), instead of short-circuiting to the 'no-market' state.
+  it('with no market server, runs the engine with an empty price map instead of hard-blocking (#135)', async () => {
+    const rankedAdvice: MeldAdvice = {
+      ...stubAdvice,
+      alreadyMeetsThreshold: false,
+      hqSufficient: false,
+      rankedByCount: true,
+    }
+    vi.mocked(adviseMeld).mockResolvedValue(rankedAdvice)
+
+    const { advice, runAdvisor } = useMeldAdvisor(() => '') // no server selected
+    await runAdvisor(stubRecipe, stubGearset, 0)
+
+    // Did NOT short-circuit to the no-market hard block.
+    expect(advice.value).not.toBe('no-market')
+    // The engine ran exactly once, with an empty price map (count-ranked path).
+    expect(vi.mocked(adviseMeld)).toHaveBeenCalledTimes(1)
+    const priceMapArg = vi.mocked(adviseMeld).mock.calls[0][2]
+    expect(priceMapArg instanceof Map).toBe(true)
+    expect(priceMapArg.size).toBe(0)
+    // No fetch is attempted without a server.
+    expect(vi.mocked(fetchMateriaPriceMap)).not.toHaveBeenCalled()
+    expect(advice.value).toEqual(rankedAdvice)
+  })
+
+  // #135: with a server, behaviour is unchanged — fetch the price map and cost
+  // the plan by gil.
+  it('with a market server, fetches the price map and costs by gil (#135 — server branch unchanged)', async () => {
+    // clearAllMocks() does not restore mockImplementation, so re-assert the
+    // default resolving fetch (a prior test leaves a hanging implementation).
+    vi.mocked(fetchMateriaPriceMap).mockResolvedValue(new Map())
+    const { runAdvisor } = useMeldAdvisor(() => 'Gilgamesh')
+    await runAdvisor(stubRecipe, stubGearset, 0)
+
+    expect(vi.mocked(fetchMateriaPriceMap)).toHaveBeenCalledWith('Gilgamesh')
+    expect(vi.mocked(adviseMeld)).toHaveBeenCalledTimes(1)
+    // The price map handed to the engine is the one fetched for the server.
+    const fetched = await vi.mocked(fetchMateriaPriceMap).mock.results[0].value
+    expect(vi.mocked(adviseMeld).mock.calls[0][2]).toBe(fetched)
+  })
+
+  // #136: the advisor must solve on the SAME effectiveStats the screen uses, so
+  // runAdvisor threads the active food/medicine buffs straight into adviseMeld
+  // (the engine then folds them after Soul, per ADR-0001).
+  it('#136: forwards the active food/medicine buffs to adviseMeld', async () => {
+    const buffs = {
+      food: { id: 36060, name: '高山茶', craftsmanship: { percent: 5, max: 200 } },
+      medicine: null,
+    }
+    const { runAdvisor } = useMeldAdvisor(() => 'Carbuncle')
+    await runAdvisor(stubRecipe, stubGearset, 0, buffs)
+    expect(vi.mocked(adviseMeld).mock.calls[0][3]).toMatchObject({ buffs })
+  })
+
+  it('#136: omitting buffs leaves adviseMeld buff-free (parity with pre-#136)', async () => {
+    const { runAdvisor } = useMeldAdvisor(() => 'Carbuncle')
+    await runAdvisor(stubRecipe, stubGearset, 0)
+    expect(vi.mocked(adviseMeld).mock.calls[0][3].buffs).toBeUndefined()
+  })
+
+  // #132: the run is abortable. runAdvisor threads an AbortSignal into adviseMeld
+  // so a superseded/cancelled run truly tears down its in-flight WASM solve (the
+  // worker slot is freed), not just cooperatively ignored on return.
+  it('#132: forwards an AbortSignal to adviseMeld', async () => {
+    const { runAdvisor } = useMeldAdvisor(() => 'Carbuncle')
+    await runAdvisor(stubRecipe, stubGearset, 0)
+    const opts = vi.mocked(adviseMeld).mock.calls[0][3]
+    expect(opts.signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('#132: cancel() aborts the in-flight signal and clears advice to null', async () => {
+    let captured: AbortSignal | undefined
+    vi.mocked(adviseMeld).mockImplementation((_r, _g, _p, opts: any) => {
+      captured = opts.signal
+      return new Promise(() => { /* hang */ })
+    })
+    const { advice, runAdvisor, cancel } = useMeldAdvisor(() => '') // empty world → straight to adviseMeld
+    void runAdvisor(stubRecipe, stubGearset, 0)
+    await Promise.resolve()
+    expect(captured).toBeInstanceOf(AbortSignal)
+    expect(captured!.aborted).toBe(false)
+    expect(advice.value).toBe('loading')
+
+    cancel()
+    expect(captured!.aborted).toBe(true)
+    expect(advice.value).toBeNull()
+  })
+
+  it('#132: a second runAdvisor aborts the first run\'s signal', async () => {
+    const signals: AbortSignal[] = []
+    vi.mocked(adviseMeld).mockImplementation((_r, _g, _p, opts: any) => {
+      signals.push(opts.signal)
+      return new Promise(() => { /* hang */ })
+    })
+    const { runAdvisor } = useMeldAdvisor(() => '')
+    void runAdvisor(stubRecipe, stubGearset, 0)
+    await Promise.resolve()
+    void runAdvisor(stubRecipe, stubGearset, 0)
+    await Promise.resolve()
+
+    expect(signals).toHaveLength(2)
+    expect(signals[0].aborted).toBe(true)  // superseded
+    expect(signals[1].aborted).toBe(false)
   })
 
   it('second runAdvisor call cancels the first', async () => {

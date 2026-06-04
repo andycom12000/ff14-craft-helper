@@ -31,6 +31,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   apply: [delta: { craftsmanship: number; control: number; cp: number }]
   'save-to-gearset': [scope: 'this' | 'all']
+  cancel: []
 }>()
 
 /** Resolved CTA visibility. Cost mode is cost-oriented (batch) and has no
@@ -73,13 +74,57 @@ const hasActionablePlan = computed(() =>
   !!result.value && result.value.costOptimal.feasible && result.value.costOptimal.steps.length > 0,
 )
 
+/**
+ * #133 — the honest gate for claiming「保證 HQ」+ offering the 套用 / 存成配裝 CTAs.
+ * Only a `feasible` status carries a solver-CONFIRMED plan; every other status
+ * (infeasible / timed-out / error / cancelled) may have a leftover unconfirmed
+ * plan that must NOT be presented as a guarantee.
+ */
+const isActionable = computed(() =>
+  !!result.value && result.value.status === 'feasible' && hasActionablePlan.value,
+)
+
+/** #133 — honest no-result copy for a non-feasible run. */
+const statusMessage = computed(() => {
+  if (!result.value) return ''
+  switch (result.value.status) {
+    case 'timed-out':
+      return '計算逾時，請重試或調整裝備後再求解'
+    case 'error':
+      return '計算失敗，請稍後重試'
+    case 'cancelled':
+      return '已取消計算'
+    default: // 'infeasible' (or any non-feasible without an actionable plan)
+      return result.value.costOptimal.reason ?? '此配方無法只靠鑲嵌保證 HQ'
+  }
+})
+
 /** ability mode: HQ materials alone already double-max → meld unnecessary. */
 const isHqSufficient = computed(() => !!result.value && result.value.hqSufficient)
 
+/**
+ * #134 — the binding recipe has no HQ-material lever (custom recipe / 0% quality
+ * factor / no HQ-eligible ingredient), so melds must solo-fill the whole quality
+ * gap. Prefaces the result with an explanatory hint so a large meld ask (or an
+ * infeasible verdict) reads as expected rather than surprising (review §5.9).
+ * Purely informational — coexists with any status, never claims a guarantee.
+ */
+const hasNoHqLever = computed(() => !!result.value && result.value.noHqLever)
+
+/**
+ * #128 — the cost-optimal plan could not be priced (some/all materia had no
+ * market listing), so the advisor ranked candidates by materia/slot count
+ * instead of gil. The headline gil/gap is then meaningless, so we surface an
+ * explicit estimate hint「無市場資料，依鑲嵌數量估算」. This is a data-completeness
+ * signal, distinct from the solver-confidence caveat（保守估計）.
+ */
+const isRankedByCount = computed(() => !!result.value && result.value.rankedByCount)
+
 function applyToGearset() {
   // Guard: cost mode / showApply=false must never emit apply, even if some
-  // future path reaches here (spec Slice A acceptance).
-  if (!result.value || !effectiveShowApply.value) return
+  // future path reaches here (spec Slice A acceptance). #133: a non-feasible
+  // (unconfirmed) plan must never be applied — it isn't a guarantee.
+  if (!result.value || !effectiveShowApply.value || result.value.status !== 'feasible') return
   emit('apply', result.value.costOptimal.deltaStats)
 }
 
@@ -127,8 +172,24 @@ async function copyShoppingList() {
       </div>
 
       <div v-else-if="isLoading" class="loading-state">
-        <el-icon data-test="spinner" class="is-loading mac-spinner"><Loading /></el-icon>
-        <span>計算中…</span>
+        <div class="loading-row">
+          <el-icon data-test="spinner" class="is-loading mac-spinner"><Loading /></el-icon>
+          <span>計算中…</span>
+          <el-button
+            data-test="cancel-advisor"
+            size="small"
+            text
+            class="cancel-advisor-btn"
+            @click="emit('cancel')"
+          >
+            取消
+          </el-button>
+        </div>
+        <!-- #129 D: a hard CP-bound recipe runs the bounded search across several
+             craftsmanship rungs (each capped by the per-request 8s deadline), so
+             the wait can reach tens of seconds. Set that expectation so the
+             spinner doesn't read as a hang. -->
+        <p class="loading-hint" data-test="loading-hint">難配方可能需數十秒，請稍候</p>
       </div>
 
       <div v-else-if="isStale" class="stale-state">
@@ -139,13 +200,22 @@ async function copyShoppingList() {
       <!-- ABILITY mode (simulator): ability-oriented — "補 N 顆 X 魔晶石即可保證 HQ".
            No BiS / over-meld ceiling, no gap framing, no 複製清單. -->
       <div v-else-if="result && mode === 'ability'" class="result-state result-ability">
+        <!-- #134: prefacing hint for custom recipes with no HQ-material lever.
+             Informational only; sits above whatever result state follows so a
+             large meld ask (or infeasible verdict) reads as expected. -->
+        <p v-if="hasNoHqLever" class="no-hq-lever-hint" data-test="no-hq-lever">
+          此配方無 HQ 素材槓桿，鑲嵌需獨力補滿
+        </p>
+
         <!-- HQ materials alone double-max → meld lever unnecessary. -->
         <div v-if="isHqSufficient" class="hq-sufficient">
           <p class="hq-sufficient-msg">只要備齊 HQ 素材即可保證 HQ，無需鑲嵌</p>
         </div>
 
-        <!-- Actionable meld plan: lead with the materia ability sentence. -->
-        <template v-else-if="hasActionablePlan">
+        <!-- Actionable meld plan: lead with the materia ability sentence.
+             #133: gated on a feasible (solver-confirmed) status — never claim
+             保證 HQ for an unconfirmed leftover plan. -->
+        <template v-else-if="isActionable">
           <p class="ability-sentence">
             補
             <template v-for="(c, i) in abilityClauses" :key="i"
@@ -155,7 +225,10 @@ async function copyShoppingList() {
             即可保證 HQ
           </p>
 
-          <p class="ability-cost">
+          <!-- #128: no market price → estimate-by-count hint replaces the gil
+               line (the gil/gap is unusable when the plan was ranked by slots). -->
+          <p v-if="isRankedByCount" class="estimate-hint">無市場資料，依鑲嵌數量估算</p>
+          <p v-else class="ability-cost">
             所需鑲嵌費用 約
             <span class="ability-cost-gil">{{ formatGil(result.costOptimal.totalGil) }}</span> gil
             <span v-if="!result.costOptimal.confirmedBySolver" class="caveat">（保守估計）</span>
@@ -195,29 +268,28 @@ async function copyShoppingList() {
           </div>
         </template>
 
-        <!-- Infeasible: surface the reason (e.g. 槽位不足,需換底裝). -->
-        <p v-else class="infeasible-reason">
-          {{ result.costOptimal.reason ?? '無法以鑲嵌達標' }}
+        <!-- #133: honest no-result state — infeasible / timed-out / error /
+             cancelled. Never asserts the「即可保證 HQ」guarantee (the infeasible copy
+             denies it). Infeasible surfaces the reason (e.g. 槽位不足,需換底裝) when
+             the solver provided one. -->
+        <p v-else class="infeasible-reason" data-test="status-message">
+          {{ statusMessage }}
         </p>
       </div>
 
-      <!-- COST mode (batch): cost-oriented framing — gap / 全 BiS / 最省錢達標. -->
+      <!-- COST mode (batch): cost-oriented framing — absolute「最省錢達標」cost.
+           #133 scope note: the status-honest no-result copy (計算逾時 / 計算失敗 /
+           此配方無法只靠鑲嵌保證 HQ) is wired into ABILITY mode only — that's the
+           reverse-advisor surface the issue targets. Cost mode keeps its existing
+           保守估計 caveat for unconfirmed plans and still gates the 套用 CTA on a
+           feasible status (no false guarantee, no bad apply); a fuller batch-side
+           honesty pass is a separate follow-up. -->
       <div v-else-if="result" class="result-state">
         <template v-if="result.alreadyMeetsThreshold">
           <p class="met-message">你的裝備已能保證 HQ，無需鑲嵌</p>
-          <p class="bis-context">
-            往全 BiS 還需 <span class="amount-inline">{{ formatGil(result.bis.totalGil) }}</span> gil（over-meld 空間）
-          </p>
         </template>
 
         <template v-else>
-          <div class="gap-headline">
-            <span class="gap-label">你能省</span>
-            <span class="gap-amount"
-              >{{ formatGil(result.gapGil) }}<span class="gap-unit"> gil</span></span
-            >
-          </div>
-
           <section class="plan plan-primary">
             <div class="plan-head">
               <h4 class="plan-title">最省錢達標</h4>
@@ -231,9 +303,13 @@ async function copyShoppingList() {
                 {{ stepText(s) }}
               </li>
             </ul>
-            <small v-if="!result.costOptimal.confirmedBySolver" class="caveat">保守估計</small>
+            <!-- #128: ranked by materia/slot count (no market price). -->
+            <small v-if="isRankedByCount" class="estimate-hint">無市場資料，依鑲嵌數量估算</small>
+            <small v-else-if="!result.costOptimal.confirmedBySolver" class="caveat">保守估計</small>
 
-            <div v-if="hasActionablePlan && effectiveShowApply" class="plan-cta">
+            <!-- #133: 套用 gated on a solver-confirmed (feasible) plan; an
+                 unconfirmed 保守估計 plan shows the list but no apply CTA. -->
+            <div v-if="isActionable && effectiveShowApply" class="plan-cta">
               <button type="button" class="cta-btn cta-primary" @click="applyToGearset">
                 套用到配裝
               </button>
@@ -241,16 +317,6 @@ async function copyShoppingList() {
                 複製清單
               </button>
             </div>
-          </section>
-
-          <div class="plan-divider" role="presentation"></div>
-
-          <section class="plan plan-secondary">
-            <div class="plan-head">
-              <h4 class="plan-title">全 BiS pentameld</h4>
-              <span class="plan-total">{{ formatGil(result.bis.totalGil) }} gil</span>
-            </div>
-            <small class="caveat">含 overmeld 失敗耗損</small>
           </section>
 
           <p class="disclaimer">「達標門檻」為精確值；「最省配比」為估算，實際可能略有出入</p>
@@ -287,9 +353,20 @@ async function copyShoppingList() {
 /* Loading state */
 .loading-state {
   display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  color: var(--app-text-muted, oklch(0.5 0.03 60));
+}
+.loading-row {
+  display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+}
+/* #129 D: long-wait expectation hint under the spinner. */
+.loading-hint {
+  margin: 0 0 0 28px;
+  font-size: 12.5px;
   color: var(--app-text-muted, oklch(0.5 0.03 60));
 }
 
@@ -425,44 +502,8 @@ async function copyShoppingList() {
   color: var(--app-success, oklch(0.55 0.16 145));
 }
 
-.bis-context {
-  margin: 6px 0 0;
-  font-size: 13px;
-  color: var(--app-text-muted, oklch(0.5 0.03 60));
-}
-
-.amount-inline {
-  font-family: 'Fira Code', ui-monospace, monospace;
-  color: var(--app-text, oklch(0.28 0.04 55));
-}
-
-/* Gap headline — the hero number, largest element on the card */
-.gap-headline {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.gap-label {
-  font-size: 13px;
-  color: var(--app-text-muted, oklch(0.5 0.03 60));
-}
-
-.gap-amount {
-  font-family: 'Fira Code', ui-monospace, monospace;
-  font-size: 32px;
-  font-weight: 700;
-  line-height: 1.05;
-  color: var(--app-success, oklch(0.55 0.16 145));
-}
-
-.gap-unit {
-  font-size: 16px;
-  font-weight: 500;
-}
-
-/* Plans — primary recommendation is the focus, BiS is a quiet reference.
-   No nested card boxes; hierarchy comes from weight + a single divider. */
+/* Plans — the cost-optimal recommendation is the card's focus.
+   No nested card boxes; hierarchy comes from weight. */
 .plan {
   display: flex;
   flex-direction: column;
@@ -497,21 +538,6 @@ async function copyShoppingList() {
   color: var(--app-text, oklch(0.28 0.04 55));
 }
 
-.plan-secondary .plan-title {
-  font-size: 13px;
-  color: var(--app-text-muted, oklch(0.5 0.03 60));
-}
-
-.plan-secondary .plan-total {
-  font-size: 14px;
-  color: var(--app-text-muted, oklch(0.5 0.03 60));
-}
-
-.plan-divider {
-  height: 1px;
-  background: var(--app-border, oklch(0.65 0.04 65 / 0.3));
-}
-
 .infeasible-reason {
   margin: 0;
   font-size: 13px;
@@ -532,6 +558,32 @@ async function copyShoppingList() {
 .caveat {
   font-size: 12px;
   color: var(--app-text-muted, oklch(0.5 0.03 60));
+}
+
+/* #134 no-HQ-lever preface — a custom recipe (0% quality factor) has no
+   HQ-ingredient head start, so melds must solo-fill. A quiet caution note bar
+   sitting above the result so a large meld ask reads as expected rather than
+   surprising. Uses the severity (warning) tokens, NOT a jam-jar wayfinding hue:
+   DESIGN.md's Jam-Jar Rule reserves strawberry for the market zone and assigns
+   cocoa to crafting, so a craft-screen note must not borrow strawberry. */
+.no-hq-lever-hint {
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--app-warning-border, oklch(0.82 0.09 75));
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--app-text, oklch(0.28 0.04 55));
+  background: var(--app-warning-tint, oklch(0.95 0.04 75));
+}
+
+/* #128 estimate hint — a data-completeness signal (no market price), distinct
+   from the solver-confidence caveat. Cocoa accent (the same craft-emphasis
+   token used by the hero sentence) so it reads as a deliberate "prices
+   unavailable, estimating by count" note rather than a quiet grey aside. */
+.estimate-hint {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--app-craft, oklch(0.50 0.16 40));
 }
 
 /* CTA row — the actionable part: push the plan onto the gearset, or copy the

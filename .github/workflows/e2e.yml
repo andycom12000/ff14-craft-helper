@@ -1,0 +1,32 @@
+name: E2E
+
+# Gated, not part of PR CI (拍板 #2): the e2e suite drives the real WASM solver,
+# which is slow and can be flaky, so it must never block merges. Runs on manual
+# dispatch and on a nightly schedule instead.
+on:
+  workflow_dispatch:
+  schedule:
+    # 03:00 UTC nightly.
+    - cron: '0 3 * * *'
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Browser only — the dev server (started by Playwright's webServer) supplies
+      # the COOP/COEP headers SharedArrayBuffer + the rayon worker pool need.
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
