@@ -89,7 +89,7 @@ describe('MeldAdvisorCard', () => {
     const infeasible: MeldAdvice = {
       ...fullAdvice,
       status: 'infeasible',
-      costOptimal: { ...fullAdvice.costOptimal, feasible: false, reason: '槽位不足,需換底裝' },
+      costOptimal: { ...fullAdvice.costOptimal, feasible: false, reason: '槽位不足，需換底裝' },
     }
     const w = mount(MeldAdvisorCard, { props: { advice: infeasible, mode: 'cost', showApply: false } })
     expect(w.text()).toContain('槽位不足')
@@ -185,6 +185,44 @@ describe('MeldAdvisorCard', () => {
     expect(text).toContain('、')
   })
 
+  it('ability mode (#159): merges multi-depth steps of the same materia into one clause', () => {
+    // A plan that dips into overmeld carries one step per depth level for the
+    // SAME materia (cost math needs the split); the sentence must not repeat
+    // 「N 顆 加工魔晶石Ⅻ」 once per depth.
+    const deep: MeldAdvice = {
+      ...fullAdvice,
+      costOptimal: {
+        ...fullAdvice.costOptimal,
+        deltaStats: { craftsmanship: 0, control: 30 * 54, cp: 0 },
+        steps: [
+          { stat: 'control', grade: 12, placedCount: 18, expectedCount: 18, unitPrice: 1000, subtotal: 18000 },
+          { stat: 'control', grade: 12, placedCount: 12, expectedCount: 12 / 0.17, unitPrice: 1000, subtotal: 70588 },
+        ],
+        totalGil: 88588,
+      },
+    }
+    const w = mount(MeldAdvisorCard, { props: { advice: deep, mode: 'ability' } })
+    const clauses = w.findAll('.ability-clause')
+    expect(clauses).toHaveLength(1)
+    // Merged purchase count: ceil(18 + 12/0.17) = 89.
+    expect(clauses[0].text()).toContain('89 顆 加工魔晶石Ⅻ')
+  })
+
+  it('ability mode: states the 全 HQ 素材 premise when the plan assumes full HQ materials', () => {
+    const advice: MeldAdvice = { ...fullAdvice, assumesFullHq: true }
+    const w = mount(MeldAdvisorCard, { props: { advice, mode: 'ability' } })
+    const hint = w.find('[data-test=full-hq-premise]')
+    expect(hint.exists()).toBe(true)
+    expect(hint.text()).toContain('HQ 素材')
+    // The guarantee sentence still renders — the hint qualifies it, not replaces it.
+    expect(w.find('.ability-sentence').exists()).toBe(true)
+  })
+
+  it('ability mode: no 全 HQ 素材 premise hint when the screen already matches the baseline', () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: fullAdvice, mode: 'ability' } })
+    expect(w.find('[data-test=full-hq-premise]').exists()).toBe(false)
+  })
+
   it('ability mode: hqSufficient hides the meld steps and shows the success state', () => {
     const sufficient: MeldAdvice = { ...fullAdvice, hqSufficient: true }
     const w = mount(MeldAdvisorCard, { props: { advice: sufficient, mode: 'ability' } })
@@ -214,7 +252,7 @@ describe('MeldAdvisorCard', () => {
       ...fullAdvice,
       status: 'infeasible',
       noHqLever: true,
-      costOptimal: { ...fullAdvice.costOptimal, feasible: false, reason: '槽位不足,需換底裝', steps: [] },
+      costOptimal: { ...fullAdvice.costOptimal, feasible: false, reason: '槽位不足，需換底裝', steps: [] },
     }
     const w = mount(MeldAdvisorCard, { props: { advice, mode: 'ability' } })
     expect(w.find('[data-test=no-hq-lever]').exists()).toBe(true)
@@ -227,10 +265,41 @@ describe('MeldAdvisorCard', () => {
     const infeasible: MeldAdvice = {
       ...fullAdvice,
       status: 'infeasible',
-      costOptimal: { ...fullAdvice.costOptimal, feasible: false, reason: '槽位不足,需換底裝', steps: [] },
+      costOptimal: { ...fullAdvice.costOptimal, feasible: false, reason: '槽位不足，需換底裝', steps: [] },
     }
     const w = mount(MeldAdvisorCard, { props: { advice: infeasible, mode: 'ability' } })
     expect(w.text()).toContain('槽位不足')
+    expect(w.findAll('button').some(b => b.text().includes('套用鑲嵌'))).toBe(false)
+  })
+
+  // An UNCONFIRMED leftover plan's reason is the bailout shape's artifact (its
+  // delta came from a closed-form seed, possibly the 10k sentinel) — presenting
+  // 「槽位不足，需換底裝」would send the user gear-shopping over a number the
+  // solver never validated.
+  it('ability mode: an unconfirmed plan must NOT surface the 槽位不足 reason (bailout artifact)', () => {
+    const bailout: MeldAdvice = {
+      ...fullAdvice,
+      status: 'infeasible',
+      costOptimal: {
+        ...fullAdvice.costOptimal,
+        feasible: false, reason: '槽位不足，需換底裝', steps: [], confirmedBySolver: false,
+      },
+    }
+    const w = mount(MeldAdvisorCard, { props: { advice: bailout, mode: 'ability' } })
+    expect(w.text()).not.toContain('槽位不足')
+    expect(w.text()).toContain('無法只靠鑲嵌保證 HQ')
+  })
+
+  it('ability mode: status budget-exhausted shows the search-limit message, not 保證 HQ and not 不可行', () => {
+    const advice: MeldAdvice = {
+      ...fullAdvice,
+      status: 'budget-exhausted',
+      costOptimal: { ...fullAdvice.costOptimal, feasible: false, steps: [], confirmedBySolver: false },
+    }
+    const w = mount(MeldAdvisorCard, { props: { advice, mode: 'ability' } })
+    expect(w.text()).toContain('搜尋已達上限')
+    expect(w.text()).not.toContain('即可保證 HQ')
+    expect(w.text()).not.toContain('無法只靠鑲嵌保證 HQ')
     expect(w.findAll('button').some(b => b.text().includes('套用鑲嵌'))).toBe(false)
   })
 

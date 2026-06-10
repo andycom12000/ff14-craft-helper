@@ -3,9 +3,11 @@ import {
   MATERIA_GRADES,
   SLOT_STRUCTURE,
   OVERMELD_SUCCESS_LADDER,
+  OVERMELD_DEPTH_POOLS,
   materiaForStat,
   topGradeForStat,
   expectedCountForOvermeldDepth,
+  summarizeMeldSteps,
 } from '@/engine/materia'
 
 describe('MATERIA_GRADES', () => {
@@ -82,6 +84,45 @@ describe('materiaForStat', () => {
     for (let i = 1; i < list.length; i++) {
       expect(list[i].grade).toBeLessThanOrEqual(list[i - 1].grade)
     }
+  })
+})
+
+describe('OVERMELD_DEPTH_POOLS (#159)', () => {
+  it('sums to the total overmeld slot count', () => {
+    expect(OVERMELD_DEPTH_POOLS.reduce((a, b) => a + b, 0)).toBe(SLOT_STRUCTURE.overmeldSlots)
+  })
+
+  it('matches the per-piece structure: 12 pieces have depths 0-2, only the 6 single-guaranteed pieces have depth 3', () => {
+    expect(OVERMELD_DEPTH_POOLS).toEqual([12, 12, 12, 6])
+    expect(OVERMELD_DEPTH_POOLS.length).toBe(OVERMELD_SUCCESS_LADDER.length)
+  })
+})
+
+describe('summarizeMeldSteps (#159 / #160 data shape)', () => {
+  it('merges steps of the same stat+grade, summing placed and expected counts', () => {
+    const merged = summarizeMeldSteps([
+      { stat: 'control', grade: 12, placedCount: 18, expectedCount: 18 },
+      { stat: 'control', grade: 12, placedCount: 12, expectedCount: 12 / 0.17 },
+      { stat: 'cp', grade: 12, placedCount: 3, expectedCount: 3 },
+    ])
+    expect(merged).toHaveLength(2)
+    expect(merged[0]).toMatchObject({ stat: 'control', grade: 12, placedCount: 30 })
+    expect(merged[0].expectedCount).toBeCloseTo(18 + 12 / 0.17, 5)
+    expect(merged[1]).toMatchObject({ stat: 'cp', grade: 12, placedCount: 3, expectedCount: 3 })
+  })
+
+  it('keeps different grades of the same stat as separate entries, preserving first-seen order', () => {
+    const merged = summarizeMeldSteps([
+      { stat: 'control', grade: 12, placedCount: 2, expectedCount: 2 },
+      { stat: 'control', grade: 11, placedCount: 1, expectedCount: 1 },
+      { stat: 'control', grade: 12, placedCount: 1, expectedCount: 10 },
+    ])
+    expect(merged.map(m => m.grade)).toEqual([12, 11])
+    expect(merged[0].placedCount).toBe(3)
+  })
+
+  it('returns an empty array for no steps', () => {
+    expect(summarizeMeldSteps([])).toEqual([])
   })
 })
 

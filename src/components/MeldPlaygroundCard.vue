@@ -5,6 +5,7 @@ import { ElMessage } from 'element-plus'
 // MeldAdvisorCard for the same note. Re-importing it here breaks the jsdom test.
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
+import type { FoodBuff } from '@/engine/food-medicine'
 import type { MeldAdvice } from '@/services/meld-advisor'
 import type { CraftStat } from '@/engine/materia'
 import { materiaForStat, MAX_MELD_COUNT } from '@/engine/materia'
@@ -29,6 +30,9 @@ const props = defineProps<{
   advice: MeldAdvice | 'loading' | 'stale' | 'no-market' | null
   /** HQ ingredients head-start so the forward check matches the screen baseline. */
   initialQuality?: number
+  /** Active food/medicine so the forward check judges on the same
+   *  effectiveStats basis as the screen and the reverse advisor (#136 parity). */
+  buffs?: { food: FoodBuff | null; medicine: FoodBuff | null }
   /** Whether the host currently holds a meld override applied from this card —
    *  gates the in-place「撤銷」undo (criterion 3). */
   overrideActive?: boolean
@@ -45,6 +49,7 @@ const pg = useMeldPlayground(
   () => props.gearset,
   undefined,
   () => props.initialQuality ?? 0,
+  () => props.buffs,
 )
 const { selections, deltaStats, verdict, hasSelections } = pg
 

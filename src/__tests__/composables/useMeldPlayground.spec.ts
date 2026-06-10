@@ -115,6 +115,24 @@ describe('useMeldPlayground', () => {
     expect(pg.verdict.value).toBe('can-hq')
   })
 
+  // Premise parity with the reverse advisor (#136 family): the reverse advisor
+  // folds the screen's active food/medicine into every solver call, so the
+  // forward check must judge on the SAME basis — otherwise a plan the reverse
+  // just confirmed can false-report cannot-hq here.
+  it('forwards the active food/medicine buffs to the forward solve and sim', async () => {
+    const buffs = {
+      food: { itemId: 1, name: '測試餐', craftsmanshipPct: 0, craftsmanshipMax: 0, controlPct: 10, controlMax: 90, cpPct: 0, cpMax: 0 } as any,
+      medicine: null,
+    }
+    const pg = useMeldPlayground(
+      () => stubRecipe, () => stubGearset, undefined, () => 0, () => buffs,
+    )
+    pg.setSelection('control', 12, 2)
+    await pg.runForwardCheck()
+    expect(vi.mocked(solveCraftForRecipe).mock.calls[0][2]).toMatchObject({ buffs })
+    expect(vi.mocked(simulateCraftForRecipe).mock.calls[0][2]).toMatchObject({ buffs })
+  })
+
   it('verdict flips to cannot-hq when the forward sim does not double-max', async () => {
     vi.mocked(simulateCraftForRecipe).mockResolvedValue(simResult(false))
     const pg = useMeldPlayground(() => stubRecipe, () => stubGearset)

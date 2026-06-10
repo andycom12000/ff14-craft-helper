@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
+import type { FoodBuff } from '@/engine/food-medicine'
 import type { MeldAdvice } from '@/services/meld-advisor'
 import type { CraftStat } from '@/engine/materia'
 import { MATERIA_GRADES } from '@/engine/materia'
@@ -76,6 +77,11 @@ export function useMeldPlayground(
   gearset: () => GearsetStats | null,
   deps: MeldPlaygroundDeps = { solve: defaultSolve, simulate: defaultSimulate },
   initialQuality: () => number = () => 0,
+  // Premise parity with the reverse advisor (#136 family): the reverse advisor
+  // folds the screen's active food/medicine into every solver call, so the
+  // forward check must judge on the SAME effectiveStats basis — otherwise a
+  // plan the reverse just confirmed can false-report cannot-hq here.
+  buffs: () => { food: FoodBuff | null; medicine: FoodBuff | null } | undefined = () => undefined,
 ) {
   const selections = ref<MeldSelection[]>([])
   const verdict = ref<MeldVerdict>('idle')
@@ -193,12 +199,14 @@ export function useMeldPlayground(
     const version = ++checkVersion
     verdict.value = 'checking'
     const iq = initialQuality()
+    const activeBuffs = buffs()
     try {
-      const solved = await deps.solve(r, g, { initialQuality: iq })
+      const solved = await deps.solve(r, g, { initialQuality: iq, buffs: activeBuffs })
       if (token.cancelled || version !== checkVersion) return
       const sim = await deps.simulate(r, g, {
         actions: solved.actions,
         initialQuality: iq,
+        buffs: activeBuffs,
       })
       if (token.cancelled || version !== checkVersion) return
       // #141 AC1: the solver subtracts `initialQuality` from the target and the

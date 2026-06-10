@@ -110,6 +110,18 @@ describe('MeldPlaygroundCard', () => {
     expect(w.find('[data-test="stat-control"]').text().replace(/,/g, '')).toContain(String(3900 + 432))
   })
 
+  it('passes the host buffs through to the forward check (premise parity with the reverse advisor)', async () => {
+    const buffs = {
+      food: { itemId: 1, name: '測試餐', craftsmanshipPct: 0, craftsmanshipMax: 0, controlPct: 10, controlMax: 90, cpPct: 0, cpMax: 0 } as any,
+      medicine: null,
+    }
+    const w = mountCard({ buffs })
+    await w.find('[data-test="count-control"]').setValue('2')
+    await w.find('[data-test="run-check"]').trigger('click')
+    await flushPromises()
+    expect(vi.mocked(solveCraftForRecipe).mock.calls[0][2]).toMatchObject({ buffs })
+  })
+
   // #133: a non-feasible (unconfirmed) advice must NOT be loadable — seeding the
   // playground from an unconfirmed plan would present it as a real starting point.
   it('#133: load-reverse is disabled when the advice status is not feasible', () => {
