@@ -99,12 +99,18 @@ export const OVERMELD_SUCCESS_LADDER: number[] = [
  */
 export const OVERMELD_DEPTH_POOLS: number[] = [12, 12, 12, 6]
 
-const STAT_SHORT_LABELS: Record<CraftStat, string> = {
+/**
+ * Shared zh-TW presentation tables for materia labels. Exported (#160 review)
+ * so every surface (hero sentence, plan table, override chip) reads the same
+ * source — a per-component copy is exactly the drift `formatMeldStepShort`'s
+ * sharing note warns about.
+ */
+export const STAT_SHORT_LABELS: Record<CraftStat, string> = {
   craftsmanship: '作業',
   control: '加工',
   cp: 'CP',
 }
-const GRADE_ROMAN: Record<number, string> = { 12: 'Ⅻ', 11: 'Ⅺ', 10: 'Ⅹ' }
+export const GRADE_ROMAN: Record<number, string> = { 12: 'Ⅻ', 11: 'Ⅺ', 10: 'Ⅹ' }
 
 /**
  * Shopping-oriented short label for one meld step, e.g. 「8 顆 加工魔晶石Ⅻ」.
