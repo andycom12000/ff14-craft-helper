@@ -256,6 +256,59 @@ describe('translateDeltaToMeldPlan', () => {
     expect(overmeldSteps.length).toBeLessThanOrEqual(SLOT_STRUCTURE.overmeldSlots)
   })
 
+  // #159 — overmeld depth must follow the per-piece structure: every one of the
+  // 12 gear pieces has its own depth ladder, so the FIRST overmeld attempt on
+  // each piece sits at depth 0 (17%). The old per-stat monotone depth (0,1,2,3,
+  // then clamp to 5%) charged 20 expected materia for every slot past the 4th
+  // overmeld of a stat — inflating the advertised 顆數 by ~2-3×.
+  it('#159: the first 12 overmeld melds all sit at depth 0 (per-piece pools, not a per-stat ladder)', () => {
+    // 30 melds × 54 → 18 guaranteed + 12 overmeld (exactly the depth-0 pool).
+    const plan = translateDeltaToMeldPlan(
+      { craftsmanship: 30 * 54, control: 0, cp: 0 },
+      priceMap,
+    )
+    expect(plan.feasible).toBe(true)
+    const overmeld = plan.steps.filter(s => s.expectedCount > s.placedCount)
+    expect(overmeld).toHaveLength(1)
+    expect(overmeld[0].placedCount).toBe(12)
+    // All 12 at the 17% top rate: 12 / 0.17 ≈ 70.6 — NOT 5.88+10+14.29+9×20 ≈ 210.
+    expect(overmeld[0].expectedCount).toBeCloseTo(12 / 0.17, 3)
+    const totalExpected = plan.steps.reduce((sum, s) => sum + s.expectedCount, 0)
+    expect(totalExpected).toBeLessThan(100)
+  })
+
+  it('#159: overmeld steps batch per depth level, not one step per slot', () => {
+    // Single-stat full board: 60 melds = 18 guaranteed + 42 overmeld
+    // (pools 12 / 12 / 12 / 6 across depths 0-3).
+    const plan = translateDeltaToMeldPlan(
+      { craftsmanship: 60 * 54, control: 0, cp: 0 },
+      priceMap,
+    )
+    expect(plan.feasible).toBe(true)
+    expect(plan.steps.map(s => s.placedCount)).toEqual([18, 12, 12, 12, 6])
+    const [, d0, d1, d2, d3] = plan.steps
+    expect(d0.expectedCount).toBeCloseTo(12 / 0.17, 3)
+    expect(d1.expectedCount).toBeCloseTo(12 / 0.10, 3)
+    expect(d2.expectedCount).toBeCloseTo(12 / 0.07, 3)
+    expect(d3.expectedCount).toBeCloseTo(6 / 0.05, 3)
+  })
+
+  it('#159: depth pools are shared across stats (a later stat lands on the next free depth)', () => {
+    // Craftsmanship eats all 18 guaranteed + the whole 12-slot depth-0 pool;
+    // control's single overmeld must land at depth 1 (10%), not restart at 17%
+    // and not clamp to 5%.
+    const plan = translateDeltaToMeldPlan(
+      { craftsmanship: 30 * 54, control: 54, cp: 0 },
+      priceMap,
+    )
+    expect(plan.feasible).toBe(true)
+    const controlOvermeld = plan.steps.find(
+      s => s.stat === 'control' && s.expectedCount > s.placedCount,
+    )
+    expect(controlOvermeld).toBeDefined()
+    expect(controlOvermeld!.expectedCount).toBeCloseTo(1 / 0.10, 4)
+  })
+
   it('reports null subtotal when a step has no price data', () => {
     const empty = new Map()
     const plan = translateDeltaToMeldPlan(
@@ -452,6 +505,57 @@ describe('adviseMeld — max-HQ baseline (§2 engine touchpoint)', () => {
       [], baseGearset, priceMap, {},
     )
     expect(out.hqSufficient).toBe(true)
+  })
+
+  // The advisor judges against the MAX-HQ baseline (§2), but the screen may sit
+  // at a partial/zero HQ selection — then the「保證 HQ」claim silently assumes
+  // the user buys ALL HQ materials. Surface that premise so the UI can state it
+  // instead of letting the apply→re-simulate verify contradict the guarantee.
+  it('flags assumesFullHq when the max-HQ baseline exceeds the screen initialQuality', async () => {
+    const recipe = recipeWithHq()
+    const weak = { ...baseGearset, control: 100, cp: 300 }
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = vi.fn()
+      .mockResolvedValueOnce({ progress: 5000, max_progress: 5000, quality: 4000, max_quality: 8000 })
+      .mockResolvedValue({ progress: 5000, max_progress: 5000, quality: 8000, max_quality: 8000 })
+    const out = await adviseMeld(
+      [recipe], weak, priceMap,
+      { initialQuality: 0 },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+    expect(out.status).toBe('feasible')
+    expect(out.assumesFullHq).toBe(true)
+  })
+
+  it('does NOT flag assumesFullHq when the screen already provides the max-HQ baseline', async () => {
+    const recipe = recipeWithHq()
+    const baseline = computeMaxHqInitialQuality(recipe)
+    const weak = { ...baseGearset, control: 100, cp: 300 }
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = vi.fn()
+      .mockResolvedValueOnce({ progress: 5000, max_progress: 5000, quality: 4000, max_quality: 8000 })
+      .mockResolvedValue({ progress: 5000, max_progress: 5000, quality: 8000, max_quality: 8000 })
+    const out = await adviseMeld(
+      [recipe], weak, priceMap,
+      { initialQuality: baseline },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+    expect(out.assumesFullHq).toBe(false)
+  })
+
+  it('does NOT flag assumesFullHq for a no-HQ-lever recipe (max-HQ baseline 0)', async () => {
+    const hard = makeRecipe(1, 5000, 8000) // no ingredient data → baseline 0
+    const weak = { ...baseGearset, control: 100, cp: 300 }
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = vi.fn()
+      .mockResolvedValueOnce({ progress: 5000, max_progress: 5000, quality: 4000, max_quality: 8000 })
+      .mockResolvedValue({ progress: 5000, max_progress: 5000, quality: 8000, max_quality: 8000 })
+    const out = await adviseMeld(
+      [hard], weak, priceMap,
+      { initialQuality: 0 },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+    expect(out.assumesFullHq).toBe(false)
   })
 })
 
@@ -813,6 +917,81 @@ describe('adviseMeld — CP-bound recipe must not false-report infeasible (#155)
     // (4 control + 0 CP = 4 melds). A break-on-tie returns the 4-meld plan.
     expect(out.costOptimal.deltaStats.control).toBe(54)
     expect(out.costOptimal.deltaStats.cp).toBe(28)
+  })
+})
+
+// #159 — the inner 2D search's probe budget must never TRUNCATE a downward
+// control bisection: the ceiling probe (60 grade steps = +3240 control) confirms
+// feasibility, and if the budget dies mid-bisection the partially-refined
+// near-ceiling control used to be returned as the CONFIRMED minimum — the plan
+// then fills 18 guaranteed + dozens of overmeld slots and the UI advertises a
+// triple-digit 顆數 for a recipe whose true ask is a handful of melds.
+describe('searchMinimalQualityDelta — probe budget must not truncate the bisection (#159)', () => {
+  const baseGearset = {
+    level: 100, craftsmanship: 4500, control: 3200, cp: 600, isSpecialist: false,
+  }
+  const recipe = makeRecipe(159, 100, 6500)
+  const seed = { craftsmanship: 0, control: 0, cp: 0 }
+
+  const SIM_EXTRAS = {
+    durability: 80, cp: 600, max_durability: 80, max_cp: 600,
+    effects: {} as any, is_finished: true, is_success: true, steps_used: 1,
+  }
+
+  // Double-maxes iff BOTH gates are met (monotone in both axes).
+  const gatedDeps = (controlGate: number, cpGate: number) => ({
+    solve: vi.fn().mockResolvedValue({ actions: ['x'] }),
+    simulate: vi.fn(async (_r: any, gs: any) => {
+      const met =
+        gs.control - baseGearset.control >= controlGate &&
+        gs.cp - baseGearset.cp >= cpGate
+      return {
+        ...SIM_EXTRAS, progress: 3500, max_progress: 3500,
+        quality: met ? 6500 : 6257, max_quality: 6500,
+      }
+    }),
+  })
+
+  it('never returns a confirmed near-ceiling control when the budget dies mid-bisection', async () => {
+    // cp gate 25 grade steps (350): the CP escalation alone eats 25 probes of
+    // the 28 budget, leaving the control bisection 2-3 probes — the old code
+    // returned its partially-bisected ~15-30 grade steps as confirmed, vs. the
+    // true minimum of 5 steps (270 control).
+    const { searchMinimalQualityDelta } = await import('@/services/meld-advisor')
+    const out = await searchMinimalQualityDelta(
+      recipe, baseGearset, seed, 0, gatedDeps(5 * 54, 25 * 14),
+    )
+    const inflatedConfirmed = out.confirmedBySolver && out.deltaStats.control > 5 * 54
+    expect(inflatedConfirmed).toBe(false)
+  })
+
+  it('with enough budget, returns the fully-bisected exact minimum (not a truncated stand-in)', async () => {
+    // cp gate 6 grade steps (84): escalation costs 6 probes, leaving plenty for
+    // a complete bisection down to the exact 5-step control minimum.
+    const { searchMinimalQualityDelta } = await import('@/services/meld-advisor')
+    const out = await searchMinimalQualityDelta(
+      recipe, baseGearset, seed, 0, gatedDeps(5 * 54, 6 * 14),
+    )
+    expect(out.confirmedBySolver).toBe(true)
+    expect(out.deltaStats.control).toBe(5 * 54)
+    expect(out.deltaStats.cp).toBe(6 * 14)
+  })
+
+  // A budget-stopped walk is NOT proof of infeasibility: the #134 prefilter may
+  // have certified a plan exists, the search just couldn't reach it in budget.
+  // Conflating the two made the card claim「此配方無法只靠鑲嵌保證 HQ」for
+  // recipes that merely needed more probes.
+  it('adviseMeld reports budget-exhausted (not infeasible) when the walk dies before the frontier', async () => {
+    const out = await adviseMeld(
+      [recipe], baseGearset,
+      new Map<number, any>(
+        MATERIA_GRADES.map(m => [m.itemId, { minPriceNQ: 1000 + m.value, listings: [] }]),
+      ),
+      {},
+      gatedDeps(5 * 54, 25 * 14),
+    )
+    expect(out.status).toBe('budget-exhausted')
+    expect(out.costOptimal.confirmedBySolver).toBe(false)
   })
 })
 

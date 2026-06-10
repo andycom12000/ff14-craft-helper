@@ -7,7 +7,7 @@ import { ElMessage } from 'element-plus'
 // CSS here — and importing it here would break the jsdom component test.
 import type { MeldAdvice, MeldStep } from '@/services/meld-advisor'
 import type { CraftStat } from '@/engine/materia'
-import { formatMeldStepShort } from '@/engine/materia'
+import { formatMeldStepShort, summarizeMeldSteps } from '@/engine/materia'
 import { formatGil } from '@/utils/format'
 
 const props = withDefaults(defineProps<{
@@ -61,12 +61,15 @@ const stepText = (s: MeldStep) =>
 
 /**
  * Ability-mode clauses: one per materia type, each「{顆數} 顆 {魔晶石名}」.
- * Built from the shared `formatMeldStepShort` helper so the sentence and the
+ * #159: the plan keeps one step per overmeld depth for the same materia (cost
+ * math needs the split), so merge by stat+grade first — otherwise a deep plan
+ * repeats the same materia name once per depth. Built from the shared
+ * `summarizeMeldSteps` + `formatMeldStepShort` helpers so the sentence and the
  * session-override chip in FoodMedicine never drift.
  */
 const abilityClauses = computed(() => {
   if (!result.value) return []
-  return result.value.costOptimal.steps.map((s) => formatMeldStepShort(s))
+  return summarizeMeldSteps(result.value.costOptimal.steps).map((s) => formatMeldStepShort(s))
 })
 
 /** Whether the cost-optimal plan has a concrete, actionable meld list. */
@@ -90,12 +93,24 @@ const statusMessage = computed(() => {
   switch (result.value.status) {
     case 'timed-out':
       return '計算逾時，請重試或調整裝備後再求解'
+    case 'budget-exhausted':
+      // #159: the probe budget ran out before the search could confirm or rule
+      // out a plan — explicitly NOT「無法只靠鑲嵌」, and a plain re-run won't
+      // change it, so don't suggest 重試.
+      return '搜尋已達上限，無法確認鑲嵌方案；可先強化裝備或備齊 HQ 素材再求解'
     case 'error':
       return '計算失敗，請稍後重試'
     case 'cancelled':
       return '已取消計算'
-    default: // 'infeasible' (or any non-feasible without an actionable plan)
-      return result.value.costOptimal.reason ?? '此配方無法只靠鑲嵌保證 HQ'
+    default: {
+      // 'infeasible' (or any non-feasible without an actionable plan).
+      // #159: only a solver-CONFIRMED plan may surface its reason (e.g.
+      // 槽位不足，需換底裝) — an unconfirmed bailout shape's delta came from a
+      // closed-form seed the solver never validated, so its slot verdict would
+      // send the user gear-shopping over an artifact.
+      const plan = result.value.costOptimal
+      return (plan.confirmedBySolver ? plan.reason : null) ?? '此配方無法只靠鑲嵌保證 HQ'
+    }
   }
 })
 
@@ -119,6 +134,14 @@ const hasNoHqLever = computed(() => !!result.value && result.value.noHqLever)
  * signal, distinct from the solver-confidence caveat（保守估計）.
  */
 const isRankedByCount = computed(() => !!result.value && result.value.rankedByCount)
+
+/**
+ * The advice is judged at the MAX-HQ baseline (§2). When that sits above the
+ * screen's current HQ selection, the「保證 HQ」claim presumes the user buys all
+ * HQ materials — state the premise so an apply→re-simulate at partial/zero HQ
+ * doesn't read as the advisor breaking its promise.
+ */
+const assumesFullHq = computed(() => !!result.value?.assumesFullHq)
 
 function applyToGearset() {
   // Guard: cost mode / showApply=false must never emit apply, even if some
@@ -216,6 +239,13 @@ async function copyShoppingList() {
              #133: gated on a feasible (solver-confirmed) status — never claim
              保證 HQ for an unconfirmed leftover plan. -->
         <template v-else-if="isActionable">
+          <!-- §2 premise: the plan is judged at the max-HQ baseline. When the
+               screen's HQ selection sits below it, say so — otherwise applying
+               the melds and re-simulating at partial/zero HQ contradicts the
+               guarantee sentence right below. -->
+          <p v-if="assumesFullHq" class="full-hq-premise" data-test="full-hq-premise">
+            以備齊全部 HQ 素材為前提
+          </p>
           <p class="ability-sentence">
             補
             <template v-for="(c, i) in abilityClauses" :key="i"
@@ -574,6 +604,15 @@ async function copyShoppingList() {
   font-size: 12.5px;
   color: var(--app-text, oklch(0.28 0.04 55));
   background: var(--app-warning-tint, oklch(0.95 0.04 75));
+}
+
+/* §2 premise note — the plan presumes ALL HQ-eligible materials are provided
+   as HQ (the advisor's max-HQ baseline). A quiet qualifier directly above the
+   guarantee sentence, muted so the sentence keeps the visual lead. */
+.full-hq-premise {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--app-text-muted, oklch(0.5 0.03 60));
 }
 
 /* #128 estimate hint — a data-completeness signal (no market price), distinct

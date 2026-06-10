@@ -56,7 +56,7 @@ const {
   effectiveStats, craftParams, currentState,
   initialQuality, initialQualityHqAmounts, enhancedStats,
   searchSidebarOpen, solverResult, modeOptions,
-  meldAdvice, meldOverride, meldOverrideLabel,
+  meldAdvice, meldOverride, meldOverrideLabel, activeBuffs,
   onInitialQualityUpdate, onEnhancedStatsUpdate, onBuffsUpdate, onHqAmountsUpdate,
   handleAddFromSearch, handleRemoveFromQueue, handleClearQueue,
   handleRemoveAction, handleClearActions,
@@ -558,6 +558,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
                     :gearset="gearset"
                     :advice="meldAdvice"
                     :initial-quality="initialQuality"
+                    :buffs="activeBuffs"
                     :override-active="!!meldOverride"
                     @apply="handleApplyMeld"
                     @clear-override="clearMeldOverride"
@@ -629,6 +630,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
                 :gearset="gearset"
                 :advice="meldAdvice"
                 :initial-quality="initialQuality"
+                :buffs="activeBuffs"
                 :override-active="!!meldOverride"
                 @apply="handleApplyMeld"
                 @clear-override="clearMeldOverride"
@@ -847,6 +849,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
               :gearset="gearset"
               :advice="meldAdvice"
               :initial-quality="initialQuality"
+              :buffs="activeBuffs"
               :override-active="!!meldOverride"
               @apply="handleApplyMeld"
               @clear-override="clearMeldOverride"

@@ -82,6 +82,23 @@ export const OVERMELD_SUCCESS_LADDER: number[] = [
   0.17, 0.10, 0.07, 0.05,
 ]
 
+/**
+ * #159 — overmeld slot pool per depth, derived from the per-piece structure.
+ * Overmeld depth is PER PIECE (each piece's first overmeld attempt is depth 0
+ * at 17%, its second depth 1 at 10%, …), so the aggregate pool by depth is:
+ *
+ *   depth 0: 12  (every piece has ≥1 overmeld slot)
+ *   depth 1: 12
+ *   depth 2: 12
+ *   depth 3:  6  (only pieces with 1 guaranteed slot — off-hand + 5 accessories
+ *                 — have a 4th overmeld slot)
+ *
+ * Sums to SLOT_STRUCTURE.overmeldSlots (42). The old per-stat monotone depth
+ * model clamped every slot past a stat's 4th overmeld to the 5% floor, charging
+ * 20 expected materia per slot and inflating the advertised 顆數 by ~2-3×.
+ */
+export const OVERMELD_DEPTH_POOLS: number[] = [12, 12, 12, 6]
+
 const STAT_SHORT_LABELS: Record<CraftStat, string> = {
   craftsmanship: '作業',
   control: '加工',
@@ -99,6 +116,31 @@ export function formatMeldStepShort(step: { stat: CraftStat; grade: number; expe
   const stat = STAT_SHORT_LABELS[step.stat] ?? step.stat
   const grade = GRADE_ROMAN[step.grade] ?? String(step.grade)
   return `${Math.ceil(step.expectedCount)} 顆 ${stat}魔晶石${grade}`
+}
+
+/**
+ * #159/#160 — merge meld steps by (stat, grade), summing placed and expected
+ * counts, preserving first-seen order. The advisor's plan keeps one step per
+ * overmeld depth (the cost math needs the per-depth split), but user-facing
+ * surfaces (ability sentence, session-override chip) must show ONE clause per
+ * materia type — without this, a deep plan repeats the same materia name once
+ * per depth level.
+ */
+export function summarizeMeldSteps(
+  steps: Array<{ stat: CraftStat; grade: number; placedCount: number; expectedCount: number }>,
+): Array<{ stat: CraftStat; grade: number; placedCount: number; expectedCount: number }> {
+  const merged = new Map<string, { stat: CraftStat; grade: number; placedCount: number; expectedCount: number }>()
+  for (const s of steps) {
+    const key = `${s.stat}:${s.grade}`
+    const existing = merged.get(key)
+    if (existing) {
+      existing.placedCount += s.placedCount
+      existing.expectedCount += s.expectedCount
+    } else {
+      merged.set(key, { stat: s.stat, grade: s.grade, placedCount: s.placedCount, expectedCount: s.expectedCount })
+    }
+  }
+  return [...merged.values()]
 }
 
 /** Return all materia entries for a stat, sorted descending by grade. */

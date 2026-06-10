@@ -19,7 +19,7 @@ import { getRecipe, findRecipesByItemName } from '@/api/xivapi'
 import { simulateCraftDetail, waitForWasm } from '@/solver/worker'
 import { craftParamsToSolverConfig } from '@/solver/config'
 import { gearsetToBuffedStats, applyRawStatDelta, type RawStatDelta } from '@/services/stat-stacking'
-import { formatMeldStepShort } from '@/engine/materia'
+import { formatMeldStepShort, summarizeMeldSteps } from '@/engine/materia'
 import type { WasmEffects, StepDetail } from '@/solver/raphael'
 import { JOB_ORDER, type Job } from '@/engine/skill-icons-by-job'
 import { JOB_ABBR } from '@/utils/jobs'
@@ -299,7 +299,9 @@ export function useSimulator() {
     // cost-optimal steps so it matches the card sentence verbatim.
     const a = meldAdvice.value
     if (a && typeof a === 'object' && a.costOptimal.steps.length > 0) {
-      meldOverrideLabel.value = a.costOptimal.steps.map(formatMeldStepShort).join('、')
+      // #159: merge per-depth steps of the same materia so the chip shows one
+      // clause per materia type, matching the card sentence.
+      meldOverrideLabel.value = summarizeMeldSteps(a.costOptimal.steps).map(formatMeldStepShort).join('、')
     } else {
       meldOverrideLabel.value = null
     }
@@ -397,6 +399,7 @@ export function useSimulator() {
     meldAdvice,
     meldOverride,
     meldOverrideLabel,
+    activeBuffs,
     // handlers
     onInitialQualityUpdate,
     onEnhancedStatsUpdate,

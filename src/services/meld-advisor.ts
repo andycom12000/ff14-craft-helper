@@ -37,6 +37,7 @@ import type { CraftStat, MateriaGrade } from '@/engine/materia'
 import {
   SLOT_STRUCTURE,
   MAX_MELD_COUNT,
+  OVERMELD_DEPTH_POOLS,
   expectedCountForOvermeldDepth, topGradeForStat,
 } from '@/engine/materia'
 import {
@@ -179,12 +180,23 @@ export interface MeldPlan {
  * - `feasible`   — a solver-confirmed plan exists (incl. hqSufficient = 0 melds).
  * - `infeasible` — the full bounded ladder ran and no rung double-maxed: melds
  *                  alone cannot guarantee HQ on this recipe + gear.
+ * - `budget-exhausted` — the bounded search ran out of probe budget BEFORE it
+ *                  could scan/confirm the space (#159). NOT proof of
+ *                  infeasibility: the #134 prefilter may have certified a plan
+ *                  exists. Distinct from `timed-out` (wall clock) — this is the
+ *                  probe-count cap, and a plain re-run will not change it.
  * - `timed-out`  — a solve hit the wall-clock deadline (#132) before converging.
  * - `error`      — a solve threw for a non-deadline/cancel reason.
  * - `cancelled`  — the run was superseded/aborted (rarely reaches the UI; the
  *                  composable drops a cancelled run's result).
  */
-export type MeldAdviceStatus = 'feasible' | 'infeasible' | 'timed-out' | 'error' | 'cancelled'
+export type MeldAdviceStatus =
+  | 'feasible'
+  | 'infeasible'
+  | 'budget-exhausted'
+  | 'timed-out'
+  | 'error'
+  | 'cancelled'
 
 export interface MeldAdvice {
   /** #133 — see {@link MeldAdviceStatus}. Drives honest no-result rendering and
@@ -228,6 +240,16 @@ export interface MeldAdvice {
    * materia-only dead end. Purely informational; does not gate any CTA.
    */
   noHqLever: boolean
+  /**
+   * True when the advice was computed against a max-HQ baseline ABOVE the
+   * screen's current initialQuality (§2: HQ materials are the zero-cost lever
+   * and are assumed spent first). The「保證 HQ」claim then silently presumes the
+   * user buys ALL HQ-eligible materials as HQ — without stating it, applying the
+   * melds and re-simulating at the screen's partial/zero HQ selection would
+   * contradict the guarantee. Optional for fixture back-compat; absent = false.
+   * Purely informational; does not gate any CTA.
+   */
+  assumesFullHq?: boolean
 }
 
 export interface AdviseMeldOptions {
@@ -496,6 +518,10 @@ export interface ConfirmDeps {
 export interface ConfirmedBreakpoint {
   deltaStats: { craftsmanship: number; control: number; cp: number }
   confirmedBySolver: boolean
+  /** #159 — true when the bounded walk stopped because the probe budget ran out
+   *  (reserve check), NOT because the space was scanned. Lets the caller report
+   *  `budget-exhausted` instead of conflating it with `infeasible`. */
+  budgetExhausted?: boolean
 }
 
 /**
@@ -805,12 +831,25 @@ export async function searchMinimalQualityDelta(
   // `confirmedBySolver` here means only "a double-max was found within budget",
   // exactly as the old control-only search did.
   let best: { control: number; cp: number; totalSteps: number } | null = null
+  let budgetExhausted = false
 
   for (let cpSteps = 0; cpSteps <= cpCeilingSteps; cpSteps++) {
-    if (isCancelled?.() || solveCount >= MAX_QUALITY_PROBES) break
+    if (isCancelled?.()) break
     // Monotone control ceiling: once a combo double-maxes, a higher CP never
     // needs MORE control, so cap the next bisection at the current best's control.
     const capSteps = best ? best.control : controlCeilingSteps
+    // #159: only open a CP level when the remaining budget can fund BOTH its
+    // ceiling probe AND a COMPLETE downward bisection (≤ ⌈log₂(capSteps+1)⌉
+    // probes). A truncated bisection used to surface a partially-refined
+    // near-ceiling control as the CONFIRMED minimum — the source of the
+    // triple-digit 顆數 reports. Budgeting every probe as a cache miss is
+    // conservative; capSteps only shrinks, so once this fails it fails for
+    // every later level too → stop the walk, keep the (fully bisected) best.
+    const reserve = 1 + Math.ceil(Math.log2(capSteps + 1))
+    if (solveCount + reserve > MAX_QUALITY_PROBES) {
+      budgetExhausted = true
+      break
+    }
     const controlSteps = await minControlAt(cpDeltaOf(cpSteps), capSteps)
     if (controlSteps === null) continue // can't double-max at this CP (or out of budget)
 
@@ -834,21 +873,25 @@ export async function searchMinimalQualityDelta(
     return {
       deltaStats: { craftsmanship, control: ctrlDelta(Math.ceil(seed.control / CONTROL_GRADE_STEP)), cp: seed.cp },
       confirmedBySolver: false,
+      budgetExhausted,
     }
   }
   return {
     deltaStats: { craftsmanship, control: ctrlDelta(best.control), cp: cpDeltaOf(best.cp) },
     confirmedBySolver: true,
+    budgetExhausted,
   }
 }
 
 interface AllocationCursor {
   guaranteedRemaining: number
-  // Global overmeld-slot budget (shared across stats — gear pieces are finite).
-  // The ladder *index* is per-stat and lives as a local in allocateForStat:
-  // in-game, overmeld depth is per-piece, and ②-lite approximates that as
-  // per-stat since stats land on different pieces.
-  overmeldRemaining: number
+  // #159: global overmeld budget by DEPTH (shared across stats — gear pieces
+  // are finite). In-game, overmeld depth is per piece, so the aggregate pool at
+  // each depth is OVERMELD_DEPTH_POOLS ([12, 12, 12, 6]); allocation drains the
+  // shallowest (cheapest) depth first. The old model walked a per-stat monotone
+  // depth instead, clamping everything past a stat's 4th overmeld to the 5%
+  // floor — the root of the inflated 顆數 reports.
+  overmeldRemainingByDepth: number[]
 }
 
 function priceForItemNq(priceMap: MateriaPriceMap, itemId: number): number | null {
@@ -883,17 +926,23 @@ function allocateForStat(
     remaining -= usedSlots * top.value
   }
 
-  // Phase B: overmeld slots, applying the fail ladder — one step per depth level.
-  // `depth` is local so each stat starts at the top of the ladder; the
-  // overmeld-slot budget is global and lives on the cursor.
-  let depth = 0
-  while (remaining > 0 && cursor.overmeldRemaining > 0) {
-    const placed = 1
-    const expected = expectedCountForOvermeldDepth(depth, placed)
-    steps.push(emitStep(top, placed, expected, priceMap))
-    depth += 1
-    cursor.overmeldRemaining -= 1
-    remaining -= top.value
+  // Phase B (#159): overmeld slots, drained shallowest-depth-first from the
+  // shared per-depth pools — one BATCHED step per depth level actually used,
+  // so a deep plan emits at most OVERMELD_DEPTH_POOLS.length steps per stat
+  // instead of one step per slot.
+  for (
+    let depth = 0;
+    depth < cursor.overmeldRemainingByDepth.length && remaining > 0;
+    depth++
+  ) {
+    const pool = cursor.overmeldRemainingByDepth[depth]
+    if (pool <= 0) continue
+    const neededSlots = Math.ceil(remaining / top.value)
+    const usedSlots = Math.min(neededSlots, pool)
+    const expected = expectedCountForOvermeldDepth(depth, usedSlots)
+    steps.push(emitStep(top, usedSlots, expected, priceMap))
+    cursor.overmeldRemainingByDepth[depth] -= usedSlots
+    remaining -= usedSlots * top.value
   }
 
   // If we ran out of slots, the caller marks the plan infeasible.
@@ -937,7 +986,7 @@ export function translateDeltaToMeldPlan(
 
   const cursor: AllocationCursor = {
     guaranteedRemaining: SLOT_STRUCTURE.guaranteedSlots,
-    overmeldRemaining: SLOT_STRUCTURE.overmeldSlots,
+    overmeldRemainingByDepth: [...OVERMELD_DEPTH_POOLS],
   }
 
   const allSteps: MeldStep[] = []
@@ -952,7 +1001,7 @@ export function translateDeltaToMeldPlan(
   if (infeasible) {
     return {
       feasible: false,
-      reason: '槽位不足,需換底裝',
+      reason: '槽位不足，需換底裝',
       deltaStats,
       steps: allSteps,
       totalGil: null,
@@ -1069,6 +1118,12 @@ export async function adviseMeld(
   // to 0 (custom recipes) — never worse than the screen baseline.
   const maxHqInitialQuality = Math.max(initialQuality, computeMaxHqInitialQuality(binding))
 
+  // The premise flag for the UI: advice is judged at the max-HQ baseline, so
+  // when that sits ABOVE the screen's current selection, the plan implicitly
+  // requires buying all HQ materials — state it instead of letting the
+  // apply→re-simulate verify contradict the「保證 HQ」claim.
+  const assumesFullHq = maxHqInitialQuality > initialQuality
+
   // #134: probe memo shared across Step 0 + every rung's inner search so an
   // identical (craftsmanship, control, cp) point is solved at most once per run.
   const probeCache = new Map<string, boolean>()
@@ -1096,6 +1151,7 @@ export async function adviseMeld(
         hqSufficient: true,
         rankedByCount: false,
         noHqLever,
+        assumesFullHq,
       }
     }
   } catch (err) {
@@ -1158,6 +1214,10 @@ export async function adviseMeld(
   // #133: why the ladder stopped without a confirmed plan — drives the honest
   // terminal status. Stays null while the ladder runs to completion (→ infeasible).
   let interruptedStatus: Exclude<MeldAdviceStatus, 'feasible' | 'infeasible'> | null = null
+  // #159: any rung whose bounded walk died on the probe budget (vs. scanning the
+  // space) — without a confirmed plan, the honest terminal status is then
+  // budget-exhausted, never infeasible.
+  let anyRungBudgetExhausted = false
   for (const rungCraft of ladder) {
     if (isCancelled?.()) { interruptedStatus = 'cancelled'; break }
     // Re-seed the inner control search at this rung's craftsmanship. The seed is
@@ -1186,6 +1246,10 @@ export async function adviseMeld(
     // comparison. An unconfirmed rung (cancelled or genuinely unsolvable within
     // the cap) is skipped — unless NO rung confirms, in which case the last
     // unconfirmed plan is surfaced so the UI still shows the bailout shape.
+    // Exhaustion only matters when the rung could NOT confirm: a walk that
+    // found its confirmed minimum and merely had its past-the-optimum
+    // exploration cut short is a valid result, not a budget failure.
+    if (confirmed.budgetExhausted && !confirmed.confirmedBySolver) anyRungBudgetExhausted = true
     const plan = translateDeltaToMeldPlan(confirmed.deltaStats, priceMap)
     plan.confirmedBySolver = confirmed.confirmedBySolver
 
@@ -1202,12 +1266,13 @@ export async function adviseMeld(
   const costOptimal = best ?? emptyMeldPlan(null, false)
 
   // #133: honest terminal status. A solver-confirmed plan → feasible. Otherwise
-  // the run either ran the full ladder with nothing confirmed (genuinely
-  // infeasible by melds) or was cut short by a deadline/cancel (timed-out /
-  // cancelled) — never claim feasibility for an unconfirmed best.
+  // the run was cut short by a deadline/cancel (timed-out / cancelled), died on
+  // the probe budget before the frontier (#159 budget-exhausted — NOT proof of
+  // infeasibility), or genuinely ran the full ladder with nothing confirmed
+  // (infeasible) — never claim feasibility for an unconfirmed best.
   const status: MeldAdviceStatus = bestConfirmed
     ? 'feasible'
-    : interruptedStatus ?? 'infeasible'
+    : interruptedStatus ?? (anyRungBudgetExhausted ? 'budget-exhausted' : 'infeasible')
 
   return {
     status,
@@ -1216,6 +1281,7 @@ export async function adviseMeld(
     hqSufficient: false,
     rankedByCount: isRankedByCount(costOptimal),
     noHqLever,
+    assumesFullHq,
   }
 }
 
