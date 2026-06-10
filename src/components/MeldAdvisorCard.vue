@@ -9,6 +9,7 @@ import type { MeldAdvice, MeldStep } from '@/services/meld-advisor'
 import type { CraftStat } from '@/engine/materia'
 import { formatMeldStepShort, summarizeMeldSteps } from '@/engine/materia'
 import { formatGil } from '@/utils/format'
+import MeldPlanTable from '@/components/MeldPlanTable.vue'
 
 const props = withDefaults(defineProps<{
   advice: MeldAdvice | 'loading' | 'stale' | 'no-market' | null
@@ -255,14 +256,13 @@ async function copyShoppingList() {
             即可保證 HQ
           </p>
 
-          <!-- #128: no market price → estimate-by-count hint replaces the gil
-               line (the gil/gap is unusable when the plan was ranked by slots). -->
+          <!-- #160: structured per-materia breakdown — the totals row carries
+               the plan cost, replacing the old single-line cost text. -->
+          <MeldPlanTable :steps="result.costOptimal.steps" :total-gil="result.costOptimal.totalGil" />
+
+          <!-- #128: no market price → estimate-by-count hint (the table's 費用
+               column shows — when the plan was ranked by slots, not gil). -->
           <p v-if="isRankedByCount" class="estimate-hint">無市場資料，依鑲嵌數量估算</p>
-          <p v-else class="ability-cost">
-            所需鑲嵌費用 約
-            <span class="ability-cost-gil">{{ formatGil(result.costOptimal.totalGil) }}</span> gil
-            <span v-if="!result.costOptimal.confirmedBySolver" class="caveat">（保守估計）</span>
-          </p>
 
           <div v-if="effectiveShowApply" class="plan-cta">
             <button type="button" class="cta-btn cta-primary" @click="applyToGearset">
@@ -329,11 +329,12 @@ async function copyShoppingList() {
             <p v-if="!result.costOptimal.feasible" class="infeasible-reason">
               {{ result.costOptimal.reason ?? '不可行' }}
             </p>
-            <ul v-else-if="result.costOptimal.steps.length" class="steps-list">
-              <li v-for="(s, i) in result.costOptimal.steps" :key="i">
-                {{ stepText(s) }}
-              </li>
-            </ul>
+            <!-- #160: structured breakdown table replaces the plain text list. -->
+            <MeldPlanTable
+              v-else-if="result.costOptimal.steps.length"
+              :steps="result.costOptimal.steps"
+              :total-gil="result.costOptimal.totalGil"
+            />
             <!-- #128: ranked by materia/slot count (no market price). -->
             <small v-if="isRankedByCount" class="estimate-hint">無市場資料，依鑲嵌數量估算</small>
             <small v-else-if="!result.costOptimal.confirmedBySolver" class="caveat">保守估計</small>
@@ -513,17 +514,6 @@ async function copyShoppingList() {
   margin-right: 1px;
 }
 
-/* Cost is secondary — small text, no "你能省"/gap framing. */
-.ability-cost {
-  margin: 0;
-  font-size: 13px;
-  color: var(--app-text-muted, oklch(0.5 0.03 60));
-}
-.ability-cost-gil {
-  font-family: 'Fira Code', ui-monospace, monospace;
-  color: var(--app-text, oklch(0.28 0.04 55));
-}
-
 /* Already-met state */
 .met-message {
   margin: 0;
@@ -573,17 +563,6 @@ async function copyShoppingList() {
   margin: 0;
   font-size: 13px;
   color: var(--app-danger, oklch(0.55 0.2 25));
-}
-
-.steps-list {
-  margin: 0;
-  padding-left: 16px;
-  font-size: 13px;
-  color: var(--app-text, oklch(0.28 0.04 55));
-}
-
-.steps-list li {
-  margin-bottom: 2px;
 }
 
 .caveat {

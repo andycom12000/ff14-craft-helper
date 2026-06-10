@@ -143,14 +143,30 @@ describe('MeldAdvisorCard', () => {
     expect(text).toContain('顆')
     expect(text).toContain('作業魔晶石Ⅻ') // craftsmanship → 作業, grade 12 → Ⅻ
     expect(text).not.toContain('craftsmanship')
-    // small cost line, not "你能省"/gap framing
-    expect(text).toContain('所需鑲嵌費用 約')
     expect(text).not.toContain('你能省')
     expect(text).not.toContain('全 BiS')
     expect(text).not.toContain('往全 BiS')
-    // never shows the gap number or the raw stat delta
+    // never shows the gap number or the raw solver stat delta (the table's
+    // 能力值 column is the materia-granted increment, a different number)
     expect(text).not.toContain('2,384,000')
     expect(text).not.toContain('60')
+  })
+
+  // --- #160: structured plan table replaces the single-line cost text ---
+
+  it('ability mode (#160): renders the plan table with a totals row carrying the gil', () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: fullAdvice, mode: 'ability' } })
+    expect(w.find('[data-test=meld-plan-table]').exists()).toBe(true)
+    expect(w.find('[data-test=meld-plan-totals]').text()).toContain('16,000')
+    // the old single-line cost text is gone — the totals row carries the cost
+    expect(w.find('.ability-cost').exists()).toBe(false)
+    expect(w.text()).not.toContain('所需鑲嵌費用')
+  })
+
+  it('cost mode (#160): renders the plan table instead of the plain steps list', () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: fullAdvice, mode: 'cost', showApply: false } })
+    expect(w.find('[data-test=meld-plan-table]').exists()).toBe(true)
+    expect(w.find('.steps-list').exists()).toBe(false)
   })
 
   it('ability mode: shows the 套用鑲嵌（模擬）button, not 複製清單', () => {
