@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import type { MeldStep } from '@/services/meld-advisor'
 import type { CraftStat } from '@/engine/materia'
-import { materiaForStat, summarizeMeldSteps } from '@/engine/materia'
+import { GRADE_ROMAN, materiaForStat, STAT_SHORT_LABELS, summarizeMeldSteps } from '@/engine/materia'
 import { formatGil } from '@/utils/format'
 
 /**
@@ -18,13 +18,6 @@ const props = defineProps<{
   /** Plan total in gil; null = at least one step had no market price (#128). */
   totalGil: number | null
 }>()
-
-const STAT_LABELS: Record<CraftStat, string> = {
-  craftsmanship: '作業',
-  control: '加工',
-  cp: 'CP',
-}
-const GRADE_ROMAN: Record<number, string> = { 12: 'Ⅻ', 11: 'Ⅺ', 10: 'Ⅹ' }
 
 /** Flat bonus per materia of this stat+grade, for the 能力值 column. */
 function materiaValue(stat: CraftStat, grade: number): number {
@@ -50,7 +43,7 @@ const rows = computed<PlanRow[]>(() =>
       : siblings.reduce((sum, o) => sum + (o.subtotal ?? 0), 0)
     return {
       key: `${s.stat}:${s.grade}`,
-      name: `${STAT_LABELS[s.stat] ?? s.stat}魔晶石${GRADE_ROMAN[s.grade] ?? String(s.grade)}`,
+      name: `${STAT_SHORT_LABELS[s.stat] ?? s.stat}魔晶石${GRADE_ROMAN[s.grade] ?? String(s.grade)}`,
       statDelta: s.placedCount * materiaValue(s.stat, s.grade),
       slots: s.placedCount,
       purchase: Math.ceil(s.expectedCount),

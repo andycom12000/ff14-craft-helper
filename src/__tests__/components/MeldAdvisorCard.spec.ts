@@ -243,9 +243,9 @@ describe('MeldAdvisorCard', () => {
     const sufficient: MeldAdvice = { ...fullAdvice, hqSufficient: true }
     const w = mount(MeldAdvisorCard, { props: { advice: sufficient, mode: 'ability' } })
     expect(w.text()).toContain('無需鑲嵌')
-    // the hero meld sentence + cost line are hidden (the success state replaces them)
+    // the hero meld sentence + plan table are hidden (the success state replaces them)
     expect(w.find('.ability-sentence').exists()).toBe(false)
-    expect(w.find('.ability-cost').exists()).toBe(false)
+    expect(w.find('[data-test=meld-plan-table]').exists()).toBe(false)
     expect(w.findAll('button').some(b => b.text().includes('套用鑲嵌'))).toBe(false)
   })
 

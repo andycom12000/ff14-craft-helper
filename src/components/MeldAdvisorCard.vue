@@ -7,7 +7,7 @@ import { ElMessage } from 'element-plus'
 // CSS here — and importing it here would break the jsdom component test.
 import type { MeldAdvice, MeldStep } from '@/services/meld-advisor'
 import type { CraftStat } from '@/engine/materia'
-import { formatMeldStepShort, summarizeMeldSteps } from '@/engine/materia'
+import { formatMeldStepShort, GRADE_ROMAN, STAT_SHORT_LABELS, summarizeMeldSteps } from '@/engine/materia'
 import { formatGil } from '@/utils/format'
 import MeldPlanTable from '@/components/MeldPlanTable.vue'
 
@@ -49,13 +49,7 @@ const result = computed(() => {
   return props.advice as MeldAdvice
 })
 
-const STAT_LABELS: Record<CraftStat, string> = {
-  craftsmanship: '作業',
-  control: '加工',
-  cp: 'CP',
-}
-const GRADE_ROMAN: Record<number, string> = { 12: 'Ⅻ', 11: 'Ⅺ', 10: 'Ⅹ' }
-const statLabel = (s: CraftStat) => STAT_LABELS[s] ?? s
+const statLabel = (s: CraftStat) => STAT_SHORT_LABELS[s] ?? s
 const gradeLabel = (g: number) => GRADE_ROMAN[g] ?? String(g)
 const stepText = (s: MeldStep) =>
   `${statLabel(s.stat)} 魔晶石${gradeLabel(s.grade)} × ${Math.ceil(s.expectedCount)} 顆`
