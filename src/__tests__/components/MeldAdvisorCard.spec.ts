@@ -89,7 +89,7 @@ describe('MeldAdvisorCard', () => {
     const infeasible: MeldAdvice = {
       ...fullAdvice,
       status: 'infeasible',
-      costOptimal: { ...fullAdvice.costOptimal, feasible: false, reason: '槽位不足,需換底裝' },
+      costOptimal: { ...fullAdvice.costOptimal, feasible: false, reason: '槽位不足，需換底裝' },
     }
     const w = mount(MeldAdvisorCard, { props: { advice: infeasible, mode: 'cost', showApply: false } })
     expect(w.text()).toContain('槽位不足')
@@ -252,7 +252,7 @@ describe('MeldAdvisorCard', () => {
       ...fullAdvice,
       status: 'infeasible',
       noHqLever: true,
-      costOptimal: { ...fullAdvice.costOptimal, feasible: false, reason: '槽位不足,需換底裝', steps: [] },
+      costOptimal: { ...fullAdvice.costOptimal, feasible: false, reason: '槽位不足，需換底裝', steps: [] },
     }
     const w = mount(MeldAdvisorCard, { props: { advice, mode: 'ability' } })
     expect(w.find('[data-test=no-hq-lever]').exists()).toBe(true)

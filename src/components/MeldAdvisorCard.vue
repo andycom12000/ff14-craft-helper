@@ -80,8 +80,8 @@ const hasActionablePlan = computed(() =>
 /**
  * #133 — the honest gate for claiming「保證 HQ」+ offering the 套用 / 存成配裝 CTAs.
  * Only a `feasible` status carries a solver-CONFIRMED plan; every other status
- * (infeasible / timed-out / error / cancelled) may have a leftover unconfirmed
- * plan that must NOT be presented as a guarantee.
+ * (infeasible / budget-exhausted / timed-out / error / cancelled) may have a
+ * leftover unconfirmed plan that must NOT be presented as a guarantee.
  */
 const isActionable = computed(() =>
   !!result.value && result.value.status === 'feasible' && hasActionablePlan.value,
@@ -298,10 +298,11 @@ async function copyShoppingList() {
           </div>
         </template>
 
-        <!-- #133: honest no-result state — infeasible / timed-out / error /
-             cancelled. Never asserts the「即可保證 HQ」guarantee (the infeasible copy
-             denies it). Infeasible surfaces the reason (e.g. 槽位不足,需換底裝) when
-             the solver provided one. -->
+        <!-- #133: honest no-result state — infeasible / budget-exhausted /
+             timed-out / error / cancelled. Never asserts the「即可保證 HQ」guarantee
+             (the infeasible copy denies it). Infeasible surfaces the reason (e.g.
+             槽位不足，需換底裝) only when the solver CONFIRMED the underlying delta
+             (#159: an unconfirmed bailout shape's reason is an artifact). -->
         <p v-else class="infeasible-reason" data-test="status-message">
           {{ statusMessage }}
         </p>
