@@ -41,7 +41,7 @@ const defaultProgress = () => ({
   completed: 0,
   total: 0,
   currentName: '',
-  phase: 'idle' as 'idle' | 'solving' | 'pricing' | 'evaluating-buffs' | 'evaluating-self-craft' | 'aggregating' | 'done',
+  phase: 'idle' as 'idle' | 'solving' | 'pricing' | 'evaluating-buffs' | 'evaluating-self-craft' | 'aggregating' | 'evaluating-meld' | 'done',
   solverPercent: 0,
 })
 

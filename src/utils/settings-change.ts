@@ -10,6 +10,7 @@ export type SettingsKey =
   | 'max_recursion_depth'
   | 'exception_strategy'
   | 'raw_material_default'
+  | 'meld_advice'
   | 'language'
 
 type SettingsValue = string | number | boolean | null | undefined

@@ -172,6 +172,15 @@ export async function runBatchOptimization(
     medicineIsHq?: boolean
     /** When false, skip food/medicine auto-recommendation even if no buff is selected. Defaults to true. */
     autoEvaluateBuffs?: boolean
+    /**
+     * When false, skip Phase 6 per-job 鑲嵌建議 (meld advice) entirely. The meld
+     * advisor reverse-solves the solver many times per job and runs sequentially,
+     * so on hard multi-job batches it stalled the run at the 95%「分組採購清單」step
+     * for minutes. Skipping returns an empty `meldAdvicePerJob` (UI hides the
+     * section). Defaults to true so existing callers/tests keep the old behaviour;
+     * the BatchView wires it to a user setting that defaults OFF.
+     */
+    meldAdvice?: boolean
     /** Calculation mode. 'quick-buy' skips the solver and just builds a flat shopping list. Defaults to 'macro'. */
     calcMode?: 'macro' | 'quick-buy'
     /** Per-material quality override. Maps itemId → 'nq' | 'hq'. Used in quick-buy mode. */
@@ -190,7 +199,7 @@ export async function runBatchOptimization(
     completed: number
     total: number
     name: string
-    phase: 'solving' | 'pricing' | 'evaluating-buffs' | 'evaluating-self-craft' | 'aggregating' | 'done'
+    phase: 'solving' | 'pricing' | 'evaluating-buffs' | 'evaluating-self-craft' | 'aggregating' | 'evaluating-meld' | 'done'
     solverPercent: number
   }) => void,
   isCancelled: () => boolean,
@@ -684,7 +693,22 @@ export async function runBatchOptimization(
     recipesByJob.set(r.recipe.job, list)
   }
 
-  if (!isCancelled() && recipesByJob.size > 0) {
+  // Meld advice is opt-in (settings.meldAdvice). It reverse-solves the solver many
+  // times per job and runs sequentially, so on hard multi-job batches it dominates
+  // the run; when off we skip it entirely and return an empty map (UI hides the
+  // section). `?? true` keeps existing callers/tests on the old behaviour.
+  const enableMeldAdvice = settings.meldAdvice ?? true
+
+  if (enableMeldAdvice && !isCancelled() && recipesByJob.size > 0) {
+    // Drive the progress bar across the meld phase: without this the run sat at
+    // 95%「分組採購清單」for the whole (multi-minute) per-job sweep, looking frozen.
+    // Dedicated phase (sibling of evaluating-buffs/-self-craft) so BatchProgress
+    // shows the job counter via its shared showCounter channel.
+    const meldJobTotal = recipesByJob.size
+    let meldJobsDone = 0
+    const emitMeld = (done: number) =>
+      onProgress({ completed: done, total: meldJobTotal, name: '', phase: 'evaluating-meld', solverPercent: 0 })
+    emitMeld(0) // flip to the meld phase before the (blocking) price fetch
     let materiaPrices: Map<number, MarketData>
     try {
       materiaPrices = await fetchMateriaPriceMap(priceSource)
@@ -723,6 +747,8 @@ export async function runBatchOptimization(
         { initialQuality, isCancelled },
       )
       meldAdvicePerJob.set(job, advice)
+      meldJobsDone++
+      emitMeld(meldJobsDone)
     }
   }
 

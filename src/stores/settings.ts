@@ -22,6 +22,14 @@ export const useSettingsStore = defineStore('settings', () => {
   const maxRecursionDepth = ref(2)
   const exceptionStrategy = ref<'skip' | 'buy'>('buy')
   /**
+   * Whether the batch run computes per-job 鑲嵌建議 (meld advice). Default OFF:
+   * the meld advisor reverse-solves the solver many times per job (序列執行),
+   * which on hard Lv100 multi-job batches stalled the run at the 95%「分組採購清單」
+   * step for 10+ minutes with no progress feedback. Off by default so every user
+   * gets a fast batch; those who want meld advice opt in here.
+   */
+  const meldAdvice = ref(false)
+  /**
    * Default acquisition mode for raw materials. `buy` keeps the historical
    * "always default to market" logic; `gather` flips raw rows that have a
    * known gather node to default to 自採 (cost = 0). Crystals always stay
@@ -82,12 +90,17 @@ export const useSettingsStore = defineStore('settings', () => {
     const prev = rawMaterialDefault.value; if (prev === v) return
     rawMaterialDefault.value = v; emitSettingsChange('raw_material_default', prev, v)
   }
+  function setMeldAdvice(v: boolean) {
+    const prev = meldAdvice.value; if (prev === v) return
+    meldAdvice.value = v; emitSettingsChange('meld_advice', prev, v)
+  }
 
   return {
     server, dataCenter, region, language, priceDisplayMode, crossServer,
-    recursivePricing, maxRecursionDepth, exceptionStrategy, rawMaterialDefault,
+    recursivePricing, maxRecursionDepth, exceptionStrategy, rawMaterialDefault, meldAdvice,
     setServer, setDataCenter, setRegion, setPriceDisplayMode, setCrossServer,
     setRecursivePricing, setMaxRecursionDepth, setExceptionStrategy, setRawMaterialDefault,
+    setMeldAdvice,
   }
 }, {
   // `language` is a computed proxy; let the locale store persist it instead.
@@ -102,6 +115,7 @@ export const useSettingsStore = defineStore('settings', () => {
       'maxRecursionDepth',
       'exceptionStrategy',
       'rawMaterialDefault',
+      'meldAdvice',
     ],
   },
 })
