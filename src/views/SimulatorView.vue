@@ -542,9 +542,11 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
                 <!-- Step 2 — 再補鑲嵌. When HQ materials alone suffice, the card
                      shows its own success state, so we drop the sub-heading. -->
                 <div class="hq-step">
-                  <div v-if="!meldHqSufficient" class="hq-step-head">
-                    <span class="hq-step-num" aria-hidden="true">2</span>
-                    <span class="hq-step-title">再補鑲嵌<span class="beta-pill" aria-label="實驗中">實驗中</span></span>
+                  <div class="hq-step-head">
+                    <template v-if="!meldHqSufficient">
+                      <span class="hq-step-num" aria-hidden="true">2</span>
+                      <span class="hq-step-title">再補鑲嵌<span class="beta-pill" aria-label="實驗中">實驗中</span></span>
+                    </template>
                     <el-switch v-model="settings.meldAdvice" size="small" class="meld-step-toggle" aria-label="鑲嵌建議" />
                   </div>
                   <template v-if="settings.meldAdvice">
@@ -617,9 +619,11 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
             <!-- Step 2 — 再補鑲嵌. When HQ materials alone suffice, the card
                  shows its own success state, so we drop the sub-heading. -->
             <div class="hq-step">
-              <div v-if="!meldHqSufficient" class="hq-step-head">
-                <span class="hq-step-num" aria-hidden="true">2</span>
-                <span class="hq-step-title">再補鑲嵌<span class="beta-pill" aria-label="實驗中">實驗中</span></span>
+              <div class="hq-step-head">
+                <template v-if="!meldHqSufficient">
+                  <span class="hq-step-num" aria-hidden="true">2</span>
+                  <span class="hq-step-title">再補鑲嵌<span class="beta-pill" aria-label="實驗中">實驗中</span></span>
+                </template>
                 <el-switch v-model="settings.meldAdvice" size="small" class="meld-step-toggle" aria-label="鑲嵌建議" />
               </div>
               <template v-if="settings.meldAdvice">
@@ -839,9 +843,11 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
           </div>
 
           <div class="hq-step">
-            <div v-if="!meldHqSufficient" class="hq-step-head">
-              <span class="hq-step-num" aria-hidden="true">2</span>
-              <span class="hq-step-title">再補鑲嵌<span class="beta-pill" aria-label="實驗中">實驗中</span></span>
+            <div class="hq-step-head">
+              <template v-if="!meldHqSufficient">
+                <span class="hq-step-num" aria-hidden="true">2</span>
+                <span class="hq-step-title">再補鑲嵌<span class="beta-pill" aria-label="實驗中">實驗中</span></span>
+              </template>
               <el-switch v-model="settings.meldAdvice" size="small" class="meld-step-toggle" aria-label="鑲嵌建議" />
             </div>
             <template v-if="settings.meldAdvice">

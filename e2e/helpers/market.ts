@@ -34,8 +34,14 @@ export const MATERIA_ITEM_IDS = {
  * changes that would otherwise clear an in-session selection.
  */
 export async function seedMarketServer(page: Page, server = 'Gilgamesh') {
+  // Merge into any existing persisted settings rather than overwriting the whole
+  // key, so this composes with other settings seeders (e.g. the meld-advice
+  // opt-in in searchFillAndSolve) regardless of which seeder runs first.
   await page.addInitScript((srv) => {
-    localStorage.setItem('settings', JSON.stringify({ server: srv }))
+    const raw = localStorage.getItem('settings')
+    const parsed = raw ? JSON.parse(raw) : {}
+    parsed.server = srv
+    localStorage.setItem('settings', JSON.stringify(parsed))
   }, server)
 }
 

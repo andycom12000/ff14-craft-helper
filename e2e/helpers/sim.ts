@@ -26,6 +26,18 @@ export async function searchFillAndSolve(
 ) {
   const gear = options.gear ?? { craft: 5500, control: 5500, cp: 700 }
   const recipeName = options.recipeName ?? "Courtly Lover's Partisan"
+
+  // Meld advice is opt-in (settings.meldAdvice, default OFF since the toggle
+  // landed). Every meld-advisor spec asserts the ride-along advisor's post-solve
+  // behaviour, so seed the persisted opt-in before the app boots. Merge so it
+  // composes with seedMarketServer's settings seed regardless of call order.
+  await page.addInitScript(() => {
+    const raw = localStorage.getItem('settings')
+    const parsed = raw ? JSON.parse(raw) : {}
+    parsed.meldAdvice = true
+    localStorage.setItem('settings', JSON.stringify(parsed))
+  })
+
   await page.goto('#/simulator')
 
   // Game-data language → EN (zh-TW items shard lacks this recipe's name).
