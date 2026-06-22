@@ -7,6 +7,7 @@ import { useIsMobile, useMediaQuery } from '@/composables/useMediaQuery'
 import { JOB_NAMES, JOB_ABBR } from '@/utils/jobs'
 import { type SimulatorMode } from '@/stores/simulator'
 import { useLocaleStore } from '@/stores/locale'
+import { useSettingsStore } from '@/stores/settings'
 import { formatMacros } from '@/services/macro-formatter'
 import { useSimulator } from '@/composables/useSimulator'
 import { useSolverInputAudit } from '@/composables/useSolverInputAudit'
@@ -35,6 +36,7 @@ import GearsetSheet from '@/components/gearset/GearsetSheet.vue'
 
 const isMobile = useIsMobile()
 const localeStore = useLocaleStore()
+const settings = useSettingsStore()
 
 /* Desktop-specific state */
 const macroExpanded = ref(false)
@@ -543,26 +545,29 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
                   <div v-if="!meldHqSufficient" class="hq-step-head">
                     <span class="hq-step-num" aria-hidden="true">2</span>
                     <span class="hq-step-title">再補鑲嵌<span class="beta-pill" aria-label="實驗中">實驗中</span></span>
+                    <el-switch v-model="settings.meldAdvice" size="small" class="meld-step-toggle" aria-label="鑲嵌建議" />
                   </div>
-                  <MeldAdvisorCard
-                    :advice="meldAdvice"
-                    mode="ability"
-                    :override-active="!!meldOverride"
-                    @apply="handleApplyMeld"
-                    @save-to-gearset="handleSaveMeldToGearset"
-                    @cancel="cancelAdvisor"
-                  />
-                  <MeldPlaygroundCard
-                    class="meld-playground"
-                    :recipe="recipe"
-                    :gearset="gearset"
-                    :advice="meldAdvice"
-                    :initial-quality="initialQuality"
-                    :buffs="activeBuffs"
-                    :override-active="!!meldOverride"
-                    @apply="handleApplyMeld"
-                    @clear-override="clearMeldOverride"
-                  />
+                  <template v-if="settings.meldAdvice">
+                    <MeldAdvisorCard
+                      :advice="meldAdvice"
+                      mode="ability"
+                      :override-active="!!meldOverride"
+                      @apply="handleApplyMeld"
+                      @save-to-gearset="handleSaveMeldToGearset"
+                      @cancel="cancelAdvisor"
+                    />
+                    <MeldPlaygroundCard
+                      class="meld-playground"
+                      :recipe="recipe"
+                      :gearset="gearset"
+                      :advice="meldAdvice"
+                      :initial-quality="initialQuality"
+                      :buffs="activeBuffs"
+                      :override-active="!!meldOverride"
+                      @apply="handleApplyMeld"
+                      @clear-override="clearMeldOverride"
+                    />
+                  </template>
                 </div>
               </section>
             </template>
@@ -615,26 +620,29 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
               <div v-if="!meldHqSufficient" class="hq-step-head">
                 <span class="hq-step-num" aria-hidden="true">2</span>
                 <span class="hq-step-title">再補鑲嵌<span class="beta-pill" aria-label="實驗中">實驗中</span></span>
+                <el-switch v-model="settings.meldAdvice" size="small" class="meld-step-toggle" aria-label="鑲嵌建議" />
               </div>
-              <MeldAdvisorCard
-                :advice="meldAdvice"
-                mode="ability"
-                :override-active="!!meldOverride"
-                @apply="handleApplyMeld"
-                @save-to-gearset="handleSaveMeldToGearset"
-                @cancel="cancelAdvisor"
-              />
-              <MeldPlaygroundCard
-                class="meld-playground"
-                :recipe="recipe"
-                :gearset="gearset"
-                :advice="meldAdvice"
-                :initial-quality="initialQuality"
-                :buffs="activeBuffs"
-                :override-active="!!meldOverride"
-                @apply="handleApplyMeld"
-                @clear-override="clearMeldOverride"
-              />
+              <template v-if="settings.meldAdvice">
+                <MeldAdvisorCard
+                  :advice="meldAdvice"
+                  mode="ability"
+                  :override-active="!!meldOverride"
+                  @apply="handleApplyMeld"
+                  @save-to-gearset="handleSaveMeldToGearset"
+                  @cancel="cancelAdvisor"
+                />
+                <MeldPlaygroundCard
+                  class="meld-playground"
+                  :recipe="recipe"
+                  :gearset="gearset"
+                  :advice="meldAdvice"
+                  :initial-quality="initialQuality"
+                  :buffs="activeBuffs"
+                  :override-active="!!meldOverride"
+                  @apply="handleApplyMeld"
+                  @clear-override="clearMeldOverride"
+                />
+              </template>
             </div>
           </section>
         </aside>
@@ -834,26 +842,29 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
             <div v-if="!meldHqSufficient" class="hq-step-head">
               <span class="hq-step-num" aria-hidden="true">2</span>
               <span class="hq-step-title">再補鑲嵌<span class="beta-pill" aria-label="實驗中">實驗中</span></span>
+              <el-switch v-model="settings.meldAdvice" size="small" class="meld-step-toggle" aria-label="鑲嵌建議" />
             </div>
-            <MeldAdvisorCard
-              :advice="meldAdvice"
-              mode="ability"
-              :override-active="!!meldOverride"
-              @apply="handleApplyMeld"
-              @save-to-gearset="handleSaveMeldToGearset"
-              @cancel="cancelAdvisor"
-            />
-            <MeldPlaygroundCard
-              class="meld-playground"
-              :recipe="recipe"
-              :gearset="gearset"
-              :advice="meldAdvice"
-              :initial-quality="initialQuality"
-              :buffs="activeBuffs"
-              :override-active="!!meldOverride"
-              @apply="handleApplyMeld"
-              @clear-override="clearMeldOverride"
-            />
+            <template v-if="settings.meldAdvice">
+              <MeldAdvisorCard
+                :advice="meldAdvice"
+                mode="ability"
+                :override-active="!!meldOverride"
+                @apply="handleApplyMeld"
+                @save-to-gearset="handleSaveMeldToGearset"
+                @cancel="cancelAdvisor"
+              />
+              <MeldPlaygroundCard
+                class="meld-playground"
+                :recipe="recipe"
+                :gearset="gearset"
+                :advice="meldAdvice"
+                :initial-quality="initialQuality"
+                :buffs="activeBuffs"
+                :override-active="!!meldOverride"
+                @apply="handleApplyMeld"
+                @clear-override="clearMeldOverride"
+              />
+            </template>
           </div>
         </section>
 
@@ -1511,6 +1522,10 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
   font-size: 14px;
   font-weight: 600;
   color: var(--app-text);
+}
+/* Meld advice opt-in switch sits at the right edge of the 再補鑲嵌 step head. */
+.meld-step-toggle {
+  margin-left: auto;
 }
 
 /* Sequence column wraps both 序列 and 巨集 sections; flows with the page */
