@@ -254,6 +254,7 @@ async function startOptimization() {
         medicineId: batchStore.medicineId,
         medicineIsHq: batchStore.medicineIsHq,
         autoEvaluateBuffs: batchStore.autoEvaluateBuffs,
+        meldAdvice: settings.meldAdvice,
         calcMode: batchStore.calcMode,
         bulkQualityMode: batchStore.bulkQualityMode,
         qualityOverrides: batchStore.qualityOverrides,

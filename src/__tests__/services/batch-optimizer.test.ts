@@ -761,6 +761,47 @@ describe('runBatchOptimization · Phase 6 meld advice', () => {
     expect(result.meldAdvicePerJob!.has('CRP')).toBe(true)
   })
 
+  it('skips meld advice entirely when settings.meldAdvice is false', async () => {
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory', 'groundwork'], progress: 3500, quality: 7200, steps: 2 })
+    vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
+    // clearAllMocks does not restore implementations, so reset the price fetch
+    // (an earlier test makes it throw) before this run.
+    const { getAggregatedPrices } = await import('@/api/universalis')
+    vi.mocked(getAggregatedPrices).mockResolvedValue(new Map())
+    const { adviseMeld } = await import('@/services/meld-advisor')
+
+    const result = await runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 1 }],
+      () => mockGearset,
+      { ...defaultSettings, meldAdvice: false },
+      () => {}, () => false,
+    )
+
+    // Phase 6 short-circuits: adviseMeld never runs and the map stays empty
+    // (UI hides the 鑲嵌建議 section on size 0).
+    expect(adviseMeld).not.toHaveBeenCalled()
+    expect(result.meldAdvicePerJob).toBeInstanceOf(Map)
+    expect(result.meldAdvicePerJob!.size).toBe(0)
+  })
+
+  it('runs meld advice when settings.meldAdvice is true', async () => {
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory', 'groundwork'], progress: 3500, quality: 7200, steps: 2 })
+    vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
+    const { getAggregatedPrices } = await import('@/api/universalis')
+    vi.mocked(getAggregatedPrices).mockResolvedValue(new Map())
+    const { adviseMeld } = await import('@/services/meld-advisor')
+
+    const result = await runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 1 }],
+      () => mockGearset,
+      { ...defaultSettings, meldAdvice: true },
+      () => {}, () => false,
+    )
+
+    expect(adviseMeld).toHaveBeenCalled()
+    expect(result.meldAdvicePerJob!.has('CRP')).toBe(true)
+  })
+
   it('skips meld advice per job in quick-buy mode', async () => {
     const { getAggregatedPrices } = await import('@/api/universalis')
     vi.mocked(getAggregatedPrices).mockResolvedValue(new Map([

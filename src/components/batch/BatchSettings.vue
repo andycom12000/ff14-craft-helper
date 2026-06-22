@@ -72,6 +72,17 @@ const buffSummary = computed(() => {
           </el-radio-group>
           <el-text size="small" type="info">等級不足/無法雙滿</el-text>
         </div>
+        <el-divider direction="vertical" />
+        <div class="settings-item">
+          <el-switch v-model="settings.meldAdvice" size="small" />
+          <span class="settings-text">鑲嵌建議</span>
+          <el-tooltip
+            content="計算每個職業要鑲嵌哪些魔晶石才能保證 HQ。需大量試算，會明顯拉長計算時間，預設關閉。"
+            placement="top"
+          >
+            <el-text size="small" type="info" class="buff-auto-hint">?</el-text>
+          </el-tooltip>
+        </div>
       </div>
 
       <!-- Food/medicine section with contextual auto-evaluate switch -->
@@ -137,6 +148,15 @@ const buffSummary = computed(() => {
           <div class="m-cell-sub">{{ settings.dataCenter ? `${settings.dataCenter} 全跨服比價` : '跨資料中心比價，找最便宜的伺服器' }}</div>
         </div>
         <el-switch v-model="settings.crossServer" size="default" />
+      </div>
+
+      <div class="m-cell">
+        <span class="m-cell-icon" aria-hidden="true">💎</span>
+        <div class="m-cell-body">
+          <div class="m-cell-title">鑲嵌建議</div>
+          <div class="m-cell-sub">算保證 HQ 所需魔晶石，會明顯變慢</div>
+        </div>
+        <el-switch v-model="settings.meldAdvice" size="default" />
       </div>
 
       <div class="m-cell m-cell--last">

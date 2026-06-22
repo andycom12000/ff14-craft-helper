@@ -42,6 +42,7 @@ vi.mock('@/composables/useMeldAdvisor', () => ({
 import { useSimulator } from '@/composables/useSimulator'
 import { useRecipeStore, type Recipe } from '@/stores/recipe'
 import { useGearsetsStore } from '@/stores/gearsets'
+import { useSettingsStore } from '@/stores/settings'
 
 const RECIPE: Recipe = {
   id: 1, itemId: 100, name: 'Parity', icon: '', job: 'CRP',
@@ -90,6 +91,7 @@ describe('useSimulator — session-only meld override (Slice C)', () => {
   it('#136: onSolveComplete forwards the active food/medicine buffs to the advisor', () => {
     seedCrpGearset()
     useRecipeStore().setRecipe(RECIPE)
+    useSettingsStore().meldAdvice = true // opt in so the ride-along advisor runs
     const sim = useSimulator()
     const food = { id: 1, name: 'f', control: { percent: 5, max: 100 } }
 
@@ -100,6 +102,36 @@ describe('useSimulator — session-only meld override (Slice C)', () => {
     expect(runAdvisorMock).toHaveBeenCalledWith(
       RECIPE, expect.anything(), expect.any(Number), { food, medicine: null },
     )
+  })
+
+  // Meld advice is opt-in (settings.meldAdvice, default OFF): a plain craft must
+  // not trigger the ride-along meld solver.
+  it('onSolveComplete does NOT run the advisor when meldAdvice is off (default)', () => {
+    seedCrpGearset()
+    useRecipeStore().setRecipe(RECIPE)
+    const sim = useSimulator()
+    runAdvisorMock.mockClear()
+
+    sim.onSolveComplete({ actions: ['x'] })
+
+    expect(runAdvisorMock).not.toHaveBeenCalled()
+  })
+
+  // Toggling meldAdvice ON after a solve (it was off during the solve) runs the
+  // advisor once for the current result so the card populates without a re-solve.
+  it('turning meldAdvice on after a solve runs the advisor for the current result', async () => {
+    seedCrpGearset()
+    useRecipeStore().setRecipe(RECIPE)
+    const settings = useSettingsStore()
+    const sim = useSimulator()
+
+    sim.onSolveComplete({ actions: ['x'] }) // off → no run
+    expect(runAdvisorMock).not.toHaveBeenCalled()
+
+    settings.meldAdvice = true
+    await nextTick()
+
+    expect(runAdvisorMock).toHaveBeenCalled()
   })
 
   // #136: changing food/medicine after a solve shifts the solve basis, so the

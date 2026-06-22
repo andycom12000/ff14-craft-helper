@@ -10,6 +10,7 @@ const PHASE_RANGES: Record<string, [number, number]> = {
   'evaluating-buffs': [90, 93],
   'evaluating-self-craft': [93, 95],
   aggregating: [95, 99],
+  'evaluating-meld': [95, 99],
   done: [100, 100],
 }
 
@@ -26,7 +27,10 @@ const percentage = computed(() => {
     return Math.max(0, Math.round(start + (p.solverPercent / 100) * (end - start)))
   }
 
-  if ((p.phase === 'pricing' || p.phase === 'evaluating-buffs') && p.total > 0) {
+  if (
+    (p.phase === 'pricing' || p.phase === 'evaluating-buffs' || p.phase === 'evaluating-meld') &&
+    p.total > 0
+  ) {
     return Math.round(start + (p.completed / p.total) * (end - start))
   }
 
@@ -50,6 +54,10 @@ const statusText = computed(() => {
       return '評估自製建議'
     case 'aggregating':
       return p.currentName || '正在整理採購清單...'
+    case 'evaluating-meld':
+      // Counter is rendered via the shared showCounter span, so keep this a
+      // plain label to avoid showing the count twice.
+      return '正在評估鑲嵌建議...'
     case 'done':
       return '計算完成'
     default:
@@ -59,7 +67,7 @@ const statusText = computed(() => {
 
 const showCounter = computed(() => {
   const phase = batchStore.progress.phase
-  return phase === 'solving' || phase === 'evaluating-buffs'
+  return phase === 'solving' || phase === 'evaluating-buffs' || phase === 'evaluating-meld'
 })
 </script>
 

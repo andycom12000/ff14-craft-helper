@@ -243,11 +243,22 @@ export function useSimulator() {
     simStore.setSolverResult(result)
     // Ride-along: fire-and-forget the meld advisor with the same inputs —
     // including the active food/medicine buffs so it solves on the screen's
-    // effectiveStats basis (#136).
-    if (recipe.value && gearset.value) {
+    // effectiveStats basis (#136). Gated by settings.meldAdvice (default OFF):
+    // the advisor reverse-solves the WASM solver, so when off we skip it entirely
+    // and the meld card stays hidden — no ride-along solve burdening a plain craft.
+    if (settingsStore.meldAdvice && recipe.value && gearset.value) {
       void runAdvisor(recipe.value, gearset.value, initialQuality.value, activeBuffs.value)
     }
   }
+
+  // Toggling 鑲嵌建議 ON after a solve completed (it was off during the solve, so
+  // no advice exists yet): run the advisor once for the current result so the card
+  // populates immediately instead of waiting for a re-solve.
+  watch(() => settingsStore.meldAdvice, (on) => {
+    if (on && simStore.solverResult && recipe.value && gearset.value) {
+      void runAdvisor(recipe.value, gearset.value, initialQuality.value, activeBuffs.value)
+    }
+  })
 
   // Mark advice stale when recipe, gearset, initialQuality, an applied meld
   // override, or the active food/medicine buffs change without a new solve.
