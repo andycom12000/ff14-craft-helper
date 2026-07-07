@@ -4,6 +4,7 @@ import type { BatchException, BatchTarget, BatchResults, TodoItem, BuyFinishedDe
 import { adviseMeld, findBindingRecipe } from '@/services/meld-advisor'
 import type { MeldAdvice } from '@/services/meld-advisor'
 import { fetchMateriaPriceMap } from '@/api/universalis'
+import { POOL_SIZE } from '@/solver/pool-config'
 import { calculateInitialQuality } from '@/engine/quality'
 import type { MaterialWithPrice, MaterialBase, QuickBuyMaterial, QuickBuyMaterialPricing } from '@/services/shopping-list'
 import { markRaw } from 'vue'
@@ -174,9 +175,9 @@ export async function runBatchOptimization(
     autoEvaluateBuffs?: boolean
     /**
      * When false, skip Phase 6 per-job 鑲嵌建議 (meld advice) entirely. The meld
-     * advisor reverse-solves the solver many times per job and runs sequentially,
-     * so on hard multi-job batches it stalled the run at the 95%「分組採購清單」step
-     * for minutes. Skipping returns an empty `meldAdvicePerJob` (UI hides the
+     * advisor reverse-solves the solver many times per job (POOL_SIZE jobs run
+     * concurrently), so on hard multi-job batches it stalled the run at the 95%
+     *「分組採購清單」step for minutes. Skipping returns an empty `meldAdvicePerJob` (UI hides the
      * section). Defaults to true so existing callers/tests keep the old behaviour;
      * the BatchView wires it to a user setting that defaults OFF.
      */
@@ -694,8 +695,8 @@ export async function runBatchOptimization(
   }
 
   // Meld advice is opt-in (settings.meldAdvice). It reverse-solves the solver many
-  // times per job and runs sequentially, so on hard multi-job batches it dominates
-  // the run; when off we skip it entirely and return an empty map (UI hides the
+  // times per job (POOL_SIZE jobs concurrently), so on hard multi-job batches it
+  // dominates the run; when off we skip it entirely and return an empty map (UI hides the
   // section). `?? true` keeps existing callers/tests on the old behaviour.
   const enableMeldAdvice = settings.meldAdvice ?? true
 
@@ -716,39 +717,89 @@ export async function runBatchOptimization(
       console.warn('[meld-advisor] fetchMateriaPriceMap failed, continuing with empty price map:', err)
       materiaPrices = new Map()
     }
-    for (const [job, list] of recipesByJob) {
-      if (isCancelled()) break
-      const gs = getGearset(job)
-      if (!gs) continue
-      // Pick the binding recipe (highest difficulty, tiebreak by quality) to drive initialQuality.
-      // Prefer non-isDoubleMax recipes so the binding's hqAmounts (and thus initialQuality)
-      // are real — isDoubleMax recipes always have hqAmounts:[] which would zero out initialQuality
-      // and cause Step 0 of adviseMeld to incorrectly think the gearset needs melds.
-      const nonMaxed = list.filter(r => !r.isDoubleMax)
-      const candidates = nonMaxed.length > 0 ? nonMaxed : list
-      const bindingRecipe = findBindingRecipe(candidates.map(r => r.recipe))
-      if (!bindingRecipe) continue
-      const binding = candidates.find(r => r.recipe === bindingRecipe)!
-      // Re-compute initialQuality from the binding recipe's hqAmounts (parallel to recipe.ingredients).
-      const initialQuality = calculateInitialQuality(
-        binding.recipe.recipeLevelTable.quality,
-        binding.recipe.materialQualityFactor,
-        binding.recipe.ingredients.map((ing, i) => ({
-          amount: ing.amount,
-          hqAmount: binding.hqAmounts[i] ?? 0,
-          level: ing.level,
-          canHq: ing.canHq,
-        })),
-      )
-      const advice = await adviseMeld(
-        list.map(r => r.recipe),
-        gs,
-        materiaPrices,
-        { initialQuality, isCancelled },
-      )
-      meldAdvicePerJob.set(job, advice)
-      meldJobsDone++
-      emitMeld(meldJobsDone)
+    // Cap advisor concurrency at POOL_SIZE: each adviseMeld keeps at most one
+    // solve outstanding at a time, so POOL_SIZE concurrent advisors already
+    // saturate the worker pool. Firing more than that (one per job) doesn't buy
+    // extra throughput — the excess just sits queued on the pool, and
+    // raceDeadline's 8s clock (meld-advisor.ts) starts at request time, not
+    // dispatch time, so queued requests silently burn their own deadline and
+    // come back mislabelled `timed-out` with degraded advice.
+    const jobEntries = [...recipesByJob.entries()]
+    const advicePerIndex: Array<[string, MeldAdvice] | null> = new Array(jobEntries.length).fill(null)
+    let nextJobIdx = 0
+    const advisorLane = async () => {
+      for (;;) {
+        const jobIdx = nextJobIdx++
+        if (jobIdx >= jobEntries.length) return
+        const [job, list] = jobEntries[jobIdx]
+        if (isCancelled()) continue
+        const gs = getGearset(job)
+        if (!gs) continue
+        // Legitimate "no binding recipe" skip must NOT advance progress (mirrors
+        // the pre-refactor `return` before try), but it still runs through this
+        // try/finally (so throws from findBindingRecipe are caught below) —
+        // hence the flag rather than an early return.
+        let legitimateSkip = false
+        try {
+          // Pick the binding recipe (highest difficulty, tiebreak by quality) to
+          // drive initialQuality. Prefer non-isDoubleMax recipes so the binding's
+          // hqAmounts (and thus initialQuality) are real — isDoubleMax recipes
+          // always have hqAmounts:[] which would zero out initialQuality and
+          // cause Step 0 of adviseMeld to incorrectly think the gearset needs
+          // melds. findBindingRecipe reads recipeLevelTable.difficulty/.quality
+          // once there are ≥2 candidates, so it must stay inside this try — a
+          // malformed sibling recipe can throw here synchronously, and pre-fix
+          // that throw escaped the try/catch entirely (it ran before the try
+          // block even opened), so Promise.allSettled swallowed it silently
+          // (no warn, no progress advance, unlike the old sequential version
+          // which threw loudly).
+          const nonMaxed = list.filter(r => !r.isDoubleMax)
+          const candidates = nonMaxed.length > 0 ? nonMaxed : list
+          const bindingRecipe = findBindingRecipe(candidates.map(r => r.recipe))
+          if (!bindingRecipe) {
+            legitimateSkip = true
+            continue
+          }
+          const binding = candidates.find(r => r.recipe === bindingRecipe)!
+          // Re-compute initialQuality from the binding recipe's hqAmounts (parallel to recipe.ingredients).
+          const initialQuality = calculateInitialQuality(
+            binding.recipe.recipeLevelTable.quality,
+            binding.recipe.materialQualityFactor,
+            binding.recipe.ingredients.map((ing, i) => ({
+              amount: ing.amount,
+              hqAmount: binding.hqAmounts[i] ?? 0,
+              level: ing.level,
+              canHq: ing.canHq,
+            })),
+          )
+          const advice = await adviseMeld(
+            list.map(r => r.recipe),
+            gs,
+            materiaPrices,
+            { initialQuality, isCancelled },
+          )
+          advicePerIndex[jobIdx] = [job, advice]
+        } catch (err) {
+          // Per-job isolation: one job's advisor failure must not kill the whole
+          // batch (pre-PR-2 a throw here aborted the entire run at 95%+).
+          console.warn(`[meld-advisor] adviseMeld failed for ${job}, skipping its advice:`, err)
+        } finally {
+          if (!legitimateSkip) {
+            meldJobsDone++
+            emitMeld(meldJobsDone)
+          }
+        }
+      }
+    }
+    await Promise.all(
+      Array.from({ length: Math.min(POOL_SIZE, jobEntries.length) }, advisorLane),
+    )
+    // Deterministic ordering: populate meldAdvicePerJob in recipesByJob (=
+    // target) order, not completion order — advisorLane's work-stealing loop
+    // means jobs can finish in any order depending on adviseMeld latency, and
+    // the BatchView 鑲嵌建議 cards iterate this Map directly via v-for.
+    for (const entry of advicePerIndex) {
+      if (entry) meldAdvicePerJob.set(entry[0], entry[1])
     }
   }
 

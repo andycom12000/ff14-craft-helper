@@ -67,6 +67,8 @@
 - **Buff 推薦內層**：`allCandidateRecipes` 的 simulate→solve 迴圈改並行（`Promise.all`）。外層 combo cheapest-first 序列**不動**，保住「最便宜先贏」語意。
 - `isCancelled` 檢查保留在各 task 開頭；取消行為不變。
 
+**實測（2026-07-07，branch `perf/parallelize-batch-loops`，hwc=20，dataset-3 配方 + Boundary lv100 gearset，cache bypass）**：等成本重配對（6118 + 5663，單解各 ~2.5s）串行 5056ms → 並行 2734ms（**−46%**，≥40% 判準達成；並行 wall 貼近 max=2540ms 的理論下限）。混合成本對（5827 + 6118，927ms/2482ms）串行 3409ms → 並行 2713/2529ms（−20~26%；此組理論天花板即 1−max/sum=−27%，實測貼頂）。量測法：Vite dev 模組直呼 `optimizeRecipe`×2 串行 vs `Promise.all`，warmup 後計時——與 Phase 6 per-job `adviseMeld` 並行同一機制（2-slot pool 從單槽序列改雙槽滿載）；迴圈層併發由單元測試 `maxInFlight` 斷言鎖住。
+
 ### PR-3 · 漸進式結果與等待體驗（Tier B2 + #162）
 
 - **Per-target 即時狀態**：`runBatchOptimization` 增加 optional callback `onTargetUpdate(index, status)`，status ∈ 排隊中 / 求解中（含 %）/ 完成（含步數、HQ 與否、wasmDur）/ 失敗（含原因）。batch store 加 `liveTargets`，run 結束清空。

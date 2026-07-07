@@ -10,7 +10,7 @@ vi.mock('@/solver/worker', () => ({
 }))
 
 import { generateCandidateCombos, evaluateBuffRecommendation } from '@/services/buff-recommender'
-import { simulateCraft } from '@/solver/worker'
+import { simulateCraft, solveCraft } from '@/solver/worker'
 
 const mockGearset: GearsetStats = { level: 100, craftsmanship: 4000, control: 3800, cp: 600, isSpecialist: false }
 
@@ -47,6 +47,23 @@ const mockRecipe: Recipe = {
 function makeDeficitResult(recipe: Recipe, qualityDeficit: number): RecipeOptimizeResult {
   return {
     recipe, quantity: 2, outputAmount: 2, actions: ['muscle_memory'],
+    hqAmounts: [3], initialQuality: 500, isDoubleMax: false,
+    materials: [{ itemId: 200, name: 'Mat A', icon: '', amount: 3 }],
+    qualityDeficit,
+  }
+}
+
+/**
+ * Like makeDeficitResult but with a distinct recipe id/name and a per-recipe
+ * `actions` marker, so mocks can identify which recipe a simulateCraft /
+ * solveCraft call belongs to without depending on call ordering.
+ */
+function makeRecipeResult(
+  id: number, name: string, actionMarker: string, qualityDeficit: number,
+): RecipeOptimizeResult {
+  return {
+    recipe: { ...mockRecipe, id, name },
+    quantity: 2, outputAmount: 2, actions: [actionMarker],
     hqAmounts: [3], initialQuality: 500, isDoubleMax: false,
     materials: [{ itemId: 200, name: 'Mat A', icon: '', amount: 3 }],
     qualityDeficit,
@@ -138,6 +155,64 @@ describe('evaluateBuffRecommendation', () => {
       undefined, [],
     )
     expect(result).toBeNull()
+  })
+
+  // PR-2: within one combo, candidate recipes are evaluated concurrently.
+  it('evaluates candidate recipes concurrently within a combo', async () => {
+    let inFlight = 0
+    let maxInFlight = 0
+    vi.mocked(simulateCraft).mockImplementation(async (config: any) => {
+      inFlight++
+      maxInFlight = Math.max(maxInFlight, inFlight)
+      await new Promise(resolve => setTimeout(resolve, 10))
+      inFlight--
+      return {
+        progress: config.progress, max_progress: config.progress,
+        quality: config.quality, max_quality: config.quality,
+      } as any
+    })
+
+    const recipes = [
+      makeRecipeResult(1, 'Recipe 1', 'action_r1', 1000),
+      makeRecipeResult(2, 'Recipe 2', 'action_r2', 1000),
+      makeRecipeResult(3, 'Recipe 3', 'action_r3', 1000),
+    ]
+
+    await evaluateBuffRecommendation(
+      recipes, new Set(), () => mockGearset, priceMap, () => false,
+    )
+
+    expect(maxInFlight).toBeGreaterThan(1) // serial version is pinned at 1
+  })
+
+  // PR-2: result parity — same inputs produce identical recommendation as before.
+  it('returns the same passedRecipes set and order as the serial implementation', async () => {
+    // r1, r3 pass on the first simulate; r2 fails simulate and only passes
+    // after a solve — the mock keys off the `actions` marker, not call order,
+    // so it stays correct regardless of how Promise.all interleaves calls.
+    vi.mocked(simulateCraft).mockImplementation(async (config: any, actions?: string[]) => {
+      const pass = {
+        progress: config.progress, max_progress: config.progress,
+        quality: config.quality, max_quality: config.quality,
+      }
+      const fail = { progress: 0, max_progress: config.progress, quality: 0, max_quality: config.quality }
+      return (actions?.[0] === 'action_r2' ? fail : pass) as any
+    })
+    vi.mocked(solveCraft).mockResolvedValue({
+      actions: ['solved_r2'], progress: 3500, quality: 7200, steps: 1,
+    } as any)
+
+    const r1 = makeRecipeResult(1, 'Recipe 1', 'action_r1', 1000)
+    const r2 = makeRecipeResult(2, 'Recipe 2', 'action_r2', 1000)
+    const r3 = makeRecipeResult(3, 'Recipe 3', 'action_r3', 1000)
+
+    const result = await evaluateBuffRecommendation(
+      [r1, r2, r3], new Set(), () => mockGearset, priceMap, () => false,
+    )
+
+    expect(result).not.toBeNull()
+    expect(result!.affectedRecipes.map(r => r.id)).toEqual([1, 2, 3])
+    expect(result!.affectedRecipes.map(r => r.name)).toEqual(['Recipe 1', 'Recipe 2', 'Recipe 3'])
   })
 })
 

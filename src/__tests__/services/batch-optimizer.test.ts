@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
+import { POOL_SIZE } from '@/solver/pool-config'
 
 const { MockSolveCancelledError } = vi.hoisted(() => {
   class MockSolveCancelledError extends Error {
@@ -818,5 +819,268 @@ describe('runBatchOptimization · Phase 6 meld advice', () => {
 
     // Quick-buy path does not run Phase 6.
     expect(result.meldAdvicePerJob).toBeUndefined()
+  })
+})
+
+// PR-2: Phase 6 runs per-job advisors concurrently and isolates per-job failures.
+describe('runBatchOptimization · Phase 6 meld advice parallelization', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const defaultSettings = {
+    crossServer: false, recursivePricing: false, maxRecursionDepth: 3,
+    exceptionStrategy: 'skip' as const, server: 'Chocobo', dataCenter: 'Mana',
+    meldAdvice: true,
+  }
+
+  /** Two-job target: distinct job + itemId per target so each lands in its own recipesByJob bucket. */
+  const makeTarget = (opts: { job: string; id: number }) => ({
+    recipe: { ...mockRecipe, id: opts.id, itemId: opts.id, job: opts.job },
+    quantity: 1,
+  })
+
+  /** Wires solveCraft/simulateCraft to double-max (matches this file's Phase 6 fixture convention)
+   *  and runs the batch with meldAdvice:true across both jobs. */
+  const runBatchWithMeld = (
+    targets: ReturnType<typeof makeTarget>[],
+    onProgress: Parameters<typeof runBatchOptimization>[3] = () => {},
+  ) => {
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory', 'groundwork'], progress: 3500, quality: 7200, steps: 2 })
+    vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
+    return runBatchOptimization(targets, () => mockGearset, defaultSettings, onProgress, () => false)
+  }
+
+  it('runs adviseMeld for multiple jobs concurrently (overlapping in-flight)', async () => {
+    const { adviseMeld } = await import('@/services/meld-advisor')
+    let inFlight = 0
+    let maxInFlight = 0
+    vi.mocked(adviseMeld).mockImplementation(async () => {
+      inFlight++
+      maxInFlight = Math.max(maxInFlight, inFlight)
+      await new Promise(r => setTimeout(r, 20))
+      inFlight--
+      return { plans: [], status: 'feasible' } as any
+    })
+    const targets = [
+      makeTarget({ job: 'CRP', id: 9101 }),
+      makeTarget({ job: 'BSM', id: 9102 }),
+    ]
+
+    await runBatchWithMeld(targets)
+
+    expect(vi.mocked(adviseMeld)).toHaveBeenCalledTimes(2)
+    expect(maxInFlight).toBe(2) // 序列版恆為 1；並行版兩個 job 同時在飛
+  })
+
+  it('one job failing adviseMeld does not kill the batch nor other jobs', async () => {
+    const { adviseMeld } = await import('@/services/meld-advisor')
+    vi.mocked(adviseMeld)
+      .mockRejectedValueOnce(new Error('advisor exploded'))
+      .mockResolvedValueOnce({
+        status: 'feasible',
+        costOptimal: { feasible: true, deltaStats: { craftsmanship: 0, control: 0, cp: 0 }, steps: [], totalGil: 0, confirmedBySolver: false },
+        alreadyMeetsThreshold: false,
+        hqSufficient: false,
+      } as any)
+    const targets = [
+      makeTarget({ job: 'CRP', id: 9103 }),
+      makeTarget({ job: 'BSM', id: 9104 }),
+    ]
+
+    // Must resolve, not throw — a per-job advisor failure is isolated.
+    const result = await runBatchWithMeld(targets)
+
+    // Entire batch completes; only the successful job's advice survives.
+    expect(result.meldAdvicePerJob?.size).toBe(1)
+  })
+
+  it('emits evaluating-meld progress as each job completes', async () => {
+    const { adviseMeld } = await import('@/services/meld-advisor')
+    vi.mocked(adviseMeld).mockResolvedValue({
+      status: 'feasible',
+      costOptimal: { feasible: true, deltaStats: { craftsmanship: 0, control: 0, cp: 0 }, steps: [], totalGil: 0, confirmedBySolver: false },
+      alreadyMeetsThreshold: false,
+      hqSufficient: false,
+    } as any)
+    const progressEvents: Array<{ completed: number; total: number }> = []
+    const targets = [
+      makeTarget({ job: 'CRP', id: 9105 }),
+      makeTarget({ job: 'BSM', id: 9106 }),
+    ]
+
+    await runBatchWithMeld(targets, (info) => {
+      if (info.phase === 'evaluating-meld') progressEvents.push({ completed: info.completed, total: info.total })
+    })
+
+    // At least 0/2 → … → 2/2: the first event is the pre-fetch flip, the last is full completion.
+    expect(progressEvents[0]).toEqual({ completed: 0, total: 2 })
+    expect(progressEvents[progressEvents.length - 1]).toEqual({ completed: 2, total: 2 })
+  })
+
+  // Regression guard: the per-job try used to start at `adviseMeld(...)`, leaving the
+  // preceding synchronous initialQuality computation (and its `recipeLevelTable.quality`
+  // access) uncovered. A throw there escaped straight to Promise.allSettled, which
+  // swallowed it silently — no console.warn, and `finally` (progress advance) never ran.
+  // The old sequential version threw loudly instead, so this was a silent regression.
+  it('a synchronous throw computing initialQuality (malformed recipeLevelTable) does not kill the batch and still advances progress', async () => {
+    const { adviseMeld } = await import('@/services/meld-advisor')
+    vi.mocked(adviseMeld).mockResolvedValue({
+      status: 'feasible',
+      costOptimal: { feasible: true, deltaStats: { craftsmanship: 0, control: 0, cp: 0 }, steps: [], totalGil: 0, confirmedBySolver: false },
+      alreadyMeetsThreshold: false,
+      hqSufficient: false,
+    } as any)
+
+    const brokenTarget = makeTarget({ job: 'CRP', id: 9107 })
+    const targets = [brokenTarget, makeTarget({ job: 'BSM', id: 9108 })]
+
+    // Sanity-checked directly: `binding.recipe.recipeLevelTable.quality` throws a
+    // TypeError synchronously when recipeLevelTable is undefined. But recipeLevelTable
+    // can't just start out undefined — solveCraftForRecipe's config building
+    // (solver/config.ts craftParamsToSolverConfig) unconditionally reads
+    // recipeLevelTable.classJobLevel/.quality too, in Phase 1, regardless of canHq,
+    // so the target would be dropped as a "quality-unachievable" exception before
+    // ever reaching Phase 6 — defeating the point of this test (both jobs must
+    // reach recipesByJob so total stays 2/2). Instead, corrupt recipeLevelTable
+    // from inside the getAggregatedPrices mock: Phase 4 pricing always runs after
+    // Phase 1's solve has completed for every target and always before Phase 6, so
+    // this reliably simulates "the binding recipe's data goes bad" without relying
+    // on brittle call-count timing.
+    const { getAggregatedPrices } = await import('@/api/universalis')
+    vi.mocked(getAggregatedPrices).mockImplementation(async () => {
+      ;(brokenTarget.recipe as any).recipeLevelTable = undefined
+      return new Map()
+    })
+
+    const progressEvents: Array<{ completed: number; total: number }> = []
+    const result = await runBatchWithMeld(targets, (info) => {
+      if (info.phase === 'evaluating-meld') progressEvents.push({ completed: info.completed, total: info.total })
+    })
+
+    // (1) the whole batch resolves rather than throwing/rejecting (implicit: the
+    //     `await` above would reject and fail this test otherwise).
+    // (2) the healthy job's advice still survives; the broken job's is skipped.
+    expect(result.meldAdvicePerJob?.size).toBe(1)
+    expect(result.meldAdvicePerJob?.has('BSM')).toBe(true)
+    // (3) progress still reaches 2/2 — the broken job's `finally` still fires.
+    expect(progressEvents[progressEvents.length - 1]).toEqual({ completed: 2, total: 2 })
+  })
+
+  // Whole-branch review Important #1: unbounded per-job fan-out races the
+  // meld-advisor's 8s raceDeadline (meld-advisor.ts), which starts counting at
+  // request time, not dispatch time. With only POOL_SIZE=2 worker slots, a 3rd+
+  // concurrent adviseMeld call sits queued burning its own deadline and can
+  // come back mislabelled `timed-out`. Phase 6 must cap concurrency at
+  // POOL_SIZE regardless of job count.
+  it('caps advisor concurrency at POOL_SIZE even with 3+ jobs', async () => {
+    const { adviseMeld } = await import('@/services/meld-advisor')
+    let inFlight = 0
+    let maxInFlight = 0
+    vi.mocked(adviseMeld).mockImplementation(async () => {
+      inFlight++
+      maxInFlight = Math.max(maxInFlight, inFlight)
+      await new Promise(r => setTimeout(r, 20))
+      inFlight--
+      return { plans: [], status: 'feasible' } as any
+    })
+    const targets = [
+      makeTarget({ job: 'CRP', id: 9109 }),
+      makeTarget({ job: 'BSM', id: 9110 }),
+      makeTarget({ job: 'ARM', id: 9111 }),
+    ]
+
+    await runBatchWithMeld(targets)
+
+    expect(vi.mocked(adviseMeld)).toHaveBeenCalledTimes(3)
+    // Capped at POOL_SIZE, NOT at job count — this is the whole point of the fix.
+    expect(maxInFlight).toBe(POOL_SIZE)
+  })
+
+  // Whole-branch review Important #2: meldAdvicePerJob.set() used to run inside
+  // each per-job task, so Map insertion order == completion order, and
+  // BatchView's v-for over the Map iterated cards in that (run-to-run
+  // nondeterministic) order. Advice must be inserted in target/recipesByJob
+  // order regardless of which job's adviseMeld settles first.
+  it('orders meldAdvicePerJob deterministically by target order, not completion order', async () => {
+    const { adviseMeld } = await import('@/services/meld-advisor')
+    vi.mocked(adviseMeld).mockImplementation(async (recipes: any) => {
+      const job = recipes[0]?.job
+      const delay = job === 'CRP' ? 40 : 5 // BSM resolves first despite being requested second
+      await new Promise(r => setTimeout(r, delay))
+      return {
+        status: 'feasible',
+        costOptimal: { feasible: true, deltaStats: { craftsmanship: 0, control: 0, cp: 0 }, steps: [], totalGil: 0, confirmedBySolver: false },
+        alreadyMeetsThreshold: false,
+        hqSufficient: false,
+      } as any
+    })
+    const targets = [
+      makeTarget({ job: 'CRP', id: 9112 }),
+      makeTarget({ job: 'BSM', id: 9113 }),
+    ]
+
+    const result = await runBatchWithMeld(targets)
+
+    expect([...result.meldAdvicePerJob!.keys()]).toEqual(['CRP', 'BSM'])
+  })
+
+  // Whole-branch review Minor #3: findBindingRecipe (called for jobs with ≥2
+  // candidate recipes) used to run BEFORE the try block, so a malformed
+  // sibling recipe's recipeLevelTable throwing there escaped the try/catch
+  // entirely — Promise.allSettled swallowed it silently (no warn, no progress
+  // advance). It must now be inside the try so the failure is isolated like
+  // any other per-job advisor failure.
+  it('a throw in findBindingRecipe (≥2 same-job candidates, malformed sibling recipe) does not kill the batch and still advances progress', async () => {
+    const { adviseMeld } = await import('@/services/meld-advisor')
+    vi.mocked(adviseMeld).mockResolvedValue({
+      status: 'feasible',
+      costOptimal: { feasible: true, deltaStats: { craftsmanship: 0, control: 0, cp: 0 }, steps: [], totalGil: 0, confirmedBySolver: false },
+      alreadyMeetsThreshold: false,
+      hqSufficient: false,
+    } as any)
+
+    // Two CRP recipes so findBindingRecipe's comparison loop actually reads the
+    // second candidate's recipeLevelTable (with only 1 candidate it never does —
+    // see findBindingRecipe's `targets.slice(1)`), plus one healthy BSM recipe.
+    const crp1: Recipe = { ...mockRecipe, id: 9114, itemId: 9114, job: 'CRP' }
+    const crp2: Recipe = { ...mockRecipe, id: 9115, itemId: 9115, job: 'CRP' }
+    const bsmR: Recipe = { ...mockRecipe, id: 9116, itemId: 9116, job: 'BSM' }
+    const targets = [
+      { recipe: crp1, quantity: 1 },
+      { recipe: crp2, quantity: 1 },
+      { recipe: bsmR, quantity: 1 },
+    ]
+
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory', 'groundwork'], progress: 3500, quality: 7200, steps: 2 })
+    vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
+
+    // Corrupt crp2's recipeLevelTable from inside the getAggregatedPrices mock
+    // (Phase 4, after Phase 1's solve already used the intact object) — same
+    // technique as the calculateInitialQuality regression test above. This makes
+    // findBindingRecipe's `r.recipeLevelTable.difficulty` read on crp2 throw
+    // synchronously when Phase 6 compares it against crp1.
+    const { getAggregatedPrices } = await import('@/api/universalis')
+    vi.mocked(getAggregatedPrices).mockImplementation(async () => {
+      ;(crp2 as any).recipeLevelTable = undefined
+      return new Map()
+    })
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const progressEvents: Array<{ completed: number; total: number }> = []
+    const result = await runBatchOptimization(
+      targets,
+      () => mockGearset,
+      defaultSettings, // meldAdvice: true
+      (info) => { if (info.phase === 'evaluating-meld') progressEvents.push({ completed: info.completed, total: info.total }) },
+      () => false,
+    )
+
+    // Whole batch resolves; CRP's advice is dropped, BSM's survives.
+    expect(result.meldAdvicePerJob?.size).toBe(1)
+    expect(result.meldAdvicePerJob?.has('BSM')).toBe(true)
+    expect(result.meldAdvicePerJob?.has('CRP')).toBe(false)
+    // Progress still reaches 2/2 (2 jobs: CRP, BSM) — the broken job's `finally` fires.
+    expect(progressEvents[progressEvents.length - 1]).toEqual({ completed: 2, total: 2 })
+    expect(warnSpy).toHaveBeenCalled()
+    warnSpy.mockRestore()
   })
 })

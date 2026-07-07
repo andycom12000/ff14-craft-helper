@@ -277,20 +277,22 @@ export async function evaluateBuffRecommendation(
     const candidate = candidates[i]
     const combo: BuffCombo = { food: candidate.food, medicine: candidate.medicine }
 
-    // Step 4: test each recipe with this combo (partial pass)
-    const passedRecipes: RecipeOptimizeResult[] = []
-    for (const r of allCandidateRecipes) {
+    // Step 4: test each recipe with this combo (partial pass) — recipes are
+    // independent, so evaluate them concurrently (2-slot pool throttles).
+    // Map order preserves the original push order for downstream consumers.
+    const evaluated = await Promise.all(allCandidateRecipes.map(async (r) => {
       if (isCancelled()) return null
       const gs = getGearset(r.recipe.job)
-      if (!gs) continue
-
+      if (!gs) return null
       let passes = await simulateWithBuffedStats(r.recipe, gs, combo, r.actions)
       if (!passes) {
         if (isCancelled()) return null
         passes = await solveWithBuffedStats(r.recipe, gs, combo)
       }
-      if (passes) passedRecipes.push(r)
-    }
+      return passes ? r : null
+    }))
+    if (isCancelled()) return null
+    const passedRecipes = evaluated.filter((r): r is RecipeOptimizeResult => r !== null)
 
     // Step 5: evaluate results
     const passedEnabled = passedRecipes.filter(r => unachievableIds.has(r.recipe.id))
