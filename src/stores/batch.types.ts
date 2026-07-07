@@ -34,7 +34,7 @@ export type BatchTargetStatus =
   | { state: 'failed'; reason: string }
 
 export interface BatchException {
-  type: 'level-insufficient' | 'quality-unachievable'
+  type: 'level-insufficient' | 'quality-unachievable' | 'solve-timeout'
   recipe: Recipe
   quantity: number
   message: string

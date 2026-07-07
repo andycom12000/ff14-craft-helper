@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 import { POOL_SIZE } from '@/solver/pool-config'
+import { SolveTimeoutError } from '@/solver/errors'
 
 const { MockSolveCancelledError } = vi.hoisted(() => {
   class MockSolveCancelledError extends Error {
@@ -229,6 +230,64 @@ describe('runBatchOptimization', () => {
     const levelExc = result.exceptions.find((e) => e.type === 'level-insufficient')
     expect(levelExc).toBeUndefined()
     expect(solveCraft).toHaveBeenCalled()
+  })
+
+  it('surfaces a solve-timeout exception when a solve overruns its deadline', async () => {
+    // A solve that exceeds its per-solve deadline aborts and rejects with
+    // SolveTimeoutError (withSolveDeadline re-labels the abort). The batch
+    // pipeline must isolate it as its own `solve-timeout` exception — skipped,
+    // retry-eligible — instead of stalling the batch or reading as a generic
+    // failure.
+    vi.mocked(solveCraft).mockRejectedValue(new SolveTimeoutError())
+    const gearset: GearsetStats = { level: 100, craftsmanship: 4000, control: 3800, cp: 600, isSpecialist: false }
+    const result = await runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 1 }],
+      () => gearset,
+      defaultSettings,
+      () => {}, () => false,
+    )
+    expect(result.exceptions).toHaveLength(1)
+    expect(result.exceptions[0].type).toBe('solve-timeout')
+    expect(result.exceptions[0].action).toBe('skipped')
+    expect(result.exceptions[0].message).toBe('求解超時')
+  })
+
+  it('caps Phase-1 solve concurrency at POOL_SIZE so queued targets do not burn their deadline', async () => {
+    // Regression: withSolveDeadline arms its 60s clock the instant it's called,
+    // so Phase-1 must NOT fire all targets at once — only POOL_SIZE run on the
+    // worker pool; an unbounded fan-out would leave tail targets queued while
+    // their deadline elapses, mislabeling healthy recipes as 求解超時. The
+    // work-stealing lanes cap concurrency so a target's deadline only starts
+    // once a lane picks it up.
+    let inFlight = 0
+    let maxInFlight = 0
+    const pending: Array<(v: unknown) => void> = []
+    vi.mocked(solveCraft).mockImplementation((() => new Promise((resolve) => {
+      inFlight++
+      maxInFlight = Math.max(maxInFlight, inFlight)
+      pending.push((v) => { inFlight--; resolve(v) })
+    })) as any)
+    vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
+    const gearset: GearsetStats = { level: 100, craftsmanship: 4000, control: 3800, cp: 600, isSpecialist: false }
+    const targets = Array.from({ length: 6 }, () => ({ recipe: mockRecipe, quantity: 1 }))
+    let done = false
+    const batchPromise = runBatchOptimization(
+      targets, () => gearset, defaultSettings, () => {}, () => false,
+    ).finally(() => { done = true })
+    // Drain until the batch actually settles: flush macrotasks so lanes can
+    // dispatch, resolving whatever solves are in flight. Gate on `done`, NOT on
+    // pending/inFlight — those dip to zero in the gap between a lane resolving
+    // one solve and dispatching the next, which would let the loop exit early
+    // and hang the batch. Concurrency must never exceed POOL_SIZE.
+    for (let guard = 0; guard < 500 && !done; guard++) {
+      await new Promise((r) => setTimeout(r, 0))
+      while (pending.length > 0) {
+        pending.shift()!({ actions: ['muscle_memory'], progress: 3500, quality: 7200, steps: 1 })
+      }
+    }
+    await batchPromise
+    expect(maxInFlight).toBeGreaterThan(0)
+    expect(maxInFlight).toBeLessThanOrEqual(POOL_SIZE)
   })
 
   it('does NOT raise quality-unachievable exception on non-HQ recipe when quality is below max', async () => {

@@ -7,3 +7,16 @@ export class SolveCancelledError extends Error {
     this.name = 'SolveCancelledError'
   }
 }
+
+// A solve that exceeded its per-solve deadline (batch Phase-1). Distinct from
+// SolveCancelledError so the batch pipeline can surface "求解超時" as its own
+// exception type (retry-eligible) instead of a generic failure or a user
+// cancellation. The deadline aborts via the same AbortSignal path, so the
+// underlying rejection is SolveCancelledError — withSolveDeadline re-labels it
+// to this ONLY when its own timer fired (not an outer cancel).
+export class SolveTimeoutError extends Error {
+  constructor(message = '求解超時') {
+    super(message)
+    this.name = 'SolveTimeoutError'
+  }
+}
