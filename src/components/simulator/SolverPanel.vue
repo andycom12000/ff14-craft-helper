@@ -4,7 +4,7 @@ import { ElMessage } from 'element-plus'
 import { useSimulatorStore } from '@/stores/simulator'
 import { useRecipeStore } from '@/stores/recipe'
 import { useGearsetsStore } from '@/stores/gearsets'
-import { solveCraft, cancelSolve, disposeWorker, waitForWasm, getWasmStatus } from '@/solver/worker'
+import { solveCraft, disposeWorker, waitForWasm, getWasmStatus, SolveCancelledError } from '@/solver/worker'
 import type { CraftParams } from '@/engine/simulator'
 import type { SolverConfig, SolverStatus } from '@/solver/raphael'
 import { getSkillName } from '@/engine/skills'
@@ -133,6 +133,8 @@ function buildConfig(): SolverConfig | null {
   }
 }
 
+let solveController: AbortController | null = null
+
 async function handleSolve() {
   const config = buildConfig()
   if (!config) return
@@ -141,31 +143,39 @@ async function handleSolve() {
   progress.value = 0
   errorMessage.value = ''
   simStore.solverRunning = true
+  const controller = new AbortController()
+  solveController = controller
 
   try {
     milestones.markMilestoneOnce('ran_solver')
     const result = await solveCraft(config, (percent) => {
       progress.value = percent
-    })
+    }, controller.signal)
     simStore.setActions(result.actions)
     emit('solve-complete', { actions: result.actions })
     status.value = 'done'
     ElMessage.success('求解完成，已套用至模擬器')
   } catch (err) {
-    if (err instanceof Error && err.message === '求解已取消') {
-      status.value = 'cancelled'
+    if (err instanceof SolveCancelledError) {
+      // handleCancel already flipped status/solverRunning/toast — just swallow.
     } else {
       status.value = 'error'
       errorMessage.value = err instanceof Error ? err.message : String(err)
       ElMessage.error('求解失敗: ' + errorMessage.value)
     }
   } finally {
-    simStore.solverRunning = false
+    // Only tear down if this invocation is still the current one. A superseded
+    // solve (cancel → immediate re-solve) settling late must not null out the
+    // newer request's controller or flip its solverRunning flag to idle.
+    if (solveController === controller) {
+      solveController = null
+      simStore.solverRunning = false
+    }
   }
 }
 
 function handleCancel() {
-  cancelSolve()
+  solveController?.abort()
   status.value = 'cancelled'
   simStore.solverRunning = false
   ElMessage.info('求解已取消')

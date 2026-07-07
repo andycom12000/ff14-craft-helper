@@ -1,6 +1,7 @@
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 import type { BatchException, BatchTarget, BatchResults, TodoItem, BuyFinishedDecision, BuffRecommendation, SelfCraftCandidate } from '@/stores/batch'
+import type { BatchTargetStatus } from '@/stores/batch.types'
 import { adviseMeld, findBindingRecipe } from '@/services/meld-advisor'
 import type { MeldAdvice } from '@/services/meld-advisor'
 import { fetchMateriaPriceMap } from '@/api/universalis'
@@ -204,6 +205,13 @@ export async function runBatchOptimization(
     solverPercent: number
   }) => void,
   isCancelled: () => boolean,
+  /**
+   * Optional per-target live status reporter. Fired queued → solving → done/failed
+   * for each `targets[index]` during Phase 1 (solve + HQ optimize), independent of
+   * the aggregate `onProgress` callback. Lets the UI render progressive per-row
+   * state instead of waiting for the whole batch to settle.
+   */
+  onTargetUpdate?: (index: number, status: BatchTargetStatus) => void,
 ): Promise<BatchResults> {
   const recipeResults: RecipeOptimizeResult[] = []
   const exceptions: BatchException[] = []
@@ -234,70 +242,57 @@ export async function runBatchOptimization(
       solverPercent: aggregate,
     })
   }
-  const phase1Settled = await Promise.allSettled(targets.map(async (target, i) => {
-    if (isCancelled()) throw new SolveCancelledError()
-    const gearset = getGearset(target.recipe.job)
-    // Hard-block only when the gearset is missing OR (below recipe level AND
-    // the recipe has at least one hard-gate signal — stars, expert, required
-    // stats). Standard 0-star recipes can be attempted below level; the solver
-    // already applies progress/quality modifiers as the in-game penalty.
-    const hardGates = recipeHardGateReasons(target.recipe)
-    if (!gearset || (gearset.level < target.recipe.level && hardGates.length > 0)) {
-      recipePercents[i] = 100
-      emitAggregateProgress(target.recipe.name)
-      return { kind: 'level-insufficient' as const, target, gearset, hardGates }
-    }
-    try {
-      const result = await optimizeRecipe(target.recipe, gearset, (pct) => {
-        recipePercents[i] = pct
-        emitAggregateProgress(target.recipe.name)
-      }, buffs)
-      completedCount++
-      recipePercents[i] = 100
-      emitAggregateProgress('')
-      return { kind: 'ok' as const, target, result }
-    } catch (err) {
-      if (err instanceof SolveCancelledError) throw err
-      completedCount++
-      recipePercents[i] = 100
-      emitAggregateProgress(target.recipe.name)
-      return { kind: 'failed' as const, target, error: err }
-    }
-  }))
+  targets.forEach((_, i) => onTargetUpdate?.(i, { state: 'queued' }))
 
-  for (const settled of phase1Settled) {
-    if (settled.status === 'rejected') {
-      if (settled.reason instanceof SolveCancelledError) throw settled.reason
-      continue
-    }
-    const v = settled.value
+  // Per-target classification of a settled Phase 1 outcome: either a craftable
+  // result or a BatchException, plus the matching terminal BatchTargetStatus.
+  // Pure per-target logic (no shared-state pushes) so the map function below can
+  // call it the moment ITS OWN target settles — real-time onTargetUpdate emission
+  // for progressive reveal — while the post-allSettled loop replays the SAME
+  // classification objects in target order, keeping exceptions / recipeResults /
+  // qualityUnachievableResults ordering deterministic and the status `reason`
+  // string identical to the exception's `details`.
+  type Phase1Outcome =
+    | { kind: 'level-insufficient'; target: BatchTarget; gearset: GearsetStats | null; hardGates: ReturnType<typeof recipeHardGateReasons> }
+    | { kind: 'ok'; target: BatchTarget; result: RecipeOptimizeResult }
+    | { kind: 'failed'; target: BatchTarget; error: unknown }
+  type Phase1Classification =
+    | { kind: 'result'; result: RecipeOptimizeResult; status: BatchTargetStatus }
+    | { kind: 'exception'; exception: BatchException; status: BatchTargetStatus; qualityUnachievableResult?: RecipeOptimizeResult }
+  const classifyPhase1Outcome = (v: Phase1Outcome): Phase1Classification => {
     if (v.kind === 'level-insufficient') {
       const gearsetLevel = v.gearset?.level ?? 0
       const details = v.gearset
         ? `「${v.target.recipe.name}」是${describeHardGateReasons(v.hardGates)}配方，必須達到等級 ${v.target.recipe.level} 才能合成（目前 ${v.target.recipe.job} 等級 ${gearsetLevel}）`
         : `尚未設定 ${v.target.recipe.job} 裝備組`
-      exceptions.push({
-        type: 'level-insufficient', recipe: v.target.recipe, quantity: v.target.quantity,
-        message: v.gearset ? '配方有硬性限制' : '尚未設定裝備組',
-        details,
-        action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
-      })
-      continue
+      return {
+        kind: 'exception',
+        exception: {
+          type: 'level-insufficient', recipe: v.target.recipe, quantity: v.target.quantity,
+          message: v.gearset ? '配方有硬性限制' : '尚未設定裝備組',
+          details,
+          action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
+        },
+        status: { state: 'failed', reason: details },
+      }
     }
     if (v.kind === 'failed') {
-      exceptions.push({
-        type: 'quality-unachievable', recipe: v.target.recipe, quantity: v.target.quantity,
-        message: '計算失敗', details: `「${v.target.recipe.name}」計算過程發生錯誤：${v.error}`,
-        action: 'skipped',
-      })
-      continue
+      const details = `「${v.target.recipe.name}」計算過程發生錯誤：${v.error}`
+      return {
+        kind: 'exception',
+        exception: {
+          type: 'quality-unachievable', recipe: v.target.recipe, quantity: v.target.quantity,
+          message: '計算失敗', details,
+          action: 'skipped',
+        },
+        status: { state: 'failed', reason: details },
+      }
     }
     const result = v.result
     const yieldPerCraft = Math.max(1, v.target.recipe.amountResult)
     result.outputAmount = v.target.quantity
     result.quantity = Math.ceil(v.target.quantity / yieldPerCraft)
     if (!result.isDoubleMax && result.hqAmounts.length === 0) {
-      if (result.recipe.canHq) qualityUnachievableResults.push(result)
       // Diagnose why isDoubleMax is false to give a precise message:
       //   - canHq=true: quality didn't reach max even with full HQ materials
       //   - canHq=false + requiredQuality>0: tribe-quest deliverable, quality
@@ -317,14 +312,86 @@ export async function runBatchOptimization(
         message = '無法完成合成'
         details = `「${v.target.recipe.name}」目前裝備配置無法將進度推滿`
       }
-      exceptions.push({
-        type: 'quality-unachievable', recipe: v.target.recipe, quantity: v.target.quantity,
-        message, details,
-        action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
-      })
+      return {
+        kind: 'exception',
+        exception: {
+          type: 'quality-unachievable', recipe: v.target.recipe, quantity: v.target.quantity,
+          message, details,
+          action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
+        },
+        status: { state: 'failed', reason: details },
+        // canHq quality-unachievable recipes still feed buff recommendation.
+        qualityUnachievableResult: result.recipe.canHq ? result : undefined,
+      }
+    }
+    return {
+      kind: 'result',
+      result,
+      status: { state: 'done', steps: result.actions.length, isDoubleMax: result.isDoubleMax },
+    }
+  }
+
+  const phase1Settled = await Promise.allSettled(targets.map(async (target, i): Promise<Phase1Classification> => {
+    if (isCancelled()) throw new SolveCancelledError()
+    const gearset = getGearset(target.recipe.job)
+    // Hard-block only when the gearset is missing OR (below recipe level AND
+    // the recipe has at least one hard-gate signal — stars, expert, required
+    // stats). Standard 0-star recipes can be attempted below level; the solver
+    // already applies progress/quality modifiers as the in-game penalty.
+    const hardGates = recipeHardGateReasons(target.recipe)
+    let outcome: Phase1Outcome
+    if (!gearset || (gearset.level < target.recipe.level && hardGates.length > 0)) {
+      recipePercents[i] = 100
+      emitAggregateProgress(target.recipe.name)
+      outcome = { kind: 'level-insufficient', target, gearset, hardGates }
+    } else {
+      try {
+        const result = await optimizeRecipe(target.recipe, gearset, (pct) => {
+          recipePercents[i] = pct
+          onTargetUpdate?.(i, { state: 'solving', percent: pct })
+          emitAggregateProgress(target.recipe.name)
+        }, buffs)
+        completedCount++
+        recipePercents[i] = 100
+        emitAggregateProgress('')
+        outcome = { kind: 'ok', target, result }
+      } catch (err) {
+        if (err instanceof SolveCancelledError) throw err
+        completedCount++
+        recipePercents[i] = 100
+        emitAggregateProgress(target.recipe.name)
+        outcome = { kind: 'failed', target, error: err }
+      }
+    }
+    // Classify and emit the terminal done/failed HERE — the moment this target's
+    // own work settles — NOT after Promise.allSettled. Emitting post-allSettled
+    // made every target's terminal status wait on the slowest sibling, defeating
+    // the progressive-reveal contract of onTargetUpdate.
+    const classification = classifyPhase1Outcome(outcome)
+    onTargetUpdate?.(i, classification.status)
+    return classification
+  }))
+
+  for (let i = 0; i < phase1Settled.length; i++) {
+    const settled = phase1Settled[i]
+    if (settled.status === 'rejected') {
+      if (settled.reason instanceof SolveCancelledError) throw settled.reason
+      // Defensive: the map function catches every non-cancellation error itself,
+      // so this only fires if classification/emission threw. Keep the invariant
+      // that every index reaches a terminal state.
+      onTargetUpdate?.(i, { state: 'failed', reason: String(settled.reason) })
       continue
     }
-    recipeResults.push(result)
+    // Consume the already-emitted classifications in target order so
+    // exceptions / qualityUnachievableResults / recipeResults keep the exact
+    // same deterministic ordering semantics as before.
+    const c = settled.value
+    if (c.kind === 'exception') {
+      exceptions.push(c.exception)
+      if (c.qualityUnachievableResult) qualityUnachievableResults.push(c.qualityUnachievableResult)
+      continue
+    }
+    recipeResults.push(c.result)
   }
 
   if (isCancelled()) throw new SolveCancelledError()
@@ -707,8 +774,18 @@ export async function runBatchOptimization(
     // shows the job counter via its shared showCounter channel.
     const meldJobTotal = recipesByJob.size
     let meldJobsDone = 0
+    // #162: per-job in-flight fraction (probes/probeBudget from adviseMeld's
+    // onProgress), so `completed` moves smoothly between the integer
+    // meldJobsDone ticks instead of sitting frozen at N/M for however long the
+    // slowest still-running job takes (review: a 2-job batch looked frozen at
+    // 0/2 until BOTH jobs settled, then jumped straight to 2/2).
+    const jobFractions = new Array(meldJobTotal).fill(0)
     const emitMeld = (done: number) =>
       onProgress({ completed: done, total: meldJobTotal, name: '', phase: 'evaluating-meld', solverPercent: 0 })
+    const emitMeldSmooth = () => {
+      const fracSum = jobFractions.reduce((s, f) => s + f, 0)
+      emitMeld(meldJobsDone + fracSum)
+    }
     emitMeld(0) // flip to the meld phase before the (blocking) price fetch
     let materiaPrices: Map<number, MarketData>
     try {
@@ -776,7 +853,17 @@ export async function runBatchOptimization(
             list.map(r => r.recipe),
             gs,
             materiaPrices,
-            { initialQuality, isCancelled },
+            {
+              initialQuality,
+              isCancelled,
+              // #162: track this job's in-flight fraction so the aggregate
+              // `completed` figure keeps moving while this job is still
+              // running, instead of only ticking on job completion.
+              onProgress: (p) => {
+                jobFractions[jobIdx] = Math.min(0.99, p.probes / Math.max(1, p.probeBudget))
+                emitMeldSmooth()
+              },
+            },
           )
           advicePerIndex[jobIdx] = [job, advice]
         } catch (err) {
@@ -784,9 +871,14 @@ export async function runBatchOptimization(
           // batch (pre-PR-2 a throw here aborted the entire run at 95%+).
           console.warn(`[meld-advisor] adviseMeld failed for ${job}, skipping its advice:`, err)
         } finally {
+          // The job's own contribution is now carried by the meldJobsDone
+          // integer, not its (possibly stale) in-flight fraction.
+          jobFractions[jobIdx] = 0
           if (!legitimateSkip) {
             meldJobsDone++
-            emitMeld(meldJobsDone)
+            // Smooth emit: raw emitMeld(meldJobsDone) here would discard the
+            // other in-flight jobs' fractions and step the bar backwards.
+            emitMeldSmooth()
           }
         }
       }

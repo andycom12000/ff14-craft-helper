@@ -5,7 +5,7 @@ import { ElMessage } from 'element-plus'
 // ElMessage's style side-effect is loaded by useSimulator (the only host of this
 // card) at module scope, so the toast renders correctly without re-importing the
 // CSS here — and importing it here would break the jsdom component test.
-import type { MeldAdvice, MeldStep } from '@/services/meld-advisor'
+import type { MeldAdvice, MeldAdviceProgress, MeldStep } from '@/services/meld-advisor'
 import type { CraftStat } from '@/engine/materia'
 import { formatMeldStepShort, GRADE_ROMAN, STAT_SHORT_LABELS, summarizeMeldSteps } from '@/engine/materia'
 import { formatGil } from '@/utils/format'
@@ -23,10 +23,15 @@ const props = withDefaults(defineProps<{
    *  so the inline 「存成配裝…」 reverse-gate may be offered to write it down
    *  permanently. */
   overrideActive?: boolean
+  /** #162: live progress ticks from the in-flight adviseMeld call, forwarded by
+   *  `useMeldAdvisor`. Null whenever no run is in flight — the loading state
+   *  then falls back to the static 「難配方可能需數十秒…」hint only. */
+  progress?: MeldAdviceProgress | null
 }>(), {
   mode: 'ability',
   showApply: true,
   overrideActive: false,
+  progress: null,
 })
 
 const emit = defineEmits<{
@@ -208,6 +213,13 @@ async function copyShoppingList() {
              the wait can reach tens of seconds. Set that expectation so the
              spinner doesn't read as a hang. -->
         <p class="loading-hint" data-test="loading-hint">難配方可能需數十秒，請稍候</p>
+        <!-- #162: live rung/probe counter once the advisor starts reporting
+             progress. Purely observational — falls back to the static hint
+             above when no progress tick has arrived yet (or the caller never
+             wired the prop). -->
+        <div v-if="progress" class="advisor-progress" data-test="advisor-progress">
+          <template v-if="progress.stage === 'ladder'">階梯 {{ progress.rung }}/{{ progress.rungTotal }} · </template>探測 {{ progress.probes }}/{{ progress.probeBudget }}
+        </div>
       </div>
 
       <div v-else-if="isStale" class="stale-state">
@@ -393,6 +405,15 @@ async function copyShoppingList() {
 .loading-hint {
   margin: 0 0 0 28px;
   font-size: 12.5px;
+  color: var(--app-text-muted, oklch(0.5 0.03 60));
+}
+
+/* #162: rung/probe live counter — same indent/weight as the static hint above
+   it so the two never compete for attention. */
+.advisor-progress {
+  margin: 0 0 0 28px;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
   color: var(--app-text-muted, oklch(0.5 0.03 60));
 }
 

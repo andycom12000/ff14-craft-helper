@@ -51,6 +51,7 @@ vi.mock('@/services/meld-advisor', async (importOriginal) => {
 
 import { optimizeRecipe, runBatchOptimization } from '@/services/batch-optimizer'
 import { solveCraft, simulateCraft, SolveCancelledError } from '@/solver/worker'
+import type { BatchTargetStatus } from '@/stores/batch.types'
 
 const mockRecipe: Recipe = {
   id: 1, itemId: 100, name: 'Test', icon: '', job: 'CRP',
@@ -594,6 +595,124 @@ describe('runBatchOptimization', () => {
   })
 })
 
+describe('onTargetUpdate per-target status', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const defaultSettings = {
+    crossServer: false, recursivePricing: false, maxRecursionDepth: 3,
+    exceptionStrategy: 'skip' as const, server: 'Chocobo', dataCenter: 'Mana',
+  }
+
+  it('reports queued → solving → done per target with index alignment', async () => {
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory', 'groundwork'], progress: 3500, quality: 7200, steps: 2 })
+    vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
+    const target0 = { recipe: mockRecipe, quantity: 1 }
+    const target1 = { recipe: { ...mockRecipe, id: 2 }, quantity: 1 }
+    const updates: Array<[number, BatchTargetStatus]> = []
+
+    await runBatchOptimization(
+      [target0, target1],
+      () => mockGearset,
+      defaultSettings,
+      () => {}, () => false,
+      (i, s) => updates.push([i, s]),
+    )
+
+    // Every index has a queued starting point and a done terminal point.
+    // Not asserting a 'solving' event in between — the mocked solveCraft
+    // resolves immediately without invoking the percent callback, so
+    // asserting its presence would be a mock artifact, not real behaviour.
+    for (const idx of [0, 1]) {
+      const seq = updates.filter(([i]) => i === idx).map(([, s]) => s.state)
+      expect(seq[0]).toBe('queued')
+      expect(seq[seq.length - 1]).toBe('done')
+    }
+    const done0 = updates.filter(([i, s]) => i === 0 && s.state === 'done').map(([, s]) => s)
+    expect(done0[0]).toMatchObject({ steps: 2, isDoubleMax: true })
+  })
+
+  it('reports failed with reason for exception targets and does not throw', async () => {
+    vi.mocked(solveCraft).mockRejectedValue(new Error('無法達成雙滿'))
+    const updates: Array<[number, BatchTargetStatus]> = []
+
+    const res = await runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 1 }],
+      () => mockGearset,
+      defaultSettings,
+      () => {}, () => false,
+      (i, s) => updates.push([i, s]),
+    )
+
+    const failed = updates.filter(([, s]) => s.state === 'failed')
+    expect(failed.length).toBeGreaterThan(0)
+    expect(String((failed[0][1] as { state: 'failed'; reason: string }).reason)).toContain('無法達成雙滿')
+    expect(res.exceptions.length).toBe(1) // existing exception behaviour unchanged
+  })
+
+  it('reports failed with reason for level-insufficient targets', async () => {
+    const lowGearset: GearsetStats = { level: 50, craftsmanship: 1000, control: 1000, cp: 300, isSpecialist: false }
+    const updates: Array<[number, BatchTargetStatus]> = []
+
+    await runBatchOptimization(
+      [{ recipe: starredMockRecipe, quantity: 1 }],
+      () => lowGearset,
+      defaultSettings,
+      () => {}, () => false,
+      (i, s) => updates.push([i, s]),
+    )
+
+    const seq = updates.filter(([i]) => i === 0).map(([, s]) => s.state)
+    expect(seq[0]).toBe('queued')
+    expect(seq[seq.length - 1]).toBe('failed')
+    const failed = updates.find(([, s]) => s.state === 'failed')!
+    expect(String((failed[1] as { state: 'failed'; reason: string }).reason)).toContain(String(starredMockRecipe.level))
+  })
+
+  it('omitting onTargetUpdate keeps existing behaviour (no crash, same results)', async () => {
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory'], progress: 3500, quality: 7200, steps: 1 })
+    vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
+
+    await expect(runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 1 }],
+      () => mockGearset,
+      defaultSettings,
+      () => {}, () => false,
+    )).resolves.toBeTruthy()
+  })
+
+  it('emits done for a fast target as soon as it settles, before a slow target resolves', async () => {
+    // Progressive reveal (the core spec requirement): a target's terminal
+    // done/failed must fire the moment ITS OWN work settles — not after
+    // Promise.allSettled has waited on the slowest sibling.
+    let releaseTarget1: ((v: unknown) => void) | undefined
+    vi.mocked(solveCraft)
+      .mockResolvedValueOnce({ actions: ['muscle_memory', 'groundwork'], progress: 3500, quality: 7200, steps: 2 })
+      .mockImplementationOnce(() => new Promise((r) => { releaseTarget1 = r }) as any)
+    vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
+
+    const updates: Array<[number, BatchTargetStatus]> = []
+    const run = runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 1 }, { recipe: { ...mockRecipe, id: 2 }, quantity: 1 }],
+      () => mockGearset,
+      defaultSettings,
+      () => {}, () => false,
+      (i, s) => updates.push([i, s]),
+    )
+
+    // Flush target0's solve → simulate → classify chain while target1 stays held.
+    await new Promise(r => setTimeout(r, 10))
+
+    // Index 0 already reached done; index 1 has no terminal state yet.
+    expect(updates.some(([i, s]) => i === 0 && s.state === 'done')).toBe(true)
+    expect(updates.some(([i, s]) => i === 1 && (s.state === 'done' || s.state === 'failed'))).toBe(false)
+
+    // Release target1 and let the whole batch finish normally.
+    releaseTarget1?.({ actions: ['muscle_memory'], progress: 3500, quality: 7200, steps: 1 })
+    await run
+    expect(updates.some(([i, s]) => i === 1 && s.state === 'done')).toBe(true)
+  })
+})
+
 describe('runBatchOptimization buff recommendation', () => {
   beforeEach(() => vi.clearAllMocks())
 
@@ -914,6 +1033,79 @@ describe('runBatchOptimization · Phase 6 meld advice parallelization', () => {
     // At least 0/2 → … → 2/2: the first event is the pre-fetch flip, the last is full completion.
     expect(progressEvents[0]).toEqual({ completed: 0, total: 2 })
     expect(progressEvents[progressEvents.length - 1]).toEqual({ completed: 2, total: 2 })
+  })
+
+  // #162: regression guard for the PR-2 review finding — with only job-completion
+  // ticks, a 2-job batch sat at 0/2 for the whole in-flight window then jumped
+  // straight to 2/2 (looked frozen). Each adviseMeld call now reports its own
+  // probes/probeBudget via onProgress, so `completed` should move through a
+  // fractional value while both jobs are still in flight.
+  it('evaluating-meld progress moves fractionally while jobs are still in flight', async () => {
+    const { adviseMeld } = await import('@/services/meld-advisor')
+    vi.mocked(adviseMeld).mockImplementation(async (_recipes: any, _gs: any, _prices: any, opts: any) => {
+      opts.onProgress?.({ stage: 'baseline', probes: 14, probeBudget: 28 })
+      await new Promise(r => setTimeout(r, 20))
+      return {
+        status: 'feasible',
+        costOptimal: { feasible: true, deltaStats: { craftsmanship: 0, control: 0, cp: 0 }, steps: [], totalGil: 0, confirmedBySolver: false },
+        alreadyMeetsThreshold: false,
+        hqSufficient: false,
+      } as any
+    })
+    const progressEvents: Array<{ completed: number; total: number }> = []
+    const targets = [
+      makeTarget({ job: 'CRP', id: 9200 }),
+      makeTarget({ job: 'BSM', id: 9201 }),
+    ]
+
+    await runBatchWithMeld(targets, (info) => {
+      if (info.phase === 'evaluating-meld') progressEvents.push({ completed: info.completed, total: info.total })
+    })
+
+    // A mid-flight event with 0 < completed < 2 must exist — the fix for the
+    // 0/2 → 2/2 freeze on a 2-job batch.
+    expect(progressEvents.some(e => e.completed > 0 && e.completed < 2)).toBe(true)
+  })
+
+  it('evaluating-meld smoothed progress never steps backwards when one job finishes first', async () => {
+    // Asymmetric fractions + staggered completion: the fast job completes while
+    // the slow one is mid-flight with a high fraction. The completion tick must
+    // emit via the smoothed path (integer + remaining fractions), or the bar
+    // visibly regresses (e.g. 1.679 → 1).
+    const { adviseMeld } = await import('@/services/meld-advisor')
+    let call = 0
+    vi.mocked(adviseMeld).mockImplementation(async (_recipes: any, _gs: any, _prices: any, opts: any) => {
+      const mine = ++call
+      if (mine === 1) {
+        // fast job: quick, small fraction, finishes first
+        opts.onProgress?.({ stage: 'baseline', probes: 7, probeBudget: 28 })
+        await new Promise(r => setTimeout(r, 5))
+      } else {
+        // slow job: reports a high fraction, finishes last
+        opts.onProgress?.({ stage: 'baseline', probes: 27, probeBudget: 28 })
+        await new Promise(r => setTimeout(r, 40))
+      }
+      return {
+        status: 'feasible',
+        costOptimal: { feasible: true, deltaStats: { craftsmanship: 0, control: 0, cp: 0 }, steps: [], totalGil: 0, confirmedBySolver: false },
+        alreadyMeetsThreshold: false,
+        hqSufficient: false,
+      } as any
+    })
+    const completedSeq: number[] = []
+    const targets = [
+      makeTarget({ job: 'CRP', id: 9210 }),
+      makeTarget({ job: 'BSM', id: 9211 }),
+    ]
+
+    await runBatchWithMeld(targets, (info) => {
+      if (info.phase === 'evaluating-meld') completedSeq.push(info.completed)
+    })
+
+    for (let k = 1; k < completedSeq.length; k++) {
+      expect(completedSeq[k]).toBeGreaterThanOrEqual(completedSeq[k - 1])
+    }
+    expect(completedSeq[completedSeq.length - 1]).toBe(2)
   })
 
   // Regression guard: the per-job try used to start at `adviseMeld(...)`, leaving the

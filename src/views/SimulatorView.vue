@@ -58,7 +58,7 @@ const {
   effectiveStats, craftParams, currentState,
   initialQuality, initialQualityHqAmounts, enhancedStats,
   searchSidebarOpen, solverResult, modeOptions,
-  meldAdvice, meldOverride, meldOverrideLabel, activeBuffs,
+  meldAdvice, meldAdvisorProgress, meldOverride, meldOverrideLabel, activeBuffs,
   onInitialQualityUpdate, onEnhancedStatsUpdate, onBuffsUpdate, onHqAmountsUpdate,
   handleAddFromSearch, handleRemoveFromQueue, handleClearQueue,
   handleRemoveAction, handleClearActions,
@@ -552,6 +552,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
                   <template v-if="settings.meldAdvice">
                     <MeldAdvisorCard
                       :advice="meldAdvice"
+                      :progress="meldAdvisorProgress"
                       mode="ability"
                       :override-active="!!meldOverride"
                       @apply="handleApplyMeld"
@@ -629,6 +630,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
               <template v-if="settings.meldAdvice">
                 <MeldAdvisorCard
                   :advice="meldAdvice"
+                  :progress="meldAdvisorProgress"
                   mode="ability"
                   :override-active="!!meldOverride"
                   @apply="handleApplyMeld"
@@ -853,6 +855,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
             <template v-if="settings.meldAdvice">
               <MeldAdvisorCard
                 :advice="meldAdvice"
+                :progress="meldAdvisorProgress"
                 mode="ability"
                 :override-active="!!meldOverride"
                 @apply="handleApplyMeld"

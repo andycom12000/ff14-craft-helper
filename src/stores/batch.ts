@@ -16,6 +16,7 @@ import type {
   BuffRecommendation,
   NpcPurchaseCandidate,
   BatchResults,
+  BatchTargetStatus,
 } from './batch.types'
 
 // Re-export the shopping-list shape types and the batch result types so
@@ -33,6 +34,7 @@ export type {
   BuffRecommendation,
   NpcPurchaseCandidate,
   BatchResults,
+  BatchTargetStatus,
 }
 
 export type BatchAddMethod = 'search' | 'paste_teamcraft' | 'queue_import' | 'favorite' | 'cross_page_send'
@@ -51,6 +53,24 @@ export const useBatchStore = defineStore('batch', () => {
   const isCancelled = ref(false)
   const progress = ref(defaultProgress())
   const results = ref<BatchResults | null>(null)
+  /**
+   * Per-target live status during Phase 1 (solve + HQ optimize), reported by
+   * `runBatchOptimization`'s optional `onTargetUpdate` callback. Initialized
+   * to queued×N when a run starts, cleared to `[]` once the run settles
+   * (success or failure) — `cancel()` leaves it as-is since a cancelled run's
+   * last-known state has no further use.
+   */
+  const liveTargets = ref<BatchTargetStatus[]>([])
+  /**
+   * Snapshot of target recipe names taken at the moment a run's `liveTargets`
+   * is seeded. `BatchProgress` renders names from this array (not the live
+   * `targets` list) so mid-run edits (remove/reorder) to `targets` can't
+   * desync the row label from the index-addressed `liveTargets` status —
+   * the status list is keyed to the batch as it existed when the run started,
+   * and the name list must match that same snapshot. Cleared alongside
+   * `liveTargets` (run settles, run throws, resetAll).
+   */
+  const liveTargetNames = ref<string[]>([])
   const checkedShoppingKeys = ref(new Set<string>())
   const selectedSelfCraftIds = ref<Set<number>>(new Set())
   const doneSelfCraftIds = ref<Set<number>>(new Set())
@@ -400,6 +420,8 @@ export const useBatchStore = defineStore('batch', () => {
     results.value = null
     isRunning.value = false
     progress.value = defaultProgress()
+    liveTargets.value = []
+    liveTargetNames.value = []
     checkedShoppingKeys.value = new Set()
     selectedSelfCraftIds.value = new Set()
     doneSelfCraftIds.value = new Set()
@@ -417,6 +439,8 @@ export const useBatchStore = defineStore('batch', () => {
     isCancelled,
     progress,
     results,
+    liveTargets,
+    liveTargetNames,
     checkedShoppingKeys,
     foodId,
     foodIsHq,

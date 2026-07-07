@@ -178,12 +178,17 @@ function touch(key: string, entry: PersistedSolveEntry): void {
 const inFlight = new Map<string, Promise<SolverResultWithTiming>>()
 
 /** Follower path: share the leader's promise; the follower's own AbortSignal
- *  rejects just this follower (the leader keeps running). */
+ *  rejects just this follower (the leader keeps running). If the leader
+ *  itself gets cancelled, `cachedSolve` catches that here and — as long as
+ *  this follower is still live — takes over with a fresh run instead of
+ *  propagating a cancellation the follower's caller never asked for; a
+ *  second cancellation (e.g. pool teardown cancelling every attempt) is
+ *  allowed to propagate since the takeover is bounded to one retry. */
 function followShared(
   shared: Promise<SolverResultWithTiming>,
   signal?: AbortSignal,
 ): Promise<SolverResultWithTiming> {
-  const tagged = shared.then((r) => ({ ...r, cacheHit: true }))
+  const tagged = shared.then((r) => ({ ...r, actions: [...r.actions], cacheHit: true }))
   if (!signal) return tagged
   if (signal.aborted) {
     tagged.catch(() => {})
@@ -203,21 +208,30 @@ function followShared(
  * Looks up a cached solve result, replaying it on hit; otherwise runs
  * `runSolve` and stores the outcome (success or NoSolution) for next time.
  * Concurrent calls for the same key share a single in-flight `runSolve`
- * (the leader); followers get a tagged copy of the leader's result and may
- * abort independently via their own `signal` without affecting the leader.
+ * (the leader); followers get a tagged, defensively-copied copy of the
+ * leader's result and may abort independently via their own `signal`
+ * without affecting the leader. If the leader itself is cancelled, a
+ * still-live follower (own `signal` not aborted) takes over with a fresh
+ * `runSolve` call rather than inheriting the leader's cancellation — bounded
+ * to one takeover attempt via `hasTakenOver`, so a second cancellation (e.g.
+ * every attempt cancelled by pool teardown) propagates as normal.
  * @param signal Aborts only this caller when following an in-flight solve;
  * the leader's own cancellation is handled by `runSolve` internally.
+ * @param hasTakenOver Internal — set when this call is itself a takeover
+ * retry, so at most one takeover is attempted per original caller.
  */
 export async function cachedSolve(
   config: SolverConfig,
   runSolve: () => Promise<SolverResultWithTiming>,
   signal?: AbortSignal,
+  hasTakenOver = false,
 ): Promise<SolverResultWithTiming> {
   if (bypass) return runSolve()
   await ensureInit()
   if (signal?.aborted) throw new SolveCancelledError()
   const key = solveCacheKey(config)
   const hit = await lookup(key)
+  if (signal?.aborted) throw new SolveCancelledError()
   if (hit) {
     touch(key, hit)
     if (hit.kind === 'no-solution') throw new Error(hit.errorMessage)
@@ -225,12 +239,23 @@ export async function cachedSolve(
   }
 
   const existing = inFlight.get(key)
-  if (existing) return followShared(existing, signal)
+  if (existing) {
+    return followShared(existing, signal).catch((err) => {
+      // Takeover: the leader was cancelled by ITS caller, but this follower is
+      // still live — re-run once instead of inheriting a cancellation the user
+      // never asked for (#132/#133 honesty). Bounded to one attempt so pool
+      // teardown (every retry also cancelled) still propagates.
+      if (err instanceof SolveCancelledError && !signal?.aborted && !hasTakenOver) {
+        return cachedSolve(config, runSolve, signal, true)
+      }
+      throw err
+    })
+  }
 
   const shared = runSolve().then(
     (r) => {
       const { cacheHit: _cacheHit, ...persisted } = r
-      store(key, { kind: 'result', result: persisted, lastUsedAt: Date.now() })
+      store(key, { kind: 'result', result: { ...persisted, actions: [...persisted.actions] }, lastUsedAt: Date.now() })
       return r
     },
     (err: unknown) => {
