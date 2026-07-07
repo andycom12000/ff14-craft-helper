@@ -129,7 +129,10 @@ function followShared(
 ): Promise<SolverResultWithTiming> {
   const tagged = shared.then((r) => ({ ...r, cacheHit: true }))
   if (!signal) return tagged
-  if (signal.aborted) return Promise.reject(new SolveCancelledError())
+  if (signal.aborted) {
+    tagged.catch(() => {})
+    return Promise.reject(new SolveCancelledError())
+  }
   return new Promise((resolve, reject) => {
     const onAbort = () => reject(new SolveCancelledError())
     signal.addEventListener('abort', onAbort, { once: true })

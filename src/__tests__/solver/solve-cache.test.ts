@@ -220,4 +220,32 @@ describe('cachedSolve in-flight coalescing', () => {
     await expect(cachedSolve(baseConfig(), runSolve)).resolves.toMatchObject({ steps: 1 })
     expect(runSolve).toHaveBeenCalledTimes(2)
   })
+
+  it('an already-aborted follower does not cause an unhandled rejection when the leader later rejects', async () => {
+    const unhandled: unknown[] = []
+    const onUnhandledRejection = (reason: unknown) => { unhandled.push(reason) }
+    process.on('unhandledRejection', onUnhandledRejection)
+    try {
+      let rejectGate!: (e: Error) => void
+      const gate = new Promise<never>((_, rej) => { rejectGate = rej })
+      const runSolve = vi.fn().mockReturnValueOnce(gate).mockResolvedValue({ ...okResult })
+      const p1 = cachedSolve(baseConfig(), runSolve)
+
+      const aborted = new AbortController()
+      aborted.abort()
+      const p2 = cachedSolve(baseConfig(), runSolve, aborted.signal)
+      await expect(p2).rejects.toBeInstanceOf(SolveCancelledError)
+
+      rejectGate(new Error('leader crashed'))
+      await expect(p1).rejects.toThrow('leader crashed')
+
+      // Give any unhandledrejection a chance to surface.
+      await new Promise((r) => setTimeout(r, 0))
+      await Promise.resolve()
+
+      expect(unhandled).toEqual([])
+    } finally {
+      process.off('unhandledRejection', onUnhandledRejection)
+    }
+  })
 })
