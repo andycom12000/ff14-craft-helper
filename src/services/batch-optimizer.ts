@@ -244,76 +244,55 @@ export async function runBatchOptimization(
   }
   targets.forEach((_, i) => onTargetUpdate?.(i, { state: 'queued' }))
 
-  const phase1Settled = await Promise.allSettled(targets.map(async (target, i) => {
-    if (isCancelled()) throw new SolveCancelledError()
-    const gearset = getGearset(target.recipe.job)
-    // Hard-block only when the gearset is missing OR (below recipe level AND
-    // the recipe has at least one hard-gate signal — stars, expert, required
-    // stats). Standard 0-star recipes can be attempted below level; the solver
-    // already applies progress/quality modifiers as the in-game penalty.
-    const hardGates = recipeHardGateReasons(target.recipe)
-    if (!gearset || (gearset.level < target.recipe.level && hardGates.length > 0)) {
-      recipePercents[i] = 100
-      emitAggregateProgress(target.recipe.name)
-      return { kind: 'level-insufficient' as const, target, gearset, hardGates }
-    }
-    try {
-      const result = await optimizeRecipe(target.recipe, gearset, (pct) => {
-        recipePercents[i] = pct
-        onTargetUpdate?.(i, { state: 'solving', percent: pct })
-        emitAggregateProgress(target.recipe.name)
-      }, buffs)
-      completedCount++
-      recipePercents[i] = 100
-      emitAggregateProgress('')
-      return { kind: 'ok' as const, target, result }
-    } catch (err) {
-      if (err instanceof SolveCancelledError) throw err
-      completedCount++
-      recipePercents[i] = 100
-      emitAggregateProgress(target.recipe.name)
-      return { kind: 'failed' as const, target, error: err }
-    }
-  }))
-
-  for (let i = 0; i < phase1Settled.length; i++) {
-    const settled = phase1Settled[i]
-    if (settled.status === 'rejected') {
-      if (settled.reason instanceof SolveCancelledError) throw settled.reason
-      onTargetUpdate?.(i, { state: 'failed', reason: String(settled.reason) })
-      continue
-    }
-    const v = settled.value
+  // Per-target classification of a settled Phase 1 outcome: either a craftable
+  // result or a BatchException, plus the matching terminal BatchTargetStatus.
+  // Pure per-target logic (no shared-state pushes) so the map function below can
+  // call it the moment ITS OWN target settles — real-time onTargetUpdate emission
+  // for progressive reveal — while the post-allSettled loop replays the SAME
+  // classification objects in target order, keeping exceptions / recipeResults /
+  // qualityUnachievableResults ordering deterministic and the status `reason`
+  // string identical to the exception's `details`.
+  type Phase1Outcome =
+    | { kind: 'level-insufficient'; target: BatchTarget; gearset: GearsetStats | null; hardGates: ReturnType<typeof recipeHardGateReasons> }
+    | { kind: 'ok'; target: BatchTarget; result: RecipeOptimizeResult }
+    | { kind: 'failed'; target: BatchTarget; error: unknown }
+  type Phase1Classification =
+    | { kind: 'result'; result: RecipeOptimizeResult; status: BatchTargetStatus }
+    | { kind: 'exception'; exception: BatchException; status: BatchTargetStatus; qualityUnachievableResult?: RecipeOptimizeResult }
+  const classifyPhase1Outcome = (v: Phase1Outcome): Phase1Classification => {
     if (v.kind === 'level-insufficient') {
       const gearsetLevel = v.gearset?.level ?? 0
       const details = v.gearset
         ? `「${v.target.recipe.name}」是${describeHardGateReasons(v.hardGates)}配方，必須達到等級 ${v.target.recipe.level} 才能合成（目前 ${v.target.recipe.job} 等級 ${gearsetLevel}）`
         : `尚未設定 ${v.target.recipe.job} 裝備組`
-      exceptions.push({
-        type: 'level-insufficient', recipe: v.target.recipe, quantity: v.target.quantity,
-        message: v.gearset ? '配方有硬性限制' : '尚未設定裝備組',
-        details,
-        action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
-      })
-      onTargetUpdate?.(i, { state: 'failed', reason: details })
-      continue
+      return {
+        kind: 'exception',
+        exception: {
+          type: 'level-insufficient', recipe: v.target.recipe, quantity: v.target.quantity,
+          message: v.gearset ? '配方有硬性限制' : '尚未設定裝備組',
+          details,
+          action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
+        },
+        status: { state: 'failed', reason: details },
+      }
     }
     if (v.kind === 'failed') {
       const details = `「${v.target.recipe.name}」計算過程發生錯誤：${v.error}`
-      exceptions.push({
-        type: 'quality-unachievable', recipe: v.target.recipe, quantity: v.target.quantity,
-        message: '計算失敗', details,
-        action: 'skipped',
-      })
-      onTargetUpdate?.(i, { state: 'failed', reason: details })
-      continue
+      return {
+        kind: 'exception',
+        exception: {
+          type: 'quality-unachievable', recipe: v.target.recipe, quantity: v.target.quantity,
+          message: '計算失敗', details,
+          action: 'skipped',
+        },
+        status: { state: 'failed', reason: details },
+      }
     }
     const result = v.result
     const yieldPerCraft = Math.max(1, v.target.recipe.amountResult)
     result.outputAmount = v.target.quantity
     result.quantity = Math.ceil(v.target.quantity / yieldPerCraft)
     if (!result.isDoubleMax && result.hqAmounts.length === 0) {
-      if (result.recipe.canHq) qualityUnachievableResults.push(result)
       // Diagnose why isDoubleMax is false to give a precise message:
       //   - canHq=true: quality didn't reach max even with full HQ materials
       //   - canHq=false + requiredQuality>0: tribe-quest deliverable, quality
@@ -333,16 +312,86 @@ export async function runBatchOptimization(
         message = '無法完成合成'
         details = `「${v.target.recipe.name}」目前裝備配置無法將進度推滿`
       }
-      exceptions.push({
-        type: 'quality-unachievable', recipe: v.target.recipe, quantity: v.target.quantity,
-        message, details,
-        action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
-      })
-      onTargetUpdate?.(i, { state: 'failed', reason: details })
+      return {
+        kind: 'exception',
+        exception: {
+          type: 'quality-unachievable', recipe: v.target.recipe, quantity: v.target.quantity,
+          message, details,
+          action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
+        },
+        status: { state: 'failed', reason: details },
+        // canHq quality-unachievable recipes still feed buff recommendation.
+        qualityUnachievableResult: result.recipe.canHq ? result : undefined,
+      }
+    }
+    return {
+      kind: 'result',
+      result,
+      status: { state: 'done', steps: result.actions.length, isDoubleMax: result.isDoubleMax },
+    }
+  }
+
+  const phase1Settled = await Promise.allSettled(targets.map(async (target, i): Promise<Phase1Classification> => {
+    if (isCancelled()) throw new SolveCancelledError()
+    const gearset = getGearset(target.recipe.job)
+    // Hard-block only when the gearset is missing OR (below recipe level AND
+    // the recipe has at least one hard-gate signal — stars, expert, required
+    // stats). Standard 0-star recipes can be attempted below level; the solver
+    // already applies progress/quality modifiers as the in-game penalty.
+    const hardGates = recipeHardGateReasons(target.recipe)
+    let outcome: Phase1Outcome
+    if (!gearset || (gearset.level < target.recipe.level && hardGates.length > 0)) {
+      recipePercents[i] = 100
+      emitAggregateProgress(target.recipe.name)
+      outcome = { kind: 'level-insufficient', target, gearset, hardGates }
+    } else {
+      try {
+        const result = await optimizeRecipe(target.recipe, gearset, (pct) => {
+          recipePercents[i] = pct
+          onTargetUpdate?.(i, { state: 'solving', percent: pct })
+          emitAggregateProgress(target.recipe.name)
+        }, buffs)
+        completedCount++
+        recipePercents[i] = 100
+        emitAggregateProgress('')
+        outcome = { kind: 'ok', target, result }
+      } catch (err) {
+        if (err instanceof SolveCancelledError) throw err
+        completedCount++
+        recipePercents[i] = 100
+        emitAggregateProgress(target.recipe.name)
+        outcome = { kind: 'failed', target, error: err }
+      }
+    }
+    // Classify and emit the terminal done/failed HERE — the moment this target's
+    // own work settles — NOT after Promise.allSettled. Emitting post-allSettled
+    // made every target's terminal status wait on the slowest sibling, defeating
+    // the progressive-reveal contract of onTargetUpdate.
+    const classification = classifyPhase1Outcome(outcome)
+    onTargetUpdate?.(i, classification.status)
+    return classification
+  }))
+
+  for (let i = 0; i < phase1Settled.length; i++) {
+    const settled = phase1Settled[i]
+    if (settled.status === 'rejected') {
+      if (settled.reason instanceof SolveCancelledError) throw settled.reason
+      // Defensive: the map function catches every non-cancellation error itself,
+      // so this only fires if classification/emission threw. Keep the invariant
+      // that every index reaches a terminal state.
+      onTargetUpdate?.(i, { state: 'failed', reason: String(settled.reason) })
       continue
     }
-    recipeResults.push(result)
-    onTargetUpdate?.(i, { state: 'done', steps: result.actions.length, isDoubleMax: result.isDoubleMax })
+    // Consume the already-emitted classifications in target order so
+    // exceptions / qualityUnachievableResults / recipeResults keep the exact
+    // same deterministic ordering semantics as before.
+    const c = settled.value
+    if (c.kind === 'exception') {
+      exceptions.push(c.exception)
+      if (c.qualityUnachievableResult) qualityUnachievableResults.push(c.qualityUnachievableResult)
+      continue
+    }
+    recipeResults.push(c.result)
   }
 
   if (isCancelled()) throw new SolveCancelledError()

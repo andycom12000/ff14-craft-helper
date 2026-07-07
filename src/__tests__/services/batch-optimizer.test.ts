@@ -679,6 +679,38 @@ describe('onTargetUpdate per-target status', () => {
       () => {}, () => false,
     )).resolves.toBeTruthy()
   })
+
+  it('emits done for a fast target as soon as it settles, before a slow target resolves', async () => {
+    // Progressive reveal (the core spec requirement): a target's terminal
+    // done/failed must fire the moment ITS OWN work settles — not after
+    // Promise.allSettled has waited on the slowest sibling.
+    let releaseTarget1: ((v: unknown) => void) | undefined
+    vi.mocked(solveCraft)
+      .mockResolvedValueOnce({ actions: ['muscle_memory', 'groundwork'], progress: 3500, quality: 7200, steps: 2 })
+      .mockImplementationOnce(() => new Promise((r) => { releaseTarget1 = r }) as any)
+    vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
+
+    const updates: Array<[number, BatchTargetStatus]> = []
+    const run = runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 1 }, { recipe: { ...mockRecipe, id: 2 }, quantity: 1 }],
+      () => mockGearset,
+      defaultSettings,
+      () => {}, () => false,
+      (i, s) => updates.push([i, s]),
+    )
+
+    // Flush target0's solve → simulate → classify chain while target1 stays held.
+    await new Promise(r => setTimeout(r, 10))
+
+    // Index 0 already reached done; index 1 has no terminal state yet.
+    expect(updates.some(([i, s]) => i === 0 && s.state === 'done')).toBe(true)
+    expect(updates.some(([i, s]) => i === 1 && (s.state === 'done' || s.state === 'failed'))).toBe(false)
+
+    // Release target1 and let the whole batch finish normally.
+    releaseTarget1?.({ actions: ['muscle_memory'], progress: 3500, quality: 7200, steps: 1 })
+    await run
+    expect(updates.some(([i, s]) => i === 1 && s.state === 'done')).toBe(true)
+  })
 })
 
 describe('runBatchOptimization buff recommendation', () => {
