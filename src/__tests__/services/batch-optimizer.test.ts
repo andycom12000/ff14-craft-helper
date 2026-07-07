@@ -1067,6 +1067,47 @@ describe('runBatchOptimization · Phase 6 meld advice parallelization', () => {
     expect(progressEvents.some(e => e.completed > 0 && e.completed < 2)).toBe(true)
   })
 
+  it('evaluating-meld smoothed progress never steps backwards when one job finishes first', async () => {
+    // Asymmetric fractions + staggered completion: the fast job completes while
+    // the slow one is mid-flight with a high fraction. The completion tick must
+    // emit via the smoothed path (integer + remaining fractions), or the bar
+    // visibly regresses (e.g. 1.679 → 1).
+    const { adviseMeld } = await import('@/services/meld-advisor')
+    let call = 0
+    vi.mocked(adviseMeld).mockImplementation(async (_recipes: any, _gs: any, _prices: any, opts: any) => {
+      const mine = ++call
+      if (mine === 1) {
+        // fast job: quick, small fraction, finishes first
+        opts.onProgress?.({ stage: 'baseline', probes: 7, probeBudget: 28 })
+        await new Promise(r => setTimeout(r, 5))
+      } else {
+        // slow job: reports a high fraction, finishes last
+        opts.onProgress?.({ stage: 'baseline', probes: 27, probeBudget: 28 })
+        await new Promise(r => setTimeout(r, 40))
+      }
+      return {
+        status: 'feasible',
+        costOptimal: { feasible: true, deltaStats: { craftsmanship: 0, control: 0, cp: 0 }, steps: [], totalGil: 0, confirmedBySolver: false },
+        alreadyMeetsThreshold: false,
+        hqSufficient: false,
+      } as any
+    })
+    const completedSeq: number[] = []
+    const targets = [
+      makeTarget({ job: 'CRP', id: 9210 }),
+      makeTarget({ job: 'BSM', id: 9211 }),
+    ]
+
+    await runBatchWithMeld(targets, (info) => {
+      if (info.phase === 'evaluating-meld') completedSeq.push(info.completed)
+    })
+
+    for (let k = 1; k < completedSeq.length; k++) {
+      expect(completedSeq[k]).toBeGreaterThanOrEqual(completedSeq[k - 1])
+    }
+    expect(completedSeq[completedSeq.length - 1]).toBe(2)
+  })
+
   // Regression guard: the per-job try used to start at `adviseMeld(...)`, leaving the
   // preceding synchronous initialQuality computation (and its `recipeLevelTable.quality`
   // access) uncovered. A throw there escaped straight to Promise.allSettled, which

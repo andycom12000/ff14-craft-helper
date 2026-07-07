@@ -876,7 +876,9 @@ export async function runBatchOptimization(
           jobFractions[jobIdx] = 0
           if (!legitimateSkip) {
             meldJobsDone++
-            emitMeld(meldJobsDone)
+            // Smooth emit: raw emitMeld(meldJobsDone) here would discard the
+            // other in-flight jobs' fractions and step the bar backwards.
+            emitMeldSmooth()
           }
         }
       }
