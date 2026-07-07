@@ -108,6 +108,10 @@ export async function optimizeRecipe(
     buffs,
     adversarial: false,
     actions: solverResult.actions,
+    // Thread the deadline's AbortSignal here too: without it a stuck simulate
+    // (fast deterministic replay, but still a pool round-trip) could outlive
+    // withSolveDeadline's clock, leaving the "must not stall the batch" gap open.
+    signal,
   })
 
   if (recipe.canHq) {
@@ -384,79 +388,93 @@ export async function runBatchOptimization(
     }
   }
 
-  // POOL_SIZE-capped work-stealing lanes, NOT an unbounded `targets.map` fan-out.
-  // The per-solve deadline (withSolveDeadline) arms its clock the instant it's
-  // called, so firing all N targets at once would start every target's 60s
-  // clock simultaneously while only POOL_SIZE=2 actually run on the worker pool
-  // — tail targets sitting in the pool's FIFO queue would burn their deadline
-  // WITHOUT ever getting a WASM cycle and come back mislabelled 求解超時. This is
-  // the exact defect Phase 6's advisor lanes already fix (see the raceDeadline
-  // note below): cap concurrency at POOL_SIZE so a target's deadline only starts
-  // once a lane picks it up and a worker slot is imminently free.
   const phase1Settled: PromiseSettledResult<Phase1Classification>[] = new Array(targets.length)
-  let nextTargetIdx = 0
-  const runTarget = async (i: number): Promise<void> => {
+
+  // Phase 1a: synchronous hard-gate check for EVERY target up front — no worker
+  // pool, no lane. Missing-gearset / hard-gate rejections classify and reveal
+  // INSTANTLY (progressive-reveal contract, #171) instead of queueing behind
+  // real solves in the lanes below. Targets that need a solve are deferred to 1b.
+  const solvableIdx: number[] = []
+  for (let i = 0; i < targets.length; i++) {
     const target = targets[i]
+    if (isCancelled()) {
+      phase1Settled[i] = { status: 'rejected', reason: new SolveCancelledError() }
+      continue
+    }
+    const gearset = getGearset(target.recipe.job)
+    // Hard-block only when the gearset is missing OR (below recipe level AND the
+    // recipe has at least one hard-gate signal — stars, expert, required stats).
+    // Standard 0-star recipes can be attempted below level; the solver applies
+    // progress/quality modifiers as the in-game penalty.
+    const hardGates = recipeHardGateReasons(target.recipe)
+    if (!gearset || (gearset.level < target.recipe.level && hardGates.length > 0)) {
+      recipePercents[i] = 100
+      emitAggregateProgress(target.recipe.name)
+      const classification = classifyPhase1Outcome({ kind: 'level-insufficient', target, gearset, hardGates })
+      onTargetUpdate?.(i, classification.status)
+      phase1Settled[i] = { status: 'fulfilled', value: classification }
+    } else {
+      solvableIdx.push(i)
+    }
+  }
+
+  // Phase 1b: POOL_SIZE-capped work-stealing lanes over the SOLVABLE targets only.
+  // withSolveDeadline arms its 60s clock the instant it's called, so an unbounded
+  // fan-out would start every target's clock at once while only POOL_SIZE=2 run —
+  // tail targets queued on the pool's FIFO would burn their deadline WITHOUT a
+  // WASM cycle and come back mislabelled 求解超時. Lane count == POOL_SIZE == pool
+  // slots, so a lane's dispatch is never queued behind a sibling Phase-1 solve;
+  // the deadline only starts once a lane picks the target up. Same pattern as
+  // Phase 6's advisor lanes.
+  let nextSolvable = 0
+  const runSolve = async (i: number): Promise<void> => {
+    const target = targets[i]
+    const gearset = getGearset(target.recipe.job)!  // 1a guarantees a usable gearset here
     try {
       if (isCancelled()) throw new SolveCancelledError()
-      const gearset = getGearset(target.recipe.job)
-      // Hard-block only when the gearset is missing OR (below recipe level AND
-      // the recipe has at least one hard-gate signal — stars, expert, required
-      // stats). Standard 0-star recipes can be attempted below level; the solver
-      // already applies progress/quality modifiers as the in-game penalty.
-      const hardGates = recipeHardGateReasons(target.recipe)
       let outcome: Phase1Outcome
-      if (!gearset || (gearset.level < target.recipe.level && hardGates.length > 0)) {
+      try {
+        const result = await withSolveDeadline(
+          (signal) => optimizeRecipe(target.recipe, gearset, (pct) => {
+            recipePercents[i] = pct
+            onTargetUpdate?.(i, { state: 'solving', percent: pct })
+            emitAggregateProgress(target.recipe.name)
+          }, buffs, signal),
+          DEFAULT_BATCH_SOLVE_DEADLINE_MS,
+        )
+        completedCount++
+        recipePercents[i] = 100
+        emitAggregateProgress('')
+        outcome = { kind: 'ok', target, result }
+      } catch (err) {
+        if (err instanceof SolveCancelledError) throw err
+        completedCount++
         recipePercents[i] = 100
         emitAggregateProgress(target.recipe.name)
-        outcome = { kind: 'level-insufficient', target, gearset, hardGates }
-      } else {
-        try {
-          const result = await withSolveDeadline(
-            (signal) => optimizeRecipe(target.recipe, gearset, (pct) => {
-              recipePercents[i] = pct
-              onTargetUpdate?.(i, { state: 'solving', percent: pct })
-              emitAggregateProgress(target.recipe.name)
-            }, buffs, signal),
-            DEFAULT_BATCH_SOLVE_DEADLINE_MS,
-          )
-          completedCount++
-          recipePercents[i] = 100
-          emitAggregateProgress('')
-          outcome = { kind: 'ok', target, result }
-        } catch (err) {
-          if (err instanceof SolveCancelledError) throw err
-          completedCount++
-          recipePercents[i] = 100
-          emitAggregateProgress(target.recipe.name)
-          outcome = err instanceof SolveTimeoutError
-            ? { kind: 'timeout', target }
-            : { kind: 'failed', target, error: err }
-        }
+        outcome = err instanceof SolveTimeoutError
+          ? { kind: 'timeout', target }
+          : { kind: 'failed', target, error: err }
       }
-      // Classify and emit the terminal done/failed HERE — the moment this
-      // target's own work settles — so each target's status appears as soon as
-      // it finishes (progressive reveal), not after the slowest sibling. The
-      // post-loop replay below reuses these SAME classification objects in
-      // target order for deterministic exceptions/results ordering.
+      // Classify + emit terminal status HERE the moment this target settles
+      // (progressive reveal); the replay loop reuses these SAME objects in target
+      // order for deterministic exceptions/results ordering.
       const classification = classifyPhase1Outcome(outcome)
       onTargetUpdate?.(i, classification.status)
       phase1Settled[i] = { status: 'fulfilled', value: classification }
     } catch (err) {
-      // Only cancellation reaches here (every other error is caught above and
-      // classified). Mirror Promise.allSettled's rejected shape so the replay
-      // loop's existing SolveCancelledError check keeps working unchanged.
+      // Only cancellation reaches here. Mirror allSettled's rejected shape so the
+      // replay loop's existing SolveCancelledError check keeps working unchanged.
       phase1Settled[i] = { status: 'rejected', reason: err }
     }
   }
-  const phase1Lane = async (): Promise<void> => {
+  const solveLane = async (): Promise<void> => {
     for (;;) {
-      const i = nextTargetIdx++
-      if (i >= targets.length) return
-      await runTarget(i)
+      const k = nextSolvable++
+      if (k >= solvableIdx.length) return
+      await runSolve(solvableIdx[k])
     }
   }
-  await Promise.all(Array.from({ length: Math.min(POOL_SIZE, targets.length) }, phase1Lane))
+  await Promise.all(Array.from({ length: Math.min(POOL_SIZE, solvableIdx.length) }, solveLane))
 
   for (let i = 0; i < phase1Settled.length; i++) {
     const settled = phase1Settled[i]
