@@ -278,7 +278,7 @@ export async function evaluateBuffRecommendation(
     const combo: BuffCombo = { food: candidate.food, medicine: candidate.medicine }
 
     // Step 4: test each recipe with this combo (partial pass) — recipes are
-    // independent, so evaluate them concurrently (2-slot pool throttles).
+    // independent, so evaluate them concurrently (the worker pool throttles concurrency).
     // Map order preserves the original push order for downstream consumers.
     const evaluated = await Promise.all(allCandidateRecipes.map(async (r) => {
       if (isCancelled()) return null

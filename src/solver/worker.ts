@@ -1,7 +1,7 @@
 /**
  * Main-thread wrapper for the solver Web Worker.
  * Provides a Promise-based API for solving crafts.
- * Uses a 2-slot worker pool with FIFO queue for concurrent requests.
+ * Uses a small worker pool (POOL_SIZE, hwc-derived) with a FIFO queue for concurrent requests.
  */
 
 import type { SolverConfig, SolverResponse, SolverResultWithTiming, SimulateResult, SimulateDetailResult } from './raphael'

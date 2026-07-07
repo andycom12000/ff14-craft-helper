@@ -424,7 +424,7 @@ export async function runBatchOptimization(
 
   // Phase 1b: POOL_SIZE-capped work-stealing lanes over the SOLVABLE targets only.
   // withSolveDeadline arms its 60s clock the instant it's called, so an unbounded
-  // fan-out would start every target's clock at once while only POOL_SIZE=2 run —
+  // fan-out would start every target's clock at once while only POOL_SIZE of them run —
   // tail targets queued on the pool's FIFO would burn their deadline WITHOUT a
   // WASM cycle and come back mislabelled 求解超時. Lane count == POOL_SIZE == pool
   // slots, so a lane's dispatch is never queued behind a sibling Phase-1 solve;
