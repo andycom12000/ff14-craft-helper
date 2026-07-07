@@ -93,6 +93,8 @@ export interface SolverRuntimeStats {
 export interface SolverResultWithTiming extends SolverResult {
   wasmDur?: number
   runtimeStats?: SolverRuntimeStats
+  /** True when this result was replayed from the solve-result cache. */
+  cacheHit?: boolean
 }
 
 export type SolverStatus = 'idle' | 'solving' | 'done' | 'error' | 'cancelled'
