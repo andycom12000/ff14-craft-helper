@@ -19,6 +19,7 @@
 - wasm-pack 路徑：需加 `/c/Users/andyc/.cargo/bin` 到 PATH
 - 建置指令：`cd raphael-wasm-wrapper && RUSTUP_TOOLCHAIN=nightly wasm-pack build --target web --out-dir ../public/solver-wasm`
 - 建置完務必跑一次 `npm run patch-wasm`：修掉 `wasm-bindgen-rayon` 1.3.0 在 `workerHelpers.no-bundler.js` 用 positional 參數呼叫 `pkg.default()` 的 deprecation warning（每個 rayon worker 各噴一次）。腳本 idempotent，重跑無害。
+- **Rebuild 後必須 bump `SOLVER_CACHE_EPOCH`**（`src/solver/pool-config.ts`）：solve-result cache 以此常數區分 solver 版本，忘記 bump 會讓使用者拿到舊 WASM 算出的快取解。格式 `<upstream rev>-<local increment>`。
 - WASM 檔案放在 `public/solver-wasm/`（不是 `src/`）
 
 ## Dev Benchmarks
