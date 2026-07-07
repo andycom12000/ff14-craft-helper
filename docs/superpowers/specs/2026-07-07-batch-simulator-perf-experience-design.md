@@ -76,6 +76,8 @@
 - **#162 鑲嵌建議進度**：`adviseMeld` 加 optional `onProgress`（階梯 rung i/N、probe 計數），單件 `MeldAdvisorCard` 與 batch 的 meld phase 都顯示。
 - **單件取消修正**：`SolverPanel` 的 `handleCancel` 改走既有 per-request AbortSignal（#151 已鋪好的 plumbing），不再 `cancelSolve()` 砍全 pool。
 
+**已實作與驗證（2026-07-07，branch `feat/progressive-batch-experience`）**：per-target 狀態 done/failed 改為各 target settle 時即時發射（分類 helper 單一來源，exceptions/recipeResults 順序不變）；quick-buy 模式不 seed 列表；`liveTargetNames` 快照防中途編輯佇列錯位。#162 的 done 狀態暫不含 wasmDur（步數 + 雙滿與否已足）。Phase 6 進度分數化（`meldJobsDone + Σ probes/probeBudget`，完成 tick 走 smoothed emit 保單調）修掉 PR-2 record 的「≤POOL_SIZE job 0/N 凍結」。一併關掉 PR-1/PR-2 review 的三個 solve-cache 取消缺陷：leader 取消時存活 follower takeover 重跑一次、lookup await 後補 signal 再檢查、follower/leader-store 路徑 actions 防禦性複製。瀏覽器實測（isolated profile、console 灌 store）：live 列表混合狀態即時更新（「已完成 1/2·完成 12 步·求解中 5%」）、成功與失敗路徑 liveTargets 均清空、meld completed 取樣單調含小數（0→0.005→1.005→1.01→2）、單件取消即時、advisor 計數器「探測 x/198」live 更新；截圖存 `.tmp/screenshots/pr3-*.png`。
+
 ## 5. 期二（solver 深化層，3 個 PR，每項 bench-gated）
 
 ### PR-4 · Upstream bump（`aafcbb0` → 0.28.4+ HEAD）
