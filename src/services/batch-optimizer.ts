@@ -175,9 +175,9 @@ export async function runBatchOptimization(
     autoEvaluateBuffs?: boolean
     /**
      * When false, skip Phase 6 per-job 鑲嵌建議 (meld advice) entirely. The meld
-     * advisor reverse-solves the solver many times per job and runs sequentially,
-     * so on hard multi-job batches it stalled the run at the 95%「分組採購清單」step
-     * for minutes. Skipping returns an empty `meldAdvicePerJob` (UI hides the
+     * advisor reverse-solves the solver many times per job (POOL_SIZE jobs run
+     * concurrently), so on hard multi-job batches it stalled the run at the 95%
+     *「分組採購清單」step for minutes. Skipping returns an empty `meldAdvicePerJob` (UI hides the
      * section). Defaults to true so existing callers/tests keep the old behaviour;
      * the BatchView wires it to a user setting that defaults OFF.
      */
@@ -695,8 +695,8 @@ export async function runBatchOptimization(
   }
 
   // Meld advice is opt-in (settings.meldAdvice). It reverse-solves the solver many
-  // times per job and runs sequentially, so on hard multi-job batches it dominates
-  // the run; when off we skip it entirely and return an empty map (UI hides the
+  // times per job (POOL_SIZE jobs concurrently), so on hard multi-job batches it
+  // dominates the run; when off we skip it entirely and return an empty map (UI hides the
   // section). `?? true` keeps existing callers/tests on the old behaviour.
   const enableMeldAdvice = settings.meldAdvice ?? true
 
