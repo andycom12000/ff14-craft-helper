@@ -7,8 +7,8 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
-raphael-sim = { git = "https://github.com/KonaeAkira/raphael-rs", rev = "aafcbb0", features = ["serde"] }
-raphael-solver = { git = "https://github.com/KonaeAkira/raphael-rs", rev = "aafcbb0", features = ["serde"] }
+raphael-sim = { git = "https://github.com/KonaeAkira/raphael-rs", rev = "70e068e", features = ["serde"] }
+raphael-solver = { git = "https://github.com/KonaeAkira/raphael-rs", rev = "70e068e", features = ["serde"] }
 wasm-bindgen = "0.2"
 serde = { version = "1.0", features = ["derive"] }
 serde-wasm-bindgen = "0.6"
