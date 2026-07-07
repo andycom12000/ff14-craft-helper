@@ -774,8 +774,18 @@ export async function runBatchOptimization(
     // shows the job counter via its shared showCounter channel.
     const meldJobTotal = recipesByJob.size
     let meldJobsDone = 0
+    // #162: per-job in-flight fraction (probes/probeBudget from adviseMeld's
+    // onProgress), so `completed` moves smoothly between the integer
+    // meldJobsDone ticks instead of sitting frozen at N/M for however long the
+    // slowest still-running job takes (review: a 2-job batch looked frozen at
+    // 0/2 until BOTH jobs settled, then jumped straight to 2/2).
+    const jobFractions = new Array(meldJobTotal).fill(0)
     const emitMeld = (done: number) =>
       onProgress({ completed: done, total: meldJobTotal, name: '', phase: 'evaluating-meld', solverPercent: 0 })
+    const emitMeldSmooth = () => {
+      const fracSum = jobFractions.reduce((s, f) => s + f, 0)
+      emitMeld(meldJobsDone + fracSum)
+    }
     emitMeld(0) // flip to the meld phase before the (blocking) price fetch
     let materiaPrices: Map<number, MarketData>
     try {
@@ -843,7 +853,17 @@ export async function runBatchOptimization(
             list.map(r => r.recipe),
             gs,
             materiaPrices,
-            { initialQuality, isCancelled },
+            {
+              initialQuality,
+              isCancelled,
+              // #162: track this job's in-flight fraction so the aggregate
+              // `completed` figure keeps moving while this job is still
+              // running, instead of only ticking on job completion.
+              onProgress: (p) => {
+                jobFractions[jobIdx] = Math.min(0.99, p.probes / Math.max(1, p.probeBudget))
+                emitMeldSmooth()
+              },
+            },
           )
           advicePerIndex[jobIdx] = [job, advice]
         } catch (err) {
@@ -851,6 +871,9 @@ export async function runBatchOptimization(
           // batch (pre-PR-2 a throw here aborted the entire run at 95%+).
           console.warn(`[meld-advisor] adviseMeld failed for ${job}, skipping its advice:`, err)
         } finally {
+          // The job's own contribution is now carried by the meldJobsDone
+          // integer, not its (possibly stale) in-flight fraction.
+          jobFractions[jobIdx] = 0
           if (!legitimateSkip) {
             meldJobsDone++
             emitMeld(meldJobsDone)

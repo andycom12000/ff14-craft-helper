@@ -38,7 +38,13 @@ export function useSimulator() {
   const simStore = useSimulatorStore()
   const settingsStore = useSettingsStore()
 
-  const { advice: meldAdvice, runAdvisor, markStale, cancel: cancelAdvisor } = useMeldAdvisor(
+  const {
+    advice: meldAdvice,
+    progress: meldAdvisorProgress,
+    runAdvisor,
+    markStale,
+    cancel: cancelAdvisor,
+  } = useMeldAdvisor(
     () => settingsStore.server || settingsStore.dataCenter || '',
   )
 
@@ -408,6 +414,7 @@ export function useSimulator() {
     solverResult,
     modeOptions,
     meldAdvice,
+    meldAdvisorProgress,
     meldOverride,
     meldOverrideLabel,
     activeBuffs,

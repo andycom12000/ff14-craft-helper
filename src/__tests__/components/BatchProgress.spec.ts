@@ -111,4 +111,20 @@ describe('BatchProgress', () => {
     expect(rows[1].text()).toContain('B')
     expect(rows[1].text()).toContain('30%')
   })
+
+  // #162: evaluating-meld's `completed` is now a float (integer done jobs +
+  // in-flight fraction) — the counter must floor it while the underlying
+  // percentage computation keeps the fractional value (tested via the
+  // percentage prop passed to el-progress being non-integer-locked; here we
+  // just assert the visible counter never shows the fractional part).
+  it('floors the evaluating-meld completed counter (fractional in-flight progress)', () => {
+    const store = useBatchStore()
+    store.isRunning = true
+    store.progress = { ...store.progress, phase: 'evaluating-meld', total: 2, completed: 1.5 }
+
+    const w = mount(BatchProgress)
+
+    expect(w.text()).toContain('1 / 2')
+    expect(w.text()).not.toContain('1.5')
+  })
 })

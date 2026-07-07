@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useMeldAdvisor } from '@/composables/useMeldAdvisor'
-import type { MeldAdvice } from '@/services/meld-advisor'
+import type { MeldAdvice, MeldAdviceProgress } from '@/services/meld-advisor'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 import type { MarketData } from '@/api/universalis'
@@ -207,5 +207,53 @@ describe('useMeldAdvisor', () => {
     // adviseMeld should have been called exactly once (for the second run — the
     // first was cancelled after fetchMateriaPriceMap)
     expect(vi.mocked(adviseMeld)).toHaveBeenCalledTimes(1)
+  })
+
+  // #162: onProgress consumption — the composable forwards the engine's live
+  // ticks into a shallowRef and clears it once the run settles.
+  it('exposes live MeldAdviceProgress and clears it when the run settles', async () => {
+    const { progress, runAdvisor } = useMeldAdvisor(() => 'Carbuncle')
+    const snapshots: Array<MeldAdviceProgress | null> = []
+    vi.mocked(adviseMeld).mockImplementation(async (_r: any, _g: any, _p: any, opts: any) => {
+      opts.onProgress({ stage: 'baseline', probes: 1, probeBudget: 20 })
+      snapshots.push(progress.value)
+      opts.onProgress({ stage: 'ladder', rung: 1, rungTotal: 5, probes: 5, probeBudget: 20 })
+      snapshots.push(progress.value)
+      return stubAdvice
+    })
+
+    expect(progress.value).toBeNull()
+    await runAdvisor(stubRecipe, stubGearset, 0)
+
+    expect(snapshots).toEqual([
+      { stage: 'baseline', probes: 1, probeBudget: 20 },
+      { stage: 'ladder', rung: 1, rungTotal: 5, probes: 5, probeBudget: 20 },
+    ])
+    // Settled — the run resolved, so progress must be cleared back to null.
+    expect(progress.value).toBeNull()
+  })
+
+  // #162: a superseded run's late-arriving onProgress tick must be dropped —
+  // same token guard as the existing advice.value write.
+  it('a superseded run cannot write progress anymore', async () => {
+    const captured: Array<(p: MeldAdviceProgress) => void> = []
+    vi.mocked(adviseMeld).mockImplementation((_r: any, _g: any, _p: any, opts: any) => {
+      captured.push(opts.onProgress)
+      return new Promise(() => { /* hang — neither run settles in this test */ })
+    })
+    const { progress, runAdvisor } = useMeldAdvisor(() => '') // empty world → straight to adviseMeld
+
+    void runAdvisor(stubRecipe, stubGearset, 0)
+    await Promise.resolve()
+    void runAdvisor(stubRecipe, stubGearset, 0)
+    await Promise.resolve()
+
+    expect(captured).toHaveLength(2)
+    const before = progress.value
+    captured[0]({ stage: 'baseline', probes: 9, probeBudget: 20 }) // first run: superseded
+    expect(progress.value).toBe(before) // dropped by the token guard, unchanged
+
+    captured[1]({ stage: 'baseline', probes: 3, probeBudget: 20 }) // second run: still live
+    expect(progress.value).toEqual({ stage: 'baseline', probes: 3, probeBudget: 20 })
   })
 })

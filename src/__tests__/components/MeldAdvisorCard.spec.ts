@@ -58,6 +58,41 @@ describe('MeldAdvisorCard', () => {
     expect(w.find('[data-test=cancel-advisor]').exists()).toBe(false)
   })
 
+  // #162: onProgress consumer — the loading state surfaces the live
+  // rung/probe counter once useMeldAdvisor starts forwarding progress ticks.
+  it('shows rung/probe counter while loading when progress prop is provided', () => {
+    const w = mount(MeldAdvisorCard, {
+      props: {
+        advice: 'loading',
+        progress: { stage: 'ladder', rung: 2, rungTotal: 6, probes: 13, probeBudget: 170 },
+      },
+    })
+    const counter = w.find('[data-test="advisor-progress"]')
+    expect(counter.exists()).toBe(true)
+    expect(counter.text()).toContain('階梯 2/6')
+    expect(counter.text()).toContain('探測 13/170')
+  })
+
+  it('falls back to the static hint when progress is null', () => {
+    const w = mount(MeldAdvisorCard, { props: { advice: 'loading', progress: null } })
+    expect(w.text()).toContain('計算中…')
+    expect(w.find('[data-test=loading-hint]').exists()).toBe(true)
+    expect(w.find('[data-test="advisor-progress"]').exists()).toBe(false)
+  })
+
+  it('the baseline stage counter omits the 階梯 prefix (no rung yet)', () => {
+    const w = mount(MeldAdvisorCard, {
+      props: {
+        advice: 'loading',
+        progress: { stage: 'baseline', probes: 1, probeBudget: 170 },
+      },
+    })
+    const counter = w.find('[data-test="advisor-progress"]')
+    expect(counter.exists()).toBe(true)
+    expect(counter.text()).not.toContain('階梯')
+    expect(counter.text()).toContain('探測 1/170')
+  })
+
   // #129 tweak D: a hard CP-bound recipe can keep the reverse search running for
   // tens of seconds (per-request 8s deadline × multiple craftsmanship rungs), so
   // the bare「計算中…」spinner reads like a hang. Surface a long-wait expectation

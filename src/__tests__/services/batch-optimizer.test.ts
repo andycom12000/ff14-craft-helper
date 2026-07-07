@@ -1035,6 +1035,38 @@ describe('runBatchOptimization · Phase 6 meld advice parallelization', () => {
     expect(progressEvents[progressEvents.length - 1]).toEqual({ completed: 2, total: 2 })
   })
 
+  // #162: regression guard for the PR-2 review finding — with only job-completion
+  // ticks, a 2-job batch sat at 0/2 for the whole in-flight window then jumped
+  // straight to 2/2 (looked frozen). Each adviseMeld call now reports its own
+  // probes/probeBudget via onProgress, so `completed` should move through a
+  // fractional value while both jobs are still in flight.
+  it('evaluating-meld progress moves fractionally while jobs are still in flight', async () => {
+    const { adviseMeld } = await import('@/services/meld-advisor')
+    vi.mocked(adviseMeld).mockImplementation(async (_recipes: any, _gs: any, _prices: any, opts: any) => {
+      opts.onProgress?.({ stage: 'baseline', probes: 14, probeBudget: 28 })
+      await new Promise(r => setTimeout(r, 20))
+      return {
+        status: 'feasible',
+        costOptimal: { feasible: true, deltaStats: { craftsmanship: 0, control: 0, cp: 0 }, steps: [], totalGil: 0, confirmedBySolver: false },
+        alreadyMeetsThreshold: false,
+        hqSufficient: false,
+      } as any
+    })
+    const progressEvents: Array<{ completed: number; total: number }> = []
+    const targets = [
+      makeTarget({ job: 'CRP', id: 9200 }),
+      makeTarget({ job: 'BSM', id: 9201 }),
+    ]
+
+    await runBatchWithMeld(targets, (info) => {
+      if (info.phase === 'evaluating-meld') progressEvents.push({ completed: info.completed, total: info.total })
+    })
+
+    // A mid-flight event with 0 < completed < 2 must exist — the fix for the
+    // 0/2 → 2/2 freeze on a 2-job batch.
+    expect(progressEvents.some(e => e.completed > 0 && e.completed < 2)).toBe(true)
+  })
+
   // Regression guard: the per-job try used to start at `adviseMeld(...)`, leaving the
   // preceding synchronous initialQuality computation (and its `recipeLevelTable.quality`
   // access) uncovered. A throw there escaped straight to Promise.allSettled, which

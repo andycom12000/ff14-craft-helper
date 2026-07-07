@@ -102,7 +102,10 @@ function targetLabel(t: BatchTargetStatus): string {
           <strong>{{ statusText }}</strong>
         </el-text>
         <el-text v-if="showCounter" size="small" type="info">
-          {{ batchStore.progress.completed }} / {{ batchStore.progress.total }}
+          <!-- #162: evaluating-meld's `completed` can be fractional (in-flight
+               job progress) — floor for the count, keep the raw value for the
+               progress bar's percentage so it climbs smoothly. -->
+          {{ Math.floor(batchStore.progress.completed) }} / {{ batchStore.progress.total }}
         </el-text>
       </div>
       <el-progress :percentage="percentage" :stroke-width="8" />
