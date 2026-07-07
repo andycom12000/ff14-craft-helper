@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 import { POOL_SIZE } from '@/solver/pool-config'
+import { SolveTimeoutError } from '@/solver/errors'
 
 const { MockSolveCancelledError } = vi.hoisted(() => {
   class MockSolveCancelledError extends Error {
@@ -229,6 +230,26 @@ describe('runBatchOptimization', () => {
     const levelExc = result.exceptions.find((e) => e.type === 'level-insufficient')
     expect(levelExc).toBeUndefined()
     expect(solveCraft).toHaveBeenCalled()
+  })
+
+  it('surfaces a solve-timeout exception when a solve overruns its deadline', async () => {
+    // A solve that exceeds its per-solve deadline aborts and rejects with
+    // SolveTimeoutError (withSolveDeadline re-labels the abort). The batch
+    // pipeline must isolate it as its own `solve-timeout` exception — skipped,
+    // retry-eligible — instead of stalling the batch or reading as a generic
+    // failure.
+    vi.mocked(solveCraft).mockRejectedValue(new SolveTimeoutError())
+    const gearset: GearsetStats = { level: 100, craftsmanship: 4000, control: 3800, cp: 600, isSpecialist: false }
+    const result = await runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 1 }],
+      () => gearset,
+      defaultSettings,
+      () => {}, () => false,
+    )
+    expect(result.exceptions).toHaveLength(1)
+    expect(result.exceptions[0].type).toBe('solve-timeout')
+    expect(result.exceptions[0].action).toBe('skipped')
+    expect(result.exceptions[0].message).toBe('求解超時')
   })
 
   it('does NOT raise quality-unachievable exception on non-HQ recipe when quality is below max', async () => {

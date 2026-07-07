@@ -11,6 +11,7 @@ import type { MaterialWithPrice, MaterialBase, QuickBuyMaterial, QuickBuyMateria
 import { markRaw } from 'vue'
 import { waitForWasm } from '@/solver/worker'
 import { solveCraftForRecipe, simulateCraftForRecipe, SolveCancelledError } from '@/solver/api'
+import { SolveTimeoutError } from '@/solver/errors'
 import { findOptimalHqCombinations } from '@/services/hq-optimizer'
 import { getAggregatedPrices, aggregateByWorld } from '@/api/universalis'
 import type { MarketData, WorldPriceSummary } from '@/api/universalis'
@@ -41,11 +42,46 @@ export interface RecipeOptimizeResult {
   qualityDeficit: number
 }
 
+/**
+ * Per-solve deadline for batch Phase-1 (ms). One pathological recipe must not
+ * stall a whole batch — after this long, the solve is aborted and surfaced as a
+ * `solve-timeout` BatchException. Batch only; single-craft solving is unbounded.
+ */
+export const DEFAULT_BATCH_SOLVE_DEADLINE_MS = 60_000
+
+/**
+ * Run a solve under a per-solve deadline. Builds a private AbortController that
+ * fires after `ms`; `run` receives its signal (threaded through to solveCraft →
+ * cancelRequest, which terminates the stuck solve's worker and frees the slot).
+ * If our OWN timer tripped and the run rejected with SolveCancelledError,
+ * re-label it SolveTimeoutError so Phase-1 can surface a distinct "求解超時"
+ * exception. Any other rejection — including a SolveCancelledError from a
+ * whole-batch cancel that landed before our timer fired — passes through
+ * unchanged, so a user cancel is never mislabeled as a timeout.
+ */
+export async function withSolveDeadline<T>(
+  run: (signal: AbortSignal) => Promise<T>,
+  ms: number,
+): Promise<T> {
+  const controller = new AbortController()
+  let timedOut = false
+  const timer = setTimeout(() => { timedOut = true; controller.abort() }, ms)
+  try {
+    return await run(controller.signal)
+  } catch (err) {
+    if (timedOut && err instanceof SolveCancelledError) throw new SolveTimeoutError()
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export async function optimizeRecipe(
   recipe: Recipe,
   gearset: GearsetStats,
   onSolverProgress?: (percent: number) => void,
   buffs?: { food: FoodBuff | null; medicine: FoodBuff | null },
+  signal?: AbortSignal,
 ): Promise<RecipeOptimizeResult> {
   // Batch hard-pins adversarial=false even though it's the default — the
   // batch pipeline runs many solves in parallel and the WASM heap blow-up
@@ -55,6 +91,7 @@ export async function optimizeRecipe(
     buffs,
     adversarial: false,
     onProgress: onSolverProgress,
+    signal,
   })
   if (solverResult.wasmDur !== undefined) {
     const stats = solverResult.runtimeStats
@@ -255,6 +292,7 @@ export async function runBatchOptimization(
   type Phase1Outcome =
     | { kind: 'level-insufficient'; target: BatchTarget; gearset: GearsetStats | null; hardGates: ReturnType<typeof recipeHardGateReasons> }
     | { kind: 'ok'; target: BatchTarget; result: RecipeOptimizeResult }
+    | { kind: 'timeout'; target: BatchTarget }
     | { kind: 'failed'; target: BatchTarget; error: unknown }
   type Phase1Classification =
     | { kind: 'result'; result: RecipeOptimizeResult; status: BatchTargetStatus }
@@ -272,6 +310,19 @@ export async function runBatchOptimization(
           message: v.gearset ? '配方有硬性限制' : '尚未設定裝備組',
           details,
           action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
+        },
+        status: { state: 'failed', reason: details },
+      }
+    }
+    if (v.kind === 'timeout') {
+      const seconds = Math.round(DEFAULT_BATCH_SOLVE_DEADLINE_MS / 1000)
+      const details = `「${v.target.recipe.name}」求解超過 ${seconds} 秒已中止，未納入結果；可調整裝備或縮小需求後重跑整批`
+      return {
+        kind: 'exception',
+        exception: {
+          type: 'solve-timeout', recipe: v.target.recipe, quantity: v.target.quantity,
+          message: '求解超時', details,
+          action: 'skipped',
         },
         status: { state: 'failed', reason: details },
       }
@@ -346,11 +397,14 @@ export async function runBatchOptimization(
       outcome = { kind: 'level-insufficient', target, gearset, hardGates }
     } else {
       try {
-        const result = await optimizeRecipe(target.recipe, gearset, (pct) => {
-          recipePercents[i] = pct
-          onTargetUpdate?.(i, { state: 'solving', percent: pct })
-          emitAggregateProgress(target.recipe.name)
-        }, buffs)
+        const result = await withSolveDeadline(
+          (signal) => optimizeRecipe(target.recipe, gearset, (pct) => {
+            recipePercents[i] = pct
+            onTargetUpdate?.(i, { state: 'solving', percent: pct })
+            emitAggregateProgress(target.recipe.name)
+          }, buffs, signal),
+          DEFAULT_BATCH_SOLVE_DEADLINE_MS,
+        )
         completedCount++
         recipePercents[i] = 100
         emitAggregateProgress('')
@@ -360,7 +414,9 @@ export async function runBatchOptimization(
         completedCount++
         recipePercents[i] = 100
         emitAggregateProgress(target.recipe.name)
-        outcome = { kind: 'failed', target, error: err }
+        outcome = err instanceof SolveTimeoutError
+          ? { kind: 'timeout', target }
+          : { kind: 'failed', target, error: err }
       }
     }
     // Classify and emit the terminal done/failed HERE — the moment this target's
