@@ -232,6 +232,7 @@ async function startOptimization() {
   batchStore.isRunning = true
   batchStore.isCancelled = false
   batchStore.clearResults()
+  batchStore.liveTargets = batchStore.targets.map(() => ({ state: 'queued' as const }))
   expandedSections.value = new Set()
 
   const startedAt = performance.now()
@@ -270,8 +271,10 @@ async function startOptimization() {
         }
       },
       () => batchStore.isCancelled,
+      (index, status) => { batchStore.liveTargets[index] = status },
     )
     batchStore.results = results
+    batchStore.liveTargets = []
     trackEvent('batch_optimization_complete', {
       duration_ms: Math.round(performance.now() - startedAt),
       target_count: batchStore.targets.length,
@@ -281,6 +284,7 @@ async function startOptimization() {
       calc_mode: batchStore.calcMode,
     })
   } catch (err) {
+    batchStore.liveTargets = []
     if (err instanceof SolveCancelledError) {
       ElMessage.info('已取消計算')
       trackEvent('batch_optimization_cancelled')

@@ -87,6 +87,14 @@ describe('useBatchStore', () => {
     expect(store.isRunning).toBe(false)
     expect(store.progress).toEqual({ completed: 0, total: 0, currentName: '', phase: 'idle', solverPercent: 0 })
   })
+
+  it('liveTargets defaults empty and resetAll clears it', () => {
+    const store = useBatchStore()
+    expect(store.liveTargets).toEqual([])
+    store.liveTargets = [{ state: 'queued' }, { state: 'solving', percent: 40 }] as any
+    store.resetAll()
+    expect(store.liveTargets).toEqual([])
+  })
 })
 
 describe('batch store self-craft selection', () => {

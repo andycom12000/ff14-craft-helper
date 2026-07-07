@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useBatchStore } from '@/stores/batch'
+import type { BatchTargetStatus } from '@/stores/batch.types'
 import { computed } from 'vue'
 
 const batchStore = useBatchStore()
@@ -69,6 +70,25 @@ const showCounter = computed(() => {
   const phase = batchStore.progress.phase
   return phase === 'solving' || phase === 'evaluating-buffs' || phase === 'evaluating-meld'
 })
+
+// Honest per-target completion counter: a target only counts once it has
+// actually settled (done or failed), independent of the phase-based
+// `progress` estimate above which is a coarse aggregate across all targets.
+const liveDone = computed(() =>
+  batchStore.liveTargets.filter(t => t.state === 'done' || t.state === 'failed').length)
+
+function targetLabel(t: BatchTargetStatus): string {
+  switch (t.state) {
+    case 'queued':
+      return '排隊中'
+    case 'solving':
+      return `求解中 ${Math.round(t.percent)}%`
+    case 'done':
+      return t.isDoubleMax ? `完成 · ${t.steps} 步` : `完成 · ${t.steps} 步（未達雙滿）`
+    case 'failed':
+      return `失敗：${t.reason}`
+  }
+}
 </script>
 
 <template>
@@ -86,6 +106,18 @@ const showCounter = computed(() => {
         </el-text>
       </div>
       <el-progress :percentage="percentage" :stroke-width="8" />
+      <div v-if="batchStore.liveTargets.length > 0" class="live-target-list" data-test="live-target-list">
+        <div class="live-target-counter">已完成 {{ liveDone }} / {{ batchStore.liveTargets.length }}</div>
+        <div
+          v-for="(t, i) in batchStore.liveTargets"
+          :key="i"
+          class="live-target-row"
+          :data-state="t.state"
+        >
+          <span class="live-target-name">{{ batchStore.targets[i]?.recipe.name ?? `#${i + 1}` }}</span>
+          <span class="live-target-status">{{ targetLabel(t) }}</span>
+        </div>
+      </div>
       <div class="progress-actions">
         <el-button size="small" @click="batchStore.cancel()">取消</el-button>
       </div>
@@ -110,5 +142,56 @@ const showCounter = computed(() => {
 .progress-actions {
   text-align: right;
   margin-top: 8px;
+}
+
+.live-target-list {
+  margin-top: 12px;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--el-fill-color-blank);
+}
+
+.live-target-counter {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--el-text-color-secondary);
+  margin-bottom: 6px;
+}
+
+.live-target-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 13px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.live-target-row:first-of-type {
+  border-top: none;
+}
+
+.live-target-name {
+  color: var(--el-text-color-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-target-status {
+  flex-shrink: 0;
+  color: var(--el-text-color-secondary);
+}
+
+.live-target-row[data-state='done'] .live-target-status {
+  color: var(--el-color-success);
+}
+
+.live-target-row[data-state='failed'] .live-target-status {
+  color: var(--el-color-danger);
 }
 </style>
