@@ -729,18 +729,23 @@ export async function runBatchOptimization(
       const bindingRecipe = findBindingRecipe(candidates.map(r => r.recipe))
       if (!bindingRecipe) return
       const binding = candidates.find(r => r.recipe === bindingRecipe)!
-      // Re-compute initialQuality from the binding recipe's hqAmounts (parallel to recipe.ingredients).
-      const initialQuality = calculateInitialQuality(
-        binding.recipe.recipeLevelTable.quality,
-        binding.recipe.materialQualityFactor,
-        binding.recipe.ingredients.map((ing, i) => ({
-          amount: ing.amount,
-          hqAmount: binding.hqAmounts[i] ?? 0,
-          level: ing.level,
-          canHq: ing.canHq,
-        })),
-      )
       try {
+        // Re-compute initialQuality from the binding recipe's hqAmounts (parallel to recipe.ingredients).
+        // This computation (including the recipeLevelTable access below) must stay
+        // inside the try: a malformed binding recipe can throw here synchronously,
+        // and pre-fix that throw escaped the try/catch entirely — Promise.allSettled
+        // then swallowed it silently (no warn, no progress advance, unlike the old
+        // sequential version which threw loudly).
+        const initialQuality = calculateInitialQuality(
+          binding.recipe.recipeLevelTable.quality,
+          binding.recipe.materialQualityFactor,
+          binding.recipe.ingredients.map((ing, i) => ({
+            amount: ing.amount,
+            hqAmount: binding.hqAmounts[i] ?? 0,
+            level: ing.level,
+            canHq: ing.canHq,
+          })),
+        )
         const advice = await adviseMeld(
           list.map(r => r.recipe),
           gs,

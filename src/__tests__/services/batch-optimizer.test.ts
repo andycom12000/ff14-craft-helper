@@ -914,4 +914,53 @@ describe('runBatchOptimization · Phase 6 meld advice parallelization', () => {
     expect(progressEvents.at(0)).toEqual({ completed: 0, total: 2 })
     expect(progressEvents.at(-1)).toEqual({ completed: 2, total: 2 })
   })
+
+  // Regression guard: the per-job try used to start at `adviseMeld(...)`, leaving the
+  // preceding synchronous initialQuality computation (and its `recipeLevelTable.quality`
+  // access) uncovered. A throw there escaped straight to Promise.allSettled, which
+  // swallowed it silently — no console.warn, and `finally` (progress advance) never ran.
+  // The old sequential version threw loudly instead, so this was a silent regression.
+  it('a synchronous throw computing initialQuality (malformed recipeLevelTable) does not kill the batch and still advances progress', async () => {
+    const { adviseMeld } = await import('@/services/meld-advisor')
+    vi.mocked(adviseMeld).mockResolvedValue({
+      status: 'feasible',
+      costOptimal: { feasible: true, deltaStats: { craftsmanship: 0, control: 0, cp: 0 }, steps: [], totalGil: 0, confirmedBySolver: false },
+      alreadyMeetsThreshold: false,
+      hqSufficient: false,
+    } as any)
+
+    const brokenTarget = makeTarget({ job: 'CRP', id: 9107 })
+    const targets = [brokenTarget, makeTarget({ job: 'BSM', id: 9108 })]
+
+    // Sanity-checked directly: `binding.recipe.recipeLevelTable.quality` throws a
+    // TypeError synchronously when recipeLevelTable is undefined. But recipeLevelTable
+    // can't just start out undefined — solveCraftForRecipe's config building
+    // (solver/config.ts craftParamsToSolverConfig) unconditionally reads
+    // recipeLevelTable.classJobLevel/.quality too, in Phase 1, regardless of canHq,
+    // so the target would be dropped as a "quality-unachievable" exception before
+    // ever reaching Phase 6 — defeating the point of this test (both jobs must
+    // reach recipesByJob so total stays 2/2). Instead, corrupt recipeLevelTable
+    // from inside the getAggregatedPrices mock: Phase 4 pricing always runs after
+    // Phase 1's solve has completed for every target and always before Phase 6, so
+    // this reliably simulates "the binding recipe's data goes bad" without relying
+    // on brittle call-count timing.
+    const { getAggregatedPrices } = await import('@/api/universalis')
+    vi.mocked(getAggregatedPrices).mockImplementation(async () => {
+      ;(brokenTarget.recipe as any).recipeLevelTable = undefined
+      return new Map()
+    })
+
+    const progressEvents: Array<{ completed: number; total: number }> = []
+    const result = await runBatchWithMeld(targets, (info) => {
+      if (info.phase === 'evaluating-meld') progressEvents.push({ completed: info.completed, total: info.total })
+    })
+
+    // (1) the whole batch resolves rather than throwing/rejecting (implicit: the
+    //     `await` above would reject and fail this test otherwise).
+    // (2) the healthy job's advice still survives; the broken job's is skipped.
+    expect(result.meldAdvicePerJob.size).toBe(1)
+    expect(result.meldAdvicePerJob.has('BSM')).toBe(true)
+    // (3) progress still reaches 2/2 — the broken job's `finally` still fires.
+    expect(progressEvents.at(-1)).toEqual({ completed: 2, total: 2 })
+  })
 })
