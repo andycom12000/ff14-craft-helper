@@ -8,7 +8,7 @@ import {
 import { SOLVER_CACHE_EPOCH } from '@/solver/pool-config'
 import { SolveCancelledError } from '@/solver/errors'
 import { NO_SOLUTION_MESSAGE } from '@/solver/raphael'
-import type { SolverConfig } from '@/solver/raphael'
+import type { SolverConfig, SolverResultWithTiming } from '@/solver/raphael'
 
 function baseConfig(overrides: Partial<SolverConfig> = {}): SolverConfig {
   return {
@@ -70,6 +70,27 @@ function makeFakePersistence() {
 }
 
 const okResult = { actions: ['basicSynthesis'], progress: 100, quality: 200, steps: 1, wasmDur: 1234 }
+
+function makeResult(actions: string[]): SolverResultWithTiming {
+  return { ...okResult, actions }
+}
+
+/** Exposes resolve/reject for a promise created outside a Promise executor —
+ *  same "gate" pattern the sibling coalescing tests use inline, generalised
+ *  for tests that need to release it from a nested scope. */
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej })
+  return { promise, resolve, reject }
+}
+
+/** Drains the microtask queue via a macrotask boundary (real timers — this
+ *  file never enables fake timers) so a leader can register itself in
+ *  `inFlight` before a follower call is made, without racing on tick count. */
+function flushMicrotasks(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0))
+}
 
 describe('cachedSolve', () => {
   beforeEach(async () => {
@@ -186,6 +207,8 @@ describe('cachedSolve', () => {
 })
 
 describe('cachedSolve in-flight coalescing', () => {
+  const config = baseConfig()
+
   beforeEach(async () => {
     setSolveCacheBypass(false)
     setSolveCachePersistence(null)
@@ -227,17 +250,108 @@ describe('cachedSolve in-flight coalescing', () => {
     expect(runSolve).toHaveBeenCalledTimes(2)
   })
 
-  it('leader rejection propagates to followers and nothing is cached on cancel', async () => {
+  it('a cancelled leader triggers a live follower takeover instead of propagating the cancel', async () => {
+    // Leader's own run is cancelled (e.g. its caller aborted, or pool
+    // teardown) — the follower never asked for that and has no signal of its
+    // own, so it must take over with a fresh run rather than inherit the
+    // leader's cancellation.
     let rejectGate!: (e: Error) => void
     const gate = new Promise<never>((_, rej) => { rejectGate = rej })
     const runSolve = vi.fn().mockReturnValueOnce(gate).mockResolvedValue({ ...okResult })
     const p1 = cachedSolve(baseConfig(), runSolve)
     const p2 = cachedSolve(baseConfig(), runSolve)
     rejectGate(new SolveCancelledError())
-    await expect(p1).rejects.toBeInstanceOf(SolveCancelledError)
-    await expect(p2).rejects.toBeInstanceOf(SolveCancelledError)
+    await expect(p1).rejects.toBeInstanceOf(SolveCancelledError) // leader's own cancellation still surfaces to its own caller
+    await expect(p2).resolves.toMatchObject({ steps: 1 }) // follower takes over instead of inheriting the cancel
+    expect(runSolve).toHaveBeenCalledTimes(2) // leader's cancelled attempt + the takeover re-run
+
+    // The cancelled leader run itself was never cached — only the takeover's
+    // fresh success was, so a subsequent call replays that instead of
+    // re-dispatching a third time.
     await expect(cachedSolve(baseConfig(), runSolve)).resolves.toMatchObject({ steps: 1 })
     expect(runSolve).toHaveBeenCalledTimes(2)
+  })
+
+  it('a live follower takes over with a fresh solve when the leader is cancelled', async () => {
+    let calls = 0
+    const leaderDeferred = createDeferred<SolverResultWithTiming>()
+    const runSolve = vi.fn(async () => {
+      calls++
+      if (calls === 1) return leaderDeferred.promise
+      return makeResult(['basic_synthesis'])
+    })
+    const leaderCtl = new AbortController()
+    const p1 = cachedSolve(config, runSolve, leaderCtl.signal)
+    await flushMicrotasks()
+    const p2 = cachedSolve(config, runSolve) // follower，無 signal
+    await flushMicrotasks()
+    leaderDeferred.reject(new SolveCancelledError())
+    await expect(p1).rejects.toBeInstanceOf(SolveCancelledError)
+    const r2 = await p2
+    expect(r2.actions).toEqual(['basic_synthesis'])
+    expect(runSolve).toHaveBeenCalledTimes(2) // takeover 真的重跑了
+  })
+
+  it('takeover is attempted at most once: a second cancellation propagates', async () => {
+    const runSolve = vi.fn(async () => {
+      throw new SolveCancelledError() // every attempt cancelled (simulates pool teardown)
+    })
+    const p1 = cachedSolve(config, runSolve)
+    const p2Promise = (async () => {
+      await flushMicrotasks()
+      return cachedSolve(config, runSolve)
+    })()
+    await expect(p1).rejects.toBeInstanceOf(SolveCancelledError)
+    await expect(p2Promise).rejects.toBeInstanceOf(SolveCancelledError)
+    expect(runSolve.mock.calls.length).toBeLessThanOrEqual(3) // 不得無限重試
+  })
+
+  it('a follower whose own signal aborted does NOT take over', async () => {
+    const leaderDeferred = createDeferred<SolverResultWithTiming>()
+    const runSolve = vi.fn(async () => leaderDeferred.promise)
+    const p1 = cachedSolve(config, runSolve)
+    await flushMicrotasks()
+    const followerCtl = new AbortController()
+    followerCtl.abort()
+    const p2 = cachedSolve(config, runSolve, followerCtl.signal)
+    await expect(p2).rejects.toBeInstanceOf(SolveCancelledError)
+    expect(runSolve).toHaveBeenCalledTimes(1) // 沒 takeover
+    leaderDeferred.resolve(makeResult(['a']))
+    await p1
+  })
+
+  it('honors a signal that aborts during the persistence lookup await', async () => {
+    // persistence.get 掛起期間 abort → cachedSolve 應 throw SolveCancelledError，
+    // 不得繼續 dispatch runSolve。
+    const { p, meta, entries } = makeFakePersistence()
+    const key = solveCacheKey(config)
+    meta.set('epoch', SOLVER_CACHE_EPOCH) // skip the clear-on-epoch-mismatch path
+    entries.set(key, { kind: 'result', result: makeResult(['cached']), lastUsedAt: 1 }) // hydrates keyIndex so lookup() actually awaits persistence.get
+    const gate = createDeferred<PersistedSolveEntry | undefined>()
+    p.get = () => gate.promise
+    setSolveCachePersistence(p)
+    const ctl = new AbortController()
+    const runSolve = vi.fn()
+    const result = cachedSolve(config, runSolve as any, ctl.signal)
+    await flushMicrotasks()
+    ctl.abort()
+    gate.resolve(undefined)
+    await expect(result).rejects.toBeInstanceOf(SolveCancelledError)
+    expect(runSolve).not.toHaveBeenCalled()
+  })
+
+  it('follower results and the stored cache entry do not alias the leader actions array', async () => {
+    const leaderDeferred = createDeferred<SolverResultWithTiming>()
+    const runSolve = vi.fn(async () => leaderDeferred.promise)
+    const p1 = cachedSolve(config, runSolve)
+    await flushMicrotasks()
+    const p2 = cachedSolve(config, runSolve)
+    leaderDeferred.resolve(makeResult(['a', 'b']))
+    const [r1, r2] = await Promise.all([p1, p2])
+    r2.actions.push('MUTATED')      // 汙染 follower 的結果
+    r1.actions.push('MUTATED_TOO')  // 汙染 leader 的結果
+    const replay = await cachedSolve(config, runSolve) // 快取 hit
+    expect(replay.actions).toEqual(['a', 'b']) // 快取不受汙染
   })
 
   it('an already-aborted follower does not cause an unhandled rejection when the leader later rejects', async () => {
