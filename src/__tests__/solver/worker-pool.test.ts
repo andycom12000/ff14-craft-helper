@@ -67,7 +67,13 @@ describe('solver worker pool', () => {
     await waitForWasm()
     const p1 = solveCraft({ progress: 100 } as any)
     const p2 = solveCraft({ progress: 200 } as any)
-    await new Promise<void>(resolve => queueMicrotask(() => resolve()))
+    // cachedSolve's ensureInit()/lookup() awaits add microtask hops before the
+    // pool actually dispatches — waitFor (not a fixed queueMicrotask tick)
+    // avoids re-coupling this test to that hop count.
+    await vi.waitFor(() => {
+      expect(FakeWorker.instances[0].postedMessages.filter(m => m.type === 'solve')).toHaveLength(1)
+      expect(FakeWorker.instances[1].postedMessages.filter(m => m.type === 'solve')).toHaveLength(1)
+    })
 
     expect(FakeWorker.instances).toHaveLength(2)
     const slot0Solves = FakeWorker.instances[0].postedMessages.filter(m => m.type === 'solve')
@@ -88,7 +94,9 @@ describe('solver worker pool', () => {
     const p1 = solveCraft({ progress: 100 } as any)
     const p2 = solveCraft({ progress: 200 } as any)
     const p3 = solveCraft({ progress: 300 } as any)
-    await new Promise<void>(resolve => queueMicrotask(() => resolve()))
+    await vi.waitFor(() => {
+      expect(FakeWorker.instances.flatMap(w => w.postedMessages.filter(m => m.type === 'solve'))).toHaveLength(2)
+    })
 
     const dispatched = FakeWorker.instances.flatMap(w => w.postedMessages.filter(m => m.type === 'solve'))
     expect(dispatched).toHaveLength(2)
@@ -111,7 +119,10 @@ describe('solver worker pool', () => {
     await waitForWasm()
     const p1 = solveCraft({ progress: 100 } as any).catch(e => e)
     const p2 = solveCraft({ progress: 200 } as any).catch(e => e)
-    await new Promise<void>(resolve => queueMicrotask(() => resolve()))
+    await vi.waitFor(() => {
+      expect(FakeWorker.instances[0].postedMessages.some(m => m.type === 'solve')).toBe(true)
+      expect(FakeWorker.instances[1].postedMessages.some(m => m.type === 'solve')).toBe(true)
+    })
 
     // slot0 ran p1, slot1 ran p2 (dispatch order)
     const slot0Solve = FakeWorker.instances[0].postedMessages.find(m => m.type === 'solve')
@@ -138,17 +149,23 @@ describe('solver worker pool', () => {
     const { solveCraft, cancelRequest, waitForWasm } = await import('@/solver/worker')
     await waitForWasm()
     const p1 = solveCraft({ progress: 100 } as any).catch(e => e)
-    await new Promise<void>(resolve => queueMicrotask(() => resolve()))
+    await vi.waitFor(() => {
+      expect(FakeWorker.instances[0].postedMessages.some(m => m.type === 'solve')).toBe(true)
+    })
     const slot0Solve = FakeWorker.instances[0].postedMessages.find(m => m.type === 'solve')
 
     cancelRequest(slot0Solve.requestId)
     await p1
-    // Replacement worker (index 2) auto-fires 'ready' on construction.
+    // Replacement worker (index 2) auto-fires 'ready' on construction — a
+    // single microtask hop matching FakeWorker's own queueMicrotask, not
+    // coupled to cachedSolve's hop count, so a fixed wait is fine here.
     await new Promise<void>(resolve => queueMicrotask(() => resolve()))
 
     // A new solve must dispatch (not hang in the queue) — the freed slot is live.
     const p3 = solveCraft({ progress: 300 } as any)
-    await new Promise<void>(resolve => queueMicrotask(() => resolve()))
+    await vi.waitFor(() => {
+      expect(FakeWorker.instances.flatMap(w => w.postedMessages.filter(m => m.type === 'solve'))).toHaveLength(2)
+    })
     const dispatched = FakeWorker.instances.flatMap(w => w.postedMessages.filter(m => m.type === 'solve'))
     // p1 (cancelled) + p3 = 2 solve messages total dispatched across live workers.
     expect(dispatched.length).toBe(2)
@@ -169,7 +186,9 @@ describe('solver worker pool', () => {
     const { trackEvent } = await import('@/utils/analytics')
     await waitForWasm()
     const p1 = solveCraft({ progress: 100 } as any).catch(() => { /* expected cancel */ })
-    await new Promise<void>(resolve => queueMicrotask(() => resolve()))
+    await vi.waitFor(() => {
+      expect(FakeWorker.instances[0].postedMessages.some(m => m.type === 'solve')).toBe(true)
+    })
     const slot0Solve = FakeWorker.instances[0].postedMessages.find(m => m.type === 'solve')
 
     cancelRequest(slot0Solve.requestId)
@@ -184,7 +203,9 @@ describe('solver worker pool', () => {
     const { noteSolverFailed } = await import('@/composables/useSolverFailState')
     await waitForWasm()
     const p1 = solveCraft({ progress: 100 } as any).catch(() => { /* expected error */ })
-    await new Promise<void>(resolve => queueMicrotask(() => resolve()))
+    await vi.waitFor(() => {
+      expect(FakeWorker.instances[0].postedMessages.some(m => m.type === 'solve')).toBe(true)
+    })
     const slot0Solve = FakeWorker.instances[0].postedMessages.find(m => m.type === 'solve')
 
     FakeWorker.instances[0].fireMessage({ type: 'error', requestId: slot0Solve.requestId, error: 'boom' })
@@ -197,7 +218,9 @@ describe('solver worker pool', () => {
     const { solveCraft, cancelRequest, waitForWasm } = await import('@/solver/worker')
     await waitForWasm()
     const p1 = solveCraft({ progress: 100 } as any)
-    await new Promise<void>(resolve => queueMicrotask(() => resolve()))
+    await vi.waitFor(() => {
+      expect(FakeWorker.instances[0].postedMessages.some(m => m.type === 'solve')).toBe(true)
+    })
     const slot0Solve = FakeWorker.instances[0].postedMessages.find(m => m.type === 'solve')
     FakeWorker.instances[0].fireMessage({ type: 'result', requestId: slot0Solve.requestId, result: stubResult })
     await p1
@@ -225,12 +248,14 @@ describe('solver worker pool', () => {
   it('replays identical config from cache without a second dispatch', async () => {
     const { solveCraft, waitForWasm } = await import('@/solver/worker')
     const { clearSolveCache, setSolveCachePersistence } = await import('@/solver/solve-cache')
+    const { trackEvent } = await import('@/utils/analytics')
     setSolveCachePersistence(null)
     await clearSolveCache()
     await waitForWasm()
 
     const config = { progress: 100, crafter_level: 90 } as any
-    const p1 = solveCraft(config)
+    const onProgress = vi.fn()
+    const p1 = solveCraft(config, onProgress)
     await vi.waitFor(() => {
       expect(FakeWorker.instances.flatMap(w => w.postedMessages.filter(m => m.type === 'solve'))).toHaveLength(1)
     })
@@ -240,11 +265,32 @@ describe('solver worker pool', () => {
     const r1 = await p1
     expect(r1.cacheHit).toBeFalsy()
 
-    const r2 = await solveCraft(config)
+    // First (miss) call: solver_start fires with run_index 1, no rerun yet,
+    // solver_complete records cache_hit:false, and onProgress is only ever
+    // driven by real worker 'progress' messages (none fired) — not yet by
+    // the cache-hit synthetic 100.
+    expect(vi.mocked(trackEvent)).toHaveBeenCalledWith('solver_start', expect.anything())
+    expect(vi.mocked(trackEvent)).toHaveBeenCalledWith('solver_complete', expect.objectContaining({ cache_hit: false }))
+    expect(vi.mocked(trackEvent)).not.toHaveBeenCalledWith('solver_rerun', expect.anything())
+    expect(onProgress).not.toHaveBeenCalled()
+
+    const r2 = await solveCraft(config, onProgress)
     expect(r2.cacheHit).toBe(true)
     expect(r2.actions).toEqual(['x'])
     const dispatched = FakeWorker.instances.flatMap(w => w.postedMessages.filter(m => m.type === 'solve'))
     expect(dispatched).toHaveLength(1)
+
+    // Second (cache-hit) call: still fires solver_start (2nd time overall) and
+    // — since it's the same fingerprint re-run — solver_rerun with run_index 2;
+    // solver_complete records cache_hit:true; and since no worker 'progress'
+    // message will ever arrive for a replayed result, the wrapper synthesizes
+    // exactly one onProgress(100) call so progress UIs don't stall at <100%.
+    const solverStartCalls = vi.mocked(trackEvent).mock.calls.filter(c => c[0] === 'solver_start')
+    expect(solverStartCalls).toHaveLength(2)
+    expect(vi.mocked(trackEvent)).toHaveBeenCalledWith('solver_rerun', { run_index: 2 })
+    expect(vi.mocked(trackEvent)).toHaveBeenCalledWith('solver_complete', expect.objectContaining({ cache_hit: true }))
+    expect(onProgress).toHaveBeenCalledTimes(1)
+    expect(onProgress).toHaveBeenCalledWith(100)
   })
 
   it('cancelSolve rejects in-flight and queued solves', async () => {
@@ -253,7 +299,13 @@ describe('solver worker pool', () => {
     const p1 = solveCraft({ progress: 100 } as any).catch(e => e.message)
     const p2 = solveCraft({ progress: 200 } as any).catch(e => e.message)
     const p3 = solveCraft({ progress: 300 } as any).catch(e => e.message)
-    await new Promise<void>(resolve => queueMicrotask(() => resolve()))
+    // cancelSolve() no-ops early if pendingRequests/taskQueue are still empty
+    // (e.g. all three requests still stuck mid-cachedSolve await) — wait for
+    // both pool slots to have actually dispatched so p1/p2 are registered in
+    // pendingRequests before cancelling, otherwise this test can hang.
+    await vi.waitFor(() => {
+      expect(FakeWorker.instances.flatMap(w => w.postedMessages.filter(m => m.type === 'solve'))).toHaveLength(2)
+    })
 
     cancelSolve()
     const results = await Promise.all([p1, p2, p3])
