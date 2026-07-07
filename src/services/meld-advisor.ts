@@ -266,6 +266,38 @@ export interface AdviseMeldOptions {
   /** Run-level abort (#132): superseded run / input change / unmount / cancel
    *  button. Aborting terminates any in-flight WASM solve and bails the run. */
   signal?: AbortSignal
+  /**
+   * #162 — optional progress observer for long-running advisor calls. PURELY
+   * OBSERVATIONAL: it never influences any search decision or loop bound, and
+   * any exception it throws is swallowed at the call site (a broken consumer
+   * callback must never break the advisor). See {@link MeldAdviceProgress}.
+   */
+  onProgress?: (progress: MeldAdviceProgress) => void
+}
+
+/**
+ * #162 — a single progress tick emitted by `adviseMeld` for progressive UI
+ * (e.g. a wait-experience progress bar). Purely observational — see
+ * {@link AdviseMeldOptions.onProgress}.
+ *
+ * - `stage: 'baseline'` — Step 0 (already-meets check) and the #134
+ *   full-pentameld prefilter, before the craftsmanship ladder is enumerated.
+ * - `stage: 'ladder'`   — the #127 outer craftsmanship-ladder search; `rung`
+ *   (1-based) and `rungTotal` (= `ladder.length`) are only present here.
+ * - `probes`      — cumulative solver-probe count so far this `adviseMeld` call.
+ * - `probeBudget` — worst-case cap on `probes` for this call. Before the ladder
+ *   is enumerated this is the `MAX_CRAFTSMANSHIP_RUNGS`-sized upper bound
+ *   (`2 + MAX_CRAFTSMANSHIP_RUNGS × MAX_QUALITY_PROBES`); once the ladder is
+ *   known it tightens to the exact `2 + ladder.length × MAX_QUALITY_PROBES`.
+ */
+export interface MeldAdviceProgress {
+  stage: 'baseline' | 'ladder'
+  /** 1-based; only present when `stage === 'ladder'`. */
+  rung?: number
+  /** only present when `stage === 'ladder'`. */
+  rungTotal?: number
+  probes: number
+  probeBudget: number
 }
 
 /**
@@ -763,6 +795,10 @@ export async function searchMinimalQualityDelta(
   // and frees the per-rung budget for genuinely new points. Defaults to a private
   // map for standalone callers.
   cache: Map<string, boolean> = new Map(),
+  // #162: optional PURELY OBSERVATIONAL hook fired once per real solve (cache
+  // miss only, alongside `solveCount++` below) so a caller can track progress.
+  // Never consulted for any search decision.
+  onProbe?: () => void,
 ): Promise<ConfirmedBreakpoint> {
   const craftsmanship = seed.craftsmanship
 
@@ -783,6 +819,7 @@ export async function searchMinimalQualityDelta(
       cp: gearset.cp + cpDelta,
     }
     solveCount++
+    onProbe?.()
     const solverResult = await deps.solve(recipe, bumped, { initialQuality, buffs })
     if (isCancelled?.()) return null
     const simResult = await deps.simulate(recipe, bumped, {
@@ -1128,11 +1165,44 @@ export async function adviseMeld(
   // identical (craftsmanship, control, cp) point is solved at most once per run.
   const probeCache = new Map<string, boolean>()
 
+  // #162: PURELY OBSERVATIONAL progress tracking. `probes` / `probeBudget` /
+  // the current stage are the only state involved, and nothing here ever
+  // feeds back into a search decision. `probeBudget` starts at the
+  // pre-ladder-enumeration upper bound and tightens to the exact figure once
+  // the ladder is known (see `MeldAdviceProgress`).
+  let probes = 0
+  let probeBudget = 2 + MAX_CRAFTSMANSHIP_RUNGS * MAX_QUALITY_PROBES
+  let progressStage: 'baseline' | 'ladder' = 'baseline'
+  let progressRung: number | undefined
+  let progressRungTotal: number | undefined
+  const emitProgress = () => {
+    if (!options.onProgress) return
+    try {
+      options.onProgress({
+        stage: progressStage,
+        rung: progressStage === 'ladder' ? progressRung : undefined,
+        rungTotal: progressStage === 'ladder' ? progressRungTotal : undefined,
+        probes,
+        probeBudget,
+      })
+    } catch {
+      // progress must never break the advisor
+    }
+  }
+  const noteProbe = () => {
+    probes++
+    emitProgress()
+  }
+
+  // Step 0 solve, about to run: emit the initial baseline tick.
+  emitProgress()
+
   // Step 0: already meets (at max-HQ baseline)? → HQ materials alone suffice.
   // Deadline/cancel (#132) throw out of guardedDeps and land in the catch →
   // bailout, same as any other Step-0 solver failure.
   try {
     const solverResult = await guardedDeps.solve(binding, gearset, { initialQuality: maxHqInitialQuality, buffs })
+    noteProbe()
     if (isCancelled?.()) return bailout('cancelled', noHqLever)
     const simResult = await guardedDeps.simulate(binding, gearset, {
       actions: solverResult.actions,
@@ -1178,6 +1248,7 @@ export async function adviseMeld(
   }
   try {
     const solverResult = await guardedDeps.solve(binding, overbound, { initialQuality: maxHqInitialQuality, buffs })
+    noteProbe()
     if (isCancelled?.()) return bailout('cancelled', noHqLever)
     const simResult = await guardedDeps.simulate(binding, overbound, {
       actions: solverResult.actions,
@@ -1208,6 +1279,9 @@ export async function adviseMeld(
   // finishing progress in fewer steps frees CP budget for quality; the search
   // ranks that coupling against direct control on real gil (ADR-0002).
   const ladder = enumerateCraftsmanshipLadder(binding, gearset, craftDelta, buffs)
+  // #162: the ladder is now enumerated — tighten the estimate to the exact
+  // worst-case budget for this run (see MAX_QUALITY_PROBES's docstring).
+  probeBudget = 2 + ladder.length * MAX_QUALITY_PROBES
 
   let best: MeldPlan | null = null
   let bestConfirmed = false
@@ -1218,8 +1292,14 @@ export async function adviseMeld(
   // space) — without a confirmed plan, the honest terminal status is then
   // budget-exhausted, never infeasible.
   let anyRungBudgetExhausted = false
-  for (const rungCraft of ladder) {
+  for (let rungIndex = 0; rungIndex < ladder.length; rungIndex++) {
+    const rungCraft = ladder[rungIndex]
     if (isCancelled?.()) { interruptedStatus = 'cancelled'; break }
+    // #162: mark the start of this rung before the inner search runs it.
+    progressStage = 'ladder'
+    progressRung = rungIndex + 1
+    progressRungTotal = ladder.length
+    emitProgress()
     // Re-seed the inner control search at this rung's craftsmanship. The seed is
     // non-binding (search speed only); recompute it so the probe starts near the
     // answer for THIS rung rather than the stale baseline-craftsmanship hint.
@@ -1229,7 +1309,7 @@ export async function adviseMeld(
     let confirmed: ConfirmedBreakpoint
     try {
       confirmed = await searchMinimalQualityDelta(
-        binding, gearset, seed, maxHqInitialQuality, guardedDeps, isCancelled, buffs, probeCache,
+        binding, gearset, seed, maxHqInitialQuality, guardedDeps, isCancelled, buffs, probeCache, noteProbe,
       )
     } catch (err) {
       // #132: a wall-clock deadline or run-level abort tore down an in-flight

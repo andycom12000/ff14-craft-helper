@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import type { MeldAdvice, MeldPlan, MeldStep } from '@/services/meld-advisor'
+import type { MeldAdvice, MeldPlan, MeldStep, MeldAdviceProgress } from '@/services/meld-advisor'
 import { adviseMeld, findBindingRecipe, solveProgressBreakpoint, solveQualityBreakpoint, translateDeltaToMeldPlan, computeMaxHqInitialQuality, enumerateCraftsmanshipLadder, recipeHasHqLever } from '@/services/meld-advisor'
 import { SolveCancelledError } from '@/solver/api'
 import type { Recipe } from '@/stores/recipe'
@@ -917,6 +917,101 @@ describe('adviseMeld — CP-bound recipe must not false-report infeasible (#155)
     // (4 control + 0 CP = 4 melds). A break-on-tie returns the 4-meld plan.
     expect(out.costOptimal.deltaStats.control).toBe(54)
     expect(out.costOptimal.deltaStats.cp).toBe(28)
+  })
+})
+
+// #162 — adviseMeld's optional onProgress callback is PURELY OBSERVATIONAL
+// (must never change any search decision) and must fire baseline ticks before
+// the ladder is enumerated, then a 'ladder' tick at the start of every rung,
+// with a monotonically non-decreasing probe count bounded by probeBudget.
+describe('adviseMeld — onProgress reports baseline + ladder progress (#162)', () => {
+  const priceMap = new Map<number, any>(
+    MATERIA_GRADES.map(m => [m.itemId, { minPriceNQ: 1000 + m.value, listings: [] }]),
+  )
+
+  // Same CP-bound fixture shape as #155: forces the run past Step 0 + the
+  // prefilter and into at least one ladder rung's inner search.
+  const cpBoundGearset = {
+    level: 100, craftsmanship: 4500, control: 3200, cp: 600, isSpecialist: false,
+  }
+  const cpBoundRecipe = () => makeRecipe(162, 100, 6500)
+
+  const SIM_EXTRAS = {
+    durability: 80, cp: 600, max_durability: 80, max_cp: 600,
+    effects: {} as any, is_finished: true, is_success: true, steps_used: 1,
+  }
+
+  const cpControlAwareSimulate = (
+    baseControl: number,
+    baseCp: number,
+    controlGate: number,
+    cpGate: number,
+    maxQuality = 6500,
+    qualityShort = 243,
+  ) =>
+    vi.fn(async (_recipe: any, gs: any) => {
+      const met = gs.control >= baseControl + controlGate && gs.cp >= baseCp + cpGate
+      return {
+        ...SIM_EXTRAS,
+        progress: 3500, max_progress: 3500,
+        quality: met ? maxQuality : maxQuality - qualityShort,
+        max_quality: maxQuality,
+      }
+    })
+
+  it('reports onProgress across baseline and ladder rungs with monotonic probe counts', async () => {
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = cpControlAwareSimulate(cpBoundGearset.control, cpBoundGearset.cp, 150, 54)
+
+    const events: MeldAdviceProgress[] = []
+    const advice = await adviseMeld(
+      [cpBoundRecipe()], cpBoundGearset, priceMap,
+      { initialQuality: 0, onProgress: (p) => events.push({ ...p }) },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+
+    expect(events.length).toBeGreaterThan(0)
+    expect(events[0].stage).toBe('baseline')
+    const ladderEvents = events.filter(e => e.stage === 'ladder')
+    expect(ladderEvents.length).toBeGreaterThan(0)
+    expect(ladderEvents[0].rung).toBe(1)
+    expect(ladderEvents[0].rungTotal).toBeGreaterThanOrEqual(1)
+    // probes monotonically non-decreasing, never exceeding the reported budget.
+    for (let k = 1; k < events.length; k++) {
+      expect(events[k].probes).toBeGreaterThanOrEqual(events[k - 1].probes)
+    }
+    for (const e of events) expect(e.probes).toBeLessThanOrEqual(e.probeBudget)
+    // Behaviour is unchanged by the presence of a progress observer.
+    expect(advice.status).toBe('feasible')
+    expect(advice.costOptimal.confirmedBySolver).toBe(true)
+  })
+
+  it('a throwing onProgress is swallowed and never breaks the advisor', async () => {
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = cpControlAwareSimulate(cpBoundGearset.control, cpBoundGearset.cp, 150, 54)
+
+    const advice = await adviseMeld(
+      [cpBoundRecipe()], cpBoundGearset, priceMap,
+      {
+        initialQuality: 0,
+        onProgress: () => { throw new Error('boom') },
+      },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )
+
+    expect(advice.status).toBe('feasible')
+    expect(advice.costOptimal.confirmedBySolver).toBe(true)
+  })
+
+  it('omitting onProgress changes nothing (existing suite is the guard)', async () => {
+    const fakeSolve = vi.fn().mockResolvedValue({ actions: ['x'] })
+    const fakeSimulate = cpControlAwareSimulate(cpBoundGearset.control, cpBoundGearset.cp, 150, 54)
+
+    await expect(adviseMeld(
+      [cpBoundRecipe()], cpBoundGearset, priceMap,
+      { initialQuality: 0 },
+      { solve: fakeSolve, simulate: fakeSimulate },
+    )).resolves.toBeTruthy()
   })
 })
 
