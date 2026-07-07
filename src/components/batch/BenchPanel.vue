@@ -4,6 +4,7 @@ import { getRecipe } from '@/api/xivapi'
 import { useGearsetsStore, type GearsetStats } from '@/stores/gearsets'
 import { optimizeRecipe } from '@/services/batch-optimizer'
 import { waitForWasm } from '@/solver/worker'
+import { setSolveCacheBypass, clearSolveCache } from '@/solver/solve-cache'
 
 const gearsetsStore = useGearsetsStore()
 
@@ -48,6 +49,13 @@ const currentDataset = ref('')
 const rows = ref<BenchRow[]>([])
 const totalMs = ref(0)
 const gearsetPresetIdx = ref(0)
+const cacheCleared = ref(false)
+
+async function onClearCache() {
+  await clearSolveCache()
+  cacheCleared.value = true
+  setTimeout(() => { cacheCleared.value = false }, 2000)
+}
 
 async function runDataset(name: string) {
   if (running.value) return
@@ -85,6 +93,7 @@ async function runDataset(name: string) {
   }
 
   try {
+    setSolveCacheBypass(true)
     const url = `${import.meta.env.BASE_URL}scripts/dev/datasets/${name}.json`
     const res = await fetch(url)
     if (!res.ok) throw new Error(`fetch dataset failed: ${res.status}`)
@@ -145,6 +154,7 @@ async function runDataset(name: string) {
     totalMs.value = performance.now() - totalStart
   } finally {
     console.debug = origDebug
+    setSolveCacheBypass(false)
     running.value = false
   }
 }
@@ -179,6 +189,8 @@ async function copyCsv() {
       <button :disabled="running" @click="runDataset('dataset-2')">Run dataset-2</button>
       <button :disabled="running" @click="runDataset('dataset-3')">Run dataset-3</button>
       <span v-if="running">Running {{ currentDataset }}…</span>
+      <button :disabled="running" @click="onClearCache">清除快取</button>
+      <span v-if="cacheCleared">已清除</span>
     </div>
     <div v-if="rows.length" class="results">
       <p>Total wall: {{ Math.round(totalMs) }} ms · {{ rows.length }} recipes</p>

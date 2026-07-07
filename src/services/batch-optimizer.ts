@@ -60,7 +60,7 @@ export async function optimizeRecipe(
       ? ` nodes=${stats.search_processed_nodes} inserted=${stats.search_inserted_nodes}`
       : ''
     console.debug(
-      `[bperf] solve ${recipe.name} wasmDur=${solverResult.wasmDur.toFixed(0)}ms steps=${solverResult.actions.length}${statsTail}`
+      `[bperf] solve ${recipe.name} wasmDur=${solverResult.wasmDur.toFixed(0)}ms steps=${solverResult.actions.length}${statsTail} cache=${solverResult.cacheHit ? 'hit' : 'miss'}`
     )
   }
   const simResult = await simulateCraftForRecipe(recipe, gearset, {

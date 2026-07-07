@@ -9,13 +9,10 @@ import { POOL_SIZE } from './pool-config'
 import { trackEvent, trackError } from '@/utils/analytics'
 import { classifyGearBucket } from '@/utils/gear-bucket'
 import { noteSolverFailed } from '@/composables/useSolverFailState'
+import { SolveCancelledError } from './errors'
+import { cachedSolve } from './solve-cache'
 
-export class SolveCancelledError extends Error {
-  constructor(message = '求解已取消') {
-    super(message)
-    this.name = 'SolveCancelledError'
-  }
-}
+export { SolveCancelledError } from './errors'
 
 // Tab-session rerun counter: keyed by input fingerprint so we can flag
 // "user tried the same config 2+ times in a row". Cleared on page reload.
@@ -271,16 +268,28 @@ function bindAbort(requestId: number, signal?: AbortSignal): void {
   signal.addEventListener('abort', () => cancelRequest(requestId), { once: true })
 }
 
-export function solveCraft(
+/** Raw pool dispatch — no analytics, no cache. Wrapped by solveCraft. */
+function solveCraftUncached(
   config: SolverConfig,
   onProgress?: (percent: number) => void,
   signal?: AbortSignal,
 ): Promise<SolverResultWithTiming> {
   const requestId = nextRequestId++
+  return new Promise<SolverResultWithTiming>((resolve, reject) => {
+    pendingRequests.set(requestId, { onProgress, resolve, reject })
+    dispatchOrQueue('solve', { config: { ...config } }, requestId)
+    bindAbort(requestId, signal)
+  })
+}
+
+export function solveCraft(
+  config: SolverConfig,
+  onProgress?: (percent: number) => void,
+  signal?: AbortSignal,
+): Promise<SolverResultWithTiming> {
   const startedAt = performance.now()
   const fp = solverInputFingerprint(config)
-  const prevRunCount = solverRerunCounts.get(fp) ?? 0
-  const runIndex = prevRunCount + 1
+  const runIndex = (solverRerunCounts.get(fp) ?? 0) + 1
   solverRerunCounts.set(fp, runIndex)
 
   trackEvent('solver_start', {
@@ -289,36 +298,32 @@ export function solveCraft(
     gear_bucket: classifyGearBucket(config.crafter_level, config.craftsmanship, config.control),
     ...(config.taxonomy ?? {}),
   })
-  if (runIndex >= 2) {
-    trackEvent('solver_rerun', { run_index: runIndex })
-  }
-  return new Promise<SolverResultWithTiming>((resolve, reject) => {
-    pendingRequests.set(requestId, {
-      onProgress,
-      resolve: (r: SolverResultWithTiming) => {
-        trackEvent('solver_complete', {
-          duration_ms: Math.round(performance.now() - startedAt),
-          action_count: r.actions.length, steps: r.steps,
-          wasm_duration_ms: r.wasmDur !== undefined ? Math.round(r.wasmDur) : undefined,
-          ...(config.taxonomy ?? {}),
-        })
-        resolve(r)
-      },
-      reject: (err: Error) => {
-        // A deliberate cancellation (supersede / deadline / unmount / cancel
-        // button, #132) is not a solve failure — recording it would inflate
-        // `solver_failed` and mis-arm the input-change-after-fail audit.
-        if (!(err instanceof SolveCancelledError)) {
-          trackEvent('solver_failed', { reason: err.message })
-          trackError(`solver_failed: ${err.message}`)
-          noteSolverFailed()
-        }
-        reject(err)
-      },
-    })
-    dispatchOrQueue('solve', { config: { ...config } }, requestId)
-    bindAbort(requestId, signal)
-  })
+  if (runIndex >= 2) trackEvent('solver_rerun', { run_index: runIndex })
+
+  return cachedSolve(config, () => solveCraftUncached(config, onProgress, signal), signal).then(
+    (r) => {
+      if (r.cacheHit) onProgress?.(100)
+      trackEvent('solver_complete', {
+        duration_ms: Math.round(performance.now() - startedAt),
+        action_count: r.actions.length, steps: r.steps,
+        wasm_duration_ms: r.wasmDur !== undefined ? Math.round(r.wasmDur) : undefined,
+        cache_hit: r.cacheHit === true,
+        ...(config.taxonomy ?? {}),
+      })
+      return r
+    },
+    (err: Error) => {
+      // A deliberate cancellation (supersede / deadline / unmount / cancel
+      // button, #132) is not a solve failure — recording it would inflate
+      // `solver_failed` and mis-arm the input-change-after-fail audit.
+      if (!(err instanceof SolveCancelledError)) {
+        trackEvent('solver_failed', { reason: err.message })
+        trackError(`solver_failed: ${err.message}`)
+        noteSolverFailed()
+      }
+      throw err
+    },
+  )
 }
 
 /**
