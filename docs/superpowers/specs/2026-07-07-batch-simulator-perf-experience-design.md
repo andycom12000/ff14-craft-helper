@@ -59,6 +59,8 @@
 - **BenchPanel**：跑分一律 bypass cache，另加「清除快取」鈕；`[bperf]` log 加 `cache=hit|miss` 欄。
 - **simulate / simulate-detail 不快取**（毫秒級，不值得）。
 
+**實測（2026-07-07，branch `perf/solve-result-cache`，hwc=20）**：同 config `optimizeRecipe` 第一次 1012ms → 第二次 6ms（記憶體 hit）；整頁 reload 後 77ms（IndexedDB hit，`[bperf] ... cache=hit`）；清除快取後回到 1088ms 真實重解。BenchPanel dataset-1 連跑兩次 3292ms / 3169ms（bypass 生效、全 `cache=miss`）。成功指標第 1 條「重跑 Phase 1 ≈ 0s」達成。
+
 ### PR-2 · 序列迴圈並行化
 
 - **Phase 6**：`for (job of recipesByJob)` 改 `Promise.allSettled`（每 job 一個 `adviseMeld`，pool 自然節流）。進度 `meldJobsDone` 改各 job 完成時遞增。單一 job 失敗不拖垮其他 job（settled 語意）。
