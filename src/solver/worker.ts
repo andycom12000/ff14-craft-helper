@@ -9,13 +9,9 @@ import { POOL_SIZE } from './pool-config'
 import { trackEvent, trackError } from '@/utils/analytics'
 import { classifyGearBucket } from '@/utils/gear-bucket'
 import { noteSolverFailed } from '@/composables/useSolverFailState'
+import { SolveCancelledError } from './errors'
 
-export class SolveCancelledError extends Error {
-  constructor(message = '求解已取消') {
-    super(message)
-    this.name = 'SolveCancelledError'
-  }
-}
+export { SolveCancelledError } from './errors'
 
 // Tab-session rerun counter: keyed by input fingerprint so we can flag
 // "user tried the same config 2+ times in a row". Cleared on page reload.
