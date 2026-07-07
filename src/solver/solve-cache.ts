@@ -215,12 +215,13 @@ export async function cachedSolve(
 ): Promise<SolverResultWithTiming> {
   if (bypass) return runSolve()
   await ensureInit()
+  if (signal?.aborted) throw new SolveCancelledError()
   const key = solveCacheKey(config)
   const hit = await lookup(key)
   if (hit) {
     touch(key, hit)
     if (hit.kind === 'no-solution') throw new Error(hit.errorMessage)
-    return { ...hit.result!, cacheHit: true }
+    return { ...hit.result!, actions: [...hit.result!.actions], cacheHit: true }
   }
 
   const existing = inFlight.get(key)

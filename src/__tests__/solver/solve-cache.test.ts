@@ -88,6 +88,25 @@ describe('cachedSolve', () => {
     expect(hit.actions).toEqual(['basicSynthesis'])
   })
 
+  it('respects an already-aborted signal on a cache hit (does not return the cached result)', async () => {
+    const runSolve = vi.fn().mockResolvedValue({ ...okResult })
+    await cachedSolve(baseConfig(), runSolve) // populate the cache
+    const aborted = new AbortController()
+    aborted.abort()
+    await expect(cachedSolve(baseConfig(), runSolve, aborted.signal))
+      .rejects.toBeInstanceOf(SolveCancelledError)
+    expect(runSolve).toHaveBeenCalledTimes(1) // still just the original miss
+  })
+
+  it('defensively copies actions on a cache hit so mutating the result cannot poison the cache', async () => {
+    const runSolve = vi.fn().mockResolvedValue({ ...okResult })
+    await cachedSolve(baseConfig(), runSolve) // miss
+    const hit1 = await cachedSolve(baseConfig(), runSolve)
+    hit1.actions.push('mutated')
+    const hit2 = await cachedSolve(baseConfig(), runSolve)
+    expect(hit2.actions).toEqual(['basicSynthesis'])
+  })
+
   it('caches NoSolution rejections and replays them', async () => {
     const runSolve = vi.fn().mockRejectedValue(new Error(NO_SOLUTION_MESSAGE))
     await expect(cachedSolve(baseConfig(), runSolve)).rejects.toThrow(NO_SOLUTION_MESSAGE)
