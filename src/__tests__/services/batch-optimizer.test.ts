@@ -889,7 +889,7 @@ describe('runBatchOptimization · Phase 6 meld advice parallelization', () => {
     const result = await runBatchWithMeld(targets)
 
     // Entire batch completes; only the successful job's advice survives.
-    expect(result.meldAdvicePerJob.size).toBe(1)
+    expect(result.meldAdvicePerJob?.size).toBe(1)
   })
 
   it('emits evaluating-meld progress as each job completes', async () => {
@@ -911,8 +911,8 @@ describe('runBatchOptimization · Phase 6 meld advice parallelization', () => {
     })
 
     // At least 0/2 → … → 2/2: the first event is the pre-fetch flip, the last is full completion.
-    expect(progressEvents.at(0)).toEqual({ completed: 0, total: 2 })
-    expect(progressEvents.at(-1)).toEqual({ completed: 2, total: 2 })
+    expect(progressEvents[0]).toEqual({ completed: 0, total: 2 })
+    expect(progressEvents[progressEvents.length - 1]).toEqual({ completed: 2, total: 2 })
   })
 
   // Regression guard: the per-job try used to start at `adviseMeld(...)`, leaving the
@@ -958,9 +958,9 @@ describe('runBatchOptimization · Phase 6 meld advice parallelization', () => {
     // (1) the whole batch resolves rather than throwing/rejecting (implicit: the
     //     `await` above would reject and fail this test otherwise).
     // (2) the healthy job's advice still survives; the broken job's is skipped.
-    expect(result.meldAdvicePerJob.size).toBe(1)
-    expect(result.meldAdvicePerJob.has('BSM')).toBe(true)
+    expect(result.meldAdvicePerJob?.size).toBe(1)
+    expect(result.meldAdvicePerJob?.has('BSM')).toBe(true)
     // (3) progress still reaches 2/2 — the broken job's `finally` still fires.
-    expect(progressEvents.at(-1)).toEqual({ completed: 2, total: 2 })
+    expect(progressEvents[progressEvents.length - 1]).toEqual({ completed: 2, total: 2 })
   })
 })
