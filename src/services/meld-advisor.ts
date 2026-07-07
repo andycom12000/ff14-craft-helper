@@ -589,8 +589,10 @@ function isDoubleMax(simResult: {
  *
  * The search runs after `adviseMeld`'s Step 0 already-meets probe and the #134
  * full-pentameld feasibility prefilter (2 baseline solves), so the documented
- * worst-case advisor budget is 2 + MAX_CRAFTSMANSHIP_RUNGS × MAX_QUALITY_PROBES
- * solves per run (the shared probe cache lowers the effective count via hits).
+ * worst-case advisor budget is 2 + (MAX_CRAFTSMANSHIP_RUNGS + 1) × MAX_QUALITY_PROBES
+ * solves per run — the ladder carries a baseline rung on top of the
+ * MAX_CRAFTSMANSHIP_RUNGS extras (the shared probe cache lowers the effective
+ * count via hits). Kept in sync with `MeldAdviceProgress.probeBudget`.
  */
 const MAX_QUALITY_PROBES = 28
 
@@ -654,7 +656,8 @@ const PROGRESS_STEP_EFFICIENCY = 3.6
  * (e.g. a degenerate closed-form step count) can never expand the ladder
  * unbounded. With each rung issuing at most MAX_QUALITY_PROBES inner solves, the
  * documented worst-case advisor budget is 2 (Step 0 + #134 prefilter) +
- * MAX_CRAFTSMANSHIP_RUNGS × MAX_QUALITY_PROBES solves per run.
+ * (MAX_CRAFTSMANSHIP_RUNGS + 1) × MAX_QUALITY_PROBES solves per run (the ladder
+ * holds a baseline rung plus up to MAX_CRAFTSMANSHIP_RUNGS extras).
  */
 const MAX_CRAFTSMANSHIP_RUNGS = 6
 

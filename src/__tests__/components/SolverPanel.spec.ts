@@ -138,6 +138,40 @@ describe('SolverPanel — per-request cancel (AbortSignal, not pool-wide cancelS
     expect(cancelSolve).not.toHaveBeenCalled()
   })
 
+  it('a superseded solve settling late does not clobber a newer in-flight solve', async () => {
+    // cancel → immediate re-solve: call A (cancelled) settles after call B started.
+    // A's finally must not null B's controller nor flip B's solverRunning to idle.
+    const deferredA = createDeferred<{ actions: string[] }>()
+    const deferredB = createDeferred<{ actions: string[] }>()
+    const signals: AbortSignal[] = []
+    vi.mocked(solveCraft)
+      .mockImplementationOnce((_c, _p, signal) => { signals.push(signal!); return deferredA.promise as ReturnType<typeof solveCraft> })
+      .mockImplementationOnce((_c, _p, signal) => { signals.push(signal!); return deferredB.promise as ReturnType<typeof solveCraft> })
+
+    const w = mount(SolverPanel, { props: { craftParams } })
+    await flushPromises()
+
+    await clickSolve(w)      // call A
+    await clickCancel(w)     // aborts A, status='cancelled', solverRunning=false
+    await clickSolve(w)      // call B — solveController now points at B's controller
+
+    const simStore = useSimulatorStore()
+    expect(simStore.solverRunning).toBe(true)      // B is running
+    expect(signals[1].aborted).toBe(false)         // B's signal is live
+
+    // Now A's aborted promise settles late.
+    deferredA.reject(new MockSolveCancelledError())
+    await flushPromises()
+
+    // B must still be considered running, and cancelling must still abort B.
+    expect(simStore.solverRunning).toBe(true)
+    await clickCancel(w)
+    expect(signals[1].aborted).toBe(true)
+
+    deferredB.reject(new MockSolveCancelledError())
+    await flushPromises()
+  })
+
   it('does not surface a duplicate/generic error message when the aborted promise rejects with SolveCancelledError', async () => {
     const deferred = createDeferred<{ actions: string[] }>()
     vi.mocked(solveCraft).mockImplementation(() => deferred.promise as ReturnType<typeof solveCraft>)

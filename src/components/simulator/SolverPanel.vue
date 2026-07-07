@@ -143,13 +143,14 @@ async function handleSolve() {
   progress.value = 0
   errorMessage.value = ''
   simStore.solverRunning = true
-  solveController = new AbortController()
+  const controller = new AbortController()
+  solveController = controller
 
   try {
     milestones.markMilestoneOnce('ran_solver')
     const result = await solveCraft(config, (percent) => {
       progress.value = percent
-    }, solveController.signal)
+    }, controller.signal)
     simStore.setActions(result.actions)
     emit('solve-complete', { actions: result.actions })
     status.value = 'done'
@@ -163,8 +164,13 @@ async function handleSolve() {
       ElMessage.error('求解失敗: ' + errorMessage.value)
     }
   } finally {
-    solveController = null
-    simStore.solverRunning = false
+    // Only tear down if this invocation is still the current one. A superseded
+    // solve (cancel → immediate re-solve) settling late must not null out the
+    // newer request's controller or flip its solverRunning flag to idle.
+    if (solveController === controller) {
+      solveController = null
+      simStore.solverRunning = false
+    }
   }
 }
 
