@@ -30,6 +30,7 @@ describe('BatchProgress', () => {
       { recipe: makeRecipe(1, 'A'), quantity: 1 },
       { recipe: makeRecipe(2, 'B'), quantity: 1 },
     ]
+    store.liveTargetNames = ['A', 'B']
     store.progress = { ...store.progress, phase: 'solving', total: 2, completed: 0 }
     store.liveTargets = [
       { state: 'done', steps: 12, isDoubleMax: true },
@@ -56,6 +57,7 @@ describe('BatchProgress', () => {
       { recipe: makeRecipe(1, 'A'), quantity: 1 },
       { recipe: makeRecipe(2, 'B'), quantity: 1 },
     ]
+    store.liveTargetNames = ['A', 'B']
     store.progress = { ...store.progress, phase: 'solving', total: 2, completed: 0 }
     store.liveTargets = [
       { state: 'failed', reason: 'x' },
@@ -80,5 +82,33 @@ describe('BatchProgress', () => {
     expect(w.find('[data-test="live-target-list"]').exists()).toBe(false)
     // Original single progress bar still renders.
     expect(w.find('.progress-body').exists()).toBe(true)
+  })
+
+  it('renders names from the liveTargetNames snapshot, not the live targets list — a mid-run remove/reorder of targets must not desync the row label from its status', () => {
+    const store = useBatchStore()
+    store.isRunning = true
+    // Snapshot taken when the run started: A, B in that order.
+    store.liveTargetNames = ['A', 'B']
+    store.progress = { ...store.progress, phase: 'solving', total: 2, completed: 0 }
+    store.liveTargets = [
+      { state: 'done', steps: 5, isDoubleMax: true },
+      { state: 'solving', percent: 30 },
+    ]
+    // Mid-run edit: user removed the first target and the live `targets`
+    // array is now reordered/shrunk relative to the snapshot.
+    store.targets = [
+      { recipe: makeRecipe(2, 'B'), quantity: 1 },
+    ]
+
+    const w = mount(BatchProgress)
+
+    const rows = w.findAll('.live-target-row')
+    expect(rows).toHaveLength(2)
+    // Row 0's status (done) must still be labelled "A" — the snapshot name —
+    // even though targets[0] is now "B" after the removal.
+    expect(rows[0].text()).toContain('A')
+    expect(rows[0].text()).toContain('完成')
+    expect(rows[1].text()).toContain('B')
+    expect(rows[1].text()).toContain('30%')
   })
 })

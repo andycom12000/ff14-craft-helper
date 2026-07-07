@@ -164,10 +164,12 @@ describe('BatchView — startOptimization liveTargets bridging', () => {
 
     let seenAtCallTime: BatchTargetStatus[] = []
     let seenAfterUpdate: BatchTargetStatus[] = []
+    let seenNamesAtCallTime: string[] = []
     vi.mocked(runBatchOptimization).mockImplementation(async (_targets, _getGearset, _settings, _onProgress, _isCancelled, onTargetUpdate) => {
       // By the time the optimizer is invoked, startOptimization has already
       // synchronously seeded liveTargets to queued×N (before the awaited call).
       seenAtCallTime = JSON.parse(JSON.stringify(store.liveTargets))
+      seenNamesAtCallTime = JSON.parse(JSON.stringify(store.liveTargetNames))
       onTargetUpdate?.(0, { state: 'done', steps: 12, isDoubleMax: true })
       seenAfterUpdate = JSON.parse(JSON.stringify(store.liveTargets))
       return makeResults()
@@ -179,10 +181,12 @@ describe('BatchView — startOptimization liveTargets bridging', () => {
     await flushPromises()
 
     expect(seenAtCallTime).toEqual([{ state: 'queued' }, { state: 'queued' }])
+    expect(seenNamesAtCallTime).toEqual(['Target A', 'Target B'])
     expect(seenAfterUpdate[0]).toEqual({ state: 'done', steps: 12, isDoubleMax: true })
     expect(seenAfterUpdate[1]).toEqual({ state: 'queued' })
-    // Run finished successfully — liveTargets is cleared, results is populated.
+    // Run finished successfully — liveTargets/liveTargetNames are cleared, results is populated.
     expect(store.liveTargets).toEqual([])
+    expect(store.liveTargetNames).toEqual([])
     expect(store.results).not.toBeNull()
   })
 
@@ -202,5 +206,34 @@ describe('BatchView — startOptimization liveTargets bridging', () => {
     await flushPromises()
 
     expect(store.liveTargets).toEqual([])
+  })
+
+  it('does not seed a fake queued liveTargets list in quick-buy mode (quick-buy never calls onTargetUpdate, so a queued×N seed would stall forever)', async () => {
+    const store = useBatchStore()
+    const gearsets = useGearsetsStore()
+    gearsets.updateGearset('CRP', { craftsmanship: 3000, control: 3000 })
+    store.addTarget(makeTargetRecipe(1, 'Target A'))
+    store.addTarget(makeTargetRecipe(2, 'Target B'))
+    store.setCalcMode('quick-buy')
+
+    let seenAtCallTime: BatchTargetStatus[] | null = null
+    let seenNamesAtCallTime: string[] | null = null
+    vi.mocked(runBatchOptimization).mockImplementation(async () => {
+      // runQuickBuy never invokes onTargetUpdate — assert the seed itself
+      // never happened, matching the real short-circuit in runBatchOptimization.
+      seenAtCallTime = JSON.parse(JSON.stringify(store.liveTargets))
+      seenNamesAtCallTime = JSON.parse(JSON.stringify(store.liveTargetNames))
+      return makeResults()
+    })
+
+    const w = mount(BatchView)
+    await w.vm.$nextTick()
+    await clickStartOptimization(w)
+    await flushPromises()
+
+    expect(seenAtCallTime).toEqual([])
+    expect(seenNamesAtCallTime).toEqual([])
+    expect(store.liveTargets).toEqual([])
+    expect(store.liveTargetNames).toEqual([])
   })
 })

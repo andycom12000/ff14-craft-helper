@@ -114,7 +114,7 @@ function targetLabel(t: BatchTargetStatus): string {
           class="live-target-row"
           :data-state="t.state"
         >
-          <span class="live-target-name">{{ batchStore.targets[i]?.recipe.name ?? `#${i + 1}` }}</span>
+          <span class="live-target-name">{{ batchStore.liveTargetNames[i] ?? `#${i + 1}` }}</span>
           <span class="live-target-status">{{ targetLabel(t) }}</span>
         </div>
       </div>

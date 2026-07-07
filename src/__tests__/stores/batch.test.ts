@@ -95,6 +95,14 @@ describe('useBatchStore', () => {
     store.resetAll()
     expect(store.liveTargets).toEqual([])
   })
+
+  it('liveTargetNames defaults empty and resetAll clears it', () => {
+    const store = useBatchStore()
+    expect(store.liveTargetNames).toEqual([])
+    store.liveTargetNames = ['Target A', 'Target B']
+    store.resetAll()
+    expect(store.liveTargetNames).toEqual([])
+  })
 })
 
 describe('batch store self-craft selection', () => {
