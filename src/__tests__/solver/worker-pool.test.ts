@@ -220,6 +220,33 @@ describe('solver worker pool', () => {
     expect(FakeWorker.instances[0].terminated).toBe(true)
   })
 
+  // PR-1: identical config solved twice must dispatch to the worker only once —
+  // the second call replays from the solve cache with cacheHit=true.
+  it('replays identical config from cache without a second dispatch', async () => {
+    const { solveCraft, waitForWasm } = await import('@/solver/worker')
+    const { clearSolveCache, setSolveCachePersistence } = await import('@/solver/solve-cache')
+    setSolveCachePersistence(null)
+    await clearSolveCache()
+    await waitForWasm()
+
+    const config = { progress: 100, crafter_level: 90 } as any
+    const p1 = solveCraft(config)
+    await vi.waitFor(() => {
+      expect(FakeWorker.instances.flatMap(w => w.postedMessages.filter(m => m.type === 'solve'))).toHaveLength(1)
+    })
+    const solveMsg = FakeWorker.instances.flatMap(w => w.postedMessages.filter(m => m.type === 'solve'))[0]
+    FakeWorker.instances.find(w => w.postedMessages.includes(solveMsg))!
+      .fireMessage({ type: 'result', requestId: solveMsg.requestId, result: { ...stubResult, actions: ['x'] }, wasmDur: 42 })
+    const r1 = await p1
+    expect(r1.cacheHit).toBeFalsy()
+
+    const r2 = await solveCraft(config)
+    expect(r2.cacheHit).toBe(true)
+    expect(r2.actions).toEqual(['x'])
+    const dispatched = FakeWorker.instances.flatMap(w => w.postedMessages.filter(m => m.type === 'solve'))
+    expect(dispatched).toHaveLength(1)
+  })
+
   it('cancelSolve rejects in-flight and queued solves', async () => {
     const { solveCraft, cancelSolve, waitForWasm } = await import('@/solver/worker')
     await waitForWasm()
