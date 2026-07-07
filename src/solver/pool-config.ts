@@ -19,4 +19,4 @@ export function deriveRayonThreads(hwc: number): number {
  * otherwise users replay solutions computed by the previous solver.
  * Format: '<upstream rev>-<local increment>'.
  */
-export const SOLVER_CACHE_EPOCH = 'aafcbb0-1'
+export const SOLVER_CACHE_EPOCH = '70e068e-1'
