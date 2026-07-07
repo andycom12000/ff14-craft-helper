@@ -820,3 +820,98 @@ describe('runBatchOptimization · Phase 6 meld advice', () => {
     expect(result.meldAdvicePerJob).toBeUndefined()
   })
 })
+
+// PR-2: Phase 6 runs per-job advisors concurrently and isolates per-job failures.
+describe('runBatchOptimization · Phase 6 meld advice parallelization', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const defaultSettings = {
+    crossServer: false, recursivePricing: false, maxRecursionDepth: 3,
+    exceptionStrategy: 'skip' as const, server: 'Chocobo', dataCenter: 'Mana',
+    meldAdvice: true,
+  }
+
+  /** Two-job target: distinct job + itemId per target so each lands in its own recipesByJob bucket. */
+  const makeTarget = (opts: { job: string; id: number }) => ({
+    recipe: { ...mockRecipe, id: opts.id, itemId: opts.id, job: opts.job },
+    quantity: 1,
+  })
+
+  /** Wires solveCraft/simulateCraft to double-max (matches this file's Phase 6 fixture convention)
+   *  and runs the batch with meldAdvice:true across both jobs. */
+  const runBatchWithMeld = (
+    targets: ReturnType<typeof makeTarget>[],
+    onProgress: Parameters<typeof runBatchOptimization>[3] = () => {},
+  ) => {
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory', 'groundwork'], progress: 3500, quality: 7200, steps: 2 })
+    vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
+    return runBatchOptimization(targets, () => mockGearset, defaultSettings, onProgress, () => false)
+  }
+
+  it('runs adviseMeld for multiple jobs concurrently (overlapping in-flight)', async () => {
+    const { adviseMeld } = await import('@/services/meld-advisor')
+    let inFlight = 0
+    let maxInFlight = 0
+    vi.mocked(adviseMeld).mockImplementation(async () => {
+      inFlight++
+      maxInFlight = Math.max(maxInFlight, inFlight)
+      await new Promise(r => setTimeout(r, 20))
+      inFlight--
+      return { plans: [], status: 'feasible' } as any
+    })
+    const targets = [
+      makeTarget({ job: 'CRP', id: 9101 }),
+      makeTarget({ job: 'BSM', id: 9102 }),
+    ]
+
+    await runBatchWithMeld(targets)
+
+    expect(vi.mocked(adviseMeld)).toHaveBeenCalledTimes(2)
+    expect(maxInFlight).toBe(2) // 序列版恆為 1；並行版兩個 job 同時在飛
+  })
+
+  it('one job failing adviseMeld does not kill the batch nor other jobs', async () => {
+    const { adviseMeld } = await import('@/services/meld-advisor')
+    vi.mocked(adviseMeld)
+      .mockRejectedValueOnce(new Error('advisor exploded'))
+      .mockResolvedValueOnce({
+        status: 'feasible',
+        costOptimal: { feasible: true, deltaStats: { craftsmanship: 0, control: 0, cp: 0 }, steps: [], totalGil: 0, confirmedBySolver: false },
+        alreadyMeetsThreshold: false,
+        hqSufficient: false,
+      } as any)
+    const targets = [
+      makeTarget({ job: 'CRP', id: 9103 }),
+      makeTarget({ job: 'BSM', id: 9104 }),
+    ]
+
+    // Must resolve, not throw — a per-job advisor failure is isolated.
+    const result = await runBatchWithMeld(targets)
+
+    // Entire batch completes; only the successful job's advice survives.
+    expect(result.meldAdvicePerJob.size).toBe(1)
+  })
+
+  it('emits evaluating-meld progress as each job completes', async () => {
+    const { adviseMeld } = await import('@/services/meld-advisor')
+    vi.mocked(adviseMeld).mockResolvedValue({
+      status: 'feasible',
+      costOptimal: { feasible: true, deltaStats: { craftsmanship: 0, control: 0, cp: 0 }, steps: [], totalGil: 0, confirmedBySolver: false },
+      alreadyMeetsThreshold: false,
+      hqSufficient: false,
+    } as any)
+    const progressEvents: Array<{ completed: number; total: number }> = []
+    const targets = [
+      makeTarget({ job: 'CRP', id: 9105 }),
+      makeTarget({ job: 'BSM', id: 9106 }),
+    ]
+
+    await runBatchWithMeld(targets, (info) => {
+      if (info.phase === 'evaluating-meld') progressEvents.push({ completed: info.completed, total: info.total })
+    })
+
+    // At least 0/2 → … → 2/2: the first event is the pre-fetch flip, the last is full completion.
+    expect(progressEvents.at(0)).toEqual({ completed: 0, total: 2 })
+    expect(progressEvents.at(-1)).toEqual({ completed: 2, total: 2 })
+  })
+})

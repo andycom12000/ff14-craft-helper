@@ -716,10 +716,10 @@ export async function runBatchOptimization(
       console.warn('[meld-advisor] fetchMateriaPriceMap failed, continuing with empty price map:', err)
       materiaPrices = new Map()
     }
-    for (const [job, list] of recipesByJob) {
-      if (isCancelled()) break
+    await Promise.allSettled([...recipesByJob.entries()].map(async ([job, list]) => {
+      if (isCancelled()) return
       const gs = getGearset(job)
-      if (!gs) continue
+      if (!gs) return
       // Pick the binding recipe (highest difficulty, tiebreak by quality) to drive initialQuality.
       // Prefer non-isDoubleMax recipes so the binding's hqAmounts (and thus initialQuality)
       // are real — isDoubleMax recipes always have hqAmounts:[] which would zero out initialQuality
@@ -727,7 +727,7 @@ export async function runBatchOptimization(
       const nonMaxed = list.filter(r => !r.isDoubleMax)
       const candidates = nonMaxed.length > 0 ? nonMaxed : list
       const bindingRecipe = findBindingRecipe(candidates.map(r => r.recipe))
-      if (!bindingRecipe) continue
+      if (!bindingRecipe) return
       const binding = candidates.find(r => r.recipe === bindingRecipe)!
       // Re-compute initialQuality from the binding recipe's hqAmounts (parallel to recipe.ingredients).
       const initialQuality = calculateInitialQuality(
@@ -740,16 +740,23 @@ export async function runBatchOptimization(
           canHq: ing.canHq,
         })),
       )
-      const advice = await adviseMeld(
-        list.map(r => r.recipe),
-        gs,
-        materiaPrices,
-        { initialQuality, isCancelled },
-      )
-      meldAdvicePerJob.set(job, advice)
-      meldJobsDone++
-      emitMeld(meldJobsDone)
-    }
+      try {
+        const advice = await adviseMeld(
+          list.map(r => r.recipe),
+          gs,
+          materiaPrices,
+          { initialQuality, isCancelled },
+        )
+        meldAdvicePerJob.set(job, advice)
+      } catch (err) {
+        // Per-job isolation: one job's advisor failure must not kill the whole
+        // batch (pre-PR-2 a throw here aborted the entire run at 95%+).
+        console.warn(`[meld-advisor] adviseMeld failed for ${job}, skipping its advice:`, err)
+      } finally {
+        meldJobsDone++
+        emitMeld(meldJobsDone)
+      }
+    }))
   }
 
   return { serverGroups, crystals, selfCraftCandidates, todoList, exceptions, buyFinishedItems, grandTotal, crossWorldCache, buffRecommendation, npcPurchaseCandidates, meldAdvicePerJob }
