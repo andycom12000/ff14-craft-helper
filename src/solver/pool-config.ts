@@ -12,3 +12,11 @@ export const POOL_SIZE = 2
 export function deriveRayonThreads(hwc: number): number {
   return Math.max(1, Math.floor(hwc / POOL_SIZE))
 }
+
+/**
+ * Solve-result cache epoch. MUST be bumped on every WASM rebuild
+ * (raphael upstream bump, wrapper change, flag semantics change) —
+ * otherwise users replay solutions computed by the previous solver.
+ * Format: '<upstream rev>-<local increment>'.
+ */
+export const SOLVER_CACHE_EPOCH = 'aafcbb0-1'
