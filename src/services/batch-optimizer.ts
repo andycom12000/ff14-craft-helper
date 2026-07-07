@@ -394,7 +394,11 @@ export async function runBatchOptimization(
   // pool, no lane. Missing-gearset / hard-gate rejections classify and reveal
   // INSTANTLY (progressive-reveal contract, #171) instead of queueing behind
   // real solves in the lanes below. Targets that need a solve are deferred to 1b.
-  const solvableIdx: number[] = []
+  // Pin the gearset resolved HERE alongside the index: getGearset is a mutable
+  // reactive store read, and a tail target's lane can fire tens of seconds later,
+  // so re-reading it in 1b would be a TOCTOU — the user could edit their gear
+  // mid-batch and 1b would solve with stats this gate never validated.
+  const solvable: Array<{ i: number; gearset: GearsetStats }> = []
   for (let i = 0; i < targets.length; i++) {
     const target = targets[i]
     if (isCancelled()) {
@@ -414,7 +418,7 @@ export async function runBatchOptimization(
       onTargetUpdate?.(i, classification.status)
       phase1Settled[i] = { status: 'fulfilled', value: classification }
     } else {
-      solvableIdx.push(i)
+      solvable.push({ i, gearset })
     }
   }
 
@@ -427,9 +431,8 @@ export async function runBatchOptimization(
   // the deadline only starts once a lane picks the target up. Same pattern as
   // Phase 6's advisor lanes.
   let nextSolvable = 0
-  const runSolve = async (i: number): Promise<void> => {
+  const runSolve = async ({ i, gearset }: { i: number; gearset: GearsetStats }): Promise<void> => {
     const target = targets[i]
-    const gearset = getGearset(target.recipe.job)!  // 1a guarantees a usable gearset here
     try {
       if (isCancelled()) throw new SolveCancelledError()
       let outcome: Phase1Outcome
@@ -470,11 +473,11 @@ export async function runBatchOptimization(
   const solveLane = async (): Promise<void> => {
     for (;;) {
       const k = nextSolvable++
-      if (k >= solvableIdx.length) return
-      await runSolve(solvableIdx[k])
+      if (k >= solvable.length) return
+      await runSolve(solvable[k])
     }
   }
-  await Promise.all(Array.from({ length: Math.min(POOL_SIZE, solvableIdx.length) }, solveLane))
+  await Promise.all(Array.from({ length: Math.min(POOL_SIZE, solvable.length) }, solveLane))
 
   for (let i = 0; i < phase1Settled.length; i++) {
     const settled = phase1Settled[i]
