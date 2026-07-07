@@ -1,6 +1,7 @@
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 import type { BatchException, BatchTarget, BatchResults, TodoItem, BuyFinishedDecision, BuffRecommendation, SelfCraftCandidate } from '@/stores/batch'
+import type { BatchTargetStatus } from '@/stores/batch.types'
 import { adviseMeld, findBindingRecipe } from '@/services/meld-advisor'
 import type { MeldAdvice } from '@/services/meld-advisor'
 import { fetchMateriaPriceMap } from '@/api/universalis'
@@ -204,6 +205,13 @@ export async function runBatchOptimization(
     solverPercent: number
   }) => void,
   isCancelled: () => boolean,
+  /**
+   * Optional per-target live status reporter. Fired queued → solving → done/failed
+   * for each `targets[index]` during Phase 1 (solve + HQ optimize), independent of
+   * the aggregate `onProgress` callback. Lets the UI render progressive per-row
+   * state instead of waiting for the whole batch to settle.
+   */
+  onTargetUpdate?: (index: number, status: BatchTargetStatus) => void,
 ): Promise<BatchResults> {
   const recipeResults: RecipeOptimizeResult[] = []
   const exceptions: BatchException[] = []
@@ -234,6 +242,8 @@ export async function runBatchOptimization(
       solverPercent: aggregate,
     })
   }
+  targets.forEach((_, i) => onTargetUpdate?.(i, { state: 'queued' }))
+
   const phase1Settled = await Promise.allSettled(targets.map(async (target, i) => {
     if (isCancelled()) throw new SolveCancelledError()
     const gearset = getGearset(target.recipe.job)
@@ -250,6 +260,7 @@ export async function runBatchOptimization(
     try {
       const result = await optimizeRecipe(target.recipe, gearset, (pct) => {
         recipePercents[i] = pct
+        onTargetUpdate?.(i, { state: 'solving', percent: pct })
         emitAggregateProgress(target.recipe.name)
       }, buffs)
       completedCount++
@@ -265,9 +276,11 @@ export async function runBatchOptimization(
     }
   }))
 
-  for (const settled of phase1Settled) {
+  for (let i = 0; i < phase1Settled.length; i++) {
+    const settled = phase1Settled[i]
     if (settled.status === 'rejected') {
       if (settled.reason instanceof SolveCancelledError) throw settled.reason
+      onTargetUpdate?.(i, { state: 'failed', reason: String(settled.reason) })
       continue
     }
     const v = settled.value
@@ -282,14 +295,17 @@ export async function runBatchOptimization(
         details,
         action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
       })
+      onTargetUpdate?.(i, { state: 'failed', reason: details })
       continue
     }
     if (v.kind === 'failed') {
+      const details = `「${v.target.recipe.name}」計算過程發生錯誤：${v.error}`
       exceptions.push({
         type: 'quality-unachievable', recipe: v.target.recipe, quantity: v.target.quantity,
-        message: '計算失敗', details: `「${v.target.recipe.name}」計算過程發生錯誤：${v.error}`,
+        message: '計算失敗', details,
         action: 'skipped',
       })
+      onTargetUpdate?.(i, { state: 'failed', reason: details })
       continue
     }
     const result = v.result
@@ -322,9 +338,11 @@ export async function runBatchOptimization(
         message, details,
         action: settings.exceptionStrategy === 'buy' ? 'buy-finished' : 'skipped',
       })
+      onTargetUpdate?.(i, { state: 'failed', reason: details })
       continue
     }
     recipeResults.push(result)
+    onTargetUpdate?.(i, { state: 'done', steps: result.actions.length, isDoubleMax: result.isDoubleMax })
   }
 
   if (isCancelled()) throw new SolveCancelledError()

@@ -21,6 +21,18 @@ export interface BatchTarget {
   quantity: number
 }
 
+/**
+ * Per-target live status reported by `runBatchOptimization`'s optional
+ * `onTargetUpdate` callback during Phase 1 (solve + HQ optimize). Lets the
+ * UI render progressive per-row state (queued → solving → done/failed)
+ * instead of waiting for the whole batch to settle.
+ */
+export type BatchTargetStatus =
+  | { state: 'queued' }
+  | { state: 'solving'; percent: number }
+  | { state: 'done'; steps: number; isDoubleMax: boolean }
+  | { state: 'failed'; reason: string }
+
 export interface BatchException {
   type: 'level-insufficient' | 'quality-unachievable'
   recipe: Recipe

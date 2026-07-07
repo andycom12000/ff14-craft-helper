@@ -51,6 +51,7 @@ vi.mock('@/services/meld-advisor', async (importOriginal) => {
 
 import { optimizeRecipe, runBatchOptimization } from '@/services/batch-optimizer'
 import { solveCraft, simulateCraft, SolveCancelledError } from '@/solver/worker'
+import type { BatchTargetStatus } from '@/stores/batch.types'
 
 const mockRecipe: Recipe = {
   id: 1, itemId: 100, name: 'Test', icon: '', job: 'CRP',
@@ -591,6 +592,92 @@ describe('runBatchOptimization', () => {
       (info) => { if (info.completed >= 1 && info.phase === 'solving') cancelled = true },
       () => cancelled,
     )).rejects.toThrow(SolveCancelledError)
+  })
+})
+
+describe('onTargetUpdate per-target status', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const defaultSettings = {
+    crossServer: false, recursivePricing: false, maxRecursionDepth: 3,
+    exceptionStrategy: 'skip' as const, server: 'Chocobo', dataCenter: 'Mana',
+  }
+
+  it('reports queued → solving → done per target with index alignment', async () => {
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory', 'groundwork'], progress: 3500, quality: 7200, steps: 2 })
+    vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
+    const target0 = { recipe: mockRecipe, quantity: 1 }
+    const target1 = { recipe: { ...mockRecipe, id: 2 }, quantity: 1 }
+    const updates: Array<[number, BatchTargetStatus]> = []
+
+    await runBatchOptimization(
+      [target0, target1],
+      () => mockGearset,
+      defaultSettings,
+      () => {}, () => false,
+      (i, s) => updates.push([i, s]),
+    )
+
+    // Every index has a queued starting point and a done terminal point.
+    // Not asserting a 'solving' event in between — the mocked solveCraft
+    // resolves immediately without invoking the percent callback, so
+    // asserting its presence would be a mock artifact, not real behaviour.
+    for (const idx of [0, 1]) {
+      const seq = updates.filter(([i]) => i === idx).map(([, s]) => s.state)
+      expect(seq[0]).toBe('queued')
+      expect(seq[seq.length - 1]).toBe('done')
+    }
+    const done0 = updates.filter(([i, s]) => i === 0 && s.state === 'done').map(([, s]) => s)
+    expect(done0[0]).toMatchObject({ steps: 2, isDoubleMax: true })
+  })
+
+  it('reports failed with reason for exception targets and does not throw', async () => {
+    vi.mocked(solveCraft).mockRejectedValue(new Error('無法達成雙滿'))
+    const updates: Array<[number, BatchTargetStatus]> = []
+
+    const res = await runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 1 }],
+      () => mockGearset,
+      defaultSettings,
+      () => {}, () => false,
+      (i, s) => updates.push([i, s]),
+    )
+
+    const failed = updates.filter(([, s]) => s.state === 'failed')
+    expect(failed.length).toBeGreaterThan(0)
+    expect(String((failed[0][1] as { state: 'failed'; reason: string }).reason)).toContain('無法達成雙滿')
+    expect(res.exceptions.length).toBe(1) // existing exception behaviour unchanged
+  })
+
+  it('reports failed with reason for level-insufficient targets', async () => {
+    const lowGearset: GearsetStats = { level: 50, craftsmanship: 1000, control: 1000, cp: 300, isSpecialist: false }
+    const updates: Array<[number, BatchTargetStatus]> = []
+
+    await runBatchOptimization(
+      [{ recipe: starredMockRecipe, quantity: 1 }],
+      () => lowGearset,
+      defaultSettings,
+      () => {}, () => false,
+      (i, s) => updates.push([i, s]),
+    )
+
+    const seq = updates.filter(([i]) => i === 0).map(([, s]) => s.state)
+    expect(seq[0]).toBe('queued')
+    expect(seq[seq.length - 1]).toBe('failed')
+    const failed = updates.find(([, s]) => s.state === 'failed')!
+    expect(String((failed[1] as { state: 'failed'; reason: string }).reason)).toContain(String(starredMockRecipe.level))
+  })
+
+  it('omitting onTargetUpdate keeps existing behaviour (no crash, same results)', async () => {
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory'], progress: 3500, quality: 7200, steps: 1 })
+    vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
+
+    await expect(runBatchOptimization(
+      [{ recipe: mockRecipe, quantity: 1 }],
+      () => mockGearset,
+      defaultSettings,
+      () => {}, () => false,
+    )).resolves.toBeTruthy()
   })
 })
 
