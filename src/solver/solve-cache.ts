@@ -119,15 +119,39 @@ function touch(key: string, entry: PersistedSolveEntry): void {
   persistence?.set(key, entry).catch(() => {})
 }
 
+const inFlight = new Map<string, Promise<SolverResultWithTiming>>()
+
+/** Follower path: share the leader's promise; the follower's own AbortSignal
+ *  rejects just this follower (the leader keeps running). */
+function followShared(
+  shared: Promise<SolverResultWithTiming>,
+  signal?: AbortSignal,
+): Promise<SolverResultWithTiming> {
+  const tagged = shared.then((r) => ({ ...r, cacheHit: true }))
+  if (!signal) return tagged
+  if (signal.aborted) return Promise.reject(new SolveCancelledError())
+  return new Promise((resolve, reject) => {
+    const onAbort = () => reject(new SolveCancelledError())
+    signal.addEventListener('abort', onAbort, { once: true })
+    tagged.then(
+      (r) => { signal.removeEventListener('abort', onAbort); resolve(r) },
+      (e) => { signal.removeEventListener('abort', onAbort); reject(e) },
+    )
+  })
+}
+
 /**
  * Looks up a cached solve result, replaying it on hit; otherwise runs
  * `runSolve` and stores the outcome (success or NoSolution) for next time.
- * @param signal Reserved for Task 4 (in-flight solve coalescing) — unused here.
+ * Concurrent calls for the same key share a single in-flight `runSolve`
+ * (the leader); followers get a tagged copy of the leader's result and may
+ * abort independently via their own `signal` without affecting the leader.
+ * @param signal Aborts only this caller when following an in-flight solve;
+ * the leader's own cancellation is handled by `runSolve` internally.
  */
 export async function cachedSolve(
   config: SolverConfig,
   runSolve: () => Promise<SolverResultWithTiming>,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   signal?: AbortSignal,
 ): Promise<SolverResultWithTiming> {
   if (bypass) return runSolve()
@@ -139,7 +163,11 @@ export async function cachedSolve(
     if (hit.kind === 'no-solution') throw new Error(hit.errorMessage)
     return { ...hit.result!, cacheHit: true }
   }
-  return runSolve().then(
+
+  const existing = inFlight.get(key)
+  if (existing) return followShared(existing, signal)
+
+  const shared = runSolve().then(
     (r) => {
       const { cacheHit: _cacheHit, ...persisted } = r
       store(key, { kind: 'result', result: persisted, lastUsedAt: Date.now() })
@@ -152,5 +180,7 @@ export async function cachedSolve(
       }
       throw err
     },
-  )
+  ).finally(() => { inFlight.delete(key) })
+  inFlight.set(key, shared)
+  return shared
 }

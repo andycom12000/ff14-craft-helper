@@ -165,3 +165,59 @@ describe('cachedSolve', () => {
     expect(meta.get('epoch')).toBe(SOLVER_CACHE_EPOCH)
   })
 })
+
+describe('cachedSolve in-flight coalescing', () => {
+  beforeEach(async () => {
+    setSolveCacheBypass(false)
+    setSolveCachePersistence(null)
+    await clearSolveCache()
+  })
+
+  it('concurrent same-key calls share one runSolve', async () => {
+    let release!: (r: typeof okResult) => void
+    const gate = new Promise<typeof okResult>((r) => { release = r })
+    const runSolve = vi.fn().mockReturnValue(gate)
+    const p1 = cachedSolve(baseConfig(), runSolve)
+    const p2 = cachedSolve(baseConfig(), runSolve)
+    release({ ...okResult })
+    const [r1, r2] = await Promise.all([p1, p2])
+    expect(runSolve).toHaveBeenCalledTimes(1)
+    expect(r1.cacheHit).toBeFalsy()          // leader 真的跑了 solver
+    expect(r2.cacheHit).toBe(true)           // follower 沒付出 solve 成本
+  })
+
+  it("follower's own abort rejects only the follower", async () => {
+    let release!: (r: typeof okResult) => void
+    const gate = new Promise<typeof okResult>((r) => { release = r })
+    const runSolve = vi.fn().mockReturnValue(gate)
+    const follower = new AbortController()
+    const p1 = cachedSolve(baseConfig(), runSolve)
+    const p2 = cachedSolve(baseConfig(), runSolve, follower.signal)
+    follower.abort()
+    await expect(p2).rejects.toBeInstanceOf(SolveCancelledError)
+    release({ ...okResult })
+    await expect(p1).resolves.toMatchObject({ steps: 1 })
+  })
+
+  it('does not coalesce across different keys', async () => {
+    const runSolve = vi.fn().mockResolvedValue({ ...okResult })
+    await Promise.all([
+      cachedSolve(baseConfig(), runSolve),
+      cachedSolve(baseConfig({ cp: 1 }), runSolve),
+    ])
+    expect(runSolve).toHaveBeenCalledTimes(2)
+  })
+
+  it('leader rejection propagates to followers and nothing is cached on cancel', async () => {
+    let rejectGate!: (e: Error) => void
+    const gate = new Promise<never>((_, rej) => { rejectGate = rej })
+    const runSolve = vi.fn().mockReturnValueOnce(gate).mockResolvedValue({ ...okResult })
+    const p1 = cachedSolve(baseConfig(), runSolve)
+    const p2 = cachedSolve(baseConfig(), runSolve)
+    rejectGate(new SolveCancelledError())
+    await expect(p1).rejects.toBeInstanceOf(SolveCancelledError)
+    await expect(p2).rejects.toBeInstanceOf(SolveCancelledError)
+    await expect(cachedSolve(baseConfig(), runSolve)).resolves.toMatchObject({ steps: 1 })
+    expect(runSolve).toHaveBeenCalledTimes(2)
+  })
+})
