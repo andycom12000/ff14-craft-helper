@@ -49,6 +49,7 @@ export interface SolveCachePersistence {
 
 let bypass = false
 let persistence: SolveCachePersistence | null = null
+let persistenceChosen = false
 let initPromise: Promise<void> | null = null
 const memory = new Map<string, PersistedSolveEntry>()
 /** key → lastUsedAt for ALL persisted entries (values load lazily). */
@@ -56,11 +57,62 @@ const keyIndex = new Map<string, number>()
 
 export function setSolveCacheBypass(v: boolean): void { bypass = v }
 
-export function setSolveCachePersistence(p: SolveCachePersistence | null): void {
-  persistence = p
+/**
+ * Overrides the persistence layer. `undefined` resets to the lazy default
+ * selection (IndexedDB when available, else memory-only); `null` forces
+ * memory-only regardless of environment.
+ */
+export function setSolveCachePersistence(p: SolveCachePersistence | null | undefined): void {
+  persistence = p ?? null
+  persistenceChosen = p !== undefined   // undefined = 回到 default（下次 ensureInit 重選）
   initPromise = null
   memory.clear()
   keyIndex.clear()
+}
+
+function createIdbPersistence(): SolveCachePersistence | null {
+  if (typeof indexedDB === 'undefined') return null
+  let dbPromise: Promise<IDBDatabase> | null = null
+  const getDb = (): Promise<IDBDatabase> => {
+    dbPromise ??= new Promise((resolve, reject) => {
+      const req = indexedDB.open('ff14ch-solve-cache', 1)
+      req.onupgradeneeded = () => {
+        const db = req.result
+        if (!db.objectStoreNames.contains('entries')) db.createObjectStore('entries')
+        if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta')
+      }
+      req.onsuccess = () => resolve(req.result)
+      req.onerror = () => reject(req.error ?? new Error('indexedDB open failed'))
+    })
+    return dbPromise
+  }
+  const tx = async <T>(
+    store: 'entries' | 'meta',
+    mode: IDBTransactionMode,
+    fn: (s: IDBObjectStore) => IDBRequest<T>,
+  ): Promise<T> => {
+    const db = await getDb()
+    return new Promise<T>((resolve, reject) => {
+      const req = fn(db.transaction(store, mode).objectStore(store))
+      req.onsuccess = () => resolve(req.result)
+      req.onerror = () => reject(req.error ?? new Error('indexedDB request failed'))
+    })
+  }
+  return {
+    getMeta: (k) => tx('meta', 'readonly', (s) => s.get(k) as IDBRequest<string | undefined>),
+    setMeta: async (k, v) => { await tx('meta', 'readwrite', (s) => s.put(v, k)) },
+    get: (k) => tx('entries', 'readonly', (s) => s.get(k) as IDBRequest<PersistedSolveEntry | undefined>),
+    set: async (k, e) => { await tx('entries', 'readwrite', (s) => s.put(e, k)) },
+    delete: async (keys) => { for (const k of keys) await tx('entries', 'readwrite', (s) => s.delete(k)) },
+    clear: async () => { await tx('entries', 'readwrite', (s) => s.clear()) },
+    allKeysWithLastUsed: async () => {
+      const [keys, values] = await Promise.all([
+        tx<IDBValidKey[]>('entries', 'readonly', (s) => s.getAllKeys()),
+        tx<PersistedSolveEntry[]>('entries', 'readonly', (s) => s.getAll()),
+      ])
+      return keys.map((k, i) => ({ key: String(k), lastUsedAt: values[i]?.lastUsedAt ?? 0 }))
+    },
+  }
 }
 
 export async function clearSolveCache(): Promise<void> {
@@ -71,6 +123,10 @@ export async function clearSolveCache(): Promise<void> {
 
 /** Epoch check + key-index hydration. Any persistence failure degrades to memory-only. */
 async function ensureInit(): Promise<void> {
+  if (!persistenceChosen) {
+    persistence = createIdbPersistence()
+    persistenceChosen = true
+  }
   if (!persistence) return
   initPromise ??= (async () => {
     try {

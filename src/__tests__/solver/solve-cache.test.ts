@@ -249,3 +249,14 @@ describe('cachedSolve in-flight coalescing', () => {
     }
   })
 })
+
+describe('default persistence selection', () => {
+  it('falls back to memory-only when indexedDB is unavailable (jsdom)', async () => {
+    // jsdom 沒有 indexedDB — 用「未注入 persistence」的預設路徑跑一次即可證明不炸。
+    setSolveCachePersistence(undefined) // 觸發重新選擇 default
+    const runSolve = vi.fn().mockResolvedValue({ ...okResult })
+    await expect(cachedSolve(baseConfig({ cp: 777 }), runSolve)).resolves.toMatchObject({ steps: 1 })
+    const hit = await cachedSolve(baseConfig({ cp: 777 }), runSolve)
+    expect(hit.cacheHit).toBe(true)
+  })
+})
