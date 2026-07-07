@@ -7,6 +7,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 vi.mock('@/composables/useSolverFailState', () => ({ noteSolverFailed: vi.fn() }))
 vi.mock('@/utils/analytics', () => ({ trackEvent: vi.fn(), trackError: vi.fn() }))
 
+// This suite's fixed 2-slot expectations (toHaveLength(2), slot0/slot1 indexing)
+// assume POOL_SIZE===2. POOL_SIZE is now hwc-derived (derivePoolSize: hwc<12 → 2),
+// and happy-dom pins navigator.hardwareConcurrency to 8 (<12) in the test env, so
+// POOL_SIZE resolves to 2 here. A happy-dom bump raising that default to >=12 would
+// flip POOL_SIZE to 3 and require updating the slot-count assertions below.
+
 // Auto-ready FakeWorker: fires `{ type: 'ready' }` on construction so
 // waitForWasm() resolves immediately. Use `NeverReadyWorker` for tests that
 // need to observe mid-pool-init behaviour (e.g. cancel before ready).

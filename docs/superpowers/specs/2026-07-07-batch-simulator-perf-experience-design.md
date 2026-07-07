@@ -98,6 +98,23 @@
 - **Ship gate**：三 dataset 中位數改善 ≥15% 且無單一 dataset 退步 >5%，才 ship 自適應公式（形如 `hwc ≥ 16 → 4；hwc ≥ 12 → 3；否則 2`，threads = `floor(hwc / POOL_SIZE)` 不變式維持）。低核機器行為不變。
 - **數據不過關就 close**，實測數據記回本 spec（比照 §7.5.8 前例；「零收益基礎建設不進 main」）。
 
+**實測結果（2026-07-08 · i7-12700 / 20 邏輯核）**
+
+實驗桿（`?bench=1&pool=N` override）最終**未實作**：production 不吃的 bench-only 傳導桿，若公式不 ship 即為零收益基礎建設。改以直接切 `POOL_SIZE` 常數 + restart dev server + 現有 BenchPanel 取得同等 A/B 數據，繞過桿的傳導/pool 重建複雜度（`deriveRayonThreads` 自動維持 `threads × pool ≤ hwc` 不變式）。
+
+關鍵前置：先關掉 4 個殘留 dev server——它們的 file watcher/client 連線造成 pool bench **2.5× CPU 競爭雜訊**（pass A/B 同配置差 2.7×）。乾淨環境後 dataset-3 連跑 5 次 spread 僅 4%。以下為乾淨環境、Boundary lv100 gearset、每格 min-of-5、per-cell spread 3–8%：
+
+| dataset | pool=2 (baseline) | pool=3 | pool=4 |
+|---|---|---|---|
+| dataset-1（6 配方）| 9239 ms | 7068 (−23.5%) | 7241 (−21.6%) |
+| dataset-2（7 配方）| 18110 ms | 15067 (−16.8%) | 14850 (−18.0%) |
+| dataset-3（8 配方）| 17453 ms | 14318 (−18.0%) | 13881 (−20.5%) |
+| **中位數改善** | — | **18.0%** | **20.5%** |
+
+- **pool=3 過 gate**：中位數 −18%，全 dataset >15%，零退步。
+- **pool=4 非可測量勝利**：vs pool=3 中位數僅 +1.4%（落在 3–8% spread 雜訊內），dataset-1 反退步 2.4%，且多一個 WASM instance 的記憶體/init 成本。
+- **決策（使用者拍板 2026-07-08）**：公式**封頂 pool=3** → `hwc ≥ 12 → 3；否則 2`（偏離原案的 pool=4 檔，因 pool=4 增量不過「可測量勝利」門檻）。<12 核機器行為不變（維持 2）。實作於 `src/solver/pool-config.ts` `derivePoolSize()`。
+
 ## 6. 明確排除（Non-Goals）
 
 - Tier B1 quality-threshold early stop——犧牲解最佳性，使用者已否決。

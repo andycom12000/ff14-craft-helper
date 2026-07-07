@@ -1218,8 +1218,8 @@ describe('runBatchOptimization · Phase 6 meld advice parallelization', () => {
 
   // Whole-branch review Important #1: unbounded per-job fan-out races the
   // meld-advisor's 8s raceDeadline (meld-advisor.ts), which starts counting at
-  // request time, not dispatch time. With only POOL_SIZE=2 worker slots, a 3rd+
-  // concurrent adviseMeld call sits queued burning its own deadline and can
+  // request time, not dispatch time. With only POOL_SIZE worker slots, any
+  // over-POOL_SIZE concurrent adviseMeld call sits queued burning its own deadline and can
   // come back mislabelled `timed-out`. Phase 6 must cap concurrency at
   // POOL_SIZE regardless of job count.
   it('caps advisor concurrency at POOL_SIZE even with 3+ jobs', async () => {
