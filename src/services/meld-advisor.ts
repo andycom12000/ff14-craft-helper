@@ -286,9 +286,11 @@ export interface AdviseMeldOptions {
  *   (1-based) and `rungTotal` (= `ladder.length`) are only present here.
  * - `probes`      — cumulative solver-probe count so far this `adviseMeld` call.
  * - `probeBudget` — worst-case cap on `probes` for this call. Before the ladder
- *   is enumerated this is the `MAX_CRAFTSMANSHIP_RUNGS`-sized upper bound
- *   (`2 + MAX_CRAFTSMANSHIP_RUNGS × MAX_QUALITY_PROBES`); once the ladder is
- *   known it tightens to the exact `2 + ladder.length × MAX_QUALITY_PROBES`.
+ *   is enumerated this is the upper bound
+ *   `2 + (MAX_CRAFTSMANSHIP_RUNGS + 1) × MAX_QUALITY_PROBES` (the ladder holds
+ *   the baseline rung plus up to `MAX_CRAFTSMANSHIP_RUNGS` extra rungs); once
+ *   the ladder is known it tightens to the exact
+ *   `2 + ladder.length × MAX_QUALITY_PROBES`.
  */
 export interface MeldAdviceProgress {
   stage: 'baseline' | 'ladder'
@@ -1171,7 +1173,9 @@ export async function adviseMeld(
   // pre-ladder-enumeration upper bound and tightens to the exact figure once
   // the ladder is known (see `MeldAdviceProgress`).
   let probes = 0
-  let probeBudget = 2 + MAX_CRAFTSMANSHIP_RUNGS * MAX_QUALITY_PROBES
+  // +1: the ladder carries the baseline rung on top of MAX_CRAFTSMANSHIP_RUNGS
+  // extras, so the pre-enumeration bound must dominate the tightened figure.
+  let probeBudget = 2 + (MAX_CRAFTSMANSHIP_RUNGS + 1) * MAX_QUALITY_PROBES
   let progressStage: 'baseline' | 'ladder' = 'baseline'
   let progressRung: number | undefined
   let progressRungTotal: number | undefined
