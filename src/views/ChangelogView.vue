@@ -18,6 +18,13 @@ interface Highlight {
 
 const changelog: Entry[] = [
   {
+    version: "v2.22.1",
+    date: "2026-07-08",
+    highlights: [
+      "【遊戲資料更新到 7.51】重抓上游 datamining 並重建全部本地資料：國際服 xivapi 正式升到 7.51h2（recipes / RLT / en / ja；v2.22.0 已預告、此版落實烘焙）、繁中服重新從 7.1 系列客戶端（ver 2026.06.15）自挖刷新品名與配方、简中服同步最新。新增資料涵蓋季節活動、聯動坐騎／寵物、家具與少量裝備。繁中服仍落後國際服數個 patch，部分較新配方的素材名會暫時回退英文／其他語系，待繁中在地化跟上",
+    ],
+  },
+  {
     version: "v2.22.0",
     date: "2026-07-08",
     highlights: [
