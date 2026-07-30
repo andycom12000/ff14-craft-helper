@@ -68,3 +68,6 @@ public/data/ga-history/
 
 # GA dashboard ad-hoc diagnostic script (kept locally, not for repo)
 scripts/dev/simulator-funnel.mjs
+
+# Codex MCP server config holds a live API key; .codex/hooks.json stays tracked
+.codex/config.toml
