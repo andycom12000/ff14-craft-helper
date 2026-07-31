@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>PROTOTYPE — 基準線與趨勢的呈現形式（#184）</title>
+<style>
+:root {
+  --bg:           oklch(0.18 0.018 62);
+  --bg-deep:      oklch(0.14 0.014 60);
+  --surface:      oklch(0.225 0.018 62);
+  --surface-2:    oklch(0.26  0.022 62);
+  --surface-3:    oklch(0.30  0.025 64);
+  --border:       oklch(0.42 0.035 60 / 0.36);
+  --border-soft:  oklch(0.42 0.035 60 / 0.18);
+  --ink:          oklch(0.94 0.022 82);
+  --ink-mid:      oklch(0.80 0.022 75);
+  --ink-muted:    oklch(0.66 0.024 68);
+  --ink-faint:    oklch(0.52 0.028 62);
+  --gold:         oklch(0.78 0.15 72);
+  --gold-glow:    oklch(0.78 0.15 72 / 0.16);
+  --cocoa:        oklch(0.66 0.14 40);
+  --strawberry:   oklch(0.70 0.18 15);
+  --matcha:       oklch(0.72 0.15 138);
+  --blueberry:    oklch(0.66 0.16 248);
+  --success:      oklch(0.70 0.16 145);
+  --warning:      oklch(0.74 0.16 60);
+  --danger:       oklch(0.68 0.20 22);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 0 0 96px;
+  background:
+    radial-gradient(1200px 700px at 20% -10%, oklch(0.26 0.04 60 / 0.55), transparent 60%),
+    radial-gradient(900px 600px at 95% 8%, oklch(0.24 0.05 40 / 0.40), transparent 65%),
+    var(--bg);
+  color: var(--ink);
+  font-family: 'Noto Sans TC', system-ui, -apple-system, sans-serif;
+  font-size: 15px; line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+.wrap { max-width: 1560px; margin: 0 auto; padding: 40px 48px; }
+.proto-banner {
+  background: repeating-linear-gradient(45deg, oklch(0.30 0.05 60 / .5) 0 12px, transparent 12px 24px);
+  border: 1px dashed var(--gold); border-radius: 10px;
+  padding: 10px 18px; margin-bottom: 32px;
+  font-size: 13px; color: var(--gold); letter-spacing: .04em;
+}
+h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -.01em; }
+.sub { color: var(--ink-muted); margin: 0 0 40px; font-size: 14px; }
+h2 { font-size: 21px; margin: 0 0 4px; letter-spacing: -.005em; }
+h2 .tag {
+  font-size: 11px; font-weight: 600; letter-spacing: .1em;
+  color: var(--bg-deep); background: var(--gold);
+  padding: 3px 9px; border-radius: 5px; vertical-align: 3px; margin-right: 12px;
+}
+.lede { color: var(--ink-muted); font-size: 14px; margin: 0 0 24px; max-width: 88ch; }
+.lede b { color: var(--ink-mid); font-weight: 600; }
+section { display: none; }
+section.on { display: block; }
+.card {
+  background: var(--surface); border: 1px solid var(--border-soft);
+  border-radius: 14px; padding: 26px 30px; margin-bottom: 22px;
+}
+.card > h3 { font-size: 15px; margin: 0 0 18px; color: var(--ink-mid); font-weight: 600; }
+
+/* ---- ledger rows ---- */
+.row {
+  display: grid; align-items: center; gap: 20px;
+  padding: 15px 0; border-bottom: 1px solid var(--border-soft);
+}
+.row:last-child { border-bottom: 0; }
+.name { font-size: 14px; color: var(--ink-mid); display: flex; align-items: center; gap: 9px; }
+.badge {
+  font-size: 10px; padding: 2px 7px; border-radius: 4px; letter-spacing: .05em;
+  border: 1px solid var(--border); color: var(--ink-faint); white-space: nowrap;
+}
+.badge.untrusted { color: var(--warning); border-color: oklch(0.74 0.16 60 / .4); }
+.badge.observe   { color: var(--ink-faint); }
+.val { font-size: 25px; font-variant-numeric: tabular-nums; letter-spacing: -.02em; text-align: right; }
+.val.fire { color: var(--danger); }
+.val.ok   { color: var(--ink); }
+.val.dim  { color: var(--ink-faint); }
+.unit { font-size: 13px; color: var(--ink-faint); margin-left: 3px; }
+.spark { height: 34px; }
+.delta { font-size: 14px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.delta.up   { color: var(--success); }
+.delta.down { color: var(--danger); }
+.delta.flat { color: var(--ink-faint); }
+.delta small { display: block; font-size: 11px; color: var(--ink-faint); letter-spacing: .02em; }
+
+/* ---- variant A ---- */
+.vA .row { grid-template-columns: 250px 150px 1fr; }
+/* ---- variant B ---- */
+.vB .row { grid-template-columns: 250px 150px 190px; }
+/* ---- variant C ---- */
+.vC .row { grid-template-columns: 250px 150px 1fr; }
+/* ---- variant D ---- */
+.vD .row { grid-template-columns: 250px 150px 132px 1fr; }
+
+.band-lab { font-size: 11px; color: var(--ink-faint); letter-spacing: .04em; }
+
+/* ---- finding panel ---- */
+.finding {
+  background: linear-gradient(180deg, oklch(0.26 0.03 45 / .7), var(--surface));
+  border: 1px solid oklch(0.66 0.14 40 / .35);
+}
+.twin { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 8px; }
+.twin > div { min-width: 0; }
+.twin h4 { margin: 0 0 2px; font-size: 14px; }
+.twin p  { margin: 0 0 12px; font-size: 12.5px; color: var(--ink-muted); }
+.legend { display: flex; gap: 22px; font-size: 12px; color: var(--ink-muted); margin-top: 14px; flex-wrap: wrap; }
+.legend i { display: inline-block; width: 22px; height: 3px; border-radius: 2px; vertical-align: 3px; margin-right: 7px; }
+
+table.facts { border-collapse: collapse; width: 100%; font-size: 13px; margin-top: 8px; }
+table.facts th, table.facts td { text-align: left; padding: 8px 14px 8px 0; border-bottom: 1px solid var(--border-soft); }
+table.facts th { color: var(--ink-faint); font-weight: 600; font-size: 11.5px; letter-spacing: .06em; }
+table.facts td { font-variant-numeric: tabular-nums; color: var(--ink-mid); }
+table.facts td.hi { color: var(--danger); }
+
+/* ---- switcher ---- */
+.bar {
+  position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
+  display: flex; gap: 6px; padding: 7px;
+  background: oklch(0.20 0.02 60 / .92); backdrop-filter: blur(14px);
+  border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: 0 14px 44px oklch(0.10 0.02 60 / .6); z-index: 50;
+}
+.bar button {
+  font: inherit; font-size: 13px; padding: 9px 17px; border-radius: 9px;
+  border: 1px solid transparent; background: transparent; color: var(--ink-muted); cursor: pointer;
+  font-family: inherit;
+}
+.bar button:hover { background: var(--surface-2); color: var(--ink); }
+.bar button.on { background: var(--gold); color: var(--bg-deep); font-weight: 600; }
+.bar .sep { width: 1px; background: var(--border); margin: 4px 5px; }
+.note { font-size: 12.5px; color: var(--ink-faint); margin-top: 16px; }
+.note b { color: var(--ink-muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="proto-banner">PROTOTYPE — wayfinder #184 · 丟棄式原型，不 commit · 資料為 gh-data 分支 71 份真實快照（2026-05-19 → 07-30）</div>
+
+  <h1>基準線與趨勢的呈現形式</h1>
+  <p class="sub">四個變體吃同一批真資料。下方浮動列切換。判斷標準：<b>#181 已定「跨期只回答『上週動的那塊有效嗎』」</b>——不是「這週該動什麼」。</p>
+
+  <!-- ============ 結構發現（常駐） ============ -->
+  <div class="card finding">
+    <h3>先看這個：28d 滾動視窗畫不出趨勢</h3>
+    <div class="twin">
+      <div>
+        <h4>SAB 不可用率 · 7d 視窗</h4>
+        <p>修復在 <b>8 天</b>內完整反映，之後打平在 4–6%。</p>
+        <div id="f7"></div>
+      </div>
+      <div>
+        <h4>SAB 不可用率 · 28d 視窗</h4>
+        <p>同一個事件被抹成 <b>28 天的斜坡</b>，斜坡終點比真實事件晚了近一個月。</p>
+        <div id="f28"></div>
+      </div>
+    </div>
+    <table class="facts">
+      <tr><th>指標</th><th>7d 日對日 |Δ| 中位</th><th>28d 日對日 |Δ| 中位</th></tr>
+      <tr><td>批量完成率</td><td>1.30pp</td><td class="hi">0.36pp</td></tr>
+      <tr><td>批量失敗率</td><td>1.32pp</td><td class="hi">0.35pp</td></tr>
+      <tr><td>BOM 交棒率</td><td>0.80pp</td><td class="hi">0.19pp</td></tr>
+      <tr><td>回訪率</td><td>1.91pp</td><td class="hi">0.56pp</td></tr>
+    </table>
+    <p class="note">28d 序列相鄰兩點共用 <b>27/28</b> 的資料 —— 那不是趨勢，是自相關的塗抹。若趨勢要回答「上週動的那塊有效嗎」，它<b>必須畫 7d</b>；28d 留給觸發判定（#181 決定 6）。</p>
+  </div>
+
+  <!-- ============ A ============ -->
+  <section id="A" class="vA">
+    <h2><span class="tag">A</span>Sparkline · 每個數字旁掛一條走勢</h2>
+    <p class="lede">最小改動：ledger 不動，右側加一條 7d 走勢線。<b>看得到形狀，看不到「算不算差」</b>——沒有門檻參考線時，79% 這條線是高是低要靠腦補。</p>
+    <div class="card"><div id="rowsA"></div></div>
+  </section>
+
+  <!-- ============ B ============ -->
+  <section id="B" class="vB">
+    <h2><span class="tag">B</span>vs 上期 delta · 只顯示變化量與方向</h2>
+    <p class="lede">7d vs 前 7d 非重疊比較。<b>#181 實測過這個形式的問題</b>：回訪率 WoW |Δ| 中位 7.3pp，batch 完成率 3.8pp —— 大部分箭頭都在報噪音。此變體把 #181 的 Wilson CI 規則套上去，波動不顯著時直接顯示「—」而不是箭頭。</p>
+    <div class="card"><div id="rowsB"></div></div>
+  </section>
+
+  <!-- ============ C ============ -->
+  <section id="C" class="vC">
+    <h2><span class="tag">C</span>異常帶 · 歷史 p10–p90 區間 + 當期落點</h2>
+    <p class="lede">灰帶是這個指標 71 天的 p10–p90，金線是門檻，圓點是當期。<b>它回答的是「這個數字對這個站算不算正常」</b>——但注意：正常不等於好。BOM 交棒率永遠落在帶內，因為它一直都爛。</p>
+    <div class="card"><div id="rowsC"></div></div>
+  </section>
+
+  <!-- ============ D ============ -->
+  <section id="D" class="vD">
+    <h2><span class="tag">D</span>組合 · delta 判有效性 + sparkline 帶門檻線</h2>
+    <p class="lede">合成提案：<b>當期值</b>（絕對門檻判定、上色）+ <b>WoW delta</b>（回答「動的那塊有效嗎」、不顯著就留白）+ <b>7d sparkline 疊門檻線與 p10–p90 帶</b>（形狀 + 好壞基準一次給足）。觀測層指標（`actionable:false`）不上色、不判定，只留走勢。</p>
+    <div class="card"><div id="rowsD"></div></div>
+  </section>
+</div>
+
+<div class="bar">
+  <button data-v="A">A 走勢線</button>
+  <button data-v="B">B 上期 delta</button>
+  <button data-v="C">C 異常帶</button>
+  <div class="sep"></div>
+  <button data-v="D">D 組合</button>
+</div>
+
+<script>
+const DATA = /*__DATA__*/;
+const { dates, meta, series } = DATA;
+
+const fmtPct = v => (100 * v).toFixed(1) + '%';
+const fmtInt = v => Math.round(v).toLocaleString('en-US');
+const fmt = (m, v) => v === null ? '—' : (m.pct ? fmtPct(v) : fmtInt(v));
+const q = (a, p) => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(p * (s.length - 1))]; };
+
+// Wilson 95% CI — the noise floor decided in #181.
+function wilson(obs, n) {
+  if (!n || n < 1) return null;
+  const z = 1.96, p = obs, d = 1 + z * z / n;
+  const c = p + z * z / (2 * n), s = z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n));
+  return [(c - s) / d, (c + s) / d];
+}
+
+function vals(key, w) { return series[key][w].map(r => r.v).filter(v => v !== null); }
+function last(key, w) { const a = series[key][w]; return a[a.length - 1]; }
+
+// non-overlapping WoW: today's 7d vs the 7d ending 7 days ago
+function wow(key) {
+  const a = series[key]['7d'];
+  const cur = a[a.length - 1], prev = a[a.length - 8];
+  if (!cur || !prev || cur.v === null || prev.v === null) return null;
+  const sig = (() => {
+    if (!cur.n || !prev.n || cur.n < 30 || prev.n < 30) return false;
+    const c = wilson(cur.v, cur.n), p = wilson(prev.v, prev.n);
+    return c[0] > p[1] || c[1] < p[0];   // CIs disjoint
+  })();
+  return { d: cur.v - prev.v, sig, curN: cur.n, prevN: prev.n };
+}
+
+function fires(m) {
+  if (!m.actionable || !m.trusted || m.th === null) return false;
+  const cur = last(m.key, '28d');
+  if (cur.v === null) return false;
+  return m.dir === 'high' ? cur.v > m.th : cur.v < m.th;
+}
+
+// ---------- svg helpers ----------
+const NS = 'http://www.w3.org/2000/svg';
+function el(t, a) { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); return e; }
+
+function sparkline(key, w, opts = {}) {
+  const W = opts.w || 460, H = opts.h || 34, pad = 3;
+  const raw = series[key][w];
+  const v = raw.map(r => r.v);
+  const clean = v.filter(x => x !== null);
+  const svg = el('svg', { width: '100%', height: H, viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'none' });
+  if (!clean.length) return svg;
+
+  const m = meta.find(x => x.key === key);
+  let lo = Math.min(...clean), hi = Math.max(...clean);
+  if (opts.band) { lo = Math.min(lo, opts.band[0]); hi = Math.max(hi, opts.band[1]); }
+  if (opts.th !== undefined && opts.th !== null) { lo = Math.min(lo, opts.th); hi = Math.max(hi, opts.th); }
+  const span = (hi - lo) || 1;
+  const X = i => pad + i * (W - 2 * pad) / (v.length - 1);
+  const Y = x => H - pad - ((x - lo) / span) * (H - 2 * pad);
+
+  // p10–p90 band
+  if (opts.band) {
+    svg.appendChild(el('rect', {
+      x: pad, y: Y(opts.band[1]), width: W - 2 * pad,
+      height: Math.max(1, Y(opts.band[0]) - Y(opts.band[1])),
+      fill: 'oklch(0.42 0.035 60 / 0.30)', rx: 2,
+    }));
+  }
+  // threshold line
+  if (opts.th !== undefined && opts.th !== null) {
+    svg.appendChild(el('line', {
+      x1: pad, x2: W - pad, y1: Y(opts.th), y2: Y(opts.th),
+      stroke: 'var(--gold)', 'stroke-width': 1, 'stroke-dasharray': '3 3', opacity: .75,
+    }));
+  }
+  // path (breaks on null)
+  let d = '', pen = false;
+  v.forEach((x, i) => { if (x === null) { pen = false; return; } d += (pen ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(x).toFixed(1) + ' '; pen = true; });
+  svg.appendChild(el('path', {
+    d, fill: 'none', stroke: opts.color || 'var(--ink-mid)',
+    'stroke-width': opts.thick || 1.6, 'stroke-linejoin': 'round', 'stroke-linecap': 'round',
+  }));
+  // last dot
+  const li = v.length - 1;
+  if (v[li] !== null) svg.appendChild(el('circle', { cx: X(li), cy: Y(v[li]), r: 2.8, fill: opts.color || 'var(--ink)' }));
+  return svg;
+}
+
+// dot-on-band strip (variant C)
+function bandStrip(key) {
+  const W = 460, H = 34;
+  const a = vals(key, '28d');
+  const m = meta.find(x => x.key === key);
+  const cur = last(key, '28d').v;
+  const p10 = q(a, .1), p90 = q(a, .9), mn = Math.min(...a), mx = Math.max(...a);
+  let lo = mn, hi = mx;
+  if (m.th !== null) { lo = Math.min(lo, m.th); hi = Math.max(hi, m.th); }
+  const span = (hi - lo) || 1, pad = 40;
+  const X = x => pad + ((x - lo) / span) * (W - 2 * pad);
+  const svg = el('svg', { width: '100%', height: H, viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'none' });
+  svg.appendChild(el('line', { x1: X(mn), x2: X(mx), y1: H / 2, y2: H / 2, stroke: 'var(--border)', 'stroke-width': 1 }));
+  svg.appendChild(el('rect', { x: X(p10), y: H / 2 - 7, width: Math.max(2, X(p90) - X(p10)), height: 14, fill: 'oklch(0.42 0.035 60 / 0.42)', rx: 3 }));
+  if (m.th !== null) {
+    svg.appendChild(el('line', { x1: X(m.th), x2: X(m.th), y1: 4, y2: H - 4, stroke: 'var(--gold)', 'stroke-width': 1.5, 'stroke-dasharray': '3 3' }));
+  }
+  const outside = cur < p10 || cur > p90;
+  const firing = fires(m);
+  svg.appendChild(el('circle', {
+    cx: X(cur), cy: H / 2, r: 5,
+    fill: firing ? 'var(--danger)' : (outside ? 'var(--warning)' : 'var(--ink-mid)'),
+    stroke: 'var(--surface)', 'stroke-width': 1.5,
+  }));
+  return svg;
+}
+
+function nameCell(m) {
+  const d = document.createElement('div');
+  d.className = 'name';
+  d.textContent = m.label;
+  if (!m.trusted)   d.appendChild(Object.assign(document.createElement('span'), { className: 'badge untrusted', textContent: '埋點待修' }));
+  if (!m.actionable) d.appendChild(Object.assign(document.createElement('span'), { className: 'badge observe',  textContent: '觀測層' }));
+  return d;
+}
+
+function valCell(m) {
+  const cur = last(m.key, '28d').v;
+  const d = document.createElement('div');
+  const firing = fires(m);
+  d.className = 'val ' + (firing ? 'fire' : (m.actionable && m.trusted ? 'ok' : 'dim'));
+  d.textContent = fmt(m, cur);
+  return d;
+}
+
+function deltaCell(m) {
+  const w = wow(m.key);
+  const d = document.createElement('div');
+  if (!w) { d.className = 'delta flat'; d.textContent = '—'; return d; }
+  if (!w.sig) {
+    d.className = 'delta flat';
+    d.innerHTML = '—<small>波動不顯著</small>';
+    return d;
+  }
+  const better = m.dir === 'low' ? w.d > 0 : w.d < 0;
+  d.className = 'delta ' + (better ? 'up' : 'down');
+  const val = m.pct ? (w.d * 100).toFixed(1) + 'pp' : Math.round(w.d);
+  d.innerHTML = (w.d > 0 ? '▲ +' : '▼ ') + val + '<small>vs 前 7 天</small>';
+  return d;
+}
+
+function build(variant) {
+  const host = document.getElementById('rows' + variant);
+  host.innerHTML = '';
+  for (const m of meta) {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.appendChild(nameCell(m));
+    row.appendChild(valCell(m));
+
+    if (variant === 'A') {
+      const c = document.createElement('div'); c.className = 'spark';
+      c.appendChild(sparkline(m.key, '7d', { color: fires(m) ? 'var(--danger)' : 'var(--ink-mid)' }));
+      row.appendChild(c);
+    }
+    if (variant === 'B') row.appendChild(deltaCell(m));
+    if (variant === 'C') {
+      const c = document.createElement('div'); c.className = 'spark';
+      c.appendChild(bandStrip(m.key));
+      row.appendChild(c);
+    }
+    if (variant === 'D') {
+      row.appendChild(deltaCell(m));
+      const a = vals(m.key, '7d');
+      const c = document.createElement('div'); c.className = 'spark';
+      c.appendChild(sparkline(m.key, '7d', {
+        band: [q(a, .1), q(a, .9)],
+        th: m.actionable && m.trusted ? m.th : null,
+        color: fires(m) ? 'var(--danger)' : (m.actionable ? 'var(--ink-mid)' : 'var(--ink-faint)'),
+      }));
+      row.appendChild(c);
+    }
+    host.appendChild(row);
+  }
+}
+
+// the structural finding panel
+document.getElementById('f7').appendChild(sparkline('sabUnavailPct', '7d', { color: 'var(--matcha)', h: 74, thick: 2 }));
+document.getElementById('f28').appendChild(sparkline('sabUnavailPct', '28d', { color: 'var(--strawberry)', h: 74, thick: 2 }));
+
+['A', 'B', 'C', 'D'].forEach(build);
+
+function show(v) {
+  document.querySelectorAll('section').forEach(s => s.classList.toggle('on', s.id === v));
+  document.querySelectorAll('.bar button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  history.replaceState(null, '', '?v=' + v);
+}
+document.querySelectorAll('.bar button').forEach(b => b.onclick = () => show(b.dataset.v));
+show(new URLSearchParams(location.search).get('v') || 'A');
+</script>
+</body>
+</html>
