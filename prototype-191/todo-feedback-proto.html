@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8">
+<title>PROTOTYPE — 待辦條目旁的回饋迴路呈現（#191）</title>
+<style>
+:root{--bg:oklch(0.18 0.018 62);--bg-deep:oklch(0.14 0.014 60);--surface:oklch(0.225 0.018 62);--surface-2:oklch(0.26 0.022 62);--border:oklch(0.42 0.035 60/0.36);--border-soft:oklch(0.42 0.035 60/0.18);--ink:oklch(0.94 0.022 82);--ink-mid:oklch(0.80 0.022 75);--ink-muted:oklch(0.66 0.024 68);--ink-faint:oklch(0.52 0.028 62);--gold:oklch(0.78 0.15 72);--cocoa:oklch(0.66 0.14 40);--matcha:oklch(0.72 0.15 138);--blueberry:oklch(0.66 0.16 248);--success:oklch(0.70 0.16 145);--warning:oklch(0.74 0.16 60);--danger:oklch(0.68 0.20 22);}
+*{box-sizing:border-box}
+body{margin:0;padding:0 0 110px;background:radial-gradient(1200px 700px at 20% -10%,oklch(0.26 0.04 60/.55),transparent 60%),radial-gradient(900px 600px at 95% 8%,oklch(0.24 0.05 40/.40),transparent 65%),var(--bg);color:var(--ink);font-family:'Noto Sans TC',system-ui,sans-serif;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1560px;margin:0 auto;padding:40px 48px}
+.proto-banner{background:repeating-linear-gradient(45deg,oklch(0.30 0.05 60/.5) 0 12px,transparent 12px 24px);border:1px dashed var(--gold);border-radius:10px;padding:10px 18px;margin-bottom:32px;font-size:13px;color:var(--gold);letter-spacing:.04em}
+h1{font-size:30px;margin:0 0 6px;letter-spacing:-.01em}
+.sub{color:var(--ink-muted);margin:0 0 36px;font-size:14px}
+h2{font-size:20px;margin:0 0 4px}
+h2 .tag{font-size:11px;font-weight:600;letter-spacing:.1em;color:var(--bg-deep);background:var(--gold);padding:3px 9px;border-radius:5px;vertical-align:3px;margin-right:12px}
+.lede{color:var(--ink-muted);font-size:14px;margin:0 0 20px;max-width:92ch}
+.lede b{color:var(--ink-mid)}
+.card{background:var(--surface);border:1px solid var(--border-soft);border-radius:14px;padding:8px 30px 20px;margin:0 0 34px}
+.sechead{display:flex;align-items:baseline;gap:12px;padding:18px 0 10px;border-bottom:1px solid var(--border);margin-bottom:4px}
+.sechead h3{font-size:15px;margin:0;font-weight:600;letter-spacing:.02em}
+.sechead .w{font-size:12px;color:var(--ink-faint)}
+.todo{display:grid;grid-template-columns:120px 1fr 62px;gap:22px;align-items:start;padding:16px 0;border-bottom:1px solid var(--border-soft)}
+.todo.wide{grid-template-columns:120px 1fr 92px 132px 62px;align-items:center}
+.todo:last-child{border-bottom:0}
+.cat{font-size:11px;color:var(--ink-faint);letter-spacing:.06em;padding-top:3px}
+.line1{font-size:15px;color:var(--ink)}
+.line1 b{font-variant-numeric:tabular-nums;color:var(--danger);font-size:19px;margin-left:6px}
+.line2{font-size:12px;color:var(--ink-faint);font-variant-numeric:tabular-nums}
+.line3{font-size:13px;color:var(--ink-mid);margin-top:5px}
+.anchor{color:var(--blueberry);font-size:12px;margin-left:8px}
+.gapv{text-align:right;font-size:17px;font-variant-numeric:tabular-nums;color:var(--warning)}
+.delta{font-size:13px;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.delta.up{color:var(--success)}.delta.down{color:var(--danger)}.delta.flat{color:var(--ink-faint)}
+.delta small{display:block;font-size:10px;color:var(--ink-faint)}
+.age{font-size:10px;padding:2px 8px;border-radius:4px;letter-spacing:.05em;border:1px solid var(--border);margin-left:8px;vertical-align:2px;white-space:nowrap}
+.age.new{color:var(--bg-deep);background:var(--gold);border-color:var(--gold);font-weight:600}
+.age.old{color:var(--ink-faint)}
+.age.mid{color:var(--ink-muted)}
+.age.gone{color:var(--success);border-color:oklch(0.70 0.16 145/.4)}
+.age.span{color:var(--ink-muted);border-color:var(--ink-faint);border-style:dashed}
+.todo.dark .line1{color:var(--ink-muted)}
+.todo.dark .line1 b{color:var(--success)}
+.divider-label{font-size:11px;color:var(--ink-faint);letter-spacing:.1em;padding:16px 0 2px;border-top:1px solid var(--border);margin-top:6px}
+.empty-inline{font-size:13px;color:var(--ink-faint);padding:14px 0}
+.foot{font-size:12px;color:var(--ink-faint);padding:14px 0 4px;border-top:1px solid var(--border-soft);margin-top:8px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-weight:600;color:var(--ink-faint);font-size:11px;letter-spacing:.06em;padding:6px 10px 6px 0;border-bottom:1px solid var(--border)}
+td{padding:6px 10px 6px 0;border-bottom:1px solid var(--border-soft);vertical-align:middle}
+td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td.c{color:var(--ink-faint);font-size:11px}
+.strip{line-height:0;white-space:nowrap}
+.strip i{display:inline-block;width:4px;height:16px;margin-right:1px}
+.strip i.on{background:var(--danger)}
+.strip i.off{background:oklch(0.42 0.035 60/.28)}
+.note{font-size:13px;color:var(--ink-muted);background:oklch(0.26 0.022 62/.6);border-left:2px solid var(--gold);padding:12px 18px;margin:16px 0 0;border-radius:0 8px 8px 0}
+.note b{color:var(--ink)}
+</style></head><body><div class="wrap">
+<div class="proto-banner">PROTOTYPE · wayfinder #191「決定待辦條目旁的回饋迴路呈現」 · 丟棄式，不要 merge 進 main</div>
+<h1>待辦條目旁的回饋迴路</h1>
+<p class="sub">資料 = <b>72</b> 份真實日快照（2026-05-19 → 2026-07-31），把 #181 門檻表 + #183 <code>evaluate()</code> 逐日套上去。所有數字都是真的。</p>
+
+<h2><span class="tag">變體 A</span>純 deep-link（#183 原案）</h2>
+<p class="lede">待辦不帶任何自己的歷史。想知道「這條上週在不在」得自己往下捲到 glance ledger。</p>
+<div class="card"><div class="sechead"><h3>本期待辦</h3><span class="w">28 天</span></div>
+  <div class="todo">
+    <div class="cat">[A] 修 BUG</div>
+    <div class="body">
+      <div class="line1">★ 批量失敗率 <b>17.5%</b></div>
+      <div class="line2">門檻 10.0% · 236/1345</div>
+      <div class="line3">→ 看失敗原因分佈，找出主導那一項 <span class="anchor">⤳ 主要失敗原因</span></div>
+    </div>
+    <div class="gapv">75%</div>
+  </div>
+  <div class="todo">
+    <div class="cat">[B] UX 摩擦</div>
+    <div class="body">
+      <div class="line1">★ BOM→批量交棒率 <b>5.7%</b></div>
+      <div class="line2">門檻 15.0% · 16/281</div>
+      <div class="line3">→ BOM 算完後沒有進批量的入口？看漏斗 <span class="anchor">⤳ 頁面流失率</span></div>
+    </div>
+    <div class="gapv">62%</div>
+  </div>
+  <div class="todo">
+    <div class="cat">[B] UX 摩擦</div>
+    <div class="body">
+      <div class="line1">★ 批量完成率 <b>80.3%</b></div>
+      <div class="line2">門檻 85.0% · 1080/1345</div>
+      <div class="line3">→ 完成率掉在哪一步？看批量漏斗 <span class="anchor">⤳ 批量漏斗</span></div>
+    </div>
+    <div class="gapv">6%</div>
+  </div>
+<div class="foot">另有 1 項超標未入選 ⌄　·　另有 5 個訊號因埋點待修不可用 · #187 ⤳</div></div>
+
+<h2><span class="tag">變體 B</span>沿用 #184 的 D 組合</h2>
+<p class="lede">每條待辦掛上 WoW delta（Wilson CI 閘門）與 7d sparkline（疊金色門檻線）—— 與 glance ledger 同一套語彙。</p>
+<div class="card"><div class="sechead"><h3>本期待辦</h3><span class="w">28 天</span></div>
+  <div class="todo wide">
+    <div class="cat">[A] 修 BUG</div>
+    <div class="body">
+      <div class="line1">★ 批量失敗率 <b>17.5%</b></div>
+      <div class="line2">門檻 10.0% · 236/1345</div>
+      <div class="line3">→ 看失敗原因分佈，找出主導那一項 <span class="anchor">⤳ 主要失敗原因</span></div>
+    </div>
+    <div class="delta flat">—<small>波動不顯著</small></div>
+    <svg class="spark" width="132" height="30" viewBox="0 0 132 30">
+    <line x1="0" y1="24.0" x2="132" y2="24.0" stroke="var(--gold)" stroke-width="1" stroke-dasharray="3 3" opacity=".7"/>
+    <path d="M3.0 23.3 L5.3 21.8 L7.6 20.1 L9.9 22.6 L12.2 22.0 L14.5 20.5 L16.7 19.8 L19.0 20.9 L21.3 22.9 L23.6 19.1 L25.9 20.0 L28.2 17.6 L30.5 14.6 L32.8 16.3 L35.1 16.2 L37.4 18.2 L39.7 15.1 L41.9 19.1 L44.2 17.9 L46.5 19.2 L48.8 19.3 L51.1 17.4 L53.4 15.0 L55.7 13.1 L58.0 12.0 L60.3 12.9 L62.6 12.5 L64.9 10.7 L67.1 14.2 L69.4 13.4 L71.7 15.8 L74.0 15.6 L76.3 9.1 L78.6 8.1 L80.9 7.2 L83.2 6.4 L85.5 4.2 L87.8 4.3 L90.1 11.4 L92.3 14.8 L94.6 13.6 L96.9 16.4 L99.2 22.8 L101.5 15.3 L103.8 15.1 L106.1 15.6 L108.4 16.0 L110.7 18.4 L113.0 19.3 L115.3 18.4 L117.5 16.3 L119.8 26.7 L122.1 25.1 L124.4 11.3 L126.7 19.0 L129.0 19.1 " fill="none" stroke="var(--ink-mid)" stroke-width="1.6" stroke-linejoin="round"/>
+    <circle cx="129.0" cy="19.1" r="2.6" fill="var(--danger)"/>
+  </svg>
+    <div class="gapv">75%</div>
+  </div>
+  <div class="todo wide">
+    <div class="cat">[B] UX 摩擦</div>
+    <div class="body">
+      <div class="line1">★ BOM→批量交棒率 <b>5.7%</b></div>
+      <div class="line2">門檻 15.0% · 16/281</div>
+      <div class="line3">→ BOM 算完後沒有進批量的入口？看漏斗 <span class="anchor">⤳ 頁面流失率</span></div>
+    </div>
+    <div class="delta flat">—<small>波動不顯著</small></div>
+    <svg class="spark" width="132" height="30" viewBox="0 0 132 30">
+    <line x1="0" y1="4.1" x2="132" y2="4.1" stroke="var(--gold)" stroke-width="1" stroke-dasharray="3 3" opacity=".7"/>
+    <path d="M3.0 9.4 L5.3 12.0 L7.6 13.4 L9.9 15.4 L12.2 15.4 L14.5 14.8 L16.7 15.5 L19.0 14.7 L21.3 13.6 L23.6 11.4 L25.9 15.2 L28.2 15.2 L30.5 16.6 L32.8 16.5 L35.1 16.6 L37.4 16.2 L39.7 18.9 L41.9 18.2 L44.2 21.6 L46.5 19.1 L48.8 19.3 L51.1 22.0 L53.4 25.5 L55.7 24.8 L58.0 22.7 L60.3 18.8 L62.6 19.6 L64.9 18.8 L67.1 18.4 L69.4 18.6 L71.7 16.1 L74.0 15.6 L76.3 24.2 L78.6 23.8 L80.9 23.5 L83.2 25.3 L85.5 25.9 L87.8 26.6 L90.1 26.7 L92.3 22.6 L94.6 21.7 L96.9 23.2 L99.2 20.7 L101.5 20.4 L103.8 17.7 L106.1 18.0 L108.4 20.4 L110.7 23.1 L113.0 22.6 L115.3 26.8 L117.5 26.4 L119.8 19.8 L122.1 17.3 L124.4 16.1 L126.7 18.0 L129.0 16.3 " fill="none" stroke="var(--ink-mid)" stroke-width="1.6" stroke-linejoin="round"/>
+    <circle cx="129.0" cy="16.3" r="2.6" fill="var(--danger)"/>
+  </svg>
+    <div class="gapv">62%</div>
+  </div>
+  <div class="todo wide">
+    <div class="cat">[B] UX 摩擦</div>
+    <div class="body">
+      <div class="line1">★ 批量完成率 <b>80.3%</b></div>
+      <div class="line2">門檻 85.0% · 1080/1345</div>
+      <div class="line3">→ 完成率掉在哪一步？看批量漏斗 <span class="anchor">⤳ 批量漏斗</span></div>
+    </div>
+    <div class="delta flat">—<small>波動不顯著</small></div>
+    <svg class="spark" width="132" height="30" viewBox="0 0 132 30">
+    <line x1="0" y1="11.5" x2="132" y2="11.5" stroke="var(--gold)" stroke-width="1" stroke-dasharray="3 3" opacity=".7"/>
+    <path d="M3.0 12.1 L5.3 11.7 L7.6 13.4 L9.9 12.1 L12.2 11.8 L14.5 12.0 L16.7 13.1 L19.0 12.4 L21.3 10.1 L23.6 14.2 L25.9 15.6 L28.2 18.6 L30.5 19.7 L32.8 19.1 L35.1 21.8 L37.4 22.9 L39.7 23.1 L41.9 18.7 L44.2 17.6 L46.5 18.1 L48.8 17.4 L51.1 16.6 L53.4 17.8 L55.7 19.0 L58.0 19.6 L60.3 18.4 L62.6 18.7 L64.9 18.8 L67.1 17.8 L69.4 17.1 L71.7 16.0 L74.0 17.4 L76.3 22.0 L78.6 23.7 L80.9 21.9 L83.2 22.6 L85.5 24.6 L87.8 23.7 L90.1 16.5 L92.3 15.2 L94.6 19.0 L96.9 16.5 L99.2 12.3 L101.5 17.6 L103.8 19.9 L106.1 20.0 L108.4 18.8 L110.7 15.5 L113.0 14.4 L115.3 16.0 L117.5 17.0 L119.8 6.1 L122.1 6.7 L124.4 19.5 L126.7 12.3 L129.0 12.1 " fill="none" stroke="var(--ink-mid)" stroke-width="1.6" stroke-linejoin="round"/>
+    <circle cx="129.0" cy="12.1" r="2.6" fill="var(--danger)"/>
+  </svg>
+    <div class="gapv">6%</div>
+  </div>
+<div class="foot">另有 1 項超標未入選 ⌄　·　另有 5 個訊號因埋點待修不可用 · #187 ⤳</div></div>
+
+<h2><span class="tag">變體 C</span>只帶年資標記</h2>
+<p class="lede">不畫圖，只回答一個問題：<b>這條是老面孔還是新亮的。</b></p>
+<div class="card"><div class="sechead"><h3>本期待辦</h3><span class="w">28 天</span></div>
+  <div class="todo">
+    <div class="cat">[A] 修 BUG</div>
+    <div class="body">
+      <div class="line1">★ 批量失敗率 <b>17.5%</b> <span class="age old">連續 47 天</span></div>
+      <div class="line2">門檻 10.0% · 236/1345</div>
+      <div class="line3">→ 看失敗原因分佈，找出主導那一項 <span class="anchor">⤳ 主要失敗原因</span></div>
+    </div>
+    <div class="gapv">75%</div>
+  </div>
+  <div class="todo">
+    <div class="cat">[B] UX 摩擦</div>
+    <div class="body">
+      <div class="line1">★ BOM→批量交棒率 <b>5.7%</b> <span class="age old">連續 72 天</span></div>
+      <div class="line2">門檻 15.0% · 16/281</div>
+      <div class="line3">→ BOM 算完後沒有進批量的入口？看漏斗 <span class="anchor">⤳ 頁面流失率</span></div>
+    </div>
+    <div class="gapv">62%</div>
+  </div>
+  <div class="todo">
+    <div class="cat">[B] UX 摩擦</div>
+    <div class="body">
+      <div class="line1">★ 批量完成率 <b>80.3%</b> <span class="age old">連續 42 天</span></div>
+      <div class="line2">門檻 85.0% · 1080/1345</div>
+      <div class="line3">→ 完成率掉在哪一步？看批量漏斗 <span class="anchor">⤳ 批量漏斗</span></div>
+    </div>
+    <div class="gapv">6%</div>
+  </div>
+<div class="foot">另有 1 項超標未入選 ⌄　·　另有 5 個訊號因埋點待修不可用 · #187 ⤳</div></div>
+
+<h2><span class="tag">變體 D</span>年資標記 + 熄滅留痕</h2>
+<p class="lede">C 再加上「上週在響、這期不響」的一段 —— 迴路真正閉合的地方。</p>
+<div class="card"><div class="sechead"><h3>本期待辦</h3><span class="w">28 天</span></div>
+  <div class="todo">
+    <div class="cat">[A] 修 BUG</div>
+    <div class="body">
+      <div class="line1">★ 批量失敗率 <b>17.5%</b> <span class="age old">連續 47 天</span></div>
+      <div class="line2">門檻 10.0% · 236/1345</div>
+      <div class="line3">→ 看失敗原因分佈，找出主導那一項 <span class="anchor">⤳ 主要失敗原因</span></div>
+    </div>
+    <div class="gapv">75%</div>
+  </div>
+  <div class="todo">
+    <div class="cat">[B] UX 摩擦</div>
+    <div class="body">
+      <div class="line1">★ BOM→批量交棒率 <b>5.7%</b> <span class="age old">連續 72 天</span></div>
+      <div class="line2">門檻 15.0% · 16/281</div>
+      <div class="line3">→ BOM 算完後沒有進批量的入口？看漏斗 <span class="anchor">⤳ 頁面流失率</span></div>
+    </div>
+    <div class="gapv">62%</div>
+  </div>
+  <div class="todo">
+    <div class="cat">[B] UX 摩擦</div>
+    <div class="body">
+      <div class="line1">★ 批量完成率 <b>80.3%</b> <span class="age old">連續 42 天</span></div>
+      <div class="line2">門檻 85.0% · 1080/1345</div>
+      <div class="line3">→ 完成率掉在哪一步？看批量漏斗 <span class="anchor">⤳ 批量漏斗</span></div>
+    </div>
+    <div class="gapv">6%</div>
+  </div><div class="divider-label">本期熄滅</div>
+  <div class="todo dark">
+    <div class="cat">熄滅</div>
+    <div class="body">
+      <div class="line1">✓ 漏斗 · BOM → Consumed <b>46.6%</b> <span class="age gone">已連續 2 天未觸發</span></div>
+      <div class="line2">上週 12.4% · 門檻 30.0% · 131/281</div>
+    </div>
+  </div>
+<div class="foot">另有 1 項超標未入選 ⌄　·　另有 5 個訊號因埋點待修不可用 · #187 ⤳</div></div>
+
+<h2><span class="tag" style="background:var(--matcha)">定案</span>三級年資 + 對稱 CI 熄滅（保留 28 天）</h2>
+<p class="lede">年資三級：<b>✦ 本週新亮</b>（≤7 天，金色實心）／<b>連續 N 天</b>（灰）／<b>觀測全期未曾解決</b>（灰·描邊）。熄滅用<b>對稱 CI</b> 宣告 —— 亮起與熄滅共用同一條 Wilson 規則、只是方向相反，CI 跨過門檻時是灰帶，既不亮也不宣告熄滅。無 delta 欄、無 sparkline。</p>
+<div class="card"><div class="sechead"><h3>本期待辦</h3><span class="w">28 天</span></div>
+  <div class="todo">
+    <div class="cat">[A] 修 BUG</div>
+    <div class="body">
+      <div class="line1">★ 批量失敗率 <b>17.5%</b> <span class="age old">連續 47 天</span></div>
+      <div class="line2">門檻 10.0% · 236/1345</div>
+      <div class="line3">→ 看失敗原因分佈，找出主導那一項 <span class="anchor">⤳ 主要失敗原因</span></div>
+    </div>
+    <div class="gapv">75%</div>
+  </div>
+  <div class="todo">
+    <div class="cat">[B] UX 摩擦</div>
+    <div class="body">
+      <div class="line1">★ BOM→批量交棒率 <b>5.7%</b> <span class="age span">觀測全期未曾解決</span></div>
+      <div class="line2">門檻 15.0% · 16/281</div>
+      <div class="line3">→ BOM 算完後沒有進批量的入口？看漏斗 <span class="anchor">⤳ 頁面流失率</span></div>
+    </div>
+    <div class="gapv">62%</div>
+  </div>
+  <div class="todo">
+    <div class="cat">[B] UX 摩擦</div>
+    <div class="body">
+      <div class="line1">★ 批量完成率 <b>80.3%</b> <span class="age old">連續 42 天</span></div>
+      <div class="line2">門檻 85.0% · 1080/1345</div>
+      <div class="line3">→ 完成率掉在哪一步？看批量漏斗 <span class="anchor">⤳ 批量漏斗</span></div>
+    </div>
+    <div class="gapv">6%</div>
+  </div><div class="divider-label">本期熄滅</div>
+  <div class="todo dark">
+    <div class="cat">熄滅</div>
+    <div class="body">
+      <div class="line1">✓ 漏斗 · BOM → Consumed <b>46.6%</b></div>
+      <div class="line2">上次觸發 2026-07-29（15.7%）· 門檻 30.0% · 131/281</div>
+    </div>
+  </div>
+<div class="foot">另有 1 項超標未入選 ⌄　·　另有 5 個訊號因埋點待修不可用 · #187 ⤳</div></div>
+
+<h2>72 天實測：待辦的一生</h2>
+<p class="lede">每條規則逐日跑 <code>evaluate()</code> 的結果。紅 = 觸發。</p>
+<div class="card" style="padding-top:20px">
+<table><thead><tr><th>類</th><th>規則</th><th class="num">觸發天數</th><th class="num">佔比</th><th class="num">亮起</th><th class="num">熄滅</th><th>2026-05-19 → 2026-07-31</th></tr></thead><tbody>
+  <tr>
+    <td class="c">B</td>
+    <td>BOM→批量交棒率</td>
+    <td class="num">72/72</td>
+    <td class="num">100%</td>
+    <td class="num">0</td>
+    <td class="num">0</td>
+    <td class="strip"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></td>
+  </tr>
+  <tr>
+    <td class="c">A</td>
+    <td>批量失敗率</td>
+    <td class="num">56/72</td>
+    <td class="num">78%</td>
+    <td class="num">1</td>
+    <td class="num">1</td>
+    <td class="strip"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></td>
+  </tr>
+  <tr>
+    <td class="c">B</td>
+    <td>批量完成率</td>
+    <td class="num">42/72</td>
+    <td class="num">58%</td>
+    <td class="num">1</td>
+    <td class="num">0</td>
+    <td class="strip"><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></td>
+  </tr>
+  <tr>
+    <td class="c">B</td>
+    <td>漏斗 · Batch prep → Optimize</td>
+    <td class="num">36/72</td>
+    <td class="num">50%</td>
+    <td class="num">1</td>
+    <td class="num">1</td>
+    <td class="strip"><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i></td>
+  </tr>
+  <tr>
+    <td class="c">B</td>
+    <td>漏斗 · BOM → Consumed</td>
+    <td class="num">20/72</td>
+    <td class="num">28%</td>
+    <td class="num">1</td>
+    <td class="num">2</td>
+    <td class="strip"><i class="on"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="off"></i><i class="off"></i></td>
+  </tr>
+  <tr>
+    <td class="c">C</td>
+    <td>誤用 · 模擬器塞入大量佇列</td>
+    <td class="num">2/72</td>
+    <td class="num">3%</td>
+    <td class="num">1</td>
+    <td class="num">0</td>
+    <td class="strip"><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="on"></i><i class="on"></i></td>
+  </tr>
+  <tr>
+    <td class="c">C</td>
+    <td>誤用 · BOM 未填數量</td>
+    <td class="num">1/72</td>
+    <td class="num">1%</td>
+    <td class="num">1</td>
+    <td class="num">1</td>
+    <td class="strip"><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="on"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i></td>
+  </tr>
+  <tr>
+    <td class="c">A</td>
+    <td>solver 失敗率</td>
+    <td class="num">0/72</td>
+    <td class="num">0%</td>
+    <td class="num">0</td>
+    <td class="num">0</td>
+    <td class="strip"><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i></td>
+  </tr>
+  <tr>
+    <td class="c">C</td>
+    <td>誤用 · 批量頁只放單一配方</td>
+    <td class="num">0/72</td>
+    <td class="num">0%</td>
+    <td class="num">0</td>
+    <td class="num">0</td>
+    <td class="strip"><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i></td>
+  </tr></tbody></table>
+<div class="note">
+<b>待辦幾乎不動。</b> 前 3 名的成員在 71 次日對日比較裡只變動 <b>7</b> 次（10%）。<br>
+<b>「新亮起」與「熄滅」都是稀缺事件。</b> 72 天內全部規則加總只有 6 次亮起、5 次熄滅。<br>
+<b>從來沒有空狀態。</b> 72 天裡最少的一天也有 1 條待辦在響。
+</div>
+</div>
+</div></body></html>
