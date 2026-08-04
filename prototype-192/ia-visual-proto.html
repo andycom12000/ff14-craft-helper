@@ -1,0 +1,736 @@
+<!doctype html>
+<!--
+  PROTOTYPE — #192 決定新 IA 的首屏與頁面節奏視覺定稿
+  Throwaway. Not production code. Open directly in a browser at >= 1440px.
+
+  三個變體，回答同一個問題：第Ⅰ層（解釋現場）與第Ⅱ層（背景與觀測）
+  的視覺權重差要用什麼手段做出來，以及砍到 13 張圖之後的頁面節奏。
+
+    ?variant=A  尺寸差 —— Ⅰ層滿幅大圖 / Ⅱ層雙欄小圖
+    ?variant=B  飽和度差 —— 同尺寸，Ⅱ層抽掉色彩預算
+    ?variant=C  密度差 —— Ⅰ層鬆散區塊 / Ⅱ層連續報表帶
+
+  三者共同前提（本 session 已定，不由變體回答）：
+    · 全頁「反向拉遠」，signature 讓步（推翻 brief §9 / #185）
+    · 砍 Cormorant Garamond；Noto Serif TC 中文襯線留下（4 → 3 種字體）
+    · 13 張圖 + 1 條 ledger 行（Ⅰ 8 / Ⅱ 5），RecipeEntrySource 已砍
+-->
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<title>#192 · IA 視覺定稿原型</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Noto+Serif+TC:wght@500;600;700;900&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+/* ---------- tokens (copied verbatim from src/components/ga-dashboard/tokens.css) ---------- */
+:root {
+  --bg:           oklch(0.18 0.018 62);
+  --bg-deep:      oklch(0.14 0.014 60);
+  --surface:      oklch(0.225 0.018 62);
+  --surface-2:    oklch(0.26  0.022 62);
+  --surface-3:    oklch(0.30  0.025 64);
+  --border:       oklch(0.42 0.035 60 / 0.36);
+  --border-soft:  oklch(0.42 0.035 60 / 0.18);
+
+  --ink:          oklch(0.94 0.022 82);
+  --ink-mid:      oklch(0.80 0.022 75);
+  --ink-muted:    oklch(0.66 0.024 68);
+  --ink-faint:    oklch(0.52 0.028 62);
+
+  --gold:         oklch(0.78 0.15 72);
+  --gold-glow:    oklch(0.78 0.15 72 / 0.16);
+  --crust:        oklch(0.66 0.11 50);
+  --cocoa:        oklch(0.66 0.14 40);
+  --strawberry:   oklch(0.70 0.18 15);
+  --matcha:       oklch(0.72 0.15 138);
+  --blueberry:    oklch(0.66 0.16 248);
+  --success:      oklch(0.70 0.16 145);
+  --warning:      oklch(0.74 0.16 60);
+  --danger:       oklch(0.68 0.20 22);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  /* 拉遠：radial 暖光保留（它是 surface 不是修辭），但收斂一檔 */
+  background:
+    radial-gradient(1200px 700px at 20% -10%, oklch(0.26 0.04 60 / 0.38), transparent 60%),
+    var(--bg);
+  color: var(--ink);
+  font-family: 'Noto Sans TC', system-ui, sans-serif;
+  font-size: 15px; line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+.mono { font-family: 'Fira Code', monospace; }
+
+/* ---------- rail (4 項 · #185 決定 8) ---------- */
+.rail {
+  position: fixed; left: 0; top: 0; bottom: 0; width: 56px; z-index: 50;
+  background: oklch(0.16 0.014 60 / 0.94);
+  border-right: 1px solid oklch(0.42 0.035 60 / 0.22);
+  overflow: hidden; transition: width 160ms ease-out;
+}
+.rail:hover { width: 248px; }
+.rail ul { list-style: none; margin: 0; padding: 92px 0 0; }
+.rail a {
+  display: grid; grid-template-columns: 56px 1fr; align-items: center;
+  text-decoration: none; color: var(--ink-muted); padding: 15px 0;
+  transition: color 160ms, background 160ms;
+}
+.rail a:hover { color: var(--ink); background: oklch(0.22 0.025 60 / 0.45); }
+.rail a.active { color: var(--gold); background: var(--gold-glow); }
+/* 拉遠：編號從 22px Cormorant 斜體 → 13px Fira Code */
+.rail .num {
+  font-family: 'Fira Code', monospace; font-size: 12px; font-weight: 600;
+  letter-spacing: 0.06em; text-align: center;
+}
+.rail .label {
+  font-size: 13px; font-weight: 500; letter-spacing: 0.04em;
+  white-space: nowrap; opacity: 0; transition: opacity 160ms 60ms; padding-left: 4px;
+}
+.rail:hover .label { opacity: 1; }
+.rail::before {
+  content: ''; position: absolute; top: 36px; left: 16px; right: 16px;
+  height: 1px; background: var(--gold); opacity: 0.5;
+}
+.rail::after {
+  content: 'GA / OWNER'; position: absolute; top: 50px; left: 16px;
+  font-family: 'Fira Code', monospace; font-size: 10px;
+  letter-spacing: 0.18em; color: var(--gold);
+  white-space: nowrap; opacity: 0; transition: opacity 160ms 60ms;
+}
+.rail:hover::after { opacity: 1; }
+
+/* ---------- page shell ---------- */
+.page { margin-left: 56px; }
+.wrap { max-width: 1720px; margin: 0 auto; padding: 72px clamp(48px, 5vw, 96px) 140px; }
+
+/* ---------- HERO（拉遠改版：無 Cormorant、無 72px display serif 詩句） ---------- */
+.hero { margin-bottom: 48px; }
+.hero .eyebrow {
+  font-family: 'Fira Code', monospace; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.28em; color: var(--gold);
+  display: inline-flex; align-items: center; gap: 14px; margin-bottom: 20px;
+}
+.hero .eyebrow::before { content: ''; width: 32px; height: 1px; background: var(--gold); }
+.hero h1 {
+  font-family: 'Noto Serif TC', serif; font-weight: 700;
+  font-size: 34px; line-height: 1.25; letter-spacing: -0.01em;
+  margin: 0 0 22px; color: var(--ink);
+}
+.hero h1 .win { font-family: 'Fira Code', monospace; font-weight: 600; color: var(--gold); font-size: 30px; }
+/* 拉遠：lede 從 17px serif 散文 → 一排 mono 讀數。文字不再「跟你說話」 */
+.hero .readout {
+  display: grid; grid-template-columns: repeat(4, max-content); gap: 0 56px;
+  padding: 20px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+}
+.hero .readout dt {
+  font-family: 'Fira Code', monospace; font-size: 10.5px; font-weight: 500;
+  letter-spacing: 0.16em; color: var(--ink-faint); margin-bottom: 6px;
+}
+.hero .readout dd {
+  margin: 0; font-family: 'Fira Code', monospace;
+  font-size: 27px; font-weight: 500; line-height: 1; color: var(--ink);
+}
+.hero .readout dd small {
+  display: block; margin-top: 7px; font-size: 11px; font-weight: 400;
+  letter-spacing: 0.06em; color: var(--ink-muted);
+}
+.hero .meta {
+  margin-top: 18px; display: flex; gap: 26px;
+  font-family: 'Fira Code', monospace; font-size: 10.5px;
+  letter-spacing: 0.14em; color: var(--ink-faint);
+}
+.hero .meta b { color: var(--ink-mid); font-weight: 500; margin-left: 6px; }
+
+/* ---------- 本期待辦 ledger（#183 位置 · #191 年資標記） ---------- */
+.todo { margin: 44px 0 40px; }
+.todo-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding-bottom: 12px; border-bottom: 1px solid var(--gold);
+}
+.todo-head h2 {
+  font-family: 'Noto Serif TC', serif; font-size: 19px; font-weight: 600;
+  margin: 0; color: var(--ink); letter-spacing: 0.01em;
+}
+.todo-head .count {
+  font-family: 'Fira Code', monospace; font-size: 11px;
+  letter-spacing: 0.16em; color: var(--gold);
+}
+.todo-row {
+  display: grid; grid-template-columns: 24px 1fr 128px 108px;
+  align-items: baseline; gap: 16px;
+  padding: 15px 0 14px; border-bottom: 1px solid var(--border-soft);
+}
+.todo-row .age { font-family: 'Fira Code', monospace; font-size: 13px; text-align: center; line-height: 1.2; }
+/* #191 三級年資 —— ✦ 本週新亮（金色實心）／連續 N 天（灰）／全期未解（虛線描邊） */
+.age.fresh { color: var(--gold); }
+.age.streak { color: var(--ink-faint); font-size: 9.5px; letter-spacing: -0.02em; }
+.age.censored {
+  color: var(--ink-faint); font-size: 9.5px;
+  border: 1px dashed var(--ink-faint); border-radius: 3px; padding: 1px 2px;
+}
+.age.cleared { color: var(--success); }
+.todo-row .body .sig {
+  font-family: 'Noto Serif TC', serif; font-size: 16px; font-weight: 600;
+  color: var(--ink); line-height: 1.5;
+}
+.todo-row .body .next {
+  margin-top: 4px; font-size: 13px; color: var(--ink-muted);
+}
+.todo-row .body .next a { color: var(--gold); text-decoration: none; border-bottom: 1px solid var(--gold-glow); }
+.todo-row .num {
+  font-family: 'Fira Code', monospace; font-size: 15px; font-weight: 500;
+  color: var(--danger); text-align: right;
+}
+.todo-row .num.ok { color: var(--success); }
+.todo-row .thr {
+  font-family: 'Fira Code', monospace; font-size: 11px;
+  color: var(--ink-faint); text-align: right;
+}
+.todo-row.dim .sig, .todo-row.dim .num { color: var(--ink-muted); }
+.todo-foot {
+  margin-top: 12px; font-family: 'Fira Code', monospace; font-size: 10.5px;
+  letter-spacing: 0.1em; color: var(--ink-faint);
+}
+
+/* ---------- window selector + region ledger ---------- */
+.winsel { display: flex; gap: 2px; margin: 40px 0 20px; }
+.winsel button {
+  font-family: 'Fira Code', monospace; font-size: 11px; letter-spacing: 0.14em;
+  background: none; border: 1px solid var(--border); color: var(--ink-muted);
+  padding: 7px 18px; cursor: pointer;
+}
+.winsel button.on { border-color: var(--gold); color: var(--gold); background: var(--gold-glow); }
+.region { border-top: 1px solid var(--border); margin-bottom: 8px; }
+.region .r {
+  display: grid; grid-template-columns: 96px repeat(4, 1fr); gap: 20px;
+  padding: 11px 0; border-bottom: 1px solid var(--border-soft);
+  font-family: 'Fira Code', monospace; font-size: 12.5px; color: var(--ink-mid);
+}
+.region .r.head { color: var(--ink-faint); font-size: 10.5px; letter-spacing: 0.14em; }
+.region .r span:first-child { color: var(--ink); }
+.region .r span { text-align: right; }
+.region .r span:first-child { text-align: left; }
+.region .spark { display: inline-block; vertical-align: -2px; margin-left: 8px; }
+
+/* ---------- section head（拉遠改版） ---------- */
+.sec-head { margin-bottom: 26px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.sec-head .top { display: flex; align-items: baseline; gap: 18px; }
+/* 拉遠：42px Cormorant 斜體 → 20px Fira Code */
+.sec-head .num {
+  font-family: 'Fira Code', monospace; font-size: 20px; font-weight: 600;
+  letter-spacing: 0.1em; color: var(--gold); min-width: 34px;
+}
+.sec-head h2 {
+  font-family: 'Noto Serif TC', serif; font-size: 22px; font-weight: 600;
+  margin: 0; flex: 1; color: var(--ink);
+}
+/* 拉遠：18px Cormorant 斜體 aside → 11px Fira Code 計數 */
+.sec-head .aside {
+  font-family: 'Fira Code', monospace; font-size: 11px;
+  letter-spacing: 0.14em; color: var(--ink-faint);
+}
+.sec-head .desc { margin-top: 8px; margin-left: 52px; font-size: 13px; color: var(--ink-muted); }
+
+/* ---------- sub head ---------- */
+.sub { display: flex; align-items: baseline; gap: 14px; }
+.sub .rule { width: 18px; height: 1px; background: var(--gold); flex: none; }
+.sub h3 {
+  font-family: 'Noto Serif TC', serif; font-size: 16px; font-weight: 600;
+  margin: 0; color: var(--ink);
+}
+.sub .note { font-family: 'Fira Code', monospace; font-size: 10.5px; letter-spacing: 0.1em; color: var(--ink-faint); }
+
+/* ---------- ⚑ 埋點待修徽章（#187 決定 5：掛指標層、兩種態、文案指名欄位） ---------- */
+.flag {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: 'Fira Code', monospace; font-size: 10px; font-weight: 500;
+  letter-spacing: 0.1em; padding: 2px 8px 2px 6px;
+  border: 1px solid var(--warning); color: var(--warning);
+  background: oklch(0.74 0.16 60 / 0.10); white-space: nowrap;
+}
+.flag::before { content: '⚑'; font-size: 10px; }
+/* 一半可信態：實線改虛線，語意是「這張圖的一部分」 */
+.flag.partial { border-style: dashed; }
+/* ⚑ 態一：整張不可信（SimulatorFunnel）—— 斜紋蓋滿 */
+.flagged-full {
+  background-image: repeating-linear-gradient(
+    -45deg, oklch(0.74 0.16 60 / 0.07) 0 5px, transparent 5px 10px);
+}
+/* ⚑ 態二：一半可信（矩陣、ToolUsageByRlv）—— 斜紋只蓋被指名的那一段，
+   其餘照常可讀。這是 #187 決定 5「文案指名欄位」在圖上的對應。 */
+.flagged-part { position: relative; }
+.flagged-part::after {
+  content: ''; position: absolute; inset: 0 0 0 var(--part-from, 66%);
+  background-image: repeating-linear-gradient(
+    -45deg, oklch(0.74 0.16 60 / 0.10) 0 5px, transparent 5px 10px);
+  border-left: 1px dashed var(--warning); pointer-events: none;
+}
+
+/* ---------- chart block ---------- */
+.chart { border: 1px solid var(--border-soft); background: oklch(0.20 0.016 62 / 0.55); }
+.chart svg { display: block; width: 100%; height: 100%; }
+/* 暗期 placeholder（#186：兩張新圖上線後 28 天是空的） */
+.dark-period {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; border: 1px dashed var(--border); background: none;
+}
+.dark-period .t {
+  font-family: 'Fira Code', monospace; font-size: 11px;
+  letter-spacing: 0.18em; color: var(--ink-faint);
+}
+.dark-period .d { font-size: 13px; color: var(--ink-muted); }
+.dark-period .bar { width: 220px; height: 2px; background: var(--border); position: relative; }
+.dark-period .bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 34%; background: var(--gold); opacity: 0.55; }
+
+/* ---------- BOM ledger 行（本 session 決定：兩個計數不成圖） ---------- */
+.mini-ledger { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.mini-ledger .h {
+  font-family: 'Fira Code', monospace; font-size: 10.5px; letter-spacing: 0.16em;
+  color: var(--ink-faint); padding: 10px 0 8px; display: flex; justify-content: space-between;
+}
+.mini-ledger .r {
+  display: grid; grid-template-columns: 1fr 90px 110px; gap: 16px;
+  padding: 9px 0; border-top: 1px solid var(--border-soft);
+  font-family: 'Fira Code', monospace; font-size: 12.5px; color: var(--ink-mid);
+}
+.mini-ledger .r span:nth-child(n+2) { text-align: right; }
+.mini-ledger .r span:nth-child(2) { color: var(--ink); }
+
+/* ================= VARIANT A — 尺寸差 ================= */
+.vA .sec-1 .item { margin-top: 44px; }
+.vA .sec-1 .chart { height: 300px; margin-top: 14px; }
+.vA .sec-2 { margin-top: 104px; }
+.vA .sec-2 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px 44px; margin-top: 30px; }
+.vA .sec-2 .chart { height: 178px; margin-top: 12px; }
+.vA .sec-2 .mini-ledger { grid-column: 1 / -1; }
+.vA .sec-2 .sub h3 { font-size: 14.5px; }
+
+/* ================= VARIANT B — 飽和度差 ================= */
+.vB .sec-1 .item, .vB .sec-2 .item { margin-top: 40px; }
+.vB .chart { height: 264px; margin-top: 14px; }
+.vB .sec-2 { margin-top: 96px; }
+/* Ⅱ 層抽掉色彩預算：整層去飽和，只留 ink 灰階 + 單一 gold。
+   例外：⚑ 徽章不可被洗掉 —— 它是警示，不是資料。反向補回飽和度。 */
+.vB .sec-2 { filter: saturate(0.12); }
+.vB .sec-2 .flag { filter: saturate(8); }
+.vB .sec-2 .sec-head .num, .vB .sec-2 .sub .rule { filter: none; }
+.vB .sec-2 .sec-head { border-bottom-color: var(--border-soft); }
+.vB .sec-2 .mini-ledger { margin-top: 40px; }
+
+/* ================= VARIANT C — 密度差 ================= */
+.vC .sec-1 .item { margin-top: 48px; }
+.vC .sec-1 .chart { height: 288px; margin-top: 16px; }
+.vC .sec-2 { margin-top: 112px; }
+/* Ⅱ 層壓成連續報表帶：無區塊留白，相鄰圖之間只有 1px hairline */
+.vC .sec-2 .strip { border-top: 1px solid var(--border); margin-top: 24px; }
+.vC .sec-2 .row {
+  display: grid; grid-template-columns: 268px 1fr;
+  gap: 0 32px; border-bottom: 1px solid var(--border-soft);
+}
+.vC .sec-2 .row > .meta { padding: 18px 0 18px; }
+.vC .sec-2 .row > .meta h3 {
+  font-family: 'Noto Serif TC', serif; font-size: 14.5px; font-weight: 600; margin: 0 0 5px; color: var(--ink);
+}
+.vC .sec-2 .row > .meta .tik { font-size: 12px; color: var(--ink-muted); line-height: 1.6; }
+.vC .sec-2 .row > .meta .flag { margin-top: 9px; }
+.vC .sec-2 .chart { height: 140px; border: none; background: none; align-self: center; }
+.vC .sec-2 .mini-ledger { border-top: none; }
+
+/* ================= VARIANT D — 定稿（Ⅰ層圖左文右 · Ⅱ層文左圖右） ================= */
+/* 兩層鏡像：第Ⅰ層圖為主（圖在左、寬），第Ⅱ層文為主（文在左、圖在右、矮）。
+   兩層都有一個「入場券」欄位 —— #185 的落層規則因此在頁面上永遠看得見。 */
+.vD .sec-1 .item { margin-top: 46px; }
+.vD .sec-1 .row { display: grid; grid-template-columns: 1fr 300px; gap: 0 40px; margin-top: 14px; }
+.vD .sec-1 .chart { height: 290px; }
+.vD .sec-1 .side { padding-top: 2px; }
+.vD .sec-1 .side .k {
+  font-family: 'Fira Code', monospace; font-size: 10px; letter-spacing: 0.16em;
+  color: var(--ink-faint); display: block; margin-bottom: 7px;
+}
+.vD .sec-1 .side .bind { font-size: 13.5px; color: var(--ink-mid); line-height: 1.65; }
+.vD .sec-1 .side .now {
+  margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-soft);
+  font-family: 'Fira Code', monospace;
+}
+.vD .sec-1 .side .now b { font-size: 22px; font-weight: 500; color: var(--danger); }
+.vD .sec-1 .side .now b.ok { color: var(--ink); }
+.vD .sec-1 .side .now i { font-style: normal; font-size: 11px; color: var(--ink-faint); margin-left: 8px; }
+.vD .sec-1 .side .flag { margin-top: 14px; white-space: normal; }
+
+.vD .sec-2 { margin-top: 112px; }
+.vD .sec-2 .strip { border-top: 1px solid var(--border); margin-top: 24px; }
+.vD .sec-2 .row {
+  display: grid; grid-template-columns: 268px 1fr; gap: 0 32px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.vD .sec-2 .row > .meta { padding: 18px 0; }
+.vD .sec-2 .row > .meta h3 {
+  font-family: 'Noto Serif TC', serif; font-size: 14.5px; font-weight: 600; margin: 0 0 5px; color: var(--ink);
+}
+.vD .sec-2 .row > .meta .tik { font-size: 12px; color: var(--ink-muted); line-height: 1.6; }
+.vD .sec-2 .row > .meta .flag { margin-top: 9px; white-space: normal; }
+.vD .sec-2 .chart { height: 140px; border: none; background: none; align-self: center; }
+.vD .sec-2 .mini-ledger { border-top: none; }
+
+/* ---------- switcher ---------- */
+.switcher {
+  position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+  z-index: 200; display: flex; align-items: center; gap: 4px;
+  background: oklch(0.94 0.022 82); color: oklch(0.14 0.014 60);
+  border-radius: 999px; padding: 5px 6px;
+  box-shadow: 0 8px 28px oklch(0.10 0.01 60 / 0.6);
+  font-family: 'Fira Code', monospace; font-size: 12px; font-weight: 600;
+}
+.switcher button {
+  border: none; background: none; cursor: pointer; font: inherit;
+  padding: 5px 11px; border-radius: 999px; color: inherit;
+}
+.switcher button:hover { background: oklch(0.14 0.014 60 / 0.10); }
+.switcher .lbl { padding: 0 12px; letter-spacing: 0.04em; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<nav class="rail">
+  <ul>
+    <li><a href="#hero" class="active"><span class="num">0</span><span class="label">概覽</span></a></li>
+    <li><a href="#todo"><span class="num">·</span><span class="label">本期待辦</span></a></li>
+    <li><a href="#sec-why"><span class="num">I</span><span class="label">為什麼會亮</span></a></li>
+    <li><a href="#sec-context"><span class="num">II</span><span class="label">背景與觀測</span></a></li>
+  </ul>
+</nav>
+
+<div class="page"><div class="wrap" id="root"></div></div>
+
+<div class="switcher">
+  <button id="prev">←</button>
+  <span class="lbl" id="lbl">A — 尺寸差</span>
+  <button id="next">→</button>
+</div>
+
+<script>
+/* ============ 假資料：全部取自地圖上已解票的實測數字 ============ */
+const HERO = {
+  users: '1,096', usersNote: '真值 · #189 修掉 +27.8% 灌水',
+  ret: '45.8%',   retNote: '回訪 · #193 分母修正後',
+  solver: '96.3%', solverNote: '人類完成率 · 機器解已濾',
+  batch: '79.0%',  batchNote: '批量完成率 · 1,340 starts',
+};
+
+/* #191：三級年資 + 熄滅留痕。72 天從沒有空狀態，典型 4 條在響。 */
+const TODO = [
+  { age: '✦', cls: 'fresh',    sig: '批量最佳化失敗率正在跑高',
+    key: '/ 查前三失敗原因 × 成本模式', anchor: '#chart-failures',
+    val: '18.0%', thr: '門檻 12.0%' },
+  { age: '31+', cls: 'censored', sig: '單一配方誤用提示居高不下',
+    key: '/ 看誤用三項的分項堆疊', anchor: '#chart-misuse',
+    val: '11.8%', thr: '門檻 8.0%' },
+  { age: '12d', cls: 'streak',  sig: 'BOM 誤用提示未收斂',
+    key: '/ 看誤用三項的分項堆疊', anchor: '#chart-misuse',
+    val: '7.5%',  thr: '門檻 5.0%' },
+  { age: '4d',  cls: 'streak',  sig: '批量佇列誤用出現尖峰',
+    key: '/ 看誤用三項的分項堆疊', anchor: '#chart-misuse',
+    val: '5.7%',  thr: '門檻 3.0%' },
+  { age: '✓', cls: 'cleared', dim: true, sig: 'SAB 不可用比率已回到門檻好側',
+    key: '/ 熄滅於 6 天前 · 留痕 28 天', anchor: '#chart-vitals',
+    val: '1.4%',  thr: '門檻 4.0%', ok: true },
+];
+
+/* Ⅰ 層 8 張（#185 決定 2 · #186 淨增 1） */
+const L1 = [
+  { id: 'chart-failures', t: '批量失敗原因 × 成本模式', n: 'A · BATCH_FAIL_RATE', kind: 'bars' },
+  { id: 'chart-api',      t: 'universalis 端點失敗',     n: 'A · UNIVERSALIS_ERR · 404「無掛單」已拆出', kind: 'matrix' },
+  { id: 'chart-funnels',  t: '漏斗 · Solver 與批量',      n: 'B · SOLVER/BATCH_COMPLETE', kind: 'funnel',
+    flag: { txt: 'solver 完成率／失敗率埋點待修', partial: false } },
+  { id: 'chart-drops',    t: '頁面流失率',               n: 'B · FUNNEL_CONVERSION', kind: 'funnel' },
+  { id: 'chart-sim',      t: '模擬器 · 造訪 → 巨集匯出',   n: 'B · MACRO_COPY_RATE', kind: 'funnel',
+    flag: { txt: '巨集複製率埋點待修 · PR-A +28 天', partial: false } },
+  { id: 'chart-misuse',   t: '誤用提示統計',             n: 'C · MISUSE_×3', kind: 'bars' },
+  { id: 'chart-adoption', t: '功能採用率 · 跨服與鑲嵌',    n: 'C · CROSS_SERVER / MELD_ADOPT', kind: 'dark' },
+  { id: 'chart-vitals',   t: 'Web Vitals',               n: 'D · VITALS_×5 · 絆線', kind: 'stack' },
+];
+
+/* Ⅱ 層 5 張 + 1 條 ledger 行 */
+const L2 = [
+  { id: 'chart-pages',  t: '各頁健康度', tik: 'batch 完成率／BOM 交棒率亮時 → 哪一頁 bounce 高、engagement 低', kind: 'table' },
+  { id: 'chart-rlv',    t: '配方難度分佈', tik: 'BOM 交棒率亮時 → 哪個 RLV 區間在斷', kind: 'hist' },
+  { id: 'chart-matrix', t: '配方分類 × 完成率', tik: '巨集複製率／solver 完成率亮時 → 哪一類配方的巨集沒人複製', kind: 'matrix',
+    flag: { txt: '僅「巨集複製率」欄埋點待修 · 完成率已可信', partial: true, from: '67%' } },
+  { id: 'chart-tool',   t: '工具偏好 · 依 RLV', tik: 'BOM 交棒率亮時 → BOM 目標與批量目標的 RLV 分佈落差', kind: 'hist',
+    flag: { txt: 'BOM／批量兩條分子的 RLV 歸戶待 pipeline PR', partial: false } },
+  { id: 'chart-gear',   t: '裝備水準 × 求解結果', tik: 'solver 完成率／失敗率亮時 → 哪個裝備水準求不出來', kind: 'bars' },
+];
+
+/* ============ 小圖形（純示意，只求密度與高度真實） ============ */
+const C = { gold: 'oklch(0.78 0.15 72)', straw: 'oklch(0.70 0.18 15)', matcha: 'oklch(0.72 0.15 138)',
+            blue: 'oklch(0.66 0.16 248)', cocoa: 'oklch(0.66 0.14 40)', ink: 'oklch(0.52 0.028 62)' };
+const rnd = (s => () => (s = s * 16807 % 2147483647) / 2147483647)(42);
+
+function svg(kind, flagMode) {
+  const band = flagMode === 'full' ? ` class="flagged-full"` : '';
+  if (kind === 'dark') return '';
+  if (kind === 'bars') {
+    let b = '';
+    for (let i = 0; i < 9; i++) {
+      const w = 14 + rnd() * 78, c = i === 0 ? C.straw : i < 3 ? C.cocoa : C.ink;
+      b += `<rect x="12" y="${8 + i * 10.4}%" width="${w}%" height="6.4%" fill="${c}" opacity="${i === 0 ? 0.95 : 0.62 - i * 0.04}"/>`;
+    }
+    return `<svg viewBox="0 0 100 100" preserveAspectRatio="none"${band}>${b}</svg>`;
+  }
+  if (kind === 'funnel') {
+    let b = '', w = 92;
+    for (let i = 0; i < 5; i++) {
+      const nw = w * (0.68 + rnd() * 0.24);
+      b += `<polygon points="${50 - w / 2},${6 + i * 18} ${50 + w / 2},${6 + i * 18} ${50 + nw / 2},${20 + i * 18} ${50 - nw / 2},${20 + i * 18}"
+             fill="${C.gold}" opacity="${0.72 - i * 0.1}"/>`;
+      w = nw;
+    }
+    return `<svg viewBox="0 0 100 100" preserveAspectRatio="none"${band}>${b}</svg>`;
+  }
+  if (kind === 'matrix') {
+    let b = '';
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 6; c++) {
+      const v = rnd();
+      b += `<rect x="${3 + c * 16}" y="${8 + r * 22}" width="14.5" height="19" fill="${v > 0.62 ? C.matcha : v > 0.3 ? C.gold : C.straw}" opacity="${0.22 + v * 0.6}"/>`;
+    }
+    return `<svg viewBox="0 0 100 100" preserveAspectRatio="none"${band}>${b}</svg>`;
+  }
+  if (kind === 'hist') {
+    let b = '';
+    for (let i = 0; i < 22; i++) {
+      const h = 8 + Math.pow(rnd(), 1.7) * 84;
+      b += `<rect x="${2 + i * 4.5}" y="${96 - h}" width="3.4" height="${h}" fill="${i === 6 ? C.gold : C.blue}" opacity="${i === 6 ? 0.95 : 0.5}"/>`;
+    }
+    return `<svg viewBox="0 0 100 100" preserveAspectRatio="none"${band}>${b}</svg>`;
+  }
+  if (kind === 'stack') {
+    let b = '';
+    for (let i = 0; i < 5; i++) {
+      const g = 62 + rnd() * 32;
+      b += `<rect x="6" y="${9 + i * 18}" width="${g}%" height="11%" fill="${C.matcha}" opacity="0.7"/>
+            <rect x="${6 + g}%" y="${9 + i * 18}" width="${(94 - g) * 0.6}%" height="11%" fill="${C.gold}" opacity="0.6"/>`;
+    }
+    return `<svg viewBox="0 0 100 100" preserveAspectRatio="none"${band}>${b}</svg>`;
+  }
+  if (kind === 'table') {
+    let b = '';
+    for (let i = 0; i < 7; i++) {
+      b += `<rect x="2" y="${5 + i * 13.6}" width="96" height="0.5" fill="${C.ink}" opacity="0.4"/>`;
+      for (let c = 0; c < 5; c++)
+        b += `<rect x="${4 + c * 19}" y="${9 + i * 13.6}" width="${5 + rnd() * 11}" height="4" fill="${C.ink}" opacity="0.75"/>`;
+    }
+    return `<svg viewBox="0 0 100 100" preserveAspectRatio="none"${band}>${b}</svg>`;
+  }
+  return '';
+}
+
+function chartBox(c, extraClass = '') {
+  if (c.kind === 'dark') return `
+    <div class="chart dark-period ${extraClass}">
+      <div class="t">資料累積中</div>
+      <div class="d">跨伺服器與鑲嵌兩個維度 2026-07-31 註冊，首個滿窗約 2026-08-28</div>
+      <div class="bar"><i></i></div>
+    </div>`;
+  const mode = c.flag ? (c.flag.partial ? 'part' : 'full') : null;
+  const cls = mode === 'part' ? 'flagged-part' : '';
+  const st = mode === 'part' ? ` style="--part-from:${c.flag.from || '66%'}"` : '';
+  return `<div class="chart ${extraClass} ${cls}"${st}>${svg(c.kind, mode)}</div>`;
+}
+
+const heroHTML = () => `
+<header class="hero" id="hero">
+  <div class="eyebrow">GA / OWNER · 決策儀表板</div>
+  <h1>本期需要決定的事 <span class="win">— 28d</span></h1>
+  <dl class="readout">
+    <div><dt>ACTIVE USERS</dt><dd>${HERO.users}<small>${HERO.usersNote}</small></dd></div>
+    <div><dt>RETURNING</dt><dd>${HERO.ret}<small>${HERO.retNote}</small></dd></div>
+    <div><dt>SOLVER COMPLETE</dt><dd>${HERO.solver}<small>${HERO.solverNote}</small></dd></div>
+    <div><dt>BATCH COMPLETE</dt><dd>${HERO.batch}<small>${HERO.batchNote}</small></dd></div>
+  </dl>
+  <div class="meta">
+    <span>WINDOW<b>2026-07-08 → 2026-08-04</b></span>
+    <span>PROPERTY<b>527587379</b></span>
+    <span>GENERATED<b>2026-08-05</b></span>
+  </div>
+</header>`;
+
+const todoHTML = () => `
+<section class="todo" id="todo">
+  <div class="todo-head">
+    <h2>本期待辦 · 28 天</h2>
+    <span class="count">4 FIRING / 1 CLEARED / 19 RULES</span>
+  </div>
+  ${TODO.map(t => `
+    <div class="todo-row ${t.dim ? 'dim' : ''}">
+      <div class="age ${t.cls}">${t.age}</div>
+      <div class="body">
+        <div class="sig">${t.sig}</div>
+        <div class="next">${t.key.replace('/', '')} · <a href="${t.anchor}">跳至圖表 →</a></div>
+      </div>
+      <div class="num ${t.ok ? 'ok' : ''}">${t.val}</div>
+      <div class="thr">${t.thr}</div>
+    </div>`).join('')}
+  <div class="todo-foot">4 條規則因埋點待修暫不觸發（TRUSTED:FALSE）· 5 條為永久觀測層（ACTIONABLE:FALSE）</div>
+</section>`;
+
+const winHTML = () => `
+<div class="winsel"><button>7D</button><button class="on">28D</button><button>14D</button></div>
+<div class="region">
+  <div class="r head"><span>REGION</span><span>USERS</span><span>SOLVER</span><span>BATCH</span><span>7D TREND</span></div>
+  <div class="r"><span>cht</span><span>612</span><span>96.8%</span><span>81.2%</span><span>▁▂▃▃▄▅▅</span></div>
+  <div class="r"><span>intl</span><span>301</span><span>95.1%</span><span>74.9%</span><span>▄▄▃▃▂▂▁</span></div>
+  <div class="r"><span>unset</span><span>183</span><span>94.4%</span><span>68.0%</span><span>▂▃▂▄▃▄▄</span></div>
+</div>`;
+
+const bomLedger = () => `
+<div class="mini-ledger">
+  <div class="h"><span>BOM_PAGE_INTERACTION</span><span>28D · BOM 交棒率亮時 → 他們在 BOM 頁上真的有操作嗎</span></div>
+  <div class="r"><span>acquisition_mode_set</span><span>398</span><span>59 users</span></div>
+  <div class="r"><span>breakdown_expand</span><span>700</span><span>81 users</span></div>
+</div>`;
+
+/* ---------- 三個變體 ---------- */
+function variantA() {
+  return `<div class="vA">${heroHTML()}${todoHTML()}${winHTML()}
+  <section class="sec-1" id="sec-why" style="margin-top:88px">
+    <div class="sec-head"><div class="top"><span class="num">I</span><h2>為什麼會亮 · 解釋現場</h2><span class="aside">8 CHARTS</span></div>
+      <div class="desc">每一張都被上方某條待辦的 anchor 指到。亮燈之後第一件事在這裡回答。</div></div>
+    ${L1.map(c => `<div class="item" id="${c.id}">
+      <div class="sub"><span class="rule"></span><h3>${c.t}</h3><span class="note">${c.n}</span>
+        ${c.flag ? `<span class="flag ${c.flag.partial ? 'partial' : ''}">${c.flag.txt}</span>` : ''}</div>
+      ${chartBox(c)}</div>`).join('')}
+  </section>
+  <section class="sec-2" id="sec-context">
+    <div class="sec-head"><div class="top"><span class="num">II</span><h2>背景與觀測</h2><span class="aside">5 CHARTS + 1 LEDGER</span></div>
+      <div class="desc">沒有待辦直接指向，但寫得出「哪條亮時我會來看這張」。</div></div>
+    <div class="grid">
+      ${L2.map(c => `<div class="item" id="${c.id}">
+        <div class="sub"><span class="rule"></span><h3>${c.t}</h3>
+          ${c.flag ? `<span class="flag ${c.flag.partial ? 'partial' : ''}">${c.flag.txt}</span>` : ''}</div>
+        ${chartBox(c)}</div>`).join('')}
+      ${bomLedger()}
+    </div>
+  </section></div>`;
+}
+
+function variantB() {
+  return `<div class="vB">${heroHTML()}${todoHTML()}${winHTML()}
+  <section class="sec-1" id="sec-why" style="margin-top:88px">
+    <div class="sec-head"><div class="top"><span class="num">I</span><h2>為什麼會亮 · 解釋現場</h2><span class="aside">8 CHARTS</span></div>
+      <div class="desc">每一張都被上方某條待辦的 anchor 指到。</div></div>
+    ${L1.map(c => `<div class="item" id="${c.id}">
+      <div class="sub"><span class="rule"></span><h3>${c.t}</h3><span class="note">${c.n}</span>
+        ${c.flag ? `<span class="flag ${c.flag.partial ? 'partial' : ''}">${c.flag.txt}</span>` : ''}</div>
+      ${chartBox(c)}</div>`).join('')}
+  </section>
+  <section class="sec-2" id="sec-context">
+    <div class="sec-head"><div class="top"><span class="num">II</span><h2>背景與觀測</h2><span class="aside">5 CHARTS + 1 LEDGER</span></div>
+      <div class="desc">同樣尺寸、同樣間距 —— 差別只在色彩預算被收走。</div></div>
+    ${L2.map(c => `<div class="item" id="${c.id}">
+      <div class="sub"><span class="rule"></span><h3>${c.t}</h3><span class="note">${c.tik}</span>
+        ${c.flag ? `<span class="flag ${c.flag.partial ? 'partial' : ''}">${c.flag.txt}</span>` : ''}</div>
+      ${chartBox(c)}</div>`).join('')}
+    ${bomLedger()}
+  </section></div>`;
+}
+
+function variantC() {
+  return `<div class="vC">${heroHTML()}${todoHTML()}${winHTML()}
+  <section class="sec-1" id="sec-why" style="margin-top:88px">
+    <div class="sec-head"><div class="top"><span class="num">I</span><h2>為什麼會亮 · 解釋現場</h2><span class="aside">8 CHARTS</span></div>
+      <div class="desc">一圖一區塊，看得慢。這是要拿來做決定的那一層。</div></div>
+    ${L1.map(c => `<div class="item" id="${c.id}">
+      <div class="sub"><span class="rule"></span><h3>${c.t}</h3><span class="note">${c.n}</span>
+        ${c.flag ? `<span class="flag ${c.flag.partial ? 'partial' : ''}">${c.flag.txt}</span>` : ''}</div>
+      ${chartBox(c)}</div>`).join('')}
+  </section>
+  <section class="sec-2" id="sec-context">
+    <div class="sec-head"><div class="top"><span class="num">II</span><h2>背景與觀測</h2><span class="aside">5 CHARTS + 1 LEDGER</span></div>
+      <div class="desc">連續報表帶，看得快。翻到這裡是為了查一件事，不是為了瀏覽。</div></div>
+    <div class="strip">
+      ${L2.map(c => `<div class="row" id="${c.id}">
+        <div class="meta"><h3>${c.t}</h3><div class="tik">${c.tik}</div>
+          ${c.flag ? `<span class="flag ${c.flag.partial ? 'partial' : ''}">${c.flag.txt}</span>` : ''}</div>
+        ${chartBox(c)}</div>`).join('')}
+      <div class="row" style="grid-template-columns:1fr">${bomLedger()}</div>
+    </div>
+  </section></div>`;
+}
+
+/* 第Ⅰ層每張圖綁的待辦與當期讀數（定稿變體用） */
+const BIND = {
+  'chart-failures': { b: '批量最佳化失敗率', v: '18.0%', t: '門檻 12.0%' },
+  'chart-api':      { b: 'universalis 真故障率', v: '1.98%', t: '門檻 2.0% · 未觸發', ok: true },
+  'chart-funnels':  { b: 'solver 完成率 · 失敗率 · 批量完成率', v: '79.0%', t: '門檻 75.0% · 未觸發', ok: true },
+  'chart-drops':    { b: 'BOM→批量交棒率 · 各漏斗轉換', v: '6.3%', t: '門檻 —' },
+  'chart-sim':      { b: '巨集複製率', v: '2.96%', t: '埋點待修 · 暫不觸發', ok: true },
+  'chart-misuse':   { b: '誤用三項（單一配方 · BOM · 佇列）', v: '11.8%', t: '門檻 8.0%' },
+  'chart-adoption': { b: '跨伺服器使用率 · 鑲嵌建議採用率', v: '—', t: '門檻待資料 · 2026-08-28', ok: true },
+  'chart-vitals':   { b: 'Web Vitals ×5（絆線）', v: '96.1%', t: '門檻 90.0% · 未觸發', ok: true },
+};
+
+function variantD() {
+  return `<div class="vD">${heroHTML()}${todoHTML()}${winHTML()}
+  <section class="sec-1" id="sec-why" style="margin-top:88px">
+    <div class="sec-head"><div class="top"><span class="num">I</span><h2>為什麼會亮 · 解釋現場</h2><span class="aside">8 CHARTS</span></div>
+      <div class="desc">每一張都被上方某條待辦的 anchor 指到。右欄寫的就是那條待辦。</div></div>
+    ${L1.map(c => { const b = BIND[c.id]; return `<div class="item" id="${c.id}">
+      <div class="sub"><span class="rule"></span><h3>${c.t}</h3><span class="note">${c.n}</span></div>
+      <div class="row">
+        ${chartBox(c)}
+        <div class="side">
+          <span class="k">ANCHORED BY</span>
+          <div class="bind">${b.b}</div>
+          <div class="now"><b class="${b.ok ? 'ok' : ''}">${b.v}</b><i>${b.t}</i></div>
+          ${c.flag ? `<span class="flag ${c.flag.partial ? 'partial' : ''}">${c.flag.txt}</span>` : ''}
+        </div>
+      </div></div>`; }).join('')}
+  </section>
+  <section class="sec-2" id="sec-context">
+    <div class="sec-head"><div class="top"><span class="num">II</span><h2>背景與觀測</h2><span class="aside">5 CHARTS + 1 LEDGER</span></div>
+      <div class="desc">連續報表帶。左欄寫的是入場券 —— 沒有券的圖不進這一層。</div></div>
+    <div class="strip">
+      ${L2.map(c => `<div class="row" id="${c.id}">
+        <div class="meta"><h3>${c.t}</h3><div class="tik">${c.tik}</div>
+          ${c.flag ? `<span class="flag ${c.flag.partial ? 'partial' : ''}">${c.flag.txt}</span>` : ''}</div>
+        ${chartBox(c)}</div>`).join('')}
+      <div class="row" style="grid-template-columns:1fr">${bomLedger()}</div>
+    </div>
+  </section></div>`;
+}
+
+/* ---------- switcher wiring ---------- */
+const VARIANTS = { D: ['定稿 · Ⅰ圖左文右 / Ⅱ文左圖右', variantD],
+                   A: ['尺寸差 · Ⅰ滿幅 / Ⅱ雙欄小圖', variantA],
+                   B: ['飽和度差 · 同尺寸，Ⅱ層收走色彩', variantB],
+                   C: ['密度差 · Ⅰ鬆散 / Ⅱ連續報表帶', variantC] };
+const KEYS = Object.keys(VARIANTS);
+
+function render() {
+  const k = new URLSearchParams(location.search).get('variant');
+  const key = KEYS.includes(k) ? k : 'D';
+  document.getElementById('root').innerHTML = VARIANTS[key][1]();
+  document.getElementById('lbl').textContent = `${key} — ${VARIANTS[key][0]}`;
+  return key;
+}
+function go(step) {
+  const key = new URLSearchParams(location.search).get('variant') || 'D';
+  const i = (KEYS.indexOf(KEYS.includes(key) ? key : 'D') + step + KEYS.length) % KEYS.length;
+  const u = new URL(location.href); u.searchParams.set('variant', KEYS[i]);
+  history.replaceState({}, '', u); render();
+}
+document.getElementById('prev').onclick = () => go(-1);
+document.getElementById('next').onclick = () => go(1);
+addEventListener('keydown', e => {
+  if (/^(INPUT|TEXTAREA)$/.test(e.target.tagName) || e.target.isContentEditable) return;
+  if (e.key === 'ArrowLeft') go(-1);
+  if (e.key === 'ArrowRight') go(1);
+});
+render();
+</script>
+</body>
+</html>
