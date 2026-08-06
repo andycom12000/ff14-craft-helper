@@ -142,9 +142,17 @@ export interface ApiFailureEndpoint {
   count: number
 }
 
-/** Chart #1 — RegionSplitLedger: five metrics × three regions. */
+/**
+ * Chart #1 — RegionSplitLedger: four event-scoped metrics × three regions.
+ * `activeUsers` is deliberately NOT a key here (#202): `market_region` is a
+ * user-scoped property, so GA dedupes each region bucket independently but
+ * NOT across buckets — a user who starts the window unset and later
+ * completes onboarding is counted in both 'unset' and 'cht'. The other four
+ * rows are event-scoped (an event either happened in a cht session or it
+ * didn't) and safe to bucket. The ledger's first row renders un-split;
+ * see RegionSplitLedger.vue.
+ */
 export interface ByRegion {
-  activeUsers: { cht: RegionGlance; intl: RegionGlance; unset: RegionGlance }
   solver: { cht: RegionGlance; intl: RegionGlance; unset: RegionGlance }
   batch: { cht: RegionGlance; intl: RegionGlance; unset: RegionGlance }
   bom: { cht: RegionGlance; intl: RegionGlance; unset: RegionGlance }
@@ -192,6 +200,13 @@ export interface GlanceApi {
 export interface MetricsBundle {
   window: { days: number; startDate: string; endDate: string }
   glance: {
+    /**
+     * `total`/`returningPct`（#202）——`total` 來自無維度的單次 totalUsers 查詢，
+     * 不是 `new + returning + other` 三桶相加（那會灌水 ~27.8%，因為
+     * newVsReturning 是 session-scoped，同一使用者可能同時落在 new 與
+     * returning）。`returningPct` 分母同步換成 `total`。`new`/`returning` 未變動
+     * ——它們本來就是乾淨的單列使用者數，仍只能取自 flip（newVsReturning）查詢。
+     */
     activeUsers: { total: number; new: number; returning: number; returningPct: number }
     solver: { starts: number; completes: number; fails: number; completePct: number }
     batch: { starts: number; completes: number; fails: number; cancelled: number; completePct: number }

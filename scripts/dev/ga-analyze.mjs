@@ -405,7 +405,10 @@ async function main() {
 
 // -----------------------------------------------------------------------------
 
-async function runReport(client, request, opts = {}) {
+// Exported so scripts/dev/ga-backfill-active-users.mjs (#202's history
+// backfill) can drive live GA4 requests the same way this module does,
+// instead of duplicating client bootstrap / soft-fail plumbing.
+export async function runReport(client, request, opts = {}) {
   try {
     const [response] = await client.runReport(request)
     return response
@@ -887,7 +890,9 @@ async function runSnapshot() {
   }
 }
 
-async function buildClient() {
+// Exported for the same reason as runReport() above — reused by
+// scripts/dev/ga-backfill-active-users.mjs.
+export async function buildClient() {
   const accessToken = process.env.GA_ACCESS_TOKEN
   if (accessToken) {
     const oauth = new OAuth2Client()
@@ -1095,15 +1100,28 @@ async function buildBundle(client, propertyId, days) {
   // --- v2 dashboard fields (additive; OMITs unavailable fields) -----------
   const v2 = await buildV2Fields(client, property, dateRanges, { evCounts, flip })
 
+  // --- glance.activeUsers.total: dimension-less single query (#202) -------
+  // Summing flip's three newVsReturning buckets (as this used to) inflates
+  // the count ~27.8% (1401 vs 1096 in a 28-day probe): a user who crosses
+  // from 'new' to 'returning' mid-window, or whose bucket is ambiguous
+  // across sessions, gets counted once per bucket they touch. A plain
+  // dimension-less totalUsers report dedupes once, globally, per GA4's own
+  // definition of activeUsers. `new` / `returning` themselves are untouched
+  // — see the giant comment above flipRes: they're single-row, already-clean
+  // per-bucket counts, not a sum.
+  const activeUsersRes = await runReport(client, {
+    property, dateRanges,
+    metrics: [{ name: 'totalUsers' }],
+  })
+  const activeUsersTotal = Number(activeUsersRes?.rows?.[0]?.metricValues?.[0]?.value ?? 0)
+
   // --- glance summary -----------------------------------------------------
-  const flipUsers = flip.users.new + flip.users.returning + flip.users.other
   const glance = {
-    activeUsers: {
-      total: flipUsers,
-      new: flip.users.new,
-      returning: flip.users.returning,
-      returningPct: flipUsers ? flip.users.returning / flipUsers : 0,
-    },
+    activeUsers: buildActiveUsersGlance({
+      dimensionlessTotal: activeUsersTotal,
+      flipNew: flip.users.new,
+      flipReturning: flip.users.returning,
+    }),
     solver: {
       starts: evCounts.get('solver_start') ?? 0,
       completes: evCounts.get('solver_complete') ?? 0,
@@ -1281,6 +1299,58 @@ export function classifyUniversalisFetchRow({ ok, status } = {}) {
     ok: gaBool(ok),
     status: Number.isFinite(rawStatus) ? rawStatus : -1,
   })
+}
+
+// --- glance.activeUsers denominator fix (#202) -----------------------------
+// Pure function, unit-tested via `scripts/__tests__/ga-analyze.test.mjs` (same
+// node:test harness as isMachineSolveRow() / classifyUniversalisFetch() above).
+//
+// `total` used to be flip.users.new + flip.users.returning + flip.users.other
+// — a sum across newVsReturning's three buckets. That inflates the count
+// because newVsReturning is a SESSION-scoped dimension: a user with sessions
+// in more than one bucket during the window (e.g. their very first session
+// this window landed them in 'new', a later one in 'returning') gets counted
+// once per bucket. `dimensionlessTotal` comes from a plain totalUsers report
+// with NO dimensions, so GA4 dedupes it once, globally — the correct
+// definition of "how many distinct people showed up".
+//
+// `flipNew` / `flipReturning` are NOT touched — they're single-row, already-
+// clean per-bucket user counts (the numerator was never the problem, only
+// the total/returningPct denominator was). This is also the shared
+// definition used by the 71/77-day history backfill
+// (scripts/dev/ga-backfill-active-users.mjs) — passing the same
+// dimensionlessTotal-goes-in / flipNew+flipReturning-stay-put shape keeps
+// the live pipeline and the backfilled history on one definition, so the
+// series doesn't show a step where the definition silently changes.
+export function buildActiveUsersGlance({ dimensionlessTotal, flipNew, flipReturning }) {
+  return {
+    total: dimensionlessTotal,
+    new: flipNew,
+    returning: flipReturning,
+    returningPct: dimensionlessTotal ? flipReturning / dimensionlessTotal : 0,
+  }
+}
+
+// --- market_region ledger bucket classification (#202) ---------------------
+// Pure function, unit-tested via `scripts/__tests__/ga-analyze.test.mjs`.
+//
+// buildMarketRegion() (the legacy `marketRegion` bundle field, kept per #196
+// even though its dedicated chart was cut) used to only recognize the literal
+// '(not set)' sentinel as "never learned this user's region". GA4 sometimes
+// returns an empty string '' instead of the sentinel for the same underlying
+// gap — the exact shape of hole #198 found on craft_kind (7796 '(not set)' +
+// 1493 '' — matching only one leaked rows into the wrong bucket). Folding ''
+// into the same 'notset' bucket here closes that gap for market_region too.
+// 'unset' is a DIFFERENT, deliberate bucket: the app's own literal string for
+// "visited but hasn't completed the server-selection onboarding yet" (see
+// regionBucket() below) — it must stay separate from 'notset' (GA never
+// learned anything at all), not get merged into it.
+export function marketRegionBucket(region) {
+  if (region === '(not set)' || region === '') return 'notset'
+  if (region === 'unset') return 'unset'
+  if (region === 'cht') return 'cht'
+  if (region === 'intl') return 'intl'
+  return null
 }
 
 // Make an api_failure endpoint readable: strip the request origin (older events
@@ -1504,13 +1574,20 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
   }
 
   // --- Chart #1: byRegion -------------------------------------------------
-  // (a) users by region; (b) events by region (eventName × market_region).
-  const regionUsersRes = await runReport(client, {
-    property, dateRanges,
-    dimensions: [{ name: 'customUser:market_region' }],
-    metrics: [{ name: 'totalUsers' }, { name: 'newUsers' }],
-    limit: 50,
-  }, { soft: true })
+  // events by region (eventName × market_region). The activeUsers row used to
+  // live here too (per-region totalUsers/newUsers), but #202 removed it: the
+  // ledger's other four rows are event-scoped (a solver_start either happened
+  // in a cht session or it didn't — safe to bucket and even sum), while
+  // market_region is a USER-scoped property. GA dedupes each bucket
+  // independently but NOT across buckets, so a user who starts the window
+  // unset and later completes onboarding shows up in BOTH 'unset' and
+  // 'cht' — the three per-region totals looked plausible (1017+63+685=1765)
+  // but didn't reconcile against the (correct) dimension-less total (1311,
+  // +35%), and no amount of converting to a percentage rescues it — the
+  // denominator itself is the double-counted sum (#180 finding 8). There is
+  // no safe per-region split for this metric with the data GA4 exposes
+  // today, so the ledger's first row now renders un-split (see
+  // RegionSplitLedger.vue).
   const regionEventsRes = await runReport(client, {
     property, dateRanges,
     dimensions: [{ name: 'eventName' }, { name: 'customUser:market_region' }],
@@ -1523,16 +1600,8 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
     ] } } },
     limit: 200,
   }, { soft: true })
-  const regionUsersRows = regionUsersRes?.rows ?? []
   const regionEventsRows = regionEventsRes?.rows ?? []
-  if (regionUsersRows.length) {
-    // Per-region user totals.
-    const userAgg = { cht: { total: 0, fresh: 0 }, intl: { total: 0, fresh: 0 }, unset: { total: 0, fresh: 0 } }
-    for (const r of regionUsersRows) {
-      const bucket = regionBucket(r.dimensionValues[0].value)
-      userAgg[bucket].total += Number(r.metricValues[0].value)
-      userAgg[bucket].fresh += Number(r.metricValues[1].value)
-    }
+  if (regionEventsRows.length) {
     // Per-region event totals.
     const evAgg = {
       cht: {}, intl: {}, unset: {},
@@ -1544,12 +1613,6 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
     }
     const ev = (bucket, name) => evAgg[bucket][name] ?? 0
     const glanceRow = (bucket) => {
-      const u = userAgg[bucket]
-      const returning = Math.max(0, u.total - u.fresh)
-      // activeUsers
-      const activeUsers = { value: u.total }
-      if (u.total > 0) activeUsers.sparkPct = returning / u.total
-      activeUsers.secondary = `新 ${u.fresh} · 回訪 ${returning}`
       // solver
       const sStarts = ev(bucket, 'solver_start')
       const sCompletes = ev(bucket, 'solver_complete')
@@ -1571,13 +1634,12 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
       const infraValue = sab + wasm
       const infra = { value: infraValue, secondary: `SAB ${sab} · WASM ${wasm}` }
       if (infraValue > 0) infra.tone = infraValue >= 5 ? 'danger' : 'warn'
-      return { activeUsers, solver, batch, bom, infra }
+      return { solver, batch, bom, infra }
     }
     const cht = glanceRow('cht')
     const intl = glanceRow('intl')
     const unset = glanceRow('unset')
     out.byRegion = {
-      activeUsers: { cht: cht.activeUsers, intl: intl.activeUsers, unset: unset.activeUsers },
       solver: { cht: cht.solver, intl: intl.solver, unset: unset.solver },
       batch: { cht: cht.batch, intl: intl.batch, unset: unset.batch },
       bom: { cht: cht.bom, intl: intl.bom, unset: unset.bom },
@@ -1756,10 +1818,8 @@ function buildMarketRegion(rows) {
     if (!map.has(event)) map.set(event, { event, notset: 0, unset: 0, cht: 0, intl: 0 })
     const row = map.get(event)
     const count = Number(r.metricValues[0].value)
-    if (region === '(not set)') row.notset += count
-    else if (region === 'unset') row.unset += count
-    else if (region === 'cht') row.cht += count
-    else if (region === 'intl') row.intl += count
+    const bucket = marketRegionBucket(region)
+    if (bucket) row[bucket] += count
   }
   return [...map.values()]
 }

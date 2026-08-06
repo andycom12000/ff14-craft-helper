@@ -95,9 +95,8 @@ describe('GA dashboard v2 charts render without throwing', () => {
 })
 
 describe('RegionSplitLedger', () => {
-  it('renders five rows with region splits', () => {
+  it('renders five rows, with activeUsers un-split (#202)', () => {
     const byRegion = {
-      activeUsers: region({ cht: 612, intl: 380, unset: 363 }),
       solver: region({ cht: 1421, intl: 812, unset: 450 }),
       batch: region({ cht: 263, intl: 124, unset: 34 }),
       bom: region({ cht: 188, intl: 102, unset: 22 }),
@@ -106,11 +105,38 @@ describe('RegionSplitLedger', () => {
     const w = mount(RegionSplitLedger, { props: { snapshot: snapshotWith(byRegion), window: '7d' } })
     expect(w.text()).toContain('活躍使用者')
     expect(w.findAll('.rl-row').length).toBe(5)
+    // activeUsers row renders the "not split" note, not a 3-region grid.
+    const activeUsersRow = w.findAll('.rl-row')[0]
+    expect(activeUsersRow.find('.rl-spark-note').exists()).toBe(true)
+    expect(activeUsersRow.findAll('.rl-spark-cell').length).toBe(0)
+    // The remaining four rows still split by region.
+    const solverRow = w.findAll('.rl-row')[1]
+    expect(solverRow.findAll('.rl-spark-cell').length).toBe(3)
   })
 
   it('degrades to "—" when byRegion is undefined (old snapshot)', () => {
     const w = mount(RegionSplitLedger, { props: { snapshot: snapshotWith(undefined), window: '7d' } })
     expect(w.findAll('.rl-row').length).toBe(5)
     expect(w.text()).toContain('—')
+  })
+
+  // Regression guard for #202: a pre-#202 snapshot may still carry a stray
+  // `byRegion.activeUsers` key on disk (schemaVersion didn't bump, and old
+  // history files aren't retroactively re-shaped). The component must never
+  // read it — it renders the un-split note for that row unconditionally —
+  // so the extra key is inert instead of throwing.
+  it('does not throw when byRegion still carries a stray pre-#202 activeUsers key', () => {
+    const byRegion = {
+      activeUsers: region({ cht: 612, intl: 380, unset: 363 }),
+      solver: region({ cht: 1421, intl: 812, unset: 450 }),
+      batch: region({ cht: 263, intl: 124, unset: 34 }),
+      bom: region({ cht: 188, intl: 102, unset: 22 }),
+      infra: region({ cht: 18, intl: 9, unset: 4 }),
+    } as never
+    expect(() => mount(RegionSplitLedger, { props: { snapshot: snapshotWith(byRegion), window: '7d' } }))
+      .not.toThrow()
+    const w = mount(RegionSplitLedger, { props: { snapshot: snapshotWith(byRegion), window: '7d' } })
+    const activeUsersRow = w.findAll('.rl-row')[0]
+    expect(activeUsersRow.find('.rl-spark-note').exists()).toBe(true)
   })
 })
