@@ -164,6 +164,31 @@ export interface ApiFailures {
   topEndpoints: ApiFailureEndpoint[]
 }
 
+/**
+ * `glance.api` — universalis 真故障率的分子分母（#201）——三者同源取 `universalis_fetch`，
+ * 不與 `apiFailures`（走 `api_failure`）混用，兩條流不同步 ~3.5%（#189 決定 3）。
+ *
+ * Optional (v2-additive pattern, same as `byRegion` / `misuseSignals` below): the 77 pre-#201
+ * daily snapshots under `gh-data/history/` were generated without this field and are frozen —
+ * they will never be backfilled. `ga-thresholds.ts`'s `pick()` guards with `?.` so feeding one
+ * of those historical bundles into `evaluate()` (#205) resolves to `state: 'absent'` instead of
+ * throwing.
+ */
+export interface GlanceApi {
+  /** universalis_fetch 全部（分母）。 */
+  universalisCalls: number
+  /** ok=false & status=0（真故障，進分子）。 */
+  universalisRealFails: number
+  /** ok=false & status=404（查無掛單，常駐註腳用，不進分子）。 */
+  universalisNoListing: number
+  /**
+   * ok=false 但 status 既非 0 亦非 404（例如未知 5xx、或轉型失敗的 `(not set)`）——常駐註腳用，
+   * 不進分子，也刻意不改變 #189 決定 3 的分子定義。存在目的是讓這類事故在 snapshot 裡可見，
+   * 不會無聲被分母稀釋掉（見 #201 review N4）。
+   */
+  universalisOtherFails?: number
+}
+
 export interface MetricsBundle {
   window: { days: number; startDate: string; endDate: string }
   glance: {
@@ -172,18 +197,8 @@ export interface MetricsBundle {
     batch: { starts: number; completes: number; fails: number; cancelled: number; completePct: number }
     bom: { calculates: number; sentToBatch: number; handoffPct: number }
     infra: { sabUnavailable: number; wasmLoadFailed: number }
-    /**
-     * universalis 真故障率的分子分母（#201）——三者同源取 `universalis_fetch`，
-     * 不與 `apiFailures`（走 `api_failure`）混用，兩條流不同步 ~3.5%（#189 決定 3）。
-     */
-    api: {
-      /** universalis_fetch 全部（分母）。 */
-      universalisCalls: number
-      /** ok=false & status=0（真故障，進分子）。 */
-      universalisRealFails: number
-      /** ok=false & status=404（查無掛單，常駐註腳用，不進分子）。 */
-      universalisNoListing: number
-    }
+    /** See `GlanceApi` doc. Optional — absent on all pre-#201 history. */
+    api?: GlanceApi
   }
   pages: PageRow[]
   solverFunnel: FunnelStep[]

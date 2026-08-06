@@ -464,6 +464,29 @@ describe('api.universalisRealFailRate（#201）', () => {
     expect(v.n).toBe(30741)
   })
 
+  // #201 review B2：`glance.api` 是 v2-additive optional 欄位——gh-data/history/ 下 77 份
+  // pre-#201 的每日快照是當天算好的固定檔，沒有這個欄位且永遠不會被回填。#205 遲早會把其中
+  // 一份餵進 evaluate()；若 pick() 對 `glance.api` 直接存取而不 guard，會在 evaluate() 的迴圈
+  // 裡整個拋錯（不是這一條判 absent，是全部規則的判定一起沒了——見 review 裡的失效情境）。
+  it('glance.api 整個欄位不存在（pre-#201 歷史快照）時判為 absent，不拋錯', () => {
+    const bundle = makeBundle({
+      glance: {
+        activeUsers: { total: 1096, new: 728, returning: 519, returningPct: 0.474 },
+        solver: { starts: 13582, completes: 13153, fails: 231, completePct: 0.968 },
+        batch: { starts: 1340, completes: 1063, fails: 241, cancelled: 36, completePct: 0.793 },
+        bom: { calculates: 268, sentToBatch: 14, handoffPct: 0.0522 },
+        infra: { sabUnavailable: 90, wasmLoadFailed: 3 },
+        // api 刻意省略——模擬 pre-#201 快照。
+      },
+    })
+    expect(() => evaluate(bundle, [rule()])).not.toThrow()
+    const [v] = evaluate(bundle, [rule()])
+    expect(v.state).toBe('absent')
+    expect(v.blockedBy).toBe('absent')
+    expect(v.obs).toBeNull()
+    expect(v.n).toBeNull()
+  })
+
   it('#189/#201 實測 28d（609/30741 = 1.98%）：Wilson CI 跨過 2% 門檻，不觸發', () => {
     const [v] = evaluate(makeBundle(), [rule()])
     expect(v.fired).toBe(false)

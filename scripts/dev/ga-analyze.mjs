@@ -1079,15 +1079,17 @@ async function buildBundle(client, propertyId, days) {
   let universalisCalls = 0
   let universalisRealFails = 0
   let universalisNoListing = 0
+  let universalisOtherFails = 0
   for (const r of universalisRes?.rows ?? []) {
     const count = Number(r.metricValues[0].value)
     universalisCalls += count
-    const cls = classifyUniversalisFetch({
-      ok: gaBool(r.dimensionValues[0].value),
-      status: Number(r.dimensionValues[1].value) || 0,
+    const cls = classifyUniversalisFetchRow({
+      ok: r.dimensionValues[0].value,
+      status: r.dimensionValues[1].value,
     })
     if (cls === 'real-fail') universalisRealFails += count
     else if (cls === 'no-listing') universalisNoListing += count
+    else if (cls === 'other-fail') universalisOtherFails += count
   }
 
   // --- v2 dashboard fields (additive; OMITs unavailable fields) -----------
@@ -1132,6 +1134,7 @@ async function buildBundle(client, propertyId, days) {
       universalisCalls,
       universalisRealFails,
       universalisNoListing,
+      universalisOtherFails,
     },
   }
 
@@ -1243,18 +1246,41 @@ function gaBool(value) {
 //                                    — attemptFetch() never resolves a status)
 //   - ok === false, status === 404 → 'no-listing' (a legitimate empty-market
 //                                    response, NOT a fault — #189 決定 3)
-//   - anything else               → 'other-fail' (not observed in a 28d probe,
-//                                    but must not silently join either bucket
-//                                    above — see #189 resolution comment)
+//   - anything else               → 'other-fail' (e.g. an unregistered/unknown status,
+//                                    or the `(not set)` sentinel arriving here already
+//                                    typed as a non-0/404 number via classifyUniversalisFetchRow()
+//                                    below — must NEVER silently join 'real-fail' or
+//                                    'no-listing', see #189 resolution comment / #201 review B1)
 // Only 'real-fail' feeds the universalis 真故障率 numerator. 'no-listing' is
 // tallied separately as a standing footnote and must NEVER be folded into
 // the numerator — that was the exact bug this rule replaces (404s inflated
 // the reported failure rate from 1.98% to 5.91%).
 export function classifyUniversalisFetch({ ok, status } = {}) {
-  if (ok) return 'success'
+  // Strict `=== true`, not truthy — a raw GA4 row's `ok` param can arrive as
+  // the string 'false' (truthy in JS) if a caller forgets to run it through
+  // gaBool() first; the strict check makes that a loud 'other-fail' instead
+  // of a silent, permanently-invisible "always success" misclassification.
+  if (ok === true) return 'success'
   if (status === 0) return 'real-fail'
   if (status === 404) return 'no-listing'
   return 'other-fail'
+}
+
+// Raw-string → typed-input adapter for `classifyUniversalisFetch()`, extracted as its own
+// pure function so the GA4 string→{boolean,number} conversion is unit-tested independently
+// of a live GA4 call (#201 review N1/N2 — testing classifyUniversalisFetch() only with
+// already-typed { ok: boolean, status: number } gave false confidence; it never exercised
+// this conversion, which is where the actual bugs live).
+//
+// `status` MUST NOT fall back to `0` on a non-numeric value (e.g. the `(not set)` sentinel,
+// or any dimension value GA4 hasn't resolved yet) — that would alias it to 'real-fail', the
+// exact class of false-positive this rule exists to eliminate (#201 review B1).
+export function classifyUniversalisFetchRow({ ok, status } = {}) {
+  const rawStatus = Number(status)
+  return classifyUniversalisFetch({
+    ok: gaBool(ok),
+    status: Number.isFinite(rawStatus) ? rawStatus : -1,
+  })
 }
 
 // Make an api_failure endpoint readable: strip the request origin (older events

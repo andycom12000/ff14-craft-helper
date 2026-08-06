@@ -103,7 +103,15 @@ export const GA_THRESHOLD_RULES: Rule[] = [
     cat: 'A',
     dir: 'high',
     threshold: 0.02,
-    pick: (b) => ({ obs: b.glance.api.universalisRealFails, n: b.glance.api.universalisCalls }),
+    pick: (b) => {
+      // `glance.api` is optional (v2-additive) — absent on all 77 pre-#201
+      // history snapshots, which are frozen and will never be backfilled.
+      // Guard so #205 feeding one of those in resolves to `state: 'absent'`
+      // instead of throwing inside evaluate()'s loop.
+      const api = b.glance.api
+      if (!api) return undefined
+      return { obs: api.universalisRealFails, n: api.universalisCalls }
+    },
     label: 'universalis 真故障率',
     nextStep: '看端點失敗分佈，確認是特定端點集中故障還是全站性連線問題',
     anchor: '#chart-api-failures',
@@ -112,8 +120,9 @@ export const GA_THRESHOLD_RULES: Rule[] = [
     note:
       '分子分母同源取 `universalis_fetch`（ok=false&status=0 / 全部），刻意不用 `apiFailures`（走 ' +
       '`api_failure`）——兩條流不同步 ~3.5%（#189 決定 3）。404「查無掛單」是合法的空掛單回應不是故障，' +
-      '併入分子會把 1.98% 誇大成 5.91%，故獨立成 `universalisNoListing` 留作常駐註腳，不進分子（#201）。' +
-      '門檻 >2% 出自 #181 A 類門檻表；重跑後實測 1.98%，Wilson CI [1.83%, 2.14%]，CI 跨過門檻，不觸發。',
+      '併入分子會把率誇大到 5.91% 量級，故獨立成 `universalisNoListing` 留作常駐註腳，不進分子（#201）。' +
+      '門檻 >2% 出自 #181 A 類門檻表；#189 探測值 609/30741 = 1.98%，Wilson CI [1.83%, 2.14%]，CI 跨過' +
+      '門檻不觸發；pipeline 實跑另得 600/34006 ≈ 1.76%，量體不同但結論一致（不觸發）。',
   },
 
   // ---------------------------------------------------------------------
