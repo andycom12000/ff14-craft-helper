@@ -98,6 +98,23 @@ export const GA_THRESHOLD_RULES: Rule[] = [
       '污染分母（#181 對地圖意涵第 3 點、#183 決定 4、#187）。等 #200（人機分離 + `glance.solver` 人類面' +
       '四欄）落地後改吃 `humanFails` / `humanStarts` 並解掛 trusted。',
   },
+  {
+    id: 'api.universalisRealFailRate',
+    cat: 'A',
+    dir: 'high',
+    threshold: 0.02,
+    pick: (b) => ({ obs: b.glance.api.universalisRealFails, n: b.glance.api.universalisCalls }),
+    label: 'universalis 真故障率',
+    nextStep: '看端點失敗分佈，確認是特定端點集中故障還是全站性連線問題',
+    anchor: '#chart-api-failures',
+    actionable: true,
+    trusted: true,
+    note:
+      '分子分母同源取 `universalis_fetch`（ok=false&status=0 / 全部），刻意不用 `apiFailures`（走 ' +
+      '`api_failure`）——兩條流不同步 ~3.5%（#189 決定 3）。404「查無掛單」是合法的空掛單回應不是故障，' +
+      '併入分子會把 1.98% 誇大成 5.91%，故獨立成 `universalisNoListing` 留作常駐註腳，不進分子（#201）。' +
+      '門檻 >2% 出自 #181 A 類門檻表；重跑後實測 1.98%，Wilson CI [1.83%, 2.14%]，CI 跨過門檻，不觸發。',
+  },
 
   // ---------------------------------------------------------------------
   // B · UX 摩擦 / 轉換（優先序 2）
@@ -245,9 +262,7 @@ export const GA_THRESHOLD_RULES: Rule[] = [
 // ---------------------------------------------------------------------------
 // 刻意未收錄的規則（#189 已定義分子分母，但 MetricsBundle 上今天沒有對應欄位）
 //
-// - universalis 真故障率（A 類）—— 需要 `glance.api.universalisCalls` /
-//   `universalisRealFails`，見 #201。今天的 `apiFailures` 只有失敗面事件，沒有成功面分母，
-//   算不出比率（#189 先講證據第 2 點）。
+// - universalis 真故障率 —— 已於 #201 補上 `glance.api` 三欄並收進上面的規則表，不再列於此。
 // - 跨伺服器使用率、鑲嵌建議採用率（C 類新規則）—— 需要 `glance.adoption`，見 #203；門檻數值
 //   本身也還沒訂（#179 map「Not yet specified」，等 `cross_server` / `fields` 兩個 dim 約
 //   2026-08-28 滿窗才有資料可推）。

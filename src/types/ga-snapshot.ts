@@ -172,6 +172,18 @@ export interface MetricsBundle {
     batch: { starts: number; completes: number; fails: number; cancelled: number; completePct: number }
     bom: { calculates: number; sentToBatch: number; handoffPct: number }
     infra: { sabUnavailable: number; wasmLoadFailed: number }
+    /**
+     * universalis 真故障率的分子分母（#201）——三者同源取 `universalis_fetch`，
+     * 不與 `apiFailures`（走 `api_failure`）混用，兩條流不同步 ~3.5%（#189 決定 3）。
+     */
+    api: {
+      /** universalis_fetch 全部（分母）。 */
+      universalisCalls: number
+      /** ok=false & status=0（真故障，進分子）。 */
+      universalisRealFails: number
+      /** ok=false & status=404（查無掛單，常駐註腳用，不進分子）。 */
+      universalisNoListing: number
+    }
   }
   pages: PageRow[]
   solverFunnel: FunnelStep[]

@@ -1062,6 +1062,34 @@ async function buildBundle(client, propertyId, days) {
   }, { soft: true })
   const marketRegion = buildMarketRegion(mrRes?.rows ?? [])
 
+  // --- glance.api: universalis 真故障率分子分母 (#201) ---------------------
+  // Numerator and denominator MUST come from the same event. `apiFailures`
+  // (built off `api_failure`) is a different, slightly out-of-sync stream —
+  // 3.5% higher on both failure buckets (#189 決定 3) — so it stays
+  // drill-down-only and is never mixed in here. `ok`/`status` are both
+  // already-registered, fully-backfillable dims (no 28-day dark period).
+  const universalisRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'customEvent:ok' }, { name: 'customEvent:status' }],
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: { filter: {
+      fieldName: 'eventName', stringFilter: { value: 'universalis_fetch' } } },
+    limit: 50,
+  }, { soft: true })
+  let universalisCalls = 0
+  let universalisRealFails = 0
+  let universalisNoListing = 0
+  for (const r of universalisRes?.rows ?? []) {
+    const count = Number(r.metricValues[0].value)
+    universalisCalls += count
+    const cls = classifyUniversalisFetch({
+      ok: gaBool(r.dimensionValues[0].value),
+      status: Number(r.dimensionValues[1].value) || 0,
+    })
+    if (cls === 'real-fail') universalisRealFails += count
+    else if (cls === 'no-listing') universalisNoListing += count
+  }
+
   // --- v2 dashboard fields (additive; OMITs unavailable fields) -----------
   const v2 = await buildV2Fields(client, property, dateRanges, { evCounts, flip })
 
@@ -1099,6 +1127,11 @@ async function buildBundle(client, propertyId, days) {
     infra: {
       sabUnavailable: evCounts.get('sab_unavailable') ?? 0,
       wasmLoadFailed: evCounts.get('wasm_load_failed') ?? 0,
+    },
+    api: {
+      universalisCalls,
+      universalisRealFails,
+      universalisNoListing,
     },
   }
 
@@ -1197,6 +1230,31 @@ export function isMachineSolveRow({ craftKind, source } = {}) {
 
 function gaBool(value) {
   return value === 'true' || value === '1'
+}
+
+// --- universalis 真故障 vs 「查無掛單」判別 (#201) -------------------------
+// Pure function, unit-tested via `scripts/__tests__/ga-analyze.test.mjs` (same
+// node:test harness as isMachineSolveRow() above — see that file's header).
+//
+// A `universalis_fetch` row's `ok`/`status` params (src/api/universalis.ts)
+// classify into exactly one bucket:
+//   - ok === true                → 'success'
+//   - ok === false, status === 0 → 'real-fail'  (network/timeout/parse error
+//                                    — attemptFetch() never resolves a status)
+//   - ok === false, status === 404 → 'no-listing' (a legitimate empty-market
+//                                    response, NOT a fault — #189 決定 3)
+//   - anything else               → 'other-fail' (not observed in a 28d probe,
+//                                    but must not silently join either bucket
+//                                    above — see #189 resolution comment)
+// Only 'real-fail' feeds the universalis 真故障率 numerator. 'no-listing' is
+// tallied separately as a standing footnote and must NEVER be folded into
+// the numerator — that was the exact bug this rule replaces (404s inflated
+// the reported failure rate from 1.98% to 5.91%).
+export function classifyUniversalisFetch({ ok, status } = {}) {
+  if (ok) return 'success'
+  if (status === 0) return 'real-fail'
+  if (status === 404) return 'no-listing'
+  return 'other-fail'
 }
 
 // Make an api_failure endpoint readable: strip the request origin (older events
