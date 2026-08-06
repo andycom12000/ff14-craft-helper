@@ -39,7 +39,7 @@ export const C = {
 export type FamilyColorMap<K extends string> = Record<K, string>
 
 // Page taxonomy → jam-jar hue
-import type { PageFamily, EventFamily } from '@/types/ga-snapshot'
+import type { PageFamily } from '@/types/ga-snapshot'
 
 export const pageFamilyColor: FamilyColorMap<PageFamily> = {
   core:    C.gold,
@@ -50,23 +50,9 @@ export const pageFamilyColor: FamilyColorMap<PageFamily> = {
   market:  C.strawberry,
 }
 
-export const eventFamilyColor: FamilyColorMap<EventFamily> = {
-  core:    C.gold,
-  craft:   C.cocoa,
-  gather:  C.matcha,
-  company: C.blueberry,
-  meta:    C.meta,
-  market:  C.strawberry,
-  error:   C.danger,
-}
-
-// Region split colors — single source of truth shared by RegionSplitLedger and
-// MarketRegionStack so the same region never reads as two different hues across
-// charts (cht was gold in the ledger but cocoa in the stack; unset was gold in
-// the stack but faint in the ledger — a cross-chart correctness trap).
-// Matches RegionSplitLedger's established CSS tokens (cht=gold, intl=strawberry,
-// unset=faint). MarketRegionStack distinguishes its two neutral segments by
-// opacity, not hue, so neither reads as the gold cht accent.
+// Region split colors — single source of truth for RegionSplitLedger so the
+// same region never reads as two different hues across charts.
+// cht=gold, intl=strawberry, unset=faint.
 export const regionColor = {
   cht:   C.gold,        // 繁中 / Taiwan-locale users
   intl:  C.strawberry,  // international

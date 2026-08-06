@@ -2,7 +2,6 @@
 
 export type WindowKey = '7d' | '14d' | '28d'
 export type PageFamily = 'core' | 'craft' | 'gather' | 'company' | 'meta' | 'market'
-export type EventFamily = 'core' | 'craft' | 'gather' | 'company' | 'meta' | 'market' | 'error'
 export type FailureEvent = 'solver' | 'batch' | 'wasm'
 export type VitalMetric = 'INP' | 'TTFB' | 'CLS' | 'FCP' | 'LCP'
 export type StepTone = 'neutral' | 'success' | 'danger' | 'warn'
@@ -18,14 +17,6 @@ export interface PageRow {
   engagement: number
   bounce: number
   avgSession: number
-}
-
-export interface ChannelRow {
-  channel: string
-  source: string
-  sessions: number
-  users: number
-  engagement: number
 }
 
 export interface FunnelStep {
@@ -51,26 +42,6 @@ export interface VitalRow {
   good: number
   ni: number
   poor: number
-}
-
-export interface FlipBuckets {
-  new: number
-  returning: number
-  other: number
-}
-
-export interface EventRow {
-  event: string
-  family: EventFamily
-  count: number
-  users: number
-}
-
-export interface ReturningPageRow {
-  path: string
-  returningViews: number
-  returningUsers: number
-  engagement: number
 }
 
 export interface Q4Funnel {
@@ -107,21 +78,6 @@ export interface RegionGlance {
   secondary?: string
   /** Used on infra row only — surfaces danger/warn tinting. */
   tone?: 'danger' | 'warn'
-}
-
-/** A single percentile bucket; reused by perf and TTFA charts. */
-export interface PercentileBucket {
-  p50: number // ms
-  p95: number // ms
-  samples: number
-}
-
-/** Chart #2 — Onboarding funnel step */
-export interface OnboardingStep {
-  step: 'viewed_recipe' | 'ran_solver' | 'saw_macro' | 'used_batch'
-  users: number // unique users reaching this step
-  eventCount: number // total events fired
-  dropFromPrev: number // 0–1 (0 for first step)
 }
 
 /** Chart #3 — Tool usage row per RLV bucket */
@@ -172,22 +128,6 @@ export interface MisuseRow {
   affectedUsers: number
 }
 
-/** Chart #6 — Recipe entry source */
-export interface SourceRow {
-  source:
-    | 'search'
-    | 'queue'
-    | 'batch_target'
-    | 'bom_drilldown'
-    | 'company_craft'
-    | 'deep_link'
-    | 'unknown'
-  /** Display label for the source — zh-TW preferred. */
-  label: string
-  eventCount: number
-  uniqueUsers: number
-}
-
 /** Chart #7 — API failures */
 export interface ApiFailureCell {
   api: 'xivapi' | 'universalis'
@@ -200,40 +140,6 @@ export interface ApiFailureEndpoint {
   endpoint: string // truncated to ~50 chars by buildBundle()
   status: number
   count: number
-}
-
-/** Chart #8 — Locale miss */
-export interface LocaleMissRow {
-  kind: 'recipe' | 'item'
-  itemId: number
-  /** EN fallback name if buildBundle() can join from XIVAPI; else omit. */
-  itemName?: string
-  occurrences: number
-  affectedUsers: number
-}
-
-/** Chart #10 — First event distribution row */
-export interface FirstEventRow {
-  eventName: string // any GA event name acting as a session's first action
-  count: number
-  medianMs: number // median latency from session_start to this event
-}
-
-/** Chart #9 — WASM load profile (data prop shape). */
-export interface PerfProfile {
-  wasmLoadMs: PercentileBucket
-  workerPoolInitMs: PercentileBucket
-  coldStartShare: number // 0–1, fraction of sessions that were cold
-  coldStartSubset?: {
-    wasmLoadMs: { p50: number; p95: number }
-    workerPoolInitMs: { p50: number; p95: number }
-  }
-}
-
-/** Chart #10 — Time to first action (data prop shape). */
-export interface TimeToFirstActionData {
-  durationMs: { p50: number; p75: number; p95: number; samples: number }
-  firstEventDistribution: FirstEventRow[]
 }
 
 /** Chart #1 — RegionSplitLedger: five metrics × three regions. */
@@ -268,15 +174,11 @@ export interface MetricsBundle {
     infra: { sabUnavailable: number; wasmLoadFailed: number }
   }
   pages: PageRow[]
-  channels: ChannelRow[]
   solverFunnel: FunnelStep[]
   batchFunnel: FunnelStep[]
   simulatorFunnel: SimulatorFunnel
   failures: FailureRow[]
   vitals: VitalRow[]
-  flip: { users: FlipBuckets; sessions: FlipBuckets }
-  returningEvents: EventRow[]
-  returningPages: ReturningPageRow[]
   q4Funnels: Q4Funnel[]
   marketRegion: MarketRegionRow[]
 
@@ -284,25 +186,14 @@ export interface MetricsBundle {
 
   /** Chart #1 — RegionSplitLedger. */
   byRegion?: ByRegion
-  /** Chart #2 — OnboardingMilestoneFunnel. */
-  onboardingFunnel?: OnboardingStep[]
   /** Chart #3 — ToolUsageByRlv. */
   toolUsageByRlv?: ToolUsageRow[]
   /** Charts #4a + #4b — RecipeDifficultyKind + ExpertCollectableMatrix. */
   taxonomy?: TaxonomyBundle
   /** Chart #5 — MisuseHintTally. */
   misuseSignals?: MisuseRow[]
-  /** Chart #6 — RecipeEntrySource. An 'unknown' row with eventCount > 0 is an
-   *  invariant violation per the tracking spec — the chart surfaces a banner. */
-  recipeEntrySource?: SourceRow[]
   /** Chart #7 — ApiFailureEndpoints. */
   apiFailures?: ApiFailures
-  /** Chart #8 — LocaleMissTop. */
-  localeMissTop?: LocaleMissRow[]
-  /** Chart #9 — WasmLoadProfile. */
-  perfProfile?: PerfProfile
-  /** Chart #10 — TimeToFirstAction. */
-  timeToFirstAction?: TimeToFirstActionData
 }
 
 export interface GaSnapshot {
