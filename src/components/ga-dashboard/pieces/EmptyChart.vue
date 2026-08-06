@@ -24,15 +24,16 @@ defineProps<{ label: string; hint?: string }>()
   border-radius: 2px;
 }
 .ec-label {
-  font-family: 'Cormorant Garamond', 'Noto Serif TC', serif;
-  font-style: italic;
-  font-size: 15px;
+  /* `label` is a Chinese chart title, not an identifier — mono has no CJK
+     glyph (spec #194 §E2 hard limit), so this stays Noto Sans TC. Only the
+     decorative italic is retired here. */
+  font-family: 'Noto Sans TC', system-ui, sans-serif;
+  font-size: 13px;
   color: var(--ink-faint);
 }
 .ec-hint {
-  font-family: 'Fira Code', monospace;
-  font-size: 10.5px;
-  letter-spacing: 0.1em;
+  font-family: 'Noto Sans TC', system-ui, sans-serif;
+  font-size: 11.5px;
   color: var(--ink-faint);
   opacity: 0.72;
 }

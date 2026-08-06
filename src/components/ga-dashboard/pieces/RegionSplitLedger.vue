@@ -260,7 +260,9 @@ const renderRows = computed<RenderRow[]>(() =>
    into a 3-column cht/intl/unset sub-grid with mini bars beneath each %.
    ============================================================ */
 .region-ledger-wrap {
-  margin-bottom: 96px;
+  /* Prelude → Layer I gap — spec #194 §E4 "section 之間 112px" (this ledger
+     is the last prelude block before `#sec-why` begins). */
+  margin-bottom: 112px;
 }
 .region-ledger-topbar {
   display: flex; align-items: center; justify-content: space-between;
@@ -303,9 +305,10 @@ const renderRows = computed<RenderRow[]>(() =>
   padding-bottom: 4px;
 }
 .rlh-note {
-  font-family: 'Cormorant Garamond', serif;
-  font-style: italic;
-  font-size: 15px; color: var(--ink-muted);
+  /* Chinese explanatory copy — mono has no CJK glyph (spec #194 §E2 hard
+     limit), so this stays Noto Sans TC ("說明" role); only italic retires. */
+  font-family: 'Noto Sans TC', system-ui, sans-serif;
+  font-size: 13px; color: var(--ink-muted);
   letter-spacing: 0.01em;
   padding-bottom: 4px;
 }
@@ -361,8 +364,8 @@ const renderRows = computed<RenderRow[]>(() =>
   letter-spacing: 0.02em;
 }
 .rl-body .muted {
-  color: var(--ink-muted); font-size: 14px; margin-left: 10px;
-  font-family: 'Cormorant Garamond', serif; font-style: italic;
+  color: var(--ink-muted); font-size: 13px; margin-left: 10px;
+  font-family: 'Noto Sans TC', system-ui, sans-serif;
   letter-spacing: 0.01em;
 }
 .rl-spark {
@@ -378,9 +381,8 @@ const renderRows = computed<RenderRow[]>(() =>
 }
 .rl-spark-cell.first { border-left: 0; padding-left: 0; }
 .rl-spark-sub {
-  font-family: 'Cormorant Garamond', serif;
-  font-style: italic;
-  font-size: 12.5px;
+  font-family: 'Noto Sans TC', system-ui, sans-serif;
+  font-size: 11.5px;
   color: var(--ink-faint);
   letter-spacing: 0.01em;
   margin-top: 4px;

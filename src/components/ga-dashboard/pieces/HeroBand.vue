@@ -2,6 +2,9 @@
 import { computed } from 'vue'
 import type { GaSnapshot } from '@/types/ga-snapshot'
 
+// Hero — rebuilt per spec #194 §E2: the 72px display serif + italic English
+// verse + 17px serif prose lede is retired in favour of a 34px title plus a
+// four-cell monospace readout row. Font 4→3: no more Cormorant Garamond here.
 const props = defineProps<{ snapshot: GaSnapshot, window: '7d' | '14d' | '28d' }>()
 
 const bundle = computed(() => props.snapshot.windows[props.window])
@@ -10,21 +13,34 @@ const range = computed(() => `${bundle.value.window.startDate} → ${bundle.valu
 const g = computed(() => bundle.value.glance)
 const fmt = (n: number) => n.toLocaleString('en-US')
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`
+
+// The four readout cells — spec US #17 also wants each cell to carry a
+// week-over-week delta + 7-day sparkline (p10–p90 band, threshold line).
+// That needs the trend file (spec §A4), which this branch doesn't produce
+// yet — SLOT FOR FUTURE TICKET: a `<HeroTrend>` (or similar) mounts inside
+// `.readout dd .trend-slot` once the trend file + composable land.
+const readouts = computed(() => [
+  { key: 'active-users', label: 'ACTIVE USERS', value: fmt(g.value.activeUsers.total), note: '總活躍使用者' },
+  { key: 'returning', label: 'RETURNING', value: pct(g.value.activeUsers.returningPct), note: '回訪占比' },
+  { key: 'solver-complete', label: 'SOLVER COMPLETE', value: pct(g.value.solver.completePct), note: 'Solver 完成率' },
+  { key: 'batch-complete', label: 'BATCH COMPLETE', value: pct(g.value.batch.completePct), note: '批量完成率' },
+])
 </script>
 
 <template>
   <header class="hero">
     <div class="eyebrow">Toast Workshop · Analytics</div>
-    <h1 class="display">Last {{ days }} Days, <em>drawn out in lines.</em></h1>
-    <div class="hero-rule" />
-    <p class="lede">
-      這段視窗工坊裡走進 <span class="figure">{{ fmt(g.activeUsers.total) }}</span> 位活躍使用者，
-      <span class="figure">{{ pct(g.activeUsers.returningPct) }}</span> 是回訪。
-      Solver 跑 <span class="figure">{{ fmt(g.solver.starts) }}</span> 次收
-      <span class="figure">{{ pct(g.solver.completePct) }}</span>，
-      批量最佳化 <span class="figure">{{ fmt(g.batch.starts) }}</span> 次收
-      <span class="figure">{{ pct(g.batch.completePct) }}</span>。
-    </p>
+    <h1 class="title">本期需要決定的事 <span class="win">— {{ days }}d</span></h1>
+    <dl class="readout">
+      <div v-for="r in readouts" :key="r.key">
+        <dt>{{ r.label }}</dt>
+        <dd>
+          {{ r.value }}
+          <small>{{ r.note }}</small>
+          <!-- slot: hero-trend (spec US #17 — WoW delta + 7d sparkline, needs trend file) -->
+        </dd>
+      </div>
+    </dl>
     <div class="meta-row">
       <span>Window <strong>{{ range }}</strong></span>
       <span>Property <strong>{{ snapshot.propertyId }}</strong></span>
@@ -34,48 +50,51 @@ const pct = (n: number) => `${(n * 100).toFixed(1)}%`
 </template>
 
 <style scoped>
-.hero { margin-bottom: 88px; }
+.hero { margin-bottom: 0; }
 .eyebrow {
   font-family: 'Fira Code', monospace;
   font-size: 11px; font-weight: 500;
   letter-spacing: 0.30em; text-transform: uppercase;
   color: var(--gold);
   display: inline-flex; align-items: center; gap: 14px;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
 }
 .eyebrow::before { content: ''; width: 32px; height: 1px; background: var(--gold); }
-.display {
+.title {
   font-family: 'Noto Serif TC', serif;
-  font-size: clamp(44px, 6vw, 72px);
-  font-weight: 700; line-height: 1.02; letter-spacing: -0.012em;
-  color: var(--ink); margin: 0 0 18px;
+  font-weight: 700;
+  font-size: 34px; line-height: 1.25; letter-spacing: -0.01em;
+  margin: 0 0 22px; color: var(--ink);
 }
-.display em {
-  font-family: 'Cormorant Garamond', serif;
-  font-style: italic; font-weight: 500;
-  color: var(--ink-mid); letter-spacing: -0.005em;
-}
-.hero-rule {
-  height: 1px;
-  background: linear-gradient(90deg,
-    var(--gold) 0, var(--gold) 92px,
-    var(--border) 92px, var(--border) 100%);
-  margin: 28px 0 32px;
-}
-.lede {
-  font-family: 'Noto Serif TC', serif;
-  font-size: 17px; line-height: 1.85;
-  color: var(--ink-mid); max-width: 68ch;
-}
-.lede .figure {
+.title .win {
   font-family: 'Fira Code', monospace;
-  font-weight: 500; color: var(--ink); letter-spacing: 0.02em;
+  font-weight: 600; color: var(--gold); font-size: 30px;
+}
+.readout {
+  display: grid; grid-template-columns: repeat(4, max-content); gap: 0 56px;
+  margin: 0;
+  padding: 20px 0;
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+}
+.readout dt {
+  font-family: 'Fira Code', monospace; font-size: 10.5px; font-weight: 500;
+  letter-spacing: 0.16em; color: var(--ink-faint); margin-bottom: 6px;
+}
+.readout dd {
+  margin: 0; font-family: 'Fira Code', monospace;
+  font-size: 27px; font-weight: 500; line-height: 1; color: var(--ink);
+}
+.readout dd small {
+  display: block; margin-top: 7px;
+  font-family: 'Noto Sans TC', system-ui, sans-serif;
+  font-size: 11px; font-weight: 400;
+  letter-spacing: 0.02em; color: var(--ink-muted);
 }
 .meta-row {
-  margin-top: 32px;
-  display: flex; flex-wrap: wrap; gap: 24px;
+  margin-top: 18px;
+  display: flex; flex-wrap: wrap; gap: 26px;
   font-family: 'Fira Code', monospace;
-  font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+  font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--ink-faint);
 }
 .meta-row span strong { color: var(--ink-mid); font-weight: 500; margin-left: 6px; }

@@ -85,8 +85,8 @@ function render(w: number, _h: number) {
     if (SPARSE) {
       svg.append('text')
         .attr('x', cx + padX).attr('y', cy + 76)
-        .style('font-family', "'Cormorant Garamond', 'Noto Serif TC', serif")
-        .style('font-style', 'italic').style('font-size', '12.5px')
+        .style('font-family', "'Noto Serif TC', serif")
+        .style('font-size', '12.5px')
         .style('fill', C.inkFaint)
         .text('樣本不足 · 比率僅供參考')
     }

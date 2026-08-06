@@ -133,7 +133,7 @@ function sortArrow(key: SortKey): string {
   letter-spacing: 0.10em; text-transform: uppercase;
 }
 .legend b { color: var(--ink-mid); font-weight: 500; }
-.legend .hint { color: var(--ink-faint); font-style: italic; text-transform: none; letter-spacing: 0.04em; }
+.legend .hint { color: var(--ink-faint); text-transform: none; letter-spacing: 0.04em; }
 
 table { width: 100%; border-collapse: collapse; }
 thead th {
@@ -173,7 +173,7 @@ td.left { text-align: left; }
 }
 .title {
   display: inline-block; margin-left: 14px;
-  font-family: 'Noto Serif TC', serif; font-style: italic;
+  font-family: 'Noto Serif TC', serif;
   font-size: 12.5px; color: var(--ink-muted);
 }
 
