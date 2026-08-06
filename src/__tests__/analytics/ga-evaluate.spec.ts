@@ -18,7 +18,6 @@ function makeBundle(overrides: Partial<MetricsBundle> = {}, endDate = '2026-07-3
       infra: { sabUnavailable: 90, wasmLoadFailed: 3 },
     },
     pages: [],
-    channels: [],
     solverFunnel: [],
     batchFunnel: [],
     simulatorFunnel: {
@@ -34,9 +33,6 @@ function makeBundle(overrides: Partial<MetricsBundle> = {}, endDate = '2026-07-3
       { metric: 'FCP', good: 2743, ni: 82, poor: 35 },
       { metric: 'TTFB', good: 3899, ni: 273, poor: 108 },
     ],
-    flip: { users: { new: 0, returning: 0, other: 0 }, sessions: { new: 0, returning: 0, other: 0 } },
-    returningEvents: [],
-    returningPages: [],
     q4Funnels: [
       { name: 'Batch prep → Optimize', label: '', from: 4417, to: 1340, note: '', flag: 'danger' },
       { name: 'BOM → Consumed', label: '', from: 268, to: 103, note: '', flag: 'warn' },
