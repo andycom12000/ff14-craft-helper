@@ -115,6 +115,16 @@ describe('useMeldPlayground', () => {
     expect(pg.verdict.value).toBe('can-hq')
   })
 
+  // #198: this is a direct, one-shot user action (button click → one solve,
+  // no loop/watcher) — must override the façade's machine default, or a real
+  // user click silently undercounts the human solver-completion denominator.
+  it('#198: tags the forward solve with source: "user" (overriding the façade\'s machine default)', async () => {
+    const pg = useMeldPlayground(() => stubRecipe, () => stubGearset)
+    pg.setSelection('control', 12, 8)
+    await pg.runForwardCheck()
+    expect(vi.mocked(solveCraftForRecipe).mock.calls[0][2]).toMatchObject({ source: 'user' })
+  })
+
   // Premise parity with the reverse advisor (#136 family): the reverse advisor
   // folds the screen's active food/medicine into every solver call, so the
   // forward check must judge on the SAME basis — otherwise a plan the reverse

@@ -60,4 +60,26 @@ describe('TodoList — solver_macro_copy (#198)', () => {
       rlv: 640, stars: 2, is_expert: false, is_collectable: true, craft_kind: 'quick',
     }))
   })
+
+  // Fix 3 (reviewer-flagged): copyMacro used to fire trackEvent unconditionally
+  // even though the clipboard write is fire-and-forget and its failure is
+  // swallowed internally. All three macro-copy paths (this one, MacroExport.vue,
+  // SimulatorView.vue) must agree that "a copy" means a SUCCESSFUL copy before
+  // they can be merged into one macro-copy-rate numerator.
+  it('does NOT fire solver_macro_copy when the clipboard write fails', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+      configurable: true,
+    })
+    const w = mount(TodoList, { props: { items: [item] } })
+    const button = w.findAll('el-button').find(b => b.text().includes('複製巨集'))
+    expect(button).toBeDefined()
+    await button!.trigger('click')
+    await w.vm.$nextTick()
+    // let the rejected clipboard promise's microtask settle
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(vi.mocked(trackEvent)).not.toHaveBeenCalledWith('solver_macro_copy', expect.anything())
+  })
 })

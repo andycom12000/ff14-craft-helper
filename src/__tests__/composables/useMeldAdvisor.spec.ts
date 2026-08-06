@@ -66,7 +66,7 @@ describe('useMeldAdvisor', () => {
     }))
   })
 
-  it('#198: fires meld_advisor_run exactly once even when a run is superseded', async () => {
+  it('#198: fires meld_advisor_run once per runAdvisor() invocation, even when a run is superseded (not once per settled run)', async () => {
     const { runAdvisor } = useMeldAdvisor(() => '')
     void runAdvisor(stubRecipe, stubGearset, 0)
     await Promise.resolve()

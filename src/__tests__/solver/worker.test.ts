@@ -123,4 +123,40 @@ describe('solveCraft taxonomy payload', () => {
       stars: 2, is_expert: false, is_collectable: false, craft_kind: 'normal',
     }))
   })
+
+  // Fix 4b (reviewer-flagged): worker.ts:314-315 added gear_bucket/source to
+  // solver_complete too, but the added lines had zero test coverage — deleting
+  // them wouldn't turn anything red. Mirrors the solver_failed test above but
+  // resolves the fake worker's request instead of failing it.
+  it('emits solver_complete with gear_bucket, source, and taxonomy', async () => {
+    const { solveCraft, waitForWasm } = await import('@/solver/worker')
+    await waitForWasm()
+
+    const promise = solveCraft({
+      crafter_level: 100, recipe_level: 640,
+      craftsmanship: 4000, control: 4000, cp: 600,
+      hq_target: 80,
+      source: 'user',
+      taxonomy: { stars: 2, is_expert: false, is_collectable: false, craft_kind: 'normal' },
+    } as any)
+    promise.catch(() => {})
+
+    // Same requestId=0 / macrotask-flush reasoning as the solver_failed test
+    // above (fresh module → nextRequestId resets; cachedSolve's internal
+    // awaits delay dispatch past a microtask).
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const instance = FakeWorker.instances[FakeWorker.instances.length - 1]
+    instance.fireMessage({
+      type: 'result',
+      requestId: 0,
+      result: { actions: ['BasicSynthesis'], progress: 100, quality: 50, steps: 1 },
+    })
+    await promise
+
+    expect(vi.mocked(trackEvent)).toHaveBeenCalledWith('solver_complete', expect.objectContaining({
+      gear_bucket: expect.any(String),
+      source: 'user',
+      stars: 2, is_expert: false, is_collectable: false, craft_kind: 'normal',
+    }))
+  })
 })

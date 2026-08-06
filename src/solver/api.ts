@@ -31,6 +31,16 @@ export interface CraftRequestOptions extends SolverSkillOptions {
   /** Abort handle (#132): aborting terminates the worker slot running this
    *  request and frees the pool, instead of letting a runaway WASM solve hold it. */
   signal?: AbortSignal
+  /**
+   * Override the human/machine `source` tag (#198). Defaults to `'machine'` —
+   * MOST callers are machine loops (batch-optimizer, buff-recommender,
+   * meld-advisor's reverse search) — but that is NOT a hard invariant of this
+   * façade. `useMeldPlayground`'s forward "試算台" is a direct, one-shot
+   * user action (one click → one solve, no loop/watcher — `markStaleAfterEdit`
+   * even forces the user to press "重新試算" after every edit, same shape as
+   * SolverPanel's own "求解" button) and MUST pass `source: 'user'` here.
+   */
+  source?: 'user' | 'machine'
 }
 
 export function solveCraftForRecipe(
@@ -38,22 +48,23 @@ export function solveCraftForRecipe(
   gearset: GearsetStats,
   options: CraftRequestOptions = {},
 ): Promise<SolverResultWithTiming> {
-  const { buffs, onProgress, strictQuality, initialQuality, signal, ...skills } = options
+  const { buffs, onProgress, strictQuality, initialQuality, signal, source, ...skills } = options
   const params = recipeToCraftParams(recipe, gearset, buffs, initialQuality)
   const config = craftParamsToSolverConfig(params, skills)
   if (strictQuality !== undefined) config.strict_quality = strictQuality
-  // #198: every known consumer of this façade (batch-optimizer, buff-recommender,
-  // meld-advisor / useMeldPlayground) is a machine loop — the only human-initiated
-  // solve path calls `solveCraft` directly from SolverPanel with `source: 'user'`.
-  // Tag explicitly rather than relying on the (previously implicit, now retired)
-  // "façade never sets taxonomy" invariant to keep the pipeline's human/machine
-  // discriminator honest once taxonomy becomes universal.
+  // #198: taxonomy is set for every façade caller (previously never set at
+  // all). `source` defaults to 'machine' — the common case for this façade —
+  // but callers whose solve is actually user-initiated MUST override via
+  // `options.source` (see CraftRequestOptions.source doc above). Tagging
+  // explicitly rather than relying on an implicit invariant keeps the
+  // pipeline's human/machine discriminator honest now that taxonomy is
+  // universal.
   const tax = computeRecipeTaxonomy(recipe)
   config.taxonomy = {
     rlv: tax.rlv, stars: tax.stars, is_expert: tax.is_expert,
     is_collectable: tax.is_collectable, craft_kind: tax.craft_kind,
   }
-  config.source = 'machine'
+  config.source = source ?? 'machine'
   return solveCraft(config, onProgress, signal)
 }
 

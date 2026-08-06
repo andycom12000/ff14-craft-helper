@@ -1,13 +1,14 @@
 // src/__tests__/solver/api.test.ts
 //
-// #198: `solveCraftForRecipe` is the façade every machine caller (batch-optimizer,
-// buff-recommender, meld-advisor / useMeldPlayground) goes through. It must tag
-// every solve it forwards with `source: 'machine'` AND a full recipe taxonomy —
-// this is the human/machine discriminator's "machine" leg (the "human" leg is
-// SolverPanel calling `solveCraft` directly with `source: 'user'`, covered in
-// worker.test.ts). Getting this wrong either double-counts machine solves as
-// human (inflating solver completion rate) or silently drops the tag some
-// future façade caller relies on.
+// #198: `solveCraftForRecipe` is the façade most machine callers (batch-optimizer,
+// buff-recommender, meld-advisor's reverse search) go through. It tags every
+// solve it forwards with `source: 'machine'` by default AND a full recipe
+// taxonomy — but that default is overridable: `useMeldPlayground`'s forward
+// 試算台 is a direct, one-shot user action (not a loop) and passes
+// `source: 'user'`. Getting either the default OR the override wrong either
+// double-counts machine solves as human, or misclassifies a real user click
+// as machine (silently undercounting the human denominator — the exact class
+// of bug this ticket exists to close).
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
@@ -42,8 +43,24 @@ describe('solveCraftForRecipe (#198 façade taxonomy + source tagging)', () => {
     vi.mocked(solveCraft).mockResolvedValue({ actions: [], progress: 0, quality: 0, steps: 0 })
   })
 
-  it('tags the forwarded config with source: "machine"', async () => {
+  it('tags the forwarded config with source: "machine" by default', async () => {
     await solveCraftForRecipe(mockRecipe, mockGearset)
+    const config = vi.mocked(solveCraft).mock.calls[0][0]
+    expect(config.source).toBe('machine')
+  })
+
+  // Reviewer-flagged gap: useMeldPlayground's forward "試算台" is a direct,
+  // one-shot user action (button click → one solve, no loop/watcher) and must
+  // override the façade's machine default — otherwise a real user click gets
+  // misclassified as machine, silently undercounting the human denominator.
+  it('honours an explicit source: "user" override', async () => {
+    await solveCraftForRecipe(mockRecipe, mockGearset, { source: 'user' })
+    const config = vi.mocked(solveCraft).mock.calls[0][0]
+    expect(config.source).toBe('user')
+  })
+
+  it('an explicit source: "machine" override is a no-op (still machine)', async () => {
+    await solveCraftForRecipe(mockRecipe, mockGearset, { source: 'machine' })
     const config = vi.mocked(solveCraft).mock.calls[0][0]
     expect(config.source).toBe('machine')
   })

@@ -201,7 +201,12 @@ export function useMeldPlayground(
     const iq = initialQuality()
     const activeBuffs = buffs()
     try {
-      const solved = await deps.solve(r, g, { initialQuality: iq, buffs: activeBuffs })
+      // #198: this is a direct, one-shot user action (button click → one
+      // solve; no loop, no watcher — the caller must press "重新試算" after
+      // every edit), same shape as SolverPanel's "求解" button. Override the
+      // façade's machine default so the human/machine discriminator doesn't
+      // silently undercount the human solver-completion denominator.
+      const solved = await deps.solve(r, g, { initialQuality: iq, buffs: activeBuffs, source: 'user' })
       if (token.cancelled || version !== checkVersion) return
       const sim = await deps.simulate(r, g, {
         actions: solved.actions,

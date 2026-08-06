@@ -59,10 +59,13 @@ export interface SolverConfig {
   }
   /**
    * Human/machine tag for the solver_start / solver_complete / solver_failed
-   * events (#198). `'user'` = SolverPanel (the only direct `solveCraft` call
-   * initiated by a person clicking "求解"); `'machine'` = every caller that
-   * goes through the `solveCraftForRecipe` façade (batch-optimizer,
-   * buff-recommender, meld-advisor — all loop-driven).
+   * events (#198). `'user'` = a direct, one-shot user action — SolverPanel
+   * (calls `solveCraft` directly) and `useMeldPlayground`'s forward 試算台
+   * (calls the `solveCraftForRecipe` façade with an explicit `source: 'user'`
+   * override). `'machine'` = the façade's default for every OTHER caller
+   * (batch-optimizer, buff-recommender, meld-advisor's reverse search — all
+   * loop-driven). See `CraftRequestOptions.source` in `solver/api.ts` for the
+   * override contract.
    *
    * Cross-cutover note (kept until the 71-day retention window fully rotates
    * past the fix date, then this comment + the pipeline's craft_kind-absence
