@@ -302,7 +302,9 @@ async function startOptimization() {
       const message = err instanceof Error ? err.message : String(err)
       console.error('[BatchView] Optimization failed:', err)
       ElMessage.error(`最佳化計算失敗：${message}`)
-      trackEvent('batch_optimization_failed', { reason: message })
+      // #198: calc_mode was already on _start / _complete (BatchView.vue), only
+      // the failure event was missing it — lets dashboards segment failures too.
+      trackEvent('batch_optimization_failed', { reason: message, calc_mode: batchStore.calcMode })
       trackError(`batch_optimization_failed: ${message}`)
     }
   } finally {

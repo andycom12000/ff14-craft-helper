@@ -17,6 +17,7 @@ import type { SolverResultWithTiming, SimulateResult } from './raphael'
 import { solveCraft, simulateCraft } from './worker'
 import { craftParamsToSolverConfig, type SolverSkillOptions } from './config'
 import { recipeToCraftParams } from '@/services/stat-stacking'
+import { computeRecipeTaxonomy } from '@/utils/recipe-taxonomy'
 
 export { SolveCancelledError } from './worker'
 
@@ -41,6 +42,18 @@ export function solveCraftForRecipe(
   const params = recipeToCraftParams(recipe, gearset, buffs, initialQuality)
   const config = craftParamsToSolverConfig(params, skills)
   if (strictQuality !== undefined) config.strict_quality = strictQuality
+  // #198: every known consumer of this façade (batch-optimizer, buff-recommender,
+  // meld-advisor / useMeldPlayground) is a machine loop — the only human-initiated
+  // solve path calls `solveCraft` directly from SolverPanel with `source: 'user'`.
+  // Tag explicitly rather than relying on the (previously implicit, now retired)
+  // "façade never sets taxonomy" invariant to keep the pipeline's human/machine
+  // discriminator honest once taxonomy becomes universal.
+  const tax = computeRecipeTaxonomy(recipe)
+  config.taxonomy = {
+    rlv: tax.rlv, stars: tax.stars, is_expert: tax.is_expert,
+    is_collectable: tax.is_collectable, craft_kind: tax.craft_kind,
+  }
+  config.source = 'machine'
   return solveCraft(config, onProgress, signal)
 }
 

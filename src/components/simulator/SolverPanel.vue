@@ -128,6 +128,9 @@ function buildConfig(): SolverConfig | null {
       is_collectable: tax.is_collectable,
       craft_kind: tax.craft_kind,
     },
+    // #198: the only direct `solveCraft` caller a person clicks — everything else
+    // routes through the `solveCraftForRecipe` façade, which tags `source: 'machine'`.
+    source: 'user',
   }
 }
 

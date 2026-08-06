@@ -20,7 +20,8 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
+const __filename = fileURLToPath(import.meta.url)
+const ROOT = path.resolve(path.dirname(__filename), '..', '..')
 const OUT = path.join(ROOT, '.tmp', 'ga')
 const HOME = process.env.HOME || process.env.USERPROFILE || ''
 // Stable location outside the repo (survives `.tmp/` wipes). Override with GA_SA_PATH.
@@ -1213,6 +1214,35 @@ function rlvWideBucket(rlv) {
 // Chart #3 (toolUsageByRlv) shares the same expansion-aligned buckets.
 const rlvToolBucket = rlvWideBucket
 
+// --- Human/machine solve discriminator (#198) -----------------------------
+// Pure function, unit-tested via `scripts/__tests__/ga-analyze.test.mjs`
+// (node:test — see that file's header for why it isn't wired into `npm test`).
+//
+// Cross-cutover rule — MUST stay valid on both sides of the #198 fix date:
+//   - Before the fix: `solveCraftForRecipe` (the machine-loop façade consumed
+//     by batch-optimizer / buff-recommender / meld-advisor) never set
+//     `config.taxonomy`, so `craft_kind` was absent on every machine-
+//     originated solver_start/_complete/_failed row. GA4 renders "absent" as
+//     EITHER the `(not set)` sentinel OR an empty string `''` — a 28-day
+//     probe found both (7796 `(not set)` + 1493 `''` on solver_start alone).
+//     Matching only one leaks ~1493 machine rows into the human side.
+//   - After the fix: every solver event carries taxonomy (craft_kind is
+//     always populated) AND an explicit `source` tag: `'user'` for the one
+//     human-initiated path (SolverPanel calling `solveCraft` directly),
+//     `'machine'` for every façade caller.
+// A row is machine-originated iff EITHER leg fires (OR, not date-branched) —
+// that keeps the classification continuous across the fix date instead of a
+// step-function flip. Delete the craft_kind-absence leg once the 71-day
+// retention window has fully rotated past the fix date (client-side mirror
+// of this note lives in `src/solver/raphael.ts`'s `SolverConfig.source` doc).
+const CRAFT_KIND_ABSENT_VALUES = new Set(['(not set)', ''])
+const MACHINE_SOURCE_VALUES = new Set(['machine'])
+
+export function isMachineSolveRow({ craftKind, source } = {}) {
+  if (CRAFT_KIND_ABSENT_VALUES.has(craftKind ?? '(not set)')) return true
+  return MACHINE_SOURCE_VALUES.has(source)
+}
+
 function gaBool(value) {
   return value === 'true' || value === '1'
 }
@@ -1605,7 +1635,12 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
 
   // --- Chart #3: toolUsageByRlv ------------------------------------------
   // DRAFT — bom/batch RLV attribution is INCOMPLETE pending a recipes.json join.
-  // selectCount: recipe_select × rlv. simulatorCount: solver_start × rlv.
+  // selectCount: recipe_select × rlv. simulatorCount: solver_start × rlv,
+  // EXPLICITLY human-filtered (#198/#190) — see isMachineSolveRow() above.
+  // Without this filter, the day #198's client taxonomy fix lands, 7725
+  // machine-loop solves (batch-optimizer / buff-recommender / meld-advisor,
+  // ~52.5% of solver_start) would silently start flowing into this line —
+  // today it's clean only because the pre-fix façade never set craft_kind.
   // bomTargetCount: bom_target_add × rlv IF the event carries rlv, else 0.
   // batchTargetCount: 0 (see TODO below).
   const selectRlvRes = await runReport(client, {
@@ -1618,11 +1653,21 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
   }, { soft: true })
   const simRlvRes = await runReport(client, {
     property, dateRanges,
-    dimensions: [{ name: 'customEvent:rlv' }],
+    // craft_kind + source ride along so isMachineSolveRow() can filter per-row
+    // BEFORE bucketing — bucketing first would lose the identity needed to
+    // exclude machine rows. Cardinality is rlv × craft_kind × source (bounded,
+    // not a combinatorial blowup — solver_start's real craft_kind/source pairs
+    // are sparse), but the limit is raised well past the plain-rlv query's 100
+    // so the extra dimensions can't silently truncate away either leg.
+    dimensions: [
+      { name: 'customEvent:rlv' },
+      { name: 'customEvent:craft_kind' },
+      { name: 'customEvent:source' },
+    ],
     metrics: [{ name: 'eventCount' }],
     dimensionFilter: { filter: {
       fieldName: 'eventName', stringFilter: { value: 'solver_start' } } },
-    limit: 100,
+    limit: 2000,
   }, { soft: true })
   const bomRlvRes = await runReport(client, {
     property, dateRanges,
@@ -1641,15 +1686,20 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
     const selectMap = mk()
     const simMap = mk()
     const bomMap = mk()
-    const fill = (rows, target) => {
+    const fill = (rows, target, { humanOnly = false } = {}) => {
       for (const r of rows) {
         const bucket = rlvToolBucket(r.dimensionValues[0].value)
         if (!bucket) continue
+        if (humanOnly) {
+          const craftKind = r.dimensionValues[1]?.value
+          const source = r.dimensionValues[2]?.value
+          if (isMachineSolveRow({ craftKind, source })) continue
+        }
         target.set(bucket, target.get(bucket) + Number(r.metricValues[0].value))
       }
     }
     fill(selectRlvRows, selectMap)
-    fill(simRlvRows, simMap)
+    fill(simRlvRows, simMap, { humanOnly: true })
     fill(bomRlvRows, bomMap)
     out.toolUsageByRlv = BUCKETS.map((bucket) => ({
       bucket,
@@ -1775,8 +1825,15 @@ function buildMarketRegion(rows) {
   return [...map.values()]
 }
 
-if (CLI.snapshot) {
-  runSnapshot().catch((err) => { console.error(err); process.exit(1) })
-} else {
-  main().catch((err) => { console.error(err); process.exit(1) })
+// Only run when invoked as a script — not when imported by tests (#198's
+// isMachineSolveRow() unit tests import this module for its pure functions;
+// without this guard, importing it would eagerly hit GA4 / die() on missing
+// GA_PROPERTY_ID). Mirrors scripts/build-game-data.mjs's existing guard.
+const invoked = process.argv[1] && path.resolve(process.argv[1]) === __filename
+if (invoked) {
+  if (CLI.snapshot) {
+    runSnapshot().catch((err) => { console.error(err); process.exit(1) })
+  } else {
+    main().catch((err) => { console.error(err); process.exit(1) })
+  }
 }

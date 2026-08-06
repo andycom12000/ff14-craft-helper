@@ -71,4 +71,56 @@ describe('solveCraft taxonomy payload', () => {
     expect(calls.length).toBeGreaterThanOrEqual(1)
     expect(calls[calls.length - 1][1]).not.toHaveProperty('stars')
   })
+
+  // #198: solver_start already carried gear_bucket; solver_complete / solver_failed
+  // didn't. All three now carry gear_bucket + source so the pipeline's human/machine
+  // discriminator (and the completion-rate ledger) can classify every solver event
+  // consistently, not just solver_start.
+  it('emits solver_start with source when provided', async () => {
+    const { solveCraft, waitForWasm } = await import('@/solver/worker')
+    await waitForWasm()
+
+    solveCraft({
+      crafter_level: 100, recipe_level: 640,
+      craftsmanship: 4000, control: 4000, cp: 600,
+      hq_target: 80,
+      source: 'user',
+    } as any).catch(() => {})
+
+    expect(vi.mocked(trackEvent)).toHaveBeenCalledWith('solver_start', expect.objectContaining({
+      source: 'user', gear_bucket: expect.any(String),
+    }))
+  })
+
+  it('emits solver_failed with gear_bucket, source, and taxonomy (previously bare {reason})', async () => {
+    const { solveCraft, waitForWasm } = await import('@/solver/worker')
+    await waitForWasm()
+
+    const promise = solveCraft({
+      crafter_level: 100, recipe_level: 640,
+      craftsmanship: 4000, control: 4000, cp: 600,
+      hq_target: 80,
+      source: 'machine',
+      taxonomy: { stars: 2, is_expert: false, is_collectable: false, craft_kind: 'normal' },
+    } as any)
+    promise.catch(() => {})
+
+    // Fail the in-flight request by firing an `error` message from the fake worker.
+    // requestId is 0: `vi.resetModules()` in beforeEach re-imports the module fresh,
+    // resetting its internal `nextRequestId` counter, and this is the first
+    // `solveCraft` call in this test. A macrotask flush (not just a microtask) is
+    // needed because dispatch only happens after `cachedSolve`'s internal awaits
+    // (ensureInit / lookup) settle.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const instance = FakeWorker.instances[FakeWorker.instances.length - 1]
+    instance.fireMessage({ type: 'error', requestId: 0, error: 'boom' })
+    await promise.catch(() => {})
+
+    expect(vi.mocked(trackEvent)).toHaveBeenCalledWith('solver_failed', expect.objectContaining({
+      reason: 'boom',
+      gear_bucket: expect.any(String),
+      source: 'machine',
+      stars: 2, is_expert: false, is_collectable: false, craft_kind: 'normal',
+    }))
+  })
 })

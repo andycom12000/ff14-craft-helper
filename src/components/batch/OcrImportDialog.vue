@@ -287,7 +287,10 @@ function addToBatch() {
   let count = 0
   for (const item of matchItems.value) {
     if (item.checked && item.selectedRecipe) {
-      batchStore.addRecipe(item.selectedRecipe, 1, 'search')
+      // #198: was mislabelled 'search' — fixed BEFORE `method` gets registered as a
+      // GA4 custom dimension (#199) so the 28-day retention window never freezes
+      // the wrong value for OCR-sourced batch adds.
+      batchStore.addRecipe(item.selectedRecipe, 1, 'ocr_import')
       count++
     }
   }

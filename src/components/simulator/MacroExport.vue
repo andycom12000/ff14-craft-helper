@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useSimulatorStore } from '@/stores/simulator'
+import { useRecipeStore } from '@/stores/recipe'
 import { useLocaleStore } from '@/stores/locale'
 import { formatMacros } from '@/services/macro-formatter'
 import { ElMessage } from 'element-plus'
 import { trackEvent } from '@/utils/analytics'
+import { computeRecipeTaxonomy, flattenTaxonomyForEvent } from '@/utils/recipe-taxonomy'
 
 const simStore = useSimulatorStore()
+const recipeStore = useRecipeStore()
 const localeStore = useLocaleStore()
 
 const waitTime = ref(3)
@@ -29,12 +32,14 @@ const summaryText = computed(() => {
 async function copyMacro(text: string, index: number) {
   try {
     await navigator.clipboard.writeText(text)
+    const recipe = recipeStore.currentRecipe
     trackEvent('solver_macro_copy', {
       macro_index: index,
       total_macros: macros.value.length,
       action_count: simStore.actions.length,
       wait_time: waitTime.value,
       include_echo: includeEcho.value,
+      ...(recipe ? flattenTaxonomyForEvent(computeRecipeTaxonomy(recipe)) : {}),
     })
     ElMessage.success(`巨集 ${index + 1} 已複製`)
   } catch {

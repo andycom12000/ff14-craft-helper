@@ -23,6 +23,7 @@ import { formatMeldStepShort, summarizeMeldSteps } from '@/engine/materia'
 import type { WasmEffects, StepDetail } from '@/solver/raphael'
 import { JOB_ORDER, type Job } from '@/engine/skill-icons-by-job'
 import { JOB_ABBR } from '@/utils/jobs'
+import { trackEvent } from '@/utils/analytics'
 
 const VALID_JOBS = new Set<string>(JOB_ORDER)
 
@@ -346,6 +347,11 @@ export function useSimulator() {
         control: g.control + delta.control,
         cp: g.cp + delta.cp,
       })
+      // #198: mirrors the 'all' branch's gearset_apply_all below (fields:
+      // 'meld_delta') — this scope went through the generic updateGearset(),
+      // which carries no meld-specific tag, so the single-job save was
+      // invisible to the meld adoption numerator (`adoption.meldApplies`).
+      trackEvent('gearset_apply_all', { fields: 'meld_delta_single' })
       ElMessage.success('已存入此職業配裝')
     } else {
       gearsetsStore.applyDeltaToAllGearsets(delta)

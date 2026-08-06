@@ -37,6 +37,9 @@ vi.mock('@/components/batch/BenchPanel.vue', () => ({ default: { template: '<div
 vi.mock('@/services/batch-optimizer', () => ({ runBatchOptimization: vi.fn() }))
 import { runBatchOptimization } from '@/services/batch-optimizer'
 
+vi.mock('@/utils/analytics', () => ({ trackEvent: vi.fn(), trackError: vi.fn(), setUserProperty: vi.fn(), trackPageView: vi.fn() }))
+import { trackEvent } from '@/utils/analytics'
+
 const advice = (): MeldAdvice => ({
   status: 'feasible',
   alreadyMeetsThreshold: false,
@@ -206,6 +209,12 @@ describe('BatchView — startOptimization liveTargets bridging', () => {
     await flushPromises()
 
     expect(store.liveTargets).toEqual([])
+    // #198: batch_optimization_failed previously omitted calc_mode even though
+    // _start / _complete both carry it — dashboards couldn't segment failures
+    // by macro vs quick-buy.
+    expect(vi.mocked(trackEvent)).toHaveBeenCalledWith('batch_optimization_failed', expect.objectContaining({
+      reason: 'boom', calc_mode: 'macro',
+    }))
   })
 
   it('does not seed a fake queued liveTargets list in quick-buy mode (quick-buy never calls onTargetUpdate, so a queued×N seed would stall forever)', async () => {

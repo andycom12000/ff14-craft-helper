@@ -14,10 +14,18 @@ vi.mock('@/services/meld-advisor', () => ({
   adviseMeld: vi.fn(),
 }))
 
+vi.mock('@/utils/analytics', () => ({
+  trackEvent: vi.fn(),
+}))
+
 const { fetchMateriaPriceMap } = await import('@/api/universalis')
 const { adviseMeld } = await import('@/services/meld-advisor')
+const { trackEvent } = await import('@/utils/analytics')
 
-const stubRecipe = { id: 1, name: 'Test', job: 'CRP' } as unknown as Recipe
+const stubRecipe = {
+  id: 1, name: 'Test', job: 'CRP', rlv: 640, stars: 2,
+  isExpert: false, isCollectable: true, craftKind: 'quick',
+} as unknown as Recipe
 const stubGearset: GearsetStats = {
   level: 100,
   craftsmanship: 4000,
@@ -45,6 +53,26 @@ describe('useMeldAdvisor', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(adviseMeld).mockResolvedValue(stubAdvice)
+  })
+
+  // #198: meld_advisor_run is the denominator of the meld adoption rate — must
+  // fire once per real run (the canonical entry point every caller shares),
+  // carrying the recipe's taxonomy.
+  it('#198: fires meld_advisor_run with recipe taxonomy on every run', async () => {
+    const { runAdvisor } = useMeldAdvisor(() => 'Carbuncle')
+    await runAdvisor(stubRecipe, stubGearset, 0)
+    expect(vi.mocked(trackEvent)).toHaveBeenCalledWith('meld_advisor_run', expect.objectContaining({
+      rlv: 640, stars: 2, is_expert: false, is_collectable: true, craft_kind: 'quick',
+    }))
+  })
+
+  it('#198: fires meld_advisor_run exactly once even when a run is superseded', async () => {
+    const { runAdvisor } = useMeldAdvisor(() => '')
+    void runAdvisor(stubRecipe, stubGearset, 0)
+    await Promise.resolve()
+    await runAdvisor(stubRecipe, stubGearset, 0)
+    const runCalls = vi.mocked(trackEvent).mock.calls.filter(c => c[0] === 'meld_advisor_run')
+    expect(runCalls).toHaveLength(2) // one per runAdvisor() invocation, not per settled run
   })
 
   it('starts with null advice', () => {
