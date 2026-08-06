@@ -1003,8 +1003,15 @@ async function buildBundle(client, propertyId, days) {
 
   // --- flip -----------------------------------------------------------
   // newVsReturning × (totalUsers, sessions). No longer surfaced as its own
-  // dashboard chart (#196 cut FlipBands), but glance.activeUsers below still
-  // aggregates off `flip.users` — keep the query, drop the exposed field.
+  // dashboard chart (#196 cut FlipBands) or bundle field, but this query is
+  // PERMANENTLY required, not a transitional leftover: glance.activeUsers
+  // below reads all four of total/new/returning/returningPct off `flip.users`.
+  // #202 (dimension-less totalUsers query) only replaces the denominator
+  // behind `total`/`returningPct` — `new` and `returning` are plain per-row
+  // user counts and #202 explicitly does NOT touch them (its numerator was
+  // already clean; only the denominator was inflated). Do not delete this
+  // query when #202 lands, or the new/returning split on the hero band goes
+  // to zero.
   const flipRes = await runReport(client, {
     property, dateRanges,
     dimensions: [{ name: 'newVsReturning' }],

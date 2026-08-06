@@ -49,12 +49,3 @@ export const pageFamilyColor: FamilyColorMap<PageFamily> = {
   meta:    C.meta,
   market:  C.strawberry,
 }
-
-// Region split colors — single source of truth for RegionSplitLedger so the
-// same region never reads as two different hues across charts.
-// cht=gold, intl=strawberry, unset=faint.
-export const regionColor = {
-  cht:   C.gold,        // 繁中 / Taiwan-locale users
-  intl:  C.strawberry,  // international
-  unset: C.inkFaint,    // not yet resolved / historical (not set)
-} as const
