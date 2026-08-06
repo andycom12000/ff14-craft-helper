@@ -6,7 +6,12 @@ import type { TaxonomyCell } from '@/types/ga-snapshot'
 import { C } from '@/components/ga-dashboard/palette'
 import { fmtInt, fmtPct } from '@/components/ga-dashboard/formatters'
 
-const props = defineProps<{ data: TaxonomyCell[] }>()
+// `stripeMacroBand` — 態二(一半可信)局部斜紋：巨集複製率埋點待修、(cell 內的)完成率無門檻
+// 規則覆蓋、視為可信時，只蓋每格裡的「巨集複製率」那一條 bar band，「求解完成率」band 與大數字
+// 照常可讀(spec #194 §E6 / issue #208)。是否要蓋由呼叫端從 flag-derive.ts 的
+// isMetricUntrusted() 推導,這裡只負責畫——用 SVG rect + dashed line，因為兩列的 y 座標由
+// render() 動態算,CSS 疊層猜不到正確位置。
+const props = defineProps<{ data: TaxonomyCell[], stripeMacroBand?: boolean }>()
 const root = ref<HTMLDivElement | null>(null)
 
 function render(w: number, _h: number) {
@@ -16,6 +21,16 @@ function render(w: number, _h: number) {
 
   const h = 420
   const svg = d3.select(root.value).append('svg').attr('width', w).attr('height', h)
+
+  if (props.stripeMacroBand) {
+    const pattern = svg.append('defs').append('pattern')
+      .attr('id', 'flag-stripe-pattern')
+      .attr('width', 10).attr('height', 10)
+      .attr('patternUnits', 'userSpaceOnUse')
+      .attr('patternTransform', 'rotate(-45)')
+    pattern.append('rect').attr('width', 10).attr('height', 10).attr('fill', 'transparent')
+    pattern.append('rect').attr('width', 5).attr('height', 10).attr('fill', C.warning).attr('fill-opacity', 0.14)
+  }
 
   const margin = { top: 56, right: 24, bottom: 24, left: 160 }
   const innerW = w - margin.left - margin.right
@@ -132,11 +147,27 @@ function render(w: number, _h: number) {
         .style('fill', b.color)
         .text(fmtPct(b.rate))
     })
+
+    // 態二局部斜紋 — 只蓋這格的「巨集複製率」band(下面那條),「求解完成率」band 與大數字
+    // 照常可讀。邊界抓在兩個 band 的 y 中點(104 與 134 的中間),往下蓋到格子底部。
+    if (props.stripeMacroBand) {
+      const boundaryY = cy + 119
+      svg.append('line')
+        .attr('x1', cx).attr('x2', cx + cellW)
+        .attr('y1', boundaryY).attr('y2', boundaryY)
+        .attr('stroke', C.warning).attr('stroke-opacity', 0.6)
+        .attr('stroke-width', 1).attr('stroke-dasharray', '4,3')
+      svg.append('rect')
+        .attr('x', cx).attr('y', boundaryY)
+        .attr('width', cellW).attr('height', cy + cellH - boundaryY)
+        .attr('fill', 'url(#flag-stripe-pattern)')
+        .style('pointer-events', 'none')
+    }
   })
 }
 
 useD3Resize(root, render)
-watch(() => props.data, () => {
+watch(() => [props.data, props.stripeMacroBand] as const, () => {
   if (root.value) render(root.value.clientWidth, root.value.clientHeight)
 })
 onMounted(() => {
