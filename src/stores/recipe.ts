@@ -2,7 +2,6 @@ import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import { trackEvent } from '@/utils/analytics'
 import { emitLargeQueueInSimulator } from '@/composables/useFunnelMisuseDetector'
-import { useMilestonesStore } from '@/stores/milestones'
 import { computeRecipeTaxonomy, flattenTaxonomyForEvent } from '@/utils/recipe-taxonomy'
 
 export type RecipeOpenSource =
@@ -89,7 +88,6 @@ export const useRecipeStore = defineStore('recipe', () => {
       source,
       ...taxonomy,
     })
-    useMilestonesStore().markMilestoneOnce('viewed_recipe')
   }
 
   function clearRecipe() {

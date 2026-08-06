@@ -1,12 +1,9 @@
 /* src/components/ga-dashboard/dashboard.css
  * Global (unscoped) cross-cutting styles for the GA admin dashboard v2.
- * Imported once by GaDashboardView.vue. Two concerns live here because they
- * cannot be expressed in component-scoped styles:
- *   1. On-scroll reveal — a `.reveal` element fades/slides in once `.in-view`
- *      is toggled by useScrollReveal()'s shared IntersectionObserver.
- *   2. Tooltip enrichment — the shared `.ga-tooltip` node lives on <body>,
- *      OUTSIDE the `.ga-dashboard` scope, so its inner markup must be styled
- *      globally rather than in a scoped block.
+ * Imported once by GaDashboardView.vue. Tooltip enrichment lives here because
+ * it cannot be expressed in component-scoped styles: the shared `.ga-tooltip`
+ * node lives on <body>, OUTSIDE the `.ga-dashboard` scope, so its inner markup
+ * must be styled globally rather than in a scoped block.
  */
 
 /* Leave room for the fixed left rail (collapsed width). The rail overlays
@@ -14,13 +11,6 @@
 .ga-dashboard {
   margin-left: 56px;
 }
-
-/* ---- Reveal: no entrance choreography ----
-   The v-reveal directive still tags elements (and the scroll-spy observer still
-   runs), but charts render visible immediately. An analyst re-reading this
-   report every day should not wait on a per-chart fade-and-rise; product motion
-   conveys state, not page-load ceremony. */
-.ga-dashboard .reveal { opacity: 1; }
 
 /* ---- Tooltip enrichment (shared .ga-tooltip is mounted on <body>) ---- */
 .ga-tooltip strong {

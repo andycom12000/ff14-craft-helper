@@ -1,15 +1,13 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { useSimulatorStore } from '@/stores/simulator'
 import { useLocaleStore } from '@/stores/locale'
 import { formatMacros } from '@/services/macro-formatter'
 import { ElMessage } from 'element-plus'
 import { trackEvent } from '@/utils/analytics'
-import { useMilestonesStore } from '@/stores/milestones'
 
 const simStore = useSimulatorStore()
 const localeStore = useLocaleStore()
-const milestones = useMilestonesStore()
 
 const waitTime = ref(3)
 const includeEcho = ref(true)
@@ -20,13 +18,6 @@ const macros = computed(() =>
     includeEcho: includeEcho.value,
     locale: localeStore.current,
   })
-)
-
-watch(
-  () => macros.value.length,
-  (count) => {
-    if (count > 0) milestones.markMilestoneOnce('saw_macro')
-  },
 )
 
 const summaryText = computed(() => {

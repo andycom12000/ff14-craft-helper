@@ -5,7 +5,6 @@ import { ElMessage } from 'element-plus'
 import { useBatchStore } from '@/stores/batch'
 import { useSettingsStore } from '@/stores/settings'
 import { useGearsetsStore } from '@/stores/gearsets'
-import { useMilestonesStore } from '@/stores/milestones'
 import { runBatchOptimization } from '@/services/batch-optimizer'
 import { checkLevelGate } from '@/services/recipe-gating'
 import { SolveCancelledError } from '@/solver/api'
@@ -247,7 +246,6 @@ async function startOptimization() {
 
   const startedAt = performance.now()
   batchStore.recordOptimizationStart(settings.crossServer)
-  useMilestonesStore().markMilestoneOnce('used_batch')
 
   try {
     const results = await runBatchOptimization(

@@ -39,7 +39,6 @@ import ApiFailureEndpoints from '@/components/ga-dashboard/charts/ApiFailureEndp
 import LocaleMissTop from '@/components/ga-dashboard/charts/LocaleMissTop.vue'
 import WasmLoadProfile from '@/components/ga-dashboard/charts/WasmLoadProfile.vue'
 
-import { useScrollReveal } from '@/composables/useScrollReveal'
 import '@/components/ga-dashboard/tokens.css'
 import '@/components/ga-dashboard/dashboard.css'
 
@@ -47,16 +46,6 @@ const { snapshot, loading, error, isStale, staleHours, load } = useGaSnapshot()
 const win = ref<WindowKey>('7d')
 
 onMounted(load)
-
-// On-scroll reveal — adds `.reveal` (initial hidden state) then registers the
-// element with the shared IntersectionObserver, which toggles `.in-view`.
-const { attach } = useScrollReveal()
-const vReveal = {
-  mounted(el: HTMLElement) {
-    el.classList.add('reveal')
-    attach(el)
-  },
-}
 
 const bucket = computed(() => snapshot.value?.windows[win.value] ?? null)
 
@@ -155,64 +144,64 @@ const tldrQ3 = computed(() => {
 
         <!-- ============ IV. Q4 — 新訪客在哪一階停下 ============ -->
         <section id="sec-4" class="q">
-          <SectionHead v-reveal num="iv." title="Q4：新訪客在哪一階停下" aside="新手引導 · 配方分類 · 漫長爬坡" />
+          <SectionHead num="iv." title="Q4：新訪客在哪一階停下" aside="新手引導 · 配方分類 · 漫長爬坡" />
 
-          <SubHead v-reveal title="新手里程碑 · 獨立計數" aside="viewed_recipe · ran_solver · saw_macro · used_batch（彼此獨立，非漏斗）" />
-          <OnboardingMilestoneFunnel v-if="snapshot.windows[win].onboardingFunnel" v-reveal :data="snapshot.windows[win].onboardingFunnel!" />
-          <EmptyChart v-else v-reveal label="新手里程碑" hint="此區間尚無事件" />
+          <SubHead title="新手里程碑 · 獨立計數" aside="viewed_recipe · ran_solver · saw_macro · used_batch（彼此獨立，非漏斗）" />
+          <OnboardingMilestoneFunnel v-if="snapshot.windows[win].onboardingFunnel" :data="snapshot.windows[win].onboardingFunnel!" />
+          <EmptyChart v-else label="新手里程碑" hint="此區間尚無事件" />
 
-          <SubHead v-reveal title="工具偏好 · 依配方等級分組" aside="不同 RLV 區間的玩家偏向哪個工具：模擬器 · 批量 · BOM" />
-          <ToolUsageByRlv v-if="snapshot.windows[win].toolUsageByRlv" v-reveal :data="snapshot.windows[win].toolUsageByRlv!" />
-          <EmptyChart v-else v-reveal label="工具偏好 · 依配方等級" hint="此區間尚無事件" />
+          <SubHead title="工具偏好 · 依配方等級分組" aside="不同 RLV 區間的玩家偏向哪個工具：模擬器 · 批量 · BOM" />
+          <ToolUsageByRlv v-if="snapshot.windows[win].toolUsageByRlv" :data="snapshot.windows[win].toolUsageByRlv!" />
+          <EmptyChart v-else label="工具偏好 · 依配方等級" hint="此區間尚無事件" />
 
-          <SubHead v-reveal title="配方難度與類型" aside="RLV 直方圖 · craft_kind 完成率" />
-          <RecipeDifficultyKind v-if="snapshot.windows[win].taxonomy" v-reveal :data="snapshot.windows[win].taxonomy!" />
-          <EmptyChart v-else v-reveal label="配方難度與類型" hint="此區間尚無事件" />
+          <SubHead title="配方難度與類型" aside="RLV 直方圖 · craft_kind 完成率" />
+          <RecipeDifficultyKind v-if="snapshot.windows[win].taxonomy" :data="snapshot.windows[win].taxonomy!" />
+          <EmptyChart v-else label="配方難度與類型" hint="此區間尚無事件" />
 
-          <SubHead v-reveal title="高難度 × 收藏品 矩陣" aside="每格的求解完成率與巨集複製率" />
-          <ExpertCollectableMatrix v-if="snapshot.windows[win].taxonomy" v-reveal :data="snapshot.windows[win].taxonomy!.matrix" />
-          <EmptyChart v-else v-reveal label="高難度 × 收藏品矩陣" hint="此區間尚無事件" />
+          <SubHead title="高難度 × 收藏品 矩陣" aside="每格的求解完成率與巨集複製率" />
+          <ExpertCollectableMatrix v-if="snapshot.windows[win].taxonomy" :data="snapshot.windows[win].taxonomy!.matrix" />
+          <EmptyChart v-else label="高難度 × 收藏品矩陣" hint="此區間尚無事件" />
         </section>
 
         <!-- ============ V. Q5 — 摩擦發生在哪裡 ============ -->
         <section id="sec-5" class="q section-break">
-          <SectionHead v-reveal num="v." title="Q5：摩擦發生在哪裡" aside="達不到的期望 · 進入路徑 · 第一個動作" />
+          <SectionHead num="v." title="Q5：摩擦發生在哪裡" aside="達不到的期望 · 進入路徑 · 第一個動作" />
 
           <div class="two-col">
             <div class="col">
-              <SubHead v-reveal title="誤用提示統計" aside="未來 in-app 引導優先序" />
-              <MisuseHintTally v-if="snapshot.windows[win].misuseSignals" v-reveal :data="snapshot.windows[win].misuseSignals!" />
-              <EmptyChart v-else v-reveal label="誤用提示統計" hint="此區間尚無事件" />
+              <SubHead title="誤用提示統計" aside="未來 in-app 引導優先序" />
+              <MisuseHintTally v-if="snapshot.windows[win].misuseSignals" :data="snapshot.windows[win].misuseSignals!" />
+              <EmptyChart v-else label="誤用提示統計" hint="此區間尚無事件" />
             </div>
             <div class="col">
-              <SubHead v-reveal title="配方進入路徑" aside="使用者實際從哪裡打開配方" />
-              <RecipeEntrySource v-if="snapshot.windows[win].recipeEntrySource" v-reveal :data="snapshot.windows[win].recipeEntrySource!" />
-              <EmptyChart v-else v-reveal label="配方進入路徑" hint="此區間尚無事件" />
+              <SubHead title="配方進入路徑" aside="使用者實際從哪裡打開配方" />
+              <RecipeEntrySource v-if="snapshot.windows[win].recipeEntrySource" :data="snapshot.windows[win].recipeEntrySource!" />
+              <EmptyChart v-else label="配方進入路徑" hint="此區間尚無事件" />
             </div>
           </div>
 
-          <SubHead v-reveal title="首動作時間 × 第一個事件" aside="進站 → 第一個動作 · 他們先碰什麼" />
-          <TimeToFirstAction v-if="snapshot.windows[win].timeToFirstAction" v-reveal :data="snapshot.windows[win].timeToFirstAction!" />
-          <EmptyChart v-else v-reveal label="首動作時間" hint="此區間尚無事件" />
+          <SubHead title="首動作時間 × 第一個事件" aside="進站 → 第一個動作 · 他們先碰什麼" />
+          <TimeToFirstAction v-if="snapshot.windows[win].timeToFirstAction" :data="snapshot.windows[win].timeToFirstAction!" />
+          <EmptyChart v-else label="首動作時間" hint="此區間尚無事件" />
         </section>
 
         <!-- ============ VI. Q6 — 系統哪裡正在裂 ============ -->
         <section id="sec-6" class="q section-break">
-          <SectionHead v-reveal num="vi." title="Q6：系統哪裡正在裂" aside="API 失敗 · WASM 載入 · 中文名缺失" />
+          <SectionHead num="vi." title="Q6：系統哪裡正在裂" aside="API 失敗 · WASM 載入 · 中文名缺失" />
 
-          <SubHead v-reveal title="API 失敗 · 端點排行，按 API 與狀態碼分類" aside="補完既有 FailuresBar（只看 reason）" />
-          <ApiFailureEndpoints v-if="snapshot.windows[win].apiFailures" v-reveal :data="snapshot.windows[win].apiFailures!" />
-          <EmptyChart v-else v-reveal label="API 失敗端點" hint="此區間尚無事件" />
+          <SubHead title="API 失敗 · 端點排行，按 API 與狀態碼分類" aside="補完既有 FailuresBar（只看 reason）" />
+          <ApiFailureEndpoints v-if="snapshot.windows[win].apiFailures" :data="snapshot.windows[win].apiFailures!" />
+          <EmptyChart v-else label="API 失敗端點" hint="此區間尚無事件" />
 
           <!-- WASM perf is often the sparsest signal; keep it mid-section so the
                page does not close on an empty box (peak-end). -->
-          <SubHead v-reveal title="正式環境 WASM 載入分佈" aside="wasm_load_ms · worker_pool_init_ms · p50 / p95 · cold-start share" />
-          <WasmLoadProfile v-if="snapshot.windows[win].perfProfile" v-reveal :data="snapshot.windows[win].perfProfile!" />
-          <EmptyChart v-else v-reveal label="WASM 載入分佈" hint="此區間尚無事件" />
+          <SubHead title="正式環境 WASM 載入分佈" aside="wasm_load_ms · worker_pool_init_ms · p50 / p95 · cold-start share" />
+          <WasmLoadProfile v-if="snapshot.windows[win].perfProfile" :data="snapshot.windows[win].perfProfile!" />
+          <EmptyChart v-else label="WASM 載入分佈" hint="此區間尚無事件" />
 
-          <SubHead v-reveal title="中文名缺失 · top items 排行" aside="資料補完優先序" />
-          <LocaleMissTop v-if="snapshot.windows[win].localeMissTop" v-reveal :data="snapshot.windows[win].localeMissTop!" />
-          <EmptyChart v-else v-reveal label="中文名缺失" hint="此區間尚無事件" />
+          <SubHead title="中文名缺失 · top items 排行" aside="資料補完優先序" />
+          <LocaleMissTop v-if="snapshot.windows[win].localeMissTop" :data="snapshot.windows[win].localeMissTop!" />
+          <EmptyChart v-else label="中文名缺失" hint="此區間尚無事件" />
         </section>
       </template>
     </div>
