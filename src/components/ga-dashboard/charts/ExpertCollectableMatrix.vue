@@ -3,7 +3,7 @@ import { ref, watch, onMounted } from 'vue'
 import * as d3 from 'd3'
 import { useD3Resize } from '@/composables/useD3Resize'
 import type { TaxonomyCell } from '@/types/ga-snapshot'
-import { C } from '@/components/ga-dashboard/palette'
+import { C, FLAG_STRIPE_ALPHA } from '@/components/ga-dashboard/palette'
 import { fmtInt, fmtPct } from '@/components/ga-dashboard/formatters'
 
 // `stripeMacroBand` — 態二(一半可信)局部斜紋：巨集複製率埋點待修、(cell 內的)完成率無門檻
@@ -29,7 +29,10 @@ function render(w: number, _h: number) {
       .attr('patternUnits', 'userSpaceOnUse')
       .attr('patternTransform', 'rotate(-45)')
     pattern.append('rect').attr('width', 10).attr('height', 10).attr('fill', 'transparent')
-    pattern.append('rect').attr('width', 5).attr('height', 10).attr('fill', C.warning).attr('fill-opacity', 0.14)
+    // alpha 吃 palette.ts 的 FLAG_STRIPE_ALPHA（單一來源，見那裡的註解）——之前這裡寫死 0.14,
+    // 跟 chart-sim 的 0.07、chart-funnels 的 0.10 各自漂移，同一種「不可信」語意在三張圖上
+    // 讀起來卻是三種強度，違背 spec #194 §E6「兩者都是同一種狀態，差的只有範圍」。
+    pattern.append('rect').attr('width', 5).attr('height', 10).attr('fill', C.warning).attr('fill-opacity', FLAG_STRIPE_ALPHA)
   }
 
   const margin = { top: 56, right: 24, bottom: 24, left: 160 }

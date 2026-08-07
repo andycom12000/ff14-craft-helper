@@ -120,9 +120,12 @@ onMounted(() => {
   width: calc(50% - 16px);
   height: 100%;
   pointer-events: none;
+  /* alpha 吃 tokens.css 的 --ga-flag-stripe-alpha（單一來源，見那裡的註解）——之前這裡寫死
+     10%，跟 chart-sim 的 7%、chart-matrix 的 14% 各自漂移，同一種「不可信」語意在三張圖上
+     讀起來卻是三種強度，違背 spec #194 §E6「兩者都是同一種狀態，差的只有範圍」。 */
   background-image: repeating-linear-gradient(
     -45deg,
-    color-mix(in srgb, var(--warning) 10%, transparent) 0 5px,
+    color-mix(in srgb, var(--warning) var(--ga-flag-stripe-alpha), transparent) 0 5px,
     transparent 5px 10px
   );
   border-right: 1px dashed color-mix(in srgb, var(--warning) 60%, transparent);
