@@ -1,9 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useGaSnapshot } from '@/composables/useGaSnapshot'
-import { eventLabel } from '@/components/ga-dashboard/event-labels'
-import { stripPath } from '@/components/ga-dashboard/paths'
-import { fmtInt, fmtPct } from '@/components/ga-dashboard/formatters'
 import type { WindowKey } from '@/types/ga-snapshot'
 
 import HeroBand from '@/components/ga-dashboard/pieces/HeroBand.vue'
@@ -11,33 +8,22 @@ import RegionSplitLedger from '@/components/ga-dashboard/pieces/RegionSplitLedge
 import WindowSelector from '@/components/ga-dashboard/pieces/WindowSelector.vue'
 import SectionHead from '@/components/ga-dashboard/pieces/SectionHead.vue'
 import SubHead from '@/components/ga-dashboard/pieces/SubHead.vue'
-import TldrLine from '@/components/ga-dashboard/pieces/TldrLine.vue'
 import RailNav from '@/components/ga-dashboard/pieces/RailNav.vue'
 import EmptyChart from '@/components/ga-dashboard/pieces/EmptyChart.vue'
 
-import PagesTreemap from '@/components/ga-dashboard/charts/PagesTreemap.vue'
-import ChannelsBar from '@/components/ga-dashboard/charts/ChannelsBar.vue'
 import PagesTable from '@/components/ga-dashboard/charts/PagesTable.vue'
 import SolverBatchFunnels from '@/components/ga-dashboard/charts/SolverBatchFunnels.vue'
 import SimulatorFunnel from '@/components/ga-dashboard/charts/SimulatorFunnel.vue'
 import Q4FunnelDrops from '@/components/ga-dashboard/charts/Q4FunnelDrops.vue'
 import FailuresBar from '@/components/ga-dashboard/charts/FailuresBar.vue'
 import WebVitalsStack from '@/components/ga-dashboard/charts/WebVitalsStack.vue'
-import FlipBands from '@/components/ga-dashboard/charts/FlipBands.vue'
-import ReturningEventsBar from '@/components/ga-dashboard/charts/ReturningEventsBar.vue'
-import PagesCompareBar from '@/components/ga-dashboard/charts/PagesCompareBar.vue'
 
 // v2 — sections IV / V / VI
-import OnboardingMilestoneFunnel from '@/components/ga-dashboard/charts/OnboardingMilestoneFunnel.vue'
 import ToolUsageByRlv from '@/components/ga-dashboard/charts/ToolUsageByRlv.vue'
 import RecipeDifficultyKind from '@/components/ga-dashboard/charts/RecipeDifficultyKind.vue'
 import ExpertCollectableMatrix from '@/components/ga-dashboard/charts/ExpertCollectableMatrix.vue'
 import MisuseHintTally from '@/components/ga-dashboard/charts/MisuseHintTally.vue'
-import RecipeEntrySource from '@/components/ga-dashboard/charts/RecipeEntrySource.vue'
-import TimeToFirstAction from '@/components/ga-dashboard/charts/TimeToFirstAction.vue'
 import ApiFailureEndpoints from '@/components/ga-dashboard/charts/ApiFailureEndpoints.vue'
-import LocaleMissTop from '@/components/ga-dashboard/charts/LocaleMissTop.vue'
-import WasmLoadProfile from '@/components/ga-dashboard/charts/WasmLoadProfile.vue'
 
 import '@/components/ga-dashboard/tokens.css'
 import '@/components/ga-dashboard/dashboard.css'
@@ -46,38 +32,6 @@ const { snapshot, loading, error, isStale, staleHours, load } = useGaSnapshot()
 const win = ref<WindowKey>('7d')
 
 onMounted(load)
-
-const bucket = computed(() => snapshot.value?.windows[win.value] ?? null)
-
-const tldrQ1 = computed(() => {
-  const b = bucket.value
-  if (!b) return ''
-  const pages = b.pages.filter(p => p.views >= 5).sort((x, y) => y.views - x.views)
-  const topThree = pages.slice(0, 3).map(p => {
-    const s = stripPath(p.path)
-    return s === 'home' ? 'home' : `/${s}`
-  }).join(' · ')
-  const topChannel = [...b.channels].sort((x, y) => y.sessions - x.sessions)[0]
-  return `本期注意力集中在 ${topThree}。主要進站來源：${topChannel?.channel ?? '—'}（${fmtInt(topChannel?.sessions ?? 0)} sessions），決定哪個頁面值得繼續投資。`
-})
-
-const tldrQ2 = computed(() => {
-  const b = bucket.value
-  if (!b) return ''
-  const real = b.q4Funnels.filter(f => f.flag !== 'noise')
-  const worst = [...real].sort((x, y) => (x.to / x.from) - (y.to / y.from))[0]
-  const worstRate = worst ? (worst.to / worst.from * 100).toFixed(1) + '%' : '—'
-  const failTop = [...b.failures].sort((x, y) => y.count - x.count)[0]
-  return `最大流失：${worst?.name ?? '—'} 僅 ${worstRate}（${fmtInt(worst?.to ?? 0)}/${fmtInt(worst?.from ?? 0)}）。首要排除：${failTop?.reason ?? '無 failure'}（${fmtInt(failTop?.count ?? 0)} 次）。`
-})
-
-const tldrQ3 = computed(() => {
-  const b = bucket.value
-  if (!b) return ''
-  const g = b.glance.activeUsers
-  const topEvt = b.returningEvents[0]
-  return `回訪用戶 ${fmtPct(g.returningPct)}（${fmtInt(g.returning)}/${fmtInt(g.total)}），重複使用集中在「${eventLabel(topEvt?.event ?? '')}」（${fmtInt(topEvt?.count ?? 0)} 次／${fmtInt(topEvt?.users ?? 0)} 人）。`
-})
 </script>
 
 <template>
@@ -106,19 +60,13 @@ const tldrQ3 = computed(() => {
         <RegionSplitLedger :snapshot="snapshot" :window="win" />
 
         <section id="sec-1" class="q">
-          <SectionHead num="i." title="Q1：注意力落在哪裡" aside="頁面 · 來源 · 各頁健康度" />
-          <TldrLine :text="tldrQ1" />
-          <SubHead title="頁面瀏覽佔比" />
-          <PagesTreemap :data="snapshot.windows[win].pages" />
-          <SubHead title="進站來源" />
-          <ChannelsBar :data="snapshot.windows[win].channels" />
+          <SectionHead num="i." title="Q1：注意力落在哪裡" aside="各頁健康度" />
           <SubHead title="各頁健康度 · 對照中位數" />
           <PagesTable :data="snapshot.windows[win].pages" />
         </section>
 
         <section id="sec-2" class="q">
           <SectionHead num="ii." title="Q2：流程在哪裡漏" aside="漏斗 · 流失率 · 摩擦" />
-          <TldrLine :text="tldrQ2" />
           <SubHead title="漏斗 · Solver 與批量" />
           <SolverBatchFunnels :data="{ solver: snapshot.windows[win].solverFunnel, batch: snapshot.windows[win].batchFunnel }" />
           <SubHead title="模擬器 · 造訪 → 巨集匯出" />
@@ -131,24 +79,9 @@ const tldrQ3 = computed(() => {
           <WebVitalsStack :data="snapshot.windows[win].vitals" />
         </section>
 
-        <section id="sec-3" class="q">
-          <SectionHead num="iii." title="Q3：誰把份量帶進來" aside="新訪客 vs 回訪 · 他們做什麼" />
-          <TldrLine :text="tldrQ3" />
-          <SubHead title="翻轉 · 用戶 vs 工作階段" />
-          <FlipBands :data="snapshot.windows[win].flip" />
-          <SubHead title="回訪者在做什麼" />
-          <ReturningEventsBar :data="snapshot.windows[win].returningEvents" />
-          <SubHead title="頁面 · 全部 vs 回訪" />
-          <PagesCompareBar :data="{ all: snapshot.windows[win].pages, returning: snapshot.windows[win].returningPages }" />
-        </section>
-
         <!-- ============ IV. Q4 — 新訪客在哪一階停下 ============ -->
         <section id="sec-4" class="q">
-          <SectionHead num="iv." title="Q4：新訪客在哪一階停下" aside="新手引導 · 配方分類 · 漫長爬坡" />
-
-          <SubHead title="新手里程碑 · 獨立計數" aside="viewed_recipe · ran_solver · saw_macro · used_batch（彼此獨立，非漏斗）" />
-          <OnboardingMilestoneFunnel v-if="snapshot.windows[win].onboardingFunnel" :data="snapshot.windows[win].onboardingFunnel!" />
-          <EmptyChart v-else label="新手里程碑" hint="此區間尚無事件" />
+          <SectionHead num="iv." title="Q4：新訪客在哪一階停下" aside="配方分類 · 漫長爬坡" />
 
           <SubHead title="工具偏好 · 依配方等級分組" aside="不同 RLV 區間的玩家偏向哪個工具：模擬器 · 批量 · BOM" />
           <ToolUsageByRlv v-if="snapshot.windows[win].toolUsageByRlv" :data="snapshot.windows[win].toolUsageByRlv!" />
@@ -165,43 +98,20 @@ const tldrQ3 = computed(() => {
 
         <!-- ============ V. Q5 — 摩擦發生在哪裡 ============ -->
         <section id="sec-5" class="q section-break">
-          <SectionHead num="v." title="Q5：摩擦發生在哪裡" aside="達不到的期望 · 進入路徑 · 第一個動作" />
+          <SectionHead num="v." title="Q5：摩擦發生在哪裡" aside="達不到的期望" />
 
-          <div class="two-col">
-            <div class="col">
-              <SubHead title="誤用提示統計" aside="未來 in-app 引導優先序" />
-              <MisuseHintTally v-if="snapshot.windows[win].misuseSignals" :data="snapshot.windows[win].misuseSignals!" />
-              <EmptyChart v-else label="誤用提示統計" hint="此區間尚無事件" />
-            </div>
-            <div class="col">
-              <SubHead title="配方進入路徑" aside="使用者實際從哪裡打開配方" />
-              <RecipeEntrySource v-if="snapshot.windows[win].recipeEntrySource" :data="snapshot.windows[win].recipeEntrySource!" />
-              <EmptyChart v-else label="配方進入路徑" hint="此區間尚無事件" />
-            </div>
-          </div>
-
-          <SubHead title="首動作時間 × 第一個事件" aside="進站 → 第一個動作 · 他們先碰什麼" />
-          <TimeToFirstAction v-if="snapshot.windows[win].timeToFirstAction" :data="snapshot.windows[win].timeToFirstAction!" />
-          <EmptyChart v-else label="首動作時間" hint="此區間尚無事件" />
+          <SubHead title="誤用提示統計" aside="未來 in-app 引導優先序" />
+          <MisuseHintTally v-if="snapshot.windows[win].misuseSignals" :data="snapshot.windows[win].misuseSignals!" />
+          <EmptyChart v-else label="誤用提示統計" hint="此區間尚無事件" />
         </section>
 
         <!-- ============ VI. Q6 — 系統哪裡正在裂 ============ -->
         <section id="sec-6" class="q section-break">
-          <SectionHead num="vi." title="Q6：系統哪裡正在裂" aside="API 失敗 · WASM 載入 · 中文名缺失" />
+          <SectionHead num="vi." title="Q6：系統哪裡正在裂" aside="API 失敗" />
 
           <SubHead title="API 失敗 · 端點排行，按 API 與狀態碼分類" aside="補完既有 FailuresBar（只看 reason）" />
           <ApiFailureEndpoints v-if="snapshot.windows[win].apiFailures" :data="snapshot.windows[win].apiFailures!" />
           <EmptyChart v-else label="API 失敗端點" hint="此區間尚無事件" />
-
-          <!-- WASM perf is often the sparsest signal; keep it mid-section so the
-               page does not close on an empty box (peak-end). -->
-          <SubHead title="正式環境 WASM 載入分佈" aside="wasm_load_ms · worker_pool_init_ms · p50 / p95 · cold-start share" />
-          <WasmLoadProfile v-if="snapshot.windows[win].perfProfile" :data="snapshot.windows[win].perfProfile!" />
-          <EmptyChart v-else label="WASM 載入分佈" hint="此區間尚無事件" />
-
-          <SubHead title="中文名缺失 · top items 排行" aside="資料補完優先序" />
-          <LocaleMissTop v-if="snapshot.windows[win].localeMissTop" :data="snapshot.windows[win].localeMissTop!" />
-          <EmptyChart v-else label="中文名缺失" hint="此區間尚無事件" />
         </section>
       </template>
     </div>
@@ -241,10 +151,4 @@ const tldrQ3 = computed(() => {
 }
 section.q { margin-bottom: 96px; }
 .section-break { margin-top: 120px; }
-.two-col {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 80px;
-}
-.two-col .col > .subhead { margin-top: 24px; }
 </style>

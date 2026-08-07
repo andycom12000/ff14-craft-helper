@@ -923,22 +923,6 @@ async function buildBundle(client, propertyId, days) {
   })
   const pages = (pagesRes?.rows ?? []).map((r) => mapPageRow(r))
 
-  // --- Q1: channels -------------------------------------------------------
-  const channelsRes = await runReport(client, {
-    property, dateRanges,
-    dimensions: [{ name: 'sessionDefaultChannelGroup' }, { name: 'sessionSource' }],
-    metrics: [{ name: 'sessions' }, { name: 'totalUsers' }, { name: 'engagementRate' }],
-    orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
-    limit: 12,
-  })
-  const channels = (channelsRes?.rows ?? []).map((r) => ({
-    channel: r.dimensionValues[0].value,
-    source: r.dimensionValues[1].value,
-    sessions: Number(r.metricValues[0].value),
-    users: Number(r.metricValues[1].value),
-    engagement: Number(r.metricValues[2].value),
-  }))
-
   // --- Q2: funnels --------------------------------------------------------
   const evCounts = await fetchEventCounts(client, property, dateRanges, [
     'solver_start', 'solver_complete', 'solver_failed',
@@ -1017,45 +1001,23 @@ async function buildBundle(client, propertyId, days) {
   }, { soft: true })
   const vitals = buildVitalsRows(vitalsRes?.rows ?? [])
 
-  // --- Q3: flip -----------------------------------------------------------
+  // --- flip -----------------------------------------------------------
+  // newVsReturning × (totalUsers, sessions). No longer surfaced as its own
+  // dashboard chart (#196 cut FlipBands) or bundle field, but this query is
+  // PERMANENTLY required, not a transitional leftover: glance.activeUsers
+  // below reads all four of total/new/returning/returningPct off `flip.users`.
+  // #202 (dimension-less totalUsers query) only replaces the denominator
+  // behind `total`/`returningPct` — `new` and `returning` are plain per-row
+  // user counts and #202 explicitly does NOT touch them (its numerator was
+  // already clean; only the denominator was inflated). Do not delete this
+  // query when #202 lands, or the new/returning split on the hero band goes
+  // to zero.
   const flipRes = await runReport(client, {
     property, dateRanges,
     dimensions: [{ name: 'newVsReturning' }],
     metrics: [{ name: 'totalUsers' }, { name: 'sessions' }],
   })
   const flip = mapFlip(flipRes?.rows ?? [])
-
-  // --- Q3: returning events ----------------------------------------------
-  const retEvRes = await runReport(client, {
-    property, dateRanges,
-    dimensions: [{ name: 'eventName' }],
-    metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
-    dimensionFilter: { filter: { fieldName: 'newVsReturning', stringFilter: { value: 'returning' } } },
-    orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
-    limit: 25,
-  })
-  const returningEvents = (retEvRes?.rows ?? []).map((r) => ({
-    event: r.dimensionValues[0].value,
-    family: familyForEvent(r.dimensionValues[0].value),
-    count: Number(r.metricValues[0].value),
-    users: Number(r.metricValues[1].value),
-  }))
-
-  // --- Q3: returning pages -----------------------------------------------
-  const retPgRes = await runReport(client, {
-    property, dateRanges,
-    dimensions: [{ name: 'pagePath' }],
-    metrics: [{ name: 'screenPageViews' }, { name: 'totalUsers' }, { name: 'engagementRate' }],
-    dimensionFilter: { filter: { fieldName: 'newVsReturning', stringFilter: { value: 'returning' } } },
-    orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
-    limit: 15,
-  })
-  const returningPages = (retPgRes?.rows ?? []).map((r) => ({
-    path: r.dimensionValues[0].value,
-    returningViews: Number(r.metricValues[0].value),
-    returningUsers: Number(r.metricValues[1].value),
-    engagement: Number(r.metricValues[2].value),
-  }))
 
   // --- Q4: funnel drop rates (reuse existing helpers) ---------------------
   // Only comparable, single-meaning conversions. Dropped:
@@ -1142,8 +1104,8 @@ async function buildBundle(client, propertyId, days) {
 
   return {
     window: { days, startDate: fmt(start), endDate: fmt(today) },
-    glance, pages, channels, solverFunnel, batchFunnel, simulatorFunnel,
-    failures, vitals, flip, returningEvents, returningPages, q4Funnels, marketRegion,
+    glance, pages, solverFunnel, batchFunnel, simulatorFunnel,
+    failures, vitals, q4Funnels, marketRegion,
     ...v2,
   }
 }
@@ -1158,16 +1120,6 @@ async function buildBundle(client, propertyId, days) {
 //  api / endpoint / status / rlv / craft_kind / is_expert / is_collectable,
 //  and customUser:market_region.
 // ===========================================================================
-
-const SOURCE_LABELS = {
-  search: '搜尋',
-  queue: '佇列',
-  batch_target: '批量目標',
-  bom_drilldown: 'BOM 下鑽',
-  company_craft: '公司製作',
-  deep_link: '深層連結',
-  unknown: '未知 · 待查',
-}
 
 const MISUSE_META = {
   single_recipe_in_batch: {
@@ -1265,68 +1217,6 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
   // aggregates are never mutated.
   const out = {}
 
-  // --- Chart #2: onboardingFunnel ----------------------------------------
-  // first_session_milestone × customEvent:step (eventCount + totalUsers).
-  // Order canonically; map whatever step values exist, skip missing.
-  const onboardingRes = await runReport(client, {
-    property, dateRanges,
-    dimensions: [{ name: 'customEvent:step' }],
-    metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
-    dimensionFilter: { filter: {
-      fieldName: 'eventName', stringFilter: { value: 'first_session_milestone' } } },
-    limit: 20,
-  }, { soft: true })
-  const onboardingRows = onboardingRes?.rows ?? []
-  if (onboardingRows.length) {
-    const byStep = new Map()
-    for (const r of onboardingRows) {
-      byStep.set(r.dimensionValues[0].value, {
-        eventCount: Number(r.metricValues[0].value),
-        users: Number(r.metricValues[1].value),
-      })
-    }
-    const STEP_ORDER = ['viewed_recipe', 'ran_solver', 'saw_macro', 'used_batch']
-    const funnel = []
-    let prevUsers = 0
-    let first = true
-    for (const step of STEP_ORDER) {
-      const hit = byStep.get(step)
-      if (!hit) continue
-      // first_session_milestone steps are independent localStorage flags, not a
-      // strict funnel, so a later step can exceed an earlier one. Clamp to >= 0
-      // so the chart never renders a nonsensical negative "drop".
-      const dropFromPrev = first ? 0 : (prevUsers > 0 ? Math.max(0, 1 - hit.users / prevUsers) : 0)
-      funnel.push({ step, users: hit.users, eventCount: hit.eventCount, dropFromPrev })
-      prevUsers = hit.users
-      first = false
-    }
-    if (funnel.length) out.onboardingFunnel = funnel
-  }
-
-  // --- Chart #6: recipeEntrySource ---------------------------------------
-  // recipe_select × customEvent:source (eventCount + totalUsers).
-  const sourceRes = await runReport(client, {
-    property, dateRanges,
-    dimensions: [{ name: 'customEvent:source' }],
-    metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
-    dimensionFilter: { filter: {
-      fieldName: 'eventName', stringFilter: { value: 'recipe_select' } } },
-    orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
-    limit: 30,
-  }, { soft: true })
-  const sourceRows = sourceRes?.rows ?? []
-  if (sourceRows.length) {
-    out.recipeEntrySource = sourceRows.map((r) => {
-      const source = r.dimensionValues[0].value || 'unknown'
-      return {
-        source,
-        label: SOURCE_LABELS[source] ?? source,
-        eventCount: Number(r.metricValues[0].value),
-        uniqueUsers: Number(r.metricValues[1].value),
-      }
-    })
-  }
-
   // --- Chart #5: misuseSignals -------------------------------------------
   // page_misuse_hint × customEvent:type (eventCount + totalUsers→affectedUsers).
   const misuseRes = await runReport(client, {
@@ -1402,28 +1292,6 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
       .sort((a, b) => b.count - a.count)
       .slice(0, 10)
     out.apiFailures = { matrix, topEndpoints }
-  }
-
-  // --- Chart #8: localeMissTop -------------------------------------------
-  // recipe_name_locale_miss × (kind, item_id), top ~30 by occurrences.
-  const localeRes = await runReport(client, {
-    property, dateRanges,
-    dimensions: [{ name: 'customEvent:kind' }, { name: 'customEvent:item_id' }],
-    metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
-    dimensionFilter: { filter: {
-      fieldName: 'eventName', stringFilter: { value: 'recipe_name_locale_miss' } } },
-    orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
-    limit: 30,
-  }, { soft: true })
-  const localeRows = localeRes?.rows ?? []
-  if (localeRows.length) {
-    // TODO: join recipes.json/XIVAPI for itemName
-    out.localeMissTop = localeRows.map((r) => ({
-      kind: r.dimensionValues[0].value,
-      itemId: Number(r.dimensionValues[1].value),
-      occurrences: Number(r.metricValues[0].value),
-      affectedUsers: Number(r.metricValues[1].value),
-    }))
   }
 
   // --- Chart #4: taxonomy -------------------------------------------------
@@ -1712,11 +1580,6 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
     }))
   }
 
-  // --- Charts #9 & #10: perfProfile / timeToFirstAction ------------------
-  // TODO: perfProfile/timeToFirstAction need numeric perf events (wasm_load_ms,
-  // worker_pool_init_ms, time_to_first_action) instrumented + percentile
-  // aggregation — not available yet; charts show placeholder. OMITTED.
-
   return out
 }
 
@@ -1770,14 +1633,6 @@ function familyForPath(path) {
   if (path === '/timer') return 'gather'
   if (path === '/company-craft') return 'company'
   if (path === '/market') return 'market'
-  return 'meta'
-}
-
-function familyForEvent(event) {
-  if (event.startsWith('universalis')) return 'market'
-  if (event.startsWith('web_vitals') || event === 'page_view' || event === 'recipe_select') return 'meta'
-  if (event.startsWith('solver') || event.startsWith('batch') || event.startsWith('bom') || event.startsWith('gearset') || event.startsWith('queue')) return 'craft'
-  if (event === 'exception' || event === 'solver_failed' || event === 'batch_optimization_failed') return 'error'
   return 'meta'
 }
 

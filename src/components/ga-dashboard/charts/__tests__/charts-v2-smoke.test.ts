@@ -5,16 +5,11 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import { mount } from '@vue/test-utils'
 
-import OnboardingMilestoneFunnel from '../OnboardingMilestoneFunnel.vue'
 import ToolUsageByRlv from '../ToolUsageByRlv.vue'
 import RecipeDifficultyKind from '../RecipeDifficultyKind.vue'
 import ExpertCollectableMatrix from '../ExpertCollectableMatrix.vue'
 import MisuseHintTally from '../MisuseHintTally.vue'
-import RecipeEntrySource from '../RecipeEntrySource.vue'
-import TimeToFirstAction from '../TimeToFirstAction.vue'
 import ApiFailureEndpoints from '../ApiFailureEndpoints.vue'
-import LocaleMissTop from '../LocaleMissTop.vue'
-import WasmLoadProfile from '../WasmLoadProfile.vue'
 import RegionSplitLedger from '../../pieces/RegionSplitLedger.vue'
 
 import type { GaSnapshot } from '@/types/ga-snapshot'
@@ -28,13 +23,6 @@ beforeAll(() => {
     } as unknown as typeof ResizeObserver
   }
 })
-
-const onboarding = [
-  { step: 'viewed_recipe', users: 1052, eventCount: 3204, dropFromPrev: 0 },
-  { step: 'ran_solver', users: 624, eventCount: 1880, dropFromPrev: 0.407 },
-  { step: 'saw_macro', users: 588, eventCount: 1715, dropFromPrev: 0.058 },
-  { step: 'used_batch', users: 189, eventCount: 402, dropFromPrev: 0.679 },
-] as const
 
 const toolUsage = [
   { bucket: '≤300', selectCount: 152, simulatorCount: 24, batchTargetCount: 12, bomTargetCount: 88 },
@@ -60,34 +48,10 @@ const misuse = [
   { type: 'single_recipe_in_batch', label: 'Single recipe in batch', gloss: 'gloss', eventCount: 87, affectedUsers: 64 },
 ] as const
 
-const entrySource = [
-  { source: 'search', label: '搜尋', eventCount: 1842, uniqueUsers: 612 },
-  { source: 'unknown', label: '未知 · 待查', eventCount: 7, uniqueUsers: 6 },
-] as const
-
 const apiFailures = {
   matrix: [{ api: 'universalis', status: 404, count: 142 }],
   topEndpoints: [{ api: 'universalis', endpoint: '/Aether/38843', status: 404, count: 88 }],
 } as const
-
-const localeMiss = [
-  { kind: 'item', itemId: 38843, itemName: 'Claro Walnut Lumber', occurrences: 188, affectedUsers: 144 },
-] as const
-
-const perfProfile = {
-  wasmLoadMs: { p50: 612, p95: 1840, samples: 884 },
-  workerPoolInitMs: { p50: 188, p95: 520, samples: 884 },
-  coldStartShare: 0.42,
-  coldStartSubset: { wasmLoadMs: { p50: 1120, p95: 2680 }, workerPoolInitMs: { p50: 320, p95: 860 } },
-}
-
-const ttfa = {
-  durationMs: { p50: 8420, p75: 22100, p95: 184000, samples: 712 },
-  firstEventDistribution: [
-    { eventName: 'recipe_select', count: 281, medianMs: 6200 },
-    { eventName: 'theme_change', count: 88, medianMs: 3100 },
-  ],
-}
 
 const region = (g: { cht: number; intl: number; unset: number }) => ({
   cht: { value: g.cht, sparkPct: 0.5, secondary: 'x' },
@@ -108,10 +72,6 @@ function snapshotWith(byRegion: GaSnapshot['windows']['7d']['byRegion']): GaSnap
 }
 
 describe('GA dashboard v2 charts render without throwing', () => {
-  it('OnboardingMilestoneFunnel renders an svg', () => {
-    const w = mount(OnboardingMilestoneFunnel, { props: { data: onboarding as never } })
-    expect(w.find('svg').exists()).toBe(true)
-  })
   it('ToolUsageByRlv renders an svg', () => {
     const w = mount(ToolUsageByRlv, { props: { data: toolUsage as never } })
     expect(w.find('svg').exists()).toBe(true)
@@ -128,26 +88,9 @@ describe('GA dashboard v2 charts render without throwing', () => {
     const w = mount(MisuseHintTally, { props: { data: misuse as never } })
     expect(w.text()).toContain('Single recipe in batch')
   })
-  it('RecipeEntrySource shows the anomaly banner when unknown > 0', () => {
-    const w = mount(RecipeEntrySource, { props: { data: entrySource as never } })
-    expect(w.text()).toContain('異常')
-  })
-  it('TimeToFirstAction renders an svg and the event list', () => {
-    const w = mount(TimeToFirstAction, { props: { data: ttfa as never } })
-    expect(w.find('svg').exists()).toBe(true)
-    expect(w.text()).toContain('recipe_select')
-  })
   it('ApiFailureEndpoints renders the endpoint list', () => {
     const w = mount(ApiFailureEndpoints, { props: { data: apiFailures as never } })
     expect(w.text()).toContain('/Aether/38843')
-  })
-  it('LocaleMissTop renders the item table', () => {
-    const w = mount(LocaleMissTop, { props: { data: localeMiss as never } })
-    expect(w.text()).toContain('Claro Walnut Lumber')
-  })
-  it('WasmLoadProfile renders an svg', () => {
-    const w = mount(WasmLoadProfile, { props: { data: perfProfile as never } })
-    expect(w.find('svg').exists()).toBe(true)
   })
 })
 

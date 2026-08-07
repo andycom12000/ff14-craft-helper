@@ -9,7 +9,6 @@ const items = [
   { id: 'hero', num: '0', label: '概覽' },
   { id: 'sec-1', num: 'ɪ', label: '注意力落在哪裡' },
   { id: 'sec-2', num: 'ɪɪ', label: '流程在哪裡漏' },
-  { id: 'sec-3', num: 'ɪɪɪ', label: '誰把份量帶進來' },
   { id: 'sec-4', num: 'ɪᴠ', label: '新訪客在哪一階停下' },
   { id: 'sec-5', num: 'ᴠ', label: '摩擦發生在哪裡' },
   { id: 'sec-6', num: 'ᴠɪ', label: '系統哪裡正在裂' },
