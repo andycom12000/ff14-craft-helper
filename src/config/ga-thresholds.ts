@@ -270,6 +270,70 @@ export const GA_THRESHOLD_RULES: Rule[] = [
       '常亮區（邊界 5.75%）。歷史最佳 4.66% 之上 0.34pp，靠 #191 遲滯維持點亮（#193 決定 1）。' +
       '熄滅條件 = rate 掉到約 3.6%。',
   },
+  {
+    // #203：兩條「決定下一個功能」規則的管線就位，門檻數字本票**不訂**（票面明講，SOP 訂法見
+    // #194：掃 0.25pp × 跑對稱 CI 遲滯 × 標明落在常亮／過渡／全暗哪段——那是後續 SOP 掃描票的
+    // 工作，不是本票）。以「門檻待資料」的 placeholder 形式存在：
+    //
+    //   - `validFrom: '2026-08-28'`——`cross_server` 於 2026-07-31 人工註冊（#186 決定 5 /
+    //     #189 決定 2），28 天暗期滿窗日。同一日期已寫死在 GaDashboardView.vue 的
+    //     `chart-adoption` placeholder（`resolves-on="2026-08-28"`），這裡沿用同一份決議，不是
+    //     另訂。暗期內（`bundleDate < validFrom`）判定落在 `state: 'absent'`（`ga-evaluate.ts:
+    //     112-114`），不是熄滅也不是觸發。
+    //   - `trusted: false`——沿用 solver.failRate / solver.macroCopyRate 的既有模式（本檔上方）：
+    //     暗期結束、真實資料開始累積後，統計面的 `state`（fire/grey/clear）照樣算得出來，但
+    //     `fired` 恆為 false，直到維護者手動確認 SOP 掃描出的門檻數字合理才翻成 true。
+    //   - `threshold: 0` 搭 `dir: 'low'` 是刻意選的「數學上不可能觸發」佔位值——比例的 Wilson
+    //     下界恆 ≥ 0，`hi < 0` 永遠不成立，所以就算日後有人手滑把 `trusted` 提前翻成 `true`
+    //     卻忘了同步訂門檻，這條規則本身仍不會誤報 `fire`。**這個數字不是門檻**，只是「保證不會
+    //     誤觸發」的安全佔位，真正的門檻數字待 SOP 掃描票訂定後才會覆蓋。
+    id: 'adoption.crossServerRate',
+    cat: 'C',
+    dir: 'low',
+    threshold: 0,
+    pick: (b) => {
+      // `glance.adoption` 整條是 v2-additive optional（brand-new key，pre-#203 快照沒有這個
+      // 欄位且不會回填）——guard 用 `?? {}` 展開，同 solver.failRate 上方的坑（#201 review B2）。
+      const { crossServerBatches, batchStarts } = b.glance.adoption ?? {}
+      if (crossServerBatches == null || batchStarts == null) return undefined
+      return { obs: crossServerBatches, n: batchStarts }
+    },
+    label: '跨伺服器使用率',
+    nextStep: '門檻待 SOP 掃描後訂定；資料到位後看使用趨勢，評估跨伺服器功能要不要加強引導或維持現狀',
+    anchor: '#chart-adoption',
+    actionable: true,
+    trusted: false,
+    validFrom: '2026-08-28',
+    note:
+      '分子分母同源取 `batch_optimization_start`（#189 決定 2；`cross_server:true` / 全部），' +
+      '刻意不共用 `glance.batch.starts`（語意獨立，見票面 #203）。門檻數字本票不訂——見上方規則' +
+      '定義前的長註解。',
+  },
+  {
+    id: 'adoption.meldAdvisorRate',
+    cat: 'C',
+    dir: 'low',
+    threshold: 0,
+    pick: (b) => {
+      // 同上：`glance.adoption` 整條 optional，guard 同一種寫法。
+      const { meldApplies, meldAdvisorRuns } = b.glance.adoption ?? {}
+      if (meldApplies == null || meldAdvisorRuns == null) return undefined
+      return { obs: meldApplies, n: meldAdvisorRuns }
+    },
+    label: '鑲嵌建議採用率',
+    nextStep: '門檻待 SOP 掃描後訂定；資料到位後看建議產出到套用的轉換，評估要不要優化建議呈現或引導套用',
+    anchor: '#chart-adoption',
+    actionable: true,
+    trusted: false,
+    validFrom: '2026-08-28',
+    note:
+      '分子取 `gearset_apply_all` 且 `fields ∈ { meld_delta, meld_delta_single }`（鑲嵌建議的兩個' +
+      '寫入分支，#189 決定 2）；分母改用新事件 `meld_advisor_run`（#198，事件名免註冊、不吃 28 天' +
+      '暗期）——原本兩個候選分母（套用全部裝備 `gearset_apply_all` 總數 / 開啟配裝表' +
+      '`gearset_sheet_open`）分屬不同動線（建議在模擬器、配裝表在另一頁），比出來的數字沒有意義，' +
+      '已在 #189 決定 2 翻案（見票面 #203「⚠️ 鑲嵌採用率的分母經過一次翻案」）。門檻數字本票不訂——' +
+      '見上方規則定義前的長註解。',
+  },
 
   // ---------------------------------------------------------------------
   // D · 效能優化（優先序 4）—— 絆線，今天不會亮，見 #189 決定 5
@@ -295,9 +359,10 @@ export const GA_THRESHOLD_RULES: Rule[] = [
 // 刻意未收錄的規則（#189 已定義分子分母，但 MetricsBundle 上今天沒有對應欄位）
 //
 // - universalis 真故障率 —— 已於 #201 補上 `glance.api` 三欄並收進上面的規則表，不再列於此。
-// - 跨伺服器使用率、鑲嵌建議採用率（C 類新規則）—— 需要 `glance.adoption`，見 #203；門檻數值
-//   本身也還沒訂（#179 map「Not yet specified」，等 `cross_server` / `fields` 兩個 dim 約
-//   2026-08-28 滿窗才有資料可推）。
+// - 跨伺服器使用率、鑲嵌建議採用率 —— 已於 #203 補上 `glance.adoption` 四欄並收進上面的 C 類
+//   規則表（`adoption.crossServerRate` / `adoption.meldAdvisorRate`），以「門檻待資料」的
+//   placeholder 存在（`trusted: false` + `validFrom: '2026-08-28'`），不再列於此。門檻數值本身
+//   仍待 SOP 掃描票（見規則定義處的長註解）訂定。
 //
 // 等對應的 pipeline 票落地、MetricsBundle 補上欄位後，在這裡加規則即可——引擎不用動。
 // ---------------------------------------------------------------------------

@@ -939,6 +939,10 @@ async function buildBundle(client, propertyId, days) {
     'batch_add_recipe',
     'web_vitals',
     'wasm_load_failed', 'sab_unavailable',
+    // #203: meld-advisor adoption denominator. Unregistered event name (no
+    // dimension, no 28-day dark clock) — folding it into this existing query
+    // is a free "+0" per #189's pipeline cost table (item 6).
+    'meld_advisor_run',
   ])
 
   // Conversion funnels — entry → the value endpoint, NOT ending at failures.
@@ -1129,6 +1133,61 @@ async function buildBundle(client, propertyId, days) {
   }))
   const solverHuman = buildSolverHumanGlance(solverHumanRows)
 
+  // --- glance.adoption: cross-server usage + meld-advisor adoption (#203) --
+  // Two C-class "decide the next feature" denominators. Both custom dimensions
+  // (`cross_server`, `fields`) were hand-registered 2026-07-31 (no Admin API
+  // access on this property — #186 決定 5); neither backfills, so the series
+  // has a real 28-day dark window until roughly 2026-08-28 (see the
+  // `chart-adoption` placeholder in GaDashboardView.vue, which hard-codes the
+  // same date). `meld_advisor_run` needs none of that — it's an unregistered
+  // event name, folded into `evCounts` above instead of a dedicated query.
+  //
+  // `batchStarts` intentionally re-derives its own `batch_optimization_start`
+  // total from THIS query rather than reading `evCounts.get('batch_optimization_start')`
+  // (used by `glance.batch.starts` above) — same underlying event today, but a
+  // deliberately separate code path so the two denominators (batch health vs.
+  // cross-server-adoption rate) can diverge later without silently dragging
+  // each other along (#203 issue body: "語意獨立，刻意不與 batch.starts 共用").
+  const crossServerRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'customEvent:cross_server' }],
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: { filter: {
+      fieldName: 'eventName', stringFilter: { value: 'batch_optimization_start' } } },
+    limit: 10,
+  }, { soft: true })
+  const crossServerRows = (crossServerRes?.rows ?? []).map((r) => ({
+    crossServer: r.dimensionValues[0].value,
+    count: Number(r.metricValues[0].value),
+  }))
+
+  // `meldApplies` numerator: `gearset_apply_all` rows whose `fields` matches
+  // one of the meld-advisor's two writer branches (#189 決定 2) —
+  // useSimulator.ts's scope==='all' branch (`fields: 'meld_delta'`) and its
+  // scope==='this' branch (`fields: 'meld_delta_single'`). gearsets.ts:61's
+  // generic field-edit writer ALSO fires `gearset_apply_all`, but with a
+  // comma-joined `fields` list (e.g. `level,craftsmanship,control,cp`) — that
+  // form deliberately does not match either literal below, so it's excluded
+  // (it isn't a meld-advisor apply).
+  const meldFieldsRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'customEvent:fields' }],
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: { filter: {
+      fieldName: 'eventName', stringFilter: { value: 'gearset_apply_all' } } },
+    limit: 20,
+  }, { soft: true })
+  const meldFieldsRows = (meldFieldsRes?.rows ?? []).map((r) => ({
+    fields: r.dimensionValues[0].value,
+    count: Number(r.metricValues[0].value),
+  }))
+
+  const adoption = buildAdoptionGlance({
+    crossServerRows,
+    meldFieldsRows,
+    meldAdvisorRuns: evCounts.get('meld_advisor_run') ?? 0,
+  })
+
   // --- v2 dashboard fields (additive; OMITs unavailable fields) -----------
   const v2 = await buildV2Fields(client, property, dateRanges, { evCounts, flip })
 
@@ -1194,6 +1253,7 @@ async function buildBundle(client, propertyId, days) {
       universalisNoListing,
       universalisOtherFails,
     },
+    adoption,
   }
 
   return {
@@ -1368,6 +1428,48 @@ export function buildSolverHumanGlance(rows = []) {
 
 function gaBool(value) {
   return value === 'true' || value === '1'
+}
+
+// --- glance.adoption: cross-server + meld-advisor adoption denominators (#203) --
+// Pure function, unit-tested via `scripts/__tests__/ga-analyze.test.mjs` (same
+// node:test harness as buildSolverHumanGlance() above).
+//
+// `crossServerRows` is the (cross_server, count) breakdown of
+// `batch_optimization_start` (one runReport, dimensioned on `customEvent:
+// cross_server`) — `batchStarts` sums EVERY row (true / false / the
+// `(not set)` sentinel for events emitted before the dimension was
+// registered), `crossServerBatches` sums only the `true` rows. Both come out
+// of the SAME query so the denominator can never desync from its numerator's
+// source event (mirrors the universalis_fetch ok/status query above).
+//
+// `meldFieldsRows` is the (fields, count) breakdown of `gearset_apply_all` —
+// `meldApplies` sums only rows whose `fields` is exactly `meld_delta` or
+// `meld_delta_single` (the meld-advisor's two writer branches, #189 決定 2).
+// Any other `fields` value (e.g. the generic field-edit writer's
+// comma-joined `level,craftsmanship,control,cp`) is silently excluded — it's
+// a real apply, just not a meld-advisor one.
+//
+// `meldAdvisorRuns` is NOT derived from either row set — it's `evCounts.get(
+// 'meld_advisor_run')` from the plain event-count query (buildBundle), passed
+// straight through here so this function has a single return-shape contract
+// for all four `glance.adoption` fields.
+export function buildAdoptionGlance({ crossServerRows = [], meldFieldsRows = [], meldAdvisorRuns = 0 } = {}) {
+  let batchStarts = 0
+  let crossServerBatches = 0
+  for (const row of crossServerRows) {
+    const count = row.count ?? 0
+    batchStarts += count
+    if (gaBool(row.crossServer)) crossServerBatches += count
+  }
+
+  let meldApplies = 0
+  for (const row of meldFieldsRows) {
+    if (row.fields === 'meld_delta' || row.fields === 'meld_delta_single') {
+      meldApplies += row.count ?? 0
+    }
+  }
+
+  return { batchStarts, crossServerBatches, meldAdvisorRuns, meldApplies }
 }
 
 // --- universalis 真故障 vs 「查無掛單」判別 (#201) -------------------------

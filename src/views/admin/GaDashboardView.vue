@@ -176,12 +176,15 @@ const matrixMacroUntrusted = computed(() => isMetricUntrusted('chart-matrix', 's
             <EmptyChart v-else label="誤用提示統計" hint="此區間尚無事件" />
           </L1Item>
 
-          <!-- SLOT FOR FUTURE TICKET: net-new chart, spec §194 C2. Events are
-               already emitted (meld_advisor_run, cross-server usage) but the
-               chart component + glance.adoption fields don't exist yet.
+          <!-- SLOT FOR FUTURE TICKET (#211): net-new chart, spec §194 C2. Events
+               (meld_advisor_run, cross-server usage) AND `glance.adoption` /
+               ga-thresholds.ts rules (`adoption.crossServerRate`,
+               `adoption.meldAdvisorRate`) all landed in #203 — this L1Item is
+               still an EmptyChart because the chart COMPONENT itself is #211's
+               job, not #203's.
                暗期 placeholder（issue #208）：cross_server／fields 兩個維度約
-               2026-08-28 才滿 28 天觀測窗（見 ga-thresholds.ts 底部「刻意未收錄的規則」
-               註解 / #203）——早於這天不是「熄滅」，是「還沒到」，所以寫死可用日期而不是
+               2026-08-28 才滿 28 天觀測窗（見 ga-thresholds.ts 這兩條規則定義處的
+               長註解 / #203）——早於這天不是「熄滅」，是「還沒到」，所以寫死可用日期而不是
                泛泛的「資料累積中」，讓空框跟真的壞掉的圖區分開來。 -->
           <L1Item
             id="chart-adoption" title="功能採用率 · 跨服與鑲嵌" note="C · CROSS_SERVER / MELD_ADOPT"
@@ -190,7 +193,7 @@ const matrixMacroUntrusted = computed(() => isMetricUntrusted('chart-matrix', 's
           >
             <EmptyChart
               label="功能採用率 · 跨服與鑲嵌"
-              hint="事件已埋（#198）· cross_server／fields 兩維度約 28 天滿窗（#203）"
+              hint="pipeline 已接（#203）· cross_server／fields 兩維度約 28 天滿窗，圖表待 #211"
               resolves-on="2026-08-28"
             />
           </L1Item>

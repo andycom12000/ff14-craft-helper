@@ -681,6 +681,137 @@ describe('solver.failRate / solver.macroCopyRate — 人類分母（#200）', ()
   })
 })
 
+describe('adoption.crossServerRate / adoption.meldAdvisorRate — 門檻待資料 placeholder（#203）', () => {
+  const crossServerRule = () => GA_THRESHOLD_RULES.find((r) => r.id === 'adoption.crossServerRate')!
+  const meldAdvisorRule = () => GA_THRESHOLD_RULES.find((r) => r.id === 'adoption.meldAdvisorRate')!
+
+  it('兩條規則都是 C 類、trusted:false，validFrom 為 2026-08-28（cross_server／fields 兩維度 2026-07-31 註冊後的 28 天滿窗日）', () => {
+    expect(crossServerRule().cat).toBe('C')
+    expect(crossServerRule().trusted).toBe(false)
+    expect(crossServerRule().validFrom).toBe('2026-08-28')
+    expect(meldAdvisorRule().cat).toBe('C')
+    expect(meldAdvisorRule().trusted).toBe(false)
+    expect(meldAdvisorRule().validFrom).toBe('2026-08-28')
+  })
+
+  // AC「暗期內兩條規則的判定是 state: absent，不是熄滅也不是觸發」——即使 glance.adoption
+  // 這一期剛好帶了資料（例如維度提早生效或測試 fixture 疏忽），日期早於 validFrom 仍必須判 absent。
+  it('暗期內（bundleDate < 2026-08-28）即使 glance.adoption 有資料，仍判為 absent，不是 clear 也不是 fire', () => {
+    const bundle = makeBundle({
+      glance: {
+        activeUsers: { total: 1096, new: 728, returning: 519, returningPct: 0.474 },
+        solver: { starts: 13582, completes: 13153, fails: 231, completePct: 0.968 },
+        batch: { starts: 1340, completes: 1063, fails: 241, cancelled: 36, completePct: 0.793 },
+        bom: { calculates: 268, sentToBatch: 14, handoffPct: 0.0522 },
+        infra: { sabUnavailable: 90, wasmLoadFailed: 3 },
+        adoption: { batchStarts: 1323, crossServerBatches: 8, meldAdvisorRuns: 512, meldApplies: 233 },
+      },
+    }, '2026-08-01') // < validFrom
+    const [crossServer, meldAdvisor] = evaluate(bundle, [crossServerRule(), meldAdvisorRule()])
+    expect(crossServer.state).toBe('absent')
+    expect(crossServer.blockedBy).toBe('absent')
+    expect(crossServer.fired).toBe(false)
+    expect(meldAdvisor.state).toBe('absent')
+    expect(meldAdvisor.blockedBy).toBe('absent')
+    expect(meldAdvisor.fired).toBe(false)
+  })
+
+  it('validFrom 當天（含端點）+ glance.adoption 缺席（pre-#203 快照）時判為 absent，不拋錯（#201 review B2 同款坑）', () => {
+    const bundle = makeBundle({
+      glance: {
+        activeUsers: { total: 1096, new: 728, returning: 519, returningPct: 0.474 },
+        solver: { starts: 13582, completes: 13153, fails: 231, completePct: 0.968 },
+        batch: { starts: 1340, completes: 1063, fails: 241, cancelled: 36, completePct: 0.793 },
+        bom: { calculates: 268, sentToBatch: 14, handoffPct: 0.0522 },
+        infra: { sabUnavailable: 90, wasmLoadFailed: 3 },
+        // adoption 刻意省略——模擬 pre-#203 快照。
+      },
+    }, '2026-08-28')
+    expect(() => evaluate(bundle, [crossServerRule(), meldAdvisorRule()])).not.toThrow()
+    const [crossServer, meldAdvisor] = evaluate(bundle, [crossServerRule(), meldAdvisorRule()])
+    expect(crossServer.state).toBe('absent')
+    expect(crossServer.blockedBy).toBe('absent')
+    expect(crossServer.obs).toBeNull()
+    expect(crossServer.n).toBeNull()
+    expect(meldAdvisor.state).toBe('absent')
+    expect(meldAdvisor.blockedBy).toBe('absent')
+  })
+
+  it('adoption.crossServerRate 取 glance.adoption.crossServerBatches / batchStarts（不吃 glance.batch.starts）', () => {
+    const bundle = makeBundle({
+      glance: {
+        activeUsers: { total: 1096, new: 728, returning: 519, returningPct: 0.474 },
+        solver: { starts: 13582, completes: 13153, fails: 231, completePct: 0.968 },
+        // glance.batch.starts 刻意設成與 adoption.batchStarts 不同的值——如果 pick() 誤吃了
+        // glance.batch.starts，n 會是 1340 而不是 1323，測試會抓到。
+        batch: { starts: 1340, completes: 1063, fails: 241, cancelled: 36, completePct: 0.793 },
+        bom: { calculates: 268, sentToBatch: 14, handoffPct: 0.0522 },
+        infra: { sabUnavailable: 90, wasmLoadFailed: 3 },
+        adoption: { batchStarts: 1323, crossServerBatches: 8, meldAdvisorRuns: 512, meldApplies: 233 },
+      },
+    }, '2026-09-01')
+    const [v] = evaluate(bundle, [crossServerRule()])
+    expect(v.obs).toBe(8)
+    expect(v.n).toBe(1323)
+    expect(v.n).not.toBe(1340) // 不是 glance.batch.starts
+  })
+
+  it('adoption.meldAdvisorRate 取 glance.adoption.meldApplies / meldAdvisorRuns（新事件分母，不是 gearset_apply_all 總數或 gearset_sheet_open）', () => {
+    const bundle = makeBundle({
+      glance: {
+        activeUsers: { total: 1096, new: 728, returning: 519, returningPct: 0.474 },
+        solver: { starts: 13582, completes: 13153, fails: 231, completePct: 0.968 },
+        batch: { starts: 1340, completes: 1063, fails: 241, cancelled: 36, completePct: 0.793 },
+        bom: { calculates: 268, sentToBatch: 14, handoffPct: 0.0522 },
+        infra: { sabUnavailable: 90, wasmLoadFailed: 3 },
+        adoption: { batchStarts: 1323, crossServerBatches: 8, meldAdvisorRuns: 512, meldApplies: 233 },
+      },
+    }, '2026-09-01')
+    const [v] = evaluate(bundle, [meldAdvisorRule()])
+    expect(v.obs).toBe(233)
+    expect(v.n).toBe(512)
+  })
+
+  // threshold 佔位值（0 搭 dir:'low'）是刻意選的「數學上不可能觸發」——即使日後資料到位、
+  // 比例逼近 100%，Wilson 下界仍恆 ≥ 0，`hi < 0` 永遠不成立，state 不會是 'fire'。這條測試
+  // 直接釘住「資料到位後不會用未訂的門檻自動亮燈」這個驗收條件裡最容易被忽略的一半——
+  // 光靠 trusted:false 擋 fired 還不夠，因為若有人手滑提前把 trusted 翻成 true，這裡是第二層防線。
+  it('threshold 佔位值 0 + dir:low 在數學上不可能觸發，即使觀測到 100% 採用率也不會是 state: fire（trusted:false 之外的第二層防線）', () => {
+    const bundle = makeBundle({
+      glance: {
+        activeUsers: { total: 1096, new: 728, returning: 519, returningPct: 0.474 },
+        solver: { starts: 13582, completes: 13153, fails: 231, completePct: 0.968 },
+        batch: { starts: 1340, completes: 1063, fails: 241, cancelled: 36, completePct: 0.793 },
+        bom: { calculates: 268, sentToBatch: 14, handoffPct: 0.0522 },
+        infra: { sabUnavailable: 90, wasmLoadFailed: 3 },
+        // obs === n：100% 採用率，理論上最容易誤報 fire 的極端值。
+        adoption: { batchStarts: 1000, crossServerBatches: 1000, meldAdvisorRuns: 1000, meldApplies: 1000 },
+      },
+    }, '2026-09-01')
+    const [crossServer, meldAdvisor] = evaluate(bundle, [crossServerRule(), meldAdvisorRule()])
+    expect(crossServer.state).not.toBe('fire')
+    expect(crossServer.fired).toBe(false)
+    expect(meldAdvisor.state).not.toBe('fire')
+    expect(meldAdvisor.fired).toBe(false)
+  })
+
+  it('validFrom 之後、n 足夠、trusted:false 仍擋下 fired（blockedBy: not-trusted，與 solver.failRate 同款閘門）', () => {
+    const bundle = makeBundle({
+      glance: {
+        activeUsers: { total: 1096, new: 728, returning: 519, returningPct: 0.474 },
+        solver: { starts: 13582, completes: 13153, fails: 231, completePct: 0.968 },
+        batch: { starts: 1340, completes: 1063, fails: 241, cancelled: 36, completePct: 0.793 },
+        bom: { calculates: 268, sentToBatch: 14, handoffPct: 0.0522 },
+        infra: { sabUnavailable: 90, wasmLoadFailed: 3 },
+        adoption: { batchStarts: 1323, crossServerBatches: 8, meldAdvisorRuns: 512, meldApplies: 233 },
+      },
+    }, '2026-09-01')
+    const [v] = evaluate(bundle, [crossServerRule()])
+    expect(v.fired).toBe(false)
+    expect(v.blockedBy).toBe('not-trusted')
+  })
+})
+
 describe('GA_THRESHOLD_RULES（門檻表本身的基本健檢）', () => {
   it('id 全部唯一', () => {
     const ids = GA_THRESHOLD_RULES.map((r) => r.id)
