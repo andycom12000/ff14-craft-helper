@@ -16,6 +16,8 @@ function makeBundle(overrides: Partial<MetricsBundle> = {}, endDate = '2026-07-3
       batch: { starts: 1340, completes: 1063, fails: 241, cancelled: 36, completePct: 0.793 },
       bom: { calculates: 268, sentToBatch: 14, handoffPct: 0.0522 },
       infra: { sabUnavailable: 90, wasmLoadFailed: 3 },
+      // #189/#201 實測 28d：609/30741 = 1.98%，Wilson CI [1.83%, 2.14%] 跨過 2% 門檻，不觸發。
+      api: { universalisCalls: 30741, universalisRealFails: 609, universalisNoListing: 1160 },
     },
     pages: [],
     solverFunnel: [],
@@ -346,6 +348,7 @@ describe('evaluate()', () => {
         batch: { starts: 1340, completes: 1063, fails: 241, cancelled: 0, completePct: 0.793 },
         bom: { calculates: 268, sentToBatch: 14, handoffPct: 0.0522 },
         infra: { sabUnavailable: 0, wasmLoadFailed: 0 },
+        api: { universalisCalls: 30741, universalisRealFails: 609, universalisNoListing: 1160 },
       },
       misuseSignals: [
         { type: 'single_recipe_in_batch', label: '', gloss: '', eventCount: 0, affectedUsers: 100 },
@@ -410,6 +413,8 @@ describe('evaluate()', () => {
         batch: { starts: 1340, completes: 1300, fails: 10, cancelled: 0, completePct: 0.97 }, // 0.75% 遠低於 10% 門檻
         bom: { calculates: 268, sentToBatch: 45, handoffPct: 0.168 }, // 16.8% 高於 15% 門檻（dir low，好側）
         infra: { sabUnavailable: 0, wasmLoadFailed: 0 },
+        // universalis 真故障率 0.5%（10/2000）遠低於 2% 門檻（dir high，好側）。
+        api: { universalisCalls: 2000, universalisRealFails: 10, universalisNoListing: 50 },
       },
       // simulatorFunnel.macroCopy.count 沿用預設 399；399/3000 = 13.3% 高於門檻 10%（dir low，好側）。
       misuseSignals: [
@@ -437,6 +442,90 @@ describe('evaluate()', () => {
 
   it('evaluate() 對空規則表回傳空陣列', () => {
     expect(evaluate(makeBundle(), [])).toEqual([])
+  })
+})
+
+describe('api.universalisRealFailRate（#201）', () => {
+  const rule = () => GA_THRESHOLD_RULES.find((r) => r.id === 'api.universalisRealFailRate')!
+
+  it('取 glance.api.universalisRealFails / universalisCalls 當分子分母（不吃 apiFailures）', () => {
+    const bundle = makeBundle({
+      glance: {
+        activeUsers: { total: 1096, new: 728, returning: 519, returningPct: 0.474 },
+        solver: { starts: 13582, completes: 13153, fails: 231, completePct: 0.968 },
+        batch: { starts: 1340, completes: 1063, fails: 241, cancelled: 36, completePct: 0.793 },
+        bom: { calculates: 268, sentToBatch: 14, handoffPct: 0.0522 },
+        infra: { sabUnavailable: 90, wasmLoadFailed: 3 },
+        api: { universalisCalls: 30741, universalisRealFails: 609, universalisNoListing: 1160 },
+      },
+    })
+    const [v] = evaluate(bundle, [rule()])
+    expect(v.obs).toBe(609)
+    expect(v.n).toBe(30741)
+  })
+
+  // #201 review B2：`glance.api` 是 v2-additive optional 欄位——gh-data/history/ 下 77 份
+  // pre-#201 的每日快照是當天算好的固定檔，沒有這個欄位且永遠不會被回填。#205 遲早會把其中
+  // 一份餵進 evaluate()；若 pick() 對 `glance.api` 直接存取而不 guard，會在 evaluate() 的迴圈
+  // 裡整個拋錯（不是這一條判 absent，是全部規則的判定一起沒了——見 review 裡的失效情境）。
+  it('glance.api 整個欄位不存在（pre-#201 歷史快照）時判為 absent，不拋錯', () => {
+    const bundle = makeBundle({
+      glance: {
+        activeUsers: { total: 1096, new: 728, returning: 519, returningPct: 0.474 },
+        solver: { starts: 13582, completes: 13153, fails: 231, completePct: 0.968 },
+        batch: { starts: 1340, completes: 1063, fails: 241, cancelled: 36, completePct: 0.793 },
+        bom: { calculates: 268, sentToBatch: 14, handoffPct: 0.0522 },
+        infra: { sabUnavailable: 90, wasmLoadFailed: 3 },
+        // api 刻意省略——模擬 pre-#201 快照。
+      },
+    })
+    expect(() => evaluate(bundle, [rule()])).not.toThrow()
+    const [v] = evaluate(bundle, [rule()])
+    expect(v.state).toBe('absent')
+    expect(v.blockedBy).toBe('absent')
+    expect(v.obs).toBeNull()
+    expect(v.n).toBeNull()
+  })
+
+  it('#189/#201 實測 28d（609/30741 = 1.98%）：Wilson CI 跨過 2% 門檻，不觸發', () => {
+    const [v] = evaluate(makeBundle(), [rule()])
+    expect(v.fired).toBe(false)
+    expect(v.state).not.toBe('fire')
+  })
+
+  it('「查無掛單」404 併入分子時會誤報觸發——迴歸測這條規則絕對不能吃 universalisNoListing', () => {
+    // #189 決定 3 講的原始 bug：把 404 併進真故障分子會把 1.98% 誇大成 5.91%，遠超 2% 門檻。
+    // 這裡直接驗證 pick() 對外只吐 { obs: realFails, n: calls }，不論 no-listing 數值多大都不影響 obs。
+    const bundle = makeBundle({
+      glance: {
+        activeUsers: { total: 1096, new: 728, returning: 519, returningPct: 0.474 },
+        solver: { starts: 13582, completes: 13153, fails: 231, completePct: 0.968 },
+        batch: { starts: 1340, completes: 1063, fails: 241, cancelled: 36, completePct: 0.793 },
+        bom: { calculates: 268, sentToBatch: 14, handoffPct: 0.0522 },
+        infra: { sabUnavailable: 90, wasmLoadFailed: 3 },
+        // universalisNoListing 刻意設一個極大值——若 pick() 誤把它併進分子，obs 會偏離 609。
+        api: { universalisCalls: 30741, universalisRealFails: 609, universalisNoListing: 999999 },
+      },
+    })
+    const [v] = evaluate(bundle, [rule()])
+    expect(v.obs).toBe(609)
+  })
+
+  it('分子分母遠高於門檻且 n 足夠時觸發（迴歸真陽性路徑）', () => {
+    // 5.91%（含 404）版本用來確認規則本身在真的超標時能正確 fire——只是拿它餵真實資料不該發生。
+    const bundle = makeBundle({
+      glance: {
+        activeUsers: { total: 1096, new: 728, returning: 519, returningPct: 0.474 },
+        solver: { starts: 13582, completes: 13153, fails: 231, completePct: 0.968 },
+        batch: { starts: 1340, completes: 1063, fails: 241, cancelled: 36, completePct: 0.793 },
+        bom: { calculates: 268, sentToBatch: 14, handoffPct: 0.0522 },
+        infra: { sabUnavailable: 90, wasmLoadFailed: 3 },
+        api: { universalisCalls: 30741, universalisRealFails: 1817, universalisNoListing: 0 }, // 5.91%
+      },
+    })
+    const [v] = evaluate(bundle, [rule()])
+    expect(v.state).toBe('fire')
+    expect(v.fired).toBe(true)
   })
 })
 
