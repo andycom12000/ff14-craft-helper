@@ -42,6 +42,13 @@ describe('solveCacheKey', () => {
     expect(solveCacheKey(withTaxonomy)).toBe(solveCacheKey(plain))
   })
 
+  it('ignores analytics-only source (#198)', () => {
+    const plain = baseConfig()
+    const withSource = baseConfig({ source: 'machine' })
+    expect(solveCacheKey(withSource)).toBe(solveCacheKey(plain))
+    expect(solveCacheKey(baseConfig({ source: 'user' }))).toBe(solveCacheKey(plain))
+  })
+
   it('treats undefined optional fields the same as absent', () => {
     expect(solveCacheKey(baseConfig({ strict_quality: undefined }))).toBe(solveCacheKey(baseConfig()))
   })

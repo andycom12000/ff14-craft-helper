@@ -5,6 +5,8 @@ import type { MarketData } from '@/api/universalis'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 import type { FoodBuff } from '@/engine/food-medicine'
+import { trackEvent } from '@/utils/analytics'
+import { computeRecipeTaxonomy, flattenTaxonomyForEvent } from '@/utils/recipe-taxonomy'
 
 /**
  * The pricing API throws this when no market server/DC is selected. Since #135
@@ -45,6 +47,13 @@ export function useMeldAdvisor(world: () => string) {
     runController = controller
     advice.value = 'loading'
     progress.value = null
+    // #198: `meld_advisor_run` — the denominator of the meld-advisor adoption
+    // rate (numerator: `gearset_apply_all` with fields ∈ meld_delta /
+    // meld_delta_single). This is the single canonical entry point the card's
+    // ride-along and toggle-on-after-solve callers both go through, so it
+    // fires once per real run regardless of caller. Event name is unregistered
+    // (no dimension clock) — only the count matters, taxonomy is a bonus.
+    trackEvent('meld_advisor_run', flattenTaxonomyForEvent(computeRecipeTaxonomy(recipe)))
     try {
       // Costing a plan by gil needs a market server. Without one, run the engine
       // with an EMPTY price map instead of hard-blocking — adviseMeld then

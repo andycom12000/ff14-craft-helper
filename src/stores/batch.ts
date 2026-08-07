@@ -37,7 +37,7 @@ export type {
   BatchTargetStatus,
 }
 
-export type BatchAddMethod = 'search' | 'paste_teamcraft' | 'queue_import' | 'favorite' | 'cross_page_send'
+export type BatchAddMethod = 'search' | 'paste_teamcraft' | 'queue_import' | 'favorite' | 'cross_page_send' | 'ocr_import'
 
 const defaultProgress = () => ({
   completed: 0,

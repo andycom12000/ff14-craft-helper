@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:scripts": "node --test scripts/__tests__/*.test.mjs",
     "test:e2e": "playwright test",
     "test:e2e:fast": "playwright test --grep-invert @wasm-heavy",
     "test:e2e:ui": "playwright test --ui",

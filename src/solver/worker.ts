@@ -292,10 +292,13 @@ export function solveCraft(
   const runIndex = (solverRerunCounts.get(fp) ?? 0) + 1
   solverRerunCounts.set(fp, runIndex)
 
+  const gearBucket = classifyGearBucket(config.crafter_level, config.craftsmanship, config.control)
+
   trackEvent('solver_start', {
     crafter_level: config.crafter_level, recipe_level: config.recipe_level,
     hq_target: config.hq_target,
-    gear_bucket: classifyGearBucket(config.crafter_level, config.craftsmanship, config.control),
+    gear_bucket: gearBucket,
+    source: config.source,
     ...(config.taxonomy ?? {}),
   })
   if (runIndex >= 2) trackEvent('solver_rerun', { run_index: runIndex })
@@ -308,6 +311,8 @@ export function solveCraft(
         action_count: r.actions.length, steps: r.steps,
         wasm_duration_ms: r.wasmDur !== undefined ? Math.round(r.wasmDur) : undefined,
         cache_hit: r.cacheHit === true,
+        gear_bucket: gearBucket,
+        source: config.source,
         ...(config.taxonomy ?? {}),
       })
       return r
@@ -317,7 +322,16 @@ export function solveCraft(
       // button, #132) is not a solve failure — recording it would inflate
       // `solver_failed` and mis-arm the input-change-after-fail audit.
       if (!(err instanceof SolveCancelledError)) {
-        trackEvent('solver_failed', { reason: err.message })
+        // #198: `solver_failed` previously carried NEITHER taxonomy nor gear_bucket
+        // (only `reason`), so the human/machine discriminator (craft_kind absence
+        // OR source ∈ machine values) would classify 100% of failures as machine.
+        // Both fields now mirror solver_start/solver_complete.
+        trackEvent('solver_failed', {
+          reason: err.message,
+          gear_bucket: gearBucket,
+          source: config.source,
+          ...(config.taxonomy ?? {}),
+        })
         trackError(`solver_failed: ${err.message}`)
         noteSolverFailed()
       }

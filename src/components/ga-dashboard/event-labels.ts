@@ -29,6 +29,7 @@ const LABELS: Record<string, string> = {
   recipe_select:            '選擇配方',
   recipe_name_locale_miss:  '中文名缺失',
   simulator_entry_source:   '模擬器進入來源',
+  meld_advisor_run:         '鑲嵌建議 · 執行',
 
   // Meta
   web_vitals:      '效能指標',

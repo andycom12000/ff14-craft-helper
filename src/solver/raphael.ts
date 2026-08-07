@@ -45,10 +45,10 @@ export interface SolverConfig {
    */
   strict_quality?: boolean
   /**
-   * Optional recipe taxonomy for analytics enrichment. Only user-initiated
-   * solves (SolverPanel) should pass this. Internal callers (batch-optimizer,
-   * buff-recommender) leave it undefined so taxonomy fields are omitted from
-   * solver_start events they trigger.
+   * Optional recipe taxonomy for analytics enrichment. Set by every caller
+   * as of #198 (previously user-initiated solves only) — see `source` below
+   * for how human vs. machine solves stay distinguishable now that taxonomy
+   * is universal.
    */
   taxonomy?: {
     rlv: number
@@ -57,6 +57,25 @@ export interface SolverConfig {
     is_collectable: boolean
     craft_kind: string
   }
+  /**
+   * Human/machine tag for the solver_start / solver_complete / solver_failed
+   * events (#198). `'user'` = a direct, one-shot user action — SolverPanel
+   * (calls `solveCraft` directly) and `useMeldPlayground`'s forward 試算台
+   * (calls the `solveCraftForRecipe` façade with an explicit `source: 'user'`
+   * override). `'machine'` = the façade's default for every OTHER caller
+   * (batch-optimizer, buff-recommender, meld-advisor's reverse search — all
+   * loop-driven). See `CraftRequestOptions.source` in `solver/api.ts` for the
+   * override contract.
+   *
+   * Cross-cutover note (kept until the 71-day retention window fully rotates
+   * past the fix date, then this comment + the pipeline's craft_kind-absence
+   * leg can be deleted): before this field existed, `craft_kind` absence
+   * ((not set) or '') was the ONLY human/machine signal (façade never set
+   * taxonomy). The pipeline discriminator must keep OR-ing both legs —
+   * `craft_kind` absent OR `source` ∈ machine values — so the classification
+   * stays continuous across the fix date instead of flipping.
+   */
+  source?: 'user' | 'machine'
 }
 
 export interface SolverResult {

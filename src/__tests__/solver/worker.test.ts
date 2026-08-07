@@ -71,4 +71,92 @@ describe('solveCraft taxonomy payload', () => {
     expect(calls.length).toBeGreaterThanOrEqual(1)
     expect(calls[calls.length - 1][1]).not.toHaveProperty('stars')
   })
+
+  // #198: solver_start already carried gear_bucket; solver_complete / solver_failed
+  // didn't. All three now carry gear_bucket + source so the pipeline's human/machine
+  // discriminator (and the completion-rate ledger) can classify every solver event
+  // consistently, not just solver_start.
+  it('emits solver_start with source when provided', async () => {
+    const { solveCraft, waitForWasm } = await import('@/solver/worker')
+    await waitForWasm()
+
+    solveCraft({
+      crafter_level: 100, recipe_level: 640,
+      craftsmanship: 4000, control: 4000, cp: 600,
+      hq_target: 80,
+      source: 'user',
+    } as any).catch(() => {})
+
+    expect(vi.mocked(trackEvent)).toHaveBeenCalledWith('solver_start', expect.objectContaining({
+      source: 'user', gear_bucket: expect.any(String),
+    }))
+  })
+
+  it('emits solver_failed with gear_bucket, source, and taxonomy (previously bare {reason})', async () => {
+    const { solveCraft, waitForWasm } = await import('@/solver/worker')
+    await waitForWasm()
+
+    const promise = solveCraft({
+      crafter_level: 100, recipe_level: 640,
+      craftsmanship: 4000, control: 4000, cp: 600,
+      hq_target: 80,
+      source: 'machine',
+      taxonomy: { stars: 2, is_expert: false, is_collectable: false, craft_kind: 'normal' },
+    } as any)
+    promise.catch(() => {})
+
+    // Fail the in-flight request by firing an `error` message from the fake worker.
+    // requestId is 0: `vi.resetModules()` in beforeEach re-imports the module fresh,
+    // resetting its internal `nextRequestId` counter, and this is the first
+    // `solveCraft` call in this test. A macrotask flush (not just a microtask) is
+    // needed because dispatch only happens after `cachedSolve`'s internal awaits
+    // (ensureInit / lookup) settle.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const instance = FakeWorker.instances[FakeWorker.instances.length - 1]
+    instance.fireMessage({ type: 'error', requestId: 0, error: 'boom' })
+    await promise.catch(() => {})
+
+    expect(vi.mocked(trackEvent)).toHaveBeenCalledWith('solver_failed', expect.objectContaining({
+      reason: 'boom',
+      gear_bucket: expect.any(String),
+      source: 'machine',
+      stars: 2, is_expert: false, is_collectable: false, craft_kind: 'normal',
+    }))
+  })
+
+  // Fix 4b (reviewer-flagged): worker.ts:314-315 added gear_bucket/source to
+  // solver_complete too, but the added lines had zero test coverage — deleting
+  // them wouldn't turn anything red. Mirrors the solver_failed test above but
+  // resolves the fake worker's request instead of failing it.
+  it('emits solver_complete with gear_bucket, source, and taxonomy', async () => {
+    const { solveCraft, waitForWasm } = await import('@/solver/worker')
+    await waitForWasm()
+
+    const promise = solveCraft({
+      crafter_level: 100, recipe_level: 640,
+      craftsmanship: 4000, control: 4000, cp: 600,
+      hq_target: 80,
+      source: 'user',
+      taxonomy: { stars: 2, is_expert: false, is_collectable: false, craft_kind: 'normal' },
+    } as any)
+    promise.catch(() => {})
+
+    // Same requestId=0 / macrotask-flush reasoning as the solver_failed test
+    // above (fresh module → nextRequestId resets; cachedSolve's internal
+    // awaits delay dispatch past a microtask).
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const instance = FakeWorker.instances[FakeWorker.instances.length - 1]
+    instance.fireMessage({
+      type: 'result',
+      requestId: 0,
+      result: { actions: ['BasicSynthesis'], progress: 100, quality: 50, steps: 1 },
+    })
+    await promise
+
+    expect(vi.mocked(trackEvent)).toHaveBeenCalledWith('solver_complete', expect.objectContaining({
+      gear_bucket: expect.any(String),
+      source: 'user',
+      stars: 2, is_expert: false, is_collectable: false, craft_kind: 'normal',
+    }))
+  })
 })

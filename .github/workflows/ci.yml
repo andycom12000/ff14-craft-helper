@@ -48,6 +48,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test
+      # vitest.config.ts deliberately excludes scripts/** (ETL/pipeline scripts,
+      # run via node:test instead — see build-game-data.test.mjs's precedent).
+      # Runs in this job (not a new one) so it rides the `test` required status
+      # check instead of adding an unrequired job that would strand PRs waiting
+      # on a check nobody configured as required.
+      - run: npm run test:scripts
 
   build:
     runs-on: ubuntu-latest

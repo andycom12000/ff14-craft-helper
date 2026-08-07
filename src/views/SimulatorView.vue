@@ -13,6 +13,8 @@ import { useSimulator } from '@/composables/useSimulator'
 import { useSolverInputAudit } from '@/composables/useSolverInputAudit'
 import type { Recipe } from '@/stores/recipe'
 import { recipeHardGateReasons, describeHardGateReasons } from '@/services/recipe-gating'
+import { trackEvent } from '@/utils/analytics'
+import { computeRecipeTaxonomy, flattenTaxonomyForEvent } from '@/utils/recipe-taxonomy'
 
 import StatusBar from '@/components/simulator/StatusBar.vue'
 import BuffDisplay from '@/components/simulator/BuffDisplay.vue'
@@ -85,9 +87,19 @@ const macros = computed(() =>
   }),
 )
 
+// #198: the desktop cockpit's quick-copy buttons — previously the only one of
+// the three macro-copy paths that fired NO analytics event at all.
 async function copyMacro(text: string, index: number) {
   try {
     await navigator.clipboard.writeText(text)
+    trackEvent('solver_macro_copy', {
+      macro_index: index,
+      total_macros: macros.value.length,
+      action_count: simStore.actions.length,
+      wait_time: 3,
+      include_echo: true,
+      ...(recipe.value ? flattenTaxonomyForEvent(computeRecipeTaxonomy(recipe.value)) : {}),
+    })
     ElMessage.success(`巨集 ${index + 1} 已複製`)
   } catch {
     ElMessage.error('複製失敗，請手動複製')

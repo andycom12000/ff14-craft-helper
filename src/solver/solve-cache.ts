@@ -1,8 +1,9 @@
 /**
  * Solve-result cache (spec 2026-07-07 §4 PR-1, Tier A1).
  * Key = SOLVER_CACHE_EPOCH + canonical JSON of the FULL SolverConfig minus
- * `taxonomy` (analytics-only — different callers attach different taxonomy
- * for the same solve, and it never affects the solution).
+ * `taxonomy` and `source` (both analytics-only — different callers attach
+ * different taxonomy/source for the same solve, and neither affects the
+ * solution; #198 added `source` alongside the pre-existing `taxonomy`).
  * Replays previously-computed solutions only — zero quality trade-off.
  */
 import { SolveCancelledError } from './errors'
@@ -24,7 +25,7 @@ function canonicalize(value: unknown): unknown {
 }
 
 export function solveCacheKey(config: SolverConfig): string {
-  const { taxonomy: _taxonomy, ...rest } = config
+  const { taxonomy: _taxonomy, source: _source, ...rest } = config
   return `${SOLVER_CACHE_EPOCH}:${JSON.stringify(canonicalize(rest))}`
 }
 

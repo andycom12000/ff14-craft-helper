@@ -8,6 +8,8 @@ import { DocumentCopy, ArrowRight } from '@element-plus/icons-vue'
 import type { TodoItem } from '@/stores/batch'
 import ItemName from '@/components/common/ItemName.vue'
 import ConfirmNewBatch from '@/components/batch/ConfirmNewBatch.vue'
+import { trackEvent } from '@/utils/analytics'
+import { computeRecipeTaxonomy, flattenTaxonomyForEvent } from '@/utils/recipe-taxonomy'
 
 const props = defineProps<{ items: TodoItem[] }>()
 const emit = defineEmits<{
@@ -87,17 +89,38 @@ function getMacros(index: number): string[] {
   return macroCache.value.get(index) ?? []
 }
 
-async function copyText(text: string, label = '巨集') {
+/** Returns true on success — callers that gate analytics on the copy actually
+ *  landing (copyMacro below) need this; copyRecipeName doesn't and ignores it. */
+async function copyText(text: string, label = '巨集'): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text)
     ElMessage.success(`${label}已複製`)
+    return true
   } catch {
     ElMessage.error('複製失敗')
+    return false
   }
 }
 
-async function copyMacro(text: string) {
-  copyText(text, '巨集')
+// #198: batch's macro copy — the third of three copy paths, previously the
+// only one with zero analytics coverage at all (the simulator's MacroExport
+// path had an event but no taxonomy; SimulatorView's cockpit quick-copy had
+// neither). `item` gives us the taxonomy source directly (TodoItem.recipe).
+// Fires solver_macro_copy ONLY on a successful clipboard write — the other
+// two paths (MacroExport.vue, SimulatorView.vue) both await success first, so
+// all three copy paths must agree on what counts as "a copy" before they can
+// be merged into one macro-copy-rate numerator.
+async function copyMacro(text: string, item: TodoItem, macroIndex: number, totalMacros: number) {
+  const copied = await copyText(text, '巨集')
+  if (!copied) return
+  trackEvent('solver_macro_copy', {
+    macro_index: macroIndex,
+    total_macros: totalMacros,
+    action_count: item.actions.length,
+    wait_time: 3,
+    include_echo: true,
+    ...flattenTaxonomyForEvent(computeRecipeTaxonomy(item.recipe)),
+  })
 }
 
 async function copyRecipeName(name: string, index?: number) {
@@ -259,7 +282,7 @@ function requestNewBatch() {
         <div v-if="getMacros(index).length > 0" class="todo-actions">
           <!-- Quick copy: single macro = one button, multiple = numbered buttons -->
           <template v-if="getMacros(index).length === 1">
-            <el-button size="small" type="primary" @click="copyMacro(getMacros(index)[0])">
+            <el-button size="small" type="primary" @click="copyMacro(getMacros(index)[0], item, 0, getMacros(index).length)">
               複製巨集
             </el-button>
           </template>
@@ -269,7 +292,7 @@ function requestNewBatch() {
               :key="mi"
               size="small"
               type="primary"
-              @click="copyMacro(getMacros(index)[mi])"
+              @click="copyMacro(getMacros(index)[mi], item, mi, getMacros(index).length)"
             >
               巨集{{ mi + 1 }}
             </el-button>
@@ -285,9 +308,9 @@ function requestNewBatch() {
         <div v-for="(macro, mi) in getMacros(index)" :key="mi" class="macro-block">
           <div class="macro-header">
             <el-text size="small" tag="b">巨集 {{ mi + 1 }}</el-text>
-            <el-button size="small" type="primary" @click="copyMacro(macro)">複製</el-button>
+            <el-button size="small" type="primary" @click="copyMacro(macro, item, mi, getMacros(index).length)">複製</el-button>
           </div>
-          <pre class="code-block" @click="copyMacro(macro)">{{ macro }}</pre>
+          <pre class="code-block" @click="copyMacro(macro, item, mi, getMacros(index).length)">{{ macro }}</pre>
         </div>
       </div>
     </div>
