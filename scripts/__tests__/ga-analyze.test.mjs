@@ -22,6 +22,7 @@ import {
   classifyUniversalisFetchRow,
   buildActiveUsersGlance,
   marketRegionBucket,
+  buildSolverHumanGlance,
 } from '../dev/ga-analyze.mjs'
 
 test('craft_kind === "(not set)" is machine, regardless of source (pre-fix leg)', () => {
@@ -215,4 +216,68 @@ test('"cht" / "intl" pass through as their own buckets', () => {
 
 test('an unrecognized value returns null so callers can skip it, not silently misfile it', () => {
   assert.equal(marketRegionBucket('some-unexpected-value'), null)
+})
+
+// Unit tests for `buildSolverHumanGlance` — the glance.solver human-face
+// denominators (#200). #187/#189's stated acceptance bar is that the
+// human-only completePct comes out ≤100% (the machine-loop-polluted full
+// population had 63/71 historical days >100%); getting the per-row filter
+// wrong here silently reintroduces that same impossible number under a new
+// field name instead of fixing it.
+test('buildSolverHumanGlance(): counts only human rows per event, machine rows are dropped entirely', () => {
+  const rows = [
+    { eventName: 'solver_start', craftKind: 'normal', source: 'user', count: 100 },
+    { eventName: 'solver_start', craftKind: '(not set)', count: 200 }, // pre-fix machine
+    { eventName: 'solver_start', craftKind: 'quick', source: 'machine', count: 50 }, // post-fix machine
+    { eventName: 'solver_complete', craftKind: 'normal', source: 'user', count: 95 },
+    { eventName: 'solver_complete', craftKind: '', count: 190 }, // pre-fix machine, empty-string leg
+    { eventName: 'solver_failed', craftKind: 'expert', source: 'user', count: 5 },
+    { eventName: 'solver_failed', craftKind: '(not set)', count: 3 },
+  ]
+  const g = buildSolverHumanGlance(rows)
+  assert.equal(g.humanStarts, 100)
+  assert.equal(g.humanCompletes, 95)
+  assert.equal(g.humanFails, 5)
+})
+
+test('buildSolverHumanGlance(): humanCompletePct = humanCompletes / humanStarts, not the machine-polluted totals', () => {
+  const rows = [
+    { eventName: 'solver_start', craftKind: 'normal', source: 'user', count: 100 },
+    { eventName: 'solver_start', craftKind: '(not set)', count: 900 }, // would push completePct >100% if counted
+    { eventName: 'solver_complete', craftKind: 'normal', source: 'user', count: 96 },
+    { eventName: 'solver_complete', craftKind: '(not set)', count: 950 }, // machine completes > machine starts
+  ]
+  const g = buildSolverHumanGlance(rows)
+  // If the machine rows leaked in, starts=1000/completes=1046 would push this past 1 (>100%) —
+  // exactly the #181/#189 bug this function exists to fix. Human-only must stay a clean ratio.
+  assert.equal(g.humanStarts, 100)
+  assert.equal(g.humanCompletes, 96)
+  assert.equal(g.humanCompletePct, 0.96)
+  assert.ok(g.humanCompletePct <= 1, 'human completePct must be ≤100% — the #200 acceptance bar')
+})
+
+test('buildSolverHumanGlance(): humanCompletePct is 0 (not NaN/Infinity) when humanStarts is 0', () => {
+  const g = buildSolverHumanGlance([
+    { eventName: 'solver_start', craftKind: '(not set)', count: 500 }, // all machine
+  ])
+  assert.equal(g.humanStarts, 0)
+  assert.equal(g.humanCompletePct, 0)
+})
+
+test('buildSolverHumanGlance(): empty/missing rows default every field to 0, not undefined', () => {
+  assert.deepEqual(buildSolverHumanGlance([]), {
+    humanStarts: 0, humanCompletes: 0, humanFails: 0, humanCompletePct: 0,
+  })
+  assert.deepEqual(buildSolverHumanGlance(), {
+    humanStarts: 0, humanCompletes: 0, humanFails: 0, humanCompletePct: 0,
+  })
+})
+
+test('buildSolverHumanGlance(): an eventName outside the solver_* set is ignored, not miscounted', () => {
+  const g = buildSolverHumanGlance([
+    { eventName: 'batch_optimization_start', craftKind: 'normal', source: 'user', count: 999 },
+  ])
+  assert.equal(g.humanStarts, 0)
+  assert.equal(g.humanCompletes, 0)
+  assert.equal(g.humanFails, 0)
 })

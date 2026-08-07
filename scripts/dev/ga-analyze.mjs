@@ -1097,6 +1097,38 @@ async function buildBundle(client, propertyId, days) {
     else if (cls === 'other-fail') universalisOtherFails += count
   }
 
+  // --- glance.solver: human-face denominators (#200) ----------------------
+  // Applies isMachineSolveRow() (#198) to solver's OWN funnel counts — until
+  // now the discriminator was wired into exactly one consumer
+  // (toolUsageByRlv.simulatorCount, #198/#190) while glance.solver.starts/
+  // completes/fails stayed full-population (machine + human) denominators.
+  // craft_kind + source ride along on ALL THREE solver_* events so each row
+  // can be classified before aggregating — combined into ONE runReport across
+  // solver_start/_complete/_failed (#189's pipeline cost table counts this as
+  // "+1", not "+3"). `starts`/`completes`/`fails`/`completePct` below are left
+  // untouched (still full-population, per #200 issue body: "既有四欄維持全量
+  // （含機器），新增人類面"); only the five new `human*`/`macroCopies` fields
+  // are added.
+  const solverHumanRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [
+      { name: 'eventName' },
+      { name: 'customEvent:craft_kind' },
+      { name: 'customEvent:source' },
+    ],
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: { filter: { fieldName: 'eventName', inListFilter: {
+      values: ['solver_start', 'solver_complete', 'solver_failed'] } } },
+    limit: 500,
+  }, { soft: true })
+  const solverHumanRows = (solverHumanRes?.rows ?? []).map((r) => ({
+    eventName: r.dimensionValues[0].value,
+    craftKind: r.dimensionValues[1].value,
+    source: r.dimensionValues[2].value,
+    count: Number(r.metricValues[0].value),
+  }))
+  const solverHuman = buildSolverHumanGlance(solverHumanRows)
+
   // --- v2 dashboard fields (additive; OMITs unavailable fields) -----------
   const v2 = await buildV2Fields(client, property, dateRanges, { evCounts, flip })
 
@@ -1128,6 +1160,14 @@ async function buildBundle(client, propertyId, days) {
       fails: evCounts.get('solver_failed') ?? 0,
       completePct: (evCounts.get('solver_start') ?? 0)
         ? (evCounts.get('solver_complete') ?? 0) / (evCounts.get('solver_start') ?? 1) : 0,
+      // Human-face denominators (#200) — see buildSolverHumanGlance() below.
+      ...solverHuman,
+      // solver_macro_copy is fired ONLY from the three human-facing copy UIs
+      // (SimulatorView, MacroExport, batch TodoList) — none of the machine-
+      // loop callers (batch-optimizer / buff-recommender / meld-advisor) ever
+      // reach a macro-copy button, so this is already 100% human with no
+      // isMachineSolveRow() filtering needed (#187/#189).
+      macroCopies: evCounts.get('solver_macro_copy') ?? 0,
     },
     batch: {
       starts: evCounts.get('batch_optimization_start') ?? 0,
@@ -1247,6 +1287,44 @@ const MACHINE_SOURCE_VALUES = new Set(['machine'])
 export function isMachineSolveRow({ craftKind, source } = {}) {
   if (CRAFT_KIND_ABSENT_VALUES.has(craftKind ?? '(not set)')) return true
   return MACHINE_SOURCE_VALUES.has(source)
+}
+
+// --- glance.solver human-face denominators (#200) --------------------------
+// Pure function, unit-tested via `scripts/__tests__/ga-analyze.test.mjs` (same
+// node:test harness as isMachineSolveRow() above, which this reuses per row).
+//
+// This is the "套進全部分母" half of #200: isMachineSolveRow() used to gate
+// exactly one consumer (toolUsageByRlv.simulatorCount). Here it's applied to
+// solver's OWN glance denominators — the ones #181/#183/#187 flagged as
+// polluted (`solver.completePct` was >100% on 63/71 historical days because
+// the machine loop inflates `solver_start` far more than `solver_complete`).
+//
+// `rows` is the combined (eventName, craft_kind, source, count) breakdown for
+// solver_start/_complete/_failed from ONE runReport (see buildBundle) — kept
+// as a single query per #189's pipeline cost table ("+1", not "+3").
+//
+// Deliberately NOT clamped to [0, 1]: #187 決定 3 makes `completePct` ≤ 100%
+// on the human-only denominator the acceptance bar for #200 itself. If the
+// real pipeline run still comes out >100% after this filter, that's a new
+// fact demanding its own diagnostic ticket (#187 決定 3), not something to
+// paper over here with Math.min().
+export function buildSolverHumanGlance(rows = []) {
+  let humanStarts = 0
+  let humanCompletes = 0
+  let humanFails = 0
+  for (const row of rows) {
+    if (isMachineSolveRow({ craftKind: row.craftKind, source: row.source })) continue
+    const count = row.count ?? 0
+    if (row.eventName === 'solver_start') humanStarts += count
+    else if (row.eventName === 'solver_complete') humanCompletes += count
+    else if (row.eventName === 'solver_failed') humanFails += count
+  }
+  return {
+    humanStarts,
+    humanCompletes,
+    humanFails,
+    humanCompletePct: humanStarts ? humanCompletes / humanStarts : 0,
+  }
 }
 
 function gaBool(value) {
@@ -1456,7 +1534,16 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
   //     correctly) but are largely (not set) on solver_complete, so per-cell
   //     completeRate for the expert/collectable cells is unreliable. TODO:
   //     emit is_expert/is_collectable on solver_complete too.
-  //   - craft_kind is largely (not set) on both — craftKind rates are weak.
+  //   - craft_kind + source ride along on the matrix and craftKindBreakdown
+  //     queries below SOLELY so isMachineSolveRow() (#198) can filter each row
+  //     before aggregating (#200) — pre-fix, every machine-loop row has NO
+  //     is_expert/is_collectable either, so they all piled into the
+  //     (false,false) cell; post-fix (once #198 deploys) the façade DOES set
+  //     real taxonomy on machine rows, so without this filter they'd instead
+  //     spread across whichever cell matches the recipe's real is_expert/
+  //     is_collectable — silently diluting every cell with machine noise
+  //     either way. Filtering makes both charts human-only, matching
+  //     glance.solver.human* below.
   // rlvHistogram: recipe_select × customEvent:rlv bucketed wide.
   const rlvHistRes = await runReport(client, {
     property, dateRanges,
@@ -1467,15 +1554,24 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
     limit: 100,
   }, { soft: true })
   // matrix: solver_start/solver_complete grouped by (is_expert, is_collectable),
-  // macroCopies from solver_macro_copy grouped the same way.
-  const matrixDims = [{ name: 'customEvent:is_expert' }, { name: 'customEvent:is_collectable' }]
+  // macroCopies from solver_macro_copy grouped the same way. craft_kind/source
+  // are carried but NOT part of the cell key — see isMachineSolveRow() filter
+  // in the accumulate() closure below. Limit raised past the plain 4-cell
+  // count (2×2) now that craft_kind (~7 values incl. absent forms) × source
+  // (~3) multiply the row count — bounded, not a combinatorial blowup.
+  const matrixDims = [
+    { name: 'customEvent:is_expert' },
+    { name: 'customEvent:is_collectable' },
+    { name: 'customEvent:craft_kind' },
+    { name: 'customEvent:source' },
+  ]
   const taxStartsRes = await runReport(client, {
     property, dateRanges,
     dimensions: matrixDims,
     metrics: [{ name: 'eventCount' }],
     dimensionFilter: { filter: {
       fieldName: 'eventName', stringFilter: { value: 'solver_start' } } },
-    limit: 50,
+    limit: 200,
   }, { soft: true })
   const taxCompletesRes = await runReport(client, {
     property, dateRanges,
@@ -1483,7 +1579,7 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
     metrics: [{ name: 'eventCount' }],
     dimensionFilter: { filter: {
       fieldName: 'eventName', stringFilter: { value: 'solver_complete' } } },
-    limit: 50,
+    limit: 200,
   }, { soft: true })
   const taxMacroRes = await runReport(client, {
     property, dateRanges,
@@ -1491,24 +1587,29 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
     metrics: [{ name: 'eventCount' }],
     dimensionFilter: { filter: {
       fieldName: 'eventName', stringFilter: { value: 'solver_macro_copy' } } },
-    limit: 50,
+    limit: 200,
   }, { soft: true })
-  // craftKindBreakdown: solver_start / solver_complete × customEvent:craft_kind.
+  // craftKindBreakdown: solver_start / solver_complete × customEvent:craft_kind,
+  // human-filtered via isMachineSolveRow() (#200) — `source` rides along
+  // purely for that filter, same reasoning as matrixDims above. Without it,
+  // once #198 deploys, machine-loop rows would carry real craft_kind values
+  // (quick/normal/expert) and silently inflate those buckets instead of
+  // collecting harmlessly under the '(not set)'/'' buckets like they do today.
   const kindStartsRes = await runReport(client, {
     property, dateRanges,
-    dimensions: [{ name: 'customEvent:craft_kind' }],
+    dimensions: [{ name: 'customEvent:craft_kind' }, { name: 'customEvent:source' }],
     metrics: [{ name: 'eventCount' }],
     dimensionFilter: { filter: {
       fieldName: 'eventName', stringFilter: { value: 'solver_start' } } },
-    limit: 50,
+    limit: 100,
   }, { soft: true })
   const kindCompletesRes = await runReport(client, {
     property, dateRanges,
-    dimensions: [{ name: 'customEvent:craft_kind' }],
+    dimensions: [{ name: 'customEvent:craft_kind' }, { name: 'customEvent:source' }],
     metrics: [{ name: 'eventCount' }],
     dimensionFilter: { filter: {
       fieldName: 'eventName', stringFilter: { value: 'solver_complete' } } },
-    limit: 50,
+    limit: 100,
   }, { soft: true })
   const rlvHistRows = rlvHistRes?.rows ?? []
   const taxStartsRows = taxStartsRes?.rows ?? []
@@ -1536,10 +1637,18 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
         cells.set(cellKey(e, c), { isExpert: e, isCollectable: c, starts: 0, completes: 0, macroCopies: 0 })
       }
     }
+    // #200: skip machine-originated rows BEFORE bucketing into cells — see the
+    // matrixDims comment above. `taxMacroRows` doesn't strictly need this
+    // (solver_macro_copy is already 100% human, see glance.solver.macroCopies
+    // above), but every row here does carry craft_kind, so it filters through
+    // as a no-op rather than needing special-casing.
     const accumulate = (rows, field) => {
       for (const r of rows) {
         const e = gaBool(r.dimensionValues[0].value)
         const c = gaBool(r.dimensionValues[1].value)
+        const craftKind = r.dimensionValues[2]?.value
+        const source = r.dimensionValues[3]?.value
+        if (isMachineSolveRow({ craftKind, source })) continue
         const cell = cells.get(cellKey(e, c))
         if (cell) cell[field] += Number(r.metricValues[0].value)
       }
@@ -1553,20 +1662,29 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
       macroCopyRate: cell.completes > 0 ? cell.macroCopies / cell.completes : 0,
     }))
 
-    // craftKindBreakdown
+    // craftKindBreakdown — same #200 human filter. Filtering out machine rows
+    // means the '(not set)'/'' buckets (today's pre-fix machine signature)
+    // disappear entirely from the output, leaving only real craft kinds
+    // (normal/quick/expert/custom_delivery/company) reported by humans.
     const kindStarts = new Map()
     for (const r of kindStartsRows) {
-      kindStarts.set(r.dimensionValues[0].value, Number(r.metricValues[0].value))
+      const craftKind = r.dimensionValues[0].value
+      const source = r.dimensionValues[1]?.value
+      if (isMachineSolveRow({ craftKind, source })) continue
+      kindStarts.set(craftKind, (kindStarts.get(craftKind) ?? 0) + Number(r.metricValues[0].value))
     }
     const kindCompletes = new Map()
     for (const r of kindCompletesRows) {
-      kindCompletes.set(r.dimensionValues[0].value, Number(r.metricValues[0].value))
+      const craftKind = r.dimensionValues[0].value
+      const source = r.dimensionValues[1]?.value
+      if (isMachineSolveRow({ craftKind, source })) continue
+      kindCompletes.set(craftKind, (kindCompletes.get(craftKind) ?? 0) + Number(r.metricValues[0].value))
     }
     const craftKindBreakdown = [...kindStarts.entries()].map(([kind, starts]) => {
       const completes = kindCompletes.get(kind) ?? 0
-      // Clamp: completes/starts can exceed 1 because the two counts come from
-      // separate queries and craft_kind is unreliable across event types
-      // (largely '(not set)' on solver_start/complete — see TODO above).
+      // Clamp: completes/starts can still exceed 1 even after human-filtering
+      // because the two counts come from separate queries (a session that
+      // starts inside the window but completes just after it, or vice versa).
       return { kind, starts, completeRate: starts > 0 ? Math.min(1, completes / starts) : 0 }
     })
 
