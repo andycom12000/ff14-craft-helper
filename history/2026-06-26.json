@@ -11,10 +11,10 @@
       },
       "glance": {
         "activeUsers": {
-          "total": 374,
+          "total": 314,
           "new": 136,
           "returning": 203,
-          "returningPct": 0.5427807486631016
+          "returningPct": 0.6464968152866242
         },
         "solver": {
           "starts": 4623,
@@ -1131,10 +1131,10 @@
       },
       "glance": {
         "activeUsers": {
-          "total": 706,
+          "total": 575,
           "new": 355,
           "returning": 303,
-          "returningPct": 0.42917847025495753
+          "returningPct": 0.5269565217391304
         },
         "solver": {
           "starts": 11750,
@@ -2285,10 +2285,10 @@
       },
       "glance": {
         "activeUsers": {
-          "total": 1134,
+          "total": 920,
           "new": 625,
           "returning": 444,
-          "returningPct": 0.3915343915343915
+          "returningPct": 0.4826086956521739
         },
         "solver": {
           "starts": 21345,
