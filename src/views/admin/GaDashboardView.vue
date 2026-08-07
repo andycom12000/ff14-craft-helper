@@ -284,6 +284,20 @@ const bomHandoffPct = computed(() => {
    96/120/56px system and the section-break/dual-grid classes it drove. */
 .layer-2 {
   margin-top: 112px;
+  /* Target row height for the Layer II continuous report strip (issue #197
+     body: "列高約 140px"; spec #194 §E3's "density, not saturation" decision
+     is measured against this number — #192's 933px vs 1969px comparison
+     assumes charts that actually render at this height, not charts clipped
+     down to it). `L2Row.vue`'s `.l2-chart` does NOT enforce this today —
+     see its comment. Chart-by-chart path to actually hitting it:
+       - ToolUsageByRlv: drops sharply once RLV goes raw + top-8-aggregated
+         (#209) — today's per-bucket rows are the tallest offender.
+       - ExpertCollectableMatrix + the two net-new Layer II charts
+         (裝備水準×求解結果, and whatever else lands): #211.
+       - PagesTable: UNCLAIMED. Needs its own row-count reduction (it grows
+         with page count, no ticket owns this yet) — flag if scoping #209/
+         #211's follow-up work. */
+  --l2-band-h: 140px;
 }
 .layer-1, .layer-2 {
   margin-bottom: 0;

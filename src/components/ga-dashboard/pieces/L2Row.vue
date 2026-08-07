@@ -69,17 +69,15 @@ defineProps<{
   white-space: normal;
 }
 .l2-chart {
-  /* Density, not saturation, carries the Layer II "less important" signal
-     (spec #194 §E3 — the measured alternative, going-blind-with-a-filter,
-     nearly doubled Layer II's total height in the #192 prototype). Real
-     chart components size themselves off their own data (some ship a fixed
-     SVG height taller than a report-strip row), so this is a hard container
-     constraint, not a suggestion: content past 140px scrolls instead of
-     blowing the row out. */
-  height: 140px;
+  /* Target row height is `--l2-band-h`, set on the Layer II container
+     (GaDashboardView.vue's `.layer-2` — see the comment there for which
+     chart is owned by which ticket to get there). NOT enforced here: the
+     four existing charts render their own data-driven SVG/table height
+     today (some 3-5× taller than the target), and clipping/scrolling them
+     to fit would hide real data rather than make the chart itself compact
+     — worse than the "Layer II is too tall" problem density was meant to
+     fix. This box is intentionally un-constrained until each chart is
+     compacted to actually fit. */
   padding: 12px 0;
-  box-sizing: border-box;
-  overflow-y: auto;
-  overflow-x: hidden;
 }
 </style>
