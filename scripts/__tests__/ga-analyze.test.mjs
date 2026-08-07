@@ -568,6 +568,29 @@ test('runReport(): does not warn when response.rowCount is absent (dimension-les
   assert.equal(calls.length, 0)
 })
 
+// #209 review 2: a deliberate top-N query (e.g. apiEndpointRes, whose
+// downstream only reads the top 10 rows anyway) fired this warning as
+// permanent noise on every `--snapshot` run. `opts.topN` lets that specific
+// call site opt out — every other call site stays warn-eligible by default.
+test('runReport(): does not warn when opts.topN is true, even if rowCount exceeds limit', async () => {
+  const calls = await captureWarn(() => runReport(
+    fakeClient({ rowCount: 572, rows: [] }),
+    { limit: 50 },
+    { topN: true },
+  ))
+  assert.equal(calls.length, 0)
+})
+
+test('runReport(): still warns when opts.topN is false/absent, even alongside other opts like soft', async () => {
+  const calls = await captureWarn(() => runReport(
+    fakeClient({ rowCount: 141, rows: [] }),
+    { limit: 100 },
+    { soft: true },
+  ))
+  assert.equal(calls.length, 1)
+  assert.match(calls[0], /TRUNCATED/)
+})
+
 test('describeRequest(): labels an eventName-filtered request by its stringFilter value', () => {
   const label = describeRequest({
     dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { value: 'solver_start' } } },

@@ -429,7 +429,7 @@ export function describeRequest(request) {
 export async function runReport(client, request, opts = {}) {
   try {
     const [response] = await client.runReport(request)
-    // #209 review: `limit: 200` on the raw RLV queries silently truncated
+    // #209 review 1: `limit: 200` on the raw RLV queries silently truncated
     // real data before this check existed (7d had 103 keys, 28d had 141 —
     // both under the OLD limit:100, but the failure mode is the same shape
     // for ANY query here the moment its true row count grows past whatever
@@ -439,7 +439,19 @@ export async function runReport(client, request, opts = {}) {
     // for free, instead of relying on someone noticing a chart looks thin.
     // response.rowCount is undefined for aggregate-only responses (no
     // dimensions), so the comparison naturally no-ops for those.
-    if (request.limit && response.rowCount > request.limit) {
+    //
+    // #209 review 2: this fired as permanent noise on `apiEndpointRes`
+    // (rowCount 192–572 vs limit 50, every single `--snapshot` run) because
+    // that query is a DELIBERATE top-N leaderboard whose downstream only
+    // reads the top 10 anyway — nothing is lost by truncating it. A warning
+    // that fires on every cron run stops meaning anything, which would have
+    // buried the ONE genuinely-exhaustive query that starts silently
+    // truncating in the future among permanent expected noise. `opts.topN`
+    // is how a call site declares "I deliberately only want the top N rows,
+    // truncation here is expected, do not warn" — every other call site
+    // stays warn-eligible by default (bias: an extra warning is cheap, a
+    // missed real truncation is not).
+    if (!opts.topN && request.limit && response.rowCount > request.limit) {
       console.warn(
         `  ⚠ TRUNCATED: ${describeRequest(request)} — rowCount=${response.rowCount} > limit=${request.limit} `
         + `(${response.rowCount - request.limit} row(s) silently dropped by GA4, raise the limit)`,
@@ -949,6 +961,11 @@ async function buildBundle(client, propertyId, days) {
   const fmt = (d) => d.toISOString().slice(0, 10)
 
   // --- Q1: pages ----------------------------------------------------------
+  // Top-N (#209 review 2): `pages` is rendered as a "top pages" leaderboard
+  // (bundle field consumed directly, no further slicing downstream) —
+  // `orderBys`+`limit: 20` IS the product intent, not an accidental cap.
+  // Long-tail paths (rare query-string variants etc.) are meant to fall off;
+  // nothing downstream needs the exhaustive page-path set to sum correctly.
   const pagesRes = await runReport(client, {
     property, dateRanges,
     dimensions: [{ name: 'pagePath' }, { name: 'pageTitle' }],
@@ -959,7 +976,7 @@ async function buildBundle(client, propertyId, days) {
     ],
     orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
     limit: 20,
-  })
+  }, { topN: true })
   const pages = (pagesRes?.rows ?? []).map((r) => mapPageRow(r))
 
   // --- Q2: funnels --------------------------------------------------------
@@ -1017,6 +1034,13 @@ async function buildBundle(client, propertyId, days) {
   }
 
   // --- Q2: failures -------------------------------------------------------
+  // NOT top-N (#209 review 2): `orderBys`/`limit` here are display-order
+  // only — FailuresBar.vue renders every row it's given (re-sorts itself,
+  // never slices), and `reason` is a free-form error MESSAGE (`err.message`
+  // at the throw site, not an enum), so its cardinality isn't bounded the
+  // way e.g. misuse `type` is. A truncation here would silently hide a real,
+  // possibly-rare failure reason from the diagnostic chart — stays
+  // warn-eligible.
   const failuresRes = await runReport(client, {
     property, dateRanges,
     dimensions: [{ name: 'eventName' }, { name: 'customEvent:reason' }],
@@ -1689,6 +1713,11 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
 
   // --- Chart #5: misuseSignals -------------------------------------------
   // page_misuse_hint × customEvent:type (eventCount + totalUsers→affectedUsers).
+  // NOT top-N (#209 review 2): downstream maps every row it gets with no
+  // slice — `out.misuseSignals` is meant to be the complete breakdown.
+  // `type` is an enum emitted by useFunnelMisuseDetector.ts (currently 3
+  // fixed values via MISUSE_META, unknown types fall back to a raw label),
+  // so `limit: 30` has real headroom; `orderBys` is just display order.
   const misuseRes = await runReport(client, {
     property, dateRanges,
     dimensions: [{ name: 'customEvent:type' }],
@@ -1715,6 +1744,13 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
 
   // --- Chart #7: apiFailures ---------------------------------------------
   // matrix: api_failure × (api, status). topEndpoints: × (api, endpoint, status).
+  // NOT top-N (#209 review 2): `matrix` re-aggregates EVERY row it gets into
+  // `matrixMap` below (no slice) — it's meant to be the full api×status
+  // breakdown, not a leaderboard. `api`/`status` are both small closed sets
+  // (a couple of API names, a handful of HTTP status codes), so `limit: 50`
+  // has real headroom; `orderBys` only affects iteration order into the Map,
+  // not what gets counted. Contrast with `apiEndpointRes` right below, which
+  // IS top-N.
   const apiMatrixRes = await runReport(client, {
     property, dateRanges,
     dimensions: [{ name: 'customEvent:api' }, { name: 'customEvent:status' }],
@@ -1724,6 +1760,11 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
     orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
     limit: 50,
   }, { soft: true })
+  // Top-N (#209 review 2): downstream `topEndpoints` below takes only the
+  // top 10 rows (`.sort().slice(0, 10)`) — this query's rowCount already
+  // exceeds `limit: 50` on every real window (192/401/572 across 7d/14d/28d
+  // in a live probe), which is expected and benign here, unlike the
+  // exhaustive RLV/matrix queries where a missing row corrupts a sum.
   const apiEndpointRes = await runReport(client, {
     property, dateRanges,
     dimensions: [
@@ -1736,7 +1777,7 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
       fieldName: 'eventName', stringFilter: { value: 'api_failure' } } },
     orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
     limit: 50,
-  }, { soft: true })
+  }, { soft: true, topN: true })
   const apiMatrixRows = apiMatrixRes?.rows ?? []
   const apiEndpointRows = apiEndpointRes?.rows ?? []
   if (apiMatrixRows.length || apiEndpointRows.length) {
