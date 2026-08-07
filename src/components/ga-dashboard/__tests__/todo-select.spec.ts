@@ -7,6 +7,7 @@
 import { describe, it, expect } from 'vitest'
 import { buildTodoLedger } from '../todo-select'
 import type { Verdict } from '@/analytics/ga-evaluate'
+import type { Rule } from '@/config/ga-thresholds'
 
 const BUNDLE_DATE = '2026-07-31'
 
@@ -64,13 +65,75 @@ describe('buildTodoLedger()', () => {
     ]
     const result = buildTodoLedger(verdicts, BUNDLE_DATE, 28)
     expect(result.top.map((r) => r.id)).toEqual(['a'])
-    expect(result.footNote).toBe('另有 1 個訊號因埋點待修不可用 · #187')
+    expect(result.footNote).toBe('另有 1 個訊號目前不可用（埋點待修／資料缺席／分母不足）· #187')
   })
 
   it('footNote 在 N === 0 時是 undefined（自己消失）', () => {
     const verdicts = [makeVerdict({ id: 'a', fired: true, state: 'fire', streak: 1, gap: 0.8 })]
     const result = buildTodoLedger(verdicts, BUNDLE_DATE, 28)
     expect(result.footNote).toBeUndefined()
+  })
+
+  // ── 常駐註腳 N 的完整推導（#191「熄滅有四種成因」表的結語：資料缺席/分母不足不可歸類為熄滅，
+  //    要掛在這條註腳上，不能悄悄從畫面消失）───────────────────────────────
+  it('blockedBy 為 insufficient-n 的規則算進常駐註腳 N', () => {
+    const verdicts = [
+      makeVerdict({ id: 'a', fired: true, state: 'fire', streak: 1, gap: 0.8 }),
+      makeVerdict({ id: 'lown', fired: false, state: 'absent', blockedBy: 'insufficient-n', obs: 5, n: 20, gap: 0.5 }),
+    ]
+    const result = buildTodoLedger(verdicts, BUNDLE_DATE, 28)
+    expect(result.footNote).toBe('另有 1 個訊號目前不可用（埋點待修／資料缺席／分母不足）· #187')
+  })
+
+  it('absent 且沒有其他介面在解釋（指標整條從 bundle 消失，validFrom 已到、threshold 已訂）→ 算進常駐註腳 N', () => {
+    const rules: Rule[] = [
+      { id: 'funnel:Solver → Macro', cat: 'B', dir: 'low', threshold: 0.1, pick: () => undefined, label: '漏斗', nextStep: '', anchor: '', actionable: true, trusted: true },
+    ]
+    const verdicts = [
+      makeVerdict({ id: 'funnel:Solver → Macro', fired: false, state: 'absent', blockedBy: 'absent', obs: null, n: null, gap: null, threshold: 0.1 }),
+    ]
+    const result = buildTodoLedger(verdicts, BUNDLE_DATE, 28, rules)
+    expect(result.footNote).toBe('另有 1 個訊號目前不可用（埋點待修／資料缺席／分母不足）· #187')
+  })
+
+  it('absent 但 threshold 尚未訂定（#203）→ 不算進常駐註腳（有別的地方在講，不是埋點壞了）', () => {
+    const rules: Rule[] = [
+      { id: 'adoption.crossServerRate', cat: 'C', dir: 'low', pick: () => undefined, label: '跨伺服器使用率', nextStep: '', anchor: '', actionable: true, trusted: false },
+    ]
+    const verdicts = [
+      makeVerdict({ id: 'adoption.crossServerRate', fired: false, state: 'absent', blockedBy: 'absent', obs: null, n: null, gap: null, threshold: undefined }),
+    ]
+    const result = buildTodoLedger(verdicts, BUNDLE_DATE, 28, rules)
+    expect(result.footNote).toBeUndefined()
+  })
+
+  it('absent 但 validFrom 未到（暗期，有 #208 placeholder 在講）→ 不算進常駐註腳', () => {
+    const rules: Rule[] = [
+      {
+        id: 'adoption.meldAdvisorRate', cat: 'C', dir: 'low', threshold: 0.1, pick: () => undefined,
+        label: '鑲嵌建議採用率', nextStep: '', anchor: '', actionable: true, trusted: false, validFrom: '2026-08-28',
+      },
+    ]
+    const verdicts = [
+      makeVerdict({ id: 'adoption.meldAdvisorRate', fired: false, state: 'absent', blockedBy: 'absent', obs: null, n: null, gap: null, threshold: 0.1 }),
+    ]
+    // BUNDLE_DATE = '2026-07-31' < validFrom '2026-08-28'
+    const result = buildTodoLedger(verdicts, BUNDLE_DATE, 28, rules)
+    expect(result.footNote).toBeUndefined()
+  })
+
+  it('not-trusted + insufficient-n + 真正的 absent 三種成因加總進同一個 N', () => {
+    const rules: Rule[] = [
+      { id: 'gone.metric', cat: 'A', dir: 'high', threshold: 0.1, pick: () => undefined, label: '消失的指標', nextStep: '', anchor: '', actionable: true, trusted: true },
+    ]
+    const verdicts = [
+      makeVerdict({ id: 'a', fired: true, state: 'fire', streak: 1, gap: 0.8 }),
+      makeVerdict({ id: 'untrusted', fired: false, state: 'fire', trusted: false, blockedBy: 'not-trusted', streak: 5, gap: 0.9 }),
+      makeVerdict({ id: 'lown', fired: false, state: 'absent', blockedBy: 'insufficient-n', obs: 5, n: 20, gap: 0.5 }),
+      makeVerdict({ id: 'gone.metric', fired: false, state: 'absent', blockedBy: 'absent', obs: null, n: null, gap: null, threshold: 0.1 }),
+    ]
+    const result = buildTodoLedger(verdicts, BUNDLE_DATE, 28, rules)
+    expect(result.footNote).toBe('另有 3 個訊號目前不可用（埋點待修／資料缺席／分母不足）· #187')
   })
 
   // ── 年資三級 ──────────────────────────────────────────────────────────
@@ -184,11 +247,25 @@ describe('buildTodoLedger()', () => {
   })
 
   // ── 格式化 ────────────────────────────────────────────────────────────
-  it('sig 帶類別標籤與當期比率，value 是缺口比例，thresholdLabel 帶門檻與 obs/n', () => {
+  it('sig 帶類別全名（不是只有字母）與當期比率，value 是缺口比例，thresholdLabel 帶門檻與 obs/n', () => {
     const verdicts = [makeVerdict({ id: 'a', cat: 'A', label: '批量失敗率', obs: 236, n: 1345, threshold: 0.1, fired: true, state: 'fire', streak: 1, gap: 0.75 })]
     const row = buildTodoLedger(verdicts, BUNDLE_DATE, 28).top[0]
-    expect(row.sig).toBe('[A] 批量失敗率 17.5%')
+    expect(row.sig).toBe('[A · 修 bug / 補資料洞] 批量失敗率 17.5%')
     expect(row.value).toBe('75%')
     expect(row.thresholdLabel).toBe('門檻 10.0% · 236/1345')
+  })
+
+  it('sig 的類別全名對照跟著 repo 現況（ga-thresholds.ts 的 CATEGORY_LABEL），逐類別驗證', () => {
+    const cats = [
+      ['A', '修 bug / 補資料洞'],
+      ['B', 'UX 摩擦 / 轉換'],
+      ['C', '決定下一個功能'],
+      ['D', '效能優化'],
+    ] as const
+    for (const [cat, label] of cats) {
+      const verdicts = [makeVerdict({ id: `x-${cat}`, cat, label: '測試', obs: 1, n: 100, threshold: 0.1, fired: true, state: 'fire', streak: 1, gap: 0.1 })]
+      const row = buildTodoLedger(verdicts, BUNDLE_DATE, 28).top[0]
+      expect(row.sig).toBe(`[${cat} · ${label}] 測試 1.0%`)
+    }
   })
 })

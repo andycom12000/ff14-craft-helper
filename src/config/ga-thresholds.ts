@@ -28,6 +28,19 @@ export type Direction = 'high' | 'low'
  */
 export const CATEGORY_ORDER: readonly Category[] = ['A', 'B', 'C', 'D']
 
+/**
+ * 類別的可讀全名——待辦 ledger 逐條顯示用（issue #206：「分類要印全名，不能只印 `[A]`」）。與上面
+ * `CATEGORY_ORDER` 注解裡的四行對照逐字同步，改一邊記得改另一邊；不要另外維護第二份措辭，也不要
+ * 抄 spec #194 §B4 那處「A > C > B > D」——上面注解已經解釋過那是文件轉譯時的字母誤植，這裡跟著
+ * repo 現況（#181 原始決議 + #193 resolution comment 的字面 `category` 代碼）走。
+ */
+export const CATEGORY_LABEL: Record<Category, string> = {
+  A: '修 bug / 補資料洞',
+  B: 'UX 摩擦 / 轉換',
+  C: '決定下一個功能',
+  D: '效能優化',
+}
+
 /** 一筆判定所需的分子分母；`suffix` 供 `pick` 回傳陣列時附加在 label 後。 */
 export interface Pick {
   /** 分子。 */
