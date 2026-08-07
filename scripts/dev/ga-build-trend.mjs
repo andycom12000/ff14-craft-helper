@@ -21,8 +21,26 @@
 // history for every rule that can appear on the 本期待辦 list, not only the
 // always-present glance ones (see #191 決定 5, "外溢自 #191" comment on #184).
 //
-// Only keeps a trailing window of the last `--window` (default 28) ARCHIVED
-// days — not a fixed calendar range. A day with no archive at all
+// Keeps EVERY archived day found under `--history` by default — no trailing-
+// window truncation. `--window <n>` is available as an opt-in cap (the last
+// n ARCHIVED days, not a fixed calendar range) for someone who explicitly
+// wants a smaller file, but production doesn't pass it (see
+// `.github/workflows/ga-snapshot.yml`'s "Build trend file" step) and nothing
+// else should default to one either: #191 決定 5's own capacity table sized
+// this format assuming NO truncation — "全規則 × (obs,n) × 28d" at 14.5 KB
+// for 72 days, ≈73 KB/year is a straight-line extrapolation of an UNCAPPED
+// file, not a per-run cap already baked in. A quiet default cap here doesn't
+// even buy back that budget (73 KB/year was already judged acceptable) — it
+// silently truncates `streak`/`streakCensored` (#191 決定 2 第三級) to
+// whatever the last `n` archived days show, so a rule that has been firing
+// since day 1 of the real archive reads as "streak = n, censored" instead of
+// its true, longer streak — exactly the ambiguity #191 決定 2 invented the
+// third tier to keep visibly distinct from a genuinely young streak (see
+// that decision's own worked example: BOM 交棒率's streak must read as
+// censored at the FULL length of the real archive, not at some arbitrarily
+// smaller retained slice of it).
+//
+// A day with no archive at all
 // (`ga-snapshot.yml` cron miss, e.g. 2026-05-20 / 2026-07-09 per #184's
 // "真正的破洞是 cron 漏跑") is simply not in the sequence — it contributes
 // no entry, `evaluate()`'s streak walk skips straight over it and treats the
@@ -67,7 +85,7 @@
 //   node --experimental-strip-types scripts/dev/ga-build-trend.mjs \
 //     --history <path to gh-data's history/ dir> \
 //     [--out <path, default public/data/ga-trends.json>] \
-//     [--window <trailing archived days, default 28>] \
+//     [--window <optional cap: trailing archived days, default unlimited — keeps every archived day>] \
 //     [--bundle-window <7d|14d|28d, default 28d>]
 //
 // Production wiring (`.github/workflows/ga-snapshot.yml`): the daily cron calls this with
@@ -89,7 +107,10 @@ const __filename = fileURLToPath(import.meta.url)
 const ROOT = path.resolve(path.dirname(__filename), '..', '..')
 
 function parseArgs(argv) {
-  const args = { history: null, out: null, window: 28, bundleWindow: '28d' }
+  // `window: null` means "no cap — keep every archived day" (see the file
+  // header for why the default changed from a fixed 28). `--window <n>`
+  // stays available as an explicit opt-in cap.
+  const args = { history: null, out: null, window: null, bundleWindow: '28d' }
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--history') args.history = argv[++i]
@@ -103,6 +124,19 @@ function parseArgs(argv) {
 function die(msg) {
   console.error(`ERROR: ${msg}`)
   process.exit(1)
+}
+
+/**
+ * Picks which of the (already sorted, ascending) `allDates` archived days
+ * make it into the trend file. `window === null` (the default, see this
+ * file's header for why) keeps every one of them; `window === n` caps to the
+ * trailing `n` days, same slice semantics as before this fix. Pulled out as
+ * its own pure function — separate from `main()`'s I/O — specifically so the
+ * retention default has a direct regression test that doesn't need a real
+ * `--history` checkout.
+ */
+function selectRetainedDates(allDates, window) {
+  return window === null ? allDates : allDates.slice(-window)
 }
 
 /**
@@ -218,7 +252,9 @@ function buildSeries(rules, dates, bundleFor) {
 async function main() {
   const args = parseArgs(process.argv)
   if (!args.history) die('Missing --history <dir> (a checkout of gh-data\'s history/ folder)')
-  if (!Number.isFinite(args.window) || args.window <= 0) die(`--window must be a positive number, got: ${args.window}`)
+  if (args.window !== null && (!Number.isFinite(args.window) || args.window <= 0)) {
+    die(`--window must be a positive number, got: ${args.window}`)
+  }
   if (!['7d', '14d', '28d'].includes(args.bundleWindow)) die(`--bundle-window must be 7d/14d/28d, got: ${args.bundleWindow}`)
 
   const out = args.out ?? path.join(ROOT, 'public', 'data', 'ga-trends.json')
@@ -244,14 +280,21 @@ async function main() {
 
   const allDates = [...byDate.keys()].sort()
   if (!allDates.length) die(`No archive carried a usable windows.${args.bundleWindow} bundle`)
-  const dates = allDates.slice(-args.window)
+  const dates = selectRetainedDates(allDates, args.window)
 
   const series = buildSeries(GA_THRESHOLD_RULES, dates, (date) => byDate.get(date) ?? null)
 
   const payload = {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
-    window: { days: args.window, bundleWindow: args.bundleWindow },
+    // `days` is how many archived days actually made it into `dates`/`series`
+    // — the number to trust for "how much history does this file carry".
+    // `cap` is only the raw `--window` value that produced it (`null` when
+    // uncapped, i.e. production's default run). `bundleWindow` is the
+    // UNRELATED per-point aggregation window (`raw.windows['28d']` etc.) —
+    // do not confuse the two when reading this file (see the log line below
+    // for the same distinction spelled out for humans).
+    window: { days: dates.length, cap: args.window, bundleWindow: args.bundleWindow },
     dates,
     series,
   }
@@ -259,9 +302,16 @@ async function main() {
   await fs.mkdir(path.dirname(out), { recursive: true })
   await fs.writeFile(out, JSON.stringify(payload))
   const stat = await fs.stat(out)
+  // Deliberately spells out "archived days retained" vs "bundle window" as
+  // two different numbers with two different units (days of HISTORY kept vs.
+  // days PER DATA POINT aggregated) — the #205 production incident this fix
+  // addresses was exactly a human (and a passing test) misreading one 28 for
+  // the other. `n/m retained` also surfaces silently when `--window` truncates
+  // (m > n) vs. the default unbounded run (n === m).
   console.log(
     `[ga-build-trend] wrote ${out} (${(stat.size / 1024).toFixed(1)} KB) — ` +
-      `${dates.length} archived days (${dates[0]}..${dates.at(-1)}), ${Object.keys(series).length} rule ids`,
+      `${dates.length}/${allDates.length} archived days retained (${dates[0]}..${dates.at(-1)}), ` +
+      `${args.bundleWindow} bundle window, ${Object.keys(series).length} rule ids`,
   )
 }
 
@@ -270,4 +320,4 @@ if (invoked) {
   main().catch((err) => die(err instanceof Error ? err.stack ?? err.message : String(err)))
 }
 
-export { expandPick, buildSeries }
+export { expandPick, buildSeries, selectRetainedDates, parseArgs }
