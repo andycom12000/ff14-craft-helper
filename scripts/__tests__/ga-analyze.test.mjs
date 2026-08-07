@@ -31,6 +31,7 @@ import {
   canAttributeMacroCopies,
   buildFailureRows,
   buildGearBucketBreakdown,
+  buildRlvCountsByRecipeId,
 } from '../dev/ga-analyze.mjs'
 
 test('craft_kind === "(not set)" is machine, regardless of source (pre-fix leg)', () => {
@@ -851,4 +852,76 @@ test('buildGearBucketBreakdown(): empty/missing rows still return all three buck
       assert.equal(row.fails, 0)
     }
   }
+})
+
+// --- buildRlvCountsByRecipeId() (#210) --------------------------------------
+// Chart #3's bom/batch RLV attribution switched from a client-sent `rlv`
+// param to joining the event's `recipe_id` against `public/data/recipes.json`
+// (spec #194 item 14 / #190's decision). Same simplified-row convention as
+// buildRlvRawCounts() above (`{ recipeId, count }`, not the raw GA4 shape).
+
+test('buildRlvCountsByRecipeId(): joins recipe_id to rlv via the supplied map, summing duplicate rlv keys', () => {
+  const map = new Map([[1, 50], [2, 50], [3, 90]])
+  const rows = [
+    { recipeId: '1', count: 10 },
+    { recipeId: '2', count: 5 }, // same rlv (50) as recipe 1 — must sum, not overwrite
+    { recipeId: '3', count: 7 },
+  ]
+  const { counts, noRecipeId, unjoined } = buildRlvCountsByRecipeId(rows, map)
+  assert.equal(counts.get(50), 15)
+  assert.equal(counts.get(90), 7)
+  assert.equal(noRecipeId, 0)
+  assert.equal(unjoined, 0)
+})
+
+test('buildRlvCountsByRecipeId(): "(not set)" and empty-string recipe_id both count as noRecipeId, NOT unjoined — the #210 decision-2 structural-non-craftable bucket', () => {
+  const map = new Map([[1, 50]])
+  const rows = [
+    { recipeId: '(not set)', count: 300 }, // no-recipe purchase target
+    { recipeId: '', count: 104 },          // company-craft-project (itemId placeholder, no recipe_id sent)
+    { recipeId: '1', count: 8 },
+  ]
+  const { counts, noRecipeId, unjoined } = buildRlvCountsByRecipeId(rows, map)
+  assert.equal(noRecipeId, 300 + 104)
+  assert.equal(unjoined, 0)
+  assert.equal(counts.get(50), 8)
+})
+
+test('buildRlvCountsByRecipeId(): a recipe_id present but absent from recipeRlvMap is "unjoined" — data drift, must NOT be merged into noRecipeId or silently counted', () => {
+  const map = new Map([[1, 50]])
+  const rows = [
+    { recipeId: '1', count: 8 },
+    { recipeId: '99999', count: 3 }, // not a key in recipes.json (e.g. removed/renumbered recipe)
+  ]
+  const { counts, noRecipeId, unjoined } = buildRlvCountsByRecipeId(rows, map)
+  assert.equal(unjoined, 3)
+  assert.equal(noRecipeId, 0)
+  assert.equal(counts.get(50), 8)
+  assert.equal(counts.size, 1, 'the unjoined row must not create a spurious rlv key')
+})
+
+test('buildRlvCountsByRecipeId(): a non-numeric recipe_id (that is neither the (not set) sentinel nor empty) is unjoined, not silently dropped or NaN-keyed', () => {
+  const map = new Map([[1, 50]])
+  const { counts, noRecipeId, unjoined } = buildRlvCountsByRecipeId([{ recipeId: 'garbage', count: 4 }], map)
+  assert.equal(unjoined, 4)
+  assert.equal(noRecipeId, 0)
+  assert.equal(counts.size, 0)
+})
+
+test('buildRlvCountsByRecipeId(): empty/missing rows and/or map return empty counts with both diagnostic counters at 0', () => {
+  for (const out of [
+    buildRlvCountsByRecipeId([], new Map()),
+    buildRlvCountsByRecipeId(),
+    buildRlvCountsByRecipeId([{ recipeId: '1', count: 5 }]), // no map supplied — nothing can join
+  ]) {
+    assert.equal(out.noRecipeId, 0)
+  }
+  assert.equal(buildRlvCountsByRecipeId([], new Map()).counts.size, 0)
+  assert.equal(buildRlvCountsByRecipeId([{ recipeId: '1', count: 5 }]).unjoined, 5, 'a missing map means every recipe_id is unjoined, not silently ignored')
+})
+
+test('buildRlvCountsByRecipeId(): rlv 0 in the map is a legitimate join target (distinct from the buildRlvRawCounts() convention where rlv<=0 is dropped) — this function trusts the map, not the raw value', () => {
+  const map = new Map([[1, 0]])
+  const { counts } = buildRlvCountsByRecipeId([{ recipeId: '1', count: 6 }], map)
+  assert.equal(counts.get(0), 6)
 })

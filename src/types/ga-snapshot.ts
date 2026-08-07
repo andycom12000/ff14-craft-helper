@@ -97,19 +97,41 @@ export interface RegionGlance {
  * Chart #3 — Tool usage row per raw RLV value (#209 — pipeline no longer
  * buckets; the frontend's `aggregateTopRlv()` groups top-8 + 其他
  * dynamically. See `rlv-aggregate.ts`).
+ *
+ * ⚠️ Two sources of truth on one row (#210 decision 6): `selectCount` /
+ * `simulatorCount` are grouped by the CLIENT-sent `rlv` param at event time;
+ * `batchTargetCount` / `bomTargetCount` are grouped by joining the event's
+ * `recipe_id` against TODAY's `public/data/recipes.json` (pipeline-side, no
+ * client dimension involved). The two only diverge if a recipe's rlv value
+ * itself changes between when the event fired and when the pipeline runs —
+ * doesn't happen in practice (FFXIV doesn't renumber existing recipes' rlv),
+ * but it means this chart is not a single coherent measurement: read
+ * `select`/`simulator` as "what the client believed at click time" and
+ * `bom`/`batch` as "what recipes.json says today".
  */
 export interface ToolUsageRow {
   /** Raw recipe level value (1–770, not bucketed). */
   rlv: number
-  /** Total times this rlv was opened (recipe_select). */
+  /** Total times this rlv was opened (recipe_select), grouped by the
+   *  CLIENT-sent `rlv` param — NOT joined via recipe_id (#210 decision 6:
+   *  join buys no extra coverage here, #182 already measured ~100% coverage
+   *  on this event). See the interface doc comment above for why this is a
+   *  different source of truth than `batchTargetCount`/`bomTargetCount`. */
   selectCount: number
-  /** solver_start count for this rlv, human-filtered (#200). */
+  /** solver_start count for this rlv, human-filtered (#200), grouped by the
+   *  CLIENT-sent `rlv` param — same source as `selectCount`, see above. */
   simulatorCount: number
-  /** batch_optimization_start count where ANY targeted recipe has this rlv.
-   *  Always 0 today — needs a recipes.json join not yet implemented
-   *  (spec #194 item 14, tracked separately from #209). */
+  /** batch_add_recipe ("加入批量", #210 decision 3 — NOT
+   *  batch_optimization_start, which never carries recipe_id) count for this
+   *  rlv, attributed via a `recipe_id → recipes.json` pipeline join (#210).
+   *  Unit is per-recipe-added-to-batch, not per batch run — deliberately
+   *  overlaps `bomTargetCount` (the `cross_page_send` method fires when a BOM
+   *  target is sent to batch). */
   batchTargetCount: number
-  /** bom_target_add count for this rlv. */
+  /** bom_target_add count for this rlv, attributed via a
+   *  `recipe_id → recipes.json` pipeline join (#210 decision 1). Targets with
+   *  no recipe_id at all (no-recipe purchase targets, company-craft-project)
+   *  are excluded here — see `MetricsBundle.toolUsageNoRecipeCount`. */
   bomTargetCount: number
 }
 
@@ -399,6 +421,18 @@ export interface MetricsBundle {
   byRegion?: ByRegion
   /** Chart #3 — ToolUsageByRlv. */
   toolUsageByRlv?: ToolUsageRow[]
+  /**
+   * Chart #3 footnote (#210 decision 2) — bom_target_add targets with NO
+   * recipe_id at all (no-recipe purchase targets, company-craft-project
+   * projects). These are structurally non-craftable, not a data gap: they
+   * can never appear in `toolUsageByRlv` (there's no "no rlv" bar on an RLV
+   * axis) and are part of the explanation for why the BOM→batch handoff rate
+   * is low. A real 0 means every bom_target_add row this window carried a
+   * recipe_id; omitted (not 0) only when the window has zero activity across
+   * all four `toolUsageByRlv` legs (select/simulator/bom/batch) — same
+   * "absent, don't fake a zero" contract as `taxonomy` above.
+   */
+  toolUsageNoRecipeCount?: number
   /** Charts #4a + #4b — RecipeDifficultyKind + ExpertCollectableMatrix. */
   taxonomy?: TaxonomyBundle
   /** Chart #5 — MisuseHintTally. */

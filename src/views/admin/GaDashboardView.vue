@@ -288,12 +288,16 @@ const matrixMacroUntrusted = computed(() => isMetricUntrusted('chart-matrix', 's
               <EmptyChart v-else label="高難度 × 收藏品矩陣" hint="此區間尚無事件" />
             </L2Row>
 
+            <!-- #210: bom/batch RLV 歸戶改走 recipe_id → recipes.json pipeline
+                 join，#197 遺留的手寫 ⚑ flag-text 隨之拆除。 -->
             <L2Row
               id="chart-tool" title="工具偏好 · 依 RLV"
               ticket="BOM 交棒率亮時 → BOM 目標與批量目標的 RLV 分佈落差"
-              flag-text="BOM／批量兩條分子的 RLV 歸戶待 pipeline PR"
             >
-              <ToolUsageByRlv v-if="bundle.toolUsageByRlv" :data="bundle.toolUsageByRlv" />
+              <ToolUsageByRlv
+                v-if="bundle.toolUsageByRlv" :data="bundle.toolUsageByRlv"
+                :no-recipe-count="bundle.toolUsageNoRecipeCount"
+              />
               <EmptyChart v-else label="工具偏好 · 依配方等級" hint="此區間尚無事件" />
             </L2Row>
 
