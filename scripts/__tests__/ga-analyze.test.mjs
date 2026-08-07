@@ -23,6 +23,7 @@ import {
   buildActiveUsersGlance,
   marketRegionBucket,
   buildSolverHumanGlance,
+  buildAdoptionGlance,
 } from '../dev/ga-analyze.mjs'
 
 test('craft_kind === "(not set)" is machine, regardless of source (pre-fix leg)', () => {
@@ -348,4 +349,62 @@ test('buildSolverHumanGlance(): a machine-sourced (but taxonomy-carrying) solver
   const g = buildSolverHumanGlance(rows)
   assert.equal(g.humanFails, 0)
   assert.notEqual(g.humanFails, undefined)
+})
+
+// Unit tests for `buildAdoptionGlance` — the glance.adoption cross-server +
+// meld-advisor adoption denominators (#203). Getting the `fields` filter or
+// the `cross_server` boolean parse wrong here silently mis-sizes a C-class
+// rule's numerator/denominator the same quiet way a bad isMachineSolveRow()
+// would — no malformed data, just a wrong count feeding straight into
+// ga-thresholds.ts's Wilson-CI gate.
+test('buildAdoptionGlance(): batchStarts sums every cross_server bucket, crossServerBatches only the true rows', () => {
+  const g = buildAdoptionGlance({
+    crossServerRows: [
+      { crossServer: 'true', count: 8 },
+      { crossServer: 'false', count: 1315 },
+      { crossServer: '(not set)', count: 1383 }, // pre-registration rows, still real batch starts
+    ],
+  })
+  assert.equal(g.batchStarts, 8 + 1315 + 1383)
+  assert.equal(g.crossServerBatches, 8)
+})
+
+test('buildAdoptionGlance(): "1" is accepted as truthy cross_server (GA4 sometimes renders booleans as 0/1, same as gaBool() elsewhere)', () => {
+  const g = buildAdoptionGlance({
+    crossServerRows: [
+      { crossServer: '1', count: 5 },
+      { crossServer: '0', count: 20 },
+    ],
+  })
+  assert.equal(g.batchStarts, 25)
+  assert.equal(g.crossServerBatches, 5)
+})
+
+test('buildAdoptionGlance(): meldApplies sums only fields === meld_delta / meld_delta_single, not the generic field-edit writer', () => {
+  const g = buildAdoptionGlance({
+    meldFieldsRows: [
+      { fields: 'meld_delta', count: 233 },
+      { fields: 'meld_delta_single', count: 41 },
+      // gearsets.ts:61's generic writer — comma-joined field list, NOT a meld-advisor apply.
+      { fields: 'level,craftsmanship,control,cp', count: 900 },
+    ],
+  })
+  assert.equal(g.meldApplies, 233 + 41)
+})
+
+test('buildAdoptionGlance(): meldAdvisorRuns passes straight through from the caller, independent of the two row sets', () => {
+  const g = buildAdoptionGlance({ meldAdvisorRuns: 512 })
+  assert.equal(g.meldAdvisorRuns, 512)
+  assert.equal(g.batchStarts, 0)
+  assert.equal(g.crossServerBatches, 0)
+  assert.equal(g.meldApplies, 0)
+})
+
+test('buildAdoptionGlance(): missing/empty inputs default every field to 0, not undefined', () => {
+  assert.deepEqual(buildAdoptionGlance({}), {
+    batchStarts: 0, crossServerBatches: 0, meldAdvisorRuns: 0, meldApplies: 0,
+  })
+  assert.deepEqual(buildAdoptionGlance(), {
+    batchStarts: 0, crossServerBatches: 0, meldAdvisorRuns: 0, meldApplies: 0,
+  })
 })

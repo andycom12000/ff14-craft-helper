@@ -203,6 +203,38 @@ export interface GlanceApi {
   universalisOtherFails?: number
 }
 
+/**
+ * `glance.adoption` — cross-server usage + meld-advisor adoption denominators (#203).
+ *
+ * Both features fire real events already; what's new here is two custom dimensions
+ * (`cross_server` on `batch_optimization_start`, `fields` on `gearset_apply_all`) that had to
+ * be hand-registered (2026-07-31, no Admin API access on this property — #186 決定 5) and a
+ * client-only event (`meld_advisor_run`, #198) that needs no registration at all.
+ *
+ * All four fields are optional (v2-additive, same contract as `GlanceApi` above): this is a
+ * brand-new `glance` key, so unlike `solver`/`batch`/`bom` (which have existed since the
+ * container's inception) none of the 79+ frozen `gh-data/history/` snapshots carry it and it
+ * will never be backfilled. `ga-thresholds.ts`'s `pick()` guards with `?? {}` / `== null` so
+ * feeding one of those into `evaluate()` resolves to `state: 'absent'` instead of throwing
+ * (same failure mode #201 review B2 and #200 already hit).
+ *
+ * `batchStarts` is deliberately its own field, NOT a reuse of `glance.batch.starts` — same
+ * underlying `batch_optimization_start` event today, but a different question ("what's the
+ * denominator for the cross-server ADOPTION rate" vs "how many batch runs happened"). Reusing
+ * the variable would silently couple the two if either population's definition ever diverges
+ * (#203 issue body).
+ */
+export interface GlanceAdoption {
+  /** `batch_optimization_start` 全部（跨服率的分母，語意獨立，刻意不與 `glance.batch.starts` 共用）。 */
+  batchStarts?: number
+  /** `batch_optimization_start` 且 `cross_server === true`。 */
+  crossServerBatches?: number
+  /** 新事件 `meld_advisor_run`（`runAdvisor()` 成功產出 advice 時發，#198）——事件名免註冊，不吃 28 天暗期。 */
+  meldAdvisorRuns?: number
+  /** `gearset_apply_all` 且 `fields ∈ { meld_delta, meld_delta_single }`（鑲嵌建議的兩個寫入分支，#189 決定 2）。 */
+  meldApplies?: number
+}
+
 export interface MetricsBundle {
   window: { days: number; startDate: string; endDate: string }
   glance: {
@@ -246,6 +278,8 @@ export interface MetricsBundle {
     infra: { sabUnavailable: number; wasmLoadFailed: number }
     /** See `GlanceApi` doc. Optional — absent on all pre-#201 history. */
     api?: GlanceApi
+    /** See `GlanceAdoption` doc. Optional — absent on all pre-#203 history. */
+    adoption?: GlanceAdoption
   }
   pages: PageRow[]
   solverFunnel: FunnelStep[]

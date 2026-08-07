@@ -6,7 +6,7 @@
 //
 // 年資（streak）與熄滅（跨期認定「已解決」）需要歷史 `(obs, n)` 序列，不在本模組——見 #205。
 // 本模組只判定「這一期」的統計狀態：fire（觸發）/ grey（灰帶）/ clear（好側，但尚未認定為熄滅）/
-// absent（資料缺席：validFrom 未到、指標整條消失、或分母不足）。
+// absent（資料缺席：validFrom 未到、門檻尚未訂定、指標整條消失、或分母不足）。
 
 import type { MetricsBundle } from '@/types/ga-snapshot'
 import { CATEGORY_ORDER, type Category, type Direction, type Pick, type Rule } from '@/config/ga-thresholds'
@@ -31,7 +31,8 @@ export interface Verdict {
   obs: number | null
   /** 分母；資料缺席時為 null。 */
   n: number | null
-  threshold: number
+  /** 0–1 的比例門檻；規則的 `threshold` 尚未訂定時為 `undefined`（此時 `state` 恆為 `'absent'`）。 */
+  threshold?: number
   dir: Direction
   /** 是否進待辦——`state === 'fire'` 且未被 `actionable` / `trusted` 閘門擋下。 */
   fired: boolean
@@ -114,7 +115,16 @@ function buildVerdict(rule: Rule, id: string, label: string, bundleDate: string,
     return { ...base, obs: null, n: null, fired: false, gap: null, state: 'absent', blockedBy: 'absent' }
   }
 
-  // 缺席之二：指標整條從 bundle 消失（選用性欄位缺席，或陣列裡找不到對應列）。
+  // 缺席之二：門檻尚未訂定（#203 review）——與 validFrom 是兩個獨立的缺席理由，都要顯式擋下，
+  // 不要讓魔術數字（例如 threshold: 0）代打。必須放在 computeGap() 呼叫之前：
+  // `computeGap()` 用 `threshold` 當除數，任何數字佔位都可能在特定 obs/n 組合下產生
+  // `NaN`/`-Infinity`，而 `gap` 會流進 `sortVerdicts()` 的比較器與 #206 空狀態的近門檻選取，
+  // 一旦是 NaN 整份排序就變成未定義行為（`??` 只擋 `null`，擋不掉 `NaN`）。
+  if (rule.threshold === undefined) {
+    return { ...base, obs: null, n: null, fired: false, gap: null, state: 'absent', blockedBy: 'absent' }
+  }
+
+  // 缺席之三：指標整條從 bundle 消失（選用性欄位缺席，或陣列裡找不到對應列）。
   if (pick === undefined) {
     return { ...base, obs: null, n: null, fired: false, gap: null, state: 'absent', blockedBy: 'absent' }
   }
