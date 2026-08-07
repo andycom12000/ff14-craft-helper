@@ -31,6 +31,21 @@ function completeRateColor(sparse: boolean, rate: number) {
   return C.danger
 }
 
+// #209 review 2 — `rate === undefined` means "unattributable" (see
+// TaxonomyCell/CraftKindRow's doc comments), NOT "measured zero". Renders as
+// "—", never a zero-length bar with a confident "0.0%" beside it — those two
+// states must look visibly different or the chart lies by omission.
+//
+// #209 review 3 — `rate` can also legitimately exceed 1 (completeRate is no
+// longer clamped). The BAR is capped at the track's full width (nothing to
+// gain from drawing off the end of the track), but the printed percentage is
+// the real, uncapped value — clamping the LABEL would recreate the exact bug
+// review 3 flagged, just moved from the number to the pixel.
+function bandVisual(rate: number | undefined): { widthFraction: number, text: string, unknown: boolean } {
+  if (rate === undefined) return { widthFraction: 0, text: '—', unknown: true }
+  return { widthFraction: Math.min(1, rate), text: fmtPct(rate), unknown: false }
+}
+
 function render(w: number, _h: number) {
   if (!root.value) return
   const matrix = props.data
@@ -137,10 +152,11 @@ function render(w: number, _h: number) {
       { y: cy + 104, label: '求解完成率',   rate: cell.completeRate,
         color: completeRateColor(SPARSE, cell.completeRate) },
       { y: cy + 134, label: '巨集複製率', rate: cell.macroCopyRate,
-        color: SPARSE ? C.inkFaint : C.gold },
+        color: cell.macroCopyRate === undefined ? C.inkFaint : (SPARSE ? C.inkFaint : C.gold) },
     ]
 
     bands.forEach(b => {
+      const visual = bandVisual(b.rate)
       // Label
       svg.append('text')
         .attr('x', cx + padX).attr('y', b.y + 3)
@@ -153,20 +169,25 @@ function render(w: number, _h: number) {
         .attr('x', barTrackX).attr('y', b.y - 7)
         .attr('width', barTrackW).attr('height', 12)
         .attr('fill', C.bgDeep).attr('rx', 1)
-      // Fill
-      svg.append('rect')
-        .attr('x', barTrackX).attr('y', b.y - 7)
-        .attr('width', 0).attr('height', 12)
-        .attr('fill', b.color).attr('fill-opacity', 0.85).attr('rx', 1)
-        .transition().duration(500)
-        .attr('width', barTrackW * b.rate)
-      // Value (right of bar, in dedicated 48px column)
+      // Fill — skipped entirely when unattributable (visual.unknown): a
+      // zero-width bar next to "—" would still read as "measured, and it's
+      // zero", which is exactly the wrong message (#209 review 2).
+      if (!visual.unknown) {
+        svg.append('rect')
+          .attr('x', barTrackX).attr('y', b.y - 7)
+          .attr('width', 0).attr('height', 12)
+          .attr('fill', b.color).attr('fill-opacity', 0.85).attr('rx', 1)
+          .transition().duration(500)
+          .attr('width', barTrackW * visual.widthFraction)
+      }
+      // Value (right of bar, in dedicated 48px column) — real, uncapped rate
+      // even when it exceeds 100% (#209 review 3); "—" when unattributable.
       svg.append('text')
         .attr('x', barTrackX + barTrackW + 10).attr('y', b.y + 3)
         .style('font-family', "'Fira Code', monospace")
         .style('font-size', '12px').style('font-weight', 500)
         .style('fill', b.color)
-        .text(fmtPct(b.rate))
+        .text(visual.text)
     })
 
     // 態二局部斜紋 — 只蓋這格的「巨集複製率」band(下面那條),「求解完成率」band 與大數字
@@ -253,25 +274,31 @@ function render(w: number, _h: number) {
       const trackW = kindW - padX * 2
       const bandDefs = [
         { y: cy + 66, rate: cell.completeRate, color: completeRateColor(SPARSE, cell.completeRate), label: '完成率' },
-        { y: cy + 98, rate: cell.macroCopyRate, color: SPARSE ? C.inkFaint : C.gold, label: '巨集複製率' },
+        { y: cy + 98, rate: cell.macroCopyRate,
+          color: cell.macroCopyRate === undefined ? C.inkFaint : (SPARSE ? C.inkFaint : C.gold), label: '巨集複製率' },
       ]
       bandDefs.forEach((b) => {
+        const visual = bandVisual(b.rate)
         svg.append('rect')
           .attr('x', cx + padX).attr('y', b.y)
           .attr('width', trackW).attr('height', 8)
           .attr('fill', C.bgDeep).attr('rx', 1)
-        svg.append('rect')
-          .attr('x', cx + padX).attr('y', b.y)
-          .attr('width', 0).attr('height', 8)
-          .attr('fill', b.color).attr('fill-opacity', 0.85).attr('rx', 1)
-          .transition().duration(500)
-          .attr('width', trackW * b.rate)
+        // Fill — skipped entirely when unattributable, same reasoning as the
+        // 2×2 grid's bands above (#209 review 2).
+        if (!visual.unknown) {
+          svg.append('rect')
+            .attr('x', cx + padX).attr('y', b.y)
+            .attr('width', 0).attr('height', 8)
+            .attr('fill', b.color).attr('fill-opacity', 0.85).attr('rx', 1)
+            .transition().duration(500)
+            .attr('width', trackW * visual.widthFraction)
+        }
         svg.append('text')
           .attr('x', cx + padX).attr('y', b.y + 20)
           .style('font-family', "'Fira Code', monospace")
           .style('font-size', '10.5px').style('font-weight', 500)
           .style('fill', b.color)
-          .text(`${b.label} ${fmtPct(b.rate)}`)
+          .text(`${b.label} ${visual.text}`)
       })
 
       // 態二局部斜紋 — 邊界抓在「求解完成率」數值文字(y=cy+86)與「巨集複製率」

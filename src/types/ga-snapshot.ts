@@ -127,32 +127,48 @@ export interface RlvRawBucket {
  * `starts`/`completes`/`macroCopies` are human-only (#200): machine-loop rows
  * (`isMachineSolveRow()`) are filtered out before bucketing so a matrix cell
  * never gets padded by batch-optimizer/buff-recommender/meld-advisor noise.
+ *
+ * `macroCopies`/`macroCopyRate` are `undefined` — NOT `0` — whenever
+ * attribution is structurally impossible (#209 review 2): `solver_macro_copy`
+ * has never carried taxonomy in production, so every row gets filtered out as
+ * machine-originated before it can be counted. A `0` there would read as "we
+ * measured zero macro copies" when the true state is "we cannot currently
+ * tell" — the exact same failure mode #200 review caught for
+ * `glance.solver.humanFails`. Pipeline guard: `canAttributeMacroCopies()` in
+ * ga-analyze.mjs. Chart consumers MUST render `undefined` as "—" / "無法歸戶",
+ * never as a zero-length bar.
  */
 export interface TaxonomyCell {
   isExpert: boolean
   isCollectable: boolean
   starts: number
   completes: number
-  macroCopies: number
+  macroCopies?: number
   completeRate: number // 0–1
-  macroCopyRate: number // 0–1, denominator = completes
+  macroCopyRate?: number // 0–1, denominator = completes; undefined = unattributable, see doc above
 }
 
 /**
  * `starts`/`completes`/`macroCopies`/`completeRate`/`macroCopyRate` are all
- * human-only (#200) — see `TaxonomyCell` doc above. Rendered as the third row
- * of `ExpertCollectableMatrix.vue` (#209 merged this in — see that
+ * human-only (#200) — see `TaxonomyCell` doc above (same `undefined`-not-0
+ * contract for `macroCopies`/`macroCopyRate` applies here). Rendered as the
+ * third row of `ExpertCollectableMatrix.vue` (#209 merged this in — see that
  * component's doc comment) so the matrix stays the dashboard's one
  * macro-copy-rate-bearing structure; `RecipeDifficultyKind.vue` no longer
  * consumes this shape.
+ *
+ * `completeRate` is deliberately NOT clamped to `[0, 1]` (#209 review 3):
+ * >100% means GA dropped a start event relative to its matching completes,
+ * per #200's issue body — that's a diagnostic signal, not a display bug to
+ * paper over. A live probe found `quick` at 101.6% the day this was fixed.
  */
 export interface CraftKindRow {
   kind: 'normal' | 'expert' | 'quick' | 'custom_delivery' | 'company'
   starts: number
   completes: number
-  macroCopies: number
-  completeRate: number // 0–1
-  macroCopyRate: number // 0–1, denominator = completes
+  macroCopies?: number
+  completeRate: number // 0–1, NOT clamped — can exceed 1, see doc above
+  macroCopyRate?: number // 0–1, denominator = completes; undefined = unattributable, see doc above
 }
 
 /** Chart #5 — Misuse signal */

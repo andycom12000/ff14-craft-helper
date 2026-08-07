@@ -405,12 +405,46 @@ async function main() {
 
 // -----------------------------------------------------------------------------
 
+// Best-effort human label for a request, used ONLY in the truncation warning
+// below — never in the query itself. Tries the eventName filter's value(s)
+// first (most requests here filter on eventName), falls back to the
+// dimension list so an unfiltered request still gets a usable label.
+// Exported for scripts/__tests__/ga-analyze.test.mjs's runReport() truncation
+// tests, which construct a fake `client.runReport` and assert on the exact
+// warning text — the shape of the LABEL (not the GA4 query-building this file
+// deliberately doesn't unit-test) is what those tests pin down.
+export function describeRequest(request) {
+  const f = request.dimensionFilter?.filter
+  if (f?.fieldName === 'eventName') {
+    if (f.stringFilter?.value) return `eventName=${f.stringFilter.value}`
+    if (f.inListFilter?.values) return `eventName∈[${f.inListFilter.values.join(',')}]`
+  }
+  const dims = request.dimensions?.map((d) => d.name).join(',')
+  return dims ? `dimensions=[${dims}]` : '(unlabeled request)'
+}
+
 // Exported so scripts/dev/ga-backfill-active-users.mjs (#202's history
 // backfill) can drive live GA4 requests the same way this module does,
 // instead of duplicating client bootstrap / soft-fail plumbing.
 export async function runReport(client, request, opts = {}) {
   try {
     const [response] = await client.runReport(request)
+    // #209 review: `limit: 200` on the raw RLV queries silently truncated
+    // real data before this check existed (7d had 103 keys, 28d had 141 —
+    // both under the OLD limit:100, but the failure mode is the same shape
+    // for ANY query here the moment its true row count grows past whatever
+    // limit was picked). GA4 always returns `rowCount` — the TRUE number of
+    // rows matching the query, independent of how many rows actually came
+    // back — so a generic check here covers all ~15 call sites in this file
+    // for free, instead of relying on someone noticing a chart looks thin.
+    // response.rowCount is undefined for aggregate-only responses (no
+    // dimensions), so the comparison naturally no-ops for those.
+    if (request.limit && response.rowCount > request.limit) {
+      console.warn(
+        `  ⚠ TRUNCATED: ${describeRequest(request)} — rowCount=${response.rowCount} > limit=${request.limit} `
+        + `(${response.rowCount - request.limit} row(s) silently dropped by GA4, raise the limit)`,
+      )
+    }
     return response
   } catch (err) {
     if (opts.soft) {
@@ -1305,8 +1339,10 @@ function regionBucket(value) {
 // wide expansion-aligned buckets a prior version of this file computed here
 // (≤300 / 301–510 / 511–600 / 601–680 / 681+) are retired — that function
 // used to live at this spot but nothing calls it anymore. The pipeline now
-// passes through the RAW per-rlv event count (real rlv spans 1–770, ~119
-// distinct keys observed live — cardinality is not a problem), and the
+// passes through the RAW per-rlv event count (real rlv spans 1–770, 103
+// distinct keys observed live on the 7d window / 141 on 28d — cardinality is
+// not a problem, though `runReport()`'s rowCount check is what actually
+// guards against it growing past `limit` unnoticed), and the
 // dashboard picks a dynamic top-8-by-volume "leaderboard" client-side
 // (`src/components/ga-dashboard/rlv-aggregate.ts`) instead of a fixed
 // classification. `RlvBucket`/`rlvHistogram` stay defined in
@@ -1453,6 +1489,38 @@ export function buildSolverHumanGlance(rows = []) {
     humanFails: canAttributeFails ? humanFails : undefined,
     humanCompletePct: humanStarts ? humanCompletes / humanStarts : 0,
   }
+}
+
+// --- macro-copy attribution guard (#209 review 2) ---------------------------
+// Pure function, unit-tested via `scripts/__tests__/ga-analyze.test.mjs` —
+// same shape of fix `canAttributeFails` above applies to `humanFails`.
+//
+// `solver_macro_copy` (unlike solver_start/_complete) has NEVER carried
+// taxonomy in production — a live probe found every row's is_expert/
+// is_collectable/craft_kind/source all sitting at the GA4 "(not set)"
+// sentinel. `isMachineSolveRow()` therefore (correctly, and unavoidably)
+// classifies EVERY solver_macro_copy row as machine-originated and filters
+// it out before it can be bucketed into a TaxonomyCell/CraftKindRow. The
+// resulting `macroCopies: 0` is NOT "we measured zero macro copies" — it's
+// the exact same "attribution is structurally impossible" shape #200 review
+// caught for `humanFails` (a real 28d probe found obs=0/n=14572 rendering a
+// confident false all-clear before that fix). `glance.solver.macroCopies`
+// itself is UNAFFECTED (#200 already established it's 100% human by
+// construction, no isMachineSolveRow() filter applies there) — this guard is
+// only for the per-cell/per-kind breakdowns that DO filter by taxonomy.
+//
+// `rows` is the SIMPLIFIED `{ craftKind, count }` shape (same convention as
+// buildSolverHumanGlance() above), extracted from the SAME taxMacroRows the
+// matrix/craftKindBreakdown accumulation already fetches — no new GA4 query.
+export function canAttributeMacroCopies(rows = []) {
+  let total = 0
+  let withTaxonomy = 0
+  for (const row of rows) {
+    const count = row.count ?? 0
+    total += count
+    if (!CRAFT_KIND_ABSENT_VALUES.has(row.craftKind ?? '(not set)')) withTaxonomy += count
+  }
+  return total === 0 || withTaxonomy > 0
 }
 
 function gaBool(value) {
@@ -1722,8 +1790,15 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
     dimensionFilter: { filter: {
       fieldName: 'eventName', stringFilter: { value: 'recipe_select' } } },
     // Raw passthrough (#209) means every distinct rlv value is its own row —
-    // a live probe found ~119 keys, so the old bucket-era limit:100 would
-    // silently truncate ~19 of them. Matches selectRlvRes/bomRlvRes below.
+    // a live probe found 103 keys on 7d and 141 on 28d (both already over the
+    // old bucket-era limit:100, which would have silently truncated real
+    // data). This number is NOT a safe ceiling either — it grows with the
+    // window and with every new expansion's recipe levels, so `limit` alone
+    // can't be trusted to stay ahead of it. `runReport()` now warns whenever
+    // `response.rowCount` exceeds `limit` (GA4 always reports the true
+    // matching row count, independent of how many rows it actually
+    // returned), so a future truncation is loud instead of silently thinning
+    // a chart. Matches selectRlvRes/bomRlvRes below.
     limit: 200,
   }, { soft: true })
   // matrix: solver_start/solver_complete grouped by (is_expert, is_collectable),
@@ -1799,6 +1874,18 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
       rlvHistRows.map((r) => ({ rlv: r.dimensionValues[0].value, count: Number(r.metricValues[0].value) })),
     ))
 
+    // macroAttributable (#209 review 2): `solver_macro_copy` has never
+    // carried taxonomy in production, so every row in `taxMacroRows` gets
+    // filtered out as machine-originated below — see
+    // `canAttributeMacroCopies()`'s doc comment above for the full "same
+    // shape as #200's humanFails" reasoning. Computed once and reused by
+    // BOTH the matrix cells and craftKindBreakdown so a real "there were
+    // macro-copy events but we can't attribute any of them" state renders as
+    // `undefined` in both places, not a confident 0.0%.
+    const macroAttributable = canAttributeMacroCopies(
+      taxMacroRows.map((r) => ({ craftKind: r.dimensionValues[2]?.value, count: Number(r.metricValues[0].value) })),
+    )
+
     // matrix — accumulate the 4 (is_expert, is_collectable) cells.
     const cellKey = (e, c) => `${e}|${c}`
     const cells = new Map()
@@ -1825,11 +1912,15 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
     }
     accumulate(taxStartsRows, 'starts')
     accumulate(taxCompletesRows, 'completes')
-    accumulate(taxMacroRows, 'macroCopies')
+    accumulate(taxMacroRows, 'macroCopies') // no-op today (see macroAttributable above) — self-heals if solver_macro_copy ever starts carrying taxonomy
     const matrix = [...cells.values()].map((cell) => ({
-      ...cell,
+      isExpert: cell.isExpert,
+      isCollectable: cell.isCollectable,
+      starts: cell.starts,
+      completes: cell.completes,
+      macroCopies: macroAttributable ? cell.macroCopies : undefined,
       completeRate: cell.starts > 0 ? cell.completes / cell.starts : 0,
-      macroCopyRate: cell.completes > 0 ? cell.macroCopies / cell.completes : 0,
+      macroCopyRate: macroAttributable ? (cell.completes > 0 ? cell.macroCopies / cell.completes : 0) : undefined,
     }))
 
     // craftKindBreakdown — same #200 human filter. Filtering out machine rows
@@ -1870,12 +1961,20 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
       const completes = kindCompletes.get(kind) ?? 0
       const macroCopies = kindMacroCopies.get(kind) ?? 0
       return {
-        kind, starts, completes, macroCopies,
-        // Clamp: completes/starts can still exceed 1 even after human-filtering
-        // because the two counts come from separate queries (a session that
-        // starts inside the window but completes just after it, or vice versa).
-        completeRate: starts > 0 ? Math.min(1, completes / starts) : 0,
-        macroCopyRate: completes > 0 ? macroCopies / completes : 0,
+        kind, starts, completes,
+        macroCopies: macroAttributable ? macroCopies : undefined,
+        // NOT clamped to [0,1] (#209 review 3 — removed a Math.min(1, …) that
+        // was already on main before this ticket): #200's issue body is
+        // explicit that a solver completeRate >100% means "GA dropped a
+        // start event" and is a signal to open a diagnostic ticket, not
+        // something to paper over. `starts`/`completes` come from two
+        // separate queries (a session that starts inside the window but
+        // completes just after it, or vice versa), so a small overshoot is
+        // expected noise — a live probe found `quick` at 101.6%
+        // (starts=1310, completes=1331) the day this was fixed; that is the
+        // GA-dropped-event phenomenon #200 describes, not a calculation bug.
+        completeRate: starts > 0 ? completes / starts : 0,
+        macroCopyRate: macroAttributable ? (completes > 0 ? macroCopies / completes : 0) : undefined,
       }
     })
 

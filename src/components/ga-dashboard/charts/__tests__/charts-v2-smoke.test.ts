@@ -98,6 +98,30 @@ describe('GA dashboard v2 charts render without throwing', () => {
     expect(w.text()).toContain('normal')
     expect(w.text()).toContain('expert')
   })
+  it('ExpertCollectableMatrix renders "—" (not "0.0%") when macroCopyRate is unattributable (#209 review 2)', () => {
+    // Today's live shape: solver_macro_copy carries no taxonomy at all, so
+    // pipeline reports macroCopies/macroCopyRate as undefined, not 0.
+    const data = [
+      { isExpert: false, isCollectable: false, starts: 2104, completes: 2043, completeRate: 0.971 },
+    ]
+    const craftKindData = [
+      { kind: 'normal', starts: 2104, completes: 2043, completeRate: 0.971 },
+    ]
+    const w = mount(ExpertCollectableMatrix, { props: { data: data as never, craftKindData: craftKindData as never } })
+    expect(w.text()).toContain('—')
+    expect(w.text()).not.toContain('0.0%')
+  })
+  it('ExpertCollectableMatrix renders completeRate above 100% verbatim, not clamped (#209 review 3)', () => {
+    // Live-observed shape: quick starts=1310, completes=1331 → 101.6%.
+    const craftKindData = [
+      { kind: 'quick', starts: 1310, completes: 1331, macroCopies: 40, completeRate: 1331 / 1310, macroCopyRate: 40 / 1331 },
+    ]
+    const w = mount(ExpertCollectableMatrix, {
+      props: { data: taxonomy.matrix as never, craftKindData: craftKindData as never },
+    })
+    expect(w.text()).toContain('101.6%')
+    expect(w.text()).not.toContain('100.0%')
+  })
   it('ExpertCollectableMatrix renders the 態二 stripe pattern when stripeMacroBand is set (#208), still only over the macro-copy-rate band including the new craft_kind row (#209)', () => {
     const w = mount(ExpertCollectableMatrix, {
       props: {
