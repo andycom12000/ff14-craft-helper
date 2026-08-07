@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useGaSnapshot } from '@/composables/useGaSnapshot'
+import { useGaTrends } from '@/composables/useGaTrends'
+import { evaluate } from '@/analytics/ga-evaluate'
+import { GA_THRESHOLD_RULES } from '@/config/ga-thresholds'
+import { buildTodoLedger } from '@/components/ga-dashboard/todo-select'
 import type { WindowKey } from '@/types/ga-snapshot'
 import { fmtPct } from '@/components/ga-dashboard/formatters'
 import { deriveChartFlag, isMetricUntrusted } from '@/components/ga-dashboard/flag-derive'
-import { GA_THRESHOLD_RULES } from '@/config/ga-thresholds'
 
 import HeroBand from '@/components/ga-dashboard/pieces/HeroBand.vue'
 import TodoLedger from '@/components/ga-dashboard/pieces/TodoLedger.vue'
@@ -44,9 +47,11 @@ import '@/components/ga-dashboard/dashboard.css'
 // ============================================================================
 
 const { snapshot, loading, error, isStale, staleHours, load } = useGaSnapshot()
+const { trends, load: loadTrends } = useGaTrends()
 const win = ref<WindowKey>('7d')
 
 onMounted(load)
+onMounted(loadTrends)
 
 // Only read within the `v-else-if="snapshot"` branch below — snapshot is
 // guaranteed non-null there.
@@ -56,13 +61,25 @@ const bundle = computed(() => snapshot.value!.windows[win.value])
 // `win` (spec §194 §C1: "待辦固定 28d，放在視窗選擇器下方會像 bug") — it must
 // NOT track `bundle`/`win`, or the whole point of placing it above
 // WindowSelector (unaffected by the selector) is defeated.
-const todoWindowDays = computed(() => snapshot.value!.windows['28d'].window.days)
+const todoBundle = computed(() => snapshot.value!.windows['28d'])
+const todoWindowDays = computed(() => todoBundle.value.window.days)
+
+// 本期待辦（spec §194 §B/§C1，issue #206）：`evaluate()` 吃固定 28d bundle + 趨勢歷史 + 門檻表，
+// 吐出全部規則的判定；`buildTodoLedger()`（`todo-select.ts`）做取前 3、摺疊、熄滅留痕、空狀態、
+// 常駐註腳這些呈現層取捨——順序不能反過來，見兩支函式各自的檔頭註解。`trends` 在還沒載入完成時
+// 是空物件，`evaluate()` 把查無歷史的規則當「今天剛開始量」處理（無 streak），不是錯誤狀態。
+const todoVerdicts = computed(() => evaluate(todoBundle.value, trends.value, GA_THRESHOLD_RULES))
+const todo = computed(() => buildTodoLedger(todoVerdicts.value, todoBundle.value.window.endDate, todoWindowDays.value))
 
 // Anchor-side readouts (spec §E3) sourced honestly from today's MetricsBundle
-// — see AnchorSide.vue's doc comment. No evaluate()/threshold engine exists
-// in this branch yet, so most Layer I items pass no `readout` at all.
-// Denominator guard aligned to the evaluate() engine's n ≥ 30 minimum sample
-// size (spec §194 §B4) — below that, a rate is noise dressed as a finding.
+// — see AnchorSide.vue's doc comment. Most Layer I items still pass no
+// `readout` at all: even though `evaluate()` is wired above (#206), swapping
+// these two computeds for real per-`win` `Verdict` data is a separate,
+// deliberately out-of-scope follow-up (#206 only had to wire the FIXED 28d
+// todo ledger, not make every WindowSelector-driven readout track verdicts
+// too) — left as-is rather than half-migrated. Denominator guard aligned to
+// the evaluate() engine's n ≥ 30 minimum sample size (spec §194 §B4) — below
+// that, a rate is noise dressed as a finding.
 const MIN_DENOMINATOR = 30
 const batchFailPct = computed(() => {
   const b = bundle.value.glance.batch
@@ -122,9 +139,17 @@ const matrixMacroUntrusted = computed(() => isMetricUntrusted('chart-matrix', 's
 
         <!-- 本期待辦 — page-level ledger, NOT a section (spec §C1). Fixed
              position: hero → todo → WindowSelector, fixed 28-day window
-             (independent of the WindowSelector below it). Empty until the
-             threshold table + evaluate() engine (spec §B) lands. -->
-        <TodoLedger :window-days="todoWindowDays" />
+             (independent of the WindowSelector below it). Data comes from
+             `todo` above — evaluate() + buildTodoLedger() (#206). -->
+        <TodoLedger
+          :window-days="todoWindowDays"
+          :rows="todo.top"
+          :overflow-rows="todo.overflow"
+          :cleared-rows="todo.cleared"
+          :empty-rows="todo.emptyNear"
+          :counts="todo.counts"
+          :foot-note="todo.footNote"
+        />
 
         <WindowSelector v-model="win" />
         <RegionSplitLedger :snapshot="snapshot" :window="win" />
