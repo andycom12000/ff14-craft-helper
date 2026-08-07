@@ -50,10 +50,12 @@ export const CHART_METRICS: Record<string, ChartMetric[]> = {
   // macro_copy 三步驟,沒有 failed 這一段可以單獨蓋。斜紋因此蓋住整個 Solver 半邊
   // (含 solver 完成率那個節點),右半 Batch 漏斗(對應 batch.completeRate,已可信)不受影響。
   //
-  // `solver.completePct`(圖上可見的 SOLVER_COMPLETE 節點)刻意不在下面列出——門檻表裡沒有
-  // 對應規則(只有 solver.failRate 一條,見 ga-thresholds.ts 的分母污染說明),不是「有規則
-  // 但恰好可信」,是「從未被判定過」,所以不參與這裡的可信/不可信推導,徽章文案只指名
-  // 「solver 失敗率」而不會誤稱「solver 完成率」也不可信。
+  // `solver.completePct`(圖上可見的 SOLVER_COMPLETE 節點)刻意不在下面列出——#207 之後門檻表裡
+  // 確實有一條對應規則了(`solver.completePct`,trusted:false,服務 RegionSplitLedger 的趨勢顯示,
+  // 見 ga-thresholds.ts 該規則的長註解),但這裡的徽章判定範圍刻意不跟著擴大:擴大 chart-funnels
+  // 徽章的判定粒度(讓這張圖的 SOLVER_COMPLETE 節點也畫斜紋)是另一張票的範圍,不是 #207 的一部分。
+  // 所以不參與這裡的可信/不可信推導,徽章文案只指名「solver 失敗率」而不會誤稱「solver 完成率」
+  // 也不可信——即使兩條規則此刻都是 trusted:false。
   //
   // 短期狀態:#200(人機分離)原訂落地後把 solver.failRate 翻成 trusted:true,但審查發現
   // solver_failed 事件從未帶過 taxonomy、人類失敗分母結構上恆為 0,會讓判定引擎誤判成

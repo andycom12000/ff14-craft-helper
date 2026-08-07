@@ -1,12 +1,39 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { GaSnapshot, WindowKey, RegionGlance } from '@/types/ga-snapshot'
+import type { RuleTrends, Verdict } from '@/analytics/ga-evaluate'
 import { fmtInt, fmtPct } from '../formatters'
+import { buildRowTrendCells, type RegionLedgerRowKey, type TrendCell } from '../region-ledger-trend'
+import LedgerTrend from './LedgerTrend.vue'
 
-const props = defineProps<{ snapshot: GaSnapshot; window: WindowKey }>()
+// `verdicts`/`trends7d` 供趨勢三件組使用（issue #207，#184 決定 1/2/5/6）——皆有預設空值，
+// 舊呼叫端（既有測試、尚未接上 #207 wiring 的頁面）不傳這兩個 prop 時整份趨勢優雅降級成
+// 「當期值找不到 → 缺席 → 呈現層畫 —」，不會拋錯。`verdicts` 刻意接受呼叫端已經算好的
+// `evaluate()` 輸出——但**不是** TodoLedger 那份固定 28d 的 `todoVerdicts`。三件組（當期值 + WoW +
+// 7d sparkline）三件必須是同一個視窗，否則欄頭寫「趨勢 · 7d」卻只有兩件是真的 7d（見 review：
+// 當期值一度誤用 28d bundle，導致「活躍使用者」同一列並排出現 1,102（趨勢欄，28d）與 468
+// （`視窗內合計`，WindowSelector 停在 7D 時的真實 7d 值），讀者只能得出「其中一個是錯的」）。
+// `GaDashboardView.vue` 因此另外算一份 7d 專用的 `ledgerVerdicts`（`evaluate(snapshot.windows['7d'],
+// trends7d, GA_THRESHOLD_RULES)`）傳進來，跟 `todoVerdicts`（28d）是兩份獨立計算——同一支
+// `evaluate()`、同一份 `GA_THRESHOLD_RULES`，只是餵的 bundle/trends 視窗不同（#184 決定 1
+// 「已定的觸發判定，不變」講的是判定機制不變，不是視窗釘死在 28d；#184 決定 5 已經把 sparkline
+// 釘在 7d 且要疊門檻線，等於規格層面已經接受「7d 值對門檻」——當期值同理）。
+const props = withDefaults(
+  defineProps<{ snapshot: GaSnapshot; window: WindowKey; verdicts?: Verdict[]; trends7d?: RuleTrends }>(),
+  { verdicts: () => [], trends7d: () => ({}) },
+)
 
 const g = computed(() => props.snapshot.windows[props.window].glance)
 const byRegion = computed(() => props.snapshot.windows[props.window].byRegion)
+
+// 趨勢三件組固定讀 7d bundle——不隨 `window`（WindowSelector）變動（#184 決定 5：「7 個樣本算
+// p10–p90 沒有意義，且……趨勢跟著變反而不一致」；欄頭寫死「趨勢 · 7d」，固定在 7d 而不是跟著
+// selector 走才是誠實的）。這與上面 `g`/`byRegion`（跟著 `window` 切換）刻意是兩份獨立、可能不
+// 同步的資料源——這一列本身顯示的總數字跟著視窗選擇器切換，趨勢卡片的三件（當期值/WoW/
+// sparkline）則永遠鎖在 7d，彼此一致；使用者停在 7D 時，趨勢卡片的當期值會等於同列的
+// `視窗內合計`，切到 14D/28D 時那一欄仍維持 7d（因為標籤寫著，不會被誤讀成跟著切換）。
+const bundle7d = computed(() => props.snapshot.windows['7d'])
+const trendCells = computed(() => buildRowTrendCells(bundle7d.value, props.trends7d, props.verdicts))
 
 type Mode = 'count' | 'percent'
 const STORAGE_KEY = 'ga-region-ledger-mode'
@@ -201,6 +228,10 @@ interface RenderRow extends Row {
   totalMain: string
   totalSub: string
   cells: Cell[]
+  /** 趨勢三件組（issue #207）——1–2 張卡片，見 `region-ledger-trend.ts` 的
+   *  `REGION_LEDGER_ROW_METRICS`。與上面 `cells`（依區域拆欄）完全獨立：三件組固定讀 7d，
+   *  不隨 `displayMode`/`window` 切換（見 `bundle7d`/`trendCells` 的長註解）。 */
+  trend: TrendCell[]
 }
 
 const renderRows = computed<RenderRow[]>(() =>
@@ -209,6 +240,7 @@ const renderRows = computed<RenderRow[]>(() =>
     totalMain: displayMode.value === 'percent' ? row.pctTotal : row.countTotal,
     totalSub: displayMode.value === 'percent' ? row.pctSub : row.countSub,
     cells: cellsFor(row),
+    trend: trendCells.value[row.key as RegionLedgerRowKey],
   })),
 )
 </script>
@@ -244,6 +276,10 @@ const renderRows = computed<RenderRow[]>(() =>
         <div class="rlh-col intl"><span class="swatch intl"></span>國際服</div>
         <div class="rlh-col unset"><span class="swatch unset"></span>未設定</div>
       </div>
+      <!-- issue #207：趨勢三件組（當期值 + WoW + sparkline）全部固定讀 7d，與左側「依市場服別
+           拆欄」欄位跟著 WindowSelector 切換是兩件不相干的事——標題明講「7d」避免使用者以為這欄
+           也會跟著上方的視窗選擇器變動（#184 決定 5）。 -->
+      <div class="rlh-trend-head">趨勢 · 7d</div>
     </div>
 
     <div class="region-ledger">
@@ -269,6 +305,13 @@ const renderRows = computed<RenderRow[]>(() =>
         </div>
         <div v-else class="rl-spark rl-spark-note">
           此列不分地區 — market_region 為 user-scoped 屬性，各列各自去重、跨列相加會重複計數
+        </div>
+        <!-- 趨勢三件組（issue #207，#184 決定 1）：當期值 + WoW delta + 7d sparkline，每列 1–2 張
+             卡片（見 region-ledger-trend.ts 的 REGION_LEDGER_ROW_METRICS）。含觀測層指標
+             （activeUsers.total / returningPct / infra.sabUnavailableRate）——它們永不觸發，趨勢是
+             它們存在於儀表板上的唯一理由（#184 決定 3）。 -->
+        <div class="rl-trend">
+          <LedgerTrend v-for="cell in row.trend" :key="cell.ruleId" :cell="cell" />
         </div>
       </div>
     </div>
@@ -313,11 +356,18 @@ const renderRows = computed<RenderRow[]>(() =>
 
 .region-ledger-head {
   display: grid;
-  grid-template-columns: 1fr 540px;
+  grid-template-columns: 1fr 540px 300px;
   gap: 36px;
   align-items: end;
   padding: 0 4px 14px;
   border-bottom: 1px solid var(--border);
+}
+.rlh-trend-head {
+  font-family: 'Noto Sans TC', system-ui, sans-serif;
+  font-size: 12px; font-weight: 500;
+  letter-spacing: 0.10em;
+  color: var(--ink-muted);
+  padding-bottom: 4px;
 }
 .rlh-eyebrow {
   font-family: 'Noto Sans TC', system-ui, sans-serif;
@@ -364,11 +414,18 @@ const renderRows = computed<RenderRow[]>(() =>
 }
 .rl-row {
   display: grid;
-  grid-template-columns: 200px 1fr 540px;
+  grid-template-columns: 200px 1fr 540px 300px;
   gap: 36px;
   align-items: baseline;
   padding: 24px 4px;
   border-bottom: 1px solid var(--border-soft);
+}
+.rl-trend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+  align-self: center;
 }
 .rl-row:last-child { border-bottom: 0; }
 .rl-label {
