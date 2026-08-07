@@ -11,6 +11,9 @@ import ExpertCollectableMatrix from '../ExpertCollectableMatrix.vue'
 import MisuseHintTally from '../MisuseHintTally.vue'
 import ApiFailureEndpoints from '../ApiFailureEndpoints.vue'
 import SolverBatchFunnels from '../SolverBatchFunnels.vue'
+import FailuresBar from '../FailuresBar.vue'
+import FeatureAdoption from '../FeatureAdoption.vue'
+import GearBucketOutcome from '../GearBucketOutcome.vue'
 import RegionSplitLedger from '../../pieces/RegionSplitLedger.vue'
 
 import type { GaSnapshot } from '@/types/ga-snapshot'
@@ -161,6 +164,83 @@ describe('GA dashboard v2 charts render without throwing', () => {
   it('ApiFailureEndpoints renders the endpoint list', () => {
     const w = mount(ApiFailureEndpoints, { props: { data: apiFailures as never } })
     expect(w.text()).toContain('/Aether/38843')
+  })
+
+  // #211 — cost-mode dimension added to the existing batch-failures chart.
+  it('FailuresBar renders an svg', () => {
+    const data = [
+      { event: 'solver', reason: 'timeout', count: 12 },
+      { event: 'batch', reason: 'no route', count: 18, costModeBreakdown: [{ costMode: 'macro', count: 12 }, { costMode: 'quick-buy', count: 6 }] },
+    ]
+    const w = mount(FailuresBar, { props: { data: data as never } })
+    expect(w.find('svg').exists()).toBe(true)
+  })
+  it('FailuresBar renders the cost-mode breakdown text for batch rows that carry it (#211)', () => {
+    const data = [
+      { event: 'batch', reason: 'no route', count: 18, costModeBreakdown: [{ costMode: 'macro', count: 12 }, { costMode: 'quick-buy', count: 6 }] },
+    ]
+    const w = mount(FailuresBar, { props: { data: data as never } })
+    expect(w.text()).toContain('macro 12')
+    expect(w.text()).toContain('quick-buy 6')
+  })
+  it('FailuresBar does not render any cost-mode text for solver/wasm rows, which never carry costModeBreakdown (#211)', () => {
+    const data = [
+      { event: 'solver', reason: 'timeout', count: 12 },
+      { event: 'wasm', reason: 'SAB unavailable', count: 4 },
+    ]
+    const w = mount(FailuresBar, { props: { data: data as never } })
+    expect(w.text()).not.toContain('macro')
+    expect(w.text()).not.toContain('quick-buy')
+  })
+
+  // #211 — 功能採用率 · 跨服與鑲嵌 (spec §194 §C2).
+  it('FeatureAdoption renders a real percentage when both rates have a sufficient sample (n ≥ 30)', () => {
+    const data = { batchStarts: 1433, crossServerBatches: 86, meldAdvisorRuns: 200, meldApplies: 40 }
+    const w = mount(FeatureAdoption, { props: { data: data as never } })
+    expect(w.text()).toContain('6.0%') // 86/1433
+    expect(w.text()).toContain('20.0%') // 40/200
+  })
+  it('FeatureAdoption renders "—" (never a confident 0.0%) when the denominator has a value but the numerator is 0 and n < 30 — the ticket\'s hard rule', () => {
+    // Today's live shape: meldAdvisorRuns/meldApplies are both 0 (client
+    // instrumentation on main, not yet deployed to production).
+    const data = { batchStarts: 1433, crossServerBatches: 86, meldAdvisorRuns: 0, meldApplies: 0 }
+    const w = mount(FeatureAdoption, { props: { data: data as never } })
+    expect(w.text()).toContain('—')
+    expect(w.text()).not.toContain('0.0%')
+  })
+  it('FeatureAdoption renders "—" when a metric is entirely absent (undefined fields, e.g. an old snapshot)', () => {
+    const w = mount(FeatureAdoption, { props: { data: {} as never } })
+    expect(w.text()).toContain('—')
+    expect(w.text()).not.toContain('0.0%')
+  })
+
+  // #211 — 裝備水準 × 求解結果 (spec §194 §C3).
+  it('GearBucketOutcome renders an svg with all three fixed buckets, even ones with zero traffic', () => {
+    const data = [
+      { bucket: 'entry', starts: 120, completes: 118, fails: 2, completeRate: 118 / 120, failRate: 2 / 120 },
+      { bucket: 'mid', starts: 0, completes: 0, fails: 0, completeRate: 0, failRate: 0 },
+      { bucket: 'bis', starts: 340, completes: 331, fails: 4, completeRate: 331 / 340, failRate: 4 / 340 },
+    ]
+    const w = mount(GearBucketOutcome, { props: { data: data as never } })
+    expect(w.find('svg').exists()).toBe(true)
+  })
+  it('GearBucketOutcome renders "—" (not "0.0%") when failRate is unattributable (#200-style guard)', () => {
+    const data = [
+      { bucket: 'entry', starts: 120, completes: 118, completeRate: 118 / 120 }, // fails/failRate omitted — unattributable
+    ]
+    const w = mount(GearBucketOutcome, { props: { data: data as never } })
+    expect(w.text()).toContain('—')
+  })
+  it('GearBucketOutcome renders "—" (not a confident "0.0%") when completeRate is unattributable — the #211 review 1 regression', () => {
+    // Live production shape: solver_start has real starts, but solver_complete
+    // hasn't started carrying gear_bucket yet — completes/completeRate must be
+    // undefined, never a printed 0.
+    const data = [
+      { bucket: 'entry', starts: 528, fails: undefined, failRate: undefined }, // completes/completeRate omitted — unattributable
+    ]
+    const w = mount(GearBucketOutcome, { props: { data: data as never } })
+    expect(w.text()).toContain('—')
+    expect(w.text()).not.toContain('0.0%')
   })
 })
 

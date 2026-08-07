@@ -35,6 +35,19 @@ export interface FailureRow {
   event: FailureEvent
   reason: string
   count: number
+  /**
+   * #211 — `batch_optimization_failed` 的 `calc_mode` 維度分佈（'macro' | 'quick-buy'）。
+   * `count` above stays the full aggregate (unchanged semantics, sums every calc_mode incl.
+   * the `(not set)` sentinel) — this is a strict addition, not a replacement.
+   *
+   * `undefined`, never `[]` populated with zeros: `solver`/`wasm` rows structurally never carry
+   * `calc_mode` (the param only exists on batch events), and even `event === 'batch'` rows can
+   * have zero attributable rows if every matching instance predates the dimension (GA4's
+   * `(not set)` sentinel, excluded from this array). Both cases mean "no breakdown available",
+   * not "measured zero for every mode" — same undefined-not-0 contract as `TaxonomyCell.macroCopies`
+   * (#209 review 2). Pipeline builder: `buildFailureRows()` in `ga-analyze.mjs`.
+   */
+  costModeBreakdown?: { costMode: 'macro' | 'quick-buy'; count: number }[]
 }
 
 export interface VitalRow {
@@ -169,6 +182,43 @@ export interface CraftKindRow {
   macroCopies?: number
   completeRate: number // 0–1, NOT clamped — can exceed 1, see doc above
   macroCopyRate?: number // 0–1, denominator = completes; undefined = unattributable, see doc above
+}
+
+/**
+ * 裝備水準桶——`classifyGearBucket()`（`src/utils/gear-bucket.ts`）的三個輸出值，
+ * 鏡射 `gear_bucket` custom dimension 的真實值域。
+ */
+export type GearBucketKey = 'entry' | 'mid' | 'bis'
+
+/**
+ * 裝備水準 × 求解結果（#211, spec #194 §C3）。`gear_bucket` 與 `craft_kind`/`source`
+ * 一樣騎在 solver_start/_complete/_failed 三個事件本身上（`src/solver/worker.ts`），不是另一個
+ * 事件的參數——GA4 不能跨事件 join，但這張圖不需要：三個結果桶都來自「同一個」求解嘗試各自發出
+ * 的事件，不是兩個獨立事件湊出來的假關聯。
+ *
+ * `starts`/`completes`/`fails` 全部人類過濾（#200 `isMachineSolveRow()`），與 `CraftKindRow` 同一種
+ * 過濾邏輯——機器迴圈（batch-optimizer / buff-recommender / meld-advisor）的求解不歸戶進任何一個
+ * 裝備水準桶。`gear_bucket` 值不在 entry/mid/bis 三者之列的列（例如維度上線前的歷史事件，不可回溯）
+ * 直接跳過，不會誤入某一桶。
+ *
+ * `completes`/`completeRate` 與 `fails`/`failRate` 都是 `undefined`——不是 `0`——當各自對應的事件
+ * （`solver_complete` / `solver_failed`）整批都無法歸戶到任何一個 `gear_bucket`。這是**逐事件獨立**
+ * 的判斷，不是共用單一旗標：`gear_bucket` 是這張圖歸戶失敗的真正維度，`solver_complete` 與
+ * `solver_failed` 在 `worker.ts` 是兩條不同的埋點路徑，一邊已經部署帶 `gear_bucket`、另一邊還沒是
+ * 完全可能發生的中間態（#211 review 1 抓到的核心問題：早期實作誤用 `craft_kind` 的存在性當判準，
+ * 那是 #189 taxonomy 問題的維度，不是這張圖歸戶失敗的維度，兩者今天恰好同時缺席才讓舊實作看似
+ * 正常）。判別式：`buildGearBucketBreakdown()`（ga-analyze.mjs）逐 eventName 各自檢查「這個 window
+ * 有沒有任何一列帶得出 entry/mid/bis 其中之一」，形狀同 `canAttributeMacroCopies()`。
+ *
+ * `completeRate` 刻意不 clamp 到 `[0, 1]`（同 `CraftKindRow` 的理由，#209 review 3）。
+ */
+export interface GearBucketRow {
+  bucket: GearBucketKey
+  starts: number
+  completes?: number
+  fails?: number
+  completeRate?: number // completes/starts, 0–1, NOT clamped; undefined = unattributable, see doc above
+  failRate?: number // fails/starts, 0–1; undefined = unattributable, see doc above
 }
 
 /** Chart #5 — Misuse signal */
@@ -355,6 +405,14 @@ export interface MetricsBundle {
   misuseSignals?: MisuseRow[]
   /** Chart #7 — ApiFailureEndpoints. */
   apiFailures?: ApiFailures
+  /**
+   * 裝備水準 × 求解結果（#211）。Optional — omitted (not an empty array) whenever the window has
+   * zero solver_start/_complete/_failed rows at all, same "field absent, don't fake zeros" pattern
+   * as `taxonomy` above; also absent on every pre-#211 `gh-data/history/` snapshot (no backfill —
+   * `gear_bucket` only rides `solver_complete`/`solver_failed` since #198, not yet deployed to
+   * production as of this ticket).
+   */
+  gearBucketBreakdown?: GearBucketRow[]
 }
 
 export interface GaSnapshot {
