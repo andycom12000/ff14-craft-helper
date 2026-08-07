@@ -36,6 +36,14 @@ type RegionKey = 'cht' | 'intl' | 'unset'
 const regions: RegionKey[] = ['cht', 'intl', 'unset']
 
 type RowKey = 'activeUsers' | 'solver' | 'batch' | 'bom' | 'infra'
+// Keys that actually exist on ByRegion — 'activeUsers' is deliberately absent
+// (#202): market_region is a user-scoped property, so GA dedupes each region
+// bucket independently but NOT across buckets. A per-region active-user split
+// would double-count anyone whose bucket changed mid-window (unset → cht
+// after completing onboarding), and no amount of converting to a percentage
+// rescues it — the denominator itself is the double-counted sum. See the
+// same note on ByRegion in src/types/ga-snapshot.ts.
+type RegionRowKey = 'solver' | 'batch' | 'bom' | 'infra'
 interface Row {
   label: string
   key: RowKey
@@ -44,6 +52,8 @@ interface Row {
   countSub: string
   pctTotal: string
   pctSub: string
+  /** false ⟹ this row has no valid per-region split; render a note instead. */
+  regionSplit: boolean
 }
 
 const rows = computed<Row[]>(() => {
@@ -57,11 +67,13 @@ const rows = computed<Row[]>(() => {
       countSub: '視窗內合計',
       pctTotal: fmtPct(gl.activeUsers.returningPct),
       pctSub: '回訪占比',
+      regionSplit: false,
     },
     {
       label: 'Solver 吞吐',
       key: 'solver',
       mode: 'pct',
+      regionSplit: true,
       countTotal: `${fmtInt(gl.solver.starts)} → ${fmtInt(gl.solver.completes)}`,
       countSub: `${fmtInt(gl.solver.fails)} 失敗`,
       pctTotal: fmtPct(gl.solver.completePct),
@@ -71,6 +83,7 @@ const rows = computed<Row[]>(() => {
       label: '批量最佳化',
       key: 'batch',
       mode: 'pct',
+      regionSplit: true,
       countTotal: `${fmtInt(gl.batch.starts)} → ${fmtInt(gl.batch.completes)}`,
       countSub: `${fmtInt(gl.batch.fails)} 失敗 · ${fmtInt(gl.batch.cancelled)} 取消`,
       pctTotal: fmtPct(gl.batch.completePct),
@@ -80,6 +93,7 @@ const rows = computed<Row[]>(() => {
       label: 'BOM → 批量轉送',
       key: 'bom',
       mode: 'pct',
+      regionSplit: true,
       countTotal: `${fmtInt(gl.bom.calculates)} → ${fmtInt(gl.bom.sentToBatch)}`,
       countSub: '計算 → 推送批量',
       pctTotal: fmtPct(gl.bom.handoffPct),
@@ -89,6 +103,7 @@ const rows = computed<Row[]>(() => {
       label: '基礎建設警告',
       key: 'infra',
       mode: 'count',
+      regionSplit: true,
       countTotal: `${fmtInt(gl.infra.sabUnavailable)} SAB · ${fmtInt(gl.infra.wasmLoadFailed)} WASM`,
       countSub: '需注意',
       pctTotal: `${fmtInt(gl.infra.sabUnavailable + gl.infra.wasmLoadFailed)} 件`,
@@ -108,7 +123,11 @@ interface Cell {
 }
 
 // Replicates the mockup's paint() per-cell logic for the current displayMode.
+// Rows with regionSplit: false (activeUsers, #202) never call this — the
+// template renders a note in place of the 3-column grid instead.
 function cellsFor(row: Row): Cell[] {
+  if (!row.regionSplit) return []
+
   const br = byRegion.value
   // Graceful degrade: no byRegion data → show em-dash, zero-width bars.
   if (!br) {
@@ -123,7 +142,7 @@ function cellsFor(row: Row): Cell[] {
     }))
   }
 
-  const byR = br[row.key] as Record<RegionKey, RegionGlance>
+  const byR = br[row.key as RegionRowKey] as Record<RegionKey, RegionGlance>
   const isInfra = row.key === 'infra'
   const totalValue = regions.reduce((s, r) => s + (byR[r].value || 0), 0) || 1
   const maxValue = Math.max(...regions.map((r) => byR[r].value || 0)) || 1
@@ -234,7 +253,7 @@ const renderRows = computed<RenderRow[]>(() =>
           <span class="num">{{ row.totalMain }}</span>
           <span class="muted">{{ row.totalSub }}</span>
         </div>
-        <div class="rl-spark">
+        <div v-if="row.regionSplit" class="rl-spark">
           <div
             v-for="cell in row.cells"
             :key="cell.region"
@@ -247,6 +266,9 @@ const renderRows = computed<RenderRow[]>(() =>
             </div>
             <div class="rl-spark-sub">{{ cell.secondary }}</div>
           </div>
+        </div>
+        <div v-else class="rl-spark rl-spark-note">
+          此列不分地區 — market_region 為 user-scoped 屬性，各列各自去重、跨列相加會重複計數
         </div>
       </div>
     </div>
@@ -373,6 +395,15 @@ const renderRows = computed<RenderRow[]>(() =>
   grid-template-columns: repeat(3, 1fr);
   gap: 18px;
   align-items: end;
+}
+.rl-spark-note {
+  display: flex;
+  align-items: center;
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 13px;
+  color: var(--ink-faint);
+  letter-spacing: 0.01em;
 }
 .rl-spark-cell {
   display: flex; flex-direction: column; gap: 6px;

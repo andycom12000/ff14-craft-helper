@@ -16,7 +16,13 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { isMachineSolveRow, classifyUniversalisFetch, classifyUniversalisFetchRow } from '../dev/ga-analyze.mjs'
+import {
+  isMachineSolveRow,
+  classifyUniversalisFetch,
+  classifyUniversalisFetchRow,
+  buildActiveUsersGlance,
+  marketRegionBucket,
+} from '../dev/ga-analyze.mjs'
 
 test('craft_kind === "(not set)" is machine, regardless of source (pre-fix leg)', () => {
   assert.equal(isMachineSolveRow({ craftKind: '(not set)' }), true)
@@ -153,4 +159,60 @@ test('classifyUniversalisFetchRow(): status="(not set)" is "other-fail", NOT "re
 test('classifyUniversalisFetchRow(): "1" is accepted as truthy ok (GA4 sometimes renders booleans as 0/1)', () => {
   assert.equal(classifyUniversalisFetchRow({ ok: '1', status: '200' }), 'success')
   assert.equal(classifyUniversalisFetchRow({ ok: '0', status: '0' }), 'real-fail')
+})
+
+// Unit tests for `buildActiveUsersGlance` — the glance.activeUsers denominator
+// fix (#202). Getting this wrong either re-introduces the ~27.8% inflation
+// (summing flip's three newVsReturning buckets) or silently diverges the live
+// pipeline from the history backfill script, which reuses this same function
+// so both sides share one definition (see the function's doc comment).
+test('total comes straight from the dimension-less query, not new+returning', () => {
+  const g = buildActiveUsersGlance({ dimensionlessTotal: 1096, flipNew: 662, flipReturning: 318 })
+  assert.equal(g.total, 1096)
+  // Sanity: this is the #202 issue body's own numbers (1401 inflated vs 1096
+  // dimension-less) — new+returning+other summed to 1401, not 1096.
+  assert.notEqual(g.total, 662 + 318)
+})
+
+test('new / returning pass through unchanged — #202 explicitly does not touch them', () => {
+  const g = buildActiveUsersGlance({ dimensionlessTotal: 1096, flipNew: 662, flipReturning: 318 })
+  assert.equal(g.new, 662)
+  assert.equal(g.returning, 318)
+})
+
+test('returningPct denominator is the dimension-less total, not new+returning', () => {
+  const g = buildActiveUsersGlance({ dimensionlessTotal: 1096, flipNew: 662, flipReturning: 318 })
+  assert.equal(g.returningPct, 318 / 1096)
+})
+
+test('returningPct is 0 (not NaN/Infinity) when the dimension-less total is 0', () => {
+  const g = buildActiveUsersGlance({ dimensionlessTotal: 0, flipNew: 0, flipReturning: 0 })
+  assert.equal(g.returningPct, 0)
+  assert.equal(g.total, 0)
+})
+
+// Unit tests for `marketRegionBucket` — the market_region ledger bucket
+// classifier (#202). Missing the empty-string form here silently undercounts
+// "never learned this user's region" the same way #198's missed craft_kind
+// '' form leaked machine rows into the human bucket.
+test('"(not set)" — GA\'s own missing-property sentinel — buckets as notset', () => {
+  assert.equal(marketRegionBucket('(not set)'), 'notset')
+})
+
+test('"" (empty string) ALSO buckets as notset — must merge with the sentinel, not vanish', () => {
+  assert.equal(marketRegionBucket(''), 'notset')
+})
+
+test('the app\'s own literal "unset" stays a DISTINCT bucket from notset', () => {
+  assert.equal(marketRegionBucket('unset'), 'unset')
+  assert.notEqual(marketRegionBucket('unset'), marketRegionBucket('(not set)'))
+})
+
+test('"cht" / "intl" pass through as their own buckets', () => {
+  assert.equal(marketRegionBucket('cht'), 'cht')
+  assert.equal(marketRegionBucket('intl'), 'intl')
+})
+
+test('an unrecognized value returns null so callers can skip it, not silently misfile it', () => {
+  assert.equal(marketRegionBucket('some-unexpected-value'), null)
 })
