@@ -69,6 +69,17 @@ defineProps<{
   white-space: normal;
 }
 .l2-chart {
+  /* Density, not saturation, carries the Layer II "less important" signal
+     (spec #194 §E3 — the measured alternative, going-blind-with-a-filter,
+     nearly doubled Layer II's total height in the #192 prototype). Real
+     chart components size themselves off their own data (some ship a fixed
+     SVG height taller than a report-strip row), so this is a hard container
+     constraint, not a suggestion: content past 140px scrolls instead of
+     blowing the row out. */
+  height: 140px;
   padding: 12px 0;
+  box-sizing: border-box;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 </style>

@@ -47,14 +47,29 @@ onMounted(load)
 // guaranteed non-null there.
 const bundle = computed(() => snapshot.value!.windows[win.value])
 
+// The todo ledger is fixed to the 28-day window regardless of the selected
+// `win` (spec §194 §C1: "待辦固定 28d，放在視窗選擇器下方會像 bug") — it must
+// NOT track `bundle`/`win`, or the whole point of placing it above
+// WindowSelector (unaffected by the selector) is defeated.
+const todoWindowDays = computed(() => snapshot.value!.windows['28d'].window.days)
+
 // Anchor-side readouts (spec §E3) sourced honestly from today's MetricsBundle
 // — see AnchorSide.vue's doc comment. No evaluate()/threshold engine exists
 // in this branch yet, so most Layer I items pass no `readout` at all.
+// Denominator guard aligned to the evaluate() engine's n ≥ 30 minimum sample
+// size (spec §194 §B4) — below that, a rate is noise dressed as a finding.
+const MIN_DENOMINATOR = 30
 const batchFailPct = computed(() => {
   const b = bundle.value.glance.batch
-  return b.starts > 0 ? fmtPct(b.fails / b.starts) : undefined
+  return b.starts >= MIN_DENOMINATOR ? fmtPct(b.fails / b.starts) : undefined
 })
-const bomHandoffPct = computed(() => fmtPct(bundle.value.glance.bom.handoffPct))
+const bomHandoffPct = computed(() => {
+  const b = bundle.value.glance.bom
+  // Pipeline sets handoffPct to 0 (not null) when calculates === 0 — an
+  // unguarded read would render "0.0%" for "nobody used BOM this window",
+  // which looks like a real measurement.
+  return b.calculates >= MIN_DENOMINATOR ? fmtPct(b.handoffPct) : undefined
+})
 </script>
 
 <template>
@@ -80,9 +95,10 @@ const bomHandoffPct = computed(() => fmtPct(bundle.value.glance.bom.handoffPct))
         </div>
 
         <!-- 本期待辦 — page-level ledger, NOT a section (spec §C1). Fixed
-             position: hero → todo → WindowSelector. Empty until the
+             position: hero → todo → WindowSelector, fixed 28-day window
+             (independent of the WindowSelector below it). Empty until the
              threshold table + evaluate() engine (spec §B) lands. -->
-        <TodoLedger :window-days="bundle.window.days" />
+        <TodoLedger :window-days="todoWindowDays" />
 
         <WindowSelector v-model="win" />
         <RegionSplitLedger :snapshot="snapshot" :window="win" />
