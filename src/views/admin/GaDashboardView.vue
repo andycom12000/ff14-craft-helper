@@ -48,10 +48,16 @@ import '@/components/ga-dashboard/dashboard.css'
 
 const { snapshot, loading, error, isStale, staleHours, load } = useGaSnapshot()
 const { trends, load: loadTrends } = useGaTrends()
+// #207 — RegionSplitLedger 的趨勢三件組（WoW + 7d sparkline）需要一份 7d-bundle-window 的
+// (obs,n) 歷史序列，跟本期待辦固定吃的 28d 序列（上面那個 `trends`）是兩個不同的檔案
+// （`trends.json` vs `trends-7d.json`，見 `useGaTrends.ts` 檔頭 / #184 決定 2/5：「28d 滾動視窗
+// 畫不出趨勢」，sparkline 必須用 7d 視窗）。
+const { trends: trends7d, load: loadTrends7d } = useGaTrends('7d')
 const win = ref<WindowKey>('7d')
 
 onMounted(load)
 onMounted(loadTrends)
+onMounted(loadTrends7d)
 
 // Only read within the `v-else-if="snapshot"` branch below — snapshot is
 // guaranteed non-null there.
@@ -152,7 +158,10 @@ const matrixMacroUntrusted = computed(() => isMetricUntrusted('chart-matrix', 's
         />
 
         <WindowSelector v-model="win" />
-        <RegionSplitLedger :snapshot="snapshot" :window="win" />
+        <RegionSplitLedger
+          :snapshot="snapshot" :window="win"
+          :verdicts="todoVerdicts" :trends7d="trends7d"
+        />
 
         <!-- ============ Ⅰ. 為什麼會亮 · 解釋現場 — chart left / anchor side
              right (spec §E3). Every item's side column names the todo that

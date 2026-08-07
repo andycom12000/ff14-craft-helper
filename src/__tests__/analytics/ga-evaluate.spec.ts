@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { evaluate, type Verdict } from '@/analytics/ga-evaluate'
+import { evaluate, wowSignificant, type Verdict, type TrendPoint } from '@/analytics/ga-evaluate'
 import { GA_THRESHOLD_RULES, type Rule } from '@/config/ga-thresholds'
 import type { MetricsBundle } from '@/types/ga-snapshot'
 
@@ -952,5 +952,60 @@ describe('年資（streak）／熄滅（#205）', () => {
     // 走訪撞到 validFrom 邊界（historicalDayState 在此之前一律回 absent）視同耗盡了「有效」歷史，
     // 代表真實 streak 只會更長（validFrom 之前的資料本來就不算數，不是「否證」）。
     expect(v.streakCensored).toBe(true)
+  })
+})
+
+// ── issue #207：wowSignificant() —— #184 決定 2 的兩樣本 CI 重疊檢定 ─────────────────────────
+describe('wowSignificant()', () => {
+  const pt = (date: string, obs: number, n: number): TrendPoint => ({ date, obs, n })
+
+  it('任一邊缺席（null）回傳 null（留白，不是「無變化」）', () => {
+    expect(wowSignificant(null, pt('2026-07-24', 90, 1200))).toBeNull()
+    expect(wowSignificant(pt('2026-07-31', 90, 1200), null)).toBeNull()
+    expect(wowSignificant(null, null)).toBeNull()
+  })
+
+  it('任一邊分母 < 30（MIN_DENOMINATOR）回傳 null，不論比率差多大', () => {
+    expect(wowSignificant(pt('2026-07-31', 20, 25), pt('2026-07-24', 0, 25))).toBeNull()
+    expect(wowSignificant(pt('2026-07-31', 20, 200), pt('2026-07-24', 0, 10))).toBeNull()
+  })
+
+  // #184 決議原文的實測序列（決議「05-27 41.2% → 6.9% Δ-34.3pp ★顯著」）——用同量級的
+  // obs/n 重現同一個結論：真實、大幅的變動必須被判為顯著。
+  it('SAB 修復期間的真實量級變動（41.2% → 6.9%）判為顯著', () => {
+    // n ≈ 1096（fixture 慣用的 activeUsers.total 量級），obs 依比率換算。
+    const prev = pt('2026-05-20', 452, 1096) // 41.2%
+    const cur = pt('2026-05-27', 76, 1096) // 6.9%
+    const r = wowSignificant(cur, prev)
+    expect(r).not.toBeNull()
+    expect(r!.significant).toBe(true)
+    expect(r!.delta).toBeCloseTo(76 / 1096 - 452 / 1096, 5)
+  })
+
+  // 決議原文「06-03 6.9% → 4.8% Δ-2.0pp 不顯著 ← 改動被完全吸收，自動安靜」。
+  it('修復尾聲的小幅殘餘變動（6.9% → 4.8%）判為不顯著——CI 有重疊', () => {
+    const prev = pt('2026-06-02', 76, 1096) // 6.9%
+    const cur = pt('2026-06-03', 53, 1096) // 4.8%
+    const r = wowSignificant(cur, prev)
+    expect(r).not.toBeNull()
+    expect(r!.significant).toBe(false)
+  })
+
+  it('兩期完全相同時必然不顯著（CI 完全重疊）', () => {
+    const a = pt('2026-07-24', 236, 1345)
+    const b = pt('2026-07-31', 236, 1345)
+    const r = wowSignificant(b, a)
+    expect(r).not.toBeNull()
+    expect(r!.significant).toBe(false)
+    expect(r!.delta).toBe(0)
+  })
+
+  it('delta 是原始比率差（不依 dir 正規化），正負號忠實反映「比率上升了還是下降了」', () => {
+    const prev = pt('2026-07-24', 100, 1000) // 10%
+    const cur = pt('2026-07-31', 200, 1000) // 20%
+    const r = wowSignificant(cur, prev)!
+    expect(r.delta).toBeGreaterThan(0)
+    expect(r.curRate).toBeCloseTo(0.2, 5)
+    expect(r.prevRate).toBeCloseTo(0.1, 5)
   })
 })

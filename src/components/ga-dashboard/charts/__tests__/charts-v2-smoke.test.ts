@@ -17,6 +17,8 @@ import GearBucketOutcome from '../GearBucketOutcome.vue'
 import RegionSplitLedger from '../../pieces/RegionSplitLedger.vue'
 
 import type { GaSnapshot } from '@/types/ga-snapshot'
+import { evaluate, type RuleTrends, type TrendPoint } from '@/analytics/ga-evaluate'
+import { GA_THRESHOLD_RULES } from '@/config/ga-thresholds'
 
 beforeAll(() => {
   if (typeof globalThis.ResizeObserver === 'undefined') {
@@ -77,7 +79,13 @@ function snapshotWith(byRegion: GaSnapshot['windows']['7d']['byRegion']): GaSnap
     bom: { calculates: 312, sentToBatch: 38, handoffPct: 0.122 },
     infra: { sabUnavailable: 24, wasmLoadFailed: 7 },
   }
-  const bundle = { window: { days: 7, startDate: '', endDate: '' }, glance, byRegion } as unknown as GaSnapshot['windows']['7d']
+  // `q4Funnels`/`vitals` default to `[]` — #207's evaluate()-driven RegionSplitLedger tests below
+  // are the first callers of `evaluate()` against this fixture; `funnel.pageDropoff`/`vitals.good`
+  // (GA_THRESHOLD_RULES) both call `.map()`/`.filter()` unconditionally on these arrays (unlike the
+  // `misuseSignals`/`api`/`adoption` optional fields, which are `?.`-guarded in their `pick()`s).
+  const bundle = {
+    window: { days: 7, startDate: '', endDate: '' }, glance, byRegion, q4Funnels: [], vitals: [],
+  } as unknown as GaSnapshot['windows']['7d']
   return { schemaVersion: 1, generatedAt: '', propertyId: '527587379', windows: { '7d': bundle, '14d': bundle, '28d': bundle } }
 }
 
@@ -288,5 +296,67 @@ describe('RegionSplitLedger', () => {
     const w = mount(RegionSplitLedger, { props: { snapshot: snapshotWith(byRegion), window: '7d' } })
     const activeUsersRow = w.findAll('.rl-row')[0]
     expect(activeUsersRow.find('.rl-spark-note').exists()).toBe(true)
+  })
+
+  // ── issue #207：趨勢三件組（當期值 + WoW + 7d sparkline） ──────────────────────────────────
+  function sabHistory(days: number, obs: number, n: number, startDate = '2026-06-01'): TrendPoint[] {
+    const start = new Date(`${startDate}T00:00:00Z`)
+    return Array.from({ length: days }, (_, i) => {
+      const d = new Date(start)
+      d.setUTCDate(d.getUTCDate() + i)
+      return { date: d.toISOString().slice(0, 10), obs, n }
+    })
+  }
+
+  it('沒有傳 verdicts/trends7d（舊呼叫端）時優雅降級：不拋錯，仍渲染 8 張趨勢卡片，皆顯示 —', () => {
+    const w = mount(RegionSplitLedger, { props: { snapshot: snapshotWith(undefined), window: '7d' } })
+    const cards = w.findAll('.ledger-trend')
+    expect(cards).toHaveLength(8) // 2 + 2 + 2 + 1 + 1（見 REGION_LEDGER_ROW_METRICS）
+    // 沒有 trends7d 資料時 WoW 一律留白。
+    for (const card of cards) expect(card.find('.lt-delta').text()).toContain('—')
+  })
+
+  it('傳入 evaluate() 的 verdicts 後，有門檻的規則（BOM 交棒率）依 state 上色', () => {
+    const snapshot = snapshotWith(undefined)
+    const verdicts = evaluate(snapshot.windows['28d'], {}, GA_THRESHOLD_RULES)
+    const w = mount(RegionSplitLedger, { props: { snapshot, window: '7d', verdicts } })
+    const bomRow = w.findAll('.rl-row')[3] // activeUsers/solver/batch/bom/infra
+    const bomCard = bomRow.find('.ledger-trend')
+    expect(bomCard.find('.lt-value').classes().some((c) => c.startsWith('tone-'))).toBe(true)
+  })
+
+  it('觀測層卡片（SAB 不可用率）當期值不上色（tone-dim），即使餵了 verdicts', () => {
+    const snapshot = snapshotWith(undefined)
+    const verdicts = evaluate(snapshot.windows['28d'], {}, GA_THRESHOLD_RULES)
+    const w = mount(RegionSplitLedger, { props: { snapshot, window: '7d', verdicts } })
+    const infraRow = w.findAll('.rl-row')[4]
+    const card = infraRow.find('.ledger-trend')
+    expect(card.find('.lt-value').classes()).toContain('tone-dim')
+  })
+
+  it('WoW 顯著時渲染 ▲/▼ 箭頭與 pp 數字，不顯著時渲染「波動不顯著」', () => {
+    const snapshot = snapshotWith(undefined)
+    // sabUnavailable = 24 / activeUsers.total = 1355 ≈ 1.77%（fixture 當期值）。
+    // 造一段 7 天前是 40%、當期（最後一天）驟降的假歷史，確保顯著。
+    const history = sabHistory(7, 500, 1000).concat(sabHistory(1, 10, 1000, '2026-06-08'))
+    const trends7d: RuleTrends = { 'infra.sabUnavailableRate': history }
+    const w = mount(RegionSplitLedger, { props: { snapshot, window: '7d', trends7d } })
+    const infraRow = w.findAll('.rl-row')[4]
+    const delta = infraRow.find('.lt-delta')
+    expect(delta.text()).toMatch(/[▲▼]/)
+    expect(delta.text()).not.toContain('波動不顯著')
+  })
+
+  it('sparkline SVG 缺值處斷線（path 出現兩段 M，不是一路連到底的單一段）', () => {
+    const snapshot = snapshotWith(undefined)
+    const history = sabHistory(5, 90, 1096)
+    history.splice(2, 1, null)
+    const trends7d: RuleTrends = { 'infra.sabUnavailableRate': history }
+    const w = mount(RegionSplitLedger, { props: { snapshot, window: '7d', trends7d } })
+    const infraRow = w.findAll('.rl-row')[4]
+    const path = infraRow.find('.lt-line')
+    const d = path.attributes('d') ?? ''
+    // 斷線時 path data 會有兩個 'M'（起筆兩次）；沒斷線只會有一個。
+    expect((d.match(/M/g) ?? []).length).toBeGreaterThanOrEqual(2)
   })
 })

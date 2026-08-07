@@ -78,6 +78,22 @@ jobs:
             --history /tmp/gh-data/history \
             --out /tmp/gh-data/trends.json
 
+      # issue #207：首屏 RegionSplitLedger 的趨勢三件組（WoW delta + 7d sparkline）需要一份 7d
+      # bundle window 的 (obs,n) 序列——#184 決定 2/5 講得很明白：「28d 滾動視窗畫不出趨勢」，
+      # 相鄰兩點共用 27/28 資料，SAB 修復在 7d 視窗 8 天到位、在 28d 視窗被抹成一道 28 天斜坡。
+      # 上面那步产出的 `trends.json` 用預設 `--bundle-window 28d`（本期待辦固定吃 28d，#191 決定
+      # 5），這裡另外跑一次同一支腳本、只換 `--bundle-window 7d` 與 `--out` 檔名，產出獨立的
+      # `trends-7d.json`——兩份檔案互不覆蓋，`useGaTrends.ts` 的 `bundleWindow` 參數各自 fetch
+      # 對應那一份。同樣 `continue-on-error: true`：衍生產物失敗不該擋下 snapshot.json/history/
+      # 的 commit + push。
+      - name: Build trend file (7d)
+        continue-on-error: true
+        run: |
+          node --experimental-strip-types scripts/dev/ga-build-trend.mjs \
+            --history /tmp/gh-data/history \
+            --out /tmp/gh-data/trends-7d.json \
+            --bundle-window 7d
+
       - name: Commit + push
         run: |
           cd /tmp/gh-data
@@ -85,6 +101,7 @@ jobs:
           git config user.email "ga-snapshot-bot@users.noreply.github.com"
           git add snapshot.json history/
           [ -f trends.json ] && git add trends.json
+          [ -f trends-7d.json ] && git add trends-7d.json
           git diff --cached --quiet && exit 0
           git commit -m "data(snapshot): $(date -u +%Y-%m-%d)"
           git push -u origin gh-data
