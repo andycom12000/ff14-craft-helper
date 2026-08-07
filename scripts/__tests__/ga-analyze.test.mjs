@@ -24,6 +24,11 @@ import {
   marketRegionBucket,
   buildSolverHumanGlance,
   buildAdoptionGlance,
+  buildRlvRawCounts,
+  rlvRawCountsToRows,
+  runReport,
+  describeRequest,
+  canAttributeMacroCopies,
 } from '../dev/ga-analyze.mjs'
 
 test('craft_kind === "(not set)" is machine, regardless of source (pre-fix leg)', () => {
@@ -407,4 +412,235 @@ test('buildAdoptionGlance(): missing/empty inputs default every field to 0, not 
   assert.deepEqual(buildAdoptionGlance(), {
     batchStarts: 0, crossServerBatches: 0, meldAdvisorRuns: 0, meldApplies: 0,
   })
+})
+
+// --- buildRlvRawCounts() / rlvRawCountsToRows() (#209) ---------------------
+// Item 15 of spec #194's pipeline test list: "raw RLV 直方圖 passthrough：
+// 不做分桶、key 數量符合預期". `rows` here is the SIMPLIFIED shape the call
+// site extracts from the raw GA response (`{ rlv, count, craftKind?,
+// source? }`) — same convention buildSolverHumanGlance()/
+// buildAdoptionGlance() use above, not the raw dimensionValues/metricValues
+// GA4 shape.
+
+test('buildRlvRawCounts(): passthrough — every distinct rlv is its own key, values are NOT bucketed', () => {
+  const rows = [
+    { rlv: '1', count: 4 },
+    { rlv: '14', count: 118 },
+    { rlv: '770', count: 118 },
+    { rlv: '517', count: 9 },
+  ]
+  const counts = buildRlvRawCounts(rows)
+  assert.equal(counts.size, 4) // key count matches distinct rlv values exactly — no collapsing into buckets
+  assert.equal(counts.get(1), 4)
+  assert.equal(counts.get(14), 118)
+  assert.equal(counts.get(770), 118)
+  assert.equal(counts.get(517), 9)
+})
+
+test('buildRlvRawCounts(): duplicate rlv keys (e.g. across paginated rows) sum instead of overwriting', () => {
+  const rows = [{ rlv: '660', count: 10 }, { rlv: '660', count: 5 }]
+  const counts = buildRlvRawCounts(rows)
+  assert.equal(counts.size, 1)
+  assert.equal(counts.get(660), 15)
+})
+
+test('buildRlvRawCounts(): rlv <= 0 (incl. empty-string → Number(\'\') === 0) is dropped as not-set, not counted as rlv 0', () => {
+  const rows = [{ rlv: '', count: 40 }, { rlv: '0', count: 3 }, { rlv: '-5', count: 1 }, { rlv: '1', count: 7 }]
+  const counts = buildRlvRawCounts(rows)
+  assert.equal(counts.size, 1)
+  assert.equal(counts.get(1), 7)
+})
+
+test('buildRlvRawCounts(): non-numeric rlv (e.g. "(not set)") is dropped, not NaN-keyed', () => {
+  const rows = [{ rlv: '(not set)', count: 12 }, { rlv: '1', count: 7 }]
+  const counts = buildRlvRawCounts(rows)
+  assert.equal(counts.size, 1)
+  assert.equal(counts.has(NaN), false)
+})
+
+test('buildRlvRawCounts(): humanOnly=true drops machine-originated rows before counting (shared isMachineSolveRow() discriminator)', () => {
+  const rows = [
+    { rlv: '660', craftKind: 'normal', source: 'user', count: 20 },
+    { rlv: '660', craftKind: '(not set)', source: undefined, count: 500 }, // machine (pre-#198 leg)
+    { rlv: '660', craftKind: 'normal', source: 'machine', count: 300 }, // machine (post-#198 leg)
+  ]
+  const counts = buildRlvRawCounts(rows, { humanOnly: true })
+  assert.equal(counts.get(660), 20)
+})
+
+test('buildRlvRawCounts(): humanOnly=false (default) counts every row regardless of craftKind/source', () => {
+  const rows = [
+    { rlv: '660', craftKind: '(not set)', count: 500 },
+    { rlv: '660', craftKind: 'normal', source: 'user', count: 20 },
+  ]
+  const counts = buildRlvRawCounts(rows)
+  assert.equal(counts.get(660), 520)
+})
+
+test('buildRlvRawCounts(): empty/missing rows default to an empty map', () => {
+  assert.equal(buildRlvRawCounts([]).size, 0)
+  assert.equal(buildRlvRawCounts().size, 0)
+})
+
+test('rlvRawCountsToRows(): converts the count map to sorted { rlv, events } rows, ascending by rlv', () => {
+  const counts = buildRlvRawCounts([
+    { rlv: '660', count: 5 }, { rlv: '1', count: 4 }, { rlv: '300', count: 2 },
+  ])
+  assert.deepEqual(rlvRawCountsToRows(counts), [
+    { rlv: 1, events: 4 },
+    { rlv: 300, events: 2 },
+    { rlv: 660, events: 5 },
+  ])
+})
+
+test('rlvRawCountsToRows(): key count matches expected cardinality — live probe found 103 distinct rlv values on 7d, 141 on 28d, this asserts the shape scales without collapsing', () => {
+  const rows = Array.from({ length: 141 }, (_, i) => ({ rlv: String(i + 1), count: i + 1 }))
+  const out = rlvRawCountsToRows(buildRlvRawCounts(rows))
+  assert.equal(out.length, 141)
+})
+
+// --- runReport() truncation warning (#209 review 1) -------------------------
+// The old fix for the raw-RLV limit:100 truncation was to pick a bigger
+// magic number (limit:200) — the reviewer's point: that just moves the
+// failure mode to a later, still-silent date, because rowCount grows with
+// the window and with every new expansion's recipe levels. This asserts the
+// generic detector added to runReport() itself: whenever a request sets
+// `limit` and GA4's `response.rowCount` (the TRUE matching row count,
+// independent of how many rows actually came back) exceeds it, a warning
+// fires — covering all ~15 call sites in this file for free.
+//
+// Uses a fake `client.runReport` (not a real GA4 client) — this is testing
+// OUR wrapper's post-response logic, not GA4's query contract (which this
+// suite deliberately doesn't unit-test, per the file header).
+
+function fakeClient(response) {
+  return { runReport: async () => [response] }
+}
+
+function captureWarn(fn) {
+  const calls = []
+  const original = console.warn
+  console.warn = (...args) => calls.push(args.join(' '))
+  return fn().finally(() => { console.warn = original }).then(() => calls)
+}
+
+test('runReport(): warns when response.rowCount exceeds request.limit', async () => {
+  const calls = await captureWarn(() => runReport(
+    fakeClient({ rowCount: 141, rows: [] }),
+    { limit: 100, dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { value: 'recipe_select' } } } },
+  ))
+  assert.equal(calls.length, 1)
+  assert.match(calls[0], /TRUNCATED/)
+  assert.match(calls[0], /rowCount=141/)
+  assert.match(calls[0], /limit=100/)
+  assert.match(calls[0], /eventName=recipe_select/)
+})
+
+test('runReport(): does not warn when response.rowCount is within request.limit', async () => {
+  const calls = await captureWarn(() => runReport(
+    fakeClient({ rowCount: 80, rows: [] }),
+    { limit: 100 },
+  ))
+  assert.equal(calls.length, 0)
+})
+
+test('runReport(): does not warn when response.rowCount equals request.limit exactly (not truncated)', async () => {
+  const calls = await captureWarn(() => runReport(
+    fakeClient({ rowCount: 100, rows: [] }),
+    { limit: 100 },
+  ))
+  assert.equal(calls.length, 0)
+})
+
+test('runReport(): does not warn when the request has no limit set', async () => {
+  const calls = await captureWarn(() => runReport(
+    fakeClient({ rowCount: 99999, rows: [] }),
+    {},
+  ))
+  assert.equal(calls.length, 0)
+})
+
+test('runReport(): does not warn when response.rowCount is absent (dimension-less aggregate responses)', async () => {
+  const calls = await captureWarn(() => runReport(
+    fakeClient({ rows: [] }),
+    { limit: 100 },
+  ))
+  assert.equal(calls.length, 0)
+})
+
+// #209 review 2: a deliberate top-N query (e.g. apiEndpointRes, whose
+// downstream only reads the top 10 rows anyway) fired this warning as
+// permanent noise on every `--snapshot` run. `opts.topN` lets that specific
+// call site opt out — every other call site stays warn-eligible by default.
+test('runReport(): does not warn when opts.topN is true, even if rowCount exceeds limit', async () => {
+  const calls = await captureWarn(() => runReport(
+    fakeClient({ rowCount: 572, rows: [] }),
+    { limit: 50 },
+    { topN: true },
+  ))
+  assert.equal(calls.length, 0)
+})
+
+test('runReport(): still warns when opts.topN is false/absent, even alongside other opts like soft', async () => {
+  const calls = await captureWarn(() => runReport(
+    fakeClient({ rowCount: 141, rows: [] }),
+    { limit: 100 },
+    { soft: true },
+  ))
+  assert.equal(calls.length, 1)
+  assert.match(calls[0], /TRUNCATED/)
+})
+
+test('describeRequest(): labels an eventName-filtered request by its stringFilter value', () => {
+  const label = describeRequest({
+    dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { value: 'solver_start' } } },
+  })
+  assert.equal(label, 'eventName=solver_start')
+})
+
+test('describeRequest(): labels an inListFilter request by its joined values', () => {
+  const label = describeRequest({
+    dimensionFilter: { filter: { fieldName: 'eventName', inListFilter: { values: ['a', 'b'] } } },
+  })
+  assert.equal(label, 'eventName∈[a,b]')
+})
+
+test('describeRequest(): falls back to the dimension list when there is no eventName filter', () => {
+  const label = describeRequest({ dimensions: [{ name: 'customEvent:rlv' }] })
+  assert.equal(label, 'dimensions=[customEvent:rlv]')
+})
+
+test('describeRequest(): falls back to a generic label when there is neither a filter nor dimensions', () => {
+  assert.equal(describeRequest({}), '(unlabeled request)')
+})
+
+// --- canAttributeMacroCopies() (#209 review 2) ------------------------------
+// `solver_macro_copy` has never carried taxonomy in production — every row
+// arrives with craftKind '(not set)'/''. This mirrors buildSolverHumanGlance()'s
+// canAttributeFails logic: a real 0 (no events at all) must stay a real 0,
+// but "events exist, none carry taxonomy" must NOT collapse to a confident 0.
+
+test('canAttributeMacroCopies(): false when solver_macro_copy rows exist but NONE carry real taxonomy (today\'s live shape)', () => {
+  const rows = [
+    { craftKind: '(not set)', count: 300 },
+    { craftKind: '', count: 147 },
+  ]
+  assert.equal(canAttributeMacroCopies(rows), false)
+})
+
+test('canAttributeMacroCopies(): true (real zero) when there are no solver_macro_copy rows at all', () => {
+  assert.equal(canAttributeMacroCopies([]), true)
+  assert.equal(canAttributeMacroCopies(), true)
+})
+
+test('canAttributeMacroCopies(): true the moment ANY row carries real taxonomy (self-heals if solver_macro_copy starts emitting craft_kind)', () => {
+  const rows = [
+    { craftKind: '(not set)', count: 300 },
+    { craftKind: 'normal', count: 5 },
+  ]
+  assert.equal(canAttributeMacroCopies(rows), true)
+})
+
+test('canAttributeMacroCopies(): craftKind entirely absent (undefined key) counts the same as "(not set)"', () => {
+  assert.equal(canAttributeMacroCopies([{ count: 50 }]), false)
 })

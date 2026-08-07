@@ -405,12 +405,58 @@ async function main() {
 
 // -----------------------------------------------------------------------------
 
+// Best-effort human label for a request, used ONLY in the truncation warning
+// below — never in the query itself. Tries the eventName filter's value(s)
+// first (most requests here filter on eventName), falls back to the
+// dimension list so an unfiltered request still gets a usable label.
+// Exported for scripts/__tests__/ga-analyze.test.mjs's runReport() truncation
+// tests, which construct a fake `client.runReport` and assert on the exact
+// warning text — the shape of the LABEL (not the GA4 query-building this file
+// deliberately doesn't unit-test) is what those tests pin down.
+export function describeRequest(request) {
+  const f = request.dimensionFilter?.filter
+  if (f?.fieldName === 'eventName') {
+    if (f.stringFilter?.value) return `eventName=${f.stringFilter.value}`
+    if (f.inListFilter?.values) return `eventName∈[${f.inListFilter.values.join(',')}]`
+  }
+  const dims = request.dimensions?.map((d) => d.name).join(',')
+  return dims ? `dimensions=[${dims}]` : '(unlabeled request)'
+}
+
 // Exported so scripts/dev/ga-backfill-active-users.mjs (#202's history
 // backfill) can drive live GA4 requests the same way this module does,
 // instead of duplicating client bootstrap / soft-fail plumbing.
 export async function runReport(client, request, opts = {}) {
   try {
     const [response] = await client.runReport(request)
+    // #209 review 1: `limit: 200` on the raw RLV queries silently truncated
+    // real data before this check existed (7d had 103 keys, 28d had 141 —
+    // both under the OLD limit:100, but the failure mode is the same shape
+    // for ANY query here the moment its true row count grows past whatever
+    // limit was picked). GA4 always returns `rowCount` — the TRUE number of
+    // rows matching the query, independent of how many rows actually came
+    // back — so a generic check here covers all ~15 call sites in this file
+    // for free, instead of relying on someone noticing a chart looks thin.
+    // response.rowCount is undefined for aggregate-only responses (no
+    // dimensions), so the comparison naturally no-ops for those.
+    //
+    // #209 review 2: this fired as permanent noise on `apiEndpointRes`
+    // (rowCount 192–572 vs limit 50, every single `--snapshot` run) because
+    // that query is a DELIBERATE top-N leaderboard whose downstream only
+    // reads the top 10 anyway — nothing is lost by truncating it. A warning
+    // that fires on every cron run stops meaning anything, which would have
+    // buried the ONE genuinely-exhaustive query that starts silently
+    // truncating in the future among permanent expected noise. `opts.topN`
+    // is how a call site declares "I deliberately only want the top N rows,
+    // truncation here is expected, do not warn" — every other call site
+    // stays warn-eligible by default (bias: an extra warning is cheap, a
+    // missed real truncation is not).
+    if (!opts.topN && request.limit && response.rowCount > request.limit) {
+      console.warn(
+        `  ⚠ TRUNCATED: ${describeRequest(request)} — rowCount=${response.rowCount} > limit=${request.limit} `
+        + `(${response.rowCount - request.limit} row(s) silently dropped by GA4, raise the limit)`,
+      )
+    }
     return response
   } catch (err) {
     if (opts.soft) {
@@ -915,6 +961,11 @@ async function buildBundle(client, propertyId, days) {
   const fmt = (d) => d.toISOString().slice(0, 10)
 
   // --- Q1: pages ----------------------------------------------------------
+  // Top-N (#209 review 2): `pages` is rendered as a "top pages" leaderboard
+  // (bundle field consumed directly, no further slicing downstream) —
+  // `orderBys`+`limit: 20` IS the product intent, not an accidental cap.
+  // Long-tail paths (rare query-string variants etc.) are meant to fall off;
+  // nothing downstream needs the exhaustive page-path set to sum correctly.
   const pagesRes = await runReport(client, {
     property, dateRanges,
     dimensions: [{ name: 'pagePath' }, { name: 'pageTitle' }],
@@ -925,7 +976,7 @@ async function buildBundle(client, propertyId, days) {
     ],
     orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
     limit: 20,
-  })
+  }, { topN: true })
   const pages = (pagesRes?.rows ?? []).map((r) => mapPageRow(r))
 
   // --- Q2: funnels --------------------------------------------------------
@@ -983,6 +1034,13 @@ async function buildBundle(client, propertyId, days) {
   }
 
   // --- Q2: failures -------------------------------------------------------
+  // NOT top-N (#209 review 2): `orderBys`/`limit` here are display-order
+  // only — FailuresBar.vue renders every row it's given (re-sorts itself,
+  // never slices), and `reason` is a free-form error MESSAGE (`err.message`
+  // at the throw site, not an enum), so its cardinality isn't bounded the
+  // way e.g. misuse `type` is. A truncation here would silently hide a real,
+  // possibly-rare failure reason from the diagnostic chart — stays
+  // warn-eligible.
   const failuresRes = await runReport(client, {
     property, dateRanges,
     dimensions: [{ name: 'eventName' }, { name: 'customEvent:reason' }],
@@ -1301,24 +1359,55 @@ function regionBucket(value) {
   return 'unset'
 }
 
-// Bucket an RLV value into expansion-aligned ranges. Real rlv spans 1–770
-// (ARR≈1–300, StB/ShB≈301–510, EW≈511–600, DT≈601–770), so per-100 buckets
-// crammed everything pre-endgame into one "< 600" bar and left 700-800/800+
-// near-empty. These cuts follow the data-patch boundaries instead.
+// RLV grouping moved from pipeline to frontend (#209 / spec #194 §C3): the
+// wide expansion-aligned buckets a prior version of this file computed here
+// (≤300 / 301–510 / 511–600 / 601–680 / 681+) are retired — that function
+// used to live at this spot but nothing calls it anymore. The pipeline now
+// passes through the RAW per-rlv event count (real rlv spans 1–770, 103
+// distinct keys observed live on the 7d window / 141 on 28d — cardinality is
+// not a problem, though `runReport()`'s rowCount check is what actually
+// guards against it growing past `limit` unnoticed), and the
+// dashboard picks a dynamic top-8-by-volume "leaderboard" client-side
+// (`src/components/ga-dashboard/rlv-aggregate.ts`) instead of a fixed
+// classification. `RlvBucket`/`rlvHistogram` stay defined in
+// `src/types/ga-snapshot.ts` (marked `@deprecated`) purely so the 71+ frozen
+// `gh-data/history/` snapshots that still carry the old bucketed shape keep
+// parsing — no new snapshot populates that field.
+//
 // n <= 0 (incl. empty-string rlv → Number('') === 0) is treated as unset and
-// dropped, so not-set events don't inflate the lowest bucket.
-function rlvWideBucket(rlv) {
-  const n = Number(rlv)
-  if (!Number.isFinite(n) || n <= 0) return null
-  if (n <= 300) return '≤300'
-  if (n <= 510) return '301–510'
-  if (n <= 600) return '511–600'
-  if (n <= 680) return '601–680'
-  return '681+'
+// dropped — same "not-set doesn't get counted as a real value" convention
+// the retired bucket function used, now applied per-row instead of per-bucket.
+// `humanOnly` additionally drops machine-originated rows via
+// `isMachineSolveRow()` BEFORE counting — used by the solver_start leg of
+// chart #3 (toolUsageByRlv).
+//
+// `rows` is the SIMPLIFIED per-row shape (`{ rlv, count, craftKind?, source?
+// }`), not the raw GA API response — same convention as
+// `buildSolverHumanGlance()`/`buildAdoptionGlance()` above: call sites
+// extract `dimensionValues`/`metricValues` themselves so this pure function
+// (and its node:test fixtures) never touch the GA4 response shape directly
+// (spec #194's "接縫二" — pure transforms tested on plain objects, not
+// query-assembly detail).
+export function buildRlvRawCounts(rows = [], { humanOnly = false } = {}) {
+  const counts = new Map()
+  for (const r of rows) {
+    const n = Number(r.rlv)
+    if (!Number.isFinite(n) || n <= 0) continue
+    if (humanOnly && isMachineSolveRow({ craftKind: r.craftKind, source: r.source })) continue
+    counts.set(n, (counts.get(n) ?? 0) + (r.count ?? 0))
+  }
+  return counts
 }
 
-// Chart #3 (toolUsageByRlv) shares the same expansion-aligned buckets.
-const rlvToolBucket = rlvWideBucket
+// `Map<rlv, count>` → sorted `[{ rlv, events }]` passthrough (item 15 of
+// spec #194's pipeline test list: "raw RLV 直方圖 passthrough：不做分桶、key
+// 數量符合預期"). Sorted ascending by rlv purely for stable/diffable output —
+// the frontend's top-8 aggregation re-sorts by volume itself.
+export function rlvRawCountsToRows(counts) {
+  return [...counts.entries()]
+    .map(([rlv, events]) => ({ rlv, events }))
+    .sort((a, b) => a.rlv - b.rlv)
+}
 
 // --- Human/machine solve discriminator (#198) -----------------------------
 // Pure function, unit-tested via `scripts/__tests__/ga-analyze.test.mjs`
@@ -1424,6 +1513,38 @@ export function buildSolverHumanGlance(rows = []) {
     humanFails: canAttributeFails ? humanFails : undefined,
     humanCompletePct: humanStarts ? humanCompletes / humanStarts : 0,
   }
+}
+
+// --- macro-copy attribution guard (#209 review 2) ---------------------------
+// Pure function, unit-tested via `scripts/__tests__/ga-analyze.test.mjs` —
+// same shape of fix `canAttributeFails` above applies to `humanFails`.
+//
+// `solver_macro_copy` (unlike solver_start/_complete) has NEVER carried
+// taxonomy in production — a live probe found every row's is_expert/
+// is_collectable/craft_kind/source all sitting at the GA4 "(not set)"
+// sentinel. `isMachineSolveRow()` therefore (correctly, and unavoidably)
+// classifies EVERY solver_macro_copy row as machine-originated and filters
+// it out before it can be bucketed into a TaxonomyCell/CraftKindRow. The
+// resulting `macroCopies: 0` is NOT "we measured zero macro copies" — it's
+// the exact same "attribution is structurally impossible" shape #200 review
+// caught for `humanFails` (a real 28d probe found obs=0/n=14572 rendering a
+// confident false all-clear before that fix). `glance.solver.macroCopies`
+// itself is UNAFFECTED (#200 already established it's 100% human by
+// construction, no isMachineSolveRow() filter applies there) — this guard is
+// only for the per-cell/per-kind breakdowns that DO filter by taxonomy.
+//
+// `rows` is the SIMPLIFIED `{ craftKind, count }` shape (same convention as
+// buildSolverHumanGlance() above), extracted from the SAME taxMacroRows the
+// matrix/craftKindBreakdown accumulation already fetches — no new GA4 query.
+export function canAttributeMacroCopies(rows = []) {
+  let total = 0
+  let withTaxonomy = 0
+  for (const row of rows) {
+    const count = row.count ?? 0
+    total += count
+    if (!CRAFT_KIND_ABSENT_VALUES.has(row.craftKind ?? '(not set)')) withTaxonomy += count
+  }
+  return total === 0 || withTaxonomy > 0
 }
 
 function gaBool(value) {
@@ -1592,6 +1713,11 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
 
   // --- Chart #5: misuseSignals -------------------------------------------
   // page_misuse_hint × customEvent:type (eventCount + totalUsers→affectedUsers).
+  // NOT top-N (#209 review 2): downstream maps every row it gets with no
+  // slice — `out.misuseSignals` is meant to be the complete breakdown.
+  // `type` is an enum emitted by useFunnelMisuseDetector.ts (currently 3
+  // fixed values via MISUSE_META, unknown types fall back to a raw label),
+  // so `limit: 30` has real headroom; `orderBys` is just display order.
   const misuseRes = await runReport(client, {
     property, dateRanges,
     dimensions: [{ name: 'customEvent:type' }],
@@ -1618,6 +1744,13 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
 
   // --- Chart #7: apiFailures ---------------------------------------------
   // matrix: api_failure × (api, status). topEndpoints: × (api, endpoint, status).
+  // NOT top-N (#209 review 2): `matrix` re-aggregates EVERY row it gets into
+  // `matrixMap` below (no slice) — it's meant to be the full api×status
+  // breakdown, not a leaderboard. `api`/`status` are both small closed sets
+  // (a couple of API names, a handful of HTTP status codes), so `limit: 50`
+  // has real headroom; `orderBys` only affects iteration order into the Map,
+  // not what gets counted. Contrast with `apiEndpointRes` right below, which
+  // IS top-N.
   const apiMatrixRes = await runReport(client, {
     property, dateRanges,
     dimensions: [{ name: 'customEvent:api' }, { name: 'customEvent:status' }],
@@ -1627,6 +1760,11 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
     orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
     limit: 50,
   }, { soft: true })
+  // Top-N (#209 review 2): downstream `topEndpoints` below takes only the
+  // top 10 rows (`.sort().slice(0, 10)`) — this query's rowCount already
+  // exceeds `limit: 50` on every real window (192/401/572 across 7d/14d/28d
+  // in a live probe), which is expected and benign here, unlike the
+  // exhaustive RLV/matrix queries where a missing row corrupts a sum.
   const apiEndpointRes = await runReport(client, {
     property, dateRanges,
     dimensions: [
@@ -1639,7 +1777,7 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
       fieldName: 'eventName', stringFilter: { value: 'api_failure' } } },
     orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
     limit: 50,
-  }, { soft: true })
+  }, { soft: true, topN: true })
   const apiMatrixRows = apiMatrixRes?.rows ?? []
   const apiEndpointRows = apiEndpointRes?.rows ?? []
   if (apiMatrixRows.length || apiEndpointRows.length) {
@@ -1669,7 +1807,7 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
 
   // --- Chart #4: taxonomy -------------------------------------------------
   // Dimension coverage confirmed against live GA:
-  //   - rlv lives on recipe_select (NOT solver_start), so rlvHistogram queries
+  //   - rlv lives on recipe_select (NOT solver_start), so rlvRaw queries
   //     recipe_select — it reads as "recipe difficulty being opened".
   //   - is_expert / is_collectable ARE on solver_start (matrix starts split
   //     correctly) but are largely (not set) on solver_complete, so per-cell
@@ -1685,14 +1823,24 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
   //     is_collectable — silently diluting every cell with machine noise
   //     either way. Filtering makes both charts human-only, matching
   //     glance.solver.human* below.
-  // rlvHistogram: recipe_select × customEvent:rlv bucketed wide.
+  // rlvRaw: recipe_select × customEvent:rlv, raw (no bucketing, #209).
   const rlvHistRes = await runReport(client, {
     property, dateRanges,
     dimensions: [{ name: 'customEvent:rlv' }],
     metrics: [{ name: 'eventCount' }],
     dimensionFilter: { filter: {
       fieldName: 'eventName', stringFilter: { value: 'recipe_select' } } },
-    limit: 100,
+    // Raw passthrough (#209) means every distinct rlv value is its own row —
+    // a live probe found 103 keys on 7d and 141 on 28d (both already over the
+    // old bucket-era limit:100, which would have silently truncated real
+    // data). This number is NOT a safe ceiling either — it grows with the
+    // window and with every new expansion's recipe levels, so `limit` alone
+    // can't be trusted to stay ahead of it. `runReport()` now warns whenever
+    // `response.rowCount` exceeds `limit` (GA4 always reports the true
+    // matching row count, independent of how many rows it actually
+    // returned), so a future truncation is loud instead of silently thinning
+    // a chart. Matches selectRlvRes/bomRlvRes below.
+    limit: 200,
   }, { soft: true })
   // matrix: solver_start/solver_complete grouped by (is_expert, is_collectable),
   // macroCopies from solver_macro_copy grouped the same way. craft_kind/source
@@ -1761,14 +1909,23 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
   const hasTaxonomy = rlvHistRows.length || taxStartsRows.length
     || taxCompletesRows.length || kindStartsRows.length
   if (hasTaxonomy) {
-    // rlvHistogram
-    const histMap = new Map([['≤300', 0], ['301–510', 0], ['511–600', 0], ['601–680', 0], ['681+', 0]])
-    for (const r of rlvHistRows) {
-      const bucket = rlvWideBucket(r.dimensionValues[0].value)
-      if (!bucket) continue
-      histMap.set(bucket, histMap.get(bucket) + Number(r.metricValues[0].value))
-    }
-    const rlvHistogram = [...histMap.entries()].map(([bucket, events]) => ({ bucket, events }))
+    // rlvRaw (#209 — raw RLV passthrough, no pipeline-side bucketing; the
+    // dashboard's dynamic top-8 leaderboard replaces the old wide buckets).
+    const rlvRaw = rlvRawCountsToRows(buildRlvRawCounts(
+      rlvHistRows.map((r) => ({ rlv: r.dimensionValues[0].value, count: Number(r.metricValues[0].value) })),
+    ))
+
+    // macroAttributable (#209 review 2): `solver_macro_copy` has never
+    // carried taxonomy in production, so every row in `taxMacroRows` gets
+    // filtered out as machine-originated below — see
+    // `canAttributeMacroCopies()`'s doc comment above for the full "same
+    // shape as #200's humanFails" reasoning. Computed once and reused by
+    // BOTH the matrix cells and craftKindBreakdown so a real "there were
+    // macro-copy events but we can't attribute any of them" state renders as
+    // `undefined` in both places, not a confident 0.0%.
+    const macroAttributable = canAttributeMacroCopies(
+      taxMacroRows.map((r) => ({ craftKind: r.dimensionValues[2]?.value, count: Number(r.metricValues[0].value) })),
+    )
 
     // matrix — accumulate the 4 (is_expert, is_collectable) cells.
     const cellKey = (e, c) => `${e}|${c}`
@@ -1796,17 +1953,30 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
     }
     accumulate(taxStartsRows, 'starts')
     accumulate(taxCompletesRows, 'completes')
-    accumulate(taxMacroRows, 'macroCopies')
+    accumulate(taxMacroRows, 'macroCopies') // no-op today (see macroAttributable above) — self-heals if solver_macro_copy ever starts carrying taxonomy
     const matrix = [...cells.values()].map((cell) => ({
-      ...cell,
+      isExpert: cell.isExpert,
+      isCollectable: cell.isCollectable,
+      starts: cell.starts,
+      completes: cell.completes,
+      macroCopies: macroAttributable ? cell.macroCopies : undefined,
       completeRate: cell.starts > 0 ? cell.completes / cell.starts : 0,
-      macroCopyRate: cell.completes > 0 ? cell.macroCopies / cell.completes : 0,
+      macroCopyRate: macroAttributable ? (cell.completes > 0 ? cell.macroCopies / cell.completes : 0) : undefined,
     }))
 
     // craftKindBreakdown — same #200 human filter. Filtering out machine rows
     // means the '(not set)'/'' buckets (today's pre-fix machine signature)
     // disappear entirely from the output, leaving only real craft kinds
     // (normal/quick/expert/custom_delivery/company) reported by humans.
+    //
+    // #209: this bundle now also carries `completes`/`macroCopies`/
+    // `macroCopyRate` — RecipeDifficultyKind.vue no longer renders this data
+    // (that chart drops the craft_kind column per spec #194 §C3), it moved
+    // into ExpertCollectableMatrix.vue as a third row so the matrix stays the
+    // dashboard's one macro-copy-rate-bearing structure. `macroCopies` reuses
+    // `taxMacroRows` (already fetched for the is_expert × is_collectable
+    // matrix above, same matrixDims incl. craft_kind at index 2) — no new
+    // GA4 query needed.
     const kindStarts = new Map()
     for (const r of kindStartsRows) {
       const craftKind = r.dimensionValues[0].value
@@ -1821,15 +1991,35 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
       if (isMachineSolveRow({ craftKind, source })) continue
       kindCompletes.set(craftKind, (kindCompletes.get(craftKind) ?? 0) + Number(r.metricValues[0].value))
     }
+    const kindMacroCopies = new Map()
+    for (const r of taxMacroRows) {
+      const craftKind = r.dimensionValues[2]?.value
+      const source = r.dimensionValues[3]?.value
+      if (isMachineSolveRow({ craftKind, source })) continue
+      kindMacroCopies.set(craftKind, (kindMacroCopies.get(craftKind) ?? 0) + Number(r.metricValues[0].value))
+    }
     const craftKindBreakdown = [...kindStarts.entries()].map(([kind, starts]) => {
       const completes = kindCompletes.get(kind) ?? 0
-      // Clamp: completes/starts can still exceed 1 even after human-filtering
-      // because the two counts come from separate queries (a session that
-      // starts inside the window but completes just after it, or vice versa).
-      return { kind, starts, completeRate: starts > 0 ? Math.min(1, completes / starts) : 0 }
+      const macroCopies = kindMacroCopies.get(kind) ?? 0
+      return {
+        kind, starts, completes,
+        macroCopies: macroAttributable ? macroCopies : undefined,
+        // NOT clamped to [0,1] (#209 review 3 — removed a Math.min(1, …) that
+        // was already on main before this ticket): #200's issue body is
+        // explicit that a solver completeRate >100% means "GA dropped a
+        // start event" and is a signal to open a diagnostic ticket, not
+        // something to paper over. `starts`/`completes` come from two
+        // separate queries (a session that starts inside the window but
+        // completes just after it, or vice versa), so a small overshoot is
+        // expected noise — a live probe found `quick` at 101.6%
+        // (starts=1310, completes=1331) the day this was fixed; that is the
+        // GA-dropped-event phenomenon #200 describes, not a calculation bug.
+        completeRate: starts > 0 ? completes / starts : 0,
+        macroCopyRate: macroAttributable ? (completes > 0 ? macroCopies / completes : 0) : undefined,
+      }
     })
 
-    out.taxonomy = { rlvHistogram, matrix, craftKindBreakdown }
+    out.taxonomy = { rlvRaw, matrix, craftKindBreakdown }
   }
 
   // --- Chart #1: byRegion -------------------------------------------------
@@ -1922,7 +2112,7 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
     metrics: [{ name: 'eventCount' }],
     dimensionFilter: { filter: {
       fieldName: 'eventName', stringFilter: { value: 'recipe_select' } } },
-    limit: 100,
+    limit: 200, // raw passthrough (#209) — see rlvHistRes's comment above
   }, { soft: true })
   const simRlvRes = await runReport(client, {
     property, dateRanges,
@@ -1948,40 +2138,42 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
     metrics: [{ name: 'eventCount' }],
     dimensionFilter: { filter: {
       fieldName: 'eventName', stringFilter: { value: 'bom_target_add' } } },
-    limit: 100,
+    limit: 200, // raw passthrough (#209) — see rlvHistRes's comment above
   }, { soft: true })
   const selectRlvRows = selectRlvRes?.rows ?? []
   const simRlvRows = simRlvRes?.rows ?? []
   const bomRlvRows = bomRlvRes?.rows ?? []
   if (selectRlvRows.length || simRlvRows.length) {
-    const BUCKETS = ['≤300', '301–510', '511–600', '601–680', '681+']
-    const mk = () => new Map(BUCKETS.map((b) => [b, 0]))
-    const selectMap = mk()
-    const simMap = mk()
-    const bomMap = mk()
-    const fill = (rows, target, { humanOnly = false } = {}) => {
-      for (const r of rows) {
-        const bucket = rlvToolBucket(r.dimensionValues[0].value)
-        if (!bucket) continue
-        if (humanOnly) {
-          const craftKind = r.dimensionValues[1]?.value
-          const source = r.dimensionValues[2]?.value
-          if (isMachineSolveRow({ craftKind, source })) continue
-        }
-        target.set(bucket, target.get(bucket) + Number(r.metricValues[0].value))
-      }
-    }
-    fill(selectRlvRows, selectMap)
-    fill(simRlvRows, simMap, { humanOnly: true })
-    fill(bomRlvRows, bomMap)
-    out.toolUsageByRlv = BUCKETS.map((bucket) => ({
-      bucket,
-      selectCount: selectMap.get(bucket),
-      simulatorCount: simMap.get(bucket),
-      // TODO: batch_optimization_start carries multi-RLV targets; needs per-target
-      // rlv expansion + recipes.json join — not implemented
+    // #209: raw per-rlv rows, no pipeline-side bucketing — union the rlv keys
+    // seen across all three legs (each event fires independently, so a given
+    // rlv may appear in one map but not another) and fill zeros for the rest.
+    // The frontend's shared top-8 aggregator (rlv-aggregate.ts) does the
+    // grouping, ranked by selectCount, same as taxonomy.rlvRaw above.
+    const selectMap = buildRlvRawCounts(
+      selectRlvRows.map((r) => ({ rlv: r.dimensionValues[0].value, count: Number(r.metricValues[0].value) })),
+    )
+    const simMap = buildRlvRawCounts(
+      simRlvRows.map((r) => ({
+        rlv: r.dimensionValues[0].value,
+        craftKind: r.dimensionValues[1]?.value,
+        source: r.dimensionValues[2]?.value,
+        count: Number(r.metricValues[0].value),
+      })),
+      { humanOnly: true },
+    )
+    const bomMap = buildRlvRawCounts(
+      bomRlvRows.map((r) => ({ rlv: r.dimensionValues[0].value, count: Number(r.metricValues[0].value) })),
+    )
+    const allRlvs = new Set([...selectMap.keys(), ...simMap.keys(), ...bomMap.keys()])
+    // TODO: batchTargetCount stays 0 — batch_optimization_start carries
+    // multi-RLV targets and needs a recipes.json join to attribute (spec
+    // #194 item 14), not implemented in this ticket.
+    out.toolUsageByRlv = [...allRlvs].sort((a, b) => a - b).map((rlv) => ({
+      rlv,
+      selectCount: selectMap.get(rlv) ?? 0,
+      simulatorCount: simMap.get(rlv) ?? 0,
       batchTargetCount: 0,
-      bomTargetCount: bomMap.get(bucket),
+      bomTargetCount: bomMap.get(rlv) ?? 0,
     }))
   }
 

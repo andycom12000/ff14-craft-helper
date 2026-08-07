@@ -25,23 +25,29 @@ beforeAll(() => {
   }
 })
 
+// #209: raw per-rlv rows, not the retired wide-bucket shape.
 const toolUsage = [
-  { bucket: '≤300', selectCount: 152, simulatorCount: 24, batchTargetCount: 12, bomTargetCount: 88 },
-  { bucket: '681+', selectCount: 1284, simulatorCount: 921, batchTargetCount: 287, bomTargetCount: 142 },
+  { rlv: 50, selectCount: 152, simulatorCount: 24, batchTargetCount: 12, bomTargetCount: 88 },
+  { rlv: 660, selectCount: 1284, simulatorCount: 921, batchTargetCount: 287, bomTargetCount: 142 },
+]
+
+const rlvRaw = [
+  { rlv: 50, events: 88 },
+  { rlv: 660, events: 1284 },
 ]
 
 const taxonomy = {
-  rlvHistogram: [
-    { bucket: '≤300', events: 88 },
-    { bucket: '681+', events: 1284 },
-  ],
+  rlvRaw,
   matrix: [
     { isExpert: false, isCollectable: false, starts: 2104, completes: 2043, macroCopies: 622, completeRate: 0.971, macroCopyRate: 0.304 },
     { isExpert: true, isCollectable: true, starts: 50, completes: 29, macroCopies: 6, completeRate: 0.58, macroCopyRate: 0.207 },
   ],
+  // #209: craftKindBreakdown moved from RecipeDifficultyKind.vue into
+  // ExpertCollectableMatrix.vue's third row — now carries completes/
+  // macroCopies/macroCopyRate too, same shape as a TaxonomyCell.
   craftKindBreakdown: [
-    { kind: 'normal', starts: 2104, completeRate: 0.971 },
-    { kind: 'expert', starts: 287, completeRate: 0.69 },
+    { kind: 'normal', starts: 2104, completes: 2043, macroCopies: 622, completeRate: 0.971, macroCopyRate: 0.304 },
+    { kind: 'expert', starts: 287, completes: 198, macroCopies: 41, completeRate: 0.69, macroCopyRate: 0.207 },
   ],
 } as const
 
@@ -77,17 +83,60 @@ describe('GA dashboard v2 charts render without throwing', () => {
     const w = mount(ToolUsageByRlv, { props: { data: toolUsage as never } })
     expect(w.find('svg').exists()).toBe(true)
   })
-  it('RecipeDifficultyKind renders both columns', () => {
-    const w = mount(RecipeDifficultyKind, { props: { data: taxonomy as never } })
-    expect(w.findAll('svg').length).toBeGreaterThanOrEqual(2)
+  it('RecipeDifficultyKind renders the raw RLV histogram (#209)', () => {
+    const w = mount(RecipeDifficultyKind, { props: { data: rlvRaw as never } })
+    expect(w.find('svg').exists()).toBe(true)
   })
   it('ExpertCollectableMatrix renders an svg', () => {
     const w = mount(ExpertCollectableMatrix, { props: { data: taxonomy.matrix as never } })
     expect(w.find('svg').exists()).toBe(true)
   })
-  it('ExpertCollectableMatrix renders the 態二 stripe pattern when stripeMacroBand is set (#208)', () => {
-    const w = mount(ExpertCollectableMatrix, { props: { data: taxonomy.matrix as never, stripeMacroBand: true } })
+  it('ExpertCollectableMatrix renders the craft_kind third row (#209)', () => {
+    const w = mount(ExpertCollectableMatrix, {
+      props: { data: taxonomy.matrix as never, craftKindData: taxonomy.craftKindBreakdown as never },
+    })
+    expect(w.text()).toContain('normal')
+    expect(w.text()).toContain('expert')
+  })
+  it('ExpertCollectableMatrix renders "—" (not "0.0%") when macroCopyRate is unattributable (#209 review 2)', () => {
+    // Today's live shape: solver_macro_copy carries no taxonomy at all, so
+    // pipeline reports macroCopies/macroCopyRate as undefined, not 0.
+    const data = [
+      { isExpert: false, isCollectable: false, starts: 2104, completes: 2043, completeRate: 0.971 },
+    ]
+    const craftKindData = [
+      { kind: 'normal', starts: 2104, completes: 2043, completeRate: 0.971 },
+    ]
+    const w = mount(ExpertCollectableMatrix, { props: { data: data as never, craftKindData: craftKindData as never } })
+    expect(w.text()).toContain('—')
+    expect(w.text()).not.toContain('0.0%')
+  })
+  it('ExpertCollectableMatrix renders completeRate above 100% verbatim, not clamped (#209 review 3)', () => {
+    // Live-observed shape: quick starts=1310, completes=1331 → 101.6%.
+    const craftKindData = [
+      { kind: 'quick', starts: 1310, completes: 1331, macroCopies: 40, completeRate: 1331 / 1310, macroCopyRate: 40 / 1331 },
+    ]
+    const w = mount(ExpertCollectableMatrix, {
+      props: { data: taxonomy.matrix as never, craftKindData: craftKindData as never },
+    })
+    expect(w.text()).toContain('101.6%')
+    expect(w.text()).not.toContain('100.0%')
+  })
+  it('ExpertCollectableMatrix renders the 態二 stripe pattern when stripeMacroBand is set (#208), still only over the macro-copy-rate band including the new craft_kind row (#209)', () => {
+    const w = mount(ExpertCollectableMatrix, {
+      props: {
+        data: taxonomy.matrix as never,
+        craftKindData: taxonomy.craftKindBreakdown as never,
+        stripeMacroBand: true,
+      },
+    })
     expect(w.find('pattern#flag-stripe-pattern').exists()).toBe(true)
+    // One stripe rect per cell (the fixture only supplies 2 of the 4 possible
+    // is_expert × is_collectable quadrants, same as the pre-#209 fixture
+    // above) — 2 from the 2×2 grid + 2 from the new craft_kind row confirms
+    // BOTH halves of the matrix got the overlay, not just the original grid.
+    expect(w.findAll('rect[fill="url(#flag-stripe-pattern)"]').length)
+      .toBe(taxonomy.matrix.length + taxonomy.craftKindBreakdown.length)
   })
   it('SolverBatchFunnels renders an svg', () => {
     const data = {

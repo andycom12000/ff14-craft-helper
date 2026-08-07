@@ -227,8 +227,10 @@ const matrixMacroUntrusted = computed(() => isMetricUntrusted('chart-matrix', 's
               id="chart-rlv" title="配方難度分佈"
               ticket="BOM 交棒率亮時 → 哪個 RLV 區間在斷"
             >
-              <RecipeDifficultyKind v-if="bundle.taxonomy" :data="bundle.taxonomy" />
-              <EmptyChart v-else label="配方難度與類型" hint="此區間尚無事件" />
+              <RecipeDifficultyKind
+                v-if="bundle.taxonomy?.rlvRaw?.length" :data="bundle.taxonomy.rlvRaw"
+              />
+              <EmptyChart v-else label="配方難度分佈" hint="此區間尚無事件" />
             </L2Row>
 
             <L2Row
@@ -238,6 +240,7 @@ const matrixMacroUntrusted = computed(() => isMetricUntrusted('chart-matrix', 's
             >
               <ExpertCollectableMatrix
                 v-if="bundle.taxonomy" :data="bundle.taxonomy.matrix"
+                :craft-kind-data="bundle.taxonomy.craftKindBreakdown"
                 :stripe-macro-band="matrixMacroUntrusted"
               />
               <EmptyChart v-else label="高難度 × 收藏品矩陣" hint="此區間尚無事件" />

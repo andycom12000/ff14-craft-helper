@@ -80,47 +80,95 @@ export interface RegionGlance {
   tone?: 'danger' | 'warn'
 }
 
-/** Chart #3 — Tool usage row per RLV bucket */
+/**
+ * Chart #3 — Tool usage row per raw RLV value (#209 — pipeline no longer
+ * buckets; the frontend's `aggregateTopRlv()` groups top-8 + 其他
+ * dynamically. See `rlv-aggregate.ts`).
+ */
 export interface ToolUsageRow {
-  /** Expansion-aligned RLV range label: '≤300' | '301–510' | '511–600' | '601–680' | '681+'. */
-  bucket: string
-  /** Total times any recipe in this bucket was opened (recipe_select). */
+  /** Raw recipe level value (1–770, not bucketed). */
+  rlv: number
+  /** Total times this rlv was opened (recipe_select). */
   selectCount: number
-  /** solver_start count for recipes in this bucket. */
+  /** solver_start count for this rlv, human-filtered (#200). */
   simulatorCount: number
-  /** batch_optimization_start count where ANY targeted recipe falls in this
-   *  bucket. A multi-RLV batch contributes to multiple buckets. */
+  /** batch_optimization_start count where ANY targeted recipe has this rlv.
+   *  Always 0 today — needs a recipes.json join not yet implemented
+   *  (spec #194 item 14, tracked separately from #209). */
   batchTargetCount: number
-  /** bom_target_add count for recipes in this bucket. */
+  /** bom_target_add count for this rlv. */
   bomTargetCount: number
 }
 
-/** Chart #4 — Taxonomy bundle */
+/**
+ * @deprecated Chart #4 legacy shape — the pipeline retired the wide
+ * expansion-aligned buckets in #209 (spec #194 §C3: "分組從 pipeline 移到
+ * 前端"). No snapshot produced after that ticket populates
+ * `TaxonomyBundle.rlvHistogram` anymore; this type/field stays ONLY so the
+ * 71+ frozen `gh-data/history/` snapshots that still carry it keep parsing.
+ * New code should read `TaxonomyBundle.rlvRaw` instead.
+ */
 export interface RlvBucket {
   bucket: '≤300' | '301–510' | '511–600' | '601–680' | '681+' // expansion-aligned RLV buckets
   events: number // recipe_select count (rlv lives on recipe_select, not solver_start)
+}
+
+/** Chart #4a — raw per-rlv histogram row (#209). No bucketing — the
+ *  frontend's `aggregateTopRlv()` (`rlv-aggregate.ts`) picks the dynamic
+ *  top-8-by-volume leaderboard + 其他 at render time. */
+export interface RlvRawBucket {
+  /** Raw recipe level value (1–770). */
+  rlv: number
+  /** recipe_select count for this rlv (rlv lives on recipe_select, not solver_start). */
+  events: number
 }
 
 /**
  * `starts`/`completes`/`macroCopies` are human-only (#200): machine-loop rows
  * (`isMachineSolveRow()`) are filtered out before bucketing so a matrix cell
  * never gets padded by batch-optimizer/buff-recommender/meld-advisor noise.
+ *
+ * `macroCopies`/`macroCopyRate` are `undefined` — NOT `0` — whenever
+ * attribution is structurally impossible (#209 review 2): `solver_macro_copy`
+ * has never carried taxonomy in production, so every row gets filtered out as
+ * machine-originated before it can be counted. A `0` there would read as "we
+ * measured zero macro copies" when the true state is "we cannot currently
+ * tell" — the exact same failure mode #200 review caught for
+ * `glance.solver.humanFails`. Pipeline guard: `canAttributeMacroCopies()` in
+ * ga-analyze.mjs. Chart consumers MUST render `undefined` as "—" / "無法歸戶",
+ * never as a zero-length bar.
  */
 export interface TaxonomyCell {
   isExpert: boolean
   isCollectable: boolean
   starts: number
   completes: number
-  macroCopies: number
+  macroCopies?: number
   completeRate: number // 0–1
-  macroCopyRate: number // 0–1, denominator = completes
+  macroCopyRate?: number // 0–1, denominator = completes; undefined = unattributable, see doc above
 }
 
-/** `starts`/`completeRate` are human-only (#200) — see `TaxonomyCell` doc above. */
+/**
+ * `starts`/`completes`/`macroCopies`/`completeRate`/`macroCopyRate` are all
+ * human-only (#200) — see `TaxonomyCell` doc above (same `undefined`-not-0
+ * contract for `macroCopies`/`macroCopyRate` applies here). Rendered as the
+ * third row of `ExpertCollectableMatrix.vue` (#209 merged this in — see that
+ * component's doc comment) so the matrix stays the dashboard's one
+ * macro-copy-rate-bearing structure; `RecipeDifficultyKind.vue` no longer
+ * consumes this shape.
+ *
+ * `completeRate` is deliberately NOT clamped to `[0, 1]` (#209 review 3):
+ * >100% means GA dropped a start event relative to its matching completes,
+ * per #200's issue body — that's a diagnostic signal, not a display bug to
+ * paper over. A live probe found `quick` at 101.6% the day this was fixed.
+ */
 export interface CraftKindRow {
   kind: 'normal' | 'expert' | 'quick' | 'custom_delivery' | 'company'
   starts: number
-  completeRate: number // 0–1
+  completes: number
+  macroCopies?: number
+  completeRate: number // 0–1, NOT clamped — can exceed 1, see doc above
+  macroCopyRate?: number // 0–1, denominator = completes; undefined = unattributable, see doc above
 }
 
 /** Chart #5 — Misuse signal */
@@ -167,7 +215,12 @@ export interface ByRegion {
 
 /** Charts #4a + #4b bundle. */
 export interface TaxonomyBundle {
-  rlvHistogram: RlvBucket[]
+  /** @deprecated see `RlvBucket`'s doc comment — no longer populated by the
+   *  pipeline (#209). Present only on frozen pre-#209 history snapshots. */
+  rlvHistogram?: RlvBucket[]
+  /** Raw per-rlv histogram (#209). Optional — absent on all pre-#209
+   *  history until the 71-day backfill lands (`ga-backfill-rlv-raw.mjs`). */
+  rlvRaw?: RlvRawBucket[]
   matrix: TaxonomyCell[]
   craftKindBreakdown: CraftKindRow[]
 }
