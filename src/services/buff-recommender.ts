@@ -47,21 +47,30 @@ export function generateCandidateCombos(): BuffCombo[] {
 }
 
 /**
- * Scoring functions used to pick the ceiling pre-check probes — one per stat
- * axis a recipe can be blocked on.
+ * Scoring functions used to pick the ceiling pre-check probes.
  *
- * These must stay strictly per-axis. An additive `control + cp` score lets a
- * large gain on one axis mask a loss on the other: at 4000/3800/600, Salmon
- * Jerky's +215 control outweighs the 92 CP it gives up, so the aggregate picks
- * a probe with 600 CP over one with 692 and a CP-bound recipe fails the gate
- * that it would otherwise clear. Scoring each axis on its own also reaches the
- * genuine max-CP combo (727), which no aggregate score ever selects.
- * `ceilingProbes` dedups the probes when two axes pick the same combo.
+ * Neither per-axis nor aggregate scoring is sufficient alone, so this keeps
+ * both and probes each winner:
+ *
+ * - The aggregate `control + cp` on its own lets a gain on one axis mask a
+ *   loss on the other. At 4000/3800/600, Salmon Jerky's +215 control outweighs
+ *   the 92 CP it gives up, so it picks a probe with 600 CP over one with 692
+ *   and a CP-bound recipe fails a gate it would otherwise clear. It also never
+ *   reaches the genuine max-CP combo (727).
+ * - The per-axis scorers on their own miss combos that are strongest on the
+ *   combined quality axis while topping neither axis alone. At 2500/2000/500
+ *   the best sum is 椒麻鰻魚 + 巨匠藥液 (2163/600); control-max picks
+ *   鮭魚乾 + 巨匠藥液 and cp-max picks 椒麻鰻魚 + 魔匠藥液, so it goes unprobed.
+ *
+ * Keeping all four makes the probe set a superset of what any single scorer
+ * would pick, so the gate is only ever more permissive. `ceilingProbes` dedups
+ * whenever two scorers land on the same combo.
  */
 const CEILING_SCORERS: Array<(stats: EnhancedStats) => number> = [
   stats => stats.control,
   stats => stats.cp,
   stats => stats.craftsmanship,
+  stats => stats.control + stats.cp,
 ]
 
 /**
@@ -270,6 +279,10 @@ export async function evaluateBuffRecommendation(
   // consumables never win a control+cp contest, so scoring on that alone would
   // bail out before the only combos that could help are ever tried. Probe the
   // ceiling once per binding constraint and let any probe clear the gate.
+  //
+  // Each probe can cost a full solve, so this bails on cancellation between
+  // probes — otherwise a user pressing cancel on the "no buff can help" path
+  // waits out every remaining solveCraftForRecipe round-trip.
   const allCombos = generateCandidateCombos()
   const ceilingProbes: BuffCombo[] = []
   for (const score of CEILING_SCORERS) {
@@ -287,6 +300,7 @@ export async function evaluateBuffRecommendation(
 
   let ceilingPass = false
   for (const probe of ceilingProbes) {
+    if (isCancelled()) return null
     if (await simulateWithBuffedStats(
       ceilingTarget.recipe, ceilingGearset, probe, ceilingTarget.actions,
     )) {
