@@ -15,7 +15,12 @@ const emit = defineEmits<{ goto: [anchor: string] }>()
 
 <template>
   <div class="todo-row" :class="{ dim: row.dim }">
-    <div class="age" :class="row.ageTone">{{ row.age }}</div>
+    <!-- `title`/`aria-label` carry #191 決定 2 的三級名稱（issue #206 review：symbol-only 標記
+         對第一次打開儀表板的人不傳達任何資訊，且 `∞` 會被螢幕閱讀器念成 "infinity"）。No page
+         legend by design — that would cost the visual weight #191 決定 2 deliberately spent on
+         making `✦` the loudest mark on the list. `row.ageLabel` is '' for the empty-state
+         near-threshold rows (no marker at all), so no title/aria-label renders there. -->
+    <div class="age" :class="row.ageTone" :title="row.ageLabel || undefined" :aria-label="row.ageLabel || undefined">{{ row.age }}</div>
     <div class="body">
       <div class="sig">{{ row.sig }}</div>
       <!-- Empty `nextStep` = 空狀態近門檻降級列（無下一步，spec #206）。 -->
@@ -52,12 +57,19 @@ const emit = defineEmits<{ goto: [anchor: string] }>()
    capped, not a real measurement — must not carry a number). */
 .age.fresh { color: var(--gold); }
 .age.streak { color: var(--ink-faint); font-size: 9.5px; letter-spacing: -0.02em; }
+/* `∞` is a single thin glyph, not 2–3 characters like "10d" — it doesn't need the same cramped
+   9.5px used for streak's multi-char labels to fit the 32px age column, and at that size on a
+   dark surface it read as "an almost invisible dashed box" (issue #206 review). Bumped to 15px
+   (above the row's base 13px) while keeping the muted `--ink-faint` colour and no fill — legible
+   without competing with `.age.fresh`'s gold-solid emphasis (#191 決定 2's intentional inversion:
+   gold is reserved for "本週新亮", size alone must not out-emphasize it). */
 .age.censored {
   color: var(--ink-faint);
-  font-size: 9.5px;
+  font-size: 15px;
+  line-height: 1;
   border: 1px dashed var(--ink-faint);
   border-radius: 3px;
-  padding: 1px 2px;
+  padding: 2px 4px;
 }
 .age.cleared { color: var(--success); }
 .todo-row .body .sig {

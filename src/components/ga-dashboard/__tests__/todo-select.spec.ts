@@ -137,33 +137,38 @@ describe('buildTodoLedger()', () => {
   })
 
   // ── 年資三級 ──────────────────────────────────────────────────────────
-  it('streak ≤ 7 天 → 本週新亮（金色實心，無數字）', () => {
+  it('streak ≤ 7 天 → 本週新亮（金色實心，無數字），ageLabel 掛 #191 決定 2 的名稱', () => {
     const verdicts = [makeVerdict({ id: 'a', fired: true, state: 'fire', streak: 7, streakCensored: false, gap: 0.8 })]
     const row = buildTodoLedger(verdicts, BUNDLE_DATE, 28).top[0]
     expect(row.age).toBe('✦')
     expect(row.ageTone).toBe('fresh')
+    expect(row.ageLabel).toBe('本週新亮')
   })
 
-  it('8 ≤ streak < 序列全長（streakCensored: false）→ 顯示連續天數', () => {
+  it('8 ≤ streak < 序列全長（streakCensored: false）→ 顯示連續天數，ageLabel 帶同一個數字', () => {
     const verdicts = [makeVerdict({ id: 'a', fired: true, state: 'fire', streak: 47, streakCensored: false, gap: 0.8 })]
     const row = buildTodoLedger(verdicts, BUNDLE_DATE, 28).top[0]
     expect(row.age).toBe('47d')
     expect(row.ageTone).toBe('streak')
+    expect(row.ageLabel).toBe('連續 47 天')
   })
 
-  it('streakCensored === true → 第三級，不顯示數字（判準是 streakCensored 欄位，不是 streak === 序列全長）', () => {
+  it('streakCensored === true → 第三級，不顯示數字（判準是 streakCensored 欄位，不是 streak === 序列全長），ageLabel 也不含天數', () => {
     // streak 刻意設一個「看起來不像序列全長」的數字，確認選路是讀 streakCensored 而非重算長度。
     const verdicts = [makeVerdict({ id: 'a', fired: true, state: 'fire', streak: 72, streakCensored: true, gap: 0.55 })]
     const row = buildTodoLedger(verdicts, BUNDLE_DATE, 28).top[0]
     expect(row.age).toBe('∞')
     expect(row.ageTone).toBe('censored')
     expect(row.age).not.toMatch(/\d/)
+    expect(row.ageLabel).toBe('觀測全期未曾解決')
+    expect(row.ageLabel).not.toMatch(/\d/)
   })
 
   it('streak === 0 的防禦分支：不會顯示「連續 0 天」（若非 fire 的 verdict 誤入 fired 選取路徑）', () => {
     const verdicts = [makeVerdict({ id: 'a', fired: true, state: 'fire', streak: 0, streakCensored: false, gap: 0.8 })]
     const row = buildTodoLedger(verdicts, BUNDLE_DATE, 28).top[0]
     expect(row.age).not.toBe('0d')
+    expect(row.ageLabel).not.toBe('連續 0 天')
   })
 
   // ── 熄滅留痕 ──────────────────────────────────────────────────────────
@@ -178,6 +183,7 @@ describe('buildTodoLedger()', () => {
     expect(result.cleared).toHaveLength(1)
     expect(result.cleared[0].age).toBe('✓')
     expect(result.cleared[0].ageTone).toBe('cleared')
+    expect(result.cleared[0].ageLabel).toBe('已熄滅')
     expect(result.cleared[0].nextStep).toContain('上次觸發 2026-07-29')
     expect(result.cleared[0].nextStep).toContain('15.7%')
     expect(result.cleared[0].anchor).toBe('') // 熄滅列沒有 deep-link
@@ -219,6 +225,7 @@ describe('buildTodoLedger()', () => {
     expect(result.emptyNear.map((r) => r.id)).toEqual(['near1', 'near2', 'near3'])
     expect(result.emptyNear[0].nextStep).toBe('') // 降級樣式：無下一步
     expect(result.emptyNear[0].age).toBe('') // 降級樣式：無 ★
+    expect(result.emptyNear[0].ageLabel).toBe('') // 無 age 就沒有 title/aria-label 可掛
     expect(result.emptyNear[0].dim).toBe(true) // 降級樣式：灰階
   })
 

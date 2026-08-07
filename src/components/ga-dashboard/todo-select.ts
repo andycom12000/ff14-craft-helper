@@ -25,6 +25,14 @@ export interface TodoRow {
    *  real day count；不得渲染數字，spec #206 AC）· '✓' 熄滅 · '' 無標記（空狀態近門檻降級列）。 */
   age: string
   ageTone: 'fresh' | 'streak' | 'censored' | 'cleared'
+  /** `age` 的可讀說明——掛 `title`/`aria-label` 供 hover／螢幕閱讀器讀取，不做成頁面圖例（issue
+   *  #206 review：`✦`/`∞` 兩個符號對第一次打開儀表板的人不傳達任何資訊，螢幕閱讀器甚至會把
+   *  `∞` 念成 "infinity" 造成誤導；加圖例則會增加這個設計刻意避開的視覺重量——#191 決定 2
+   *  「金色實心給新亮是刻意的反轉強調」，圖例會把視覺份量分走）。三級名稱逐字取自 #191 決定 2：
+   *  「✦ 本週新亮 / 連續 N 天 / 觀測全期未曾解決」；第三級**不含天數**——那正是這一級存在的理由
+   *  （censored 的天數是被歷史長度裁掉的，不是實測值）。空字串＝無標記（空狀態近門檻降級列，
+   *  沒有 age 可言，`TodoRowLine.vue` 不渲染 `title`/`aria-label`）。 */
+  ageLabel: string
   /** `[cat · 類別全名] label rate%`——由門檻表 + 當期數值算出，不是手寫（spec：訊號可以算）。 */
   sig: string
   /** 一般列＝規則手寫的 `nextStep`；熄滅列＝改寫成「上次觸發…」；空狀態近門檻列＝空字串
@@ -102,18 +110,19 @@ function gapLabel(v: Verdict): string {
  * 新亮」（金色實心，全清單最醒目），也不要顯示成「連續 0 天」——一個不存在的天數比一個誤導的
  * 「最醒目」標記更容易被抓到是 bug。
  */
-function ageOfFire(v: Verdict): { age: string; ageTone: TodoRow['ageTone'] } {
-  if (v.streakCensored) return { age: '∞', ageTone: 'censored' }
-  if (v.streak <= 7) return { age: '✦', ageTone: 'fresh' }
-  return { age: `${v.streak}d`, ageTone: 'streak' }
+function ageOfFire(v: Verdict): { age: string; ageTone: TodoRow['ageTone']; ageLabel: string } {
+  if (v.streakCensored) return { age: '∞', ageTone: 'censored', ageLabel: '觀測全期未曾解決' }
+  if (v.streak <= 7) return { age: '✦', ageTone: 'fresh', ageLabel: '本週新亮' }
+  return { age: `${v.streak}d`, ageTone: 'streak', ageLabel: `連續 ${v.streak} 天` }
 }
 
 function toFiredRow(v: Verdict): TodoRow {
-  const { age, ageTone } = ageOfFire(v)
+  const { age, ageTone, ageLabel } = ageOfFire(v)
   return {
     id: v.id,
     age,
     ageTone,
+    ageLabel,
     sig: sigOf(v),
     nextStep: v.nextStep,
     anchor: v.anchor,
@@ -133,6 +142,7 @@ function toClearedRow(v: Verdict): TodoRow {
     id: v.id,
     age: '✓',
     ageTone: 'cleared',
+    ageLabel: '已熄滅',
     sig: sigOf(v),
     nextStep: `上次觸發 ${lastFire.date}（${fmtPct(lastFire.val)}）· ${thresholdLabelOf(v)}`,
     anchor: '',
@@ -151,6 +161,7 @@ function toNearRow(v: Verdict): TodoRow {
     id: v.id,
     age: '',
     ageTone: 'streak',
+    ageLabel: '', // 無標記——降級樣式，沒有 age 可言（見上方 TodoRow.ageLabel 的文件註解）。
     sig: sigOf(v),
     nextStep: '',
     anchor: '',
