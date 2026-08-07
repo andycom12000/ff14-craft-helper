@@ -690,6 +690,7 @@ interface MetricsBundle {
 ## 9. 不要做的事（Out of scope）
 
 - 改 hero / ledger / window selector / section head pattern（這些是 signature，不動）
+  - **［已推翻 · 2026-08-07 補註］** 本條已被 [#192](https://github.com/andycom12000/ff14-craft-helper/issues/192) 推翻。`/admin/ga` 改定調為與主站「刻意分離並再拉遠一檔」的 owner-only 內部儀器，不再要求對齊主站的 hero / section head signature 修辭：`HeroBand` 的 72px display serif + 斜體英文詩句 + 17px serif lede 改成 34px 標題 + 一排四格 mono 讀數，`SectionHead` 的 42px Cormorant Garamond 斜體編號改成 20px Fira Code，rail 編號同步簡化。理由是這幾個 pattern 正是頁面上最產品感的部分，要「拉遠」卻不動它們等於在同一頁上讓兩種語言並存 —— 那是妥協的結果，不是決定的結果。**色票與 dark theme 不在推翻範圍內**：`tokens.css` 的烘焙語意色與本節下方「不引入新色相」「永遠 dark」兩條仍然有效，拉遠動的是排版與修辭，不是顏色。已由 #197（[PR #217](https://github.com/andycom12000/ff14-craft-helper/pull/217)，merge commit `1697b96`）實作落地。
 - 引入新色相（jam-jar palette 內挑）
 - 引入新字體（4 種已夠用）
 - 加 sidebar / topbar 導航（dashboard 是 bare layout）
