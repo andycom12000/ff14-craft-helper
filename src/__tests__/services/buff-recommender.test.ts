@@ -124,10 +124,11 @@ describe('evaluateBuffRecommendation', () => {
   })
 
   it('clears the ceiling gate for a progress-bound recipe via the craftsmanship probe', async () => {
-    // Base craftsmanship is 4000. The control+CP probe (椒麻鰻魚 + 魔匠藥液)
-    // leaves it untouched, so a gate above 4000 is unreachable on that axis.
-    // Only 巧克力奶油蛋糕 HQ (+240) + 名匠藥液 HQ (+63) = 4303 clears it —
-    // the NQ pair tops out at 4242.
+    // At 4000/3800/600 the control probe (鮭魚乾 + 巨匠藥液) reaches
+    // craftsmanship 4098 and the CP probe (椒麻鰻魚 + 魔匠藥液) only 4000, so a
+    // gate above 4098 is unreachable on either. Only the craftsmanship probe —
+    // 巧克力奶油蛋糕 HQ (+240) + 名匠藥液 HQ (+63) = 4303 — clears it; the NQ
+    // pair tops out at 4242.
     const CRAFTSMANSHIP_GATE = 4300
     vi.mocked(simulateCraft).mockImplementation((config: any) => Promise.resolve({
       progress: config.craftsmanship >= CRAFTSMANSHIP_GATE ? 3500 : 2000,
@@ -154,6 +155,37 @@ describe('evaluateBuffRecommendation', () => {
     expect(result!.food?.isHq).toBe(true)
     expect(result!.medicine?.buff.id).toBe(44167)
     expect(result!.medicine?.isHq).toBe(true)
+  })
+
+  it('clears the ceiling gate for a CP-bound recipe via the CP probe', async () => {
+    // Regression guard for the additive scorer. At 4000/3800/600 a `control+cp`
+    // aggregate picks 鮭魚乾 + 巨匠藥液 (cp 600) because +215 control outweighs
+    // the CP it gives up, and even the pre-existing best (犎牛牛排 + 巨匠藥液)
+    // only reached 692. A gate at 720 is clearable solely by the genuine max-CP
+    // combo, 椒麻鰻魚 HQ + 魔匠藥液 HQ = 727.
+    const CP_GATE = 720
+    vi.mocked(simulateCraft).mockImplementation((config: any) => Promise.resolve({
+      progress: 3500,
+      max_progress: 3500,
+      quality: config.cp >= CP_GATE ? 7200 : 5000,
+      max_quality: 7200,
+    } as any))
+    vi.mocked(solveCraft).mockResolvedValue({
+      actions: ['x'], progress: 3500, quality: 7200, steps: 1,
+    } as any)
+
+    const cpPrices = new Map(priceMap)
+    cpPrices.set(46253, { minPriceNQ: 900, minPriceHQ: 3600 } as MarketData)
+
+    const result = await evaluateBuffRecommendation(
+      [], new Set(), () => mockGearset, cpPrices, () => false,
+      undefined, [makeDeficitResult(mockRecipe, 0)],
+    )
+
+    expect(result).not.toBeNull()
+    expect(result!.enabledRecipes).toHaveLength(1)
+    expect(result!.food?.buff.id).toBe(46253)
+    expect(result!.medicine?.buff.id).toBe(44169)
   })
 
   it('returns null when cancelled', async () => {

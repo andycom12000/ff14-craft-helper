@@ -48,11 +48,19 @@ export function generateCandidateCombos(): BuffCombo[] {
 
 /**
  * Scoring functions used to pick the ceiling pre-check probes — one per stat
- * axis a recipe can be blocked on. Quality-bound recipes need control+CP;
- * progress-bound ones need craftsmanship.
+ * axis a recipe can be blocked on.
+ *
+ * These must stay strictly per-axis. An additive `control + cp` score lets a
+ * large gain on one axis mask a loss on the other: at 4000/3800/600, Salmon
+ * Jerky's +215 control outweighs the 92 CP it gives up, so the aggregate picks
+ * a probe with 600 CP over one with 692 and a CP-bound recipe fails the gate
+ * that it would otherwise clear. Scoring each axis on its own also reaches the
+ * genuine max-CP combo (727), which no aggregate score ever selects.
+ * `ceilingProbes` dedups the probes when two axes pick the same combo.
  */
 const CEILING_SCORERS: Array<(stats: EnhancedStats) => number> = [
-  stats => stats.control + stats.cp,
+  stats => stats.control,
+  stats => stats.cp,
   stats => stats.craftsmanship,
 ]
 
