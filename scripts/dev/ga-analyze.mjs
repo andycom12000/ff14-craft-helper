@@ -1301,24 +1301,53 @@ function regionBucket(value) {
   return 'unset'
 }
 
-// Bucket an RLV value into expansion-aligned ranges. Real rlv spans 1–770
-// (ARR≈1–300, StB/ShB≈301–510, EW≈511–600, DT≈601–770), so per-100 buckets
-// crammed everything pre-endgame into one "< 600" bar and left 700-800/800+
-// near-empty. These cuts follow the data-patch boundaries instead.
+// RLV grouping moved from pipeline to frontend (#209 / spec #194 §C3): the
+// wide expansion-aligned buckets a prior version of this file computed here
+// (≤300 / 301–510 / 511–600 / 601–680 / 681+) are retired — that function
+// used to live at this spot but nothing calls it anymore. The pipeline now
+// passes through the RAW per-rlv event count (real rlv spans 1–770, ~119
+// distinct keys observed live — cardinality is not a problem), and the
+// dashboard picks a dynamic top-8-by-volume "leaderboard" client-side
+// (`src/components/ga-dashboard/rlv-aggregate.ts`) instead of a fixed
+// classification. `RlvBucket`/`rlvHistogram` stay defined in
+// `src/types/ga-snapshot.ts` (marked `@deprecated`) purely so the 71+ frozen
+// `gh-data/history/` snapshots that still carry the old bucketed shape keep
+// parsing — no new snapshot populates that field.
+//
 // n <= 0 (incl. empty-string rlv → Number('') === 0) is treated as unset and
-// dropped, so not-set events don't inflate the lowest bucket.
-function rlvWideBucket(rlv) {
-  const n = Number(rlv)
-  if (!Number.isFinite(n) || n <= 0) return null
-  if (n <= 300) return '≤300'
-  if (n <= 510) return '301–510'
-  if (n <= 600) return '511–600'
-  if (n <= 680) return '601–680'
-  return '681+'
+// dropped — same "not-set doesn't get counted as a real value" convention
+// the retired bucket function used, now applied per-row instead of per-bucket.
+// `humanOnly` additionally drops machine-originated rows via
+// `isMachineSolveRow()` BEFORE counting — used by the solver_start leg of
+// chart #3 (toolUsageByRlv).
+//
+// `rows` is the SIMPLIFIED per-row shape (`{ rlv, count, craftKind?, source?
+// }`), not the raw GA API response — same convention as
+// `buildSolverHumanGlance()`/`buildAdoptionGlance()` above: call sites
+// extract `dimensionValues`/`metricValues` themselves so this pure function
+// (and its node:test fixtures) never touch the GA4 response shape directly
+// (spec #194's "接縫二" — pure transforms tested on plain objects, not
+// query-assembly detail).
+export function buildRlvRawCounts(rows = [], { humanOnly = false } = {}) {
+  const counts = new Map()
+  for (const r of rows) {
+    const n = Number(r.rlv)
+    if (!Number.isFinite(n) || n <= 0) continue
+    if (humanOnly && isMachineSolveRow({ craftKind: r.craftKind, source: r.source })) continue
+    counts.set(n, (counts.get(n) ?? 0) + (r.count ?? 0))
+  }
+  return counts
 }
 
-// Chart #3 (toolUsageByRlv) shares the same expansion-aligned buckets.
-const rlvToolBucket = rlvWideBucket
+// `Map<rlv, count>` → sorted `[{ rlv, events }]` passthrough (item 15 of
+// spec #194's pipeline test list: "raw RLV 直方圖 passthrough：不做分桶、key
+// 數量符合預期"). Sorted ascending by rlv purely for stable/diffable output —
+// the frontend's top-8 aggregation re-sorts by volume itself.
+export function rlvRawCountsToRows(counts) {
+  return [...counts.entries()]
+    .map(([rlv, events]) => ({ rlv, events }))
+    .sort((a, b) => a.rlv - b.rlv)
+}
 
 // --- Human/machine solve discriminator (#198) -----------------------------
 // Pure function, unit-tested via `scripts/__tests__/ga-analyze.test.mjs`
@@ -1669,7 +1698,7 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
 
   // --- Chart #4: taxonomy -------------------------------------------------
   // Dimension coverage confirmed against live GA:
-  //   - rlv lives on recipe_select (NOT solver_start), so rlvHistogram queries
+  //   - rlv lives on recipe_select (NOT solver_start), so rlvRaw queries
   //     recipe_select — it reads as "recipe difficulty being opened".
   //   - is_expert / is_collectable ARE on solver_start (matrix starts split
   //     correctly) but are largely (not set) on solver_complete, so per-cell
@@ -1685,14 +1714,17 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
   //     is_collectable — silently diluting every cell with machine noise
   //     either way. Filtering makes both charts human-only, matching
   //     glance.solver.human* below.
-  // rlvHistogram: recipe_select × customEvent:rlv bucketed wide.
+  // rlvRaw: recipe_select × customEvent:rlv, raw (no bucketing, #209).
   const rlvHistRes = await runReport(client, {
     property, dateRanges,
     dimensions: [{ name: 'customEvent:rlv' }],
     metrics: [{ name: 'eventCount' }],
     dimensionFilter: { filter: {
       fieldName: 'eventName', stringFilter: { value: 'recipe_select' } } },
-    limit: 100,
+    // Raw passthrough (#209) means every distinct rlv value is its own row —
+    // a live probe found ~119 keys, so the old bucket-era limit:100 would
+    // silently truncate ~19 of them. Matches selectRlvRes/bomRlvRes below.
+    limit: 200,
   }, { soft: true })
   // matrix: solver_start/solver_complete grouped by (is_expert, is_collectable),
   // macroCopies from solver_macro_copy grouped the same way. craft_kind/source
@@ -1761,14 +1793,11 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
   const hasTaxonomy = rlvHistRows.length || taxStartsRows.length
     || taxCompletesRows.length || kindStartsRows.length
   if (hasTaxonomy) {
-    // rlvHistogram
-    const histMap = new Map([['≤300', 0], ['301–510', 0], ['511–600', 0], ['601–680', 0], ['681+', 0]])
-    for (const r of rlvHistRows) {
-      const bucket = rlvWideBucket(r.dimensionValues[0].value)
-      if (!bucket) continue
-      histMap.set(bucket, histMap.get(bucket) + Number(r.metricValues[0].value))
-    }
-    const rlvHistogram = [...histMap.entries()].map(([bucket, events]) => ({ bucket, events }))
+    // rlvRaw (#209 — raw RLV passthrough, no pipeline-side bucketing; the
+    // dashboard's dynamic top-8 leaderboard replaces the old wide buckets).
+    const rlvRaw = rlvRawCountsToRows(buildRlvRawCounts(
+      rlvHistRows.map((r) => ({ rlv: r.dimensionValues[0].value, count: Number(r.metricValues[0].value) })),
+    ))
 
     // matrix — accumulate the 4 (is_expert, is_collectable) cells.
     const cellKey = (e, c) => `${e}|${c}`
@@ -1807,6 +1836,15 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
     // means the '(not set)'/'' buckets (today's pre-fix machine signature)
     // disappear entirely from the output, leaving only real craft kinds
     // (normal/quick/expert/custom_delivery/company) reported by humans.
+    //
+    // #209: this bundle now also carries `completes`/`macroCopies`/
+    // `macroCopyRate` — RecipeDifficultyKind.vue no longer renders this data
+    // (that chart drops the craft_kind column per spec #194 §C3), it moved
+    // into ExpertCollectableMatrix.vue as a third row so the matrix stays the
+    // dashboard's one macro-copy-rate-bearing structure. `macroCopies` reuses
+    // `taxMacroRows` (already fetched for the is_expert × is_collectable
+    // matrix above, same matrixDims incl. craft_kind at index 2) — no new
+    // GA4 query needed.
     const kindStarts = new Map()
     for (const r of kindStartsRows) {
       const craftKind = r.dimensionValues[0].value
@@ -1821,15 +1859,27 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
       if (isMachineSolveRow({ craftKind, source })) continue
       kindCompletes.set(craftKind, (kindCompletes.get(craftKind) ?? 0) + Number(r.metricValues[0].value))
     }
+    const kindMacroCopies = new Map()
+    for (const r of taxMacroRows) {
+      const craftKind = r.dimensionValues[2]?.value
+      const source = r.dimensionValues[3]?.value
+      if (isMachineSolveRow({ craftKind, source })) continue
+      kindMacroCopies.set(craftKind, (kindMacroCopies.get(craftKind) ?? 0) + Number(r.metricValues[0].value))
+    }
     const craftKindBreakdown = [...kindStarts.entries()].map(([kind, starts]) => {
       const completes = kindCompletes.get(kind) ?? 0
-      // Clamp: completes/starts can still exceed 1 even after human-filtering
-      // because the two counts come from separate queries (a session that
-      // starts inside the window but completes just after it, or vice versa).
-      return { kind, starts, completeRate: starts > 0 ? Math.min(1, completes / starts) : 0 }
+      const macroCopies = kindMacroCopies.get(kind) ?? 0
+      return {
+        kind, starts, completes, macroCopies,
+        // Clamp: completes/starts can still exceed 1 even after human-filtering
+        // because the two counts come from separate queries (a session that
+        // starts inside the window but completes just after it, or vice versa).
+        completeRate: starts > 0 ? Math.min(1, completes / starts) : 0,
+        macroCopyRate: completes > 0 ? macroCopies / completes : 0,
+      }
     })
 
-    out.taxonomy = { rlvHistogram, matrix, craftKindBreakdown }
+    out.taxonomy = { rlvRaw, matrix, craftKindBreakdown }
   }
 
   // --- Chart #1: byRegion -------------------------------------------------
@@ -1922,7 +1972,7 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
     metrics: [{ name: 'eventCount' }],
     dimensionFilter: { filter: {
       fieldName: 'eventName', stringFilter: { value: 'recipe_select' } } },
-    limit: 100,
+    limit: 200, // raw passthrough (#209) — see rlvHistRes's comment above
   }, { soft: true })
   const simRlvRes = await runReport(client, {
     property, dateRanges,
@@ -1948,40 +1998,42 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
     metrics: [{ name: 'eventCount' }],
     dimensionFilter: { filter: {
       fieldName: 'eventName', stringFilter: { value: 'bom_target_add' } } },
-    limit: 100,
+    limit: 200, // raw passthrough (#209) — see rlvHistRes's comment above
   }, { soft: true })
   const selectRlvRows = selectRlvRes?.rows ?? []
   const simRlvRows = simRlvRes?.rows ?? []
   const bomRlvRows = bomRlvRes?.rows ?? []
   if (selectRlvRows.length || simRlvRows.length) {
-    const BUCKETS = ['≤300', '301–510', '511–600', '601–680', '681+']
-    const mk = () => new Map(BUCKETS.map((b) => [b, 0]))
-    const selectMap = mk()
-    const simMap = mk()
-    const bomMap = mk()
-    const fill = (rows, target, { humanOnly = false } = {}) => {
-      for (const r of rows) {
-        const bucket = rlvToolBucket(r.dimensionValues[0].value)
-        if (!bucket) continue
-        if (humanOnly) {
-          const craftKind = r.dimensionValues[1]?.value
-          const source = r.dimensionValues[2]?.value
-          if (isMachineSolveRow({ craftKind, source })) continue
-        }
-        target.set(bucket, target.get(bucket) + Number(r.metricValues[0].value))
-      }
-    }
-    fill(selectRlvRows, selectMap)
-    fill(simRlvRows, simMap, { humanOnly: true })
-    fill(bomRlvRows, bomMap)
-    out.toolUsageByRlv = BUCKETS.map((bucket) => ({
-      bucket,
-      selectCount: selectMap.get(bucket),
-      simulatorCount: simMap.get(bucket),
-      // TODO: batch_optimization_start carries multi-RLV targets; needs per-target
-      // rlv expansion + recipes.json join — not implemented
+    // #209: raw per-rlv rows, no pipeline-side bucketing — union the rlv keys
+    // seen across all three legs (each event fires independently, so a given
+    // rlv may appear in one map but not another) and fill zeros for the rest.
+    // The frontend's shared top-8 aggregator (rlv-aggregate.ts) does the
+    // grouping, ranked by selectCount, same as taxonomy.rlvRaw above.
+    const selectMap = buildRlvRawCounts(
+      selectRlvRows.map((r) => ({ rlv: r.dimensionValues[0].value, count: Number(r.metricValues[0].value) })),
+    )
+    const simMap = buildRlvRawCounts(
+      simRlvRows.map((r) => ({
+        rlv: r.dimensionValues[0].value,
+        craftKind: r.dimensionValues[1]?.value,
+        source: r.dimensionValues[2]?.value,
+        count: Number(r.metricValues[0].value),
+      })),
+      { humanOnly: true },
+    )
+    const bomMap = buildRlvRawCounts(
+      bomRlvRows.map((r) => ({ rlv: r.dimensionValues[0].value, count: Number(r.metricValues[0].value) })),
+    )
+    const allRlvs = new Set([...selectMap.keys(), ...simMap.keys(), ...bomMap.keys()])
+    // TODO: batchTargetCount stays 0 — batch_optimization_start carries
+    // multi-RLV targets and needs a recipes.json join to attribute (spec
+    // #194 item 14), not implemented in this ticket.
+    out.toolUsageByRlv = [...allRlvs].sort((a, b) => a - b).map((rlv) => ({
+      rlv,
+      selectCount: selectMap.get(rlv) ?? 0,
+      simulatorCount: simMap.get(rlv) ?? 0,
       batchTargetCount: 0,
-      bomTargetCount: bomMap.get(bucket),
+      bomTargetCount: bomMap.get(rlv) ?? 0,
     }))
   }
 

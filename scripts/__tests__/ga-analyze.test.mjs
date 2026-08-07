@@ -24,6 +24,8 @@ import {
   marketRegionBucket,
   buildSolverHumanGlance,
   buildAdoptionGlance,
+  buildRlvRawCounts,
+  rlvRawCountsToRows,
 } from '../dev/ga-analyze.mjs'
 
 test('craft_kind === "(not set)" is machine, regardless of source (pre-fix leg)', () => {
@@ -407,4 +409,89 @@ test('buildAdoptionGlance(): missing/empty inputs default every field to 0, not 
   assert.deepEqual(buildAdoptionGlance(), {
     batchStarts: 0, crossServerBatches: 0, meldAdvisorRuns: 0, meldApplies: 0,
   })
+})
+
+// --- buildRlvRawCounts() / rlvRawCountsToRows() (#209) ---------------------
+// Item 15 of spec #194's pipeline test list: "raw RLV 直方圖 passthrough：
+// 不做分桶、key 數量符合預期". `rows` here is the SIMPLIFIED shape the call
+// site extracts from the raw GA response (`{ rlv, count, craftKind?,
+// source? }`) — same convention buildSolverHumanGlance()/
+// buildAdoptionGlance() use above, not the raw dimensionValues/metricValues
+// GA4 shape.
+
+test('buildRlvRawCounts(): passthrough — every distinct rlv is its own key, values are NOT bucketed', () => {
+  const rows = [
+    { rlv: '1', count: 4 },
+    { rlv: '14', count: 118 },
+    { rlv: '770', count: 118 },
+    { rlv: '517', count: 9 },
+  ]
+  const counts = buildRlvRawCounts(rows)
+  assert.equal(counts.size, 4) // key count matches distinct rlv values exactly — no collapsing into buckets
+  assert.equal(counts.get(1), 4)
+  assert.equal(counts.get(14), 118)
+  assert.equal(counts.get(770), 118)
+  assert.equal(counts.get(517), 9)
+})
+
+test('buildRlvRawCounts(): duplicate rlv keys (e.g. across paginated rows) sum instead of overwriting', () => {
+  const rows = [{ rlv: '660', count: 10 }, { rlv: '660', count: 5 }]
+  const counts = buildRlvRawCounts(rows)
+  assert.equal(counts.size, 1)
+  assert.equal(counts.get(660), 15)
+})
+
+test('buildRlvRawCounts(): rlv <= 0 (incl. empty-string → Number(\'\') === 0) is dropped as not-set, not counted as rlv 0', () => {
+  const rows = [{ rlv: '', count: 40 }, { rlv: '0', count: 3 }, { rlv: '-5', count: 1 }, { rlv: '1', count: 7 }]
+  const counts = buildRlvRawCounts(rows)
+  assert.equal(counts.size, 1)
+  assert.equal(counts.get(1), 7)
+})
+
+test('buildRlvRawCounts(): non-numeric rlv (e.g. "(not set)") is dropped, not NaN-keyed', () => {
+  const rows = [{ rlv: '(not set)', count: 12 }, { rlv: '1', count: 7 }]
+  const counts = buildRlvRawCounts(rows)
+  assert.equal(counts.size, 1)
+  assert.equal(counts.has(NaN), false)
+})
+
+test('buildRlvRawCounts(): humanOnly=true drops machine-originated rows before counting (shared isMachineSolveRow() discriminator)', () => {
+  const rows = [
+    { rlv: '660', craftKind: 'normal', source: 'user', count: 20 },
+    { rlv: '660', craftKind: '(not set)', source: undefined, count: 500 }, // machine (pre-#198 leg)
+    { rlv: '660', craftKind: 'normal', source: 'machine', count: 300 }, // machine (post-#198 leg)
+  ]
+  const counts = buildRlvRawCounts(rows, { humanOnly: true })
+  assert.equal(counts.get(660), 20)
+})
+
+test('buildRlvRawCounts(): humanOnly=false (default) counts every row regardless of craftKind/source', () => {
+  const rows = [
+    { rlv: '660', craftKind: '(not set)', count: 500 },
+    { rlv: '660', craftKind: 'normal', source: 'user', count: 20 },
+  ]
+  const counts = buildRlvRawCounts(rows)
+  assert.equal(counts.get(660), 520)
+})
+
+test('buildRlvRawCounts(): empty/missing rows default to an empty map', () => {
+  assert.equal(buildRlvRawCounts([]).size, 0)
+  assert.equal(buildRlvRawCounts().size, 0)
+})
+
+test('rlvRawCountsToRows(): converts the count map to sorted { rlv, events } rows, ascending by rlv', () => {
+  const counts = buildRlvRawCounts([
+    { rlv: '660', count: 5 }, { rlv: '1', count: 4 }, { rlv: '300', count: 2 },
+  ])
+  assert.deepEqual(rlvRawCountsToRows(counts), [
+    { rlv: 1, events: 4 },
+    { rlv: 300, events: 2 },
+    { rlv: 660, events: 5 },
+  ])
+})
+
+test('rlvRawCountsToRows(): key count matches expected cardinality — live 28d probe found ~119 distinct rlv values, this asserts the shape scales without collapsing', () => {
+  const rows = Array.from({ length: 119 }, (_, i) => ({ rlv: String(i + 1), count: i + 1 }))
+  const out = rlvRawCountsToRows(buildRlvRawCounts(rows))
+  assert.equal(out.length, 119)
 })

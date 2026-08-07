@@ -1,15 +1,21 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import * as d3 from 'd3'
 import { useD3Resize } from '@/composables/useD3Resize'
 import { useTooltip } from '@/composables/useTooltip'
 import type { ToolUsageRow } from '@/types/ga-snapshot'
 import { C } from '@/components/ga-dashboard/palette'
 import { fmtInt } from '@/components/ga-dashboard/formatters'
+import { aggregateTopRlv } from '@/components/ga-dashboard/rlv-aggregate'
 
+// #209 (spec #194 §C3): raw 化，與 RecipeDifficultyKind.vue 共用同一套
+// top-8 + 其他聚合函式（rlv-aggregate.ts）——排序依 selectCount（recipe_select
+// 開啟次數），與難度圖用同一個底層事件維度排序。
 const props = defineProps<{ data: ToolUsageRow[] }>()
 const root = ref<HTMLDivElement | null>(null)
 const { show, move, hide } = useTooltip()
+
+const aggregated = computed(() => aggregateTopRlv(props.data, 'selectCount'))
 
 // Per-bar tooltip — only the metric + value, no recipe context.
 function metricTip(label: string, value: number, color: string) {
@@ -22,7 +28,7 @@ function metricTip(label: string, value: number, color: string) {
 function render(w: number, _h: number) {
   if (!root.value) return
   const el = root.value
-  const data = props.data
+  const data = aggregated.value
 
   const margin = { top: 56, right: 180, bottom: 12, left: 280 }
   const rowH = 84
@@ -34,9 +40,9 @@ function render(w: number, _h: number) {
   const svg = d3.select(el).append('svg').attr('width', w).attr('height', h)
 
   // Independent max per metric — relative comparison within each tool.
-  const maxSim = d3.max(data, d => d.simulatorCount)!
-  const maxBat = d3.max(data, d => d.batchTargetCount)!
-  const maxBom = d3.max(data, d => d.bomTargetCount)!
+  const maxSim = d3.max(data, (d) => d.row.simulatorCount) ?? 0
+  const maxBat = d3.max(data, (d) => d.row.batchTargetCount) ?? 0
+  const maxBom = d3.max(data, (d) => d.row.bomTargetCount) ?? 0
 
   const colSlot = innerW / 3
   const colW = colSlot - 72  // leave 72px gutter for the trailing number
@@ -63,16 +69,17 @@ function render(w: number, _h: number) {
       .text(head.sub)
   })
 
-  data.forEach((row, i) => {
+  data.forEach((d, i) => {
+    const row = d.row
     const y = margin.top + i * rowH + rowH / 2
 
-    // --- Left: RLV bucket label cluster (objective range only)
+    // --- Left: RLV label cluster (top-8 raw rlv, or 其他)
     svg.append('text')
       .attr('x', 0).attr('y', y - 8)
       .style('font-family', "'Noto Serif TC', serif")
       .style('font-weight', 700).style('font-size', '22px')
       .style('fill', C.ink)
-      .text(`RLV ${row.bucket}`)
+      .text(d.isOther ? d.label : `RLV ${d.label}`)
     svg.append('text')
       .attr('x', 0).attr('y', y + 16)
       .style('font-family', "'Noto Serif TC', serif")
@@ -129,7 +136,7 @@ function render(w: number, _h: number) {
     const rowTotal = row.simulatorCount + row.batchTargetCount + row.bomTargetCount
     if (rowTotal >= MIN_VERDICT_SAMPLE) {
       const dom = metrics
-        .map((m, i) => ({ idx: i, ratio: m.max > 0 ? m.v / m.max : 0 }))
+        .map((m, mi) => ({ idx: mi, ratio: m.max > 0 ? m.v / m.max : 0 }))
         .reduce((a, b) => (a.ratio > b.ratio ? a : b)).idx
       const domLabels = ['偏向模擬器', '偏向批量最佳化', '偏向 BOM 採購']
       svg.append('text')
@@ -151,7 +158,7 @@ function render(w: number, _h: number) {
 }
 
 useD3Resize(root, render)
-watch(() => props.data, () => {
+watch(aggregated, () => {
   if (root.value) render(root.value.clientWidth, root.value.clientHeight)
 })
 onMounted(() => {
@@ -159,7 +166,7 @@ onMounted(() => {
 })
 </script>
 
-<template><div ref="root" class="chart" role="img" aria-label="工具偏好 · 依配方等級分組" /></template>
+<template><div ref="root" class="chart" role="img" aria-label="工具偏好 · 依 RLV top-8 分組" /></template>
 
 <style scoped>
 .chart { margin: 12px 0 8px; position: relative; }
