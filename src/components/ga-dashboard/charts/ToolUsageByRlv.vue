@@ -55,7 +55,7 @@ function render(w: number, _h: number) {
   // Column headers — Chinese, Noto Sans TC 600, jam-jar colours
   const colHeads = [
     { label: '模擬器',    color: C.cocoa,      sub: 'solver_start' },
-    { label: '批量最佳化', color: C.blueberry,  sub: 'batch_optimization · target' },
+    { label: '加入批量',  color: C.blueberry,  sub: 'batch_add_recipe' },
     { label: 'BOM 採購',  color: C.strawberry, sub: 'bom_target_add' },
   ]
   colHeads.forEach((head, i) => {
@@ -94,7 +94,7 @@ function render(w: number, _h: number) {
     // --- Three bars
     const metrics = [
       { v: row.simulatorCount,   max: maxSim, c: C.cocoa,      label: 'solver_start' },
-      { v: row.batchTargetCount, max: maxBat, c: C.blueberry,  label: 'batch_optimization' },
+      { v: row.batchTargetCount, max: maxBat, c: C.blueberry,  label: 'batch_add_recipe' },
       { v: row.bomTargetCount,   max: maxBom, c: C.strawberry, label: 'bom_target_add' },
     ]
 
@@ -143,7 +143,7 @@ function render(w: number, _h: number) {
       const dom = metrics
         .map((m, mi) => ({ idx: mi, ratio: m.max > 0 ? m.v / m.max : 0 }))
         .reduce((a, b) => (a.ratio > b.ratio ? a : b)).idx
-      const domLabels = ['偏向模擬器', '偏向批量最佳化', '偏向 BOM 採購']
+      const domLabels = ['偏向模擬器', '偏向加入批量', '偏向 BOM 採購']
       svg.append('text')
         .attr('x', w - 12).attr('y', y + 5).attr('text-anchor', 'end')
         .style('font-family', "'Noto Serif TC', serif")
