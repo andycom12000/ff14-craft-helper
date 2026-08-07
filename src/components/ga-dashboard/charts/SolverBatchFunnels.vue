@@ -122,9 +122,9 @@ onMounted(() => {
   pointer-events: none;
   background-image: repeating-linear-gradient(
     -45deg,
-    oklch(0.74 0.16 60 / 0.10) 0 5px,
+    color-mix(in srgb, var(--warning) 10%, transparent) 0 5px,
     transparent 5px 10px
   );
-  border-right: 1px dashed oklch(0.74 0.16 60 / 0.6);
+  border-right: 1px dashed color-mix(in srgb, var(--warning) 60%, transparent);
 }
 </style>
