@@ -30,6 +30,15 @@
   --warning:      oklch(0.74 0.16 60);
   --danger:       oklch(0.68 0.20 22);
 
+  /* ⚑ 埋點待修斜紋 alpha — spec #194 §E6「-45°，警示色 7% alpha」的單一來源(issue #208)。
+     態一(整張)／態二(局部)三處實作都吃這個值，不要各寫各的字面值：
+       - dashboard.css .ga-flagged-full::after（態一，CSS，直接 var()）
+       - SolverBatchFunnels.vue .stripe-solver（態二，CSS，直接 var()）
+       - palette.ts FLAG_STRIPE_ALPHA（供 ExpertCollectableMatrix.vue 的 D3 SVG pattern
+         使用 —— SVG 屬性讀不到 CSS custom property，只能用同值的 TS 常數；改這裡記得也改
+         palette.ts，兩邊各自有指回對方的註解）。 */
+  --ga-flag-stripe-alpha: 7%;
+
   background:
     radial-gradient(1200px 700px at 20% -10%, oklch(0.26 0.04 60 / 0.55), transparent 60%),
     radial-gradient(900px 600px at 95% 8%, oklch(0.24 0.05 40 / 0.40), transparent 65%),

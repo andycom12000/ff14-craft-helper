@@ -43,9 +43,10 @@
 /* ---- ⚑ Instrumentation-pending chart wash (spec #194 §E6 態一 "整張不可信")
    Applied to a chart's wrapper (L1Item's `.l1-chart` / L2Row's `.l2-chart`)
    alongside a FlagBadge. 態二 ("一半可信", stripe over only the named
-   segment) needs per-chart pixel coordinates and is NOT implemented here —
-   it's chart-specific work for whichever ticket owns that chart; only the
-   textual FlagBadge covers that case today. ---- */
+   segment) needs per-chart pixel coordinates, so it's implemented per-chart
+   instead of here — see SolverBatchFunnels.vue's `.stripe-solver` and
+   ExpertCollectableMatrix.vue's SVG `<pattern>` (issue #208). Alpha for all
+   three is the shared `--ga-flag-stripe-alpha` token (see tokens.css). ---- */
 .ga-flagged-full {
   position: relative;
 }
@@ -56,7 +57,7 @@
   pointer-events: none;
   background-image: repeating-linear-gradient(
     -45deg,
-    color-mix(in srgb, var(--warning) 7%, transparent) 0 5px,
+    color-mix(in srgb, var(--warning) var(--ga-flag-stripe-alpha), transparent) 0 5px,
     transparent 5px 10px
   );
 }

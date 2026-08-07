@@ -10,6 +10,7 @@ import RecipeDifficultyKind from '../RecipeDifficultyKind.vue'
 import ExpertCollectableMatrix from '../ExpertCollectableMatrix.vue'
 import MisuseHintTally from '../MisuseHintTally.vue'
 import ApiFailureEndpoints from '../ApiFailureEndpoints.vue'
+import SolverBatchFunnels from '../SolverBatchFunnels.vue'
 import RegionSplitLedger from '../../pieces/RegionSplitLedger.vue'
 
 import type { GaSnapshot } from '@/types/ga-snapshot'
@@ -83,6 +84,26 @@ describe('GA dashboard v2 charts render without throwing', () => {
   it('ExpertCollectableMatrix renders an svg', () => {
     const w = mount(ExpertCollectableMatrix, { props: { data: taxonomy.matrix as never } })
     expect(w.find('svg').exists()).toBe(true)
+  })
+  it('ExpertCollectableMatrix renders the 態二 stripe pattern when stripeMacroBand is set (#208)', () => {
+    const w = mount(ExpertCollectableMatrix, { props: { data: taxonomy.matrix as never, stripeMacroBand: true } })
+    expect(w.find('pattern#flag-stripe-pattern').exists()).toBe(true)
+  })
+  it('SolverBatchFunnels renders an svg', () => {
+    const data = {
+      solver: [{ step: 'start', count: 100, tone: 'neutral' }, { step: 'complete', count: 90, tone: 'success' }],
+      batch: [{ step: 'start', count: 40, tone: 'neutral' }, { step: 'complete', count: 32, tone: 'success' }],
+    }
+    const w = mount(SolverBatchFunnels, { props: { data: data as never } })
+    expect(w.find('svg').exists()).toBe(true)
+  })
+  it('SolverBatchFunnels renders the 態二 stripe overlay over the Solver half when stripeSolver is set (#208)', () => {
+    const data = {
+      solver: [{ step: 'start', count: 100, tone: 'neutral' }, { step: 'complete', count: 90, tone: 'success' }],
+      batch: [{ step: 'start', count: 40, tone: 'neutral' }, { step: 'complete', count: 32, tone: 'success' }],
+    }
+    const w = mount(SolverBatchFunnels, { props: { data: data as never, stripeSolver: true } })
+    expect(w.find('.stripe-solver').exists()).toBe(true)
   })
   it('MisuseHintTally renders rows', () => {
     const w = mount(MisuseHintTally, { props: { data: misuse as never } })

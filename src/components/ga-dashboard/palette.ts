@@ -36,6 +36,12 @@ export const C = {
   danger:      'oklch(0.68 0.20 22)',
 } as const
 
+// ⚑ 埋點待修斜紋 alpha — mirrors tokens.css's `--ga-flag-stripe-alpha: 7%` (see that file's
+// comment for the full rationale / issue #208). SVG can't read a CSS custom property, so
+// ExpertCollectableMatrix.vue's D3-drawn <pattern> imports this instead of writing its own
+// literal — tweak both together, nothing keeps them in sync at runtime.
+export const FLAG_STRIPE_ALPHA = 0.07
+
 export type FamilyColorMap<K extends string> = Record<K, string>
 
 // Page taxonomy → jam-jar hue

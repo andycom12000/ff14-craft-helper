@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useGaSnapshot } from '@/composables/useGaSnapshot'
 import type { WindowKey } from '@/types/ga-snapshot'
 import { fmtPct } from '@/components/ga-dashboard/formatters'
+import { deriveChartFlag, isMetricUntrusted } from '@/components/ga-dashboard/flag-derive'
 
 import HeroBand from '@/components/ga-dashboard/pieces/HeroBand.vue'
 import TodoLedger from '@/components/ga-dashboard/pieces/TodoLedger.vue'
@@ -70,6 +71,15 @@ const bomHandoffPct = computed(() => {
   // which looks like a real measurement.
   return b.calculates >= MIN_DENOMINATOR ? fmtPct(b.handoffPct) : undefined
 })
+
+// ⚑ 埋點待修徽章(#208)——由門檻表(GA_THRESHOLD_RULES)的 `trusted` 旗標逐指標推導,不是手寫
+// 在下方模板裡的字串。規則翻成 trusted:true 的當下這裡自動不再產生徽章,不用改這個檔案。
+// 見 src/components/ga-dashboard/flag-derive.ts 的文件註解。
+const funnelsFlag = computed(() => deriveChartFlag('chart-funnels'))
+const funnelsSolverUntrusted = computed(() => isMetricUntrusted('chart-funnels', 'solver.failRate'))
+const simFlag = computed(() => deriveChartFlag('chart-sim'))
+const matrixFlag = computed(() => deriveChartFlag('chart-matrix'))
+const matrixMacroUntrusted = computed(() => isMetricUntrusted('chart-matrix', 'solver.macroCopyRate'))
 </script>
 
 <template>
@@ -132,9 +142,12 @@ const bomHandoffPct = computed(() => {
           <L1Item
             id="chart-funnels" title="漏斗 · Solver 與批量" note="B · SOLVER_BATCH_COMPLETE"
             bound-label="solver 完成率 · 失敗率 · 批量完成率"
-            flag-text="solver 完成率／失敗率埋點待修 · 人機分離未套用 pipeline"
+            :flag-text="funnelsFlag?.text" :flag-partial="funnelsFlag?.partial"
           >
-            <SolverBatchFunnels :data="{ solver: bundle.solverFunnel, batch: bundle.batchFunnel }" />
+            <SolverBatchFunnels
+              :data="{ solver: bundle.solverFunnel, batch: bundle.batchFunnel }"
+              :stripe-solver="funnelsSolverUntrusted"
+            />
           </L1Item>
 
           <L1Item
@@ -149,7 +162,7 @@ const bomHandoffPct = computed(() => {
             id="chart-sim" title="模擬器 · 造訪 → 巨集匯出" note="B · MACRO_COPY_RATE"
             bound-label="巨集複製率"
             readout-note="尚無彙總分子分母（待 PR-B 追加 glance 欄位）"
-            flag-text="巨集複製率埋點待修 · PR-A 剛落地（#198），資料需回填 28 天"
+            :flag-text="simFlag?.text" :flag-partial="simFlag?.partial"
           >
             <SimulatorFunnel :data="bundle.simulatorFunnel" />
           </L1Item>
@@ -165,13 +178,21 @@ const bomHandoffPct = computed(() => {
 
           <!-- SLOT FOR FUTURE TICKET: net-new chart, spec §194 C2. Events are
                already emitted (meld_advisor_run, cross-server usage) but the
-               chart component + glance.adoption fields don't exist yet. -->
+               chart component + glance.adoption fields don't exist yet.
+               暗期 placeholder（issue #208）：cross_server／fields 兩個維度約
+               2026-08-28 才滿 28 天觀測窗（見 ga-thresholds.ts 底部「刻意未收錄的規則」
+               註解 / #203）——早於這天不是「熄滅」，是「還沒到」，所以寫死可用日期而不是
+               泛泛的「資料累積中」，讓空框跟真的壞掉的圖區分開來。 -->
           <L1Item
             id="chart-adoption" title="功能採用率 · 跨服與鑲嵌" note="C · CROSS_SERVER / MELD_ADOPT"
             bound-label="跨伺服器使用率 · 鑲嵌建議採用率"
-            readout-note="新指標，資料累積中"
+            readout-note="門檻待資料 · 2026-08-28"
           >
-            <EmptyChart label="功能採用率 · 跨服與鑲嵌" hint="新圖尚未實作 · 事件已埋（#198）· spec #194 §C2" />
+            <EmptyChart
+              label="功能採用率 · 跨服與鑲嵌"
+              hint="事件已埋（#198）· cross_server／fields 兩維度約 28 天滿窗（#203）"
+              resolves-on="2026-08-28"
+            />
           </L1Item>
 
           <L1Item
@@ -210,10 +231,12 @@ const bomHandoffPct = computed(() => {
             <L2Row
               id="chart-matrix" title="配方分類 × 完成率"
               ticket="巨集複製率／solver 完成率亮時 → 哪一類配方的巨集沒人複製"
-              flag-text="僅「巨集複製率」欄埋點待修 · 完成率已可信"
-              :flag-partial="true"
+              :flag-text="matrixFlag?.text" :flag-partial="matrixFlag?.partial"
             >
-              <ExpertCollectableMatrix v-if="bundle.taxonomy" :data="bundle.taxonomy.matrix" />
+              <ExpertCollectableMatrix
+                v-if="bundle.taxonomy" :data="bundle.taxonomy.matrix"
+                :stripe-macro-band="matrixMacroUntrusted"
+              />
               <EmptyChart v-else label="高難度 × 收藏品矩陣" hint="此區間尚無事件" />
             </L2Row>
 
