@@ -8,7 +8,6 @@ import { solveCraft, disposeWorker, waitForWasm, getWasmStatus, SolveCancelledEr
 import type { CraftParams } from '@/engine/simulator'
 import type { SolverConfig, SolverStatus } from '@/solver/raphael'
 import { getSkillName } from '@/engine/skills'
-import { useMilestonesStore } from '@/stores/milestones'
 import { canUseSpecialistAction } from '@/services/specialist-state'
 import { computeRecipeTaxonomy } from '@/utils/recipe-taxonomy'
 
@@ -21,7 +20,6 @@ const emit = defineEmits<{
 }>()
 
 const simStore = useSimulatorStore()
-const milestones = useMilestonesStore()
 const recipeStore = useRecipeStore()
 const gearsetsStore = useGearsetsStore()
 
@@ -147,7 +145,6 @@ async function handleSolve() {
   solveController = controller
 
   try {
-    milestones.markMilestoneOnce('ran_solver')
     const result = await solveCraft(config, (percent) => {
       progress.value = percent
     }, controller.signal)
