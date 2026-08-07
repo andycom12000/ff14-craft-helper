@@ -1041,22 +1041,30 @@ async function buildBundle(client, propertyId, days) {
   // way e.g. misuse `type` is. A truncation here would silently hide a real,
   // possibly-rare failure reason from the diagnostic chart — stays
   // warn-eligible.
+  //
+  // #211: `customEvent:calc_mode` added as a 3rd dimension so the existing
+  // (event, reason) rows can also carry a per-batch-reason cost-mode split
+  // ('macro' | 'quick-buy') — see `buildFailureRows()` below. `calc_mode`
+  // only exists on `batch_optimization_failed` (BatchView.vue); solver/wasm
+  // rows report GA4's `(not set)` sentinel here, which `buildFailureRows()`
+  // excludes from the breakdown rather than mis-attributing. `limit` raised
+  // 30 → 200 (was already exhaustive, not top-N — adding a 3rd dimension
+  // multiplies row count by calc_mode's ~3 observed values, so the old
+  // headroom no longer holds).
   const failuresRes = await runReport(client, {
     property, dateRanges,
-    dimensions: [{ name: 'eventName' }, { name: 'customEvent:reason' }],
+    dimensions: [
+      { name: 'eventName' },
+      { name: 'customEvent:reason' },
+      { name: 'customEvent:calc_mode' },
+    ],
     metrics: [{ name: 'eventCount' }],
     dimensionFilter: { filter: { fieldName: 'eventName', inListFilter: {
       values: ['solver_failed', 'batch_optimization_failed', 'wasm_load_failed'] } } },
     orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
-    limit: 30,
+    limit: 200,
   }, { soft: true })
-  const failures = (failuresRes?.rows ?? []).map((r) => ({
-    event: r.dimensionValues[0].value.startsWith('solver') ? 'solver'
-         : r.dimensionValues[0].value.startsWith('batch')  ? 'batch'
-         : 'wasm',
-    reason: r.dimensionValues[1].value || '(no reason)',
-    count: Number(r.metricValues[0].value),
-  }))
+  const failures = buildFailureRows(failuresRes?.rows ?? [])
 
   // --- Q2: vitals ---------------------------------------------------------
   const vitalsRes = await runReport(client, {
@@ -1171,25 +1179,46 @@ async function buildBundle(client, propertyId, days) {
   // untouched (still full-population, per #200 issue body: "既有四欄維持全量
   // （含機器），新增人類面"); only the five new `human*`/`macroCopies` fields
   // are added.
+  //
+  // #211: `customEvent:gear_bucket` added as a 4th dimension — it rides the
+  // SAME three solver_* events (worker.ts sets it on every solve attempt, not
+  // a different event), so the 裝備水準×求解結果 chart below is +0 runReport
+  // calls, not +1. `gear_bucket` has been registered/emitted on solver_start
+  // for a while (no dark period on THAT leg), but solver_complete/solver_failed
+  // only started carrying it in #198 (client fix, not yet deployed to
+  // production as of this ticket) — same "no dark period on the dimension
+  // itself, but not backfillable" shape as `craft_kind`/`source` above.
   const solverHumanRes = await runReport(client, {
     property, dateRanges,
     dimensions: [
       { name: 'eventName' },
       { name: 'customEvent:craft_kind' },
       { name: 'customEvent:source' },
+      { name: 'customEvent:gear_bucket' },
     ],
     metrics: [{ name: 'eventCount' }],
     dimensionFilter: { filter: { fieldName: 'eventName', inListFilter: {
       values: ['solver_start', 'solver_complete', 'solver_failed'] } } },
-    limit: 500,
+    limit: 1000,
   }, { soft: true })
   const solverHumanRows = (solverHumanRes?.rows ?? []).map((r) => ({
     eventName: r.dimensionValues[0].value,
     craftKind: r.dimensionValues[1].value,
     source: r.dimensionValues[2].value,
+    gearBucket: r.dimensionValues[3].value,
     count: Number(r.metricValues[0].value),
   }))
   const solverHuman = buildSolverHumanGlance(solverHumanRows)
+
+  // --- Chart: 裝備水準 × 求解結果 (#211, spec #194 §C3) ---------------------
+  // Reuses solverHumanRows (gear_bucket rides the same query as the human
+  // denominators above) — see buildGearBucketBreakdown()'s doc comment.
+  // Omitted entirely (not an empty array) when this window has zero
+  // solver_start/_complete/_failed rows at all, mirroring the `hasTaxonomy`
+  // gate below.
+  const gearBucketBreakdown = solverHumanRows.length
+    ? buildGearBucketBreakdown(solverHumanRows)
+    : undefined
 
   // --- glance.adoption: cross-server usage + meld-advisor adoption (#203) --
   // Two C-class "decide the next feature" denominators. Both custom dimensions
@@ -1318,6 +1347,7 @@ async function buildBundle(client, propertyId, days) {
     window: { days, startDate: fmt(start), endDate: fmt(today) },
     glance, pages, solverFunnel, batchFunnel, simulatorFunnel,
     failures, vitals, q4Funnels, marketRegion,
+    ...(gearBucketBreakdown ? { gearBucketBreakdown } : {}),
     ...v2,
   }
 }
@@ -1407,6 +1437,64 @@ export function rlvRawCountsToRows(counts) {
   return [...counts.entries()]
     .map(([rlv, events]) => ({ rlv, events }))
     .sort((a, b) => a.rlv - b.rlv)
+}
+
+// --- Q2 failures: cost-mode dimension (#211) -------------------------------
+// Pure function, unit-tested via `scripts/__tests__/ga-analyze.test.mjs` (same
+// node:test harness as buildRlvRawCounts() above).
+//
+// `rows` is the raw GA4 API row shape (dimensionValues[0..2] = eventName,
+// reason, calc_mode) — kept as the one exception to this file's usual
+// "simplified row shape into pure functions" convention because the
+// (event, reason) aggregation key itself is derived from dimensionValues[0]
+// (see the existing inline classification this replaces), not worth a second
+// mapping pass just to rename three positional fields.
+//
+// `count` on the returned row is the FULL aggregate — sums every calc_mode
+// value including the `(not set)` sentinel — unchanged from the pre-#211
+// shape (batch.failRate and every other consumer of `failures[].count` reads
+// the same total it always has). `costModeBreakdown` is a strict addition:
+// only populated for `event === 'batch'` rows (calc_mode only exists on
+// `batch_optimization_failed`; solver/wasm rows always see the `(not set)`
+// sentinel here and would misleadingly look like a real "zero-mode" reading
+// if not excluded), and only from calc_mode values in `KNOWN_COST_MODES` —
+// `(not set)` rows contribute to `count` but never to the breakdown array,
+// so a reason with zero attributable rows gets `costModeBreakdown: undefined`
+// (key absent from the map), never an empty array standing in for zeros.
+const KNOWN_COST_MODES = new Set(['macro', 'quick-buy'])
+
+export function buildFailureRows(rows = []) {
+  const totals = new Map() // key `${event}|${reason}` -> { event, reason, count }
+  const costModes = new Map() // same key -> Map<costMode, count>
+
+  for (const r of rows) {
+    const rawEvent = r.dimensionValues[0].value
+    const event = rawEvent.startsWith('solver') ? 'solver'
+      : rawEvent.startsWith('batch') ? 'batch'
+      : 'wasm'
+    const reason = r.dimensionValues[1].value || '(no reason)'
+    const calcMode = r.dimensionValues[2]?.value
+    const count = Number(r.metricValues[0].value)
+    const key = `${event}|${reason}`
+
+    const existing = totals.get(key)
+    totals.set(key, { event, reason, count: (existing?.count ?? 0) + count })
+
+    if (event === 'batch' && KNOWN_COST_MODES.has(calcMode)) {
+      const modes = costModes.get(key) ?? new Map()
+      modes.set(calcMode, (modes.get(calcMode) ?? 0) + count)
+      costModes.set(key, modes)
+    }
+  }
+
+  return [...totals.entries()].map(([key, row]) => {
+    const modes = costModes.get(key)
+    if (!modes) return row
+    return {
+      ...row,
+      costModeBreakdown: [...modes.entries()].map(([costMode, count]) => ({ costMode, count })),
+    }
+  })
 }
 
 // --- Human/machine solve discriminator (#198) -----------------------------
@@ -1513,6 +1601,69 @@ export function buildSolverHumanGlance(rows = []) {
     humanFails: canAttributeFails ? humanFails : undefined,
     humanCompletePct: humanStarts ? humanCompletes / humanStarts : 0,
   }
+}
+
+// --- 裝備水準 × 求解結果 (#211, spec #194 §C3) ------------------------------
+// Pure function, unit-tested via `scripts/__tests__/ga-analyze.test.mjs` (same
+// node:test harness as buildSolverHumanGlance() above — same input row shape,
+// `{ eventName, craftKind, source, gearBucket, count }`, from the SAME query).
+//
+// Human-filtered via isMachineSolveRow() (#200), same as CraftKindRow/
+// TaxonomyCell — a row that fails the human check contributes to NEITHER a
+// gear bucket NOR the failedTotal/failedWithTaxonomy tally below (mirrors
+// buildSolverHumanGlance()'s own ordering: the taxonomy-presence check for
+// `solver_failed` runs on ALL rows, human or machine, but the actual bucket
+// accumulation is human-only).
+//
+// `KNOWN_GEAR_BUCKETS` fixes the three output rows unconditionally (like the
+// 2×2 grid in ExpertCollectableMatrix.vue) rather than only emitting buckets
+// that saw traffic — a bucket with zero starts this window is still a real
+// "we saw nothing here", not an absent row to prune.
+//
+// `fails`/`failRate` share the exact `canAttributeFails` guard
+// buildSolverHumanGlance() uses for `humanFails` (duplicated here rather than
+// calling that function a second time — the accumulation loop below needs
+// the per-bucket breakdown buildSolverHumanGlance() doesn't return, so
+// re-deriving `canAttributeFails` locally from the same rows is simpler than
+// threading it through as a second return value). `solver_failed` has never
+// carried taxonomy in production (#189 決定 3) — every row's craft_kind reads
+// GA4's `(not set)`/`''` sentinel today, so `fails` reports `undefined` (not
+// a confident 0) until #198 deploys and the first post-deploy failure event
+// carries real taxonomy (self-heals immediately, no 28-day wait — same as
+// `humanFails`).
+const KNOWN_GEAR_BUCKETS = ['entry', 'mid', 'bis']
+
+export function buildGearBucketBreakdown(rows = []) {
+  const buckets = new Map(KNOWN_GEAR_BUCKETS.map((b) => [b, { starts: 0, completes: 0, fails: 0 }]))
+  let failedTotal = 0
+  let failedWithTaxonomy = 0
+
+  for (const row of rows) {
+    const count = row.count ?? 0
+    if (row.eventName === 'solver_failed') {
+      failedTotal += count
+      if (!CRAFT_KIND_ABSENT_VALUES.has(row.craftKind ?? '(not set)')) failedWithTaxonomy += count
+    }
+    if (isMachineSolveRow({ craftKind: row.craftKind, source: row.source })) continue
+    const bucket = buckets.get(row.gearBucket)
+    if (!bucket) continue // gear_bucket absent/unrecognized (pre-dimension history) — drop, don't mis-bucket
+    if (row.eventName === 'solver_start') bucket.starts += count
+    else if (row.eventName === 'solver_complete') bucket.completes += count
+    else if (row.eventName === 'solver_failed') bucket.fails += count
+  }
+
+  const canAttributeFails = failedTotal === 0 || failedWithTaxonomy > 0
+  return KNOWN_GEAR_BUCKETS.map((bucket) => {
+    const cell = buckets.get(bucket)
+    return {
+      bucket,
+      starts: cell.starts,
+      completes: cell.completes,
+      fails: canAttributeFails ? cell.fails : undefined,
+      completeRate: cell.starts > 0 ? cell.completes / cell.starts : 0, // NOT clamped — #209 review 3 convention
+      failRate: canAttributeFails ? (cell.starts > 0 ? cell.fails / cell.starts : 0) : undefined,
+    }
+  })
 }
 
 // --- macro-copy attribution guard (#209 review 2) ---------------------------

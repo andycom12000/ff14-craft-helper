@@ -14,12 +14,26 @@ const colorFor = (event: 'solver' | 'batch' | 'wasm') => ({
   solver: C.cocoa, batch: C.strawberry, wasm: C.matcha,
 }[event])
 
+// #211 — cost-mode dimension added to the batch reasons. `calc_mode`'s two
+// real values ('macro' | 'quick-buy') get their own colors, distinct from
+// the event-type colors above; raw enum values are used as labels verbatim
+// (no invented Chinese translation — same convention ExpertCollectableMatrix.vue
+// uses for craft_kind).
+const costModeColor = (mode: 'macro' | 'quick-buy') => (mode === 'macro' ? C.gold : C.blueberry)
+// Fira Code is monospace, so a fixed per-character width lets the breakdown
+// segments below lay out left-to-right without a getBBox() measurement
+// round-trip (the chart already re-renders on every resize).
+const CHAR_W = 6.3
+
 function render(w: number, _h: number) {
   if (!root.value) return
   const el = root.value
-  const margin = { top: 12, right: 60, bottom: 12, left: 380 }
-  const rowH = 32
   const data = [...props.data].sort((a, b) => b.count - a.count)
+  // Only batch rows with an attributable calc_mode split need the extra
+  // right-hand gutter (#211) — every other window keeps the original 60px.
+  const hasCostModeBreakdown = data.some((d) => d.costModeBreakdown?.length)
+  const margin = { top: 12, right: hasCostModeBreakdown ? 260 : 60, bottom: 12, left: 380 }
+  const rowH = 32
   const h = margin.top + margin.bottom + data.length * rowH
   // Reason text lives in the 80px..margin.left gutter; long zh reasons used to
   // run into the bar. Truncate to fit and expose the full string on hover.
@@ -83,6 +97,28 @@ function render(w: number, _h: number) {
     .style('font-weight', 500)
     .style('fill', C.ink)
     .text(d => fmt(d.count))
+
+  // #211 — cost-mode breakdown, batch rows only. `costModeBreakdown` is
+  // undefined (not []) whenever the split isn't attributable (see
+  // FailureRow.costModeBreakdown's doc comment) — those rows fall through
+  // this filter and keep the plain solid bar unchanged, same as before #211.
+  data.forEach((d, i) => {
+    if (!d.costModeBreakdown?.length) return
+    const y = i * rowH + rowH / 2
+    let bx = x(d.count) + 70
+    d.costModeBreakdown.forEach((seg, si) => {
+      if (si > 0) bx += 8 // gap between segments
+      const label = `${seg.costMode} ${fmt(seg.count)}`
+      g.append('text')
+        .attr('x', bx).attr('y', y).attr('dy', 4)
+        .style('font-family', "'Fira Code', monospace")
+        .style('font-size', '10.5px')
+        .style('font-weight', 500)
+        .style('fill', costModeColor(seg.costMode))
+        .text(label)
+      bx += label.length * CHAR_W
+    })
+  })
 }
 
 useD3Resize(root, render)

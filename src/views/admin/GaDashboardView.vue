@@ -4,6 +4,7 @@ import { useGaSnapshot } from '@/composables/useGaSnapshot'
 import type { WindowKey } from '@/types/ga-snapshot'
 import { fmtPct } from '@/components/ga-dashboard/formatters'
 import { deriveChartFlag, isMetricUntrusted } from '@/components/ga-dashboard/flag-derive'
+import { GA_THRESHOLD_RULES } from '@/config/ga-thresholds'
 
 import HeroBand from '@/components/ga-dashboard/pieces/HeroBand.vue'
 import TodoLedger from '@/components/ga-dashboard/pieces/TodoLedger.vue'
@@ -26,6 +27,8 @@ import RecipeDifficultyKind from '@/components/ga-dashboard/charts/RecipeDifficu
 import ExpertCollectableMatrix from '@/components/ga-dashboard/charts/ExpertCollectableMatrix.vue'
 import MisuseHintTally from '@/components/ga-dashboard/charts/MisuseHintTally.vue'
 import ApiFailureEndpoints from '@/components/ga-dashboard/charts/ApiFailureEndpoints.vue'
+import FeatureAdoption from '@/components/ga-dashboard/charts/FeatureAdoption.vue'
+import GearBucketOutcome from '@/components/ga-dashboard/charts/GearBucketOutcome.vue'
 
 import '@/components/ga-dashboard/tokens.css'
 import '@/components/ga-dashboard/dashboard.css'
@@ -33,10 +36,11 @@ import '@/components/ga-dashboard/dashboard.css'
 // ============================================================================
 // #197 — layout rebuild: two sections, two-layer mirror, rail 4 items, font
 // 4→3, two-tier spacing. See spec #194 §C/§E for the full rationale; this
-// file only wires the 11 surviving charts (spec #196 already cut 21 → 11)
-// into the new Layer I / Layer II slots. Two future charts (功能採用率,
-// 裝備水準×求解結果) and one future ledger row (BOM 頁內互動) render as
-// EmptyChart placeholders — spec #194 §C2/§C3 name these as net-new.
+// file wires all 13 charts (spec #196 cut 21 → 11, #211 added the final two
+// net-new charts named by spec #194 §C2/§C3: 功能採用率, 裝備水準×求解結果)
+// into the Layer I / Layer II slots. One future ledger row (BOM 頁內互動)
+// still renders as an EmptyChart placeholder — out of scope for #211 (spec
+// §194 §C4: only two raw event counts, no third dimension to plot).
 // ============================================================================
 
 const { snapshot, loading, error, isStale, staleHours, load } = useGaSnapshot()
@@ -71,6 +75,18 @@ const bomHandoffPct = computed(() => {
   // which looks like a real measurement.
   return b.calculates >= MIN_DENOMINATOR ? fmtPct(b.handoffPct) : undefined
 })
+
+// #211 — 功能採用率圖的暗期閘門。`glance.adoption` 的四個欄位（#203）本身可能早已有真實、非零的
+// 資料（`crossServerBatches` 目前已有資料——`cross_server` 於 2026-07-31 註冊），但在兩條 C 類規則
+// 的 `validFrom`（2026-08-28，見 ga-thresholds.ts 那兩條規則定義前的長註解）之前，母體本身還在
+// 隨視窗滾動長大，此時算出的任何比率都不具代表性——即使剛好非零也一樣。單讀取數字本身的有無
+// （obs/n != null）不足以判斷「暗期」：分母 n 可能已經 >0 但視窗還沒滿 28 天。所以這裡不看數字，
+// 直接比對 bundle 的 endDate 與規則表的 validFrom（單一來源，兩條規則的 validFrom 相同，任取一條）
+// ——早於此日一律走 EmptyChart placeholder（沿用 issue #208 定的樣式），不會把「還沒到」誤判成
+// 「量到了」。FeatureAdoption.vue 內部另有 n≥30 與 obs/n 缺席的第二層防線，服務的是暗期結束後
+// 仍可能發生的低樣本狀況——兩層防線各自處理不同的「不可信」成因，見該元件的文件註解。
+const ADOPTION_VALID_FROM = GA_THRESHOLD_RULES.find((r) => r.id === 'adoption.crossServerRate')?.validFrom ?? '2026-08-28'
+const adoptionAvailable = computed(() => bundle.value.window.endDate >= ADOPTION_VALID_FROM)
 
 // ⚑ 埋點待修徽章(#208)——由門檻表(GA_THRESHOLD_RULES)的 `trusted` 旗標逐指標推導,不是手寫
 // 在下方模板裡的字串。規則翻成 trusted:true 的當下這裡自動不再產生徽章,不用改這個檔案。
@@ -176,24 +192,25 @@ const matrixMacroUntrusted = computed(() => isMetricUntrusted('chart-matrix', 's
             <EmptyChart v-else label="誤用提示統計" hint="此區間尚無事件" />
           </L1Item>
 
-          <!-- SLOT FOR FUTURE TICKET (#211): net-new chart, spec §194 C2. Events
-               (meld_advisor_run, cross-server usage) AND `glance.adoption` /
+          <!-- #211: net-new chart, spec §194 C2. `glance.adoption` / the two
                ga-thresholds.ts rules (`adoption.crossServerRate`,
-               `adoption.meldAdvisorRate`) all landed in #203 — this L1Item is
-               still an EmptyChart because the chart COMPONENT itself is #211's
-               job, not #203's.
-               暗期 placeholder（issue #208）：cross_server／fields 兩個維度約
+               `adoption.meldAdvisorRate`) landed in #203; this ticket adds
+               FeatureAdoption.vue, the chart itself.
+               暗期 placeholder（issue #208 樣式）：cross_server／fields 兩個維度約
                2026-08-28 才滿 28 天觀測窗（見 ga-thresholds.ts 這兩條規則定義處的
-               長註解 / #203）——早於這天不是「熄滅」，是「還沒到」，所以寫死可用日期而不是
-               泛泛的「資料累積中」，讓空框跟真的壞掉的圖區分開來。 -->
+               長註解 / #203，`adoptionAvailable` computed 的門檻同一份 validFrom）
+               ——早於這天不是「熄滅」，是「還沒到」，所以寫死可用日期而不是泛泛的
+               「資料累積中」，讓空框跟真的壞掉的圖區分開來。 -->
           <L1Item
             id="chart-adoption" title="功能採用率 · 跨服與鑲嵌" note="C · CROSS_SERVER / MELD_ADOPT"
             bound-label="跨伺服器使用率 · 鑲嵌建議採用率"
             readout-note="門檻待資料 · 2026-08-28"
           >
+            <FeatureAdoption v-if="adoptionAvailable && bundle.glance.adoption" :data="bundle.glance.adoption" />
             <EmptyChart
+              v-else
               label="功能採用率 · 跨服與鑲嵌"
-              hint="pipeline 已接（#203）· cross_server／fields 兩維度約 28 天滿窗，圖表待 #211"
+              hint="cross_server／fields 兩維度約 28 天滿窗，資料尚在累積"
               resolves-on="2026-08-28"
             />
           </L1Item>
@@ -255,12 +272,15 @@ const matrixMacroUntrusted = computed(() => isMetricUntrusted('chart-matrix', 's
               <EmptyChart v-else label="工具偏好 · 依配方等級" hint="此區間尚無事件" />
             </L2Row>
 
-            <!-- SLOT FOR FUTURE TICKET: net-new chart, spec §194 C3. -->
+            <!-- #211: net-new chart, spec §194 C3. `gear_bucket` rides the same
+                 solver_start/_complete/_failed events already queried for
+                 glance.solver.human* (#200) — no cross-event join needed. -->
             <L2Row
               id="chart-gear" title="裝備水準 × 求解結果"
               ticket="solver 完成率／失敗率亮時 → 哪個裝備水準求不出來"
             >
-              <EmptyChart label="裝備水準 × 求解結果" hint="新圖尚未實作 · spec #194 §C3" />
+              <GearBucketOutcome v-if="bundle.gearBucketBreakdown?.length" :data="bundle.gearBucketBreakdown" />
+              <EmptyChart v-else label="裝備水準 × 求解結果" hint="此區間尚無事件" />
             </L2Row>
 
             <!-- SLOT FOR FUTURE TICKET: BOM 頁內互動 — ledger row, not a
