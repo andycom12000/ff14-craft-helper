@@ -770,10 +770,34 @@ test('buildGearBucketBreakdown(): completeRate per bucket is completes/starts, N
   assert.equal(entry.completeRate, 1.03)
 })
 
-test('buildGearBucketBreakdown(): fails is undefined (not 0) when solver_failed rows exist but NONE carry real taxonomy — mirrors the #200 humanFails guard', () => {
+// --- #211 review 1 regression: completes/fails attribution is keyed on
+// `gear_bucket` (the dimension THIS chart depends on), NOT `craft_kind` (the
+// #189 taxonomy dimension). A live probe found `solver_complete` rows that DO
+// carry real craft_kind but do NOT yet carry gear_bucket — a craft_kind-keyed
+// guard would have waved that through as "attributable" and printed a
+// confident `completes: 0` next to a real `starts: 528`. These tests pin the
+// guard to the dimension that actually determines whether a row can be
+// bucketed at all, and prove completes/fails are attributed INDEPENDENTLY of
+// each other (one can be trustworthy while the other isn't).
+
+test('buildGearBucketBreakdown(): completes is undefined (not 0) when solver_complete rows exist but NONE carry a recognized gear_bucket — the #211 review 1 regression', () => {
+  const rows = [
+    { eventName: 'solver_start', craftKind: 'normal', source: 'user', gearBucket: 'bis', count: 528 },
+    // Live production shape: solver_complete carries real craft_kind/source
+    // (isMachineSolveRow() calls it human) but gear_bucket is still
+    // "(not set)" — the #198 gear_bucket-on-_complete leg hasn't deployed.
+    { eventName: 'solver_complete', craftKind: 'normal', source: 'user', gearBucket: '(not set)', count: 500 },
+  ]
+  const out = buildGearBucketBreakdown(rows)
+  const bis = out.find((r) => r.bucket === 'bis')
+  assert.equal(bis.completes, undefined, 'completes must be undefined, not a confident 0 — the exact bug this test guards against')
+  assert.equal(bis.completeRate, undefined)
+})
+
+test('buildGearBucketBreakdown(): fails is undefined (not 0) when solver_failed rows exist but NONE carry a recognized gear_bucket', () => {
   const rows = [
     { eventName: 'solver_start', craftKind: 'normal', source: 'user', gearBucket: 'bis', count: 100 },
-    { eventName: 'solver_failed', craftKind: '(not set)', source: '(not set)', gearBucket: 'bis', count: 6 },
+    { eventName: 'solver_failed', craftKind: 'expert', source: 'user', gearBucket: '(not set)', count: 6 },
   ]
   const out = buildGearBucketBreakdown(rows)
   const bis = out.find((r) => r.bucket === 'bis')
@@ -784,7 +808,7 @@ test('buildGearBucketBreakdown(): fails is undefined (not 0) when solver_failed 
 test('buildGearBucketBreakdown(): fails is a real 0 for a bucket with no solver_failed rows at all, once attribution is possible elsewhere', () => {
   const rows = [
     { eventName: 'solver_start', craftKind: 'normal', source: 'user', gearBucket: 'entry', count: 50 },
-    // Attribution proven possible by a DIFFERENT bucket's real-taxonomy failure.
+    // Attribution proven possible by a DIFFERENT bucket's recognized gear_bucket.
     { eventName: 'solver_failed', craftKind: 'expert', source: 'user', gearBucket: 'bis', count: 1 },
   ]
   const out = buildGearBucketBreakdown(rows)
@@ -793,18 +817,32 @@ test('buildGearBucketBreakdown(): fails is a real 0 for a bucket with no solver_
   assert.equal(entry.failRate, 0)
 })
 
-test('buildGearBucketBreakdown(): fails resumes being a real number the moment ANY solver_failed row carries real taxonomy (self-heals, mirrors buildSolverHumanGlance())', () => {
+test('buildGearBucketBreakdown(): fails resumes being a real number the moment ANY solver_failed row carries a recognized gear_bucket (self-heals)', () => {
   const rows = [
     { eventName: 'solver_start', craftKind: 'normal', source: 'user', gearBucket: 'mid', count: 40 },
-    { eventName: 'solver_failed', craftKind: '(not set)', source: '(not set)', gearBucket: 'mid', count: 10 },
-    { eventName: 'solver_failed', craftKind: 'expert', source: 'user', gearBucket: 'mid', count: 1 },
+    { eventName: 'solver_failed', craftKind: 'expert', source: 'user', gearBucket: '(not set)', count: 10 }, // still unattributable
+    { eventName: 'solver_failed', craftKind: 'expert', source: 'user', gearBucket: 'mid', count: 1 }, // this one carries gear_bucket
   ]
   const out = buildGearBucketBreakdown(rows)
   const mid = out.find((r) => r.bucket === 'mid')
   assert.equal(mid.fails, 1)
 })
 
-test('buildGearBucketBreakdown(): empty/missing rows still return all three buckets, all zeroed (real, attributable zero — no solver_failed rows at all)', () => {
+test('buildGearBucketBreakdown(): completes and fails attribution are independent — one can be trustworthy while the other is not', () => {
+  const rows = [
+    { eventName: 'solver_start', craftKind: 'normal', source: 'user', gearBucket: 'mid', count: 40 },
+    { eventName: 'solver_complete', craftKind: 'normal', source: 'user', gearBucket: 'mid', count: 38 }, // gear_bucket present → attributable
+    { eventName: 'solver_failed', craftKind: 'normal', source: 'user', gearBucket: '(not set)', count: 2 }, // gear_bucket absent → NOT attributable
+  ]
+  const out = buildGearBucketBreakdown(rows)
+  const mid = out.find((r) => r.bucket === 'mid')
+  assert.equal(mid.completes, 38)
+  assert.equal(mid.completeRate, 38 / 40)
+  assert.equal(mid.fails, undefined)
+  assert.equal(mid.failRate, undefined)
+})
+
+test('buildGearBucketBreakdown(): empty/missing rows still return all three buckets, all zeroed (real, attributable zero — no solver_complete/solver_failed rows at all)', () => {
   for (const out of [buildGearBucketBreakdown([]), buildGearBucketBreakdown()]) {
     assert.equal(out.length, 3)
     for (const row of out) {

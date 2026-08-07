@@ -231,6 +231,17 @@ describe('GA dashboard v2 charts render without throwing', () => {
     const w = mount(GearBucketOutcome, { props: { data: data as never } })
     expect(w.text()).toContain('—')
   })
+  it('GearBucketOutcome renders "—" (not a confident "0.0%") when completeRate is unattributable — the #211 review 1 regression', () => {
+    // Live production shape: solver_start has real starts, but solver_complete
+    // hasn't started carrying gear_bucket yet — completes/completeRate must be
+    // undefined, never a printed 0.
+    const data = [
+      { bucket: 'entry', starts: 528, fails: undefined, failRate: undefined }, // completes/completeRate omitted — unattributable
+    ]
+    const w = mount(GearBucketOutcome, { props: { data: data as never } })
+    expect(w.text()).toContain('—')
+    expect(w.text()).not.toContain('0.0%')
+  })
 })
 
 describe('RegionSplitLedger', () => {

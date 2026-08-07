@@ -21,7 +21,13 @@ const BUCKET_LABEL: Record<string, string> = { entry: 'entry · 入門', mid: 'm
 // as ExpertCollectableMatrix.vue's SPARSE_THRESHOLD.
 const SPARSE_THRESHOLD = 20
 
-function completeRateColor(sparse: boolean, rate: number) {
+// `rate === undefined` (completeRate is unattributable, same contract as
+// failRate below) must short-circuit BEFORE the sparse/threshold checks —
+// `undefined >= 0.95` is `false`, not an error, so without this guard an
+// unattributable rate would silently fall through to C.danger instead of the
+// neutral "we don't know" color (#211 review 1).
+function completeRateColor(sparse: boolean, rate: number | undefined) {
+  if (rate === undefined) return C.inkFaint
   if (sparse) return C.inkFaint
   if (rate >= 0.95) return C.success
   if (rate >= 0.85) return C.warning

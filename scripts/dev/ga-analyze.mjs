@@ -1610,40 +1610,54 @@ export function buildSolverHumanGlance(rows = []) {
 //
 // Human-filtered via isMachineSolveRow() (#200), same as CraftKindRow/
 // TaxonomyCell — a row that fails the human check contributes to NEITHER a
-// gear bucket NOR the failedTotal/failedWithTaxonomy tally below (mirrors
-// buildSolverHumanGlance()'s own ordering: the taxonomy-presence check for
-// `solver_failed` runs on ALL rows, human or machine, but the actual bucket
-// accumulation is human-only).
+// gear bucket NOR the attribution tallies below.
 //
 // `KNOWN_GEAR_BUCKETS` fixes the three output rows unconditionally (like the
 // 2×2 grid in ExpertCollectableMatrix.vue) rather than only emitting buckets
 // that saw traffic — a bucket with zero starts this window is still a real
 // "we saw nothing here", not an absent row to prune.
 //
-// `fails`/`failRate` share the exact `canAttributeFails` guard
-// buildSolverHumanGlance() uses for `humanFails` (duplicated here rather than
-// calling that function a second time — the accumulation loop below needs
-// the per-bucket breakdown buildSolverHumanGlance() doesn't return, so
-// re-deriving `canAttributeFails` locally from the same rows is simpler than
-// threading it through as a second return value). `solver_failed` has never
-// carried taxonomy in production (#189 決定 3) — every row's craft_kind reads
-// GA4's `(not set)`/`''` sentinel today, so `fails` reports `undefined` (not
-// a confident 0) until #198 deploys and the first post-deploy failure event
-// carries real taxonomy (self-heals immediately, no 28-day wait — same as
-// `humanFails`).
+// #211 review 1 — `completes`/`fails` each need THEIR OWN attribution guard,
+// keyed on `gear_bucket` (the dimension THIS chart depends on), not on
+// `craft_kind` (the #189 taxonomy dimension `buildSolverHumanGlance()`'s
+// `humanFails` guard is about). An earlier version of this function reused
+// craft_kind-presence as a stand-in for gear_bucket-presence — that looked
+// right only because both dimensions happened to be simultaneously absent on
+// `solver_complete`/`solver_failed` in today's live data (a live probe found
+// `completes: 0` printed with full confidence next to a real `starts: 528`,
+// while `fails` correctly came out `undefined` — same shape, wrong reason).
+// `solver_complete`/`solver_failed` carrying `craft_kind` but not yet
+// `gear_bucket` (or vice versa) is a real, expected intermediate deploy state
+// (they're independent instrumentation additions in `worker.ts`) — a
+// craft_kind-keyed guard would silently stop protecting `fails` the moment
+// `craft_kind` deploys ahead of `gear_bucket`, which is exactly when the
+// protection is needed most. `canAttributeGearBucket()` below re-derives
+// attribution PER eventName, straight from `gear_bucket` itself, so
+// `completes` and `fails` can be unattributable independently of each other
+// (see the ga-analyze.test.mjs case that pins this down). Same
+// `total === 0 || withAttribution > 0` shape as `canAttributeMacroCopies()` —
+// counted over ALL rows for that eventName (human + machine), same
+// "a machine row can still prove the dimension is populated" precedent as
+// `buildSolverHumanGlance()`'s `canAttributeFails`.
 const KNOWN_GEAR_BUCKETS = ['entry', 'mid', 'bis']
+
+function canAttributeGearBucket(rows, eventName) {
+  let total = 0
+  let withBucket = 0
+  for (const row of rows) {
+    if (row.eventName !== eventName) continue
+    const count = row.count ?? 0
+    total += count
+    if (KNOWN_GEAR_BUCKETS.includes(row.gearBucket)) withBucket += count
+  }
+  return total === 0 || withBucket > 0
+}
 
 export function buildGearBucketBreakdown(rows = []) {
   const buckets = new Map(KNOWN_GEAR_BUCKETS.map((b) => [b, { starts: 0, completes: 0, fails: 0 }]))
-  let failedTotal = 0
-  let failedWithTaxonomy = 0
 
   for (const row of rows) {
     const count = row.count ?? 0
-    if (row.eventName === 'solver_failed') {
-      failedTotal += count
-      if (!CRAFT_KIND_ABSENT_VALUES.has(row.craftKind ?? '(not set)')) failedWithTaxonomy += count
-    }
     if (isMachineSolveRow({ craftKind: row.craftKind, source: row.source })) continue
     const bucket = buckets.get(row.gearBucket)
     if (!bucket) continue // gear_bucket absent/unrecognized (pre-dimension history) — drop, don't mis-bucket
@@ -1652,15 +1666,21 @@ export function buildGearBucketBreakdown(rows = []) {
     else if (row.eventName === 'solver_failed') bucket.fails += count
   }
 
-  const canAttributeFails = failedTotal === 0 || failedWithTaxonomy > 0
+  // `solver_start` needs no guard here — a live probe confirmed it reliably
+  // carries gear_bucket (entry/mid/bis all showed real, nonzero counts) and
+  // it's the one leg every human/machine row in `rows` originates from.
+  const canAttributeCompletes = canAttributeGearBucket(rows, 'solver_complete')
+  const canAttributeFails = canAttributeGearBucket(rows, 'solver_failed')
+
   return KNOWN_GEAR_BUCKETS.map((bucket) => {
     const cell = buckets.get(bucket)
     return {
       bucket,
       starts: cell.starts,
-      completes: cell.completes,
+      completes: canAttributeCompletes ? cell.completes : undefined,
       fails: canAttributeFails ? cell.fails : undefined,
-      completeRate: cell.starts > 0 ? cell.completes / cell.starts : 0, // NOT clamped — #209 review 3 convention
+      // NOT clamped — #209 review 3 convention.
+      completeRate: canAttributeCompletes ? (cell.starts > 0 ? cell.completes / cell.starts : 0) : undefined,
       failRate: canAttributeFails ? (cell.starts > 0 ? cell.fails / cell.starts : 0) : undefined,
     }
   })
