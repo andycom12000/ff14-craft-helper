@@ -56,9 +56,8 @@ function render(w: number, _h: number) {
       .text(d.label)
     svg.append('text')
       .attr('x', 8).attr('y', y + 68)
-      .style('font-family', "'Cormorant Garamond', serif")
-      .style('font-style', 'italic')
-      .style('font-size', '13px')
+      .style('font-family', "'Noto Serif TC', serif")
+      .style('font-size', '12.5px')
       .style('fill', noteColor)
       .text(d.note)
 

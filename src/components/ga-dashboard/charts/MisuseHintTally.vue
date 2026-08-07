@@ -67,9 +67,10 @@ defineProps<{ data: MisuseRow[] }>()
 }
 
 .misuse-gloss {
-  font-family: 'Cormorant Garamond', serif;
-  font-style: italic;
-  font-size: 14.5px;
+  /* Editorial sentence for a human to read — stays Noto Serif TC (spec
+     #194 §E2); only the decorative italic retires. */
+  font-family: 'Noto Serif TC', serif;
+  font-size: 13.5px;
   color: var(--ink-muted);
   max-width: 54ch;
 }

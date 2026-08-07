@@ -3,15 +3,19 @@ import { onMounted, onBeforeUnmount, ref } from 'vue'
 
 // Fixed left rail — collapsed 56px, expands to 248px on hover. Scroll-spy via
 // IntersectionObserver toggles the active item; clicks smooth-scroll using
-// window.scrollTo (NOT scrollIntoView, per the design handoff). Section ids are
-// set by GaDashboardView.vue.
+// window.scrollTo (NOT scrollIntoView, per the design handoff). Ids are set
+// by GaDashboardView.vue.
+//
+// Rail reduced to 4 items (spec #194 §E5 / #197): the rail points at page
+// landmarks (概覽 / 本期待辦 / two layer sections), while a todo row's own
+// `anchor` points at a Layer I chart id — the two positioning systems stay
+// separate (spec §C1 / §E5 last line). `本期待辦` has no roman numeral: it's
+// the page-level ledger, not a section.
 const items = [
   { id: 'hero', num: '0', label: '概覽' },
-  { id: 'sec-1', num: 'ɪ', label: '注意力落在哪裡' },
-  { id: 'sec-2', num: 'ɪɪ', label: '流程在哪裡漏' },
-  { id: 'sec-4', num: 'ɪᴠ', label: '新訪客在哪一階停下' },
-  { id: 'sec-5', num: 'ᴠ', label: '摩擦發生在哪裡' },
-  { id: 'sec-6', num: 'ᴠɪ', label: '系統哪裡正在裂' },
+  { id: 'todo', num: '·', label: '本期待辦' },
+  { id: 'sec-why', num: 'I', label: '為什麼會亮' },
+  { id: 'sec-context', num: 'II', label: '背景與觀測' },
 ]
 
 const activeId = ref<string>('hero')
@@ -97,9 +101,10 @@ onBeforeUnmount(() => {
   background: oklch(0.78 0.15 72 / 0.10);
 }
 .rail-nav .num {
-  font-family: 'Cormorant Garamond', serif;
-  font-style: italic; font-weight: 500;
-  font-size: 22px; line-height: 1;
+  font-family: 'Fira Code', monospace;
+  font-weight: 600;
+  font-size: 12px; line-height: 1;
+  letter-spacing: 0.06em;
   text-align: center;
 }
 .rail-nav .label {

@@ -224,9 +224,8 @@ const endpoints = computed<EndpointView[]>(() =>
 }
 
 .ep-rank {
-  font-family: 'Cormorant Garamond', serif;
-  font-style: italic;
-  font-size: 13px;
+  font-family: 'Fira Code', monospace;
+  font-size: 12px;
   color: var(--ink-faint);
 }
 

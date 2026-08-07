@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useGaSnapshot } from '@/composables/useGaSnapshot'
 import type { WindowKey } from '@/types/ga-snapshot'
+import { fmtPct } from '@/components/ga-dashboard/formatters'
 
 import HeroBand from '@/components/ga-dashboard/pieces/HeroBand.vue'
+import TodoLedger from '@/components/ga-dashboard/pieces/TodoLedger.vue'
 import RegionSplitLedger from '@/components/ga-dashboard/pieces/RegionSplitLedger.vue'
 import WindowSelector from '@/components/ga-dashboard/pieces/WindowSelector.vue'
 import SectionHead from '@/components/ga-dashboard/pieces/SectionHead.vue'
-import SubHead from '@/components/ga-dashboard/pieces/SubHead.vue'
 import RailNav from '@/components/ga-dashboard/pieces/RailNav.vue'
 import EmptyChart from '@/components/ga-dashboard/pieces/EmptyChart.vue'
+import L1Item from '@/components/ga-dashboard/pieces/L1Item.vue'
+import L2Row from '@/components/ga-dashboard/pieces/L2Row.vue'
 
 import PagesTable from '@/components/ga-dashboard/charts/PagesTable.vue'
 import SolverBatchFunnels from '@/components/ga-dashboard/charts/SolverBatchFunnels.vue'
@@ -17,8 +20,6 @@ import SimulatorFunnel from '@/components/ga-dashboard/charts/SimulatorFunnel.vu
 import Q4FunnelDrops from '@/components/ga-dashboard/charts/Q4FunnelDrops.vue'
 import FailuresBar from '@/components/ga-dashboard/charts/FailuresBar.vue'
 import WebVitalsStack from '@/components/ga-dashboard/charts/WebVitalsStack.vue'
-
-// v2 — sections IV / V / VI
 import ToolUsageByRlv from '@/components/ga-dashboard/charts/ToolUsageByRlv.vue'
 import RecipeDifficultyKind from '@/components/ga-dashboard/charts/RecipeDifficultyKind.vue'
 import ExpertCollectableMatrix from '@/components/ga-dashboard/charts/ExpertCollectableMatrix.vue'
@@ -28,10 +29,47 @@ import ApiFailureEndpoints from '@/components/ga-dashboard/charts/ApiFailureEndp
 import '@/components/ga-dashboard/tokens.css'
 import '@/components/ga-dashboard/dashboard.css'
 
+// ============================================================================
+// #197 — layout rebuild: two sections, two-layer mirror, rail 4 items, font
+// 4→3, two-tier spacing. See spec #194 §C/§E for the full rationale; this
+// file only wires the 11 surviving charts (spec #196 already cut 21 → 11)
+// into the new Layer I / Layer II slots. Two future charts (功能採用率,
+// 裝備水準×求解結果) and one future ledger row (BOM 頁內互動) render as
+// EmptyChart placeholders — spec #194 §C2/§C3 name these as net-new.
+// ============================================================================
+
 const { snapshot, loading, error, isStale, staleHours, load } = useGaSnapshot()
 const win = ref<WindowKey>('7d')
 
 onMounted(load)
+
+// Only read within the `v-else-if="snapshot"` branch below — snapshot is
+// guaranteed non-null there.
+const bundle = computed(() => snapshot.value!.windows[win.value])
+
+// The todo ledger is fixed to the 28-day window regardless of the selected
+// `win` (spec §194 §C1: "待辦固定 28d，放在視窗選擇器下方會像 bug") — it must
+// NOT track `bundle`/`win`, or the whole point of placing it above
+// WindowSelector (unaffected by the selector) is defeated.
+const todoWindowDays = computed(() => snapshot.value!.windows['28d'].window.days)
+
+// Anchor-side readouts (spec §E3) sourced honestly from today's MetricsBundle
+// — see AnchorSide.vue's doc comment. No evaluate()/threshold engine exists
+// in this branch yet, so most Layer I items pass no `readout` at all.
+// Denominator guard aligned to the evaluate() engine's n ≥ 30 minimum sample
+// size (spec §194 §B4) — below that, a rate is noise dressed as a finding.
+const MIN_DENOMINATOR = 30
+const batchFailPct = computed(() => {
+  const b = bundle.value.glance.batch
+  return b.starts >= MIN_DENOMINATOR ? fmtPct(b.fails / b.starts) : undefined
+})
+const bomHandoffPct = computed(() => {
+  const b = bundle.value.glance.bom
+  // Pipeline sets handoffPct to 0 (not null) when calculates === 0 — an
+  // unguarded read would render "0.0%" for "nobody used BOM this window",
+  // which looks like a real measurement.
+  return b.calculates >= MIN_DENOMINATOR ? fmtPct(b.handoffPct) : undefined
+})
 </script>
 
 <template>
@@ -56,62 +94,154 @@ onMounted(load)
           SNAPSHOT {{ staleHours }}h OLD · CRON MAY HAVE FAILED
         </div>
 
+        <!-- 本期待辦 — page-level ledger, NOT a section (spec §C1). Fixed
+             position: hero → todo → WindowSelector, fixed 28-day window
+             (independent of the WindowSelector below it). Empty until the
+             threshold table + evaluate() engine (spec §B) lands. -->
+        <TodoLedger :window-days="todoWindowDays" />
+
         <WindowSelector v-model="win" />
         <RegionSplitLedger :snapshot="snapshot" :window="win" />
 
-        <section id="sec-1" class="q">
-          <SectionHead num="i." title="Q1：注意力落在哪裡" aside="各頁健康度" />
-          <SubHead title="各頁健康度 · 對照中位數" />
-          <PagesTable :data="snapshot.windows[win].pages" />
+        <!-- ============ Ⅰ. 為什麼會亮 · 解釋現場 — chart left / anchor side
+             right (spec §E3). Every item's side column names the todo that
+             would point here once the evaluate() engine exists. ============ -->
+        <section id="sec-why" class="layer layer-1">
+          <SectionHead
+            num="I" title="為什麼會亮" aside="8 CHARTS"
+            desc="每一張都被上方某條待辦的 anchor 指到。右欄寫的是被指到的那條待辦與其當期讀數。"
+          />
+
+          <L1Item
+            id="chart-failures" title="批量失敗原因" note="A · BATCH_FAIL_RATE"
+            bound-label="批量最佳化失敗率"
+            :readout="batchFailPct" readout-note="batch.fails ÷ batch.starts"
+          >
+            <FailuresBar :data="bundle.failures" />
+          </L1Item>
+
+          <L1Item
+            id="chart-api" title="universalis 端點失敗" note="A · UNIVERSALIS_ERR"
+            bound-label="universalis 真故障率"
+            readout-note="待 PR-B 拆分 404「無掛單」後可用"
+          >
+            <ApiFailureEndpoints v-if="bundle.apiFailures" :data="bundle.apiFailures" />
+            <EmptyChart v-else label="API 失敗端點" hint="此區間尚無事件" />
+          </L1Item>
+
+          <L1Item
+            id="chart-funnels" title="漏斗 · Solver 與批量" note="B · SOLVER_BATCH_COMPLETE"
+            bound-label="solver 完成率 · 失敗率 · 批量完成率"
+            flag-text="solver 完成率／失敗率埋點待修 · 人機分離未套用 pipeline"
+          >
+            <SolverBatchFunnels :data="{ solver: bundle.solverFunnel, batch: bundle.batchFunnel }" />
+          </L1Item>
+
+          <L1Item
+            id="chart-drops" title="頁面流失率" note="B · FUNNEL_CONVERSION"
+            bound-label="BOM→批量交棒率 · 各漏斗轉換"
+            :readout="bomHandoffPct" readout-note="bom.sentToBatch ÷ bom.calculates"
+          >
+            <Q4FunnelDrops :data="bundle.q4Funnels" />
+          </L1Item>
+
+          <L1Item
+            id="chart-sim" title="模擬器 · 造訪 → 巨集匯出" note="B · MACRO_COPY_RATE"
+            bound-label="巨集複製率"
+            readout-note="尚無彙總分子分母（待 PR-B 追加 glance 欄位）"
+            flag-text="巨集複製率埋點待修 · PR-A 剛落地（#198），資料需回填 28 天"
+          >
+            <SimulatorFunnel :data="bundle.simulatorFunnel" />
+          </L1Item>
+
+          <L1Item
+            id="chart-misuse" title="誤用提示統計" note="C · MISUSE_×3"
+            bound-label="誤用三項（單一配方 · BOM · 佇列）"
+            readout-note="三項各自門檻，見下方分項"
+          >
+            <MisuseHintTally v-if="bundle.misuseSignals" :data="bundle.misuseSignals" />
+            <EmptyChart v-else label="誤用提示統計" hint="此區間尚無事件" />
+          </L1Item>
+
+          <!-- SLOT FOR FUTURE TICKET: net-new chart, spec §194 C2. Events are
+               already emitted (meld_advisor_run, cross-server usage) but the
+               chart component + glance.adoption fields don't exist yet. -->
+          <L1Item
+            id="chart-adoption" title="功能採用率 · 跨服與鑲嵌" note="C · CROSS_SERVER / MELD_ADOPT"
+            bound-label="跨伺服器使用率 · 鑲嵌建議採用率"
+            readout-note="新指標，資料累積中"
+          >
+            <EmptyChart label="功能採用率 · 跨服與鑲嵌" hint="新圖尚未實作 · 事件已埋（#198）· spec #194 §C2" />
+          </L1Item>
+
+          <L1Item
+            id="chart-vitals" title="Web Vitals" note="D · VITALS_×5"
+            bound-label="Web Vitals ×5（絆線）"
+            readout-note="五項各自門檻，非單一數字"
+          >
+            <WebVitalsStack :data="bundle.vitals" />
+          </L1Item>
         </section>
 
-        <section id="sec-2" class="q">
-          <SectionHead num="ii." title="Q2：流程在哪裡漏" aside="漏斗 · 流失率 · 摩擦" />
-          <SubHead title="漏斗 · Solver 與批量" />
-          <SolverBatchFunnels :data="{ solver: snapshot.windows[win].solverFunnel, batch: snapshot.windows[win].batchFunnel }" />
-          <SubHead title="模擬器 · 造訪 → 巨集匯出" />
-          <SimulatorFunnel :data="snapshot.windows[win].simulatorFunnel" />
-          <SubHead title="頁面流失率" />
-          <Q4FunnelDrops :data="snapshot.windows[win].q4Funnels" />
-          <SubHead title="主要失敗原因" />
-          <FailuresBar :data="snapshot.windows[win].failures" />
-          <SubHead title="Web Vitals" />
-          <WebVitalsStack :data="snapshot.windows[win].vitals" />
-        </section>
+        <!-- ============ Ⅱ. 背景與觀測 · drill-down — text left / continuous
+             report strip right (spec §E3). ============ -->
+        <section id="sec-context" class="layer layer-2">
+          <SectionHead
+            num="II" title="背景與觀測" aside="5 CHARTS + 1 LEDGER"
+            desc="連續報表帶。左欄寫的是入場券——沒有券的圖不進這一層。"
+          />
 
-        <!-- ============ IV. Q4 — 新訪客在哪一階停下 ============ -->
-        <section id="sec-4" class="q">
-          <SectionHead num="iv." title="Q4：新訪客在哪一階停下" aside="配方分類 · 漫長爬坡" />
+          <div class="strip">
+            <L2Row
+              id="chart-pages" title="各頁健康度"
+              ticket="batch 完成率／BOM 交棒率亮時 → 哪一頁 bounce 高、engagement 低"
+            >
+              <PagesTable :data="bundle.pages" />
+            </L2Row>
 
-          <SubHead title="工具偏好 · 依配方等級分組" aside="不同 RLV 區間的玩家偏向哪個工具：模擬器 · 批量 · BOM" />
-          <ToolUsageByRlv v-if="snapshot.windows[win].toolUsageByRlv" :data="snapshot.windows[win].toolUsageByRlv!" />
-          <EmptyChart v-else label="工具偏好 · 依配方等級" hint="此區間尚無事件" />
+            <L2Row
+              id="chart-rlv" title="配方難度分佈"
+              ticket="BOM 交棒率亮時 → 哪個 RLV 區間在斷"
+            >
+              <RecipeDifficultyKind v-if="bundle.taxonomy" :data="bundle.taxonomy" />
+              <EmptyChart v-else label="配方難度與類型" hint="此區間尚無事件" />
+            </L2Row>
 
-          <SubHead title="配方難度與類型" aside="RLV 直方圖 · craft_kind 完成率" />
-          <RecipeDifficultyKind v-if="snapshot.windows[win].taxonomy" :data="snapshot.windows[win].taxonomy!" />
-          <EmptyChart v-else label="配方難度與類型" hint="此區間尚無事件" />
+            <L2Row
+              id="chart-matrix" title="配方分類 × 完成率"
+              ticket="巨集複製率／solver 完成率亮時 → 哪一類配方的巨集沒人複製"
+              flag-text="僅「巨集複製率」欄埋點待修 · 完成率已可信"
+              :flag-partial="true"
+            >
+              <ExpertCollectableMatrix v-if="bundle.taxonomy" :data="bundle.taxonomy.matrix" />
+              <EmptyChart v-else label="高難度 × 收藏品矩陣" hint="此區間尚無事件" />
+            </L2Row>
 
-          <SubHead title="高難度 × 收藏品 矩陣" aside="每格的求解完成率與巨集複製率" />
-          <ExpertCollectableMatrix v-if="snapshot.windows[win].taxonomy" :data="snapshot.windows[win].taxonomy!.matrix" />
-          <EmptyChart v-else label="高難度 × 收藏品矩陣" hint="此區間尚無事件" />
-        </section>
+            <L2Row
+              id="chart-tool" title="工具偏好 · 依 RLV"
+              ticket="BOM 交棒率亮時 → BOM 目標與批量目標的 RLV 分佈落差"
+              flag-text="BOM／批量兩條分子的 RLV 歸戶待 pipeline PR"
+            >
+              <ToolUsageByRlv v-if="bundle.toolUsageByRlv" :data="bundle.toolUsageByRlv" />
+              <EmptyChart v-else label="工具偏好 · 依配方等級" hint="此區間尚無事件" />
+            </L2Row>
 
-        <!-- ============ V. Q5 — 摩擦發生在哪裡 ============ -->
-        <section id="sec-5" class="q section-break">
-          <SectionHead num="v." title="Q5：摩擦發生在哪裡" aside="達不到的期望" />
+            <!-- SLOT FOR FUTURE TICKET: net-new chart, spec §194 C3. -->
+            <L2Row
+              id="chart-gear" title="裝備水準 × 求解結果"
+              ticket="solver 完成率／失敗率亮時 → 哪個裝備水準求不出來"
+            >
+              <EmptyChart label="裝備水準 × 求解結果" hint="新圖尚未實作 · spec #194 §C3" />
+            </L2Row>
 
-          <SubHead title="誤用提示統計" aside="未來 in-app 引導優先序" />
-          <MisuseHintTally v-if="snapshot.windows[win].misuseSignals" :data="snapshot.windows[win].misuseSignals!" />
-          <EmptyChart v-else label="誤用提示統計" hint="此區間尚無事件" />
-        </section>
-
-        <!-- ============ VI. Q6 — 系統哪裡正在裂 ============ -->
-        <section id="sec-6" class="q section-break">
-          <SectionHead num="vi." title="Q6：系統哪裡正在裂" aside="API 失敗" />
-
-          <SubHead title="API 失敗 · 端點排行，按 API 與狀態碼分類" aside="補完既有 FailuresBar（只看 reason）" />
-          <ApiFailureEndpoints v-if="snapshot.windows[win].apiFailures" :data="snapshot.windows[win].apiFailures!" />
-          <EmptyChart v-else label="API 失敗端點" hint="此區間尚無事件" />
+            <!-- SLOT FOR FUTURE TICKET: BOM 頁內互動 — ledger row, not a
+                 chart (spec §194 C4: only two raw event counts, no third
+                 dimension to plot). acquisition_mode_set / breakdown_expand
+                 aren't in MetricsBundle yet. -->
+            <L2Row id="chart-bom-ledger" full>
+              <EmptyChart label="BOM 頁內互動 · ledger 行" hint="acquisition_mode_set／breakdown_expand 尚未產出 · spec #194 §C4" />
+            </L2Row>
+          </div>
         </section>
       </template>
     </div>
@@ -122,13 +252,13 @@ onMounted(load)
 .wrap {
   max-width: 1720px;
   margin: 0 auto;
-  padding: 80px clamp(48px, 5vw, 96px) 120px;
+  padding: 72px clamp(48px, 5vw, 96px) 140px;
 }
 .state {
   padding: 60px 0; text-align: center;
   color: var(--ink-muted);
-  font-family: 'Cormorant Garamond', serif;
-  font-style: italic; font-size: 22px;
+  font-family: 'Fira Code', monospace;
+  font-size: 13px; letter-spacing: 0.08em;
 }
 .state.error { color: var(--danger); }
 .state.error button {
@@ -149,6 +279,31 @@ onMounted(load)
   font-family: 'Fira Code', monospace; font-size: 11px;
   letter-spacing: 0.18em; text-transform: uppercase;
 }
-section.q { margin-bottom: 96px; }
-.section-break { margin-top: 120px; }
+
+/* Two-tier spacing scale (spec §194 E4) — replaces the old three-tier
+   96/120/56px system and the section-break/dual-grid classes it drove. */
+.layer-2 {
+  margin-top: 112px;
+  /* Target row height for the Layer II continuous report strip (issue #197
+     body: "列高約 140px"; spec #194 §E3's "density, not saturation" decision
+     is measured against this number — #192's 933px vs 1969px comparison
+     assumes charts that actually render at this height, not charts clipped
+     down to it). `L2Row.vue`'s `.l2-chart` does NOT enforce this today —
+     see its comment. Chart-by-chart path to actually hitting it:
+       - ToolUsageByRlv: drops sharply once RLV goes raw + top-8-aggregated
+         (#209) — today's per-bucket rows are the tallest offender.
+       - ExpertCollectableMatrix + the two net-new Layer II charts
+         (裝備水準×求解結果, and whatever else lands): #211.
+       - PagesTable: UNCLAIMED. Needs its own row-count reduction (it grows
+         with page count, no ticket owns this yet) — flag if scoping #209/
+         #211's follow-up work. */
+  --l2-band-h: 140px;
+}
+.layer-1, .layer-2 {
+  margin-bottom: 0;
+}
+.strip {
+  border-top: 1px solid var(--border);
+  margin-top: 24px;
+}
 </style>

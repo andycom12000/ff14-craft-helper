@@ -31,7 +31,8 @@ const windows: Array<{ key: WindowKey, label: string }> = [
   padding: 4px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  margin-bottom: 32px;
+  /* Top margin owned by TodoLedger (spec #194 §E4 "待辦 → 視窗選擇器 40px"). */
+  margin: 0 0 20px;
 }
 .win-btn {
   appearance: none; border: none; background: transparent;

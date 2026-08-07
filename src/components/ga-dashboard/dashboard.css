@@ -39,3 +39,24 @@
 .ga-tooltip .row span:last-child {
   color: oklch(0.94 0.022 82);
 }
+
+/* ---- ⚑ Instrumentation-pending chart wash (spec #194 §E6 態一 "整張不可信")
+   Applied to a chart's wrapper (L1Item's `.l1-chart` / L2Row's `.l2-chart`)
+   alongside a FlagBadge. 態二 ("一半可信", stripe over only the named
+   segment) needs per-chart pixel coordinates and is NOT implemented here —
+   it's chart-specific work for whichever ticket owns that chart; only the
+   textual FlagBadge covers that case today. ---- */
+.ga-flagged-full {
+  position: relative;
+}
+.ga-flagged-full::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--warning) 7%, transparent) 0 5px,
+    transparent 5px 10px
+  );
+}

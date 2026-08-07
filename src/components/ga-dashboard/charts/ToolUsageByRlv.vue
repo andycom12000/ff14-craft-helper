@@ -75,9 +75,8 @@ function render(w: number, _h: number) {
       .text(`RLV ${row.bucket}`)
     svg.append('text')
       .attr('x', 0).attr('y', y + 16)
-      .style('font-family', "'Cormorant Garamond', 'Noto Serif TC', serif")
-      .style('font-style', 'italic')
-      .style('font-size', '14px').style('fill', C.inkMuted)
+      .style('font-family', "'Noto Serif TC', serif")
+      .style('font-size', '13px').style('fill', C.inkMuted)
       .text(`被打開 ${fmtInt(row.selectCount)} 次`)
 
     // --- Three bars
@@ -123,7 +122,7 @@ function render(w: number, _h: number) {
         .text(fmtInt(m.v))
     })
 
-    // --- Right: italic "偏向 X" callout — only when the row has enough events to
+    // --- Right: "偏向 X" callout — only when the row has enough events to
     // mean something. A verdict drawn from n=1 (one solve in a whole RLV band) is
     // noise dressed as a finding, so gate it behind a minimum sample.
     const MIN_VERDICT_SAMPLE = 8
@@ -135,9 +134,9 @@ function render(w: number, _h: number) {
       const domLabels = ['偏向模擬器', '偏向批量最佳化', '偏向 BOM 採購']
       svg.append('text')
         .attr('x', w - 12).attr('y', y + 5).attr('text-anchor', 'end')
-        .style('font-family', "'Cormorant Garamond', 'Noto Serif TC', serif")
-        .style('font-style', 'italic').style('font-weight', 500)
-        .style('font-size', '17px').style('fill', metrics[dom].c)
+        .style('font-family', "'Noto Serif TC', serif")
+        .style('font-weight', 600)
+        .style('font-size', '15px').style('fill', metrics[dom].c)
         .text(domLabels[dom])
     }
 
