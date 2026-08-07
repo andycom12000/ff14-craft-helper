@@ -114,7 +114,7 @@ export const GA_THRESHOLD_RULES: Rule[] = [
     },
     label: 'universalis 真故障率',
     nextStep: '看端點失敗分佈，確認是特定端點集中故障還是全站性連線問題',
-    anchor: '#chart-api-failures',
+    anchor: '#chart-api',
     actionable: true,
     trusted: true,
     note:
