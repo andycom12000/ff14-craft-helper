@@ -107,28 +107,33 @@ function pickWowPair(history: TrendPoint[]): [TrendPoint, TrendPoint] | null {
 }
 
 /**
- * 一條規則的趨勢三件組。`bundle` 是固定 28d、即時抓取的當期 snapshot（不是歷史檔案裡的一天）——
- * 「當期值」因此永遠是最新鮮的數字，不受 `trends7d` 檔案更新落後（cron 一天一次）拖累；
- * `trends7d` 只負責 WoW 與 sparkline 這兩件需要「歷史序列」才能回答的事（#184 決定 5 的深度切分：
- * 「兩者職責不同，深度不該綁在一起」，這裡是同一個切分原則的資料來源版本）。
+ * 一條規則的趨勢三件組。`bundle7d` 是即時抓取的當期 snapshot 的 **7d 視窗 bundle**（不是歷史檔案
+ * 裡的一天，也不是 28d——review 抓到的實際 bug：當期值一度誤用 28d bundle，跟 `trends7d` 算出的
+ * WoW/sparkline 不同視窗，同一列出現兩個不一致的「活躍使用者」數字）。三件組（當期值 + WoW +
+ * sparkline）**必須共用同一個 7d 視窗**才對得起欄頭「趨勢 · 7d」這行字——「當期值」因此永遠是
+ * 最新鮮的 7d 數字，不受 `trends7d` 檔案更新落後（cron 一天一次）拖累；`trends7d` 只負責 WoW 與
+ * sparkline 這兩件需要「歷史序列」才能回答的事（兩者的差別是即時 vs 歷史，不是視窗長度不同）。
  *
- * `verdict` 若提供，`state`/`threshold`/`dir` 取自它（#183 已定的觸發判定，不重算一次 Wilson
- * classify——單一事實來源）；找不到對應 verdict（呼叫端沒傳，或這條規則不在 `GA_THRESHOLD_RULES`
- * 之外的規則陣列裡）時退回 `'absent'` + 不上色，行為與門檻未訂時一致，不是錯誤狀態。
+ * `verdict` 若提供，`state`/`threshold`/`dir` 取自它（#183 已定的觸發判定機制不變，不重算一次
+ * Wilson classify——單一事實來源）；呼叫端傳進來的 `verdict` 必須是拿同一個 7d bundle 算出來的
+ * （`GaDashboardView.vue` 的 `ledgerVerdicts`，跟 TodoLedger 固定吃 28d 的 `todoVerdicts` 是兩份
+ * 獨立計算），否則「當期值」與「上不上色/門檻線」會對到不同天的數字。找不到對應 verdict（呼叫端
+ * 沒傳，或這條規則不在傳入的規則陣列裡）時退回 `'absent'` + 不上色，行為與門檻未訂時一致，不是
+ * 錯誤狀態。
  */
 export function buildTrendCell(
   metric: LedgerTrendMetric,
-  bundle28d: MetricsBundle,
+  bundle7d: MetricsBundle,
   trends7d: RuleTrends,
   verdict: Verdict | undefined,
   rules: Rule[] = GA_THRESHOLD_RULES,
 ): TrendCell {
   const rule = rules.find((r) => r.id === metric.ruleId)
-  const picked = rule ? rule.pick(bundle28d) : undefined
+  const picked = rule ? rule.pick(bundle7d) : undefined
   // 這份規則表裡本檔用到的 8 條全部是純量 `pick()`（不是漏斗/vitals 那種回傳陣列的規則），
   // 陣列分支理論上不會發生；出現的話代表呼叫端傳錯了規則 id，寧可讓它落在「缺席」而不是讓
   // TypeScript 掩蓋一個陣列被誤讀成純量的 bug。
-  const current = picked && !Array.isArray(picked) ? valueOf({ date: bundle28d.window.endDate, obs: picked.obs, n: picked.n }, metric.kind) : null
+  const current = picked && !Array.isArray(picked) ? valueOf({ date: bundle7d.window.endDate, obs: picked.obs, n: picked.n }, metric.kind) : null
 
   const history = trends7d[metric.ruleId] ?? []
   const wowPair = pickWowPair(history)
@@ -164,7 +169,7 @@ export function buildTrendCell(
 
 /** 五個 row 的趨勢三件組，一次算齊——`RegionSplitLedger.vue` 逐 row 取用。 */
 export function buildRowTrendCells(
-  bundle28d: MetricsBundle,
+  bundle7d: MetricsBundle,
   trends7d: RuleTrends,
   verdicts: Verdict[],
   rules: Rule[] = GA_THRESHOLD_RULES,
@@ -173,7 +178,7 @@ export function buildRowTrendCells(
   const out = {} as RowTrendCells
   for (const key of Object.keys(REGION_LEDGER_ROW_METRICS) as RegionLedgerRowKey[]) {
     out[key] = REGION_LEDGER_ROW_METRICS[key].map((metric) =>
-      buildTrendCell(metric, bundle28d, trends7d, verdictById.get(metric.ruleId), rules),
+      buildTrendCell(metric, bundle7d, trends7d, verdictById.get(metric.ruleId), rules),
     )
   }
   return out

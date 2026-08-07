@@ -316,9 +316,48 @@ describe('RegionSplitLedger', () => {
     for (const card of cards) expect(card.find('.lt-delta').text()).toContain('—')
   })
 
+  // review 抓到的 blocking bug：當期值一度誤讀 28d bundle，跟 WoW/sparkline（trends7d）
+  // 不是同一個視窗——同一列並排出現「活躍使用者 1,102」（趨勢卡片）與「1,102 視窗內合計」
+  // （row 本身，此時 window prop 是 '7d'）本來應該是兩個不同的數字（7d 值 vs 28d 值），
+  // 誤讀後卻變成一樣，讀者反而看不出哪個才是真的 7d。
+  it('趨勢卡片的當期值讀 7d bundle，不是 28d——即使 window prop 選的是 28d，趨勢卡片仍固定顯示 7d 數字', () => {
+    const glance7d = {
+      activeUsers: { total: 468, new: 300, returning: 168, returningPct: 168 / 468 },
+      solver: { starts: 2000, completes: 1914, fails: 60, completePct: 0.957 },
+      batch: { starts: 300, completes: 240, fails: 30, cancelled: 10, completePct: 0.8 },
+      bom: { calculates: 80, sentToBatch: 10, handoffPct: 0.125 },
+      infra: { sabUnavailable: 6, wasmLoadFailed: 1 },
+    }
+    const glance28d = {
+      activeUsers: { total: 1102, new: 700, returning: 559, returningPct: 559 / 1102 },
+      solver: { starts: 13500, completes: 12915, fails: 300, completePct: 0.9567 },
+      batch: { starts: 1300, completes: 1030, fails: 240, cancelled: 30, completePct: 0.7923 },
+      bom: { calculates: 260, sentToBatch: 13, handoffPct: 0.05 },
+      infra: { sabUnavailable: 90, wasmLoadFailed: 3 },
+    }
+    const bundle7d = { window: { days: 7, startDate: '', endDate: '' }, glance: glance7d, byRegion: undefined, q4Funnels: [], vitals: [] }
+    const bundle28d = { window: { days: 28, startDate: '', endDate: '' }, glance: glance28d, byRegion: undefined, q4Funnels: [], vitals: [] }
+    const snapshot = {
+      schemaVersion: 1, generatedAt: '', propertyId: '527587379',
+      windows: { '7d': bundle7d, '14d': bundle28d, '28d': bundle28d },
+    } as unknown as GaSnapshot
+
+    // window prop 選 '28d'（模擬使用者把 WindowSelector 切到 28D）——row 本身的 `視窗內合計`
+    // 因此顯示 28d 值，但趨勢卡片必須維持 7d，不能跟著 window prop 切換。
+    const w = mount(RegionSplitLedger, { props: { snapshot, window: '28d' } })
+    const activeUsersRow = w.findAll('.rl-row')[0]
+
+    // row 本身：`視窗內合計` 跟著 window prop = 28d，顯示 1,102。
+    expect(activeUsersRow.find('.rl-body .num').text()).toBe('1,102')
+    // 趨勢卡片：固定 7d，顯示 468，不是 1,102。
+    const trendCard = activeUsersRow.find('.ledger-trend .lt-value')
+    expect(trendCard.text()).toBe('468')
+    expect(trendCard.text()).not.toBe('1,102')
+  })
+
   it('傳入 evaluate() 的 verdicts 後，有門檻的規則（BOM 交棒率）依 state 上色', () => {
     const snapshot = snapshotWith(undefined)
-    const verdicts = evaluate(snapshot.windows['28d'], {}, GA_THRESHOLD_RULES)
+    const verdicts = evaluate(snapshot.windows['7d'], {}, GA_THRESHOLD_RULES)
     const w = mount(RegionSplitLedger, { props: { snapshot, window: '7d', verdicts } })
     const bomRow = w.findAll('.rl-row')[3] // activeUsers/solver/batch/bom/infra
     const bomCard = bomRow.find('.ledger-trend')
@@ -327,7 +366,7 @@ describe('RegionSplitLedger', () => {
 
   it('觀測層卡片（SAB 不可用率）當期值不上色（tone-dim），即使餵了 verdicts', () => {
     const snapshot = snapshotWith(undefined)
-    const verdicts = evaluate(snapshot.windows['28d'], {}, GA_THRESHOLD_RULES)
+    const verdicts = evaluate(snapshot.windows['7d'], {}, GA_THRESHOLD_RULES)
     const w = mount(RegionSplitLedger, { props: { snapshot, window: '7d', verdicts } })
     const infraRow = w.findAll('.rl-row')[4]
     const card = infraRow.find('.ledger-trend')

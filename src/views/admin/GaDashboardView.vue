@@ -77,6 +77,16 @@ const todoWindowDays = computed(() => todoBundle.value.window.days)
 const todoVerdicts = computed(() => evaluate(todoBundle.value, trends.value, GA_THRESHOLD_RULES))
 const todo = computed(() => buildTodoLedger(todoVerdicts.value, todoBundle.value.window.endDate, todoWindowDays.value))
 
+// RegionSplitLedger 的趨勢三件組（issue #207）：獨立於 `todoVerdicts` 再算一份，固定吃 7d bundle
+// + `trends7d`——**不是**共用上面那份 28d 的 `todoVerdicts`。三件組（當期值 + WoW + 7d sparkline）
+// 三件必須是同一個視窗，否則欄頭寫「趨勢 · 7d」卻只有 WoW/sparkline 是真的 7d、當期值卻是 28d
+// 的數字（review 抓到的實際 bug：同一列並排出現 1,102（28d 的活躍使用者）與 468（7d 的
+// `視窗內合計`），讀者只能得出「其中一個是錯的」）。也**不**跟著 `WindowSelector` 的 `win` 走
+// ——固定釘在 7d（#184 決定 5），跟 `bundle`（跟著 `win`）、`todoBundle`（固定 28d）是第三份、
+// 各自獨立的資料源。
+const ledgerBundle = computed(() => snapshot.value!.windows['7d'])
+const ledgerVerdicts = computed(() => evaluate(ledgerBundle.value, trends7d.value, GA_THRESHOLD_RULES))
+
 // Anchor-side readouts (spec §E3) sourced honestly from today's MetricsBundle
 // — see AnchorSide.vue's doc comment. Most Layer I items still pass no
 // `readout` at all: even though `evaluate()` is wired above (#206), swapping
@@ -160,7 +170,7 @@ const matrixMacroUntrusted = computed(() => isMetricUntrusted('chart-matrix', 's
         <WindowSelector v-model="win" />
         <RegionSplitLedger
           :snapshot="snapshot" :window="win"
-          :verdicts="todoVerdicts" :trends7d="trends7d"
+          :verdicts="ledgerVerdicts" :trends7d="trends7d"
         />
 
         <!-- ============ Ⅰ. 為什麼會亮 · 解釋現場 — chart left / anchor side
