@@ -24,10 +24,14 @@ export interface EnhancedStats {
 }
 
 // ── Common crafting foods (HQ values) ──────────────────────────────────
-// Source: Garland Tools + raphael-rs game data
+// Source: xivapi/ffxiv-datamining `ItemFood.csv`（Value/Max = NQ，
+// ValueHQ/MaxHQ = HQ），繁中名稱取自 andycom12000/ffxiv-datamining-tw。
+// 排序：物品等級由低到高。只收「當前仍值得使用」的製作用食物，
+// 舊世代同型且已被完全取代的（如 6.x 的 幸福汁 / 大鰭鱈魚醬）不列入。
 
 export const COMMON_FOODS: FoodBuff[] = [
   {
+    // ilvl 554
     id: 36060,
     name: '高山茶 HQ',
     control: { percent: 5, max: 76 },
@@ -35,13 +39,7 @@ export const COMMON_FOODS: FoodBuff[] = [
     nq: { control: { percent: 4, max: 61 }, cp: { percent: 21, max: 62 } },
   },
   {
-    id: 38929,
-    name: '近東蝦香飯 HQ',
-    control: { percent: 5, max: 90 },
-    cp: { percent: 26, max: 86 },
-    nq: { control: { percent: 4, max: 72 }, cp: { percent: 21, max: 69 } },
-  },
-  {
+    // ilvl 590
     id: 37282,
     name: '鑲烤墨魚 HQ',
     craftsmanship: { percent: 5, max: 120 },
@@ -49,29 +47,81 @@ export const COMMON_FOODS: FoodBuff[] = [
     nq: { craftsmanship: { percent: 4, max: 96 }, cp: { percent: 21, max: 66 } },
   },
   {
+    // ilvl 620
+    id: 38929,
+    name: '近東蝦香飯 HQ',
+    control: { percent: 5, max: 90 },
+    cp: { percent: 26, max: 86 },
+    nq: { control: { percent: 4, max: 72 }, cp: { percent: 21, max: 69 } },
+  },
+  {
+    // ilvl 657 — 作業精度特化
+    id: 44088,
+    name: '巧克力奶油蛋糕 HQ',
+    craftsmanship: { percent: 9, max: 240 },
+    cp: { percent: 10, max: 38 },
+    nq: { craftsmanship: { percent: 7, max: 192 }, cp: { percent: 8, max: 30 } },
+  },
+  {
+    // ilvl 670 — 加工精度特化
+    id: 44077,
+    name: '鮭魚乾 HQ',
+    control: { percent: 9, max: 215 },
+    craftsmanship: { percent: 5, max: 98 },
+    nq: { control: { percent: 7, max: 172 }, craftsmanship: { percent: 4, max: 78 } },
+  },
+  {
+    // ilvl 684
     id: 44091,
     name: '犎牛牛排 HQ',
     control: { percent: 5, max: 97 },
     cp: { percent: 26, max: 92 },
     nq: { control: { percent: 4, max: 77 }, cp: { percent: 21, max: 73 } },
   },
+  {
+    // ilvl 720
+    id: 44842,
+    name: '酸檸檬醃魚 HQ',
+    craftsmanship: { percent: 5, max: 150 },
+    cp: { percent: 26, max: 96 },
+    nq: { craftsmanship: { percent: 4, max: 120 }, cp: { percent: 21, max: 76 } },
+  },
+  {
+    // ilvl 750 — 目前 CP 上限最高的製作食物
+    id: 46253,
+    name: '椒麻鰻魚 HQ',
+    control: { percent: 5, max: 115 },
+    cp: { percent: 26, max: 100 },
+    nq: { control: { percent: 4, max: 92 }, cp: { percent: 21, max: 80 } },
+  },
 ]
 
 // ── Common crafting medicines (HQ values) ──────────────────────────────
-// Source: Garland Tools + raphael-rs game data
+// Source: xivapi/ffxiv-datamining `ItemFood.csv`，繁中名稱取自
+// andycom12000/ffxiv-datamining-tw。排序：物品等級由低到高。
+// 7.0 的「藥液」系列全面取代 6.x 的「藥酒」系列，故只收藥液。
 
 export const COMMON_MEDICINES: FoodBuff[] = [
   {
-    id: 44169,
-    name: '魔匠藥液 HQ',
-    cp: { percent: 6, max: 27 },
-    nq: { cp: { percent: 5, max: 21 } },
+    // ilvl 665
+    id: 44167,
+    name: '名匠藥液 HQ',
+    craftsmanship: { percent: 3, max: 63 },
+    nq: { craftsmanship: { percent: 2, max: 50 } },
   },
   {
+    // ilvl 670
     id: 44168,
     name: '巨匠藥液 HQ',
     control: { percent: 3, max: 63 },
     nq: { control: { percent: 2, max: 50 } },
+  },
+  {
+    // ilvl 675
+    id: 44169,
+    name: '魔匠藥液 HQ',
+    cp: { percent: 6, max: 27 },
+    nq: { cp: { percent: 5, max: 21 } },
   },
 ]
 

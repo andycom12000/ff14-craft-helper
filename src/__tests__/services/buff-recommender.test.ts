@@ -10,15 +10,31 @@ vi.mock('@/solver/worker', () => ({
 }))
 
 import { generateCandidateCombos, evaluateBuffRecommendation } from '@/services/buff-recommender'
+import { COMMON_FOODS, COMMON_MEDICINES } from '@/engine/food-medicine'
 import { simulateCraft, solveCraft } from '@/solver/worker'
 
 const mockGearset: GearsetStats = { level: 100, craftsmanship: 4000, control: 3800, cp: 600, isSpecialist: false }
 
 describe('generateCandidateCombos', () => {
-  it('generates 44 combos (excluding null/null)', () => {
+  it('generates every food × medicine combo (excluding null/null)', () => {
     const combos = generateCandidateCombos()
-    expect(combos.length).toBe(44)
+    // Each buff yields an HQ and an NQ variant, plus the "no buff" slot.
+    const expected =
+      (COMMON_FOODS.length * 2 + 1) * (COMMON_MEDICINES.length * 2 + 1) - 1
+    expect(combos.length).toBe(expected)
     expect(combos.every(c => c.food !== null || c.medicine !== null)).toBe(true)
+  })
+
+  it('covers each consumable in both HQ and NQ', () => {
+    const combos = generateCandidateCombos()
+    for (const f of COMMON_FOODS) {
+      expect(combos.some(c => c.food?.buff.id === f.id && c.food.isHq)).toBe(true)
+      expect(combos.some(c => c.food?.buff.id === f.id && !c.food.isHq)).toBe(true)
+    }
+    for (const m of COMMON_MEDICINES) {
+      expect(combos.some(c => c.medicine?.buff.id === m.id && c.medicine.isHq)).toBe(true)
+      expect(combos.some(c => c.medicine?.buff.id === m.id && !c.medicine.isHq)).toBe(true)
+    }
   })
 
   it('all combos have resolveBuff-generated buffs', () => {

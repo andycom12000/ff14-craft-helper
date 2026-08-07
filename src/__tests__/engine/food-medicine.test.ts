@@ -10,8 +10,8 @@ describe('applyBuffsToStats', () => {
   })
 
   it('applies food then medicine, additive on stats', () => {
-    const food = COMMON_FOODS[0]
-    const medicine = COMMON_MEDICINES[0]
+    const food = COMMON_FOODS.find(f => f.id === 36060)!    // 高山茶
+    const medicine = COMMON_MEDICINES.find(m => m.id === 44169)!  // 魔匠藥液
     const result = applyBuffsToStats(base, { food, medicine })
     expect(result.craftsmanship).toBeGreaterThanOrEqual(base.craftsmanship)
     expect(result.cp).toBeGreaterThanOrEqual(base.cp)

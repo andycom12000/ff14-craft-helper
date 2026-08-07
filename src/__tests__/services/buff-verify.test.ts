@@ -53,8 +53,8 @@ describe('optimizeRecipe buff propagation', () => {
       progress: 3500, max_progress: 3500, quality: 7200, max_quality: 7200,
     } as any)
 
-    const food = COMMON_FOODS[3] // 犎牛牛排 HQ: control +5% max97, cp +26% max92
-    const med = COMMON_MEDICINES[0] // 魔匠藥液 HQ: cp +6% max27
+    const food = COMMON_FOODS.find(f => f.id === 44091)! // 犎牛牛排 HQ: control +5% max97, cp +26% max92
+    const med = COMMON_MEDICINES.find(m => m.id === 44169)! // 魔匠藥液 HQ: cp +6% max27
 
     await optimizeRecipe(mockRecipe, gearset, undefined, { food, medicine: med })
 
@@ -71,7 +71,7 @@ describe('optimizeRecipe buff propagation', () => {
       progress: 3500, max_progress: 3500, quality: 7200, max_quality: 7200,
     } as any)
 
-    const foodHq = COMMON_FOODS[0]
+    const foodHq = COMMON_FOODS.find(f => f.id === 36060)! // 高山茶
     const foodNq = resolveBuff(COMMON_FOODS, foodHq.id, false)!
 
     await optimizeRecipe(mockRecipe, gearset, undefined, { food: foodNq, medicine: null })
@@ -87,8 +87,8 @@ describe('optimizeRecipe buff propagation', () => {
       progress: 3500, max_progress: 3500, quality: 7200, max_quality: 7200,
     } as any)
 
-    const food = COMMON_FOODS[1] // 近東蝦香飯
-    const med = COMMON_MEDICINES[1] // 巨匠藥液
+    const food = COMMON_FOODS.find(f => f.id === 38929)! // 近東蝦香飯
+    const med = COMMON_MEDICINES.find(m => m.id === 44168)! // 巨匠藥液
 
     await runBatchOptimization(
       [{ recipe: mockRecipe, quantity: 1 }],

@@ -17,7 +17,11 @@ export interface BuffCombo {
 }
 
 /**
- * Generate all 44 valid food/medicine combinations (excluding null+null).
+ * Generate every valid food × medicine combination (excluding null+null).
+ *
+ * Each buff contributes an HQ and an NQ variant, so the count is
+ * `(foods * 2 + 1) * (medicines * 2 + 1) - 1` and grows whenever a new
+ * consumable is added to COMMON_FOODS / COMMON_MEDICINES.
  */
 export function generateCandidateCombos(): BuffCombo[] {
   const foods: BuffCombo['food'][] = [null]
