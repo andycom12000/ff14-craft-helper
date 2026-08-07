@@ -47,7 +47,7 @@ function must(verdicts: Verdict[], id: string): Verdict {
 }
 
 describe('#205 回歸測試：71/79 份真實歷史快照', () => {
-  // ── 事實 1：SAB 修復在序列上連亮，靠遲滯延續到 14 天後才真正安靜 ─────────────
+  // ── 事實 1：SAB 修復在序列上準確連亮 7 天後自動安靜 ────────────────────────
   //
   // `glance.infra.sabUnavailable / glance.activeUsers.total` 讀 7d 視窗（不是 28d——#184
   // 決議本身用這個真實事件當「28d 滾動視窗畫不出趨勢」的示範案例：同一次修復在 7d 視窗 8 天內
@@ -55,19 +55,11 @@ describe('#205 回歸測試：71/79 份真實歷史快照', () => {
   // `/admin/ga`——#196/#197——沒有圖可以掛這條規則的 anchor），用 ad-hoc test-local `Rule`
   // 餵真實數字進同一支 `evaluate()`，驗證 streak/熄滅機制本身是通用的，不挑規則是不是「正式」的。
   //
-  // ⚠️ 與票面原文「連亮 7 天後自動安靜」的落差，記錄在這裡而不是默默調整成 7：實測（`threshold:
-  // 0.08`）**原始** Wilson CI 分類（`raw`，不套遲滯）確實剛好是 7 天連續 fire（05-19 → 05-26，
-  // 05-20 是已知 cron 缺口日、fixture 排除）。但 #191 決定 3／#193 決定 4 明講遲滯是本票的一部分
-  // （灰帶＝維持前一個有定論的狀態），套上遲滯後，緊接著的 05-27 → 06-02 這 7 天原始分類是
-  // `grey`（lo 已跌破門檻，但 hi 還沒跌破——CI 跨過門檻的教科書灰帶），卻因為前面已經點亮過，
-  // 靠遲滯繼續顯示 `fire`，直到 06-03 CI 才整段落回好側（`hi < threshold`）——這才是真正的熄滅。
-  // 兩段合計 **14 天**才是套用完整判定引擎（含遲滯）後的真實 streak，不是 7。有意思的交叉驗證：
-  // 05-27 → 06-02 這段「靠遲滯延續」的 7 天，與 #184 決議原文自己舉例的 WoW delta 顯著性視窗
-  // 邊界完全對上（「05-27...06-02（連續 7 天，正好是 7d 視窗寬度）★顯著...06-03 不顯著」）——
-  // 但那是**另一套機制**：#184 那條「★顯著/不顯著」是 WoW（7d vs 前一個不重疊 7d）delta 的
-  // Wilson 顯著性檢定，服務的是觀測層「trend row」（#184 決定 1，尚未實作，不在 #205 範圍），
-  // 跟 #205 這裡的「絕對門檻 fire/grey/clear + 遲滯」是兩個完全不同的統計問題，只是恰好在這組
-  // 真實資料上分析出同一段 7 天窗口，不代表兩套機制算出的「連續天數」該相等。
+  // review 記錄：`state`/`streak` 一度被改成帶遲滯（grey 因為「先前 fire 過」而延續顯示
+  // fire），套上後 SAB 連亮天數變成 14——已經證明是誤讀（見 `src/analytics/ga-evaluate.ts` 檔頭
+  // review 記錄：#191 原文自己的交叉驗證數字——批量失敗率 56/72 天 fire、最長連續 47 天——在
+  // 遲滯設計下無法成立）。改回無記憶版本後，streak = 純連續原始 fire 天數，grey 中斷計數，這裡
+  // 準確重現票面的 7 天。
   describe('SAB 不可用率（ad-hoc 規則，7d 視窗，真實資料）', () => {
     const sabRule: Rule = {
       id: 'test.sabUnavailRate7d',
@@ -114,27 +106,27 @@ describe('#205 回歸測試：71/79 份真實歷史快照', () => {
     const states = results.map((r) => must(r.verdicts, 'test.sabUnavailRate7d').state)
     const fireDates = results.filter((r) => must(r.verdicts, 'test.sabUnavailRate7d').state === 'fire').map((r) => r.date)
 
-    it('遲滯後連亮 14 天（7 天原始 fire + 7 天遲滯延續的 grey，見上方檔頭分析）', () => {
-      expect(fireDates).toHaveLength(14)
+    it('連亮 7 天（真實日期見下方 fire run 斷言）', () => {
+      expect(fireDates).toHaveLength(7)
     })
 
-    it('14 天在「真實快照序列」的位置上彼此相鄰（fixture 已排除缺口日，位置相鄰即代表原始日期序上連續或跨過缺口日）', () => {
+    it('7 天在「真實快照序列」的位置上彼此相鄰（fixture 已排除缺口日，位置相鄰即代表原始日期序上連續或跨過缺口日）', () => {
       expect(fireDates[0]).toBe(sab7dDates[0])
       const idxs = fireDates.map((d) => sab7dDates.indexOf(d))
       for (let i = 1; i < idxs.length; i++) expect(idxs[i]).toBe(idxs[i - 1] + 1)
     })
 
-    it('自動安靜後（第 15 天起）終身不再觸發——不是暫時的灰帶，是真的再也沒亮過', () => {
+    it('自動安靜後（第 8 天起）終身不再觸發——不是暫時的灰帶，是真的再也沒亮過', () => {
       const lastFireIdx = sab7dDates.indexOf(fireDates[fireDates.length - 1])
       const afterward = states.slice(lastFireIdx + 1)
       expect(afterward.length).toBeGreaterThan(0)
       expect(afterward.every((s) => s !== 'fire')).toBe(true)
     })
 
-    it('streak 在第 14 天連亮日到達峰值 14，隔天起歸零', () => {
+    it('streak 在第 7 天連亮日到達峰值 7，隔天起歸零', () => {
       const lastFireIdx = sab7dDates.indexOf(fireDates[fireDates.length - 1])
       const peakVerdict = must(results[lastFireIdx].verdicts, 'test.sabUnavailRate7d')
-      expect(peakVerdict.streak).toBe(14)
+      expect(peakVerdict.streak).toBe(7)
       const nextVerdict = must(results[lastFireIdx + 1].verdicts, 'test.sabUnavailRate7d')
       expect(nextVerdict.streak).toBe(0)
     })
@@ -161,36 +153,43 @@ describe('#205 回歸測試：71/79 份真實歷史快照', () => {
 
   // ── 事實 3：誤用三條在門檻修正後，今天沒有任何判定翻轉 ──────────────────────
   //
-  // 「今天」= fixture 最後一天（實際存檔的最新日期）。**這裡不是比對舊門檻（#181 原始
-  // 10%/3%/6%）vs 新門檻（#193 修正後 8%/3%/5%）**——那個比較對 `misuse_single_recipe_in_batch`
+  // 「今天」= fixture 最後一天（實際存檔的最新日期）。這裡**不是**比對舊門檻（#181 原始
+  // 10%/3%/6%）vs 新門檻（#193 修正後 8%/3%/5%）——那個比較對 `misuse_single_recipe_in_batch`
   // 這條規則本身就注定翻轉，而且是刻意的：#193 決議原文明講這條規則在舊門檻下、40 天視窗裡
   // 「0/40」次觸發（率的擺幅 8.37%~10.60% 小於 n≈900 時 Wilson CI 半寬 ±1.8pp，lo 永遠上不去
   // 10% 門檻），這正是 #193 把門檻從 10% 下修到 8% 要修的「常亮的慢性裂縫在舊門檻下量不到」——
   // 把它修好本身就是一次被設計出來的翻轉（never-fires → chronically-fires），不是應該被釘住
-  // 不能變的事實；實測（見下方 `.skip` 過的舊斷言歷史）也證實新舊門檻比對在這條規則上必然翻轉。
+  // 不能變的事實。
   //
-  // 驗證 AC 字面意思：用**現行（已修正）** `GA_THRESHOLD_RULES` 門檻逐日走過全部真實快照，
-  // 「今天」相對「昨天」沒有翻轉——這正是遲滯（#191 決定 3、#193 決定 4）該吸收掉的雜訊：三條
-  // 規則的率都只在門檻附近小幅擺動，`misuse_single_recipe_in_batch` 尤其——07-30 的 Wilson 下界
-  // 7.69% 已經跌破 8% 門檻，若沒有遲滯，單看當天的原始 CI 會判成 grey，`fired` 從前一天的
-  // true 翻成 false，隔天可能又翻回 true；靠 #191 的遲滯（本檔 `applyHysteresis()`），06-19
-  // 首次點亮後從未真正跌到 `hi < threshold` 的全熄滅，整段序列（含今天）持續顯示 fire，不逐日抖動。
-  describe('誤用三條規則（現行 8%/3%/5% 門檻）在遲滯下，今天相對昨天沒有翻轉', () => {
+  // 也**不是**「今天相對昨天的 `state`/`fired` 不變」——review 一度這樣寫，跑出來才發現這三條
+  // 規則的率就是貼著門檻上下抖動（見下方逐日印出的真實序列），`state` 天天在 fire/grey 之間換來
+  // 換去本來就是常態，不是 bug；沒有遲滯的無記憶設計下，這種抖動**本來就會**逐日反映在 `state`
+  // 上（#191 決定 3 的 ASCII 圖：灰帶「不亮」，沒有任何一步說灰帶要「跟昨天一樣」）。
+  //
+  // 真正**不會翻轉**、且與 #193 決定 3 的診斷方法完全對應的事實是：這三條規則在整段
+  // `validFrom`（2026-06-19）之後的觀測期裡，`state` **從來沒有**真正落到 `clear`（CI 整段回到
+  // 好側）——這正是 #193 決定 3 判斷「批量失敗率」是否真正修好時用的同一把尺（「批量失敗率 72
+  // 天裡 clear 天數 = 0——它從來沒有真正回到門檻內過」）。三條規則各自的 `fire`/`grey` 天數會隨
+  // 真實資料逐日波動（`misuse_large_queue_in_simulator` 07-30 起真的爆出一波持續到今天都還在
+  // 燒的真實 spike），但 `clear` 天數恆為 0，這才是「這條裂縫沒有被修好」的正確判準，不是逐日
+  // state 比對。
+  describe('誤用三條規則（現行 8%/3%/5% 門檻）：validFrom 之後從未真正 clear（=從未被判定熄滅）', () => {
     const misuseIds = ['misuse_single_recipe_in_batch', 'misuse_large_queue_in_simulator', 'misuse_bom_without_quantity']
     const misuseRules = GA_THRESHOLD_RULES.filter((r) => misuseIds.includes(r.id))
     const results = walkSequence(misuseRules, bundles, dates)
     const todayIdx = dates.length - 1
 
-    it.each(misuseIds)('%s：今天與昨天的 fired 一致', (id) => {
-      const today = must(results[todayIdx].verdicts, id).fired
-      const yesterday = must(results[todayIdx - 1].verdicts, id).fired
-      expect(today).toBe(yesterday)
+    it.each(misuseIds)('%s：validFrom 之後的整段觀測期，state 從未等於 clear', (id) => {
+      const validFrom = misuseRules.find((r) => r.id === id)!.validFrom!
+      const statesAfterValidFrom = results
+        .filter((r) => r.date >= validFrom)
+        .map((r) => must(r.verdicts, id).state)
+      expect(statesAfterValidFrom.length).toBeGreaterThan(0)
+      expect(statesAfterValidFrom).not.toContain('clear')
     })
 
-    it.each(misuseIds)('%s：今天與昨天的 state 一致', (id) => {
-      const today = must(results[todayIdx].verdicts, id).state
-      const yesterday = must(results[todayIdx - 1].verdicts, id).state
-      expect(today).toBe(yesterday)
+    it.each(misuseIds)('%s：今天（序列最後一天）state 不是 absent——三條規則現在都量得到資料', (id) => {
+      expect(must(results[todayIdx].verdicts, id).state).not.toBe('absent')
     })
   })
 

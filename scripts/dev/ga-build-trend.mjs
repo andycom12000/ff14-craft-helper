@@ -69,6 +69,16 @@
 //     [--out <path, default public/data/ga-trends.json>] \
 //     [--window <trailing archived days, default 28>] \
 //     [--bundle-window <7d|14d|28d, default 28d>]
+//
+// Production wiring (`.github/workflows/ga-snapshot.yml`): the daily cron calls this with
+// `--out /tmp/gh-data/trends.json` — no `ga-` prefix, sitting next to `snapshot.json` at the
+// `gh-data` branch root (that's the naming #191 決定 5's own worked example uses: `trends.json`,
+// not `ga-trends.json`). It gets committed + pushed alongside `snapshot.json`/`history/` in the
+// same job, and is meant to be fetched the same way `useGaSnapshot.ts` fetches `snapshot.json`
+// (`https://raw.githubusercontent.com/.../gh-data/trends.json` in prod). The default
+// `public/data/ga-trends.json` (WITH the `ga-` prefix, matching the gitignored
+// `public/data/ga-snapshot.json` dev fixture convention) is only for local manual runs
+// (`npm run ga:build-trend -- --history <checkout>`).
 
 import fs from 'node:fs/promises'
 import path from 'node:path'

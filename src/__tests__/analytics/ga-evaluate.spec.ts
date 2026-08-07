@@ -830,12 +830,16 @@ describe('GA_THRESHOLD_RULES（門檻表本身的基本健檢）', () => {
   })
 })
 
-// ── 年資（streak）／熄滅遲滯——#205（#191 決定 2/3、#193 決定 4）───────────────
+// ── 年資（streak）／熄滅——#205（#191 決定 2/3）─────────────────────────────
 //
-// 這裡用合成 history 直接控制每一天的原始統計狀態，隔離出遲滯機制本身的邊界行為；
+// 這裡用合成 history 直接控制每一天的原始統計狀態，隔離出 streak 機制本身的邊界行為；
 // `src/__tests__/analytics/ga-evaluate.regression.spec.ts` 則是同一套機制餵真實歷史快照的
 // 端到端回歸測試，兩者互補。
-describe('年資（streak）／熄滅遲滯（#205）', () => {
+//
+// **無記憶**（#205 review 後改回）：state 是逐日獨立算出的統計快照，streak 只計「連續原始 fire
+// 天數」，grey 中斷計數——不是「維持前一個有定論狀態」的遲滯。依據見檔頭 review 記錄：#191 原文
+// 自己的交叉驗證數字（批量失敗率 56/72 天 fire、最長連續 47 天）在遲滯設計下無法成立。
+describe('年資（streak）／熄滅（#205）', () => {
   // 三種原始分類的固定 (obs, n) 樣本，門檻統一 10%（沿用本檔前面「grey straddle」測試已驗證過的
   // obs=12/n=100 組合）：
   //   fire：obs=50/n=100（rate 50%，lo 遠高於門檻）
@@ -845,7 +849,7 @@ describe('年資（streak）／熄滅遲滯（#205）', () => {
   const GREY = { obs: 12, n: 100 }
   const CLEAR = { obs: 2, n: 100 }
 
-  function streakRule(id = 'test.streak'): Rule {
+  function streakRule(id = 'test.streak', overrides: Partial<Rule> = {}): Rule {
     return {
       id,
       cat: 'A',
@@ -857,12 +861,13 @@ describe('年資（streak）／熄滅遲滯（#205）', () => {
       anchor: '',
       actionable: true,
       trusted: true,
+      ...overrides,
     }
   }
 
   /** 把一串 `(obs, n)` 樣本轉成遞增日期的 TrendPoint[]（`null` 原樣保留代表當天缺席）。 */
-  function history(points: (typeof FIRE | typeof GREY | typeof CLEAR | null)[]) {
-    return points.map((p, i) => (p === null ? null : { date: `2026-07-${String(i + 1).padStart(2, '0')}`, ...p }))
+  function history(points: (typeof FIRE | typeof GREY | typeof CLEAR | null)[], startDay = 1) {
+    return points.map((p, i) => (p === null ? null : { date: `2026-07-${String(startDay + i).padStart(2, '0')}`, ...p }))
   }
 
   it('無歷史、當期 fire：streak = 1，且視為 censored（沒有更早的資料可以否證更早就開始燒）', () => {
@@ -882,30 +887,29 @@ describe('年資（streak）／熄滅遲滯（#205）', () => {
     expect(v.streakCensored).toBe(true)
   })
 
-  it('history 中有一天原始非 fire（從未點亮過的 grey）打斷連續，之後才重新開始不算 censored', () => {
+  it('history 中有一天 grey 打斷連續，之後才重新開始不算 censored——grey 不延續 streak（#191 ASCII 圖：灰帶「不亮」）', () => {
     const rule = streakRule()
-    // day1 grey（無先前定論 → 維持顯示 grey，不計入 streak）、day2/day3 原始 fire。
+    // day1 grey（不亮，不計入 streak）、day2/day3 原始 fire。
     const trends = { [rule.id]: history([GREY, FIRE, FIRE]) }
     const [v] = evaluate(makeBundle({}, '2026-07-31'), trends, [rule])
     expect(v.streak).toBe(3) // day2、day3、今天
     expect(v.streakCensored).toBe(false) // 走訪在 day1 就已經斷過，沒耗盡整段 history
   })
 
-  it('history 中的 absent 天不延續 streak 數字，但不清除「先前燒過」的記憶——後續 grey 仍會 latch 回 fire', () => {
+  it('history 中夾一天 absent（分母不足）會中斷 streak 數字，但因為停在 absent（不是真正的反證），streakCensored 仍是 true', () => {
     const rule = streakRule()
-    // day1 原始 fire（點亮）、day2 缺席（absent，streak 歸零但不抹掉 lastConclusive）、
-    // day3 原始 grey——若 absent 錯誤地抹掉了「先前燒過」的記憶，day3 應該顯示 grey；
-    // 正確行為是靠 day1 的記憶繼續 latch 顯示 fire。
-    const trends = { [rule.id]: history([FIRE, null, GREY]) }
+    // day1 原始 fire、day2 缺席（absent，中斷數字計數）、day3 原始 fire——今天也 fire。
+    // 若 absent 被誤當「跳過」而非「中斷」，streak 會錯算成 5；正確行為是只從 day3 開始重新
+    // 計數：day3(1) + 今天(1) = 2。censored 則是 true——absent 不是「量到了、確實沒燒」的反證，
+    // 我們就是不知道 day2（甚至更早）發生了什麼，真實 streak 有可能更長，不能標成 false（#205 review）。
+    const trends = { [rule.id]: history([FIRE, null, FIRE]) }
     const [v] = evaluate(makeBundle({}, '2026-07-31'), trends, [rule])
-    // history 走訪：day1 fire(streak=1) → day2 absent(streak=0，lastConclusive 仍是 fire)
-    // → day3 grey 靠記憶 latch 回 fire(streak=1)。今天原始也是 fire：streak = 1(history 尾端) + 1 = 2。
     expect(v.streak).toBe(2)
-    expect(v.streakCensored).toBe(false) // day2 absent 已經斷過一次，未耗盡整段 history
+    expect(v.streakCensored).toBe(true)
   })
 
-  it('從未 fire 過的 grey 維持顯示 grey，不會被誤判成 clear（沒有遲滯可以延續的定論）', () => {
-    const rule: Rule = { ...streakRule('test.neverFired'), pick: () => GREY }
+  it('從未 fire 過的 grey：streak 為 0，state 就是 grey，不會被誤判成 clear', () => {
+    const rule: Rule = streakRule('test.neverFired', { pick: () => GREY })
     const [v] = evaluate(makeBundle({}, '2026-07-31'), { [rule.id]: [] }, [rule])
     expect(v.state).toBe('grey')
     expect(v.state).not.toBe('clear')
@@ -913,18 +917,18 @@ describe('年資（streak）／熄滅遲滯（#205）', () => {
     expect(v.streak).toBe(0)
   })
 
-  it('真正 clear（CI 整段落回好側）會中止遲滯：fire → clear 之後的 grey 不會被誤認為還在燒', () => {
-    const rule: Rule = { ...streakRule('test.trueExtinguish'), pick: () => GREY }
-    // history：day1 原始 fire、day2 原始 clear（CI 整段落回好側，中止遲滯）。今天原始 grey。
+  it('history 中曾經 fire 過，之後真正 clear（CI 整段落回好側），今天又回到 grey：streak 為 0，不會因為「以前燒過」而延續', () => {
+    const rule: Rule = streakRule('test.trueExtinguish', { pick: () => GREY })
+    // history：day1 原始 fire、day2 原始 clear。今天原始 grey。
     const trends = { [rule.id]: history([FIRE, CLEAR]) }
     const [v] = evaluate(makeBundle({}, '2026-07-31'), trends, [rule])
-    expect(v.state).toBe('grey') // 不是 fire——clear 已經清掉了遲滯的「先前定論」
+    expect(v.state).toBe('grey')
     expect(v.fired).toBe(false)
     expect(v.streak).toBe(0)
   })
 
   it('threshold 未訂的規則從頭到尾 absent，streak/streakCensored/lastFire 恆為空，不論餵入什麼歷史', () => {
-    const rule: Rule = { ...streakRule('test.noThreshold'), threshold: undefined }
+    const rule: Rule = streakRule('test.noThreshold', { threshold: undefined })
     const trends = { [rule.id]: history([FIRE, FIRE, FIRE]) } // 刻意餵「看起來會累積年資」的歷史
     const [v] = evaluate(makeBundle({}, '2026-07-31'), trends, [rule])
     expect(v.state).toBe('absent')
@@ -932,5 +936,21 @@ describe('年資（streak）／熄滅遲滯（#205）', () => {
     expect(v.streak).toBe(0)
     expect(v.streakCensored).toBe(false)
     expect(v.lastFire).toBeUndefined()
+  })
+
+  // ── validFrom 的歷史點必須強制視為 absent（#193 決定 2 的具體後果）───────────
+  it('history 裡早於 validFrom 的原始 (obs,n) 即使數字上會分類成 clear，也必須強制視為 absent，不能真的拿去跑 CI', () => {
+    const rule: Rule = streakRule('test.validFromHistory', { validFrom: '2026-07-05' })
+    // day1~day4（07-01~07-04）全部落在 validFrom 之前，數字上是 CLEAR（好側）——若不擋，會被
+    // 誤判成「clear → fire」的假熄滅轉換；day5(07-05, validFrom 當天)起才是原始 fire，一路到今天。
+    const trends = { [rule.id]: history([CLEAR, CLEAR, CLEAR, CLEAR, FIRE, FIRE], 1) }
+    const [v] = evaluate(makeBundle({}, '2026-07-07'), trends, [rule])
+    expect(v.state).toBe('fire')
+    // streak 只從 validFrom 當天（day5）起算：day5 + day6 + 今天 = 3，不是誤把 validFrom 前的
+    // clear 天數也吃進來後再被「clear 打斷」出一個更短或更長的錯誤數字。
+    expect(v.streak).toBe(3)
+    // 走訪撞到 validFrom 邊界（historicalDayState 在此之前一律回 absent）視同耗盡了「有效」歷史，
+    // 代表真實 streak 只會更長（validFrom 之前的資料本來就不算數，不是「否證」）。
+    expect(v.streakCensored).toBe(true)
   })
 })

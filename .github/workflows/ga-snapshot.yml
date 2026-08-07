@@ -63,12 +63,25 @@ jobs:
             --out /tmp/gh-data/snapshot.json \
             --history /tmp/gh-data/history
 
+      # #205 AC 第一條：趨勢檔要真的被產生，不能只是腳本存在從沒被呼叫。獨立腳本、獨立步驟——
+      # 不動 `ga-analyze.mjs`（#209 同時在重寫它）。`continue-on-error: true`：這是衍生產物，
+      # 讀當天剛寫進 history/ 的存檔重算 28 天視窗；算失敗也不該擋下 snapshot.json/history/ 的
+      # commit + push（那才是每日 cron 的核心 payload），只是那天 trends.json 沒更新，#206/#207
+      # 讀到的會是前一天的版本，不是壞掉的資料。
+      - name: Build trend file
+        continue-on-error: true
+        run: |
+          node --experimental-strip-types scripts/dev/ga-build-trend.mjs \
+            --history /tmp/gh-data/history \
+            --out /tmp/gh-data/trends.json
+
       - name: Commit + push
         run: |
           cd /tmp/gh-data
           git config user.name "ga-snapshot-bot"
           git config user.email "ga-snapshot-bot@users.noreply.github.com"
           git add snapshot.json history/
+          [ -f trends.json ] && git add trends.json
           git diff --cached --quiet && exit 0
           git commit -m "data(snapshot): $(date -u +%Y-%m-%d)"
           git push -u origin gh-data

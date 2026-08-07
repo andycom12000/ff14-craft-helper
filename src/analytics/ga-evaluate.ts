@@ -5,22 +5,25 @@
 // 選取全部留給呈現層（GaDashboardView 等），這裡不做取捨。
 //
 // 年資（streak）與熄滅（跨期認定「已解決」）見 #205（#191 決議）：
-// - state 恆為四態之一：fire（觸發）/ grey（灰帶）/ clear（好側，且已認定熄滅）/
-//   absent（資料缺席：validFrom 未到、門檻尚未訂定、指標整條消失、或分母不足）。
-// - grey **帶遲滯**（#191 決定 3、#193 決定 4 實測驗證）：「灰帶＝維持前一個有定論的狀態」，不是
-//   單期記憶體全空的統計快照。曾經 fire 過、CI 之後跨回門檻（lo 掉到 threshold 之下但還沒到
-//   `hi < threshold` 的全熄滅）仍顯示 `state: 'fire'`——這正是 #193 對
-//   `misuse_single_recipe_in_batch` 的實測：07-30 Wilson 下界 7.69% < 8.0% 門檻（單看當天是
-//   grey），但因為 06-19 首次點亮後從未真正跌到 `hi < threshold`，整段序列靠 latch 持續顯示
-//   fire。從未 fire 過的 grey 則維持顯示 grey，不會被誤讀成 clear。只有 CI **整段**落回好側
-//   （`hi < threshold`／`lo > threshold`，依 dir）才是真正的熄滅，遲滯到此為止——這一步不新增
-//   任何額外的滯窗/確認期參數，就是 #181 決定 3 那個 Wilson 規則本身的鏡像。
+// - state 恆為單期統計狀態：fire（觸發）/ grey（灰帶）/ clear（好側，但尚未認定為熄滅）/
+//   absent（資料缺席：validFrom 未到、門檻尚未訂定、指標整條消失、或分母不足）。**無記憶**——
+//   grey 不會因為「先前 fire 過」而被改判顯示成 fire。#191 決定 3 的 ASCII 圖本身已經寫明
+//   「灰帶……不亮，也不宣告熄滅」，這是兩件獨立的事：灰帶「不宣告熄滅」是指它不會被算進
+//   #191 決定 4 的熄滅區塊（那條裂縫仍算沒修好），但灰帶本身**不亮**，不進 streak、不進
+//   `fired`。（review 記錄：#205 review 一度誤把 #193 對 `misuse_single_recipe_in_batch` 的
+//   說明文字「靠 #191 遲滯維持點亮」讀成「grey 要顯示成 fire」，並誤引成「#193 決定 4」——決定
+//   4 實際講的是 `returningPct` 回填，跟遲滯無關。用 #191 原文自己的交叉驗證數字戳破了這個誤讀：
+//   批量失敗率 56/72 天 fire、**最長連續 47 天**——若 grey 會延續 streak，56 天幾乎全部落在
+//   `clear = 0` 的視窗裡，最長連續理應貼近 72，不會是 47；47 只在「streak = 純連續原始 fire
+//   天數，grey 中斷計數」下才可能小於總 fire 天數。已改回無記憶版本。）
 // - streak/streakCensored/lastFire 是跨期欄位，靠呼叫端傳入的 `trends`（每條規則的歷史
-//   `(obs, n)` 序列，不含當期）正向走訪算出（同一次走訪也用來決定遲滯後的 state，兩者共用同一套
-//   「有定論狀態」記憶）。「資料缺席」與「分母不足」都不算熄滅、也不累計 streak——這兩者在歷史
-//   序列裡一律以 `dayState() === 'absent'` 中止當日的 fire 認定，也**不更新**遲滯記憶（既不會把
-//   state 誤判成 clear，也不會讓 streak 假裝連續下去，但不會抹掉「它先前有沒有燒過」這件事，
-//   後面若接到 grey 天仍可能透過更早的 fire 記憶繼續 latch——absent 是「不知道」不是「已解決」）。
+//   `(obs, n)` 序列，不含當期）逆向走訪算出。「資料缺席」與「分母不足」都不算熄滅、也不累計
+//   streak——這兩者在歷史序列裡一律以 `dayState() === 'absent'` 中止當日的 fire 認定，但**不會**
+//   把 state 誤判成 clear，也不會讓 streak 假裝連續下去。
+// - 歷史點也要吃 `rule.validFrom`：`trends` 裡可能帶著早於 validFrom 的原始 `(obs, n)`（維度
+//   註冊前的填窗期噪音），這些點必須強制視為 `absent`，不能真的拿去跑 Wilson CI——否則填窗期的
+//   低率會被 raw 分類成 `clear`，序列上出現一次假的「熄滅→亮起」，`streakCensored` 也會被錯標
+//   成 `false`（#193 決定 2 明講的具體後果）。
 
 import type { MetricsBundle } from '@/types/ga-snapshot'
 import { CATEGORY_ORDER, type Category, type Direction, type Pick, type Rule } from '@/config/ga-thresholds'
@@ -138,100 +141,82 @@ function computeGap(dir: Direction, obs: number, n: number, threshold: number): 
 }
 
 /**
- * 依規則的 `dir`/`threshold` 分類單一歷史日的**原始**統計狀態（尚未套遲滯），供 `walkMomentum()`
- * 正向走訪用。呼叫端必須保證 `rule.threshold !== undefined`（`buildVerdict()` 在門檻缺席時完全不
- * 呼叫這條路徑）。
+ * 依規則的 `dir`/`threshold` 分類單一歷史日的統計狀態，供 `computeHistory()` 逆向走訪用。
+ * 呼叫端必須保證 `rule.threshold !== undefined`（`buildVerdict()` 在門檻缺席時完全不呼叫這條路徑）。
  *
- * `null`（缺席）與 `n < MIN_DENOMINATOR`（分母不足）都回 `'absent'`——與當期 `buildVerdict()` 的
- * 判斷是同一把尺，理由同上：這兩種都不可被 streak 走訪誤讀為「連續」或「熄滅」。
+ * `null`（缺席）、早於 `rule.validFrom` 的日期、與 `n < MIN_DENOMINATOR`（分母不足）都回
+ * `'absent'`——與當期 `buildVerdict()` 的判斷是同一把尺，理由同上：這三種都不可被 streak 逆向走訪
+ * 誤讀為「連續」或「熄滅」。validFrom 這條尤其關鍵（#193 決定 2 明講的具體後果）：`trends` 裡可能
+ * 帶著維度註冊前的填窗期噪音，若真的拿去跑 Wilson CI，填窗期的低率會被分類成 `clear`，序列上會
+ * 出現一次假的「熄滅→亮起」，把本該「全期未曾解決」的 `streakCensored: true` 錯標成 `false`。
  */
 function historicalDayState(rule: Rule, point: TrendPoint): VerdictState {
   if (point === null) return 'absent'
+  if (rule.validFrom !== undefined && point.date < rule.validFrom) return 'absent'
   if (point.n < MIN_DENOMINATOR) return 'absent'
   const [lo, hi] = wilsonInterval(point.obs, point.n)
   return classify(rule.dir, lo, hi, rule.threshold!)
 }
 
 /**
- * 把「原始」單期統計狀態套上遲滯，得到**顯示用**的 state（#191 決定 3、#193 決定 4）。
+ * 年資（streak）與熄滅留痕（lastFire）——#191 決定 2/3。
  *
- * 只有 `raw === 'grey'` 會被遲滯改寫：曾經有過定論（`lastConclusive === 'fire'`）就繼續顯示
- * `'fire'`，否則維持顯示 `'grey'`（從未 fire 過，不會被誤讀成 clear）。`fire`／`clear`／`absent`
- * 三者本身就是「當期定論」，不受歷史動能影響——`clear` 是 CI 整段落回好側的當期事實，遲滯不會
- * 攔住熄滅；`absent` 一律照實顯示缺席，不管歷史動能是什麼（見檔頭「absent 是不知道不是已解決」）。
- */
-function applyHysteresis(raw: VerdictState, lastConclusive: 'fire' | 'clear' | undefined): VerdictState {
-  if (raw !== 'grey') return raw
-  return lastConclusive === 'fire' ? 'fire' : 'grey'
-}
-
-/** `walkMomentum()` 正向走訪到「當期開始前」為止累積的動能。 */
-interface Momentum {
-  /** 最近一次「有定論」（原始 fire 或原始 clear）是哪一種；grey／absent 都不更新它——這就是
-   * 「灰帶＝維持前一個有定論的狀態」的具體實作。從未見過定論時為 `undefined`。 */
-  lastConclusive: 'fire' | 'clear' | undefined
-  /** 走到 `history` 最後一天為止的連續「顯示為 fire」天數（遲滯後）。 */
-  streak: number
-  lastFire: Verdict['lastFire']
-}
-
-/**
- * 正向（時間升冪）走訪 `history`，逐天套用 `applyHysteresis()`，累積遲滯記憶、streak、lastFire——
- * 三者共用同一次走訪，理由是 streak 本身就是「顯示為 fire 的連續天數」，必須先知道每一天遲滯後
- * 顯示什麼，才能正確計數（純看原始 fire/grey/clear 會在遲滯生效的天數上少算，見檔頭 #193 案例）。
- */
-function walkMomentum(rule: Rule, history: TrendPoint[]): Momentum {
-  let lastConclusive: 'fire' | 'clear' | undefined
-  let streak = 0
-  let lastFire: Verdict['lastFire']
-  for (const point of history) {
-    const raw = historicalDayState(rule, point)
-    const effective = applyHysteresis(raw, lastConclusive)
-    if (raw === 'fire' || raw === 'clear') lastConclusive = raw
-    if (effective === 'fire') {
-      streak++
-      if (point !== null) lastFire = { date: point.date, val: point.n > 0 ? point.obs / point.n : 0 }
-    } else {
-      streak = 0
-    }
-  }
-  return { lastConclusive, streak, lastFire }
-}
-
-/**
- * 年資（streak）、熄滅留痕（lastFire）與遲滯後的顯示 state——#191 決定 2/3、#193 決定 4。
+ * `streak`：`currentState !== 'fire'` 時恆為 0（含 `'absent'`：資料缺席不延續前一段 streak，見檔頭
+ * 註解）。`currentState === 'fire'` 時從 1 起算，逆向走訪 `history`（最新的在陣列尾端），每遇到一天
+ * `historicalDayState() === 'fire'` 就 +1，遇到非 fire（含 grey、absent）立即停止——grey **中斷**
+ * streak（#191 決定 3 的 ASCII 圖：灰帶「不亮」），absent 中止計數而不是跳過，因為「量不到」不能被
+ * 吃掉當作「還在燒」。
  *
- * 用 `walkMomentum(rule, history)` 算出「當期開始前」的動能，再把當期的**原始**狀態
- * `rawToday` 套 `applyHysteresis()` 得到最終顯示的 `state`。`state === 'fire'` 時
- * `streak = momentum.streak + 1`、`lastFire` 更新為當期；否則 `streak` 歸零、`lastFire` 沿用
- * 走訪到的最近一次 fire（可能是很久以前——即使當期是 `absent`，仍可能找得到「上次量得到時它有沒有
- * 燒過」，這是純粹的歷史事實陳述，不代表「現在正常」，是否顯示由呈現層決定）。
+ * `streakCensored`：**不是**單純「有沒有走到陣列開頭」，而是「有沒有走到一個真正的反證」。走訪
+ * 中止的原因分兩種：
+ * - 撞到一天**真正的** grey／clear（有量到，且量到的不是 fire）——這是實打實的反證，streak 的
+ *   起點是確定的，`streakCensored: false`。
+ * - 撞到陣列邊界，或撞到一天 `absent`（含 `history` 裡的 `null`、分母不足、早於 validFrom 的
+ *   填窗期噪音）——這兩種都代表「我們就是不知道那之前發生了什麼」，不是反證，真實 streak 只會
+ *   更長，`streakCensored: true`。這條特別是為了 validFrom 設計的：一條規則第一天有效觀測值就是
+ *   fire，序列往前全是 validFrom 之前的 absent 填窗期——那條裂縫在我們開始量之前就已經存在，
+ *   正是 censored 的定義（#205 review），不能因為撞到的是 absent 而非陣列邊界就誤標成 false。
  *
- * `streakCensored`：`momentum.streak` 走完整段提供的 `history` 仍等於 `history.length`（從第一筆
- * 提供的資料起就沒斷過），代表真實 streak 只會更長——這是 `trends` 只存有限視窗（production 為 28
- * 天）時的必然截斷，不是統計上的懸而未決。`history` 為空陣列時兩者皆為 0，也視為 censored（完全
- * 沒有更早的資料可以否證「更早以前就開始燒了」）。
+ * `lastFire`：當期本身 fire 就是當期；否則逆向走訪 `history` 找最近一次 fire 的日期與比率。與
+ * `currentState` 無關（即使當期是 `'absent'`，仍可能找得到「上次量得到時它有沒有燒」，這是純粹的
+ * 歷史事實陳述，不代表「現在正常」——是否顯示由呈現層決定）。
  */
 function computeHistory(
   rule: Rule,
   history: TrendPoint[],
-  rawToday: VerdictState,
+  currentState: VerdictState,
   bundleDate: string,
   obs: number | null,
   n: number | null,
-): { state: VerdictState; streak: Verdict['streak']; streakCensored: Verdict['streakCensored']; lastFire: Verdict['lastFire'] } {
-  const momentum = walkMomentum(rule, history)
-  const state = applyHysteresis(rawToday, momentum.lastConclusive)
-
-  if (state === 'fire') {
-    return {
-      state,
-      streak: momentum.streak + 1,
-      streakCensored: momentum.streak === history.length,
-      lastFire: { date: bundleDate, val: n && n > 0 ? (obs ?? 0) / n : 0 },
+): { streak: Verdict['streak']; streakCensored: Verdict['streakCensored']; lastFire: Verdict['lastFire'] } {
+  let lastFire: Verdict['lastFire']
+  if (currentState === 'fire') {
+    lastFire = { date: bundleDate, val: n && n > 0 ? (obs ?? 0) / n : 0 }
+  } else {
+    for (let i = history.length - 1; i >= 0; i--) {
+      const point = history[i]
+      if (point !== null && historicalDayState(rule, point) === 'fire') {
+        lastFire = { date: point.date, val: point.n > 0 ? point.obs / point.n : 0 }
+        break
+      }
     }
   }
-  return { state, streak: 0, streakCensored: false, lastFire: momentum.lastFire }
+
+  let streak = 0
+  let streakCensored = false
+  if (currentState === 'fire') {
+    streak = 1
+    let i = history.length - 1
+    while (i >= 0 && historicalDayState(rule, history[i]) === 'fire') {
+      streak++
+      i--
+    }
+    // 走訪停在哪裡決定 censored：陣列邊界（i < 0）或 absent（含 validFrom 填窗期）都不是反證，
+    // 只有真正量到的 grey／clear 才是——見上方函式註解。
+    streakCensored = i < 0 || historicalDayState(rule, history[i]) === 'absent'
+  }
+
+  return { streak, streakCensored, lastFire }
 }
 
 function buildVerdict(
@@ -253,17 +238,15 @@ function buildVerdict(
     nextStep: rule.nextStep,
     anchor: rule.anchor,
   }
-  // absent 的共用形狀：沒有門檻就沒有「fire」的定義，state 恆 absent、streak/lastFire 恆空；
-  // 門檻已訂的其餘 absent 分支（validFrom 未到、指標消失、分母不足）改呼叫 `computeHistory()`——
-  // `rawToday: 'absent'` 進去，`applyHysteresis('absent', ...)` 原樣回傳 `'absent'`（absent 不受
-  // 遲滯影響，見檔頭），但仍會正向走訪歷史算出 lastFire（「上次量得到時它有沒有燒過」與當期缺席
-  // 與否無關）。
-  const noHistory = { state: 'absent' as const, streak: 0, streakCensored: false, lastFire: undefined } as const
+  // absent 的兩個共用形狀：沒有門檻就沒有「fire」的定義，streak/lastFire 恆空；其餘 absent 分支
+  // （validFrom 未到、指標消失、分母不足）門檻仍是定義好的，仍可從歷史裡算出 lastFire，只是
+  // streak 恆為 0（見 computeHistory() 對 currentState !== 'fire' 的處理）。
+  const noHistory = { streak: 0, streakCensored: false, lastFire: undefined } as const
 
   // 缺席之一：日期早於 validFrom（維度尚未註冊 / 尚在填窗期）。
   if (rule.validFrom !== undefined && bundleDate < rule.validFrom) {
     const hist = rule.threshold === undefined ? noHistory : computeHistory(rule, history, 'absent', bundleDate, null, null)
-    return { ...base, obs: null, n: null, fired: false, gap: null, blockedBy: 'absent', ...hist }
+    return { ...base, obs: null, n: null, fired: false, gap: null, state: 'absent', blockedBy: 'absent', ...hist }
   }
 
   // 缺席之二：門檻尚未訂定（#203 review）——與 validFrom 是兩個獨立的缺席理由，都要顯式擋下，
@@ -273,13 +256,13 @@ function buildVerdict(
   // 一旦是 NaN 整份排序就變成未定義行為（`??` 只擋 `null`，擋不掉 `NaN`）。門檻沒訂，歷史也無從
   // 分類「哪天算 fire」，streak/lastFire 恆空——不是省略計算，是這個規則今天還沒有 fire 的定義。
   if (rule.threshold === undefined) {
-    return { ...base, obs: null, n: null, fired: false, gap: null, blockedBy: 'absent', ...noHistory }
+    return { ...base, obs: null, n: null, fired: false, gap: null, state: 'absent', blockedBy: 'absent', ...noHistory }
   }
 
   // 缺席之三：指標整條從 bundle 消失（選用性欄位缺席，或陣列裡找不到對應列）。
   if (pick === undefined) {
     const hist = computeHistory(rule, history, 'absent', bundleDate, null, null)
-    return { ...base, obs: null, n: null, fired: false, gap: null, blockedBy: 'absent', ...hist }
+    return { ...base, obs: null, n: null, fired: false, gap: null, state: 'absent', blockedBy: 'absent', ...hist }
   }
 
   const { obs, n } = pick
@@ -288,26 +271,25 @@ function buildVerdict(
   // 缺席之三：分母不足，硬下界擋下——不論 CI 算出什麼都不可信（#181 決定 3）。
   if (n < MIN_DENOMINATOR) {
     const hist = computeHistory(rule, history, 'absent', bundleDate, obs, n)
-    return { ...base, obs, n, fired: false, gap, blockedBy: 'insufficient-n', ...hist }
+    return { ...base, obs, n, fired: false, gap, state: 'absent', blockedBy: 'insufficient-n', ...hist }
   }
 
   const [lo, hi] = wilsonInterval(obs, n)
-  const rawToday = classify(rule.dir, lo, hi, rule.threshold)
-  const hist = computeHistory(rule, history, rawToday, bundleDate, obs, n)
-  const { state } = hist
+  const state = classify(rule.dir, lo, hi, rule.threshold)
+  const hist = computeHistory(rule, history, state, bundleDate, obs, n)
 
   // 閘門：actionable / trusted 兩者都不進待辦，但都出現在回傳裡，且保留真實統計狀態
   // （#181 決定 5、#183 決定 4）。actionable 優先於 trusted，沿用 #181 `fire()` pseudocode 的檢查順序。
   // 年資閘門不擋——streak 描述的是統計狀態的歷史，不是待辦資格，一條規則被 trusted:false 擋下仍然
   // 看得出「它已經燒多久了」，供 ⚑ 埋點待修徽章旁邊參考用。
   if (!rule.actionable) {
-    return { ...base, obs, n, fired: false, gap, blockedBy: 'not-actionable', ...hist }
+    return { ...base, obs, n, fired: false, gap, state, blockedBy: 'not-actionable', ...hist }
   }
   if (!rule.trusted) {
-    return { ...base, obs, n, fired: false, gap, blockedBy: 'not-trusted', ...hist }
+    return { ...base, obs, n, fired: false, gap, state, blockedBy: 'not-trusted', ...hist }
   }
 
-  return { ...base, obs, n, fired: state === 'fire', gap, ...hist }
+  return { ...base, obs, n, fired: state === 'fire', gap, state, ...hist }
 }
 
 /** 排序：固定類別順序，層內按缺口比例遞減（#181 決定 4）。 */
