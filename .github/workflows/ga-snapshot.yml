@@ -64,10 +64,13 @@ jobs:
             --history /tmp/gh-data/history
 
       # #205 AC 第一條：趨勢檔要真的被產生，不能只是腳本存在從沒被呼叫。獨立腳本、獨立步驟——
-      # 不動 `ga-analyze.mjs`（#209 同時在重寫它）。`continue-on-error: true`：這是衍生產物，
-      # 讀當天剛寫進 history/ 的存檔重算 28 天視窗；算失敗也不該擋下 snapshot.json/history/ 的
-      # commit + push（那才是每日 cron 的核心 payload），只是那天 trends.json 沒更新，#206/#207
-      # 讀到的會是前一天的版本，不是壞掉的資料。
+      # 不動 `ga-analyze.mjs`（#209 同時在重寫它）。刻意不帶 `--window`：預設保留整份
+      # history/ 封存（不是只留最近 28 天），理由見 ga-build-trend.mjs 開頭 — #191 決定 5
+      # 的容量估算（≈73 KB/年）本來就是抓不截斷的成長曲線，且年資標記（決定 2 第三級）需要
+      # 完整歷史長度才能正確判斷 streakCensored。`continue-on-error: true`：這是衍生產物，
+      # 算失敗也不該擋下 snapshot.json/history/ 的 commit + push（那才是每日 cron 的核心
+      # payload），只是那天 trends.json 沒更新，#206/#207 讀到的會是前一天的版本，不是壞掉
+      # 的資料。
       - name: Build trend file
         continue-on-error: true
         run: |
