@@ -561,8 +561,14 @@ describe('solver.failRate / solver.macroCopyRate — 人類分母（#200）', ()
     expect(v.state).not.toBe('fire')
   })
 
-  it('solver.failRate 現在是 trusted:true（#200 解掛，不再是 #187/#189 記錄的 trusted:false）', () => {
-    expect(failRateRule().trusted).toBe(true)
+  // #200 review: an earlier version of this rule flipped `trusted` to `true`
+  // because the DENOMINATOR (humanStarts) is clean — but the NUMERATOR
+  // (humanFails) is still structurally unattributable today (`solver_failed`
+  // has never carried taxonomy — #189 決定 3). `trusted` stays `false` as a
+  // manually-lifted gate; see the note in ga-thresholds.ts for the unlock
+  // condition (#198 deploy, then a maintainer confirms the data looks sane).
+  it('solver.failRate 仍是 trusted:false（分母已切人類面，但分子——solver_failed 從沒帶過 taxonomy——還沒解決）', () => {
+    expect(failRateRule().trusted).toBe(false)
   })
 
   it('solver.failRate：glance.solver 缺 human* 欄位（pre-#200 歷史快照）時判為 absent，不拋錯', () => {
@@ -584,7 +590,7 @@ describe('solver.failRate / solver.macroCopyRate — 人類分母（#200）', ()
     expect(v.n).toBeNull()
   })
 
-  it('solver.failRate：人類失敗率遠高於 2% 且 n 足夠時觸發（迴歸真陽性路徑）', () => {
+  it('solver.failRate：人類失敗率遠高於 2% 且 n 足夠時統計上會 fire，但 trusted:false 擋下 fired（迴歸真陽性路徑，閘門仍生效）', () => {
     const bundle = makeBundle({
       glance: {
         activeUsers: { total: 1096, new: 728, returning: 519, returningPct: 0.474 },
@@ -598,8 +604,40 @@ describe('solver.failRate / solver.macroCopyRate — 人類分母（#200）', ()
       },
     })
     const [v] = evaluate(bundle, [failRateRule()])
+    // 統計狀態如實回報（#181 決定 5 / #183 決定 4：trusted 閘門不改變真實統計狀態）……
     expect(v.state).toBe('fire')
-    expect(v.fired).toBe(true)
+    // ……但 trusted:false 擋下 fired，不進待辦清單。
+    expect(v.fired).toBe(false)
+    expect(v.blockedBy).toBe('not-trusted')
+  })
+
+  // #200 review 核心迴歸：真 28d GA4 探測（obs=0/n=14572）曾經讓這條規則回報
+  // `state: 'clear'`——一個看起來自信、樣本量龐大的「失敗率 0%」，但真相是
+  // `solver_failed` 從沒帶過 taxonomy，每一筆都被判成機器，人類失敗率結構上
+  // 「量不到」而不是「量到了 0」。修法：`buildSolverHumanGlance()`
+  // （ga-analyze.mjs）偵測到「有 solver_failed 列，但沒有一列帶真實
+  // craft_kind」時，`humanFails` 回傳 `undefined` 而非 0——`pick()` 的既有
+  // guard 會把這個 `undefined` 判成 `state: 'absent'`，不會再偽裝成 clear。
+  it('solver.failRate：humanFails 缺席（pipeline 判定「無法歸戶」）+ humanStarts 很大時，不得回 state: clear（#200 核心迴歸）', () => {
+    const bundle = makeBundle({
+      glance: {
+        activeUsers: { total: 1096, new: 728, returning: 519, returningPct: 0.474 },
+        solver: {
+          starts: 27995, completes: 26733, fails: 614, completePct: 0.9549,
+          humanStarts: 14572, humanCompletes: 13924, humanCompletePct: 0.9555, macroCopies: 399,
+          // humanFails 刻意省略——重現 buildSolverHumanGlance() 偵測到
+          // solver_failed 全數缺 taxonomy 時的真實輸出（此為真 28d GA4 探測數字）。
+        },
+        batch: { starts: 1340, completes: 1063, fails: 241, cancelled: 36, completePct: 0.793 },
+        bom: { calculates: 268, sentToBatch: 14, handoffPct: 0.0522 },
+        infra: { sabUnavailable: 90, wasmLoadFailed: 3 },
+      },
+    })
+    const [v] = evaluate(bundle, [failRateRule()])
+    expect(v.state).not.toBe('clear')
+    expect(v.state).toBe('absent')
+    expect(v.blockedBy).toBe('absent')
+    expect(v.fired).toBe(false)
   })
 
   it('solver.macroCopyRate 取 simulatorFunnel.macroCopy.count / glance.solver.humanCompletes（不吃全量 completes）', () => {

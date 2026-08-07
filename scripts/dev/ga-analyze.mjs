@@ -1308,21 +1308,60 @@ export function isMachineSolveRow({ craftKind, source } = {}) {
 // real pipeline run still comes out >100% after this filter, that's a new
 // fact demanding its own diagnostic ticket (#187 決定 3), not something to
 // paper over here with Math.min().
+//
+// `humanFails` gets special treatment `humanStarts`/`humanCompletes` don't
+// need: `solver_failed` (unlike `_start`/`_complete`) has NEVER carried
+// taxonomy in production (#189 決定 3 — `worker.ts:320` only started
+// forwarding `config.taxonomy` in #198, not yet deployed as of this ticket).
+// Every `solver_failed` row today therefore has an absent `craft_kind`, which
+// `isMachineSolveRow()` correctly (and unavoidably) classifies as machine —
+// so summing "non-machine solver_failed rows" always lands on exactly 0. That
+// 0 is NOT "we measured zero human failures"; it's "we cannot currently tell
+// human failures from machine ones at all", and reporting it as a plain
+// number would let downstream code (ga-thresholds.ts's Wilson-CI gate) read
+// it as a confident, large-n 0% failure rate — a false all-clear (see #200
+// review: this is the exact regression the review caught, live 28d GA4 probe
+// obs=0/n=14572 rendered `state: 'clear'` before this fix).
+//
+// The fix distinguishes the two cases directly from the row data: if ANY
+// solver_failed row (human or machine) carries a real `craft_kind`, the
+// discriminator is demonstrably working for this event today, so a resulting
+// 0 is a genuine "no human failures found" and `humanFails` stays a number.
+// If solver_failed rows exist but NONE carry real taxonomy, attribution is
+// structurally impossible right now, so `humanFails` reports `undefined`
+// instead of 0 — `glance.solver.humanFails` is optional (v2-additive, same
+// contract as an absent pre-#200 snapshot), and `ga-thresholds.ts`'s
+// `pick()` already treats `undefined` as "metric absent" (`state: 'absent'`),
+// not silently-false-clear. If there are no solver_failed rows at all
+// (nobody failed, human or machine), that's a real, uncontested zero — this
+// does NOT fall into the "can't attribute" bucket. Once #198 deploys, every
+// NEW solver_failed row carries real taxonomy immediately (no separate dark
+// period the way macro-copy has), so this self-heals the moment the first
+// post-deploy failure event lands — no manual flag flip required for this
+// specific signal (though `ga-thresholds.ts` still keeps `trusted: false` as
+// a second, manually-lifted gate — see that file's note).
 export function buildSolverHumanGlance(rows = []) {
   let humanStarts = 0
   let humanCompletes = 0
   let humanFails = 0
+  let failedTotal = 0
+  let failedWithTaxonomy = 0
   for (const row of rows) {
-    if (isMachineSolveRow({ craftKind: row.craftKind, source: row.source })) continue
     const count = row.count ?? 0
+    if (row.eventName === 'solver_failed') {
+      failedTotal += count
+      if (!CRAFT_KIND_ABSENT_VALUES.has(row.craftKind ?? '(not set)')) failedWithTaxonomy += count
+    }
+    if (isMachineSolveRow({ craftKind: row.craftKind, source: row.source })) continue
     if (row.eventName === 'solver_start') humanStarts += count
     else if (row.eventName === 'solver_complete') humanCompletes += count
     else if (row.eventName === 'solver_failed') humanFails += count
   }
+  const canAttributeFails = failedTotal === 0 || failedWithTaxonomy > 0
   return {
     humanStarts,
     humanCompletes,
-    humanFails,
+    humanFails: canAttributeFails ? humanFails : undefined,
     humanCompletePct: humanStarts ? humanCompletes / humanStarts : 0,
   }
 }
