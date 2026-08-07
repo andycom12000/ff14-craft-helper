@@ -38,9 +38,11 @@ export interface ChartFlag {
  * 只收錄「目前至少有一個指標掛著 `trusted:false` 規則」的圖;規則全部翻成 trusted 後這裡
  * 不用清掉舊 entry——deriveChartFlag() 會自然回傳 undefined(不掛徽章)。
  *
- * chart-tool(ToolUsageByRlv)的徽章描述的是 RLV 歸戶 pipeline 問題,門檻表裡沒有對應規則
- * (不是比率門檻,無法用 trusted 表達),刻意不收錄在這裡——那顆徽章維持 #197 原樣手寫,
- * 不在本次推導範圍內(見 #208 實作報告)。
+ * chart-tool(ToolUsageByRlv)在 #208 當時刻意不收錄在這裡——它的 #197 手寫 ⚑ 描述的是
+ * RLV 歸戶 pipeline 問題,不是比率門檻,門檻表裡沒有對應規則、無法用 trusted 表達。#210
+ * 把 bom/batch 兩條分子改走 recipe_id → recipes.json join 修完那個 pipeline 問題後,
+ * 直接把 GaDashboardView.vue 上那顆手寫徽章拆了(不是翻 trusted),所以這張圖至今仍不需要
+ * 出現在 CHART_METRICS——它從來就不是這套推導機制管的徽章。
  */
 export const CHART_METRICS: Record<string, ChartMetric[]> = {
   // chart-funnels 的斜紋粒度是「funnel 半邊」而不是單一指標列,原因是這張圖上根本沒有

@@ -950,6 +950,72 @@ export async function buildClient() {
   return new BetaAnalyticsDataClient({ keyFilename: SA_PATH })
 }
 
+// --- recipe_id → rlv join map (#210, spec #194's ToolUsageByRlv item 14) ---
+// `bomTargetCount`/`batchTargetCount` used to bucket by the CLIENT-sent `rlv`
+// param (bom_target_add) or not at all (batch, always 0 — see the removed
+// TODO this replaces). #190's decision: attribute BOTH legs by joining the
+// event's `recipe_id` against today's `public/data/recipes.json` instead —
+// 100% join hit rate measured live (0 misses), full retroactive lookback (no
+// 28-day dark period), and it doesn't depend on any client dimension besides
+// `recipe_id`, which is already registered and used elsewhere in this file
+// (top-recipes query). Cached at module scope: buildBundle() runs once per
+// window (7d/14d/28d) per `--snapshot` invocation, and the file never changes
+// mid-run.
+let recipeRlvMapPromise = null
+async function loadRecipeRlvMap() {
+  if (!recipeRlvMapPromise) {
+    recipeRlvMapPromise = (async () => {
+      const raw = await fs.readFile(path.join(ROOT, 'public', 'data', 'recipes.json'), 'utf-8')
+      const recipes = JSON.parse(raw)
+      const map = new Map()
+      for (const r of recipes) map.set(r.id, r.rlv)
+      return map
+    })()
+  }
+  return recipeRlvMapPromise
+}
+
+// `rows` is the SIMPLIFIED per-row shape (`{ recipeId, count }`), same
+// convention as buildRlvRawCounts() above — call sites extract
+// dimensionValues/metricValues themselves so this pure function stays
+// testable on plain objects (spec #194's "接縫二").
+//
+// Three buckets, all counted separately (never silently merged — #210's
+// "量不到不能變成看起來有答案的數字" guardrail):
+//   - `counts`: Map<rlv, count> for rows that joined successfully.
+//   - `noRecipeId`: rows whose event never carried a recipe_id at all (GA4's
+//     `(not set)` sentinel or empty string) — e.g. bom_target_add for a
+//     no-recipe purchase target or a company-craft-project. These are
+//     STRUCTURALLY non-craftable, not a data gap — #210 decision 2 surfaces
+//     this as a standing footnote count, never folds it into the rlv
+//     histogram (there is no "no rlv" bar on an RLV axis).
+//   - `unjoined`: rows that DO carry a recipe_id, but it's not a key in
+//     `recipeRlvMap` (today's recipes.json). Distinct from `noRecipeId`
+//     because this is real data drift (a recipe removed/renumbered since the
+//     event fired), not a structural non-craftable target — logged by the
+//     caller, never merged into either of the other two buckets.
+export function buildRlvCountsByRecipeId(rows = [], recipeRlvMap = new Map()) {
+  const counts = new Map()
+  let noRecipeId = 0
+  let unjoined = 0
+  for (const r of rows) {
+    const n = r.count ?? 0
+    const raw = r.recipeId
+    if (raw == null || raw === '' || raw === '(not set)') {
+      noRecipeId += n
+      continue
+    }
+    const id = Number(raw)
+    const rlv = Number.isFinite(id) ? recipeRlvMap.get(id) : undefined
+    if (rlv == null) {
+      unjoined += n
+      continue
+    }
+    counts.set(rlv, (counts.get(rlv) ?? 0) + n)
+  }
+  return { counts, noRecipeId, unjoined }
+}
+
 async function buildBundle(client, propertyId, days) {
   const property = `properties/${propertyId}`
   const dateRanges = [{ startDate: `${days}daysAgo`, endDate: 'today' }]
@@ -2268,15 +2334,28 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
   }
 
   // --- Chart #3: toolUsageByRlv ------------------------------------------
-  // DRAFT — bom/batch RLV attribution is INCOMPLETE pending a recipes.json join.
-  // selectCount: recipe_select × rlv. simulatorCount: solver_start × rlv,
-  // EXPLICITLY human-filtered (#198/#190) — see isMachineSolveRow() above.
-  // Without this filter, the day #198's client taxonomy fix lands, 7725
-  // machine-loop solves (batch-optimizer / buff-recommender / meld-advisor,
-  // ~52.5% of solver_start) would silently start flowing into this line —
-  // today it's clean only because the pre-fix façade never set craft_kind.
-  // bomTargetCount: bom_target_add × rlv IF the event carries rlv, else 0.
-  // batchTargetCount: 0 (see TODO below).
+  // #210 (spec #194 item 14 / #190's decision): bom/batch RLV attribution now
+  // joins on `recipe_id` against `public/data/recipes.json` instead of
+  // reading a client-sent `rlv` param — 100% join hit rate measured live, no
+  // 28-day dark period.
+  //
+  // selectCount: recipe_select × CLIENT rlv (#182, unchanged by #210 — join
+  // buys no extra coverage per #190 decision 6, see ToolUsageRow's doc
+  // comment for the "two sources of truth on one chart" tradeoff this keeps).
+  // simulatorCount: solver_start × CLIENT rlv, EXPLICITLY human-filtered
+  // (#198/#190) — see isMachineSolveRow() above. Without this filter, the day
+  // #198's client taxonomy fix lands, 7725 machine-loop solves
+  // (batch-optimizer / buff-recommender / meld-advisor, ~52.5% of
+  // solver_start) would silently start flowing into this line — today it's
+  // clean only because the pre-fix façade never set craft_kind.
+  // bomTargetCount: bom_target_add × recipe_id → join. Targets with no
+  // recipe_id at all (no-recipe / company-craft-project targets — #210
+  // decision 2) are counted separately as a standing footnote, never folded
+  // into the histogram.
+  // batchTargetCount: batch_add_recipe × recipe_id → join (#210 decision 3 —
+  // NOT batch_optimization_start, which carries no recipe_id at all; unit is
+  // now per-recipe "added to batch", deliberately overlapping bomTargetCount
+  // via the cross_page_send method).
   const selectRlvRes = await runReport(client, {
     property, dateRanges,
     dimensions: [{ name: 'customEvent:rlv' }],
@@ -2303,20 +2382,39 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
       fieldName: 'eventName', stringFilter: { value: 'solver_start' } } },
     limit: 2000,
   }, { soft: true })
+  // #210: dimension switched from `customEvent:rlv` to `customEvent:recipe_id`
+  // — bomTargetCount is now attributed via the recipes.json join below, not a
+  // client-sent rlv. Limit raised past the live 28d probe's 428 distinct rows
+  // (bom_target_add's recipe_id cardinality is bounded by how many distinct
+  // recipes get BOM'd in the window, well under this).
   const bomRlvRes = await runReport(client, {
     property, dateRanges,
-    dimensions: [{ name: 'customEvent:rlv' }],
+    dimensions: [{ name: 'customEvent:recipe_id' }],
     metrics: [{ name: 'eventCount' }],
     dimensionFilter: { filter: {
       fieldName: 'eventName', stringFilter: { value: 'bom_target_add' } } },
-    limit: 200, // raw passthrough (#209) — see rlvHistRes's comment above
+    limit: 3000,
+  }, { soft: true })
+  // #210: batch_add_recipe (the "加入批量" event) — NOT
+  // batch_optimization_start, which never carries recipe_id (#190 決定 3).
+  // Limit raised past the live 28d probe's 1602 distinct rows (`recipe_id` is
+  // sent unconditionally by batch.ts, so cardinality tracks distinct recipes
+  // added, not distinct batch runs).
+  const batchRlvRes = await runReport(client, {
+    property, dateRanges,
+    dimensions: [{ name: 'customEvent:recipe_id' }],
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: { filter: {
+      fieldName: 'eventName', stringFilter: { value: 'batch_add_recipe' } } },
+    limit: 5000,
   }, { soft: true })
   const selectRlvRows = selectRlvRes?.rows ?? []
   const simRlvRows = simRlvRes?.rows ?? []
   const bomRlvRows = bomRlvRes?.rows ?? []
-  if (selectRlvRows.length || simRlvRows.length) {
+  const batchRlvRows = batchRlvRes?.rows ?? []
+  if (selectRlvRows.length || simRlvRows.length || bomRlvRows.length || batchRlvRows.length) {
     // #209: raw per-rlv rows, no pipeline-side bucketing — union the rlv keys
-    // seen across all three legs (each event fires independently, so a given
+    // seen across all four legs (each event fires independently, so a given
     // rlv may appear in one map but not another) and fill zeros for the rest.
     // The frontend's shared top-8 aggregator (rlv-aggregate.ts) does the
     // grouping, ranked by selectCount, same as taxonomy.rlvRaw above.
@@ -2332,20 +2430,40 @@ async function buildV2Fields(client, property, dateRanges, _ctx) {
       })),
       { humanOnly: true },
     )
-    const bomMap = buildRlvRawCounts(
-      bomRlvRows.map((r) => ({ rlv: r.dimensionValues[0].value, count: Number(r.metricValues[0].value) })),
+    // #210: bom/batch attribution via recipe_id → recipes.json join, not a
+    // client rlv param.
+    const recipeRlvMap = await loadRecipeRlvMap()
+    const bomJoin = buildRlvCountsByRecipeId(
+      bomRlvRows.map((r) => ({ recipeId: r.dimensionValues[0].value, count: Number(r.metricValues[0].value) })),
+      recipeRlvMap,
     )
-    const allRlvs = new Set([...selectMap.keys(), ...simMap.keys(), ...bomMap.keys()])
-    // TODO: batchTargetCount stays 0 — batch_optimization_start carries
-    // multi-RLV targets and needs a recipes.json join to attribute (spec
-    // #194 item 14), not implemented in this ticket.
+    const batchJoin = buildRlvCountsByRecipeId(
+      batchRlvRows.map((r) => ({ recipeId: r.dimensionValues[0].value, count: Number(r.metricValues[0].value) })),
+      recipeRlvMap,
+    )
+    // `unjoined` (recipe_id present but not a key in today's recipes.json) is
+    // real data drift, not a structural non-craftable target — surfaced as a
+    // warning, never silently merged into the footnote or the histogram.
+    if (bomJoin.unjoined > 0) {
+      console.warn(`  ⚠ toolUsageByRlv: ${bomJoin.unjoined} bom_target_add row(s) had a recipe_id not found in recipes.json`)
+    }
+    if (batchJoin.unjoined > 0) {
+      console.warn(`  ⚠ toolUsageByRlv: ${batchJoin.unjoined} batch_add_recipe row(s) had a recipe_id not found in recipes.json`)
+    }
+    const allRlvs = new Set([...selectMap.keys(), ...simMap.keys(), ...bomJoin.counts.keys(), ...batchJoin.counts.keys()])
     out.toolUsageByRlv = [...allRlvs].sort((a, b) => a - b).map((rlv) => ({
       rlv,
       selectCount: selectMap.get(rlv) ?? 0,
       simulatorCount: simMap.get(rlv) ?? 0,
-      batchTargetCount: 0,
-      bomTargetCount: bomMap.get(rlv) ?? 0,
+      batchTargetCount: batchJoin.counts.get(rlv) ?? 0,
+      bomTargetCount: bomJoin.counts.get(rlv) ?? 0,
     }))
+    // #210 decision 2: bom_target_add targets with no recipe_id at all
+    // (no-recipe purchase targets, company-craft-project) are structurally
+    // non-craftable — excluded from the rlv histogram (there's no "no rlv"
+    // bar on an RLV axis) but kept as a standing footnote count so they don't
+    // silently vanish from the reader's picture of why the handoff rate is low.
+    out.toolUsageNoRecipeCount = bomJoin.noRecipeId
   }
 
   return out

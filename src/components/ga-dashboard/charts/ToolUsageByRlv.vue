@@ -11,7 +11,12 @@ import { aggregateTopRlv } from '@/components/ga-dashboard/rlv-aggregate'
 // #209 (spec #194 §C3): raw 化，與 RecipeDifficultyKind.vue 共用同一套
 // top-8 + 其他聚合函式（rlv-aggregate.ts）——排序依 selectCount（recipe_select
 // 開啟次數），與難度圖用同一個底層事件維度排序。
-const props = defineProps<{ data: ToolUsageRow[] }>()
+//
+// `noRecipeCount`（#210 決定 2）：bom_target_add 裡完全沒有 recipe_id 的目標
+// （純採買 / 公司工房專案）——結構上不可能出現在這張以 RLV 為橫軸的圖上，改用
+// 常駐註腳呈現，避免默默消失。`undefined`／`0`／缺席三態見
+// `MetricsBundle.toolUsageNoRecipeCount` 的型別註解。
+const props = defineProps<{ data: ToolUsageRow[]; noRecipeCount?: number }>()
 const root = ref<HTMLDivElement | null>(null)
 const { show, move, hide } = useTooltip()
 
@@ -166,9 +171,22 @@ onMounted(() => {
 })
 </script>
 
-<template><div ref="root" class="chart" role="img" aria-label="工具偏好 · 依 RLV top-8 分組" /></template>
+<template>
+  <div>
+    <div ref="root" class="chart" role="img" aria-label="工具偏好 · 依 RLV top-8 分組" />
+    <p v-if="props.noRecipeCount" class="footnote">
+      另有 {{ fmtInt(props.noRecipeCount) }} 筆非可製作目標（純採買 / 公司工房）未列入，結構上不可交棒。
+    </p>
+  </div>
+</template>
 
 <style scoped>
 .chart { margin: 12px 0 8px; position: relative; }
 .chart :deep(svg) { display: block; overflow: visible; }
+.footnote {
+  margin: 4px 0 0;
+  font-family: 'Noto Sans TC', system-ui, sans-serif;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
 </style>
