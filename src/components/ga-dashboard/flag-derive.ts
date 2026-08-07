@@ -43,6 +43,22 @@ export interface ChartFlag {
  * 不在本次推導範圍內(見 #208 實作報告)。
  */
 export const CHART_METRICS: Record<string, ChartMetric[]> = {
+  // chart-funnels 的斜紋粒度是「funnel 半邊」而不是單一指標列,原因是這張圖上根本沒有
+  // solver 失敗率的對應視覺區塊——SolverBatchFunnels.vue 畫的是 start → complete →
+  // macro_copy 三步驟,沒有 failed 這一段可以單獨蓋。斜紋因此蓋住整個 Solver 半邊
+  // (含 solver 完成率那個節點),右半 Batch 漏斗(對應 batch.completeRate,已可信)不受影響。
+  //
+  // `solver.completePct`(圖上可見的 SOLVER_COMPLETE 節點)刻意不在下面列出——門檻表裡沒有
+  // 對應規則(只有 solver.failRate 一條,見 ga-thresholds.ts 的分母污染說明),不是「有規則
+  // 但恰好可信」,是「從未被判定過」,所以不參與這裡的可信/不可信推導,徽章文案只指名
+  // 「solver 失敗率」而不會誤稱「solver 完成率」也不可信。
+  //
+  // 短期狀態:#200(人機分離)原訂落地後把 solver.failRate 翻成 trusted:true,但審查發現
+  // solver_failed 事件從未帶過 taxonomy、人類失敗分母結構上恆為 0,會讓判定引擎誤判成
+  // 「0% 失敗、一切正常」而非「還量不到」,所以 #200 改為維持 trusted:false,等 #198 的
+  // client 修正上線、solver_failed 開始帶 source、再累積約 3 天資料才翻。翻了之後
+  // chart-funnels 的兩個指標都可信,這條 entry 與整個徽章/斜紋會自動消失,不需要再處理這裡的
+  // 粒度落差(issue #208 視覺驗證討論 2,選項 (a))。
   'chart-funnels': [
     { label: 'solver 失敗率', ruleId: 'solver.failRate' },
     { label: '批量完成率', ruleId: 'batch.completeRate' },

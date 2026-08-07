@@ -112,6 +112,12 @@ describe('isMetricUntrusted — 供圖表元件精準畫局部斜紋', () => {
 // GA_THRESHOLD_RULES 動態生成，測試裡直接複製一份等價宣告以避免 import 私有常數。
 // ---------------------------------------------------------------------------
 describe('CHART_METRICS 對拍正式門檻表（今天的已知狀態）', () => {
+  // solver.failRate 目前仍是 trusted:false——#200（人機分離）原本要把它翻成 true，但
+  // solver_failed 事件從未帶過 taxonomy，人類分母 humanFails 結構上恆為 0，會讓判定引擎誤判
+  // 成「0% 失敗、一切正常」而不是「還量不到」。#200 已改為維持 trusted:false，等 #198 的
+  // client 修正上線、solver_failed 開始帶 source、再累積約 3 天資料才翻。這條斷言反映的仍是
+  // 真實的當下狀態，不是暫時性的紅燈——過渡機制本身（態一→態二→無徽章）已經用注入假規則的
+  // 測試證過，不依賴這條真實規則斷言，見上面「驗收 5」那條。
   it('chart-funnels：solver 失敗率未可信、批量完成率已可信 → 態二', () => {
     const flag = deriveChartFlag('chart-funnels', GA_THRESHOLD_RULES)
     expect(flag?.partial).toBe(true)
