@@ -12,7 +12,14 @@ function makeBundle(overrides: Partial<MetricsBundle> = {}, endDate = '2026-07-3
     window: { days: 28, startDate: '2026-07-03', endDate },
     glance: {
       activeUsers: { total: 1096, new: 728, returning: 519, returningPct: 0.474 },
-      solver: { starts: 13582, completes: 13153, fails: 231, completePct: 0.968 },
+      // human* 五欄（#200）：內部自洽的 47.5% 人類 starts 比例、失敗率 ≈1.7%（安全側，遠低於 2%
+      // 門檻）——沿用 #189 決議實測比例（機器佔 solver_start 52.5%、人類完成率 ≈96.3%）換算到
+      // 本 fixture 的 13582 全量規模，不必是逐位對應的真實 GA 數字。
+      solver: {
+        starts: 13582, completes: 13153, fails: 231, completePct: 0.968,
+        humanStarts: 6451, humanCompletes: 6212, humanFails: 110,
+        humanCompletePct: 6212 / 6451, macroCopies: 399,
+      },
       batch: { starts: 1340, completes: 1063, fails: 241, cancelled: 36, completePct: 0.793 },
       bom: { calculates: 268, sentToBatch: 14, handoffPct: 0.0522 },
       infra: { sabUnavailable: 90, wasmLoadFailed: 3 },
@@ -526,6 +533,151 @@ describe('api.universalisRealFailRate（#201）', () => {
     const [v] = evaluate(bundle, [rule()])
     expect(v.state).toBe('fire')
     expect(v.fired).toBe(true)
+  })
+})
+
+describe('solver.failRate / solver.macroCopyRate — 人類分母（#200）', () => {
+  const failRateRule = () => GA_THRESHOLD_RULES.find((r) => r.id === 'solver.failRate')!
+  const macroCopyRule = () => GA_THRESHOLD_RULES.find((r) => r.id === 'solver.macroCopyRate')!
+
+  it('solver.failRate 取 glance.solver.humanFails / humanStarts（不吃全量 fails / starts）', () => {
+    const bundle = makeBundle({
+      glance: {
+        activeUsers: { total: 1096, new: 728, returning: 519, returningPct: 0.474 },
+        // 全量 fails/starts 刻意設成會 fire 的比例（231/1000 = 23.1%），human* 刻意設成安全值
+        // （50/5000 = 1%）——如果 pick() 誤吃了全量欄位，這條規則會 fire，測試會抓到。
+        solver: {
+          starts: 1000, completes: 900, fails: 231, completePct: 0.9,
+          humanStarts: 5000, humanCompletes: 4900, humanFails: 50, humanCompletePct: 0.98, macroCopies: 399,
+        },
+        batch: { starts: 1340, completes: 1063, fails: 241, cancelled: 36, completePct: 0.793 },
+        bom: { calculates: 268, sentToBatch: 14, handoffPct: 0.0522 },
+        infra: { sabUnavailable: 90, wasmLoadFailed: 3 },
+      },
+    })
+    const [v] = evaluate(bundle, [failRateRule()])
+    expect(v.obs).toBe(50)
+    expect(v.n).toBe(5000)
+    expect(v.state).not.toBe('fire')
+  })
+
+  // #200 review: an earlier version of this rule flipped `trusted` to `true`
+  // because the DENOMINATOR (humanStarts) is clean — but the NUMERATOR
+  // (humanFails) is still structurally unattributable today (`solver_failed`
+  // has never carried taxonomy — #189 決定 3). `trusted` stays `false` as a
+  // manually-lifted gate; see the note in ga-thresholds.ts for the unlock
+  // condition (#198 deploy, then a maintainer confirms the data looks sane).
+  it('solver.failRate 仍是 trusted:false（分母已切人類面，但分子——solver_failed 從沒帶過 taxonomy——還沒解決）', () => {
+    expect(failRateRule().trusted).toBe(false)
+  })
+
+  it('solver.failRate：glance.solver 缺 human* 欄位（pre-#200 歷史快照）時判為 absent，不拋錯', () => {
+    const bundle = makeBundle({
+      glance: {
+        activeUsers: { total: 1096, new: 728, returning: 519, returningPct: 0.474 },
+        // human* 刻意省略——模擬 pre-#200 快照。
+        solver: { starts: 13582, completes: 13153, fails: 231, completePct: 0.968 },
+        batch: { starts: 1340, completes: 1063, fails: 241, cancelled: 36, completePct: 0.793 },
+        bom: { calculates: 268, sentToBatch: 14, handoffPct: 0.0522 },
+        infra: { sabUnavailable: 90, wasmLoadFailed: 3 },
+      },
+    })
+    expect(() => evaluate(bundle, [failRateRule()])).not.toThrow()
+    const [v] = evaluate(bundle, [failRateRule()])
+    expect(v.state).toBe('absent')
+    expect(v.blockedBy).toBe('absent')
+    expect(v.obs).toBeNull()
+    expect(v.n).toBeNull()
+  })
+
+  it('solver.failRate：人類失敗率遠高於 2% 且 n 足夠時統計上會 fire，但 trusted:false 擋下 fired（迴歸真陽性路徑，閘門仍生效）', () => {
+    const bundle = makeBundle({
+      glance: {
+        activeUsers: { total: 1096, new: 728, returning: 519, returningPct: 0.474 },
+        solver: {
+          starts: 13582, completes: 13153, fails: 231, completePct: 0.968,
+          humanStarts: 6451, humanCompletes: 6000, humanFails: 300, humanCompletePct: 0.93, macroCopies: 399,
+        },
+        batch: { starts: 1340, completes: 1063, fails: 241, cancelled: 36, completePct: 0.793 },
+        bom: { calculates: 268, sentToBatch: 14, handoffPct: 0.0522 },
+        infra: { sabUnavailable: 90, wasmLoadFailed: 3 },
+      },
+    })
+    const [v] = evaluate(bundle, [failRateRule()])
+    // 統計狀態如實回報（#181 決定 5 / #183 決定 4：trusted 閘門不改變真實統計狀態）……
+    expect(v.state).toBe('fire')
+    // ……但 trusted:false 擋下 fired，不進待辦清單。
+    expect(v.fired).toBe(false)
+    expect(v.blockedBy).toBe('not-trusted')
+  })
+
+  // #200 review 核心迴歸：真 28d GA4 探測（obs=0/n=14572）曾經讓這條規則回報
+  // `state: 'clear'`——一個看起來自信、樣本量龐大的「失敗率 0%」，但真相是
+  // `solver_failed` 從沒帶過 taxonomy，每一筆都被判成機器，人類失敗率結構上
+  // 「量不到」而不是「量到了 0」。修法：`buildSolverHumanGlance()`
+  // （ga-analyze.mjs）偵測到「有 solver_failed 列，但沒有一列帶真實
+  // craft_kind」時，`humanFails` 回傳 `undefined` 而非 0——`pick()` 的既有
+  // guard 會把這個 `undefined` 判成 `state: 'absent'`，不會再偽裝成 clear。
+  it('solver.failRate：humanFails 缺席（pipeline 判定「無法歸戶」）+ humanStarts 很大時，不得回 state: clear（#200 核心迴歸）', () => {
+    const bundle = makeBundle({
+      glance: {
+        activeUsers: { total: 1096, new: 728, returning: 519, returningPct: 0.474 },
+        solver: {
+          starts: 27995, completes: 26733, fails: 614, completePct: 0.9549,
+          humanStarts: 14572, humanCompletes: 13924, humanCompletePct: 0.9555, macroCopies: 399,
+          // humanFails 刻意省略——重現 buildSolverHumanGlance() 偵測到
+          // solver_failed 全數缺 taxonomy 時的真實輸出（此為真 28d GA4 探測數字）。
+        },
+        batch: { starts: 1340, completes: 1063, fails: 241, cancelled: 36, completePct: 0.793 },
+        bom: { calculates: 268, sentToBatch: 14, handoffPct: 0.0522 },
+        infra: { sabUnavailable: 90, wasmLoadFailed: 3 },
+      },
+    })
+    const [v] = evaluate(bundle, [failRateRule()])
+    expect(v.state).not.toBe('clear')
+    expect(v.state).toBe('absent')
+    expect(v.blockedBy).toBe('absent')
+    expect(v.fired).toBe(false)
+  })
+
+  it('solver.macroCopyRate 取 simulatorFunnel.macroCopy.count / glance.solver.humanCompletes（不吃全量 completes）', () => {
+    const bundle = makeBundle({
+      glance: {
+        activeUsers: { total: 1096, new: 728, returning: 519, returningPct: 0.474 },
+        // 全量 completes 刻意設成會讓率偏低的值，humanCompletes 刻意設小讓率偏高（安全側）——
+        // 如果 pick() 誤吃了全量 completes，obs/n 會不同，測試會抓到分母值本身。
+        solver: {
+          starts: 13582, completes: 13153, fails: 231, completePct: 0.968,
+          humanStarts: 6451, humanCompletes: 2000, humanFails: 110, humanCompletePct: 0.31, macroCopies: 399,
+        },
+        batch: { starts: 1340, completes: 1063, fails: 241, cancelled: 36, completePct: 0.793 },
+        bom: { calculates: 268, sentToBatch: 14, handoffPct: 0.0522 },
+        infra: { sabUnavailable: 90, wasmLoadFailed: 3 },
+      },
+    })
+    const [v] = evaluate(bundle, [macroCopyRule()])
+    expect(v.obs).toBe(399) // simulatorFunnel.macroCopy.count，fixture 預設值
+    expect(v.n).toBe(2000) // humanCompletes，NOT solver.completes (13153)
+  })
+
+  it('solver.macroCopyRate 仍是 trusted:false（#200 只切分母，分子還卡在 #198 的 28 天暗期）', () => {
+    expect(macroCopyRule().trusted).toBe(false)
+  })
+
+  it('solver.macroCopyRate：glance.solver 缺 humanCompletes（pre-#200 歷史快照）時判為 absent，不拋錯', () => {
+    const bundle = makeBundle({
+      glance: {
+        activeUsers: { total: 1096, new: 728, returning: 519, returningPct: 0.474 },
+        solver: { starts: 13582, completes: 13153, fails: 231, completePct: 0.968 },
+        batch: { starts: 1340, completes: 1063, fails: 241, cancelled: 36, completePct: 0.793 },
+        bom: { calculates: 268, sentToBatch: 14, handoffPct: 0.0522 },
+        infra: { sabUnavailable: 90, wasmLoadFailed: 3 },
+      },
+    })
+    expect(() => evaluate(bundle, [macroCopyRule()])).not.toThrow()
+    const [v] = evaluate(bundle, [macroCopyRule()])
+    expect(v.state).toBe('absent')
+    expect(v.blockedBy).toBe('absent')
   })
 })
 

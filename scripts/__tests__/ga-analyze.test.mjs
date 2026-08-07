@@ -22,6 +22,7 @@ import {
   classifyUniversalisFetchRow,
   buildActiveUsersGlance,
   marketRegionBucket,
+  buildSolverHumanGlance,
 } from '../dev/ga-analyze.mjs'
 
 test('craft_kind === "(not set)" is machine, regardless of source (pre-fix leg)', () => {
@@ -215,4 +216,136 @@ test('"cht" / "intl" pass through as their own buckets', () => {
 
 test('an unrecognized value returns null so callers can skip it, not silently misfile it', () => {
   assert.equal(marketRegionBucket('some-unexpected-value'), null)
+})
+
+// Unit tests for `buildSolverHumanGlance` — the glance.solver human-face
+// denominators (#200). #187/#189's stated acceptance bar is that the
+// human-only completePct comes out ≤100% (the machine-loop-polluted full
+// population had 63/71 historical days >100%); getting the per-row filter
+// wrong here silently reintroduces that same impossible number under a new
+// field name instead of fixing it.
+test('buildSolverHumanGlance(): counts only human rows per event, machine rows are dropped entirely', () => {
+  const rows = [
+    { eventName: 'solver_start', craftKind: 'normal', source: 'user', count: 100 },
+    { eventName: 'solver_start', craftKind: '(not set)', count: 200 }, // pre-fix machine
+    { eventName: 'solver_start', craftKind: 'quick', source: 'machine', count: 50 }, // post-fix machine
+    { eventName: 'solver_complete', craftKind: 'normal', source: 'user', count: 95 },
+    { eventName: 'solver_complete', craftKind: '', count: 190 }, // pre-fix machine, empty-string leg
+    { eventName: 'solver_failed', craftKind: 'expert', source: 'user', count: 5 },
+    { eventName: 'solver_failed', craftKind: '(not set)', count: 3 },
+  ]
+  const g = buildSolverHumanGlance(rows)
+  assert.equal(g.humanStarts, 100)
+  assert.equal(g.humanCompletes, 95)
+  assert.equal(g.humanFails, 5)
+})
+
+test('buildSolverHumanGlance(): humanCompletePct = humanCompletes / humanStarts, not the machine-polluted totals', () => {
+  const rows = [
+    { eventName: 'solver_start', craftKind: 'normal', source: 'user', count: 100 },
+    { eventName: 'solver_start', craftKind: '(not set)', count: 900 }, // would push completePct >100% if counted
+    { eventName: 'solver_complete', craftKind: 'normal', source: 'user', count: 96 },
+    { eventName: 'solver_complete', craftKind: '(not set)', count: 950 }, // machine completes > machine starts
+  ]
+  const g = buildSolverHumanGlance(rows)
+  // If the machine rows leaked in, starts=1000/completes=1046 would push this past 1 (>100%) —
+  // exactly the #181/#189 bug this function exists to fix. Human-only must stay a clean ratio.
+  assert.equal(g.humanStarts, 100)
+  assert.equal(g.humanCompletes, 96)
+  assert.equal(g.humanCompletePct, 0.96)
+  assert.ok(g.humanCompletePct <= 1, 'human completePct must be ≤100% — the #200 acceptance bar')
+})
+
+test('buildSolverHumanGlance(): humanCompletePct is 0 (not NaN/Infinity) when humanStarts is 0', () => {
+  const g = buildSolverHumanGlance([
+    { eventName: 'solver_start', craftKind: '(not set)', count: 500 }, // all machine
+  ])
+  assert.equal(g.humanStarts, 0)
+  assert.equal(g.humanCompletePct, 0)
+})
+
+test('buildSolverHumanGlance(): empty/missing rows default every field to 0, not undefined', () => {
+  assert.deepEqual(buildSolverHumanGlance([]), {
+    humanStarts: 0, humanCompletes: 0, humanFails: 0, humanCompletePct: 0,
+  })
+  assert.deepEqual(buildSolverHumanGlance(), {
+    humanStarts: 0, humanCompletes: 0, humanFails: 0, humanCompletePct: 0,
+  })
+})
+
+test('buildSolverHumanGlance(): an eventName outside the solver_* set is ignored, not miscounted', () => {
+  const g = buildSolverHumanGlance([
+    { eventName: 'batch_optimization_start', craftKind: 'normal', source: 'user', count: 999 },
+  ])
+  assert.equal(g.humanStarts, 0)
+  assert.equal(g.humanCompletes, 0)
+  assert.equal(g.humanFails, 0)
+})
+
+// #200 review regression: `solver_failed` has NEVER carried taxonomy in
+// production (#189 決定 3), so every solver_failed row today has an absent
+// craft_kind and gets classified as machine by isMachineSolveRow() — summing
+// "non-machine solver_failed rows" always lands on exactly 0. Reporting that
+// 0 as a plain number let ga-thresholds.ts's Wilson-CI gate read it as a
+// confident large-n 0% failure rate (`state: 'clear'`) — a false all-clear
+// the reviewer caught against a real 28d GA4 probe (obs=0/n=14572). These
+// tests lock down the fix: `humanFails` must distinguish "we cannot
+// currently attribute any solver_failed row" (→ undefined, NOT 0) from
+// "there were truly zero solver_failed events at all" (→ a real 0).
+test('buildSolverHumanGlance(): humanFails is undefined (not 0) when solver_failed rows exist but NONE carry real taxonomy — the #200 core regression', () => {
+  // Mirrors the actual 28d GA4 probe shape: solver_failed rows exist (614
+  // events) but every single one has craft_kind === '(not set)'.
+  const rows = [
+    { eventName: 'solver_start', craftKind: 'normal', source: '(not set)', count: 14572 },
+    { eventName: 'solver_complete', craftKind: 'normal', source: '(not set)', count: 13924 },
+    { eventName: 'solver_failed', craftKind: '(not set)', source: '(not set)', count: 614 },
+  ]
+  const g = buildSolverHumanGlance(rows)
+  assert.equal(g.humanFails, undefined, 'humanFails must be undefined, not 0 — a 0 here would be a false all-clear')
+  assert.notEqual(g.humanFails, 0)
+  // humanStarts/humanCompletes are unaffected — only humanFails carries the
+  // "can we even attribute this event?" ambiguity (solver_start/_complete
+  // have reliably carried taxonomy on the human path since before #198).
+  assert.equal(g.humanStarts, 14572)
+  assert.equal(g.humanCompletes, 13924)
+})
+
+test('buildSolverHumanGlance(): humanFails is a real 0 when there are NO solver_failed rows at all (true zero, not unattributable)', () => {
+  const rows = [
+    { eventName: 'solver_start', craftKind: 'normal', source: 'user', count: 100 },
+    { eventName: 'solver_complete', craftKind: 'normal', source: 'user', count: 96 },
+    // no solver_failed rows in this window — nobody failed, human or machine.
+  ]
+  const g = buildSolverHumanGlance(rows)
+  assert.equal(g.humanFails, 0)
+  assert.notEqual(g.humanFails, undefined)
+})
+
+test('buildSolverHumanGlance(): humanFails resumes being a real number the moment ANY solver_failed row carries real taxonomy (post-#198-deploy self-heal)', () => {
+  const rows = [
+    { eventName: 'solver_start', craftKind: 'normal', source: 'user', count: 100 },
+    { eventName: 'solver_complete', craftKind: 'normal', source: 'user', count: 96 },
+    // Mostly still the old, un-attributable pre-deploy shape...
+    { eventName: 'solver_failed', craftKind: '(not set)', source: '(not set)', count: 10 },
+    // ...but ONE post-deploy human failure has landed, carrying real taxonomy.
+    { eventName: 'solver_failed', craftKind: 'expert', source: 'user', count: 1 },
+  ]
+  const g = buildSolverHumanGlance(rows)
+  assert.equal(g.humanFails, 1, 'the single attributable row makes attribution possible again — no manual unlock needed')
+  assert.notEqual(g.humanFails, undefined)
+})
+
+test('buildSolverHumanGlance(): a machine-sourced (but taxonomy-carrying) solver_failed row also counts as "attributable" even though it contributes 0 to humanFails', () => {
+  const rows = [
+    { eventName: 'solver_start', craftKind: 'normal', source: 'user', count: 100 },
+    { eventName: 'solver_complete', craftKind: 'normal', source: 'user', count: 96 },
+    // Post-deploy machine failure — carries real craft_kind, but source:'machine'
+    // means it's excluded from the human sum. Attribution is still "working"
+    // here (we KNOW this one is machine, not "we can't tell"), so a resulting
+    // human count of 0 is legitimate, not a data-availability gap.
+    { eventName: 'solver_failed', craftKind: 'quick', source: 'machine', count: 4 },
+  ]
+  const g = buildSolverHumanGlance(rows)
+  assert.equal(g.humanFails, 0)
+  assert.notEqual(g.humanFails, undefined)
 })

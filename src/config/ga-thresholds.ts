@@ -87,16 +87,32 @@ export const GA_THRESHOLD_RULES: Rule[] = [
     cat: 'A',
     dir: 'high',
     threshold: 0.02,
-    pick: (b) => ({ obs: b.glance.solver.fails, n: b.glance.solver.starts }),
+    pick: (b) => {
+      // `human*` 欄位是 v2-additive optional（#200）——gh-data/history/ 下的舊快照沒有這幾欄
+      // 且不會回填，guard 讓那些快照落到 `state: 'absent'`，不讓 evaluate() 的迴圈整圈拋錯
+      // （#201 review B2 踩過的坑，這裡沿用同一個防守寫法）。
+      const { humanFails, humanStarts } = b.glance.solver
+      if (humanFails == null || humanStarts == null) return undefined
+      return { obs: humanFails, n: humanStarts }
+    },
     label: 'solver 失敗率',
     nextStep: '看失敗原因（reason）分佈，找出主導的失敗類型',
     anchor: '#chart-funnels',
     actionable: true,
     trusted: false,
     note:
-      '分母 `solver_start` 含機器迴圈（batch-optimizer / buff-recommender 等），且與完成率共用同一個' +
-      '污染分母（#181 對地圖意涵第 3 點、#183 決定 4、#187）。等 #200（人機分離 + `glance.solver` 人類面' +
-      '四欄）落地後改吃 `humanFails` / `humanStarts` 並解掛 trusted。',
+      '分母已切到人類面（#200）：`isMachineSolveRow()` 判別式（`craft_kind` 缺席 `(not set)`/`\'\'`' +
+      ' OR `source === \'machine\'`）排除 batch-optimizer / buff-recommender / meld-advisor 的機器迴圈後，' +
+      '改吃 `humanFails` / `humanStarts`，解掉與完成率共用的污染分母（#181 對地圖意涵第 3 點、#183 決定 4、' +
+      '#187）。但 trusted 仍為 false，卡住的是分子不是分母：`solver_failed` 從沒帶過 taxonomy（#189 決定 3），' +
+      '目前每一筆 `solver_failed` 都會被判成機器，`humanFails` 結構上恆為「無法歸戶」——' +
+      '`buildSolverHumanGlance()`（ga-analyze.mjs）偵測到這個情況時回傳 `undefined` 而非 0，讓這條規則落在' +
+      '`state: absent`，不會偽裝成「失敗率 0%」的假綠燈（真實 28d 探測：obs=0/n=14572，若沒有這層防守會' +
+      '誤報 clear——見 #200 review 抓到的迴歸）。`n ≥ 30` 這個下界在這裡擋不住：`n` 是 `humanStarts`（已破萬），' +
+      '硬下界從一開始就過了，真正卡住的是資料本身能不能歸戶，不是樣本量。' +
+      '解除條件：#198 的 client 修正部署上線、`solver_failed` 開始帶 `source`/`craft_kind` 後，' +
+      '`humanFails` 會立刻停止回傳 `undefined`（不需要等 28 天，新事件即時生效）；但 `trusted` 仍要等維護者' +
+      '手動確認部署已生效、資料看起來合理後才翻成 `true`，不會自動解鎖。',
   },
   {
     id: 'api.universalisRealFailRate',
@@ -159,15 +175,22 @@ export const GA_THRESHOLD_RULES: Rule[] = [
     cat: 'B',
     dir: 'low',
     threshold: 0.1,
-    pick: (b) => ({ obs: b.simulatorFunnel.macroCopy.count, n: b.glance.solver.completes }),
+    pick: (b) => {
+      // `humanCompletes` 是 v2-additive optional（#200）——guard 同 solver.failRate 上方。
+      const n = b.glance.solver.humanCompletes
+      if (n == null) return undefined
+      return { obs: b.simulatorFunnel.macroCopy.count, n }
+    },
     label: '巨集複製率',
     nextStep: '巨集複製率低代表模擬器產出沒被使用，看模擬器→巨集匯出漏斗找斷點',
     anchor: '#chart-sim',
     actionable: true,
     trusted: false,
     note:
-      '#180 第 5 項：三條複製路徑只埋了一條，分子被低估。分母 `solver.completes` 也含機器迴圈，' +
-      '且一旦人機分離改用 `humanCompletes`，率會從 2.96% 上跳到人類基準（#189 已實測，避免用全量分母稀釋一半）。',
+      '分母已切到人類面（#200，`humanCompletes`），不再用含機器迴圈的 `solver.completes`——率因此從' +
+      '稀釋過的 2.96% 上跳到人類基準（#189 已實測）。trusted 仍為 false：卡在分子，不是分母——#180 第 5 項' +
+      '的三條複製路徑合併（#198）已 merge 但尚未 deploy，需再等 28 天暗期資料重新累積才能解掛（#187 ⚑ ' +
+      '解掛時序總表）。',
   },
   {
     id: 'funnel.pageDropoff',
