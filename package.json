@@ -23,7 +23,8 @@
     "sync-tesseract": "node scripts/sync-tesseract-worker.mjs",
     "bench:solver": "node scripts/dev/bench-solver.mjs --dataset=dataset-3 --csv",
     "bench:solver:single": "node scripts/dev/bench-solver.mjs --dataset=dataset-3 --threads=1",
-    "ga:analyze": "node scripts/dev/ga-analyze.mjs"
+    "ga:analyze": "node scripts/dev/ga-analyze.mjs",
+    "ga:build-trend": "node --experimental-strip-types scripts/dev/ga-build-trend.mjs"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.0",
