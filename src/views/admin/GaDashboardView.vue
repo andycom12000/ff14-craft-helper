@@ -8,7 +8,6 @@ import { buildTodoLedger } from '@/components/ga-dashboard/todo-select'
 import type { WindowKey } from '@/types/ga-snapshot'
 import { fmtPct } from '@/components/ga-dashboard/formatters'
 import { deriveChartFlag, isMetricUntrusted } from '@/components/ga-dashboard/flag-derive'
-import { GA_THRESHOLD_RULES } from '@/config/ga-thresholds'
 
 import HeroBand from '@/components/ga-dashboard/pieces/HeroBand.vue'
 import TodoLedger from '@/components/ga-dashboard/pieces/TodoLedger.vue'
