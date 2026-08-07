@@ -123,6 +123,39 @@ describe('evaluateBuffRecommendation', () => {
     expect(result!.affectedRecipes).toHaveLength(1)
   })
 
+  it('clears the ceiling gate for a progress-bound recipe via the craftsmanship probe', async () => {
+    // Base craftsmanship is 4000. The control+CP probe (椒麻鰻魚 + 魔匠藥液)
+    // leaves it untouched, so a gate above 4000 is unreachable on that axis.
+    // Only 巧克力奶油蛋糕 HQ (+240) + 名匠藥液 HQ (+63) = 4303 clears it —
+    // the NQ pair tops out at 4242.
+    const CRAFTSMANSHIP_GATE = 4300
+    vi.mocked(simulateCraft).mockImplementation((config: any) => Promise.resolve({
+      progress: config.craftsmanship >= CRAFTSMANSHIP_GATE ? 3500 : 2000,
+      max_progress: 3500,
+      quality: 7200,
+      max_quality: 7200,
+    } as any))
+    vi.mocked(solveCraft).mockResolvedValue({
+      actions: ['x'], progress: 3500, quality: 7200, steps: 1,
+    } as any)
+
+    const craftsmanshipPrices = new Map(priceMap)
+    craftsmanshipPrices.set(44088, { minPriceNQ: 800, minPriceHQ: 3200 } as MarketData)
+    craftsmanshipPrices.set(44167, { minPriceNQ: 400, minPriceHQ: 1700 } as MarketData)
+
+    const result = await evaluateBuffRecommendation(
+      [], new Set(), () => mockGearset, craftsmanshipPrices, () => false,
+      undefined, [makeDeficitResult(mockRecipe, 0)],
+    )
+
+    expect(result).not.toBeNull()
+    expect(result!.enabledRecipes).toHaveLength(1)
+    expect(result!.food?.buff.id).toBe(44088)
+    expect(result!.food?.isHq).toBe(true)
+    expect(result!.medicine?.buff.id).toBe(44167)
+    expect(result!.medicine?.isHq).toBe(true)
+  })
+
   it('returns null when cancelled', async () => {
     const result = await evaluateBuffRecommendation(
       [makeDeficitResult(mockRecipe, 1000)],

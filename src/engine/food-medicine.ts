@@ -88,6 +88,9 @@ export const COMMON_FOODS: FoodBuff[] = [
   },
   {
     // ilvl 750 — 目前 CP 上限最高的製作食物
+    // TODO: 繁中名稱待官方確認。TC dump（ffxiv-datamining-tw）目前停在 7.2，
+    // 這筆是空白列，此處採國服官方譯名的繁體寫法。BuffRecommendationCard 的
+    // copyName() 會把這個字串複製給使用者貼進市場板搜尋，若官方譯名不同會搜不到。
     id: 46253,
     name: '椒麻鰻魚 HQ',
     control: { percent: 5, max: 115 },
