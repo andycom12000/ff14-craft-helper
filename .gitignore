@@ -66,6 +66,7 @@ tmp-compare/
 public/data/ga-snapshot.json
 public/data/ga-history/
 public/data/ga-trends.json
+public/data/ga-trends-7d.json
 
 # GA dashboard ad-hoc diagnostic script (kept locally, not for repo)
 scripts/dev/simulator-funnel.mjs

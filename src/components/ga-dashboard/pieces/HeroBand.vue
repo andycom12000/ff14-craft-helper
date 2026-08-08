@@ -14,11 +14,19 @@ const g = computed(() => bundle.value.glance)
 const fmt = (n: number) => n.toLocaleString('en-US')
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`
 
-// The four readout cells — spec US #17 also wants each cell to carry a
-// week-over-week delta + 7-day sparkline (p10–p90 band, threshold line).
-// That needs the trend file (spec §A4), which this branch doesn't produce
-// yet — SLOT FOR FUTURE TICKET: a `<HeroTrend>` (or similar) mounts inside
-// `.readout dd .trend-slot` once the trend file + composable land.
+// The four readout cells — #197 originally left a "SLOT FOR FUTURE TICKET"
+// note here assuming spec US #17 (trend trio: current value + WoW delta +
+// 7-day sparkline) would eventually mount on the hero cells too. That was a
+// misreading of the spec: US #17 says "我想在**首屏的 ledger**……"（首屏 ledger,
+// not hero）, and §E2 describes the hero band itself as "一排四格等寬讀數"
+// (a row of four monospace readouts) — explicitly not a ledger. US #17 has
+// since been delivered on `RegionSplitLedger.vue` (issue #207, three-piece
+// trend on every row incl. the observation-layer metrics). There is no
+// future ticket that will fill a `.trend-slot` here — the hero band's four
+// cells stay as plain current-value readouts, out of US #17's scope by the
+// spec's own wording. Do not add trend widgets to this component on the
+// strength of this comment; if that's ever wanted it needs its own decision,
+// not a leftover hook from a pre-#207 misreading.
 const readouts = computed(() => [
   { key: 'active-users', label: 'ACTIVE USERS', value: fmt(g.value.activeUsers.total), note: '總活躍使用者' },
   { key: 'returning', label: 'RETURNING', value: pct(g.value.activeUsers.returningPct), note: '回訪占比' },

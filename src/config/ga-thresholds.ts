@@ -178,6 +178,34 @@ export const GA_THRESHOLD_RULES: Rule[] = [
     note: '歷史 p75 85.8% —— 做得到過（#181 決定 2 / 門檻定義表 B 類）',
   },
   {
+    // #207：首屏 RegionSplitLedger「Solver 吞吐」列的趨勢三件組（當期值 + WoW + 7d sparkline）
+    // 需要一個掛在 `completePct` 本身的規則——`solver.failRate`（上方 A 類）分母已切到人類面
+    // （#200），但 `completePct` 沿用的仍是含機器迴圈的 `starts`/`completes`（#181 探測：71 天有
+    // 63 天 >100%）。這條規則刻意 **不** 重新計算人類分母（那是 `solver.failRate` 的責任，兩者是
+    // 兩個不同的污染修復——分子污染 vs 分母污染，見該規則的長註解），而是原封不動地把這個已知
+    // 有問題的數字掛進判定引擎，讓 `trusted:false` 徽章有一個真正對應的規則可以推導（#184 決議：
+    // 「71 天的 28d 序列中位數是 101.4%……這是 trusted:false 徽章該掛在那裡的直接證據」）。
+    // `anchor` 沿用 `solver.failRate` 的 `#chart-funnels`——同一張漏斗圖上的 SOLVER_COMPLETE 節點。
+    // 刻意不加進 `flag-derive.ts` 的 `CHART_METRICS['chart-funnels']`（該檔案的既有註解明講
+    // "solver.completePct……從未被判定過,所以不參與這裡的可信/不可信推導"）——本規則只服務
+    // RegionSplitLedger 的趨勢顯示，擴大 chart-funnels 徽章的判定粒度是另一張票的範圍。
+    id: 'solver.completePct',
+    cat: 'B',
+    dir: 'low',
+    threshold: 0.95,
+    pick: (b) => ({ obs: b.glance.solver.completes, n: b.glance.solver.starts }),
+    label: 'Solver 完成率',
+    nextStep: '分母含機器迴圈污染，完成率可能失真——待人類分母（#200 同款過濾）套用到這條規則後解掛',
+    anchor: '#chart-funnels',
+    actionable: true,
+    trusted: false,
+    note:
+      '門檻沿用 #184 原型（`solverCompletePct`，th 0.95 dir low）。trusted:false：分母含 batch-optimizer/' +
+      'buff-recommender/meld-advisor 的機器迴圈（同 `solver.failRate` 分母污染的成因），71 天 28d 序列' +
+      '中位數 101.4%、p90 105.3%（#181 探測）——這條規則的存在本身就是那個污染的直接證據，不是待修的' +
+      '前提。',
+  },
+  {
     id: 'bom.handoffRate',
     cat: 'B',
     dir: 'low',
@@ -376,6 +404,80 @@ export const GA_THRESHOLD_RULES: Rule[] = [
     note:
       'Google 官方標準（#181 決定 2 / 門檻定義表 D 類）。今天 91–97% good 遠超門檻，是刻意留著的絆線——' +
       '真跌破才是該修的東西（#189 決定 5）。',
+  },
+
+  // ---------------------------------------------------------------------
+  // 觀測層 · 首屏 RegionSplitLedger 專用（#207，#184 決定 3）
+  //
+  // `actionable: false`——永遠不進「本期待辦」，`evaluate()` 仍會吐出這些規則的判定（含
+  // streak/lastFire），只是 `fired` 恆為 false（`buildVerdict()` 的 not-actionable 閘門）。
+  // 存在的唯一理由是首屏 ledger 的趨勢三件組（當期值 + WoW + 7d sparkline）需要一個 rule id
+  // 才能掛進 `trends.json`（`ga-build-trend.mjs` 逐條 `GA_THRESHOLD_RULES` 收集歷史序列，不是
+  // 另開一條平行管線）——SAB 不可用率正是 #184 決議原文點名「唯一畫出完整故事的那條線」的
+  // 觀測層示範案例，但 #205 當時因為「沒有圖可以掛這條規則的 anchor」而沒有收進來（見
+  // `ga-evaluate.regression.spec.ts` 的 `test.sabUnavailRate7d` ad-hoc 規則的檔頭註解）——
+  // #207 補上真正的圖（RegionSplitLedger 本身）之後，這裡把它們轉正。
+  //
+  // `threshold` 刻意留空（不是某個永遠不會被跨過的魔術數字）：這三條在 #184 原型（`build-proto.mjs`
+  // 的 META 表）裡就是 `th: null`——它們不是「門檻還沒訂」，是「這個指標本來就不打算被判定，只
+  // 留走勢」，跟 C 類 `adoption.*` 兩條「暗期待資料」的空白門檻語意不同，但共用同一個
+  // `threshold === undefined → state: 'absent'` 缺席路徑（`buildVerdict()`）——`evaluate()` 不需要
+  // 分辨這兩種「留空」的動機，呈現層（`region-ledger-trend.ts`）本來就繞過 `Verdict.obs/n`
+  // （threshold 缺席時恆為 null，見 `buildVerdict()` 的「缺席之二」分支），直接呼叫這幾條規則自己的
+  // `pick()` 取當期值，`Verdict` 只用來讀 `state`（這裡恆為 `'absent'`，呈現層對應成「不上色，
+  // 只留走勢」，正是 #184 決議「觀測層指標……不上色、不判定，只留走勢」那句話）。
+  //
+  // `anchor` 一律指向既有圖表——這幾條永不進待辦、`anchor` 因此永遠不會被 `TodoRowLine.vue`
+  // 渲染成 deep-link，純粹是為了滿足 `ga-thresholds.spec.ts` 的「anchor 對齊實際 chart id」回歸
+  // 測試與型別要求，選最貼題的既有圖：`activeUsers.*` 指首屏之外唯一討論使用者行為的頁面圖
+  // （`#chart-pages`）；`infra.sabUnavailableRate` 指 `#chart-failures`——`FailuresBar` 的資料模型
+  // 本就包含 `event: 'wasm', reason: 'SAB unavailable'` 這一類列（見 `charts-v2-smoke.test.ts` 的
+  // fixture），SAB 失敗本來就是那張圖涵蓋的故事之一。
+  {
+    // 活躍使用者原始計數——不是比例，`pick()` 的 `n: 1` 是刻意的形狀妥協：`Pick`/`TrendPoint`
+    // 全庫只有 `{obs, n}` 一種形狀（#191 決定 5：Wilson CI 吃 `(obs, n)`），沒有「純數值、無分母」
+    // 的第二種點型別。`n: 1` 讓 `obs/n === obs`（sparkline 直接讀 `obs` 當作原始計數），同時讓
+    // `n < MIN_DENOMINATOR`（30）恆成立——WoW 顯著性檢定（`wowSignificant()`）與 Wilson 分類都會
+    // 在算任何統計量之前就被這個硬下界擋下，不會對一個「樣本數=1」的假分母跑出無意義的信賴區間。
+    // 這正是這一列的正確行為：一個原始計數本來就沒有 Wilson CI 可言，WoW 應該恆為留白，不是恰好
+    // 留白。
+    id: 'activeUsers.total',
+    cat: 'D',
+    dir: 'low',
+    pick: (b) => ({ obs: b.glance.activeUsers.total, n: 1 }),
+    label: '活躍使用者',
+    nextStep: '',
+    anchor: '#chart-pages',
+    actionable: false,
+    trusted: true,
+    note: '純觀測——原始計數，無比例可言。#184 原型 `activeUsers`，`th: null`。',
+  },
+  {
+    id: 'activeUsers.returningPct',
+    cat: 'D',
+    dir: 'low',
+    pick: (b) => ({ obs: b.glance.activeUsers.returning, n: b.glance.activeUsers.total }),
+    label: '回訪率',
+    nextStep: '',
+    anchor: '#chart-pages',
+    actionable: false,
+    trusted: true,
+    note: '純觀測，無門檻。#184 原型 `returningPct`，`th: null`。',
+  },
+  {
+    id: 'infra.sabUnavailableRate',
+    cat: 'D',
+    dir: 'high',
+    pick: (b) => ({ obs: b.glance.infra.sabUnavailable, n: b.glance.activeUsers.total }),
+    label: 'SAB 不可用率',
+    nextStep: '',
+    anchor: '#chart-failures',
+    actionable: false,
+    trusted: true,
+    note:
+      '純觀測，無門檻。#184 原型 `sabUnavailPct`，`th: null`——這條是 #184 決議原文點名「唯一畫出' +
+      '完整故事的那條線」的示範案例（SAB 修復期間 7d 視窗連亮 7 天後準確安靜，見' +
+      '`ga-evaluate.regression.spec.ts` 的回歸測試）。',
   },
 ]
 

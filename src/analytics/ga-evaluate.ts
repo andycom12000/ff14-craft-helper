@@ -31,8 +31,12 @@ import { CATEGORY_ORDER, type Category, type Direction, type Pick, type Rule } f
 /** Wilson score interval 用的 z 值，對應 95% 信賴區間（#181 決定 3 `wilson95`）。 */
 const Z_95 = 1.96
 
-/** 硬下界：分母低於此值一律判為資料不足，不論 CI 算出什麼（#181 決定 3）。 */
-const MIN_DENOMINATOR = 30
+/**
+ * 硬下界：分母低於此值一律判為資料不足，不論 CI 算出什麼（#181 決定 3）。匯出給
+ * `wowSignificant()`（本檔下方，#184 決定 2）與呈現層（`region-ledger-trend.ts`，#207）共用同一個
+ * 下界常數，不要各自重新宣告一份 30。
+ */
+export const MIN_DENOMINATOR = 30
 
 export type VerdictState = 'fire' | 'grey' | 'clear' | 'absent'
 
@@ -104,6 +108,43 @@ export function wilsonInterval(obs: number, n: number): [number, number] {
   const lo = (center - margin) / denom
   const hi = (center + margin) / denom
   return [Math.max(0, lo), Math.min(1, hi)]
+}
+
+/**
+ * 週對週（WoW）顯著性判定的回傳形狀——#184 決定 2，供 RegionSplitLedger 的趨勢三件組
+ * （`region-ledger-trend.ts`，#207）使用。這是一個**兩樣本** CI 重疊檢定，跟 `classify()`
+ * 「單一 CI 對門檻」的檢定是兩回事，不要混用：`classify()` 回答「這個數字現在壞不壞」，
+ * `wowSignificant()` 回答「這個數字動了嗎，動的那塊有效嗎」。
+ */
+export interface WowResult {
+  /** 當期比率 − 前期比率，帶號（正＝上升）。`dir` 無關——正負號永遠是原始比率的差，不依規則
+   *  方向正規化，呈現層自行依 `dir` 判斷這個方向是變好還是變壞。 */
+  delta: number
+  /** 兩段 95% Wilson CI 是否不重疊——#181 決定 3 的同一把尺，鏡射成兩樣本版本（#184 決定 2 已
+   *  拿 71 天真實資料驗過：可信指標的誤報壓到 0–11%，SAB 修復期間連續 7 天判真、第 8 天起自動安靜
+   *  且終身不再判真——見 `ga-evaluate.regression.spec.ts` 的 `test.sabUnavailRate7d`）。 */
+  significant: boolean
+  curRate: number
+  prevRate: number
+}
+
+/**
+ * 非重疊 WoW：`cur`（當期 7d 視窗）vs `prev`（往前 7 個序列位置的 7d 視窗，即「上一個不重疊的
+ * 7 天」）。任一邊缺席（`null`，cron 漏跑或序列還沒長到那麼長）或分母 < `MIN_DENOMINATOR`
+ * 一律回傳 `null`——呼叫端把 `null` 呈現成「留白」，不是「無變化」（#184 決定 2：「不顯著就留白
+ * ——看到一個數字時它必須是真的」）。**呼叫端負責從歷史序列裡挑出 `cur`/`prev` 這兩個點**（見
+ * `region-ledger-trend.ts` 的 `pickWowPair()`）——這支函式本身不知道「7 天」的間隔是什麼，只知道
+ * 怎麼比較兩個已經選好的 `(obs, n)` 點，維持與 `wilsonInterval()`/`classify()` 一樣的單一職責。
+ */
+export function wowSignificant(cur: TrendPoint, prev: TrendPoint): WowResult | null {
+  if (cur === null || prev === null) return null
+  if (cur.n < MIN_DENOMINATOR || prev.n < MIN_DENOMINATOR) return null
+  const curRate = cur.obs / cur.n
+  const prevRate = prev.obs / prev.n
+  const [curLo, curHi] = wilsonInterval(cur.obs, cur.n)
+  const [prevLo, prevHi] = wilsonInterval(prev.obs, prev.n)
+  const significant = curLo > prevHi || curHi < prevLo
+  return { delta: curRate - prevRate, significant, curRate, prevRate }
 }
 
 /**
