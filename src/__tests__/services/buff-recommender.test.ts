@@ -10,15 +10,31 @@ vi.mock('@/solver/worker', () => ({
 }))
 
 import { generateCandidateCombos, evaluateBuffRecommendation } from '@/services/buff-recommender'
+import { COMMON_FOODS, COMMON_MEDICINES } from '@/engine/food-medicine'
 import { simulateCraft, solveCraft } from '@/solver/worker'
 
 const mockGearset: GearsetStats = { level: 100, craftsmanship: 4000, control: 3800, cp: 600, isSpecialist: false }
 
 describe('generateCandidateCombos', () => {
-  it('generates 44 combos (excluding null/null)', () => {
+  it('generates every food × medicine combo (excluding null/null)', () => {
     const combos = generateCandidateCombos()
-    expect(combos.length).toBe(44)
+    // Each buff yields an HQ and an NQ variant, plus the "no buff" slot.
+    const expected =
+      (COMMON_FOODS.length * 2 + 1) * (COMMON_MEDICINES.length * 2 + 1) - 1
+    expect(combos.length).toBe(expected)
     expect(combos.every(c => c.food !== null || c.medicine !== null)).toBe(true)
+  })
+
+  it('covers each consumable in both HQ and NQ', () => {
+    const combos = generateCandidateCombos()
+    for (const f of COMMON_FOODS) {
+      expect(combos.some(c => c.food?.buff.id === f.id && c.food.isHq)).toBe(true)
+      expect(combos.some(c => c.food?.buff.id === f.id && !c.food.isHq)).toBe(true)
+    }
+    for (const m of COMMON_MEDICINES) {
+      expect(combos.some(c => c.medicine?.buff.id === m.id && c.medicine.isHq)).toBe(true)
+      expect(combos.some(c => c.medicine?.buff.id === m.id && !c.medicine.isHq)).toBe(true)
+    }
   })
 
   it('all combos have resolveBuff-generated buffs', () => {
@@ -105,6 +121,129 @@ describe('evaluateBuffRecommendation', () => {
     expect(result!.buffCost).toBeGreaterThan(0)
     expect(result!.hqMaterialSavings).toBeGreaterThan(result!.buffCost)
     expect(result!.affectedRecipes).toHaveLength(1)
+  })
+
+  it('clears the ceiling gate for a progress-bound recipe via the craftsmanship probe', async () => {
+    // At 4000/3800/600 the control probe (鮭魚乾 + 巨匠藥液) reaches
+    // craftsmanship 4098 and the CP probe (椒麻鰻魚 + 魔匠藥液) only 4000, so a
+    // gate above 4098 is unreachable on either. Only the craftsmanship probe —
+    // 巧克力奶油蛋糕 HQ (+240) + 名匠藥液 HQ (+63) = 4303 — clears it; the NQ
+    // pair tops out at 4242.
+    const CRAFTSMANSHIP_GATE = 4300
+    vi.mocked(simulateCraft).mockImplementation((config: any) => Promise.resolve({
+      progress: config.craftsmanship >= CRAFTSMANSHIP_GATE ? 3500 : 2000,
+      max_progress: 3500,
+      quality: 7200,
+      max_quality: 7200,
+    } as any))
+    vi.mocked(solveCraft).mockResolvedValue({
+      actions: ['x'], progress: 3500, quality: 7200, steps: 1,
+    } as any)
+
+    const craftsmanshipPrices = new Map(priceMap)
+    craftsmanshipPrices.set(44088, { minPriceNQ: 800, minPriceHQ: 3200 } as MarketData)
+    craftsmanshipPrices.set(44167, { minPriceNQ: 400, minPriceHQ: 1700 } as MarketData)
+
+    const result = await evaluateBuffRecommendation(
+      [], new Set(), () => mockGearset, craftsmanshipPrices, () => false,
+      undefined, [makeDeficitResult(mockRecipe, 0)],
+    )
+
+    expect(result).not.toBeNull()
+    expect(result!.enabledRecipes).toHaveLength(1)
+    expect(result!.food?.buff.id).toBe(44088)
+    expect(result!.food?.isHq).toBe(true)
+    expect(result!.medicine?.buff.id).toBe(44167)
+    expect(result!.medicine?.isHq).toBe(true)
+  })
+
+  it('clears the ceiling gate for a CP-bound recipe via the CP probe', async () => {
+    // Regression guard for the additive scorer. At 4000/3800/600 a `control+cp`
+    // aggregate picks 鮭魚乾 + 巨匠藥液 (cp 600) because +215 control outweighs
+    // the CP it gives up, and even the pre-existing best (犎牛牛排 + 巨匠藥液)
+    // only reached 692. The gate sits at 725 so that 椒麻鰻魚 HQ + 魔匠藥液 HQ
+    // (727) is the only combo in the whole table that clears it on stats alone
+    // — 酸檸檬醃魚 HQ + 魔匠藥液 HQ is the runner-up at 723 and is priced here
+    // deliberately, so the assertion below cannot be flipped by someone adding
+    // a price for it to the shared fixture.
+    const CP_GATE = 725
+    vi.mocked(simulateCraft).mockImplementation((config: any) => Promise.resolve({
+      progress: 3500,
+      max_progress: 3500,
+      quality: config.cp >= CP_GATE ? 7200 : 5000,
+      max_quality: 7200,
+    } as any))
+    vi.mocked(solveCraft).mockResolvedValue({
+      actions: ['x'], progress: 3500, quality: 7200, steps: 1,
+    } as any)
+
+    const cpPrices = new Map(priceMap)
+    cpPrices.set(46253, { minPriceNQ: 900, minPriceHQ: 3600 } as MarketData)
+    // Priced far below 46253, so if the gate ever stopped discriminating on
+    // stats this test would fail loudly on the cheaper runner-up rather than
+    // pass for the wrong reason.
+    cpPrices.set(44842, { minPriceNQ: 100, minPriceHQ: 200 } as MarketData)
+
+    const result = await evaluateBuffRecommendation(
+      [], new Set(), () => mockGearset, cpPrices, () => false,
+      undefined, [makeDeficitResult(mockRecipe, 0)],
+    )
+
+    expect(result).not.toBeNull()
+    expect(result!.enabledRecipes).toHaveLength(1)
+    expect(result!.food?.buff.id).toBe(46253)
+    expect(result!.medicine?.buff.id).toBe(44169)
+  })
+
+  it('clears the ceiling gate for a balanced-quality recipe via the aggregate probe', async () => {
+    // Regression guard for dropping the aggregate scorer. At 2500/2000/500 the
+    // best control+cp combo is 椒麻鰻魚 HQ + 巨匠藥液 HQ (2163 / 600), which
+    // tops neither axis alone — control-max is 鮭魚乾 + 巨匠藥液 (2243 / 500)
+    // and cp-max is 椒麻鰻魚 + 魔匠藥液 (2100 / 627). A recipe needing both
+    // control ≥ 2150 and cp ≥ 600 is therefore reachable only by the aggregate.
+    const midGearset: GearsetStats = {
+      level: 100, craftsmanship: 2500, control: 2000, cp: 500, isSpecialist: false,
+    }
+    vi.mocked(simulateCraft).mockImplementation((config: any) => Promise.resolve({
+      progress: 3500,
+      max_progress: 3500,
+      quality: config.control >= 2150 && config.cp >= 600 ? 7200 : 5000,
+      max_quality: 7200,
+    } as any))
+    vi.mocked(solveCraft).mockResolvedValue({
+      actions: ['x'], progress: 3500, quality: 7200, steps: 1,
+    } as any)
+
+    const balancedPrices = new Map(priceMap)
+    balancedPrices.set(46253, { minPriceNQ: 900, minPriceHQ: 3600 } as MarketData)
+
+    const result = await evaluateBuffRecommendation(
+      [], new Set(), () => midGearset, balancedPrices, () => false,
+      undefined, [makeDeficitResult(mockRecipe, 0)],
+    )
+
+    expect(result).not.toBeNull()
+    expect(result!.enabledRecipes).toHaveLength(1)
+    expect(result!.food?.buff.id).toBe(46253)
+    expect(result!.medicine?.buff.id).toBe(44168)
+  })
+
+  it('stops probing the ceiling as soon as the run is cancelled', async () => {
+    // Each probe can cost a full solve; cancellation must not have to wait them out.
+    vi.mocked(simulateCraft).mockResolvedValue({
+      progress: 3500, max_progress: 3500, quality: 5000, max_quality: 7200,
+    } as any)
+    vi.mocked(solveCraft).mockResolvedValue({
+      actions: ['x'], progress: 3500, quality: 5000, steps: 1,
+    } as any)
+
+    const result = await evaluateBuffRecommendation(
+      [], new Set(), () => mockGearset, priceMap, () => true,
+      undefined, [makeDeficitResult(mockRecipe, 0)],
+    )
+
+    expect(result).toBeNull()
+    expect(vi.mocked(solveCraft)).not.toHaveBeenCalled()
   })
 
   it('returns null when cancelled', async () => {

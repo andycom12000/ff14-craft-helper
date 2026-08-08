@@ -17,7 +17,11 @@ export interface BuffCombo {
 }
 
 /**
- * Generate all 44 valid food/medicine combinations (excluding null+null).
+ * Generate every valid food × medicine combination (excluding null+null).
+ *
+ * Each buff contributes an HQ and an NQ variant, so the count is
+ * `(foods * 2 + 1) * (medicines * 2 + 1) - 1` and grows whenever a new
+ * consumable is added to COMMON_FOODS / COMMON_MEDICINES.
  */
 export function generateCandidateCombos(): BuffCombo[] {
   const foods: BuffCombo['food'][] = [null]
@@ -41,6 +45,33 @@ export function generateCandidateCombos(): BuffCombo[] {
   }
   return combos
 }
+
+/**
+ * Scoring functions used to pick the ceiling pre-check probes.
+ *
+ * Neither per-axis nor aggregate scoring is sufficient alone, so this keeps
+ * both and probes each winner:
+ *
+ * - The aggregate `control + cp` on its own lets a gain on one axis mask a
+ *   loss on the other. At 4000/3800/600, Salmon Jerky's +215 control outweighs
+ *   the 92 CP it gives up, so it picks a probe with 600 CP over one with 692
+ *   and a CP-bound recipe fails a gate it would otherwise clear. It also never
+ *   reaches the genuine max-CP combo (727).
+ * - The per-axis scorers on their own miss combos that are strongest on the
+ *   combined quality axis while topping neither axis alone. At 2500/2000/500
+ *   the best sum is 椒麻鰻魚 + 巨匠藥液 (2163/600); control-max picks
+ *   鮭魚乾 + 巨匠藥液 and cp-max picks 椒麻鰻魚 + 魔匠藥液, so it goes unprobed.
+ *
+ * Keeping all four makes the probe set a superset of what any single scorer
+ * would pick, so the gate is only ever more permissive. `ceilingProbes` dedups
+ * whenever two scorers land on the same combo.
+ */
+const CEILING_SCORERS: Array<(stats: EnhancedStats) => number> = [
+  stats => stats.control,
+  stats => stats.cp,
+  stats => stats.craftsmanship,
+  stats => stats.control + stats.cp,
+]
 
 /**
  * Apply a buff combo to base stats and return enhanced stats.
@@ -239,29 +270,49 @@ export async function evaluateBuffRecommendation(
   // reflect the stats the solver will actually see (ADR 0001).
   const baseStats: EnhancedStats = gearsetToBuffedStats(ceilingGearset, undefined)
 
-  // Step 0: stat ceiling pre-check on the primary target
+  // Step 0: stat ceiling pre-check on the primary target.
+  //
+  // One "best" combo is not enough. A recipe can be blocked by progress
+  // (craftsmanship-bound) just as easily as by quality (control/CP-bound) —
+  // `batch-optimizer` routes a canHq recipe into unachievableRecipes whenever
+  // isDoubleMax fails, whichever bar it missed. Craftsmanship-focused
+  // consumables never win a control+cp contest, so scoring on that alone would
+  // bail out before the only combos that could help are ever tried. Probe the
+  // ceiling once per binding constraint and let any probe clear the gate.
+  //
+  // Each probe can cost a full solve, so this bails on cancellation between
+  // probes — otherwise a user pressing cancel on the "no buff can help" path
+  // waits out every remaining solveCraftForRecipe round-trip.
   const allCombos = generateCandidateCombos()
-  let bestCeilingCombo: BuffCombo = allCombos[0]
-  let bestCeilingScore = 0
-  for (const combo of allCombos) {
-    const enhanced = applyCombo(baseStats, combo)
-    const score = enhanced.control + enhanced.cp
-    if (score > bestCeilingScore) {
-      bestCeilingScore = score
-      bestCeilingCombo = combo
+  const ceilingProbes: BuffCombo[] = []
+  for (const score of CEILING_SCORERS) {
+    let best: BuffCombo = allCombos[0]
+    let bestScore = -Infinity
+    for (const combo of allCombos) {
+      const value = score(applyCombo(baseStats, combo))
+      if (value > bestScore) {
+        bestScore = value
+        best = combo
+      }
+    }
+    if (!ceilingProbes.includes(best)) ceilingProbes.push(best)
+  }
+
+  let ceilingPass = false
+  for (const probe of ceilingProbes) {
+    if (isCancelled()) return null
+    if (await simulateWithBuffedStats(
+      ceilingTarget.recipe, ceilingGearset, probe, ceilingTarget.actions,
+    )) {
+      ceilingPass = true
+      break
+    }
+    if (await solveWithBuffedStats(ceilingTarget.recipe, ceilingGearset, probe)) {
+      ceilingPass = true
+      break
     }
   }
-  const ceilingSimPass = await simulateWithBuffedStats(
-    ceilingTarget.recipe, ceilingGearset, bestCeilingCombo, ceilingTarget.actions,
-  )
-  if (!ceilingSimPass) {
-    const ceilingSolvePass = await solveWithBuffedStats(
-      ceilingTarget.recipe, ceilingGearset, bestCeilingCombo,
-    )
-    if (!ceilingSolvePass) {
-      return null
-    }
-  }
+  if (!ceilingPass) return null
 
   // Step 2: generate, dedup, sort by price
   const candidates = dedupCombos(allCombos, baseStats, priceMap)
