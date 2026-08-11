@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { ref, nextTick } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 import type { MeldAdvice } from '@/services/meld-advisor'
@@ -43,6 +43,7 @@ import { useSimulator } from '@/composables/useSimulator'
 import { useRecipeStore, type Recipe } from '@/stores/recipe'
 import { useGearsetsStore } from '@/stores/gearsets'
 import { useSettingsStore } from '@/stores/settings'
+import { levelSyncTables, type LevelSyncTables, type RltRecord } from '@/services/local-data-source'
 
 const RECIPE: Recipe = {
   id: 1, itemId: 100, name: 'Parity', icon: '', job: 'CRP',
@@ -249,5 +250,169 @@ describe('useSimulator — session-only meld override (Slice C)', () => {
     expect(gearsets.gearsets.CRP.craftsmanship).toBe(4000)
     expect(gearsets.gearsets.BSM.craftsmanship).toBe(1000)
     expect(sim.meldOverride.value).toBeNull()
+  })
+})
+
+// #234 WP3: the composable is the "recipe × gearset" junction (ADR 0003) —
+// craftParams must reflect the SYNCED recipe (recipeLevelTable adjusted to
+// the current job's gearset level), regardless of the order the recipe and
+// gearset were set up in.
+describe('useSimulator — level-sync junction (#234)', () => {
+  // Real rlt/lvAdjust rows (same golden fixture as engine/__tests__/level-sync.spec.ts).
+  function makeLevelSyncTables(): LevelSyncTables {
+    const rlt = new Map<number, RltRecord>([
+      [560, {
+        classJobLevel: 90, stars: 0, difficulty: 3500, quality: 7200, durability: 80,
+        suggestedCraftsmanship: 2805, progressDivider: 130, qualityDivider: 115,
+        progressModifier: 90, qualityModifier: 80, conditionsFlag: 15,
+      }],
+      [660, {
+        classJobLevel: 94, stars: 0, difficulty: 4800, quality: 9400, durability: 80,
+        suggestedCraftsmanship: 3706, progressDivider: 152, qualityDivider: 132,
+        progressModifier: 100, qualityModifier: 100, conditionsFlag: 15,
+      }],
+      [690, {
+        classJobLevel: 100, stars: 0, difficulty: 6600, quality: 12000, durability: 80,
+        suggestedCraftsmanship: 4207, progressDivider: 170, qualityDivider: 150,
+        progressModifier: 90, qualityModifier: 75, conditionsFlag: 15,
+      }],
+    ])
+    const lvAdjust = new Array<number>(101).fill(0)
+    lvAdjust[90] = 560
+    lvAdjust[94] = 660
+    lvAdjust[100] = 690
+    return { rlt, lvAdjust }
+  }
+
+  // Level-synced recipe fixture: 木工, rlv 690 / Lv100 (ADR 0003's real-world
+  // pair), factors 61/48/50 → the 690 row folds to 4026/5760/40.
+  const SYNCED_RECIPE: Recipe = {
+    id: 900, itemId: 9000, name: 'Synced Carpentry Item', icon: '', job: 'CRP',
+    level: 100, stars: 0, canHq: true, materialQualityFactor: 75, amountResult: 1,
+    ingredients: [],
+    recipeLevelTable: {
+      classJobLevel: 100, stars: 0, difficulty: 4026, quality: 5760,
+      durability: 40, suggestedCraftsmanship: 4207,
+      progressDivider: 170, qualityDivider: 150,
+      progressModifier: 90, qualityModifier: 75,
+    },
+    rlv: 690,
+    maxAdjustableJobLevel: 100,
+    difficultyFactor: 61,
+    qualityFactor: 48,
+    durabilityFactor: 50,
+  }
+
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    localStorage.clear()
+    adviceRef.value = null
+    markStaleMock.mockClear()
+    runAdvisorMock.mockClear()
+  })
+
+  afterEach(() => {
+    levelSyncTables.value = null
+  })
+
+  it('gearset at Lv100 is an identity transform — craftParams keeps the unsynced difficulty', () => {
+    levelSyncTables.value = makeLevelSyncTables()
+    const gearsets = useGearsetsStore()
+    gearsets.updateGearset('CRP', { level: 100, craftsmanship: 4000, control: 3800, cp: 600 })
+    useRecipeStore().setRecipe(SYNCED_RECIPE)
+    const sim = useSimulator()
+
+    expect(sim.craftParams.value?.recipeLevelTable.difficulty).toBe(4026)
+  })
+
+  it('lowering the gearset to Lv94 re-syncs craftParams.recipeLevelTable', async () => {
+    levelSyncTables.value = makeLevelSyncTables()
+    const gearsets = useGearsetsStore()
+    gearsets.updateGearset('CRP', { level: 100, craftsmanship: 4000, control: 3800, cp: 600 })
+    useRecipeStore().setRecipe(SYNCED_RECIPE)
+    const sim = useSimulator()
+    expect(sim.craftParams.value?.recipeLevelTable.difficulty).toBe(4026)
+
+    gearsets.updateGearset('CRP', { level: 94, craftsmanship: 4000, control: 3800, cp: 600 })
+    await nextTick()
+
+    expect(sim.craftParams.value?.recipeLevelTable.difficulty).toBe(2928)
+    expect(sim.craftParams.value?.recipeLevelTable.quality).toBe(4512)
+    expect(sim.craftParams.value?.recipeLevelTable.durability).toBe(40)
+    expect(sim.craftParams.value?.crafterLevel).toBe(94)
+  })
+
+  // US15: operation order must not matter — load the recipe FIRST, then lower
+  // the gearset, and the sync must still land correctly (mirrors the test
+  // above, which lowers the gearset only after useSimulator() is constructed).
+  it('recipe loaded first, gearset lowered afterwards still syncs correctly (US15)', async () => {
+    levelSyncTables.value = makeLevelSyncTables()
+    const gearsets = useGearsetsStore()
+    gearsets.updateGearset('CRP', { level: 100, craftsmanship: 4000, control: 3800, cp: 600 })
+    useRecipeStore().setRecipe(SYNCED_RECIPE)
+    const sim = useSimulator()
+    // Recipe is already loaded and gearset already at 100 by this point —
+    // now change the gearset level, simulating a later user edit.
+    gearsets.updateGearset('CRP', { level: 94, craftsmanship: 4000, control: 3800, cp: 600 })
+    await nextTick()
+
+    expect(sim.craftParams.value?.recipeLevelTable.difficulty).toBe(2928)
+    expect(sim.craftParams.value?.crafterLevel).toBe(94)
+  })
+
+  // US6: a synced recipe's recipeLevelTable.classJobLevel tracks the gearset
+  // level it was synced against, so the 名匠洞察力 (TrainedEye) eligibility
+  // check `crafterLevel >= classJobLevel + 10` correctly stays false.
+  it('US6: synced recipeLevelTable.classJobLevel equals the gearset level', async () => {
+    levelSyncTables.value = makeLevelSyncTables()
+    const gearsets = useGearsetsStore()
+    gearsets.updateGearset('CRP', { level: 94, craftsmanship: 4000, control: 3800, cp: 600 })
+    useRecipeStore().setRecipe(SYNCED_RECIPE)
+    const sim = useSimulator()
+    await nextTick()
+
+    expect(sim.craftParams.value?.recipeLevelTable.classJobLevel).toBe(94)
+    expect(sim.craftParams.value?.crafterLevel).toBe(94)
+  })
+
+  // #234 fix follow-up: InitialQuality.vue used to read recipeStore.currentRecipe
+  // directly (the un-synced canonical recipe), bypassing this junction entirely.
+  // It's now wired to read useSimulator's `recipe` (already synced) instead —
+  // this seam checks the composable's half of that contract: whatever quality
+  // value a caller derives from the SYNCED recipe.value.recipeLevelTable.quality
+  // and pushes through onInitialQualityUpdate lands unmutated in
+  // craftParams.initialQuality, the payload actually handed to the solver.
+  it('#234: initialQuality fed to craftParams reflects the synced quality cap at a lowered gearset level', async () => {
+    levelSyncTables.value = makeLevelSyncTables()
+    const gearsets = useGearsetsStore()
+    gearsets.updateGearset('CRP', { level: 100, craftsmanship: 4000, control: 3800, cp: 600 })
+    useRecipeStore().setRecipe(SYNCED_RECIPE)
+    const sim = useSimulator()
+
+    gearsets.updateGearset('CRP', { level: 94, craftsmanship: 4000, control: 3800, cp: 600 })
+    await nextTick()
+
+    // Synced cap at Lv94 (see the resync test above) — distinct from the raw
+    // 5760 on SYNCED_RECIPE. If a caller fed the un-synced 5760-derived value
+    // instead, this assertion would catch it.
+    expect(sim.recipe.value?.recipeLevelTable.quality).toBe(4512)
+    sim.onInitialQualityUpdate(sim.recipe.value!.recipeLevelTable.quality)
+    await nextTick()
+
+    expect(sim.craftParams.value?.initialQuality).toBe(4512)
+  })
+
+  it('a plain (non-level-synced) recipe is unaffected by a gearset level change', async () => {
+    levelSyncTables.value = makeLevelSyncTables()
+    const gearsets = useGearsetsStore()
+    gearsets.updateGearset('CRP', { level: 100, craftsmanship: 4000, control: 3800, cp: 600 })
+    useRecipeStore().setRecipe(RECIPE) // RECIPE fixture has no maxAdjustableJobLevel
+    const sim = useSimulator()
+    const before = { ...sim.craftParams.value?.recipeLevelTable }
+
+    gearsets.updateGearset('CRP', { level: 50, craftsmanship: 4000, control: 3800, cp: 600 })
+    await nextTick()
+
+    expect(sim.craftParams.value?.recipeLevelTable).toEqual(before)
   })
 })

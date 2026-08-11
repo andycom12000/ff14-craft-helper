@@ -26,6 +26,8 @@ import { fetchItemLocationsBatch } from '@/services/item-locations'
 import { fetchZoneMetaBulk, fetchNpcNameBulk } from '@/services/zone-meta'
 import { loadAetherytes, getNearestAetheryte } from '@/services/aetherytes'
 import type { NpcPurchaseCandidate } from '@/stores/batch'
+import { syncRecipeToCrafterLevel } from '@/engine/level-sync'
+import { levelSyncTables } from '@/services/local-data-source'
 
 export interface RecipeOptimizeResult {
   recipe: Recipe
@@ -264,10 +266,27 @@ export async function runBatchOptimization(
   const medicineBuff = resolveBuff(COMMON_MEDICINES, settings.medicineId ?? null, settings.medicineIsHq ?? true)
   const buffs = (foodBuff || medicineBuff) ? { food: foodBuff, medicine: medicineBuff } : undefined
 
+  // Junction B (ADR 0003): sync every target's recipe against ITS OWN job's
+  // gearset level before anything below reads recipeLevelTable / level / rlv.
+  // US16/US17: a mixed-job queue must convert each entry against its own
+  // crafter — a shared/global level would be wrong for every job but one.
+  // `targets` itself is left untouched (original object identity); only
+  // entries that actually changed get a new wrapper object.
+
   // Quick-buy mode: skip solver + HQ optimizer and build a flat material shopping list
-  // directly from recipe ingredients and the user-selected quality rules.
+  // directly from recipe ingredients and the user-selected quality rules. No
+  // waitForWasm() await happens before this branch returns, so a single
+  // upfront gearset read has no TOCTOU window here — contrast the solve path
+  // below, where the sync must be pinned INSIDE Phase 1a alongside the same
+  // gearset read Phase 1b solves with (waitForWasm's cold start can take
+  // several seconds, long enough for the user to edit their gear in between).
   if ((settings.calcMode ?? 'macro') === 'quick-buy') {
-    return runQuickBuy(targets, settings, onProgress, isCancelled)
+    const quickBuyTargets = targets.map((t) => {
+      const gs = getGearset(t.recipe.job)
+      const synced = syncRecipeToCrafterLevel(t.recipe, gs?.level, levelSyncTables.value)
+      return synced === t.recipe ? t : { ...t, recipe: synced }
+    })
+    return runQuickBuy(quickBuyTargets, settings, onProgress, isCancelled)
   }
 
   await waitForWasm()
@@ -390,6 +409,17 @@ export async function runBatchOptimization(
 
   const phase1Settled: PromiseSettledResult<Phase1Classification>[] = new Array(targets.length)
 
+  // Junction B (ADR 0003), solve-path copy: each target's recipe is synced
+  // against its own job's gearset level HERE — inside the same loop iteration
+  // that pins the gearset consumed by Phase 1b's solve — rather than via a
+  // separate pre-waitForWasm() pass (see the quick-buy branch above). Sync and
+  // solve MUST share one gearset read: re-reading getGearset separately for
+  // each would let a gearset edit made during the (multi-second) WASM cold
+  // start desync the two, so the recipe shown/synced doesn't match the stats
+  // actually solved against. Filled for every index, including the cancelled
+  // branch below, so Phase 1b never reads an undefined slot.
+  const syncedTargets: BatchTarget[] = new Array(targets.length)
+
   // Phase 1a: synchronous hard-gate check for EVERY target up front — no worker
   // pool, no lane. Missing-gearset / hard-gate rejections classify and reveal
   // INSTANTLY (progressive-reveal contract, #171) instead of queueing behind
@@ -400,12 +430,18 @@ export async function runBatchOptimization(
   // mid-batch and 1b would solve with stats this gate never validated.
   const solvable: Array<{ i: number; gearset: GearsetStats }> = []
   for (let i = 0; i < targets.length; i++) {
-    const target = targets[i]
+    const originalTarget = targets[i]
     if (isCancelled()) {
+      // No gearset pinned this iteration — nothing to sync against. Fall back
+      // to the original (unsynced) target so the array stays fully populated.
+      syncedTargets[i] = originalTarget
       phase1Settled[i] = { status: 'rejected', reason: new SolveCancelledError() }
       continue
     }
-    const gearset = getGearset(target.recipe.job)
+    const gearset = getGearset(originalTarget.recipe.job)
+    const synced = syncRecipeToCrafterLevel(originalTarget.recipe, gearset?.level, levelSyncTables.value)
+    const target = synced === originalTarget.recipe ? originalTarget : { ...originalTarget, recipe: synced }
+    syncedTargets[i] = target
     // Hard-block only when the gearset is missing OR (below recipe level AND the
     // recipe has at least one hard-gate signal — stars, expert, required stats).
     // Standard 0-star recipes can be attempted below level; the solver applies
@@ -432,7 +468,7 @@ export async function runBatchOptimization(
   // Phase 6's advisor lanes.
   let nextSolvable = 0
   const runSolve = async ({ i, gearset }: { i: number; gearset: GearsetStats }): Promise<void> => {
-    const target = targets[i]
+    const target = syncedTargets[i]
     try {
       if (isCancelled()) throw new SolveCancelledError()
       let outcome: Phase1Outcome

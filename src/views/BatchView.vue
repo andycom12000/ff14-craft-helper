@@ -6,7 +6,8 @@ import { useBatchStore } from '@/stores/batch'
 import { useSettingsStore } from '@/stores/settings'
 import { useGearsetsStore } from '@/stores/gearsets'
 import { runBatchOptimization } from '@/services/batch-optimizer'
-import { checkLevelGate } from '@/services/recipe-gating'
+import { partitionLevelTargets } from '@/services/batch-level-gating'
+import { levelSyncTables } from '@/services/local-data-source'
 import { SolveCancelledError } from '@/solver/api'
 import { trackEvent, trackError } from '@/utils/analytics'
 import CostSummaryPanel from '@/components/batch/CostSummaryPanel.vue'
@@ -190,21 +191,12 @@ const missingGearsetJobs = computed<string[]>(() => {
 
 /* Targets below recipe level, partitioned by whether the recipe has hard gates.
  * - hard: starred / expert / stat-gated — synthesis blocked in-game.
- * - soft: standard 0-star — synthesis allowed, just penalized. */
-type LeveledTarget = { recipe: import('@/stores/recipe').Recipe; gearsetLevel: number }
-const partitionedLevelTargets = computed(() => {
-  const hard: LeveledTarget[] = []
-  const soft: LeveledTarget[] = []
-  for (const t of batchStore.targets) {
-    const gs = gearsets.getGearsetForJob(t.recipe.job)
-    if (!gs) continue
-    if (gs.craftsmanship === 0 && gs.control === 0) continue
-    const kind = checkLevelGate(t.recipe, gs.level).kind
-    if (kind === 'hard') hard.push({ recipe: t.recipe, gearsetLevel: gs.level })
-    else if (kind === 'soft') soft.push({ recipe: t.recipe, gearsetLevel: gs.level })
-  }
-  return { hard, soft }
-})
+ * - soft: standard 0-star — synthesis allowed, just penalized.
+ * ADR 0003: each target's recipe must be synced to its own job's gearset
+ * level before gate classification — see batch-level-gating.ts. */
+const partitionedLevelTargets = computed(() =>
+  partitionLevelTargets(batchStore.targets, (job) => gearsets.getGearsetForJob(job), levelSyncTables.value),
+)
 const hardLevelTargets = computed(() => partitionedLevelTargets.value.hard)
 const softLevelTargets = computed(() => partitionedLevelTargets.value.soft)
 

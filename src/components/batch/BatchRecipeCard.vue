@@ -6,6 +6,8 @@ import { starsDisplay } from '@/utils/format'
 import { Delete } from '@element-plus/icons-vue'
 import ItemName from '@/components/common/ItemName.vue'
 import { checkLevelGate } from '@/services/recipe-gating'
+import { syncRecipeToCrafterLevel } from '@/engine/level-sync'
+import { levelSyncTables } from '@/services/local-data-source'
 
 const props = defineProps<{
   target: BatchTarget
@@ -17,11 +19,19 @@ const emit = defineEmits<{
   'open-gearset': [job: string]
 }>()
 
-const recipeLevel = computed(() => props.target.recipe.recipeLevelTable.classJobLevel)
+// ADR 0003 (level-sync junction, US5): `gearsetLevel` is already resolved to
+// THIS card's job, so it's the right crafter level to sync against — a
+// recipe that's actually craftable once synced down must not show a phantom
+// hard-gate pill. Display-only: `target.recipe` (unsynced) is untouched.
+const syncedRecipe = computed(() =>
+  syncRecipeToCrafterLevel(props.target.recipe, props.gearsetLevel, levelSyncTables.value),
+)
+
+const recipeLevel = computed(() => syncedRecipe.value.recipeLevelTable.classJobLevel)
 const levelGateKind = computed<'ok' | 'soft' | 'hard'>(() => {
   if (props.gearsetLevel == null) return 'ok'
   if (props.gearsetLevel <= 0) return 'ok'
-  return checkLevelGate(props.target.recipe, props.gearsetLevel).kind
+  return checkLevelGate(syncedRecipe.value, props.gearsetLevel).kind
 })
 const isLevelHard = computed(() => levelGateKind.value === 'hard')
 const isLevelSoft = computed(() => levelGateKind.value === 'soft')
@@ -56,8 +66,8 @@ const showYieldHint = computed(() => yieldPerCraft.value > 1)
         <ItemName :item-id="target.recipe.itemId" :fallback="target.recipe.name" />
       </div>
       <div class="recipe-card-meta">
-        Lv.{{ target.recipe.recipeLevelTable.classJobLevel }}
-        {{ starsDisplay(target.recipe.stars) }}
+        Lv.{{ syncedRecipe.recipeLevelTable.classJobLevel }}<span v-if="syncedRecipe.levelSync">（同步）</span>
+        {{ starsDisplay(syncedRecipe.stars) }}
         <el-tag size="small" type="primary">{{ getJobName(target.recipe.job) }}</el-tag>
         <button
           v-if="isLevelHard || isLevelSoft"

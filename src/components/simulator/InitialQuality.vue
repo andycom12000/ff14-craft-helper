@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { useRecipeStore } from '@/stores/recipe'
+import type { Recipe } from '@/stores/recipe'
 import { calculateInitialQuality } from '@/engine/quality'
 import ItemName from '@/components/common/ItemName.vue'
 
@@ -9,6 +9,14 @@ const props = defineProps<{
      When provided, internal state syncs to it; emits stay one-way out so
      the parent can choose v-model wiring or one-shot pushes. */
   hqAmounts?: number[] | null
+  /* Level-synced recipe (ADR 0003). Must come in as a prop rather than being
+     read from the recipe store directly: the sync from canonical → crafter-
+     level happens at the recipe×gearset junction in useSimulator's `recipe`
+     computed. Reading recipeStore.currentRecipe here would bypass that
+     junction and fall back to the un-synced canonical recipe, corrupting
+     both the quality cap shown and the initial-quality value emitted to the
+     solver. */
+  recipe?: Recipe | null
 }>()
 
 const emit = defineEmits<{
@@ -16,8 +24,7 @@ const emit = defineEmits<{
   'update:hqAmounts': [value: number[]]
 }>()
 
-const recipeStore = useRecipeStore()
-const recipe = computed(() => recipeStore.currentRecipe)
+const recipe = computed(() => props.recipe ?? null)
 
 const internalHqAmounts = ref<number[]>([])
 

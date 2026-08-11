@@ -8,18 +8,30 @@ import { getRecipe } from '@/api/xivapi'
 import { useRecipeStore } from '@/stores/recipe'
 import { useBomStore } from '@/stores/bom'
 import { useBatchStore } from '@/stores/batch'
+import { useGearsetsStore } from '@/stores/gearsets'
 import { useLocaleStore } from '@/stores/locale'
-import { loadingState } from '@/services/local-data-source'
+import { loadingState, levelSyncTables } from '@/services/local-data-source'
+import { syncRecipeToCrafterLevel } from '@/engine/level-sync'
 import type { Recipe } from '@/stores/recipe'
 
 const router = useRouter()
 const recipeStore = useRecipeStore()
 const bomStore = useBomStore()
 const batchStore = useBatchStore()
+const gearsetsStore = useGearsetsStore()
 const localeStore = useLocaleStore()
 
 const selectedRecipe = ref<Recipe | null>(null)
 const detailLoading = ref(false)
+
+// ADR 0003: display-only. `selectedRecipe` (unsynced) is what every
+// store-write below (setRecipe / addToQueue / addRecipe / addTarget) uses —
+// this synced view only feeds <RecipeDetail>.
+const syncedRecipe = computed(() => {
+  if (!selectedRecipe.value) return null
+  const gearset = gearsetsStore.getGearsetForJob(selectedRecipe.value.job)
+  return syncRecipeToCrafterLevel(selectedRecipe.value, gearset?.level, levelSyncTables.value)
+})
 
 const isLoadingData = computed(() => {
   const s = loadingState[localeStore.current]
@@ -90,7 +102,7 @@ function handleAddToBom() {
             <span class="card-title">配方詳情</span>
           </template>
           <RecipeDetail
-            :recipe="selectedRecipe"
+            :recipe="syncedRecipe"
             @use-in-simulator="handleUseInSimulator"
             @add-to-bom="handleAddToBom"
             @add-to-batch="handleAddToBatch"

@@ -24,6 +24,8 @@ import type { WasmEffects, StepDetail } from '@/solver/raphael'
 import { JOB_ORDER, type Job } from '@/engine/skill-icons-by-job'
 import { JOB_ABBR } from '@/utils/jobs'
 import { trackEvent } from '@/utils/analytics'
+import { syncRecipeToCrafterLevel } from '@/engine/level-sync'
+import { levelSyncTables } from '@/services/local-data-source'
 
 const VALID_JOBS = new Set<string>(JOB_ORDER)
 
@@ -49,7 +51,22 @@ export function useSimulator() {
     () => settingsStore.server || settingsStore.dataCenter || '',
   )
 
-  const recipe = computed(() => recipeStore.currentRecipe)
+  // ADR 0003 (level-sync junction): canonical recipe stays unsynced. `rawRecipe`
+  // is what every store-write / persistence path (BOM, queue, batch, solver
+  // queue mutation) must hand off; `recipe` is the synced-for-display/calc
+  // view derived from it + this job's gearset level. `gearset` reads
+  // rawRecipe.job (not recipe.job) to avoid a circular dependency — sync needs
+  // the gearset's level before `recipe` can even be computed.
+  const rawRecipe = computed(() => recipeStore.currentRecipe)
+  const gearset = computed(() => {
+    if (!rawRecipe.value) return null
+    return gearsetsStore.getGearsetForJob(rawRecipe.value.job)
+  })
+  const recipe = computed(() =>
+    rawRecipe.value
+      ? syncRecipeToCrafterLevel(rawRecipe.value, gearset.value?.level, levelSyncTables.value)
+      : null,
+  )
   const searchSidebarOpen = ref(false)
   const initialQuality = ref(0)
   const enhancedStats = ref<EnhancedStats | null>(null)
@@ -71,18 +88,16 @@ export function useSimulator() {
      internally and ignore external writes). */
   const initialQualityHqAmounts = ref<number[]>([])
 
-  watch(() => recipe.value?.id ?? null, (id) => {
+  // Keyed on rawRecipe.id (not the synced recipe's), so a level-sync
+  // recomputation (e.g. the user tweaks their gearset level mid-session)
+  // never masquerades as a recipe switch and wipes initialQuality/meld state.
+  watch(() => rawRecipe.value?.id ?? null, (id) => {
     initialQuality.value = 0
     initialQualityHqAmounts.value = []
     meldOverride.value = null
     meldOverrideLabel.value = null
     simStore.switchToRecipe(id)
   }, { immediate: true })
-
-  const gearset = computed(() => {
-    if (!recipe.value) return null
-    return gearsetsStore.getGearsetForJob(recipe.value.job)
-  })
 
   const canSimulate = computed(() => !!recipe.value && !!gearset.value)
 
@@ -361,22 +376,25 @@ export function useSimulator() {
   }
 
   function handleAddToBom() {
-    if (!recipe.value) return
-    if (recipe.value.isCustom) {
+    // ADR 0003: anything written into the bomStore must be the unsynced
+    // canonical recipe — identity fields (name/icon/itemId) don't differ
+    // between raw and synced, but the embedded `recipe:` payload must stay raw.
+    if (!rawRecipe.value) return
+    if (rawRecipe.value.isCustom) {
       ElMessage.warning('自訂配方無材料資訊，無法加入購物清單')
       return
     }
     bomStore.addTarget({
       kind: 'recipe',
-      itemId: recipe.value.itemId,
-      recipeId: recipe.value.id,
-      name: recipe.value.name,
-      icon: recipe.value.icon,
+      itemId: rawRecipe.value.itemId,
+      recipeId: rawRecipe.value.id,
+      name: rawRecipe.value.name,
+      icon: rawRecipe.value.icon,
       quantity: 1,
-      amountResult: recipe.value.amountResult,
-      recipe: recipe.value,
+      amountResult: rawRecipe.value.amountResult,
+      recipe: rawRecipe.value,
     }, 'cross_page_send')
-    ElMessage.success(`已將「${recipe.value.name}」加入購物清單`)
+    ElMessage.success(`已將「${rawRecipe.value.name}」加入購物清單`)
   }
 
   async function handleSelfCraft(itemId: number) {
@@ -407,6 +425,7 @@ export function useSimulator() {
     simStore,
     // refs
     recipe,
+    rawRecipe,
     gearset,
     canSimulate,
     recipeJobAbbr,

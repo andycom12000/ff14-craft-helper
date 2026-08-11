@@ -12,6 +12,8 @@ import type { FoodBuff } from '@/engine/food-medicine'
 import type { SelfCraftCandidate } from '@/stores/batch'
 import { simulateCraftForRecipe, SolveCancelledError } from '@/solver/api'
 import { canReachHQQuality } from '@/services/feasibility-prefilter'
+import { syncRecipeToCrafterLevel } from '@/engine/level-sync'
+import { levelSyncTables } from '@/services/local-data-source'
 
 export interface PrelimCandidate {
   itemId: number
@@ -34,6 +36,8 @@ export function filterCandidatesByThreshold(decisions: CostDecision[]): CostDeci
   )
 }
 
+// 僅測試使用；production 沒有呼叫點。若日後接回 production，
+// 需先對 c.recipe 呼叫 syncRecipeToCrafterLevel 才能比對等級（ADR 0003）。
 export function filterCandidatesByLevel(
   candidates: Array<{ recipe: Recipe } & Record<string, unknown>>,
   getGearset: (job: string) => GearsetStats | null,
@@ -323,7 +327,13 @@ export async function produceSelfCraftCandidates(args: ProduceArgs): Promise<Sel
     const gs = getGearset(first.job)
     if (!gs) continue
 
-    const recipe = await getRecipe(first.recipeId)
+    // Third "配方 × 裝備組" junction (ADR 0003, alongside the simulator and
+    // the batch queue's level gate): getRecipe returns the canonical
+    // (unsynced) recipe — sync it to this candidate's gearset level before
+    // the level check and before it feeds nqTemplate/simulateCraftForRecipe/
+    // optimizeRecipe below, all of which need the synced difficulty/quality.
+    const raw = await getRecipe(first.recipeId)
+    const recipe = syncRecipeToCrafterLevel(raw, gs.level, levelSyncTables.value)
     if (gs.level < recipe.level) continue
 
     withRecipes.push({ decision, node, recipe, job: first.job })

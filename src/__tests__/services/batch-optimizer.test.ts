@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 import { POOL_SIZE } from '@/solver/pool-config'
 import { SolveTimeoutError } from '@/solver/errors'
+import { levelSyncTables, type LevelSyncTables } from '@/services/local-data-source'
 
 const { MockSolveCancelledError } = vi.hoisted(() => {
   class MockSolveCancelledError extends Error {
@@ -1333,5 +1334,97 @@ describe('runBatchOptimization · Phase 6 meld advice parallelization', () => {
     expect(progressEvents[progressEvents.length - 1]).toEqual({ completed: 2, total: 2 })
     expect(warnSpy).toHaveBeenCalled()
     warnSpy.mockRestore()
+  })
+})
+
+// #234 WP3, Junction B (ADR 0003): runBatchOptimization must sync each target's
+// recipe against ITS OWN job's gearset level before solving — a mixed-job
+// queue with a global/shared level would be wrong for every job but one (US16).
+describe('runBatchOptimization · level-sync junction (#234, US16)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  afterEach(() => {
+    levelSyncTables.value = null
+  })
+
+  const defaultSettings = {
+    crossServer: false, recursivePricing: false, maxRecursionDepth: 3,
+    exceptionStrategy: 'skip' as const, server: 'Chocobo', dataCenter: 'Mana',
+  }
+
+  // Same golden fixture as engine/__tests__/level-sync.spec.ts and
+  // useSimulator.spec.ts's level-sync describe block.
+  function makeLevelSyncTables(): LevelSyncTables {
+    const rlt = new Map([
+      [560, {
+        classJobLevel: 90, stars: 0, difficulty: 3500, quality: 7200, durability: 80,
+        suggestedCraftsmanship: 2805, progressDivider: 130, qualityDivider: 115,
+        progressModifier: 90, qualityModifier: 80, conditionsFlag: 15,
+      }],
+      [660, {
+        classJobLevel: 94, stars: 0, difficulty: 4800, quality: 9400, durability: 80,
+        suggestedCraftsmanship: 3706, progressDivider: 152, qualityDivider: 132,
+        progressModifier: 100, qualityModifier: 100, conditionsFlag: 15,
+      }],
+      [690, {
+        classJobLevel: 100, stars: 0, difficulty: 6600, quality: 12000, durability: 80,
+        suggestedCraftsmanship: 4207, progressDivider: 170, qualityDivider: 150,
+        progressModifier: 90, qualityModifier: 75, conditionsFlag: 15,
+      }],
+    ])
+    const lvAdjust = new Array<number>(101).fill(0)
+    lvAdjust[90] = 560
+    lvAdjust[94] = 660
+    lvAdjust[100] = 690
+    return { rlt, lvAdjust }
+  }
+
+  // Level-synced (宇宙探索) recipe, Lv100/rlv690, factors 61/48/50 — same shape
+  // as the composable spec's SYNCED_RECIPE. `job`/`id`/`itemId` vary per call
+  // so each target lands in its own recipesByJob bucket.
+  const makeSyncedRecipe = (job: string, id: number): Recipe => ({
+    id, itemId: id, name: `Synced ${job} Item`, icon: '', job,
+    level: 100, stars: 0, canHq: true, materialQualityFactor: 75, amountResult: 1,
+    ingredients: [],
+    recipeLevelTable: {
+      classJobLevel: 100, stars: 0, difficulty: 4026, quality: 5760,
+      durability: 40, suggestedCraftsmanship: 4207,
+      progressDivider: 170, qualityDivider: 150,
+      progressModifier: 90, qualityModifier: 75,
+    },
+    rlv: 690,
+    maxAdjustableJobLevel: 100,
+    difficultyFactor: 61,
+    qualityFactor: 48,
+    durabilityFactor: 50,
+  })
+
+  it('converts a mixed-job queue against EACH target\'s own crafter level, not a shared one', async () => {
+    levelSyncTables.value = makeLevelSyncTables()
+    vi.mocked(solveCraft).mockResolvedValue({ actions: ['muscle_memory'], progress: 0, quality: 0, steps: 1 })
+    vi.mocked(simulateCraft).mockResolvedValue(doubleMaxSim as any)
+
+    const crpRecipe = makeSyncedRecipe('CRP', 9300)
+    const wvrRecipe = makeSyncedRecipe('WVR', 9301)
+    const crpGearset: GearsetStats = { level: 94, craftsmanship: 4000, control: 3800, cp: 600, isSpecialist: false }
+    const wvrGearset: GearsetStats = { level: 90, craftsmanship: 4000, control: 3800, cp: 600, isSpecialist: false }
+
+    await runBatchOptimization(
+      [{ recipe: crpRecipe, quantity: 1 }, { recipe: wvrRecipe, quantity: 1 }],
+      (job) => (job === 'CRP' ? crpGearset : job === 'WVR' ? wvrGearset : null),
+      defaultSettings,
+      () => {}, () => false,
+    )
+
+    // Downstream solver calls carry the SYNCED recipeLevelTable.difficulty as
+    // `progress` (solver/config.ts) — spy on solveCraft to confirm each job's
+    // solve used its own gearset level's sync row, not the other job's.
+    const configs = vi.mocked(solveCraft).mock.calls.map(([config]) => config)
+    const crpConfig = configs.find((c) => c.crafter_level === 94)
+    const wvrConfig = configs.find((c) => c.crafter_level === 90)
+    // rlv660 (Lv94) difficulty 4800 × factor 61% = 2928.
+    expect(crpConfig?.progress).toBe(2928)
+    // rlv560 (Lv90) difficulty 3500 × factor 61% = 2135.
+    expect(wvrConfig?.progress).toBe(2135)
   })
 })
