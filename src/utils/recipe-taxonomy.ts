@@ -23,7 +23,11 @@ function bucketActionCount(count: number | undefined | null): ActionCountBucket 
 export function computeRecipeTaxonomy(recipe: Recipe, actionCount?: number): RecipeTaxonomy {
   const r = recipe as Partial<Recipe>
   return {
-    rlv: r.rlv ?? r.recipeLevelTable?.classJobLevel ?? 0,
+    // canonicalRlv first: a level-synced recipe's `rlv` has been converted to
+    // the crafter's level, but the ToolUsageByRlv chart joins batch/bom counts
+    // against recipes.json by recipe_id. Reporting the synced value would put
+    // select/simulator on rlv rows that no recipe actually has.
+    rlv: r.canonicalRlv ?? r.rlv ?? r.recipeLevelTable?.classJobLevel ?? 0,
     stars: typeof r.stars === 'number' ? r.stars : 0,
     is_expert: r.isExpert === true,
     requires_specialist: r.requiresSpecialist === true,

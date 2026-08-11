@@ -36,7 +36,7 @@ base = RecipeLevelTable[rlv']
 
 - 配方載入路徑不做同步，回傳的永遠是未同步的原始配方（Lv100 / rlvl 690），作為 canonical 資料。
 - 同步是一個純函式：`(配方, 製作者等級) → 配方`，回傳同樣的配方形狀。
-- 呼叫點收斂到「配方 × 裝備組」交會處。**實作後的實際清單（六處）**：
+- 呼叫點收斂到「配方 × 裝備組」交會處。**實作後的實際清單（七處）**：
 
   | 交會點 | 位置 | 用途 |
   |---|---|---|
@@ -70,6 +70,7 @@ base = RecipeLevelTable[rlv']
 - Lv100 使用者的數字完全不變——同步在等級 100 時是恆等變換。實際受益者只有拿宇宙探索練級的 sub-100 玩家。
 - 裝備組等級成為同步結果的唯一輸入。裝備組等級停在預設 100 的低等玩家會拿到 Lv100 難度、算出他做不到的手法，且畫面無異狀。這是「資料責任分界」下的刻意取捨，不加防呆。
 - 解答快取不需處理：快取鍵是整份 solver 設定的 canonical JSON，同步後數值不同自然產生不同鍵，**不需要** bump `SOLVER_CACHE_EPOCH`。
+- **GA 的 `rlv` 維度刻意回報未同步的值。** 同步後配方的 `rlv` 是換算過的，但 `/admin/ga` 的 ToolUsageByRlv 一列混了兩種來源：select／simulator 依事件當下 client 送的 `rlv` 分組，batch／bom 則是拿 `recipe_id` 去 join 當日的 `recipes.json`（見 `ga-snapshot.ts`）。若送同步後的 rlv，這 768 個配方會散進 `recipes.json` 裡根本不存在的 rlv 列。因此同步後的配方帶一個 `canonicalRlv`，taxonomy 讀它而非 `rlv`。代價是 GA 看不出「這次求解實際打的是哪個同步等級」——需要的話應該另開一個維度，而不是污染 `rlv`。
 - 768 個同步配方在資料上全部乾淨（0 個 expert、0 個需專精、0 個屬性硬門檻、0 個 RequiredQuality、全部可 HQ、0 個需祕籍），因此不需處理與這些機制的交互。此性質未來可能改變。
 - **交會點是六個而不是兩個，這個低估在實作時被 code review 抓到。** 原本的推論是「下游消費端都由那兩個交會點餵資料」，但實際上顯示層（配方詳情、批量卡片、批量等級橫幅）與自製建議子材料求解都各自持有配方與裝備組，不經過那兩點。最嚴重的一個是 `InitialQuality.vue`：它不吃 prop、直接讀 `recipeStore.currentRecipe`，於是用**未同步**的品質上限算初期品質，再經 `craftParams.initialQuality` 進 solver 的 `initial_quality`（無 clamp）——等於騙求解器已有一段不存在的品質，解出來的手法在遊戲裡出 NQ。768 個同步配方中有 144 個 `materialQualityFactor > 0` 會踩到。
   真正的風險面不是「交會點有幾個」，而是**「有幾個地方直接讀 `recipeStore.currentRecipe` 的 `recipeLevelTable`」**。日後新增讀取點時，這是該檢查的不變式。

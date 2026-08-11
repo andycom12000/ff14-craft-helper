@@ -89,6 +89,10 @@ export function syncRecipeToCrafterLevel(
     level: base.classJobLevel,
     stars,
     rlv: rlv2,
+    // `rlv` below is the synced one — that's what the craft math needs. GA
+    // taxonomy reads canonicalRlv instead so analytics stays joinable against
+    // recipes.json. `?? recipe.rlv` makes a re-sync keep the ORIGINAL value.
+    canonicalRlv: recipe.canonicalRlv ?? recipe.rlv,
     recipeLevelTable,
     levelSync,
   }

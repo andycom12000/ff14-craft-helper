@@ -75,6 +75,14 @@ export interface Recipe {
   difficultyFactor?: number
   qualityFactor?: number
   durabilityFactor?: number
+  // The pre-sync `rlv`, carried on a level-synced recipe so GA taxonomy can
+  // keep reporting the canonical value. The /admin/ga ToolUsageByRlv chart
+  // groups select/simulator by the client-sent rlv but batch/bom by joining
+  // recipe_id against today's recipes.json (see ga-snapshot.ts); emitting the
+  // synced rlv would scatter these 768 recipes across buckets no row in
+  // recipes.json has. Idempotent: re-syncing an already-synced recipe keeps
+  // the original. Absent on ordinary recipes, where `rlv` is already canonical.
+  canonicalRlv?: number
   // Set by syncRecipeToCrafterLevel ONLY when an actual downgrade happened
   // (synced classJobLevel < original recipe.level — issue #234's badge
   // condition). Drives the recipe-detail badge.

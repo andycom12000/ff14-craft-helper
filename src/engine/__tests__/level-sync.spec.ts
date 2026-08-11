@@ -150,12 +150,12 @@ describe('syncRecipeToCrafterLevel', () => {
     expect(syncRecipeToCrafterLevel(recipe, 90, { rlt: new Map(), lvAdjust: [] })).toBe(recipe)
   })
 
-  it('不動製作者數值：輸出與輸入除了 level/stars/rlv/recipeLevelTable/levelSync 之外逐 key 相等', () => {
+  it('不動製作者數值：輸出與輸入除了 level/stars/rlv/canonicalRlv/recipeLevelTable/levelSync 之外逐 key 相等', () => {
     const recipe = makeBaseRecipe()
     const tables = makeTables()
     const result = syncRecipeToCrafterLevel(recipe, 94, tables)
 
-    const exempt = new Set(['level', 'stars', 'rlv', 'recipeLevelTable', 'levelSync'])
+    const exempt = new Set(['level', 'stars', 'rlv', 'canonicalRlv', 'recipeLevelTable', 'levelSync'])
     const keys = new Set([...Object.keys(recipe), ...Object.keys(result)])
     for (const key of keys) {
       if (exempt.has(key)) continue
@@ -185,5 +185,26 @@ describe('isLevelSyncedRecipe', () => {
     const recipe = makeBaseRecipe()
     delete recipe.maxAdjustableJobLevel
     expect(isLevelSyncedRecipe(recipe)).toBe(false)
+  })
+})
+
+describe('syncRecipeToCrafterLevel — canonicalRlv (#234)', () => {
+  it('carries the pre-sync rlv so GA taxonomy stays joinable against recipes.json', () => {
+    const result = syncRecipeToCrafterLevel(makeBaseRecipe(), 94, makeTables())
+    expect(result.rlv).toBe(660)          // craft math uses the synced level
+    expect(result.canonicalRlv).toBe(690) // analytics reports what recipes.json has
+  })
+
+  it('keeps the ORIGINAL rlv when an already-synced recipe is synced again', () => {
+    const tables = makeTables()
+    const once = syncRecipeToCrafterLevel(makeBaseRecipe(), 94, tables)
+    const twice = syncRecipeToCrafterLevel(once, 90, tables)
+    expect(twice.rlv).toBe(560)
+    expect(twice.canonicalRlv).toBe(690) // not 660 — re-sync must not ratchet
+  })
+
+  it('leaves canonicalRlv unset on a no-op, where rlv is already canonical', () => {
+    expect(syncRecipeToCrafterLevel(makeBaseRecipe(), 100, makeTables()).canonicalRlv)
+      .toBeUndefined()
   })
 })
