@@ -381,7 +381,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
         <section class="b-main">
           <template v-if="canSimulate">
             <div class="b-hud">
-              <StatusBar :craft-state="currentState" />
+              <StatusBar :craft-state="currentState" :level-sync="recipe?.levelSync ?? null" />
               <BuffDisplay :buffs="currentState?.buffs ?? new Map()" />
             </div>
 
@@ -539,7 +539,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
                       <span class="rail-help-icon" aria-label="HQ 素材說明">?</span>
                     </el-tooltip>
                   </div>
-                  <InitialQuality :hq-amounts="initialQualityHqAmounts" @update:initial-quality="onInitialQualityUpdate" @update:hq-amounts="onHqAmountsUpdate" />
+                  <InitialQuality :recipe="recipe" :hq-amounts="initialQualityHqAmounts" @update:initial-quality="onInitialQualityUpdate" @update:hq-amounts="onHqAmountsUpdate" />
                   <CraftRecommendation
                     v-if="simStore.mode === 'solver'"
                     :craft-params="craftParams"
@@ -617,7 +617,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
                   <span class="rail-help-icon" aria-label="HQ 素材說明">?</span>
                 </el-tooltip>
               </div>
-              <InitialQuality :hq-amounts="initialQualityHqAmounts" @update:initial-quality="onInitialQualityUpdate" @update:hq-amounts="onHqAmountsUpdate" />
+              <InitialQuality :recipe="recipe" :hq-amounts="initialQualityHqAmounts" @update:initial-quality="onInitialQualityUpdate" @update:hq-amounts="onHqAmountsUpdate" />
               <CraftRecommendation
                 v-if="canSimulate && simStore.mode === 'solver'"
                 :craft-params="craftParams"
@@ -758,7 +758,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
         <div v-if="setupOpen" class="m-setup-body">
           <div v-if="recipeSupportsHq" class="m-setup-group">
             <h4 class="m-setup-group-title">初期品質</h4>
-            <InitialQuality :hq-amounts="initialQualityHqAmounts" @update:initial-quality="onInitialQualityUpdate" @update:hq-amounts="onHqAmountsUpdate" />
+            <InitialQuality :recipe="recipe" :hq-amounts="initialQualityHqAmounts" @update:initial-quality="onInitialQualityUpdate" @update:hq-amounts="onHqAmountsUpdate" />
           </div>
           <div class="m-setup-group">
             <h4 class="m-setup-group-title">食藥</h4>
@@ -792,7 +792,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
         </div>
 
         <section v-if="canSimulate" class="m-status">
-          <StatusBar :craft-state="currentState" />
+          <StatusBar :craft-state="currentState" :level-sync="recipe?.levelSync ?? null" />
           <BuffDisplay :buffs="currentState?.buffs ?? new Map()" />
         </section>
 

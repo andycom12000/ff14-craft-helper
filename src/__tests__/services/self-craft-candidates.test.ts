@@ -1,9 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { filterCandidatesByThreshold, filterCandidatesByLevel, walkTreeForCandidates, computeRawMaterials } from '@/services/self-craft-candidates'
 import type { CostDecision } from '@/services/bom-calculator'
 import type { Recipe } from '@/stores/recipe'
 import type { GearsetStats } from '@/stores/gearsets'
 import type { MaterialNode } from '@/stores/bom'
+import { levelSyncTables, type LevelSyncTables } from '@/services/local-data-source'
 
 describe('filterCandidatesByThreshold', () => {
   it('keeps decisions with savingsRatio >= 0.05 and recommendation=craft', () => {
@@ -817,5 +818,122 @@ describe('produceSelfCraftCandidates – reprices against listing fulfilment', (
     expect(out[0].buyCost).toBe(1000)
     expect(out[0].craftCost).toBe(800)
     expect(out[0].savingsRatio).toBeCloseTo(0.20, 3)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// #234, third "配方 × 裝備組" junction (ADR 0003): getRecipe returns the
+// canonical (unsynced) recipe. Before the level check — and before the
+// synced value feeds nqTemplate/simulateCraftForRecipe/optimizeRecipe — it
+// must be synced to the candidate's own gearset level, same as the simulator
+// composable and the batch queue's level gate.
+// ---------------------------------------------------------------------------
+
+describe('produceSelfCraftCandidates – level-sync junction (#234)', () => {
+  beforeEach(() => vi.clearAllMocks())
+  afterEach(() => {
+    levelSyncTables.value = null
+  })
+
+  // Same golden fixture as engine/__tests__/level-sync.spec.ts and the
+  // batch-optimizer level-sync describe block.
+  function makeLevelSyncTables(): LevelSyncTables {
+    const rlt = new Map([
+      [560, {
+        classJobLevel: 90, stars: 0, difficulty: 3500, quality: 7200, durability: 80,
+        suggestedCraftsmanship: 2805, progressDivider: 130, qualityDivider: 115,
+        progressModifier: 90, qualityModifier: 80, conditionsFlag: 15,
+      }],
+      [660, {
+        classJobLevel: 94, stars: 0, difficulty: 4800, quality: 9400, durability: 80,
+        suggestedCraftsmanship: 3706, progressDivider: 152, qualityDivider: 132,
+        progressModifier: 100, qualityModifier: 100, conditionsFlag: 15,
+      }],
+      [690, {
+        classJobLevel: 100, stars: 0, difficulty: 6600, quality: 12000, durability: 80,
+        suggestedCraftsmanship: 4207, progressDivider: 170, qualityDivider: 150,
+        progressModifier: 90, qualityModifier: 75, conditionsFlag: 15,
+      }],
+    ])
+    const lvAdjust = new Array<number>(101).fill(0)
+    lvAdjust[90] = 560
+    lvAdjust[94] = 660
+    lvAdjust[100] = 690
+    return { rlt, lvAdjust }
+  }
+
+  // Canonical (unsynced) 研究用的木材 — same shape as level-sync.spec.ts's
+  // makeBaseRecipe: Lv100 / rlv690 / factors 61-48-50. Naively level-gating
+  // against this (level 100) would drop a Lv94 crafter's candidate even
+  // though the synced form (Lv94, difficulty 2928) is well within reach.
+  const canonicalRecipe: Recipe = {
+    id: 36168, itemId: 50, name: '研究用的木材', icon: '', job: 'CRP',
+    level: 100, stars: 0, canHq: true, materialQualityFactor: 0, amountResult: 1,
+    ingredients: [{ itemId: 1, name: 'Raw', icon: '', amount: 2, canHq: false, level: 1 }],
+    recipeLevelTable: {
+      classJobLevel: 100, stars: 0, difficulty: 4026, quality: 5760, durability: 40,
+      suggestedCraftsmanship: 4207, progressDivider: 170, qualityDivider: 150,
+      progressModifier: 90, qualityModifier: 75,
+    },
+    rlv: 690, maxAdjustableJobLevel: 100,
+    difficultyFactor: 61, qualityFactor: 48, durabilityFactor: 50,
+  }
+
+  it('syncs the canonical recipe to the candidate gearset level before the level check (not dropped)', async () => {
+    levelSyncTables.value = makeLevelSyncTables()
+
+    vi.mocked(buildMaterialTree).mockResolvedValue([{
+      itemId: 100, name: 'Root', icon: '', amount: 1, recipeId: 10,
+      children: [{
+        itemId: 50, name: '研究用的木材', icon: '', amount: 10, recipeId: 36168,
+        children: [{ itemId: 1, name: 'Raw', icon: '', amount: 20 }],
+      }],
+    }])
+    vi.mocked(computeOptimalCosts).mockReturnValue({
+      totalCost: 0,
+      decisions: [{
+        itemId: 50, name: '研究用的木材', icon: '', amount: 10,
+        buyCost: 10000, craftCost: 6000, optimalCost: 6000,
+        savingsRatio: 0.4, recommendation: 'craft',
+      }],
+    })
+    vi.mocked(findRecipesByItemName).mockResolvedValue([{ recipeId: 36168, job: 'CRP' }])
+    vi.mocked(getRecipe).mockResolvedValue(canonicalRecipe)
+
+    const captured: any[] = []
+    vi.mocked(simulateCraft).mockImplementation(async (config: any) => {
+      captured.push(config)
+      return { progress: 100, max_progress: 100, quality: 0, max_quality: 100,
+               durability: 10, max_durability: 40, cp: 200, max_cp: 600, steps_count: 1 } as any
+    })
+
+    const result = await produceSelfCraftCandidates({
+      recipesToCraft: [{
+        recipe: { id: 10, itemId: 100, name: 'Root', icon: '', job: 'CRP', level: 100 } as any,
+        quantity: 1, outputAmount: 1, actions: [], hqAmounts: [], initialQuality: 0,
+        isDoubleMax: true, materials: [], qualityDeficit: 0,
+      }] as any,
+      priceMap: new Map(),
+      priceSource: 'Chocobo',
+      crossServer: false,
+      server: 'Chocobo',
+      // Below the canonical level (100) but exactly at the synced level (94) —
+      // a level-blind check on the raw recipe would drop this candidate.
+      getGearset: () => ({ level: 94, craftsmanship: 4000, control: 3800, cp: 600, isSpecialist: false }),
+      maxDepth: 2,
+      buffs: undefined,
+      optimizeRecipe: vi.fn() as any,
+      onProgress: () => {},
+      isCancelled: () => false,
+    })
+
+    expect(result).toHaveLength(1)
+    // Candidate survives the level check and carries the SYNCED recipe downstream.
+    expect(result[0].recipe.level).toBe(94)
+    expect(result[0].recipe.recipeLevelTable.difficulty).toBe(2928)
+    // simulateCraftForRecipe (validateNQ's template path) received the synced
+    // difficulty as `progress` — confirms nqTemplate/simulate ran against the
+    // synced recipe, not the canonical Lv100/difficulty-4026 one.
+    expect(captured[0]?.progress).toBe(2928)
   })
 })

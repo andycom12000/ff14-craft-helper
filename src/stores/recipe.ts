@@ -67,6 +67,26 @@ export interface Recipe {
   // Real recipe level (RLV index, e.g. 640) from RecipeRecord.rlv — distinct
   // from recipeLevelTable.classJobLevel (the crafter job level, ≤90/100).
   rlv?: number
+  // Level-sync passthrough from RecipeRecord. Non-zero = 等級同步配方
+  // （宇宙探索 D／C／B 級）：難度依製作者職業等級重新換算，上限為此值。
+  maxAdjustableJobLevel?: number
+  // Raw RecipeLevelTable multipliers (percent). Needed to recompute
+  // difficulty/quality/durability against a different rlv row when syncing.
+  difficultyFactor?: number
+  qualityFactor?: number
+  durabilityFactor?: number
+  // The pre-sync `rlv`, carried on a level-synced recipe so GA taxonomy can
+  // keep reporting the canonical value. The /admin/ga ToolUsageByRlv chart
+  // groups select/simulator by the client-sent rlv but batch/bom by joining
+  // recipe_id against today's recipes.json (see ga-snapshot.ts); emitting the
+  // synced rlv would scatter these 768 recipes across buckets no row in
+  // recipes.json has. Idempotent: re-syncing an already-synced recipe keeps
+  // the original. Absent on ordinary recipes, where `rlv` is already canonical.
+  canonicalRlv?: number
+  // Set by syncRecipeToCrafterLevel ONLY when an actual downgrade happened
+  // (synced classJobLevel < original recipe.level — issue #234's badge
+  // condition). Drives the recipe-detail badge.
+  levelSync?: { syncedLevel: number; originalLevel: number }
 }
 
 export const useRecipeStore = defineStore('recipe', () => {

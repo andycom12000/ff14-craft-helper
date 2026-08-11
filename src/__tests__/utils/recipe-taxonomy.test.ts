@@ -67,3 +67,19 @@ describe('computeRecipeTaxonomy (full taxonomy)', () => {
     })
   })
 })
+
+describe('computeRecipeTaxonomy — level-synced recipes (#234)', () => {
+  // A level-synced recipe's `rlv` is converted to the crafter's level, but the
+  // /admin/ga ToolUsageByRlv chart joins batch/bom counts against recipes.json
+  // by recipe_id. Emitting the synced rlv would land select/simulator on rows
+  // no recipe in recipes.json has, silently splitting one recipe across
+  // buckets. `canonicalRlv` keeps the reported value joinable.
+  it('reports the canonical rlv, not the synced one', () => {
+    const synced = makeRecipe({ rlv: 660, canonicalRlv: 690 })
+    expect(computeRecipeTaxonomy(synced).rlv).toBe(690)
+  })
+
+  it('falls back to rlv for ordinary recipes, where rlv is already canonical', () => {
+    expect(computeRecipeTaxonomy(makeRecipe({ rlv: 640 })).rlv).toBe(640)
+  })
+})

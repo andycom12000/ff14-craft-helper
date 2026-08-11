@@ -31,6 +31,15 @@ const emit = defineEmits<{
           <el-tag v-if="recipe.canHq" size="small" type="success" style="margin-left: 6px">
             HQ
           </el-tag>
+          <el-tooltip
+            v-if="recipe.levelSync"
+            content="宇宙探索任務配方會依你目前這個職業的裝備組等級換算，數字因此與配方手帳原始標示不同"
+            placement="top"
+          >
+            <el-tag size="small" type="warning" effect="light" class="level-sync-tag" style="margin-left: 6px">
+              等級同步 Lv.{{ recipe.levelSync.syncedLevel }}（原始 Lv.{{ recipe.levelSync.originalLevel }}）
+            </el-tag>
+          </el-tooltip>
         </div>
       </div>
 
@@ -105,6 +114,10 @@ const emit = defineEmits<{
 .stars {
   color: var(--accent-gold);
   margin-left: 4px;
+}
+
+.level-sync-tag {
+  cursor: help;
 }
 
 .recipe-actions {

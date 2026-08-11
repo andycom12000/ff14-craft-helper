@@ -282,7 +282,7 @@ async function readCsv(filePath) {
   return buf.toString('utf8')
 }
 
-function buildRecipes(rows, headers, verbose) {
+export function buildRecipes(rows, headers, verbose) {
   const resultCol =
     pickHeader(headers, ['Item{Result}', 'ItemResult']) || 'ItemResult'
   const amountResultCol =
@@ -306,6 +306,7 @@ function buildRecipes(rows, headers, verbose) {
   const reqQualityCol =
     pickHeader(headers, ['RequiredQuality']) || 'RequiredQuality'
   const idCol = pickHeader(headers, ['#']) || '#'
+  const maxAdjLevelCol = pickHeader(headers, ['MaxAdjustableJobLevel'])
   const ingredientCols = findIngredientColumns(headers)
 
   if (verbose) {
@@ -350,6 +351,14 @@ function buildRecipes(rows, headers, verbose) {
       requiredControl: toInt(r[reqControlCol]),
       requiredQuality: toInt(r[reqQualityCol]),
     }
+    // Level-synced recipes (dungeon deliverables, etc.): non-0 caps the
+    // craft-level used to look up rlt via GathererCrafterLvAdjustTable.
+    // Only ~5.5% of recipes set this; omit the key entirely for the rest so
+    // we don't pad recipes.json with 13k+ redundant `0`s.
+    if (maxAdjLevelCol) {
+      const maxAdjLevel = toInt(r[maxAdjLevelCol])
+      if (maxAdjLevel > 0) rec.maxAdjustableJobLevel = maxAdjLevel
+    }
     recipes.push(rec)
     referencedItems.add(itemResult)
   }
@@ -391,6 +400,91 @@ function buildRlt(rows, headers, verbose) {
     })
   }
   return rlt
+}
+
+/**
+ * Build the crafter-level → rlv lookup used by level-synced recipes.
+ *
+ * GathererCrafterLvAdjustTable.csv index (`#`) is the crafter's *character*
+ * level; `RecipeLevel` is the rlv to look up in RecipeLevelTable for that
+ * level. NOT `Unknown1` — that column diverges from `RecipeLevel` starting
+ * at level 61 and would violate the classJobLevel/stars invariant.
+ *
+ * Returns a dense array, index 0..100 (length 101). Missing indices are 0.
+ */
+export function buildLvAdjust(rows, headers, verbose) {
+  const idCol = pickHeader(headers, ['#']) || '#'
+  const rlvCol = pickHeader(headers, ['RecipeLevel']) || 'RecipeLevel'
+  if (verbose) console.log(`  LvAdjust columns detected: id=${idCol} rlv=${rlvCol}`)
+  const lvAdjust = new Array(101).fill(0)
+  for (const r of rows) {
+    const level = toInt(r[idCol], -1)
+    if (level < 0 || level > 100) continue
+    lvAdjust[level] = toInt(r[rlvCol])
+  }
+  return lvAdjust
+}
+
+/**
+ * Verify the level-sync invariant: for every crafter level L (1..100),
+ * lvAdjust[L] must resolve to an rlt row whose classJobLevel === L and
+ * stars === 0 (level-sync always targets the non-starred base recipe level).
+ *
+ * Pure function. Returns an array of human-readable violation messages;
+ * empty array means the invariant holds.
+ */
+export function checkLvAdjustInvariant(lvAdjust, rltByRlv) {
+  const messages = []
+  for (let level = 1; level <= 100; level++) {
+    const rlv = lvAdjust[level]
+    const entry = rltByRlv.get(rlv)
+    if (!entry) {
+      messages.push(`level ${level} -> rlv ${rlv} not found in rlt`)
+      continue
+    }
+    if (entry.classJobLevel !== level || entry.stars !== 0) {
+      messages.push(
+        `level ${level} -> rlv ${rlv} has classJobLevel=${entry.classJobLevel} stars=${entry.stars}, expected classJobLevel=${level} stars=0`,
+      )
+    }
+  }
+  return messages
+}
+
+/**
+ * Assemble every level-sync-related sanity-check failure (issue #234). Pure
+ * function — no I/O, no logging, no `process.exitCode` — so `main()` just
+ * folds its output into the aggregate `failures` array and this is
+ * independently unit-testable (previously the checks lived inline in `main()`
+ * with zero coverage).
+ *
+ * Runs three checks:
+ *   1. Every crafter level 1..100 resolves to a positive rlv in `lvAdjust`.
+ *      This replaces a dead check that used to read `lvAdjust.length !== 101`:
+ *      buildLvAdjust ALWAYS returns a fixed length-101 array by construction
+ *      (`new Array(101).fill(0)`), so that condition could never fire. A real
+ *      CSV column-rename / upstream parse regression instead leaves entries
+ *      stuck at their `0` fill value — which THIS check catches.
+ *   2. At least one recipe is level-synced (maxAdjustableJobLevel > 0). A
+ *      parse regression on that column would silently disable level-sync for
+ *      all 768 recipes without tripping any other existing check.
+ *   3. checkLvAdjustInvariant holds — see its own doc comment.
+ */
+export function collectLevelSyncFailures({ lvAdjust, recipes, rltByRlv }) {
+  const failures = []
+  for (let level = 1; level <= 100; level++) {
+    if (!(lvAdjust[level] > 0)) {
+      failures.push(`Level-adjust table: level ${level} has non-positive rlv (${lvAdjust[level]})`)
+    }
+  }
+  const levelSyncedRecipeCount = recipes.filter((r) => (r.maxAdjustableJobLevel ?? 0) > 0).length
+  if (levelSyncedRecipeCount === 0) {
+    failures.push('Level-synced recipe count is 0')
+  }
+  for (const msg of checkLvAdjustInvariant(lvAdjust, rltByRlv)) {
+    failures.push(`Level-adjust invariant: ${msg}`)
+  }
+  return failures
 }
 
 // ---------------------------------------------------------------------------
@@ -661,6 +755,12 @@ async function main() {
   const { headers: rltHeaders, rows: rltRows } = parseCsv(rltCsv, 'oxidizer')
   const rlt = buildRlt(rltRows, rltHeaders, verbose)
 
+  const lvAdjustCsvPath = path.join(xivDir, 'csv', 'en', 'GathererCrafterLvAdjustTable.csv')
+  log(verbose, `Reading ${lvAdjustCsvPath}`)
+  const lvAdjustCsv = await readCsv(lvAdjustCsvPath)
+  const { headers: lvAdjustHeaders, rows: lvAdjustRows } = parseCsv(lvAdjustCsv, 'oxidizer')
+  const lvAdjust = buildLvAdjust(lvAdjustRows, lvAdjustHeaders, verbose)
+
   // 3. Parse items for each locale.
   const itemSources = [
     {
@@ -790,6 +890,11 @@ async function main() {
   if (recipes.length === 0) failures.push('Recipe count is 0')
   if (rlt.length === 0) failures.push('RLT count is 0')
 
+  const rltByRlv = new Map(rlt.map((r) => [r.rlv, r]))
+  for (const msg of collectLevelSyncFailures({ lvAdjust, recipes, rltByRlv })) {
+    failures.push(msg)
+  }
+
   const IRON_INGOT_ID = 5057
   for (const [locale, items] of Object.entries(itemsByLocale)) {
     if (!items.some((row) => row[0] === IRON_INGOT_ID)) {
@@ -860,7 +965,7 @@ async function main() {
   )
   await fs.writeFile(
     path.join(OUT_TMP, 'rlt.json'),
-    JSON.stringify({ schemaVersion: 1, rlt }),
+    JSON.stringify({ schemaVersion: 1, rlt, lvAdjust }),
   )
   for (const [locale, items] of Object.entries(itemsByLocale)) {
     await fs.writeFile(

@@ -41,6 +41,11 @@ export interface RecipeRecord {
   canQuickSynth?: boolean
   secretRecipeBook?: number
   craftKind?: 'normal' | 'quick' | 'expert' | 'company'
+  // Level-synced recipes only (dungeon deliverables etc.). Non-0 = this is a
+  // level-synced recipe; the value is the max crafter job level the sync
+  // adjusts up to (see GathererCrafterLvAdjustTable). Absent/0 for the vast
+  // majority of recipes.
+  maxAdjustableJobLevel?: number
 }
 
 export interface RltRecord {

@@ -1,4 +1,4 @@
-import { reactive, ref } from 'vue'
+import { reactive, ref, shallowRef } from 'vue'
 import { CRAFT_TYPE_TO_JOB } from '@/utils/jobs'
 import type {
   Locale,
@@ -160,12 +160,36 @@ export async function loadRecipes(): Promise<RecipeRecord[]> {
 type RltFileArray = {
   schemaVersion: 1
   rlt: Array<RltRecord & { rlv: number }>
+  lvAdjust?: number[]
 }
 type RltFileObject = {
   schemaVersion: 1
   rlt: Record<string, RltRecord>
+  lvAdjust?: number[]
 }
 type RltFile = RltFileArray | RltFileObject
+
+export interface LevelSyncTables {
+  rlt: ReadonlyMap<number, RltRecord>
+  lvAdjust: readonly number[]
+}
+
+/** Synchronous snapshot of the tables level-sync needs. Null until loadRlt()
+ *  resolves; recipes can't exist before that, so junctions never race it. */
+export const levelSyncTables = shallowRef<LevelSyncTables | null>(null)
+
+let lvAdjustMissingWarned = false
+
+/** Fire the "level sync disabled" console.warn at most once per page load. */
+function warnMissingLvAdjustOnce(): void {
+  if (lvAdjustMissingWarned) return
+  lvAdjustMissingWarned = true
+  console.warn(
+    '[local-data-source] rlt.json is missing a valid `lvAdjust` (length-101) table — '
+      + '等級同步已停用，宇宙探索同步配方將顯示未同步（Lv100）數值。'
+      + '可能是舊快取或本機未重跑 `npm run build-game-data`。',
+  )
+}
 
 export async function loadRlt(): Promise<Map<number, RltRecord>> {
   if (rltPromise) return rltPromise
@@ -186,6 +210,16 @@ export async function loadRlt(): Promise<Map<number, RltRecord>> {
         for (const [key, value] of Object.entries(data.rlt)) {
           map.set(Number(key), value)
         }
+      }
+      if (Array.isArray(data.lvAdjust) && data.lvAdjust.length === 101) {
+        levelSyncTables.value = { rlt: map, lvAdjust: data.lvAdjust }
+      } else {
+        // Last-ditch dev-local net (see ADR 0003): this should only happen with
+        // a stale cached rlt.json or a build that skipped `npm run build-game-data`
+        // after #234. Not thrown — level sync silently degrades to "always
+        // unsynced" rather than blocking the whole app, per spec. console.warn
+        // once so the degradation isn't completely invisible.
+        warnMissingLvAdjustOnce()
       }
       return map
     } finally {
@@ -530,6 +564,7 @@ export function __resetForTesting(): void {
   extraItemsFailed.clear()
   localeListeners.clear()
   localeMissReported.clear()
+  lvAdjustMissingWarned = false
   try {
     globalThis.localStorage?.removeItem(LOCALE_STORAGE_KEY)
   } catch {
