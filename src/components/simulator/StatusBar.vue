@@ -5,6 +5,11 @@ import { percentOf } from '@/utils/format'
 
 const props = defineProps<{
   craftState: CraftState | null
+  /* #234: present only when the active recipe was actually downgraded by level
+     sync. Lives here rather than on a recipe-detail panel because this header
+     sits directly above the 進展／品質／耐久 bars — the very numbers the sync
+     changed — so the explanation is where the surprise is. */
+  levelSync?: { syncedLevel: number; originalLevel: number } | null
 }>()
 
 interface BarSpec {
@@ -46,6 +51,16 @@ const completionType = computed(() => {
     <template v-else>
       <div class="status-header">
         <el-tag :type="completionType" size="small">{{ completionText }}</el-tag>
+        <el-tooltip
+          v-if="levelSync"
+          content="這是宇宙探索的等級同步配方：難度、品質上限與耐久已依你這個職業的裝備組等級換算，因此與配方手帳上的原始標示不同。"
+          placement="top"
+        >
+          <el-tag size="small" type="warning" effect="light" class="level-sync-tag">
+            等級同步 Lv.{{ levelSync.syncedLevel }}
+            <span class="level-sync-origin">原始 Lv.{{ levelSync.originalLevel }}</span>
+          </el-tag>
+        </el-tooltip>
         <el-text size="small" type="info">步數: {{ craftState.step }}</el-text>
       </div>
 
@@ -78,9 +93,24 @@ const completionType = computed(() => {
 
 .status-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
   margin-bottom: 12px;
+}
+
+/* Keeps 步數 pinned right no matter how many tags precede it. */
+.status-header > :last-child {
+  margin-left: auto;
+}
+
+.level-sync-tag {
+  cursor: help;
+}
+
+.level-sync-origin {
+  margin-left: 4px;
+  opacity: 0.72;
 }
 
 .bar-row {

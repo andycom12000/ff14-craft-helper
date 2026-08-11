@@ -381,7 +381,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
         <section class="b-main">
           <template v-if="canSimulate">
             <div class="b-hud">
-              <StatusBar :craft-state="currentState" />
+              <StatusBar :craft-state="currentState" :level-sync="recipe?.levelSync ?? null" />
               <BuffDisplay :buffs="currentState?.buffs ?? new Map()" />
             </div>
 
@@ -792,7 +792,7 @@ const gearsetBlocking = computed(() => gearsetMissing.value || gearsetLevelHardB
         </div>
 
         <section v-if="canSimulate" class="m-status">
-          <StatusBar :craft-state="currentState" />
+          <StatusBar :craft-state="currentState" :level-sync="recipe?.levelSync ?? null" />
           <BuffDisplay :buffs="currentState?.buffs ?? new Map()" />
         </section>
 
