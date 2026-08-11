@@ -182,6 +182,10 @@ export async function getRecipe(id: number): Promise<Recipe> {
     isCollectable: resultItem?.isCollectable === true,
     craftKind: recipe.craftKind ?? 'normal',
     rlv: recipe.rlv,
+    difficultyFactor: recipe.difficultyFactor,
+    qualityFactor: recipe.qualityFactor,
+    durabilityFactor: recipe.durabilityFactor,
+    maxAdjustableJobLevel: recipe.maxAdjustableJobLevel ?? 0,
   }
 }
 
