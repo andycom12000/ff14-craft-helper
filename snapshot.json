@@ -1,57 +1,57 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-14T09:14:45.444Z",
+  "generatedAt": "2026-10-15T08:47:20.378Z",
   "propertyId": "527587379",
   "windows": {
     "7d": {
       "window": {
         "days": 7,
-        "startDate": "2026-10-07",
-        "endDate": "2026-10-14"
+        "startDate": "2026-10-08",
+        "endDate": "2026-10-15"
       },
       "glance": {
         "activeUsers": {
-          "total": 219,
+          "total": 212,
           "new": 106,
-          "returning": 114,
-          "returningPct": 0.5205479452054794
+          "returning": 112,
+          "returningPct": 0.5283018867924528
         },
         "solver": {
-          "starts": 662,
-          "completes": 645,
-          "fails": 4,
-          "completePct": 0.974320241691843,
-          "humanStarts": 506,
-          "humanCompletes": 504,
-          "humanFails": 1,
-          "humanCompletePct": 0.9960474308300395,
-          "macroCopies": 435
+          "starts": 664,
+          "completes": 646,
+          "fails": 3,
+          "completePct": 0.9728915662650602,
+          "humanStarts": 485,
+          "humanCompletes": 485,
+          "humanFails": 0,
+          "humanCompletePct": 1,
+          "macroCopies": 410
         },
         "batch": {
-          "starts": 164,
-          "completes": 39,
-          "fails": 125,
+          "starts": 158,
+          "completes": 38,
+          "fails": 120,
           "cancelled": 0,
-          "completePct": 0.23780487804878048
+          "completePct": 0.24050632911392406
         },
         "bom": {
-          "calculates": 36,
+          "calculates": 32,
           "sentToBatch": 0,
           "handoffPct": 0
         },
         "infra": {
-          "sabUnavailable": 13,
+          "sabUnavailable": 12,
           "wasmLoadFailed": 4
         },
         "api": {
-          "universalisCalls": 2303,
-          "universalisRealFails": 207,
-          "universalisNoListing": 105,
+          "universalisCalls": 2281,
+          "universalisRealFails": 221,
+          "universalisNoListing": 145,
           "universalisOtherFails": 0
         },
         "adoption": {
-          "batchStarts": 164,
-          "crossServerBatches": 151,
+          "batchStarts": 158,
+          "crossServerBatches": 146,
           "meldAdvisorRuns": 26,
           "meldApplies": 0
         }
@@ -61,12 +61,12 @@
           "path": "/simulator",
           "title": "製作模擬",
           "family": "craft",
-          "views": 368,
-          "users": 133,
-          "sessions": 275,
-          "engagement": 0.5854545454545454,
-          "bounce": 0.41454545454545455,
-          "avgSession": 0.02909090909090909
+          "views": 365,
+          "users": 132,
+          "sessions": 271,
+          "engagement": 0.5645756457564576,
+          "bounce": 0.4354243542435424,
+          "avgSession": 0.02952029520295203
         },
         {
           "path": "/batch",
@@ -74,87 +74,87 @@
           "family": "craft",
           "views": 191,
           "users": 70,
-          "sessions": 134,
-          "engagement": 0.44029850746268656,
-          "bounce": 0.5597014925373134,
-          "avgSession": 3.6791044776119404
-        },
-        {
-          "path": "/gearset",
-          "title": "配裝管理",
-          "family": "craft",
-          "views": 162,
-          "users": 55,
-          "sessions": 83,
-          "engagement": 0.7590361445783133,
-          "bounce": 0.24096385542168675,
-          "avgSession": 9.289156626506024
+          "sessions": 133,
+          "engagement": 0.46616541353383456,
+          "bounce": 0.5338345864661654,
+          "avgSession": 3.4135338345864663
         },
         {
           "path": "/",
           "title": "吐司工坊",
           "family": "core",
-          "views": 160,
-          "users": 82,
-          "sessions": 129,
-          "engagement": 0.5503875968992248,
-          "bounce": 0.4496124031007752,
-          "avgSession": 0.9147286821705426
+          "views": 161,
+          "users": 83,
+          "sessions": 130,
+          "engagement": 0.5923076923076923,
+          "bounce": 0.4076923076923077,
+          "avgSession": 0.8615384615384616
+        },
+        {
+          "path": "/gearset",
+          "title": "配裝管理",
+          "family": "craft",
+          "views": 148,
+          "users": 54,
+          "sessions": 75,
+          "engagement": 0.7733333333333333,
+          "bounce": 0.22666666666666666,
+          "avgSession": 10.466666666666667
         },
         {
           "path": "/bom",
           "title": "購物清單",
           "family": "craft",
-          "views": 72,
-          "users": 33,
-          "sessions": 57,
-          "engagement": 0.5263157894736842,
-          "bounce": 0.47368421052631576,
-          "avgSession": 4.157894736842105
+          "views": 68,
+          "users": 31,
+          "sessions": 56,
+          "engagement": 0.5535714285714286,
+          "bounce": 0.44642857142857145,
+          "avgSession": 3.6785714285714284
         },
         {
           "path": "/timer",
           "title": "採集計時器",
           "family": "gather",
-          "views": 20,
-          "users": 10,
-          "sessions": 18,
-          "engagement": 0.8333333333333334,
-          "bounce": 0.16666666666666666,
-          "avgSession": 1.0555555555555556
+          "views": 22,
+          "users": 11,
+          "sessions": 21,
+          "engagement": 0.7619047619047619,
+          "bounce": 0.23809523809523808,
+          "avgSession": 1.380952380952381
         },
         {
           "path": "/company-craft",
           "title": "部隊工坊",
           "family": "company",
-          "views": 17,
-          "users": 12,
-          "sessions": 12,
-          "engagement": 0.8333333333333334,
-          "bounce": 0.16666666666666666,
-          "avgSession": 6.083333333333333
+          "views": 19,
+          "users": 13,
+          "sessions": 13,
+          "engagement": 0.9230769230769231,
+          "bounce": 0.07692307692307693,
+          "avgSession": 7.538461538461538
         },
         {
           "path": "/settings",
           "title": "設定",
           "family": "meta",
-          "views": 8,
-          "users": 6,
-          "sessions": 6,
-          "engagement": 1,
-          "bounce": 0,
-          "avgSession": 23.166666666666668
+          "views": 10,
+          "users": 7,
+          "sessions": 7,
+          "engagement": 0.8571428571428571,
+          "bounce": 0.14285714285714285,
+          "avgSession": 21
         },
         {
           "path": "/changelog",
           "title": "更新日誌",
           "family": "meta",
-          "views": 4,
-          "users": 3,
-          "sessions": 3,
-          "engagement": 0.6666666666666666,
-          "bounce": 0.3333333333333333,
-          "avgSession": 3.3333333333333335
+          "views": 6,
+          "users": 4,
+          "sessions": 4,
+          "engagement": 0.75,
+          "bounce": 0.25,
+          "avgSession": 3
         },
         {
           "path": "/admin/ga",
@@ -183,70 +183,70 @@
           "title": "吐司工坊 - FFXIV 製作助手｜製作模擬器與批量製作工具",
           "family": "meta",
           "views": 0,
-          "users": 218,
-          "sessions": 621,
-          "engagement": 0.4573268921095008,
-          "bounce": 0.5426731078904992,
-          "avgSession": 39.20450885668277
+          "users": 212,
+          "sessions": 611,
+          "engagement": 0.45171849427168576,
+          "bounce": 0.5482815057283142,
+          "avgSession": 38.636661211129294
         }
       ],
       "solverFunnel": [
         {
           "step": "solver_start",
-          "count": 662,
+          "count": 664,
           "tone": "neutral"
         },
         {
           "step": "solver_complete",
-          "count": 645,
+          "count": 646,
           "tone": "success"
         },
         {
           "step": "solver_macro_copy",
-          "count": 435,
+          "count": 410,
           "tone": "success"
         }
       ],
       "batchFunnel": [
         {
           "step": "batch_add",
-          "count": 237,
+          "count": 217,
           "tone": "neutral"
         },
         {
           "step": "batch_start",
-          "count": 164,
+          "count": 158,
           "tone": "neutral"
         },
         {
           "step": "batch_complete",
-          "count": 39,
+          "count": 38,
           "tone": "success"
         }
       ],
       "simulatorFunnel": {
         "entry": {
           "label": "/simulator page_view",
-          "count": 368,
-          "users": 133
+          "count": 365,
+          "users": 132
         },
         "macroCopy": {
           "label": "solver_macro_copy",
-          "count": 435,
-          "users": 46
+          "count": 410,
+          "users": 45
         },
         "globalContext": [
           {
             "label": "recipe_select (any page)",
-            "count": 523
+            "count": 522
           },
           {
             "label": "solver_start (any page)",
-            "count": 662
+            "count": 664
           },
           {
             "label": "solver_complete (any page)",
-            "count": 645
+            "count": 646
           }
         ]
       },
@@ -254,22 +254,17 @@
         {
           "event": "batch",
           "reason": "Failed to fetch",
-          "count": 121,
+          "count": 116,
           "costModeBreakdown": [
             {
               "costMode": "quick-buy",
-              "count": 109
+              "count": 100
             },
             {
               "costMode": "macro",
-              "count": 12
+              "count": 16
             }
           ]
-        },
-        {
-          "event": "solver",
-          "reason": "找不到可行的製作方案，請確認裝備數值與配方是否正確",
-          "count": 4
         },
         {
           "event": "wasm",
@@ -290,53 +285,58 @@
               "count": 1
             }
           ]
+        },
+        {
+          "event": "solver",
+          "reason": "找不到可行的製作方案，請確認裝備數值與配方是否正確",
+          "count": 3
         }
       ],
       "vitals": [
         {
           "metric": "INP",
-          "good": 282,
-          "ni": 25,
-          "poor": 3
+          "good": 287,
+          "ni": 26,
+          "poor": 2
         },
         {
           "metric": "TTFB",
-          "good": 473,
+          "good": 464,
           "ni": 19,
           "poor": 8
         },
         {
           "metric": "CLS",
-          "good": 222,
-          "ni": 6,
+          "good": 221,
+          "ni": 9,
           "poor": 1
         },
         {
           "metric": "FCP",
-          "good": 232,
+          "good": 231,
           "ni": 11,
-          "poor": 10
+          "poor": 11
         },
         {
           "metric": "LCP",
-          "good": 216,
+          "good": 218,
           "ni": 9,
-          "poor": 13
+          "poor": 15
         }
       ],
       "q4Funnels": [
         {
           "name": "Batch prep → Optimize",
           "label": "batch_add_recipe → batch_opt_start",
-          "from": 237,
-          "to": 164,
+          "from": 217,
+          "to": 158,
           "flag": "ok",
           "note": "轉換健康"
         },
         {
           "name": "BOM → Consumed",
           "label": "bom_calculate → (any consume)",
-          "from": 36,
+          "from": 32,
           "to": 0,
           "flag": "danger",
           "note": "轉換偏低"
@@ -345,70 +345,70 @@
       "marketRegion": [
         {
           "event": "solver_start",
-          "notset": 5,
+          "notset": 4,
           "unset": 0,
-          "cht": 553,
-          "intl": 104
+          "cht": 552,
+          "intl": 108
         },
         {
           "event": "solver_complete",
-          "notset": 8,
+          "notset": 5,
           "unset": 0,
-          "cht": 542,
-          "intl": 95
+          "cht": 540,
+          "intl": 101
         },
         {
           "event": "solver_macro_copy",
-          "notset": 9,
+          "notset": 8,
           "unset": 0,
-          "cht": 424,
+          "cht": 400,
           "intl": 2
         },
         {
           "event": "batch_optimization_start",
-          "notset": 0,
+          "notset": 1,
           "unset": 0,
-          "cht": 156,
+          "cht": 149,
           "intl": 8
         },
         {
           "event": "batch_optimization_complete",
           "notset": 1,
           "unset": 0,
-          "cht": 35,
+          "cht": 34,
           "intl": 3
         },
         {
           "event": "bom_calculate",
           "notset": 0,
           "unset": 0,
-          "cht": 29,
-          "intl": 7
+          "cht": 27,
+          "intl": 5
         }
       ],
       "gearBucketBreakdown": [
         {
           "bucket": "entry",
-          "starts": 138,
-          "completes": 138,
-          "fails": 1,
-          "completeRate": 1,
-          "failRate": 0.007246376811594203
+          "starts": 133,
+          "completes": 136,
+          "fails": 0,
+          "completeRate": 1.0225563909774436,
+          "failRate": 0
         },
         {
           "bucket": "mid",
-          "starts": 146,
-          "completes": 148,
+          "starts": 138,
+          "completes": 140,
           "fails": 0,
-          "completeRate": 1.0136986301369864,
+          "completeRate": 1.0144927536231885,
           "failRate": 0
         },
         {
           "bucket": "bis",
-          "starts": 222,
-          "completes": 218,
+          "starts": 214,
+          "completes": 209,
           "fails": 0,
-          "completeRate": 0.9819819819819819,
+          "completeRate": 0.9766355140186916,
           "failRate": 0
         }
       ],
@@ -418,7 +418,7 @@
           "label": "模擬器塞入大量佇列",
           "gloss": "Queued many recipes in the single-recipe simulator — batch crafting is the intended tool.",
           "eventCount": 15,
-          "affectedUsers": 9
+          "affectedUsers": 10
         },
         {
           "type": "single_recipe_in_batch",
@@ -440,15 +440,21 @@
           {
             "api": "universalis",
             "status": 0,
-            "count": 214
+            "count": 233
           },
           {
             "api": "universalis",
             "status": 404,
-            "count": 109
+            "count": 149
           }
         ],
         "topEndpoints": [
+          {
+            "api": "universalis",
+            "endpoint": "陸行鳥/35572",
+            "status": 404,
+            "count": 41
+          },
           {
             "api": "universalis",
             "endpoint": "陸行鳥/44023,44001,44022,10,9,44013,8,11,44012,44000,44032,440…",
@@ -463,9 +469,9 @@
           },
           {
             "api": "universalis",
-            "endpoint": "陸行鳥/35572",
+            "endpoint": "陸行鳥/38581",
             "status": 404,
-            "count": 28
+            "count": 26
           },
           {
             "api": "universalis",
@@ -481,15 +487,15 @@
           },
           {
             "api": "universalis",
-            "endpoint": "陸行鳥/38581",
+            "endpoint": "陸行鳥/22572",
             "status": 404,
-            "count": 12
+            "count": 15
           },
           {
             "api": "universalis",
-            "endpoint": "陸行鳥/44023,44001,44011,10,9,44013,8,11,44012,44000,44044,440…",
+            "endpoint": "利維坦/5121,14,43919,44233,44234,43930,43923,43931,43933,43932…",
             "status": 0,
-            "count": 9
+            "count": 8
           },
           {
             "api": "universalis",
@@ -500,12 +506,6 @@
           {
             "api": "universalis",
             "endpoint": "陸行鳥/15153",
-            "status": 404,
-            "count": 7
-          },
-          {
-            "api": "universalis",
-            "endpoint": "陸行鳥/38579",
             "status": 404,
             "count": 7
           }
@@ -524,14 +524,6 @@
           {
             "rlv": 41,
             "events": 7
-          },
-          {
-            "rlv": 42,
-            "events": 1
-          },
-          {
-            "rlv": 55,
-            "events": 1
           },
           {
             "rlv": 115,
@@ -554,16 +546,12 @@
             "events": 1
           },
           {
-            "rlv": 142,
-            "events": 11
-          },
-          {
             "rlv": 145,
             "events": 3
           },
           {
             "rlv": 148,
-            "events": 4
+            "events": 5
           },
           {
             "rlv": 150,
@@ -578,12 +566,12 @@
             "events": 2
           },
           {
-            "rlv": 265,
-            "events": 7
+            "rlv": 270,
+            "events": 2
           },
           {
             "rlv": 273,
-            "events": 3
+            "events": 1
           },
           {
             "rlv": 279,
@@ -595,7 +583,7 @@
           },
           {
             "rlv": 290,
-            "events": 10
+            "events": 9
           },
           {
             "rlv": 320,
@@ -607,11 +595,11 @@
           },
           {
             "rlv": 390,
-            "events": 4
+            "events": 2
           },
           {
             "rlv": 395,
-            "events": 6
+            "events": 2
           },
           {
             "rlv": 403,
@@ -642,12 +630,8 @@
             "events": 4
           },
           {
-            "rlv": 513,
-            "events": 1
-          },
-          {
             "rlv": 517,
-            "events": 5
+            "events": 1
           },
           {
             "rlv": 520,
@@ -655,15 +639,15 @@
           },
           {
             "rlv": 525,
-            "events": 3
+            "events": 1
           },
           {
             "rlv": 530,
-            "events": 4
+            "events": 3
           },
           {
             "rlv": 535,
-            "events": 3
+            "events": 2
           },
           {
             "rlv": 540,
@@ -679,7 +663,7 @@
           },
           {
             "rlv": 555,
-            "events": 11
+            "events": 8
           },
           {
             "rlv": 560,
@@ -691,11 +675,11 @@
           },
           {
             "rlv": 580,
-            "events": 4
+            "events": 3
           },
           {
             "rlv": 620,
-            "events": 9
+            "events": 7
           },
           {
             "rlv": 640,
@@ -711,11 +695,11 @@
           },
           {
             "rlv": 653,
-            "events": 13
+            "events": 15
           },
           {
             "rlv": 656,
-            "events": 19
+            "events": 17
           },
           {
             "rlv": 660,
@@ -723,7 +707,7 @@
           },
           {
             "rlv": 665,
-            "events": 9
+            "events": 10
           },
           {
             "rlv": 670,
@@ -743,7 +727,7 @@
           },
           {
             "rlv": 690,
-            "events": 122
+            "events": 153
           },
           {
             "rlv": 700,
@@ -755,7 +739,7 @@
           },
           {
             "rlv": 710,
-            "events": 7
+            "events": 4
           },
           {
             "rlv": 720,
@@ -763,7 +747,7 @@
           },
           {
             "rlv": 740,
-            "events": 31
+            "events": 40
           },
           {
             "rlv": 748,
@@ -771,27 +755,27 @@
           },
           {
             "rlv": 770,
-            "events": 30
+            "events": 32
           }
         ],
         "matrix": [
           {
             "isExpert": false,
             "isCollectable": false,
-            "starts": 416,
+            "starts": 415,
             "completes": 416,
-            "macroCopies": 350,
-            "completeRate": 1,
-            "macroCopyRate": 0.8413461538461539
+            "macroCopies": 342,
+            "completeRate": 1.002409638554217,
+            "macroCopyRate": 0.8221153846153846
           },
           {
             "isExpert": false,
             "isCollectable": true,
-            "starts": 81,
-            "completes": 79,
-            "macroCopies": 79,
-            "completeRate": 0.9753086419753086,
-            "macroCopyRate": 1
+            "starts": 63,
+            "completes": 62,
+            "macroCopies": 64,
+            "completeRate": 0.9841269841269841,
+            "macroCopyRate": 1.032258064516129
           },
           {
             "isExpert": true,
@@ -805,63 +789,63 @@
           {
             "isExpert": true,
             "isCollectable": true,
-            "starts": 4,
-            "completes": 4,
-            "macroCopies": 5,
+            "starts": 2,
+            "completes": 2,
+            "macroCopies": 3,
             "completeRate": 1,
-            "macroCopyRate": 1.25
+            "macroCopyRate": 1.5
           }
         ],
         "craftKindBreakdown": [
           {
             "kind": "normal",
-            "starts": 327,
-            "completes": 324,
-            "macroCopies": 287,
-            "completeRate": 0.9908256880733946,
-            "macroCopyRate": 0.8858024691358025
+            "starts": 318,
+            "completes": 317,
+            "macroCopies": 274,
+            "completeRate": 0.9968553459119497,
+            "macroCopyRate": 0.8643533123028391
           },
           {
             "kind": "quick",
-            "starts": 170,
-            "completes": 171,
-            "macroCopies": 142,
-            "completeRate": 1.0058823529411764,
-            "macroCopyRate": 0.8304093567251462
+            "starts": 160,
+            "completes": 161,
+            "macroCopies": 132,
+            "completeRate": 1.00625,
+            "macroCopyRate": 0.8198757763975155
           },
           {
             "kind": "expert",
-            "starts": 9,
-            "completes": 9,
-            "macroCopies": 6,
+            "starts": 7,
+            "completes": 7,
+            "macroCopies": 4,
             "completeRate": 1,
-            "macroCopyRate": 0.6666666666666666
+            "macroCopyRate": 0.5714285714285714
           }
         ]
       },
       "byRegion": {
         "solver": {
           "cht": {
-            "value": 553,
-            "secondary": "542 完成",
-            "sparkPct": 0.9801084990958409
+            "value": 552,
+            "secondary": "540 完成",
+            "sparkPct": 0.9782608695652174
           },
           "intl": {
-            "value": 104,
-            "secondary": "95 完成",
-            "sparkPct": 0.9134615384615384
+            "value": 108,
+            "secondary": "101 完成",
+            "sparkPct": 0.9351851851851852
           },
           "unset": {
-            "value": 5,
-            "secondary": "8 完成",
-            "sparkPct": 1.6
+            "value": 4,
+            "secondary": "5 完成",
+            "sparkPct": 1.25
           }
         },
         "batch": {
           "cht": {
-            "value": 156,
-            "secondary": "35 完成",
-            "sparkPct": 0.22435897435897437
+            "value": 149,
+            "secondary": "34 完成",
+            "sparkPct": 0.22818791946308725
           },
           "intl": {
             "value": 8,
@@ -869,18 +853,19 @@
             "sparkPct": 0.375
           },
           "unset": {
-            "value": 0,
-            "secondary": "1 完成"
+            "value": 1,
+            "secondary": "1 完成",
+            "sparkPct": 1
           }
         },
         "bom": {
           "cht": {
-            "value": 29,
+            "value": 27,
             "secondary": "0 → 批次",
             "sparkPct": 0
           },
           "intl": {
-            "value": 7,
+            "value": 5,
             "secondary": "0 → 批次",
             "sparkPct": 0
           },
@@ -900,8 +885,8 @@
             "secondary": "SAB 0 · WASM 0"
           },
           "unset": {
-            "value": 2,
-            "secondary": "SAB 2 · WASM 0",
+            "value": 1,
+            "secondary": "SAB 1 · WASM 0",
             "tone": "warn"
           }
         }
@@ -911,49 +896,14 @@
           "rlv": 1,
           "selectCount": 7,
           "simulatorCount": 7,
-          "batchTargetCount": 2,
-          "bomTargetCount": 2
-        },
-        {
-          "rlv": 3,
-          "selectCount": 0,
-          "simulatorCount": 0,
-          "batchTargetCount": 2,
-          "bomTargetCount": 1
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
         },
         {
           "rlv": 4,
           "selectCount": 0,
           "simulatorCount": 0,
           "batchTargetCount": 2,
-          "bomTargetCount": 1
-        },
-        {
-          "rlv": 5,
-          "selectCount": 0,
-          "simulatorCount": 0,
-          "batchTargetCount": 3,
-          "bomTargetCount": 2
-        },
-        {
-          "rlv": 6,
-          "selectCount": 0,
-          "simulatorCount": 0,
-          "batchTargetCount": 1,
-          "bomTargetCount": 1
-        },
-        {
-          "rlv": 7,
-          "selectCount": 0,
-          "simulatorCount": 0,
-          "batchTargetCount": 1,
-          "bomTargetCount": 1
-        },
-        {
-          "rlv": 8,
-          "selectCount": 0,
-          "simulatorCount": 0,
-          "batchTargetCount": 1,
           "bomTargetCount": 1
         },
         {
@@ -964,59 +914,17 @@
           "bomTargetCount": 0
         },
         {
-          "rlv": 10,
-          "selectCount": 0,
-          "simulatorCount": 0,
-          "batchTargetCount": 2,
-          "bomTargetCount": 2
-        },
-        {
-          "rlv": 11,
-          "selectCount": 0,
-          "simulatorCount": 0,
-          "batchTargetCount": 2,
-          "bomTargetCount": 2
-        },
-        {
-          "rlv": 13,
-          "selectCount": 0,
-          "simulatorCount": 0,
-          "batchTargetCount": 3,
-          "bomTargetCount": 2
-        },
-        {
           "rlv": 14,
           "selectCount": 7,
           "simulatorCount": 7,
-          "batchTargetCount": 1,
+          "batchTargetCount": 0,
           "bomTargetCount": 0
         },
         {
           "rlv": 15,
           "selectCount": 0,
           "simulatorCount": 0,
-          "batchTargetCount": 2,
-          "bomTargetCount": 4
-        },
-        {
-          "rlv": 16,
-          "selectCount": 0,
-          "simulatorCount": 0,
-          "batchTargetCount": 2,
-          "bomTargetCount": 2
-        },
-        {
-          "rlv": 18,
-          "selectCount": 0,
-          "simulatorCount": 0,
-          "batchTargetCount": 2,
-          "bomTargetCount": 2
-        },
-        {
-          "rlv": 19,
-          "selectCount": 0,
-          "simulatorCount": 0,
-          "batchTargetCount": 1,
+          "batchTargetCount": 0,
           "bomTargetCount": 1
         },
         {
@@ -1024,28 +932,28 @@
           "selectCount": 0,
           "simulatorCount": 0,
           "batchTargetCount": 0,
-          "bomTargetCount": 3
+          "bomTargetCount": 2
         },
         {
           "rlv": 23,
           "selectCount": 0,
           "simulatorCount": 0,
           "batchTargetCount": 0,
-          "bomTargetCount": 2
+          "bomTargetCount": 1
         },
         {
           "rlv": 25,
           "selectCount": 0,
           "simulatorCount": 0,
           "batchTargetCount": 1,
-          "bomTargetCount": 1
+          "bomTargetCount": 0
         },
         {
           "rlv": 26,
           "selectCount": 0,
           "simulatorCount": 0,
-          "batchTargetCount": 3,
-          "bomTargetCount": 2
+          "batchTargetCount": 2,
+          "bomTargetCount": 0
         },
         {
           "rlv": 27,
@@ -1055,32 +963,25 @@
           "bomTargetCount": 1
         },
         {
-          "rlv": 28,
-          "selectCount": 0,
-          "simulatorCount": 0,
-          "batchTargetCount": 0,
-          "bomTargetCount": 1
-        },
-        {
           "rlv": 29,
           "selectCount": 0,
           "simulatorCount": 0,
-          "batchTargetCount": 3,
-          "bomTargetCount": 1
+          "batchTargetCount": 2,
+          "bomTargetCount": 0
         },
         {
           "rlv": 30,
           "selectCount": 0,
           "simulatorCount": 0,
           "batchTargetCount": 1,
-          "bomTargetCount": 7
+          "bomTargetCount": 5
         },
         {
           "rlv": 31,
           "selectCount": 0,
           "simulatorCount": 0,
           "batchTargetCount": 3,
-          "bomTargetCount": 2
+          "bomTargetCount": 0
         },
         {
           "rlv": 32,
@@ -1094,49 +995,42 @@
           "selectCount": 0,
           "simulatorCount": 0,
           "batchTargetCount": 0,
-          "bomTargetCount": 6
+          "bomTargetCount": 4
         },
         {
-          "rlv": 34,
+          "rlv": 35,
           "selectCount": 0,
           "simulatorCount": 0,
           "batchTargetCount": 0,
           "bomTargetCount": 2
         },
         {
-          "rlv": 35,
-          "selectCount": 0,
-          "simulatorCount": 0,
-          "batchTargetCount": 1,
-          "bomTargetCount": 3
-        },
-        {
           "rlv": 36,
           "selectCount": 0,
           "simulatorCount": 0,
           "batchTargetCount": 1,
-          "bomTargetCount": 1
+          "bomTargetCount": 0
         },
         {
           "rlv": 37,
           "selectCount": 0,
           "simulatorCount": 0,
           "batchTargetCount": 2,
-          "bomTargetCount": 1
+          "bomTargetCount": 0
         },
         {
           "rlv": 38,
           "selectCount": 0,
           "simulatorCount": 0,
-          "batchTargetCount": 2,
-          "bomTargetCount": 0
+          "batchTargetCount": 1,
+          "bomTargetCount": 2
         },
         {
           "rlv": 39,
           "selectCount": 0,
           "simulatorCount": 0,
           "batchTargetCount": 1,
-          "bomTargetCount": 2
+          "bomTargetCount": 1
         },
         {
           "rlv": 40,
@@ -1154,24 +1048,17 @@
         },
         {
           "rlv": 42,
-          "selectCount": 1,
-          "simulatorCount": 1,
-          "batchTargetCount": 3,
-          "bomTargetCount": 1
-        },
-        {
-          "rlv": 43,
           "selectCount": 0,
           "simulatorCount": 0,
           "batchTargetCount": 2,
-          "bomTargetCount": 2
+          "bomTargetCount": 0
         },
         {
           "rlv": 45,
           "selectCount": 0,
           "simulatorCount": 0,
           "batchTargetCount": 0,
-          "bomTargetCount": 3
+          "bomTargetCount": 1
         },
         {
           "rlv": 46,
@@ -1181,52 +1068,38 @@
           "bomTargetCount": 2
         },
         {
-          "rlv": 48,
-          "selectCount": 0,
-          "simulatorCount": 0,
-          "batchTargetCount": 0,
-          "bomTargetCount": 1
-        },
-        {
-          "rlv": 49,
-          "selectCount": 0,
-          "simulatorCount": 0,
-          "batchTargetCount": 1,
-          "bomTargetCount": 0
-        },
-        {
           "rlv": 50,
           "selectCount": 0,
           "simulatorCount": 0,
           "batchTargetCount": 0,
-          "bomTargetCount": 1
+          "bomTargetCount": 2
         },
         {
           "rlv": 55,
-          "selectCount": 1,
-          "simulatorCount": 1,
+          "selectCount": 0,
+          "simulatorCount": 0,
           "batchTargetCount": 1,
-          "bomTargetCount": 4
+          "bomTargetCount": 3
         },
         {
           "rlv": 70,
           "selectCount": 0,
           "simulatorCount": 0,
           "batchTargetCount": 2,
-          "bomTargetCount": 3
+          "bomTargetCount": 1
         },
         {
           "rlv": 90,
           "selectCount": 0,
           "simulatorCount": 0,
           "batchTargetCount": 0,
-          "bomTargetCount": 7
+          "bomTargetCount": 6
         },
         {
           "rlv": 115,
           "selectCount": 13,
           "simulatorCount": 10,
-          "batchTargetCount": 1,
+          "batchTargetCount": 0,
           "bomTargetCount": 0
         },
         {
@@ -1244,18 +1117,11 @@
           "bomTargetCount": 0
         },
         {
-          "rlv": 133,
-          "selectCount": 0,
-          "simulatorCount": 0,
-          "batchTargetCount": 1,
-          "bomTargetCount": 0
-        },
-        {
           "rlv": 136,
           "selectCount": 4,
           "simulatorCount": 3,
           "batchTargetCount": 3,
-          "bomTargetCount": 1
+          "bomTargetCount": 2
         },
         {
           "rlv": 139,
@@ -1266,9 +1132,9 @@
         },
         {
           "rlv": 142,
-          "selectCount": 11,
-          "simulatorCount": 7,
-          "batchTargetCount": 4,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 3,
           "bomTargetCount": 0
         },
         {
@@ -1280,7 +1146,7 @@
         },
         {
           "rlv": 148,
-          "selectCount": 4,
+          "selectCount": 5,
           "simulatorCount": 4,
           "batchTargetCount": 0,
           "bomTargetCount": 0
@@ -1289,7 +1155,7 @@
           "rlv": 150,
           "selectCount": 1,
           "simulatorCount": 1,
-          "batchTargetCount": 3,
+          "batchTargetCount": 1,
           "bomTargetCount": 1
         },
         {
@@ -1297,7 +1163,7 @@
           "selectCount": 1,
           "simulatorCount": 1,
           "batchTargetCount": 2,
-          "bomTargetCount": 2
+          "bomTargetCount": 1
         },
         {
           "rlv": 180,
@@ -1325,19 +1191,26 @@
           "selectCount": 2,
           "simulatorCount": 2,
           "batchTargetCount": 0,
-          "bomTargetCount": 6
+          "bomTargetCount": 7
         },
         {
           "rlv": 265,
-          "selectCount": 7,
-          "simulatorCount": 6,
+          "selectCount": 0,
+          "simulatorCount": 0,
           "batchTargetCount": 0,
           "bomTargetCount": 2
         },
         {
-          "rlv": 273,
-          "selectCount": 3,
+          "rlv": 270,
+          "selectCount": 2,
           "simulatorCount": 2,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 273,
+          "selectCount": 1,
+          "simulatorCount": 1,
           "batchTargetCount": 0,
           "bomTargetCount": 0
         },
@@ -1364,8 +1237,8 @@
         },
         {
           "rlv": 290,
-          "selectCount": 10,
-          "simulatorCount": 10,
+          "selectCount": 9,
+          "simulatorCount": 9,
           "batchTargetCount": 0,
           "bomTargetCount": 1
         },
@@ -1392,15 +1265,15 @@
         },
         {
           "rlv": 390,
-          "selectCount": 4,
-          "simulatorCount": 4,
+          "selectCount": 2,
+          "simulatorCount": 2,
           "batchTargetCount": 0,
           "bomTargetCount": 0
         },
         {
           "rlv": 395,
-          "selectCount": 6,
-          "simulatorCount": 7,
+          "selectCount": 2,
+          "simulatorCount": 2,
           "batchTargetCount": 0,
           "bomTargetCount": 0
         },
@@ -1451,7 +1324,7 @@
           "selectCount": 4,
           "simulatorCount": 4,
           "batchTargetCount": 22,
-          "bomTargetCount": 22
+          "bomTargetCount": 21
         },
         {
           "rlv": 480,
@@ -1468,16 +1341,9 @@
           "bomTargetCount": 0
         },
         {
-          "rlv": 513,
-          "selectCount": 1,
-          "simulatorCount": 2,
-          "batchTargetCount": 0,
-          "bomTargetCount": 0
-        },
-        {
           "rlv": 517,
-          "selectCount": 5,
-          "simulatorCount": 5,
+          "selectCount": 1,
+          "simulatorCount": 1,
           "batchTargetCount": 8,
           "bomTargetCount": 0
         },
@@ -1485,43 +1351,43 @@
           "rlv": 520,
           "selectCount": 1,
           "simulatorCount": 1,
-          "batchTargetCount": 4,
+          "batchTargetCount": 6,
           "bomTargetCount": 0
         },
         {
           "rlv": 525,
-          "selectCount": 3,
-          "simulatorCount": 3,
+          "selectCount": 1,
+          "simulatorCount": 1,
           "batchTargetCount": 0,
           "bomTargetCount": 0
         },
         {
           "rlv": 530,
-          "selectCount": 4,
-          "simulatorCount": 3,
-          "batchTargetCount": 2,
+          "selectCount": 3,
+          "simulatorCount": 2,
+          "batchTargetCount": 5,
           "bomTargetCount": 0
         },
         {
           "rlv": 535,
-          "selectCount": 3,
+          "selectCount": 2,
           "simulatorCount": 2,
-          "batchTargetCount": 1,
+          "batchTargetCount": 2,
           "bomTargetCount": 0
         },
         {
           "rlv": 540,
           "selectCount": 1,
           "simulatorCount": 1,
-          "batchTargetCount": 1,
-          "bomTargetCount": 13
+          "batchTargetCount": 2,
+          "bomTargetCount": 14
         },
         {
           "rlv": 545,
           "selectCount": 2,
           "simulatorCount": 2,
           "batchTargetCount": 0,
-          "bomTargetCount": 1
+          "bomTargetCount": 0
         },
         {
           "rlv": 550,
@@ -1532,8 +1398,8 @@
         },
         {
           "rlv": 555,
-          "selectCount": 11,
-          "simulatorCount": 18,
+          "selectCount": 8,
+          "simulatorCount": 16,
           "batchTargetCount": 0,
           "bomTargetCount": 1
         },
@@ -1542,7 +1408,7 @@
           "selectCount": 6,
           "simulatorCount": 5,
           "batchTargetCount": 3,
-          "bomTargetCount": 14
+          "bomTargetCount": 17
         },
         {
           "rlv": 570,
@@ -1553,8 +1419,8 @@
         },
         {
           "rlv": 580,
-          "selectCount": 4,
-          "simulatorCount": 5,
+          "selectCount": 3,
+          "simulatorCount": 1,
           "batchTargetCount": 0,
           "bomTargetCount": 1
         },
@@ -1567,8 +1433,8 @@
         },
         {
           "rlv": 620,
-          "selectCount": 9,
-          "simulatorCount": 10,
+          "selectCount": 7,
+          "simulatorCount": 5,
           "batchTargetCount": 0,
           "bomTargetCount": 0
         },
@@ -1577,7 +1443,7 @@
           "selectCount": 1,
           "simulatorCount": 0,
           "batchTargetCount": 2,
-          "bomTargetCount": 12
+          "bomTargetCount": 0
         },
         {
           "rlv": 641,
@@ -1589,21 +1455,21 @@
         {
           "rlv": 650,
           "selectCount": 7,
-          "simulatorCount": 6,
+          "simulatorCount": 5,
           "batchTargetCount": 0,
           "bomTargetCount": 0
         },
         {
           "rlv": 653,
-          "selectCount": 13,
-          "simulatorCount": 8,
-          "batchTargetCount": 0,
+          "selectCount": 15,
+          "simulatorCount": 9,
+          "batchTargetCount": 1,
           "bomTargetCount": 0
         },
         {
           "rlv": 656,
-          "selectCount": 19,
-          "simulatorCount": 8,
+          "selectCount": 17,
+          "simulatorCount": 6,
           "batchTargetCount": 1,
           "bomTargetCount": 0
         },
@@ -1616,7 +1482,7 @@
         },
         {
           "rlv": 665,
-          "selectCount": 9,
+          "selectCount": 10,
           "simulatorCount": 8,
           "batchTargetCount": 0,
           "bomTargetCount": 0
@@ -1625,8 +1491,8 @@
           "rlv": 670,
           "selectCount": 2,
           "simulatorCount": 2,
-          "batchTargetCount": 1,
-          "bomTargetCount": 5
+          "batchTargetCount": 0,
+          "bomTargetCount": 7
         },
         {
           "rlv": 675,
@@ -1639,22 +1505,22 @@
           "rlv": 680,
           "selectCount": 5,
           "simulatorCount": 6,
-          "batchTargetCount": 1,
+          "batchTargetCount": 2,
           "bomTargetCount": 0
         },
         {
           "rlv": 685,
           "selectCount": 13,
           "simulatorCount": 9,
-          "batchTargetCount": 14,
+          "batchTargetCount": 11,
           "bomTargetCount": 0
         },
         {
           "rlv": 690,
-          "selectCount": 122,
-          "simulatorCount": 117,
-          "batchTargetCount": 27,
-          "bomTargetCount": 9
+          "selectCount": 153,
+          "simulatorCount": 137,
+          "batchTargetCount": 28,
+          "bomTargetCount": 8
         },
         {
           "rlv": 700,
@@ -1666,28 +1532,28 @@
         {
           "rlv": 701,
           "selectCount": 2,
-          "simulatorCount": 1,
+          "simulatorCount": 0,
           "batchTargetCount": 0,
           "bomTargetCount": 0
         },
         {
           "rlv": 710,
-          "selectCount": 7,
-          "simulatorCount": 23,
-          "batchTargetCount": 0,
+          "selectCount": 4,
+          "simulatorCount": 14,
+          "batchTargetCount": 12,
           "bomTargetCount": 0
         },
         {
           "rlv": 720,
           "selectCount": 40,
-          "simulatorCount": 36,
+          "simulatorCount": 38,
           "batchTargetCount": 49,
           "bomTargetCount": 27
         },
         {
           "rlv": 740,
-          "selectCount": 31,
-          "simulatorCount": 35,
+          "selectCount": 40,
+          "simulatorCount": 39,
           "batchTargetCount": 6,
           "bomTargetCount": 1
         },
@@ -1700,8 +1566,8 @@
         },
         {
           "rlv": 770,
-          "selectCount": 30,
-          "simulatorCount": 30,
+          "selectCount": 32,
+          "simulatorCount": 37,
           "batchTargetCount": 0,
           "bomTargetCount": 10
         }
@@ -1711,53 +1577,53 @@
     "14d": {
       "window": {
         "days": 14,
-        "startDate": "2026-09-30",
-        "endDate": "2026-10-14"
+        "startDate": "2026-10-01",
+        "endDate": "2026-10-15"
       },
       "glance": {
         "activeUsers": {
-          "total": 381,
-          "new": 218,
-          "returning": 174,
-          "returningPct": 0.4566929133858268
+          "total": 367,
+          "new": 213,
+          "returning": 171,
+          "returningPct": 0.4659400544959128
         },
         "solver": {
-          "starts": 1455,
-          "completes": 1410,
+          "starts": 1385,
+          "completes": 1338,
           "fails": 20,
-          "completePct": 0.9690721649484536,
-          "humanStarts": 1146,
-          "humanCompletes": 1119,
+          "completePct": 0.9660649819494584,
+          "humanStarts": 1069,
+          "humanCompletes": 1046,
           "humanFails": 16,
-          "humanCompletePct": 0.9764397905759162,
-          "macroCopies": 1215
+          "humanCompletePct": 0.9784845650140318,
+          "macroCopies": 1062
         },
         "batch": {
-          "starts": 226,
-          "completes": 67,
-          "fails": 159,
+          "starts": 224,
+          "completes": 66,
+          "fails": 158,
           "cancelled": 0,
-          "completePct": 0.29646017699115046
+          "completePct": 0.29464285714285715
         },
         "bom": {
-          "calculates": 78,
+          "calculates": 79,
           "sentToBatch": 0,
           "handoffPct": 0
         },
         "infra": {
-          "sabUnavailable": 24,
+          "sabUnavailable": 21,
           "wasmLoadFailed": 4
         },
         "api": {
-          "universalisCalls": 5443,
-          "universalisRealFails": 324,
-          "universalisNoListing": 490,
+          "universalisCalls": 5457,
+          "universalisRealFails": 344,
+          "universalisNoListing": 526,
           "universalisOtherFails": 0
         },
         "adoption": {
-          "batchStarts": 226,
-          "crossServerBatches": 202,
-          "meldAdvisorRuns": 53,
+          "batchStarts": 224,
+          "crossServerBatches": 201,
+          "meldAdvisorRuns": 54,
           "meldApplies": 0
         }
       },
@@ -1766,100 +1632,100 @@
           "path": "/simulator",
           "title": "製作模擬",
           "family": "craft",
-          "views": 722,
-          "users": 244,
-          "sessions": 547,
-          "engagement": 0.6160877513711152,
-          "bounce": 0.38391224862888484,
-          "avgSession": 0.03656307129798903
+          "views": 704,
+          "users": 235,
+          "sessions": 539,
+          "engagement": 0.6122448979591837,
+          "bounce": 0.3877551020408163,
+          "avgSession": 0.03525046382189239
         },
         {
           "path": "/batch",
           "title": "批量製作",
           "family": "craft",
-          "views": 367,
-          "users": 115,
-          "sessions": 266,
-          "engagement": 0.5,
-          "bounce": 0.5,
-          "avgSession": 5.041353383458647
+          "views": 350,
+          "users": 112,
+          "sessions": 259,
+          "engagement": 0.4980694980694981,
+          "bounce": 0.5019305019305019,
+          "avgSession": 4.293436293436294
         },
         {
           "path": "/",
           "title": "吐司工坊",
           "family": "core",
-          "views": 313,
-          "users": 164,
-          "sessions": 265,
-          "engagement": 0.6150943396226415,
-          "bounce": 0.3849056603773585,
-          "avgSession": 0.8905660377358491
+          "views": 315,
+          "users": 159,
+          "sessions": 263,
+          "engagement": 0.6121673003802282,
+          "bounce": 0.38783269961977185,
+          "avgSession": 0.9239543726235742
         },
         {
           "path": "/gearset",
           "title": "配裝管理",
           "family": "craft",
-          "views": 288,
-          "users": 101,
-          "sessions": 163,
-          "engagement": 0.803680981595092,
-          "bounce": 0.19631901840490798,
-          "avgSession": 7.871165644171779
+          "views": 266,
+          "users": 96,
+          "sessions": 153,
+          "engagement": 0.803921568627451,
+          "bounce": 0.19607843137254902,
+          "avgSession": 7.620915032679738
         },
         {
           "path": "/bom",
           "title": "購物清單",
           "family": "craft",
-          "views": 197,
-          "users": 60,
-          "sessions": 134,
-          "engagement": 0.6268656716417911,
-          "bounce": 0.373134328358209,
-          "avgSession": 4.208955223880597
-        },
-        {
-          "path": "/company-craft",
-          "title": "部隊工坊",
-          "family": "company",
-          "views": 73,
-          "users": 29,
-          "sessions": 45,
-          "engagement": 0.9111111111111111,
-          "bounce": 0.08888888888888889,
-          "avgSession": 5.844444444444444
+          "views": 186,
+          "users": 58,
+          "sessions": 128,
+          "engagement": 0.6328125,
+          "bounce": 0.3671875,
+          "avgSession": 4.328125
         },
         {
           "path": "/timer",
           "title": "採集計時器",
           "family": "gather",
-          "views": 67,
-          "users": 23,
+          "views": 65,
+          "users": 24,
           "sessions": 55,
-          "engagement": 0.9454545454545454,
-          "bounce": 0.05454545454545454,
-          "avgSession": 2.7454545454545456
+          "engagement": 0.9090909090909091,
+          "bounce": 0.09090909090909091,
+          "avgSession": 1.8363636363636364
+        },
+        {
+          "path": "/company-craft",
+          "title": "部隊工坊",
+          "family": "company",
+          "views": 64,
+          "users": 29,
+          "sessions": 41,
+          "engagement": 0.926829268292683,
+          "bounce": 0.07317073170731707,
+          "avgSession": 6.463414634146342
         },
         {
           "path": "/settings",
           "title": "設定",
           "family": "meta",
-          "views": 19,
-          "users": 15,
-          "sessions": 15,
-          "engagement": 0.9333333333333333,
-          "bounce": 0.06666666666666667,
-          "avgSession": 15.466666666666667
+          "views": 18,
+          "users": 13,
+          "sessions": 13,
+          "engagement": 0.9230769230769231,
+          "bounce": 0.07692307692307693,
+          "avgSession": 17.23076923076923
         },
         {
           "path": "/changelog",
           "title": "更新日誌",
           "family": "meta",
-          "views": 8,
-          "users": 6,
-          "sessions": 6,
-          "engagement": 0.6666666666666666,
-          "bounce": 0.3333333333333333,
-          "avgSession": 3.1666666666666665
+          "views": 10,
+          "users": 7,
+          "sessions": 7,
+          "engagement": 0.7142857142857143,
+          "bounce": 0.2857142857142857,
+          "avgSession": 3
         },
         {
           "path": "/admin/ga",
@@ -1885,84 +1751,73 @@
         },
         {
           "path": "/ff14-craft-helper/",
-          "title": "吐司工坊 - FFXIV 製作助手｜製作模擬器與批次製作工具",
-          "family": "meta",
-          "views": 0,
-          "users": 1,
-          "sessions": 1,
-          "engagement": 0,
-          "bounce": 1,
-          "avgSession": 5
-        },
-        {
-          "path": "/ff14-craft-helper/",
           "title": "吐司工坊 - FFXIV 製作助手｜製作模擬器與批量製作工具",
           "family": "meta",
           "views": 0,
-          "users": 380,
-          "sessions": 1233,
-          "engagement": 0.49472830494728304,
-          "bounce": 0.505271695052717,
-          "avgSession": 44.68369829683698
+          "users": 366,
+          "sessions": 1208,
+          "engagement": 0.48509933774834435,
+          "bounce": 0.5149006622516556,
+          "avgSession": 43.128311258278146
         }
       ],
       "solverFunnel": [
         {
           "step": "solver_start",
-          "count": 1455,
+          "count": 1385,
           "tone": "neutral"
         },
         {
           "step": "solver_complete",
-          "count": 1410,
+          "count": 1338,
           "tone": "success"
         },
         {
           "step": "solver_macro_copy",
-          "count": 1215,
+          "count": 1062,
           "tone": "success"
         }
       ],
       "batchFunnel": [
         {
           "step": "batch_add",
-          "count": 427,
+          "count": 419,
           "tone": "neutral"
         },
         {
           "step": "batch_start",
-          "count": 226,
+          "count": 224,
           "tone": "neutral"
         },
         {
           "step": "batch_complete",
-          "count": 67,
+          "count": 66,
           "tone": "success"
         }
       ],
       "simulatorFunnel": {
         "entry": {
           "label": "/simulator page_view",
-          "count": 722,
-          "users": 244
+          "count": 704,
+          "users": 235
         },
         "macroCopy": {
           "label": "solver_macro_copy",
-          "count": 1215,
-          "users": 84
+          "count": 1062,
+          "users": 80
         },
         "globalContext": [
           {
             "label": "recipe_select (any page)",
-            "count": 1211
+            "count": 1105
           },
           {
             "label": "solver_start (any page)",
-            "count": 1455
+            "count": 1385
           },
           {
             "label": "solver_complete (any page)",
-            "count": 1410
+            "count": 1338
           }
         ]
       },
@@ -1970,11 +1825,11 @@
         {
           "event": "batch",
           "reason": "Failed to fetch",
-          "count": 154,
+          "count": 153,
           "costModeBreakdown": [
             {
               "costMode": "quick-buy",
-              "count": 135
+              "count": 134
             },
             {
               "costMode": "macro",
@@ -2022,49 +1877,49 @@
       "vitals": [
         {
           "metric": "INP",
-          "good": 620,
-          "ni": 45,
-          "poor": 9
+          "good": 610,
+          "ni": 43,
+          "poor": 8
         },
         {
           "metric": "TTFB",
-          "good": 945,
+          "good": 935,
           "ni": 50,
-          "poor": 10
+          "poor": 11
         },
         {
           "metric": "CLS",
-          "good": 480,
-          "ni": 25,
+          "good": 474,
+          "ni": 26,
           "poor": 6
         },
         {
           "metric": "FCP",
-          "good": 489,
-          "ni": 28,
-          "poor": 17
+          "good": 486,
+          "ni": 26,
+          "poor": 19
         },
         {
           "metric": "LCP",
-          "good": 456,
-          "ni": 24,
-          "poor": 20
+          "good": 458,
+          "ni": 23,
+          "poor": 22
         }
       ],
       "q4Funnels": [
         {
           "name": "Batch prep → Optimize",
           "label": "batch_add_recipe → batch_opt_start",
-          "from": 427,
-          "to": 226,
+          "from": 419,
+          "to": 224,
           "flag": "ok",
           "note": "轉換健康"
         },
         {
           "name": "BOM → Consumed",
           "label": "bom_calculate → (any consume)",
-          "from": 78,
-          "to": 4,
+          "from": 79,
+          "to": 2,
           "flag": "danger",
           "note": "轉換偏低"
         }
@@ -2072,37 +1927,37 @@
       "marketRegion": [
         {
           "event": "solver_start",
-          "notset": 5,
+          "notset": 4,
           "unset": 0,
-          "cht": 1236,
-          "intl": 214
+          "cht": 1184,
+          "intl": 197
         },
         {
           "event": "solver_complete",
-          "notset": 8,
+          "notset": 5,
           "unset": 0,
-          "cht": 1199,
-          "intl": 203
+          "cht": 1146,
+          "intl": 187
         },
         {
           "event": "solver_macro_copy",
-          "notset": 9,
+          "notset": 8,
           "unset": 0,
-          "cht": 1167,
-          "intl": 39
+          "cht": 1049,
+          "intl": 5
         },
         {
           "event": "batch_optimization_start",
-          "notset": 0,
+          "notset": 1,
           "unset": 0,
-          "cht": 216,
+          "cht": 213,
           "intl": 10
         },
         {
           "event": "batch_optimization_complete",
           "notset": 1,
           "unset": 0,
-          "cht": 62,
+          "cht": 61,
           "intl": 4
         },
         {
@@ -2110,32 +1965,32 @@
           "notset": 0,
           "unset": 0,
           "cht": 58,
-          "intl": 20
+          "intl": 21
         }
       ],
       "gearBucketBreakdown": [
         {
           "bucket": "entry",
-          "starts": 187,
-          "completes": 185,
+          "starts": 204,
+          "completes": 204,
           "fails": 3,
-          "completeRate": 0.9893048128342246,
-          "failRate": 0.016042780748663103
+          "completeRate": 1,
+          "failRate": 0.014705882352941176
         },
         {
           "bucket": "mid",
-          "starts": 353,
-          "completes": 339,
+          "starts": 342,
+          "completes": 329,
           "fails": 13,
-          "completeRate": 0.9603399433427762,
-          "failRate": 0.036827195467422094
+          "completeRate": 0.9619883040935673,
+          "failRate": 0.038011695906432746
         },
         {
           "bucket": "bis",
-          "starts": 606,
-          "completes": 595,
+          "starts": 523,
+          "completes": 513,
           "fails": 0,
-          "completeRate": 0.9818481848184818,
+          "completeRate": 0.9808795411089866,
           "failRate": 0
         }
       ],
@@ -2144,8 +1999,8 @@
           "type": "large_queue_in_simulator",
           "label": "模擬器塞入大量佇列",
           "gloss": "Queued many recipes in the single-recipe simulator — batch crafting is the intended tool.",
-          "eventCount": 32,
-          "affectedUsers": 17
+          "eventCount": 29,
+          "affectedUsers": 16
         },
         {
           "type": "bom_without_quantity",
@@ -2158,7 +2013,7 @@
           "type": "single_recipe_in_batch",
           "label": "批量頁只放單一配方",
           "gloss": "Used the batch optimizer for a single recipe — the simulator fits better.",
-          "eventCount": 13,
+          "eventCount": 12,
           "affectedUsers": 9
         }
       ],
@@ -2167,12 +2022,12 @@
           {
             "api": "universalis",
             "status": 404,
-            "count": 545
+            "count": 580
           },
           {
             "api": "universalis",
             "status": 0,
-            "count": 334
+            "count": 360
           }
         ],
         "topEndpoints": [
@@ -2180,25 +2035,25 @@
             "api": "universalis",
             "endpoint": "陸行鳥/35572",
             "status": 404,
-            "count": 142
+            "count": 149
           },
           {
             "api": "universalis",
             "endpoint": "陸行鳥/38581",
             "status": 404,
-            "count": 107
+            "count": 121
+          },
+          {
+            "api": "universalis",
+            "endpoint": "陸行鳥/22572",
+            "status": 404,
+            "count": 67
           },
           {
             "api": "universalis",
             "endpoint": "陸行鳥/23864",
             "status": 404,
             "count": 58
-          },
-          {
-            "api": "universalis",
-            "endpoint": "陸行鳥/22572",
-            "status": 404,
-            "count": 54
           },
           {
             "api": "universalis",
@@ -2220,6 +2075,12 @@
           },
           {
             "api": "universalis",
+            "endpoint": "利維坦/5121,14,43919,44233,44234,43930,43923,43931,43933,43932…",
+            "status": 0,
+            "count": 23
+          },
+          {
+            "api": "universalis",
             "endpoint": "陸行鳥/44023,44001,44011,10,9,44013,8,11,44000,44012,44044,440…",
             "status": 0,
             "count": 22
@@ -2229,12 +2090,6 @@
             "endpoint": "陸行鳥/44023,44062,44061,10,9,44001,44013,8,11,44000,44012,440…",
             "status": 0,
             "count": 22
-          },
-          {
-            "api": "universalis",
-            "endpoint": "陸行鳥/33265",
-            "status": 404,
-            "count": 19
           }
         ]
       },
@@ -2310,7 +2165,7 @@
           },
           {
             "rlv": 145,
-            "events": 5
+            "events": 7
           },
           {
             "rlv": 148,
@@ -2322,7 +2177,7 @@
           },
           {
             "rlv": 160,
-            "events": 8
+            "events": 7
           },
           {
             "rlv": 180,
@@ -2337,20 +2192,20 @@
             "events": 9
           },
           {
+            "rlv": 270,
+            "events": 2
+          },
+          {
             "rlv": 273,
-            "events": 3
+            "events": 4
           },
           {
             "rlv": 279,
             "events": 2
           },
           {
-            "rlv": 282,
-            "events": 2
-          },
-          {
             "rlv": 285,
-            "events": 10
+            "events": 4
           },
           {
             "rlv": 288,
@@ -2378,7 +2233,7 @@
           },
           {
             "rlv": 395,
-            "events": 7
+            "events": 8
           },
           {
             "rlv": 400,
@@ -2406,7 +2261,7 @@
           },
           {
             "rlv": 430,
-            "events": 9
+            "events": 7
           },
           {
             "rlv": 440,
@@ -2429,12 +2284,8 @@
             "events": 1
           },
           {
-            "rlv": 516,
-            "events": 1
-          },
-          {
             "rlv": 517,
-            "events": 11
+            "events": 8
           },
           {
             "rlv": 520,
@@ -2446,7 +2297,7 @@
           },
           {
             "rlv": 530,
-            "events": 5
+            "events": 4
           },
           {
             "rlv": 535,
@@ -2458,15 +2309,15 @@
           },
           {
             "rlv": 545,
-            "events": 11
+            "events": 10
           },
           {
             "rlv": 550,
-            "events": 11
+            "events": 10
           },
           {
             "rlv": 555,
-            "events": 19
+            "events": 16
           },
           {
             "rlv": 560,
@@ -2498,23 +2349,23 @@
           },
           {
             "rlv": 650,
-            "events": 23
+            "events": 25
           },
           {
             "rlv": 653,
-            "events": 21
+            "events": 23
           },
           {
             "rlv": 656,
-            "events": 26
+            "events": 25
           },
           {
             "rlv": 660,
-            "events": 11
+            "events": 9
           },
           {
             "rlv": 665,
-            "events": 23
+            "events": 22
           },
           {
             "rlv": 670,
@@ -2526,23 +2377,23 @@
           },
           {
             "rlv": 680,
-            "events": 29
+            "events": 16
           },
           {
             "rlv": 685,
-            "events": 24
+            "events": 22
           },
           {
             "rlv": 690,
-            "events": 305
+            "events": 271
           },
           {
             "rlv": 700,
-            "events": 12
+            "events": 13
           },
           {
             "rlv": 701,
-            "events": 37
+            "events": 26
           },
           {
             "rlv": 702,
@@ -2550,7 +2401,7 @@
           },
           {
             "rlv": 703,
-            "events": 3
+            "events": 2
           },
           {
             "rlv": 704,
@@ -2574,7 +2425,7 @@
           },
           {
             "rlv": 721,
-            "events": 7
+            "events": 5
           },
           {
             "rlv": 722,
@@ -2589,12 +2440,8 @@
             "events": 1
           },
           {
-            "rlv": 729,
-            "events": 2
-          },
-          {
             "rlv": 740,
-            "events": 134
+            "events": 106
           },
           {
             "rlv": 742,
@@ -2614,31 +2461,27 @@
           },
           {
             "rlv": 770,
-            "events": 59
-          },
-          {
-            "rlv": 771,
-            "events": 1
+            "events": 61
           }
         ],
         "matrix": [
           {
             "isExpert": false,
             "isCollectable": false,
-            "starts": 896,
-            "completes": 877,
-            "macroCopies": 891,
-            "completeRate": 0.9787946428571429,
-            "macroCopyRate": 1.015963511972634
+            "starts": 829,
+            "completes": 812,
+            "macroCopies": 759,
+            "completeRate": 0.9794933655006032,
+            "macroCopyRate": 0.9347290640394089
           },
           {
             "isExpert": false,
             "isCollectable": true,
-            "starts": 193,
-            "completes": 188,
-            "macroCopies": 211,
-            "completeRate": 0.9740932642487047,
-            "macroCopyRate": 1.122340425531915
+            "starts": 188,
+            "completes": 185,
+            "macroCopies": 195,
+            "completeRate": 0.9840425531914894,
+            "macroCopyRate": 1.054054054054054
           },
           {
             "isExpert": true,
@@ -2652,63 +2495,63 @@
           {
             "isExpert": true,
             "isCollectable": true,
-            "starts": 35,
-            "completes": 34,
-            "macroCopies": 78,
-            "completeRate": 0.9714285714285714,
-            "macroCopyRate": 2.2941176470588234
+            "starts": 30,
+            "completes": 29,
+            "macroCopies": 73,
+            "completeRate": 0.9666666666666667,
+            "macroCopyRate": 2.5172413793103448
           }
         ],
         "craftKindBreakdown": [
           {
             "kind": "normal",
-            "starts": 718,
-            "completes": 696,
-            "macroCopies": 742,
-            "completeRate": 0.9693593314763231,
-            "macroCopyRate": 1.0660919540229885
+            "starts": 684,
+            "completes": 665,
+            "macroCopies": 645,
+            "completeRate": 0.9722222222222222,
+            "macroCopyRate": 0.9699248120300752
           },
           {
             "kind": "quick",
-            "starts": 371,
-            "completes": 369,
-            "macroCopies": 360,
-            "completeRate": 0.9946091644204852,
-            "macroCopyRate": 0.975609756097561
+            "starts": 333,
+            "completes": 332,
+            "macroCopies": 309,
+            "completeRate": 0.996996996996997,
+            "macroCopyRate": 0.9307228915662651
           },
           {
             "kind": "expert",
-            "starts": 57,
-            "completes": 54,
-            "macroCopies": 113,
-            "completeRate": 0.9473684210526315,
-            "macroCopyRate": 2.0925925925925926
+            "starts": 52,
+            "completes": 49,
+            "macroCopies": 108,
+            "completeRate": 0.9423076923076923,
+            "macroCopyRate": 2.204081632653061
           }
         ]
       },
       "byRegion": {
         "solver": {
           "cht": {
-            "value": 1236,
-            "secondary": "1199 完成",
-            "sparkPct": 0.9700647249190939
+            "value": 1184,
+            "secondary": "1146 完成",
+            "sparkPct": 0.9679054054054054
           },
           "intl": {
-            "value": 214,
-            "secondary": "203 完成",
-            "sparkPct": 0.9485981308411215
+            "value": 197,
+            "secondary": "187 完成",
+            "sparkPct": 0.949238578680203
           },
           "unset": {
-            "value": 5,
-            "secondary": "8 完成",
-            "sparkPct": 1.6
+            "value": 4,
+            "secondary": "5 完成",
+            "sparkPct": 1.25
           }
         },
         "batch": {
           "cht": {
-            "value": 216,
-            "secondary": "62 完成",
-            "sparkPct": 0.28703703703703703
+            "value": 213,
+            "secondary": "61 完成",
+            "sparkPct": 0.2863849765258216
           },
           "intl": {
             "value": 10,
@@ -2716,8 +2559,9 @@
             "sparkPct": 0.4
           },
           "unset": {
-            "value": 0,
-            "secondary": "1 完成"
+            "value": 1,
+            "secondary": "1 完成",
+            "sparkPct": 1
           }
         },
         "bom": {
@@ -2727,7 +2571,7 @@
             "sparkPct": 0
           },
           "intl": {
-            "value": 20,
+            "value": 21,
             "secondary": "0 → 批次",
             "sparkPct": 0
           },
@@ -2738,8 +2582,8 @@
         },
         "infra": {
           "cht": {
-            "value": 26,
-            "secondary": "SAB 22 · WASM 4",
+            "value": 24,
+            "secondary": "SAB 20 · WASM 4",
             "tone": "danger"
           },
           "intl": {
@@ -2747,8 +2591,8 @@
             "secondary": "SAB 0 · WASM 0"
           },
           "unset": {
-            "value": 2,
-            "secondary": "SAB 2 · WASM 0",
+            "value": 1,
+            "secondary": "SAB 1 · WASM 0",
             "tone": "warn"
           }
         }
@@ -2878,7 +2722,7 @@
           "selectCount": 0,
           "simulatorCount": 0,
           "batchTargetCount": 0,
-          "bomTargetCount": 2
+          "bomTargetCount": 3
         },
         {
           "rlv": 24,
@@ -2927,7 +2771,7 @@
           "selectCount": 0,
           "simulatorCount": 0,
           "batchTargetCount": 1,
-          "bomTargetCount": 17
+          "bomTargetCount": 16
         },
         {
           "rlv": 31,
@@ -2983,7 +2827,7 @@
           "selectCount": 0,
           "simulatorCount": 0,
           "batchTargetCount": 2,
-          "bomTargetCount": 1
+          "bomTargetCount": 2
         },
         {
           "rlv": 39,
@@ -2997,7 +2841,7 @@
           "selectCount": 1,
           "simulatorCount": 2,
           "batchTargetCount": 2,
-          "bomTargetCount": 1
+          "bomTargetCount": 2
         },
         {
           "rlv": 41,
@@ -3053,7 +2897,7 @@
           "selectCount": 2,
           "simulatorCount": 1,
           "batchTargetCount": 3,
-          "bomTargetCount": 4
+          "bomTargetCount": 5
         },
         {
           "rlv": 55,
@@ -3116,7 +2960,7 @@
           "selectCount": 8,
           "simulatorCount": 5,
           "batchTargetCount": 3,
-          "bomTargetCount": 2
+          "bomTargetCount": 3
         },
         {
           "rlv": 139,
@@ -3134,15 +2978,15 @@
         },
         {
           "rlv": 145,
-          "selectCount": 5,
-          "simulatorCount": 5,
+          "selectCount": 7,
+          "simulatorCount": 7,
           "batchTargetCount": 2,
           "bomTargetCount": 0
         },
         {
           "rlv": 148,
           "selectCount": 5,
-          "simulatorCount": 5,
+          "simulatorCount": 4,
           "batchTargetCount": 0,
           "bomTargetCount": 0
         },
@@ -3155,17 +2999,17 @@
         },
         {
           "rlv": 160,
-          "selectCount": 8,
-          "simulatorCount": 7,
+          "selectCount": 7,
+          "simulatorCount": 4,
           "batchTargetCount": 24,
-          "bomTargetCount": 7
+          "bomTargetCount": 5
         },
         {
           "rlv": 180,
           "selectCount": 1,
           "simulatorCount": 1,
           "batchTargetCount": 0,
-          "bomTargetCount": 5
+          "bomTargetCount": 4
         },
         {
           "rlv": 210,
@@ -3193,12 +3037,19 @@
           "selectCount": 9,
           "simulatorCount": 8,
           "batchTargetCount": 1,
-          "bomTargetCount": 5
+          "bomTargetCount": 4
+        },
+        {
+          "rlv": 270,
+          "selectCount": 2,
+          "simulatorCount": 2,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
         },
         {
           "rlv": 273,
-          "selectCount": 3,
-          "simulatorCount": 2,
+          "selectCount": 4,
+          "simulatorCount": 3,
           "batchTargetCount": 1,
           "bomTargetCount": 0
         },
@@ -3207,19 +3058,19 @@
           "selectCount": 2,
           "simulatorCount": 3,
           "batchTargetCount": 0,
-          "bomTargetCount": 4
+          "bomTargetCount": 3
         },
         {
           "rlv": 282,
-          "selectCount": 2,
-          "simulatorCount": 1,
+          "selectCount": 0,
+          "simulatorCount": 0,
           "batchTargetCount": 2,
           "bomTargetCount": 0
         },
         {
           "rlv": 285,
-          "selectCount": 10,
-          "simulatorCount": 5,
+          "selectCount": 4,
+          "simulatorCount": 3,
           "batchTargetCount": 0,
           "bomTargetCount": 2
         },
@@ -3249,7 +3100,7 @@
           "selectCount": 1,
           "simulatorCount": 2,
           "batchTargetCount": 0,
-          "bomTargetCount": 7
+          "bomTargetCount": 8
         },
         {
           "rlv": 350,
@@ -3267,8 +3118,8 @@
         },
         {
           "rlv": 395,
-          "selectCount": 7,
-          "simulatorCount": 8,
+          "selectCount": 8,
+          "simulatorCount": 9,
           "batchTargetCount": 0,
           "bomTargetCount": 0
         },
@@ -3298,7 +3149,7 @@
           "selectCount": 1,
           "simulatorCount": 1,
           "batchTargetCount": 1,
-          "bomTargetCount": 1
+          "bomTargetCount": 0
         },
         {
           "rlv": 412,
@@ -3312,7 +3163,7 @@
           "selectCount": 0,
           "simulatorCount": 0,
           "batchTargetCount": 1,
-          "bomTargetCount": 7
+          "bomTargetCount": 5
         },
         {
           "rlv": 418,
@@ -3323,10 +3174,10 @@
         },
         {
           "rlv": 430,
-          "selectCount": 9,
-          "simulatorCount": 12,
+          "selectCount": 7,
+          "simulatorCount": 9,
           "batchTargetCount": 28,
-          "bomTargetCount": 63
+          "bomTargetCount": 62
         },
         {
           "rlv": 440,
@@ -3371,16 +3222,9 @@
           "bomTargetCount": 0
         },
         {
-          "rlv": 516,
-          "selectCount": 1,
-          "simulatorCount": 2,
-          "batchTargetCount": 0,
-          "bomTargetCount": 0
-        },
-        {
           "rlv": 517,
-          "selectCount": 11,
-          "simulatorCount": 11,
+          "selectCount": 8,
+          "simulatorCount": 8,
           "batchTargetCount": 8,
           "bomTargetCount": 0
         },
@@ -3388,7 +3232,7 @@
           "rlv": 520,
           "selectCount": 3,
           "simulatorCount": 3,
-          "batchTargetCount": 5,
+          "batchTargetCount": 7,
           "bomTargetCount": 0
         },
         {
@@ -3400,43 +3244,43 @@
         },
         {
           "rlv": 530,
-          "selectCount": 5,
-          "simulatorCount": 4,
-          "batchTargetCount": 2,
+          "selectCount": 4,
+          "simulatorCount": 3,
+          "batchTargetCount": 5,
           "bomTargetCount": 0
         },
         {
           "rlv": 535,
           "selectCount": 8,
-          "simulatorCount": 10,
-          "batchTargetCount": 1,
+          "simulatorCount": 11,
+          "batchTargetCount": 2,
           "bomTargetCount": 0
         },
         {
           "rlv": 540,
           "selectCount": 4,
           "simulatorCount": 3,
-          "batchTargetCount": 3,
+          "batchTargetCount": 4,
           "bomTargetCount": 27
         },
         {
           "rlv": 545,
-          "selectCount": 11,
-          "simulatorCount": 10,
+          "selectCount": 10,
+          "simulatorCount": 9,
           "batchTargetCount": 0,
           "bomTargetCount": 1
         },
         {
           "rlv": 550,
-          "selectCount": 11,
-          "simulatorCount": 13,
+          "selectCount": 10,
+          "simulatorCount": 11,
           "batchTargetCount": 0,
           "bomTargetCount": 0
         },
         {
           "rlv": 555,
-          "selectCount": 19,
-          "simulatorCount": 29,
+          "selectCount": 16,
+          "simulatorCount": 23,
           "batchTargetCount": 0,
           "bomTargetCount": 1
         },
@@ -3445,7 +3289,7 @@
           "selectCount": 15,
           "simulatorCount": 14,
           "batchTargetCount": 9,
-          "bomTargetCount": 39
+          "bomTargetCount": 37
         },
         {
           "rlv": 570,
@@ -3498,85 +3342,85 @@
         },
         {
           "rlv": 650,
-          "selectCount": 23,
-          "simulatorCount": 22,
+          "selectCount": 25,
+          "simulatorCount": 23,
           "batchTargetCount": 0,
           "bomTargetCount": 0
         },
         {
           "rlv": 653,
-          "selectCount": 21,
-          "simulatorCount": 17,
-          "batchTargetCount": 0,
+          "selectCount": 23,
+          "simulatorCount": 18,
+          "batchTargetCount": 1,
           "bomTargetCount": 0
         },
         {
           "rlv": 656,
-          "selectCount": 26,
-          "simulatorCount": 14,
+          "selectCount": 25,
+          "simulatorCount": 13,
           "batchTargetCount": 1,
           "bomTargetCount": 0
         },
         {
           "rlv": 660,
-          "selectCount": 11,
-          "simulatorCount": 19,
-          "batchTargetCount": 2,
+          "selectCount": 9,
+          "simulatorCount": 17,
+          "batchTargetCount": 0,
           "bomTargetCount": 0
         },
         {
           "rlv": 665,
-          "selectCount": 23,
-          "simulatorCount": 22,
-          "batchTargetCount": 4,
+          "selectCount": 22,
+          "simulatorCount": 20,
+          "batchTargetCount": 0,
           "bomTargetCount": 0
         },
         {
           "rlv": 670,
           "selectCount": 7,
           "simulatorCount": 19,
-          "batchTargetCount": 3,
-          "bomTargetCount": 7
+          "batchTargetCount": 2,
+          "bomTargetCount": 9
         },
         {
           "rlv": 675,
           "selectCount": 11,
           "simulatorCount": 14,
-          "batchTargetCount": 1,
+          "batchTargetCount": 0,
           "bomTargetCount": 0
         },
         {
           "rlv": 680,
-          "selectCount": 29,
-          "simulatorCount": 34,
-          "batchTargetCount": 7,
+          "selectCount": 16,
+          "simulatorCount": 19,
+          "batchTargetCount": 6,
           "bomTargetCount": 0
         },
         {
           "rlv": 685,
-          "selectCount": 24,
-          "simulatorCount": 19,
-          "batchTargetCount": 26,
+          "selectCount": 22,
+          "simulatorCount": 17,
+          "batchTargetCount": 24,
           "bomTargetCount": 3
         },
         {
           "rlv": 690,
-          "selectCount": 305,
-          "simulatorCount": 222,
+          "selectCount": 271,
+          "simulatorCount": 214,
           "batchTargetCount": 63,
-          "bomTargetCount": 21
+          "bomTargetCount": 22
         },
         {
           "rlv": 700,
-          "selectCount": 12,
-          "simulatorCount": 14,
+          "selectCount": 13,
+          "simulatorCount": 15,
           "batchTargetCount": 0,
           "bomTargetCount": 0
         },
         {
           "rlv": 701,
-          "selectCount": 37,
-          "simulatorCount": 44,
+          "selectCount": 26,
+          "simulatorCount": 41,
           "batchTargetCount": 0,
           "bomTargetCount": 0
         },
@@ -3589,8 +3433,8 @@
         },
         {
           "rlv": 703,
-          "selectCount": 3,
-          "simulatorCount": 3,
+          "selectCount": 2,
+          "simulatorCount": 2,
           "batchTargetCount": 0,
           "bomTargetCount": 0
         },
@@ -3619,20 +3463,20 @@
           "rlv": 710,
           "selectCount": 21,
           "simulatorCount": 37,
-          "batchTargetCount": 0,
+          "batchTargetCount": 12,
           "bomTargetCount": 0
         },
         {
           "rlv": 720,
           "selectCount": 44,
-          "simulatorCount": 42,
-          "batchTargetCount": 56,
+          "simulatorCount": 44,
+          "batchTargetCount": 50,
           "bomTargetCount": 33
         },
         {
           "rlv": 721,
-          "selectCount": 7,
-          "simulatorCount": 7,
+          "selectCount": 5,
+          "simulatorCount": 4,
           "batchTargetCount": 0,
           "bomTargetCount": 0
         },
@@ -3658,17 +3502,10 @@
           "bomTargetCount": 0
         },
         {
-          "rlv": 729,
-          "selectCount": 2,
-          "simulatorCount": 2,
-          "batchTargetCount": 0,
-          "bomTargetCount": 0
-        },
-        {
           "rlv": 740,
-          "selectCount": 134,
-          "simulatorCount": 137,
-          "batchTargetCount": 23,
+          "selectCount": 106,
+          "simulatorCount": 106,
+          "batchTargetCount": 12,
           "bomTargetCount": 12
         },
         {
@@ -3701,71 +3538,64 @@
         },
         {
           "rlv": 770,
-          "selectCount": 59,
-          "simulatorCount": 61,
+          "selectCount": 61,
+          "simulatorCount": 68,
           "batchTargetCount": 0,
           "bomTargetCount": 34
-        },
-        {
-          "rlv": 771,
-          "selectCount": 1,
-          "simulatorCount": 1,
-          "batchTargetCount": 0,
-          "bomTargetCount": 0
         }
       ],
-      "toolUsageNoRecipeCount": 162
+      "toolUsageNoRecipeCount": 149
     },
     "28d": {
       "window": {
         "days": 28,
-        "startDate": "2026-09-16",
-        "endDate": "2026-10-14"
+        "startDate": "2026-09-17",
+        "endDate": "2026-10-15"
       },
       "glance": {
         "activeUsers": {
-          "total": 687,
-          "new": 451,
-          "returning": 286,
-          "returningPct": 0.4163027656477438
+          "total": 681,
+          "new": 452,
+          "returning": 284,
+          "returningPct": 0.4170337738619677
         },
         "solver": {
-          "starts": 5944,
-          "completes": 5707,
-          "fails": 103,
-          "completePct": 0.9601278600269179,
-          "humanStarts": 4139,
-          "humanCompletes": 3987,
-          "humanFails": 87,
-          "humanCompletePct": 0.9632761536603044,
-          "macroCopies": 3949
+          "starts": 5797,
+          "completes": 5568,
+          "fails": 89,
+          "completePct": 0.9604968086941521,
+          "humanStarts": 3991,
+          "humanCompletes": 3850,
+          "humanFails": 78,
+          "humanCompletePct": 0.96467050864445,
+          "macroCopies": 3831
         },
         "batch": {
-          "starts": 710,
-          "completes": 279,
-          "fails": 419,
+          "starts": 694,
+          "completes": 271,
+          "fails": 412,
           "cancelled": 1,
-          "completePct": 0.3929577464788732
+          "completePct": 0.3904899135446686
         },
         "bom": {
-          "calculates": 199,
+          "calculates": 194,
           "sentToBatch": 5,
-          "handoffPct": 0.02512562814070352
+          "handoffPct": 0.02577319587628866
         },
         "infra": {
-          "sabUnavailable": 45,
+          "sabUnavailable": 46,
           "wasmLoadFailed": 7
         },
         "api": {
-          "universalisCalls": 13790,
-          "universalisRealFails": 815,
-          "universalisNoListing": 967,
+          "universalisCalls": 13628,
+          "universalisRealFails": 831,
+          "universalisNoListing": 1007,
           "universalisOtherFails": 0
         },
         "adoption": {
-          "batchStarts": 710,
-          "crossServerBatches": 624,
-          "meldAdvisorRuns": 165,
+          "batchStarts": 694,
+          "crossServerBatches": 610,
+          "meldAdvisorRuns": 164,
           "meldApplies": 0
         }
       },
@@ -3774,100 +3604,100 @@
           "path": "/simulator",
           "title": "製作模擬",
           "family": "craft",
-          "views": 1961,
-          "users": 457,
-          "sessions": 1345,
-          "engagement": 0.6237918215613383,
-          "bounce": 0.3762081784386617,
-          "avgSession": 0.03717472118959108
+          "views": 1916,
+          "users": 456,
+          "sessions": 1328,
+          "engagement": 0.6189759036144579,
+          "bounce": 0.3810240963855422,
+          "avgSession": 0.036897590361445784
         },
         {
           "path": "/batch",
           "title": "批量製作",
           "family": "craft",
-          "views": 988,
-          "users": 233,
-          "sessions": 640,
-          "engagement": 0.64375,
-          "bounce": 0.35625,
-          "avgSession": 5.753125
+          "views": 958,
+          "users": 231,
+          "sessions": 632,
+          "engagement": 0.6439873417721519,
+          "bounce": 0.3560126582278481,
+          "avgSession": 5.541139240506329
         },
         {
           "path": "/gearset",
           "title": "配裝管理",
           "family": "craft",
-          "views": 814,
-          "users": 205,
-          "sessions": 440,
-          "engagement": 0.8727272727272727,
-          "bounce": 0.12727272727272726,
-          "avgSession": 7.679545454545455
+          "views": 789,
+          "users": 203,
+          "sessions": 425,
+          "engagement": 0.8705882352941177,
+          "bounce": 0.12941176470588237,
+          "avgSession": 7.842352941176471
         },
         {
           "path": "/",
           "title": "吐司工坊",
           "family": "core",
-          "views": 743,
+          "views": 738,
           "users": 323,
-          "sessions": 625,
-          "engagement": 0.7184,
-          "bounce": 0.2816,
-          "avgSession": 1.2992
+          "sessions": 618,
+          "engagement": 0.7135922330097088,
+          "bounce": 0.28640776699029125,
+          "avgSession": 1.273462783171521
         },
         {
           "path": "/bom",
           "title": "購物清單",
           "family": "craft",
-          "views": 519,
-          "users": 115,
-          "sessions": 284,
-          "engagement": 0.6936619718309859,
-          "bounce": 0.30633802816901406,
-          "avgSession": 5.584507042253521
+          "views": 504,
+          "users": 112,
+          "sessions": 281,
+          "engagement": 0.701067615658363,
+          "bounce": 0.298932384341637,
+          "avgSession": 5.501779359430605
         },
         {
           "path": "/company-craft",
           "title": "部隊工坊",
           "family": "company",
-          "views": 154,
-          "users": 62,
+          "views": 155,
+          "users": 63,
           "sessions": 99,
-          "engagement": 0.8686868686868687,
-          "bounce": 0.13131313131313133,
-          "avgSession": 5.2727272727272725
+          "engagement": 0.8888888888888888,
+          "bounce": 0.1111111111111111,
+          "avgSession": 5.525252525252525
         },
         {
           "path": "/timer",
           "title": "採集計時器",
           "family": "gather",
-          "views": 150,
-          "users": 39,
+          "views": 148,
+          "users": 40,
           "sessions": 123,
-          "engagement": 0.8943089430894309,
-          "bounce": 0.10569105691056911,
-          "avgSession": 3.2764227642276422
+          "engagement": 0.8861788617886179,
+          "bounce": 0.11382113821138211,
+          "avgSession": 3.186991869918699
         },
         {
           "path": "/settings",
           "title": "設定",
           "family": "meta",
-          "views": 58,
-          "users": 38,
-          "sessions": 44,
-          "engagement": 0.9318181818181818,
-          "bounce": 0.06818181818181818,
-          "avgSession": 9.636363636363637
+          "views": 60,
+          "users": 39,
+          "sessions": 45,
+          "engagement": 0.9111111111111111,
+          "bounce": 0.08888888888888889,
+          "avgSession": 9.6
         },
         {
           "path": "/changelog",
           "title": "更新日誌",
           "family": "meta",
-          "views": 22,
-          "users": 18,
-          "sessions": 18,
-          "engagement": 0.8333333333333334,
-          "bounce": 0.16666666666666666,
-          "avgSession": 6.833333333333333
+          "views": 24,
+          "users": 19,
+          "sessions": 19,
+          "engagement": 0.8421052631578947,
+          "bounce": 0.15789473684210525,
+          "avgSession": 6.578947368421052
         },
         {
           "path": "/admin/ga",
@@ -3907,70 +3737,70 @@
           "title": "吐司工坊 - FFXIV 製作助手｜製作模擬器與批量製作工具",
           "family": "meta",
           "views": 0,
-          "users": 686,
-          "sessions": 2815,
-          "engagement": 0.5658969804618117,
-          "bounce": 0.43410301953818825,
-          "avgSession": 56.576554174067496
+          "users": 681,
+          "sessions": 2776,
+          "engagement": 0.5605187319884726,
+          "bounce": 0.43948126801152737,
+          "avgSession": 56.83753602305475
         }
       ],
       "solverFunnel": [
         {
           "step": "solver_start",
-          "count": 5944,
+          "count": 5797,
           "tone": "neutral"
         },
         {
           "step": "solver_complete",
-          "count": 5707,
+          "count": 5568,
           "tone": "success"
         },
         {
           "step": "solver_macro_copy",
-          "count": 3949,
+          "count": 3831,
           "tone": "success"
         }
       ],
       "batchFunnel": [
         {
           "step": "batch_add",
-          "count": 1476,
+          "count": 1447,
           "tone": "neutral"
         },
         {
           "step": "batch_start",
-          "count": 710,
+          "count": 694,
           "tone": "neutral"
         },
         {
           "step": "batch_complete",
-          "count": 279,
+          "count": 271,
           "tone": "success"
         }
       ],
       "simulatorFunnel": {
         "entry": {
           "label": "/simulator page_view",
-          "count": 1961,
-          "users": 457
+          "count": 1916,
+          "users": 456
         },
         "macroCopy": {
           "label": "solver_macro_copy",
-          "count": 3949,
-          "users": 156
+          "count": 3831,
+          "users": 151
         },
         "globalContext": [
           {
             "label": "recipe_select (any page)",
-            "count": 4923
+            "count": 4803
           },
           {
             "label": "solver_start (any page)",
-            "count": 5944
+            "count": 5797
           },
           {
             "label": "solver_complete (any page)",
-            "count": 5707
+            "count": 5568
           }
         ]
       },
@@ -3978,22 +3808,22 @@
         {
           "event": "batch",
           "reason": "Failed to fetch",
-          "count": 401,
+          "count": 395,
           "costModeBreakdown": [
             {
               "costMode": "quick-buy",
-              "count": 264
+              "count": 262
             },
             {
               "costMode": "macro",
-              "count": 137
+              "count": 133
             }
           ]
         },
         {
           "event": "solver",
           "reason": "找不到可行的製作方案，請確認裝備數值與配方是否正確",
-          "count": 42
+          "count": 37
         },
         {
           "event": "solver",
@@ -4006,22 +3836,17 @@
           "count": 20
         },
         {
-          "event": "solver",
-          "reason": "Error: invalid type: unit value, expected u16",
-          "count": 9
-        },
-        {
           "event": "batch",
           "reason": "Universalis 查詢逾時 (20s)",
-          "count": 10,
+          "count": 9,
           "costModeBreakdown": [
-            {
-              "costMode": "macro",
-              "count": 5
-            },
             {
               "costMode": "quick-buy",
               "count": 5
+            },
+            {
+              "costMode": "macro",
+              "count": 4
             }
           ]
         },
@@ -4070,49 +3895,49 @@
       "vitals": [
         {
           "metric": "INP",
-          "good": 1682,
-          "ni": 115,
-          "poor": 17
+          "good": 1656,
+          "ni": 111,
+          "poor": 15
         },
         {
           "metric": "TTFB",
-          "good": 2135,
+          "good": 2094,
           "ni": 133,
-          "poor": 29
+          "poor": 30
         },
         {
           "metric": "CLS",
-          "good": 1214,
+          "good": 1189,
           "ni": 61,
-          "poor": 14
+          "poor": 12
         },
         {
           "metric": "FCP",
-          "good": 1156,
-          "ni": 69,
+          "good": 1140,
+          "ni": 67,
           "poor": 42
         },
         {
           "metric": "LCP",
-          "good": 1093,
-          "ni": 56,
-          "poor": 48
+          "good": 1081,
+          "ni": 53,
+          "poor": 47
         }
       ],
       "q4Funnels": [
         {
           "name": "Batch prep → Optimize",
           "label": "batch_add_recipe → batch_opt_start",
-          "from": 1476,
-          "to": 710,
+          "from": 1447,
+          "to": 694,
           "flag": "warn",
           "note": "轉換待觀察"
         },
         {
           "name": "BOM → Consumed",
           "label": "bom_calculate → (any consume)",
-          "from": 199,
-          "to": 42,
+          "from": 194,
+          "to": 40,
           "flag": "danger",
           "note": "轉換偏低"
         }
@@ -4120,44 +3945,44 @@
       "marketRegion": [
         {
           "event": "solver_start",
-          "notset": 5,
+          "notset": 4,
           "unset": 0,
-          "cht": 5296,
-          "intl": 643
+          "cht": 5177,
+          "intl": 616
         },
         {
           "event": "solver_complete",
-          "notset": 8,
+          "notset": 5,
           "unset": 0,
-          "cht": 5075,
-          "intl": 624
+          "cht": 4965,
+          "intl": 598
         },
         {
           "event": "solver_macro_copy",
-          "notset": 9,
+          "notset": 8,
           "unset": 0,
-          "cht": 3846,
-          "intl": 94
+          "cht": 3733,
+          "intl": 90
         },
         {
           "event": "batch_optimization_start",
-          "notset": 0,
+          "notset": 1,
           "unset": 0,
-          "cht": 692,
+          "cht": 675,
           "intl": 18
         },
         {
           "event": "batch_optimization_complete",
           "notset": 1,
           "unset": 0,
-          "cht": 268,
+          "cht": 260,
           "intl": 10
         },
         {
           "event": "bom_calculate",
           "notset": 0,
           "unset": 0,
-          "cht": 142,
+          "cht": 137,
           "intl": 57
         },
         {
@@ -4171,27 +3996,27 @@
       "gearBucketBreakdown": [
         {
           "bucket": "entry",
-          "starts": 982,
-          "completes": 962,
+          "starts": 917,
+          "completes": 899,
           "fails": 21,
-          "completeRate": 0.9796334012219959,
-          "failRate": 0.021384928716904276
+          "completeRate": 0.9803707742639041,
+          "failRate": 0.022900763358778626
         },
         {
           "bucket": "mid",
-          "starts": 1369,
-          "completes": 1342,
+          "starts": 1306,
+          "completes": 1279,
           "fails": 22,
-          "completeRate": 0.9802775748721695,
-          "failRate": 0.016070124178232285
+          "completeRate": 0.9793261868300153,
+          "failRate": 0.016845329249617153
         },
         {
           "bucket": "bis",
-          "starts": 1788,
-          "completes": 1683,
-          "fails": 44,
-          "completeRate": 0.9412751677852349,
-          "failRate": 0.024608501118568233
+          "starts": 1768,
+          "completes": 1672,
+          "fails": 35,
+          "completeRate": 0.9457013574660633,
+          "failRate": 0.019796380090497737
         }
       ],
       "misuseSignals": [
@@ -4199,22 +4024,22 @@
           "type": "large_queue_in_simulator",
           "label": "模擬器塞入大量佇列",
           "gloss": "Queued many recipes in the single-recipe simulator — batch crafting is the intended tool.",
-          "eventCount": 89,
-          "affectedUsers": 32
+          "eventCount": 85,
+          "affectedUsers": 31
         },
         {
           "type": "single_recipe_in_batch",
           "label": "批量頁只放單一配方",
           "gloss": "Used the batch optimizer for a single recipe — the simulator fits better.",
-          "eventCount": 57,
-          "affectedUsers": 27
+          "eventCount": 54,
+          "affectedUsers": 25
         },
         {
           "type": "bom_without_quantity",
           "label": "BOM 未填數量",
           "gloss": "Opened the bill of materials without a target quantity, so totals stayed empty.",
-          "eventCount": 47,
-          "affectedUsers": 23
+          "eventCount": 41,
+          "affectedUsers": 22
         }
       ],
       "apiFailures": {
@@ -4222,12 +4047,12 @@
           {
             "api": "universalis",
             "status": 404,
-            "count": 1030
+            "count": 1070
           },
           {
             "api": "universalis",
             "status": 0,
-            "count": 839
+            "count": 860
           }
         ],
         "topEndpoints": [
@@ -4235,13 +4060,13 @@
             "api": "universalis",
             "endpoint": "陸行鳥/35572",
             "status": 404,
-            "count": 253
+            "count": 266
           },
           {
             "api": "universalis",
             "endpoint": "陸行鳥/38581",
             "status": 404,
-            "count": 141
+            "count": 155
           },
           {
             "api": "universalis",
@@ -4259,7 +4084,7 @@
             "api": "universalis",
             "endpoint": "陸行鳥/22572",
             "status": 404,
-            "count": 54
+            "count": 67
           },
           {
             "api": "universalis",
@@ -4271,7 +4096,7 @@
             "api": "universalis",
             "endpoint": "利維坦/5121,14,43919,44233,44234,43930,43923,43931,43933,43932…",
             "status": 0,
-            "count": 32
+            "count": 38
           },
           {
             "api": "universalis",
@@ -4309,19 +4134,7 @@
           },
           {
             "rlv": 20,
-            "events": 9
-          },
-          {
-            "rlv": 23,
-            "events": 2
-          },
-          {
-            "rlv": 28,
-            "events": 1
-          },
-          {
-            "rlv": 34,
-            "events": 2
+            "events": 5
           },
           {
             "rlv": 38,
@@ -4329,11 +4142,11 @@
           },
           {
             "rlv": 39,
-            "events": 3
+            "events": 2
           },
           {
             "rlv": 40,
-            "events": 31
+            "events": 24
           },
           {
             "rlv": 41,
@@ -4341,23 +4154,23 @@
           },
           {
             "rlv": 42,
-            "events": 9
-          },
-          {
-            "rlv": 43,
             "events": 8
           },
           {
-            "rlv": 44,
+            "rlv": 43,
             "events": 6
           },
           {
+            "rlv": 44,
+            "events": 5
+          },
+          {
             "rlv": 45,
-            "events": 7
+            "events": 6
           },
           {
             "rlv": 46,
-            "events": 7
+            "events": 6
           },
           {
             "rlv": 49,
@@ -4377,7 +4190,7 @@
           },
           {
             "rlv": 90,
-            "events": 10
+            "events": 1
           },
           {
             "rlv": 100,
@@ -4385,11 +4198,11 @@
           },
           {
             "rlv": 110,
-            "events": 2
+            "events": 1
           },
           {
             "rlv": 115,
-            "events": 21
+            "events": 15
           },
           {
             "rlv": 125,
@@ -4417,19 +4230,19 @@
           },
           {
             "rlv": 145,
-            "events": 33
+            "events": 35
           },
           {
             "rlv": 148,
-            "events": 19
+            "events": 20
           },
           {
             "rlv": 150,
-            "events": 26
+            "events": 25
           },
           {
             "rlv": 160,
-            "events": 26
+            "events": 25
           },
           {
             "rlv": 180,
@@ -4445,15 +4258,15 @@
           },
           {
             "rlv": 270,
-            "events": 13
+            "events": 15
           },
           {
             "rlv": 273,
-            "events": 6
+            "events": 7
           },
           {
             "rlv": 276,
-            "events": 7
+            "events": 6
           },
           {
             "rlv": 279,
@@ -4493,11 +4306,11 @@
           },
           {
             "rlv": 390,
-            "events": 13
+            "events": 9
           },
           {
             "rlv": 395,
-            "events": 9
+            "events": 10
           },
           {
             "rlv": 400,
@@ -4505,7 +4318,7 @@
           },
           {
             "rlv": 403,
-            "events": 8
+            "events": 7
           },
           {
             "rlv": 406,
@@ -4525,7 +4338,7 @@
           },
           {
             "rlv": 418,
-            "events": 8
+            "events": 7
           },
           {
             "rlv": 430,
@@ -4573,7 +4386,7 @@
           },
           {
             "rlv": 520,
-            "events": 14
+            "events": 13
           },
           {
             "rlv": 525,
@@ -4585,15 +4398,15 @@
           },
           {
             "rlv": 535,
-            "events": 22
+            "events": 21
           },
           {
             "rlv": 540,
-            "events": 18
+            "events": 17
           },
           {
             "rlv": 545,
-            "events": 21
+            "events": 20
           },
           {
             "rlv": 550,
@@ -4601,19 +4414,19 @@
           },
           {
             "rlv": 555,
-            "events": 23
-          },
-          {
-            "rlv": 560,
             "events": 22
           },
           {
+            "rlv": 560,
+            "events": 21
+          },
+          {
             "rlv": 570,
-            "events": 6
+            "events": 5
           },
           {
             "rlv": 580,
-            "events": 6
+            "events": 5
           },
           {
             "rlv": 610,
@@ -4637,7 +4450,7 @@
           },
           {
             "rlv": 650,
-            "events": 40
+            "events": 39
           },
           {
             "rlv": 653,
@@ -4645,19 +4458,19 @@
           },
           {
             "rlv": 656,
-            "events": 43
+            "events": 40
           },
           {
             "rlv": 660,
-            "events": 20
+            "events": 19
           },
           {
             "rlv": 665,
-            "events": 43
+            "events": 41
           },
           {
             "rlv": 670,
-            "events": 33
+            "events": 30
           },
           {
             "rlv": 675,
@@ -4665,27 +4478,27 @@
           },
           {
             "rlv": 680,
-            "events": 123
+            "events": 115
           },
           {
             "rlv": 685,
-            "events": 67
+            "events": 64
           },
           {
             "rlv": 690,
-            "events": 1778
+            "events": 1728
           },
           {
             "rlv": 700,
-            "events": 26
+            "events": 27
           },
           {
             "rlv": 701,
-            "events": 87
+            "events": 85
           },
           {
             "rlv": 702,
-            "events": 18
+            "events": 16
           },
           {
             "rlv": 703,
@@ -4693,7 +4506,7 @@
           },
           {
             "rlv": 704,
-            "events": 20
+            "events": 19
           },
           {
             "rlv": 705,
@@ -4705,15 +4518,15 @@
           },
           {
             "rlv": 710,
-            "events": 39
+            "events": 37
           },
           {
             "rlv": 720,
-            "events": 156
+            "events": 152
           },
           {
             "rlv": 721,
-            "events": 28
+            "events": 27
           },
           {
             "rlv": 722,
@@ -4733,7 +4546,7 @@
           },
           {
             "rlv": 740,
-            "events": 1177
+            "events": 1186
           },
           {
             "rlv": 742,
@@ -4761,7 +4574,7 @@
           },
           {
             "rlv": 770,
-            "events": 115
+            "events": 117
           },
           {
             "rlv": 771,
@@ -4772,20 +4585,20 @@
           {
             "isExpert": false,
             "isCollectable": false,
-            "starts": 3077,
-            "completes": 2957,
-            "macroCopies": 2848,
-            "completeRate": 0.9610009749756256,
-            "macroCopyRate": 0.9631383158606696
+            "starts": 2951,
+            "completes": 2842,
+            "macroCopies": 2751,
+            "completeRate": 0.963063368349712,
+            "macroCopyRate": 0.9679802955665024
           },
           {
             "isExpert": false,
             "isCollectable": true,
-            "starts": 858,
-            "completes": 832,
-            "macroCopies": 881,
-            "completeRate": 0.9696969696969697,
-            "macroCopyRate": 1.0588942307692308
+            "starts": 837,
+            "completes": 811,
+            "macroCopies": 863,
+            "completeRate": 0.9689366786140979,
+            "macroCopyRate": 1.064118372379778
           },
           {
             "isExpert": true,
@@ -4799,63 +4612,63 @@
           {
             "isExpert": true,
             "isCollectable": true,
-            "starts": 170,
-            "completes": 166,
-            "macroCopies": 178,
-            "completeRate": 0.9764705882352941,
-            "macroCopyRate": 1.072289156626506
+            "starts": 169,
+            "completes": 165,
+            "macroCopies": 175,
+            "completeRate": 0.9763313609467456,
+            "macroCopyRate": 1.0606060606060606
           }
         ],
         "craftKindBreakdown": [
           {
             "kind": "normal",
-            "starts": 2974,
-            "completes": 2835,
-            "macroCopies": 2874,
-            "completeRate": 0.9532616005379959,
-            "macroCopyRate": 1.0137566137566139
+            "starts": 2870,
+            "completes": 2742,
+            "macroCopies": 2780,
+            "completeRate": 0.9554006968641114,
+            "macroCopyRate": 1.013858497447119
           },
           {
             "kind": "quick",
-            "starts": 961,
-            "completes": 954,
-            "macroCopies": 855,
-            "completeRate": 0.9927159209157128,
-            "macroCopyRate": 0.8962264150943396
+            "starts": 918,
+            "completes": 911,
+            "macroCopies": 834,
+            "completeRate": 0.9923747276688453,
+            "macroCopyRate": 0.9154774972557629
           },
           {
             "kind": "expert",
-            "starts": 204,
-            "completes": 198,
-            "macroCopies": 220,
-            "completeRate": 0.9705882352941176,
-            "macroCopyRate": 1.1111111111111112
+            "starts": 203,
+            "completes": 197,
+            "macroCopies": 217,
+            "completeRate": 0.9704433497536946,
+            "macroCopyRate": 1.101522842639594
           }
         ]
       },
       "byRegion": {
         "solver": {
           "cht": {
-            "value": 5296,
-            "secondary": "5075 完成",
-            "sparkPct": 0.9582703927492447
+            "value": 5177,
+            "secondary": "4965 完成",
+            "sparkPct": 0.9590496426501836
           },
           "intl": {
-            "value": 643,
-            "secondary": "624 完成",
-            "sparkPct": 0.9704510108864697
+            "value": 616,
+            "secondary": "598 完成",
+            "sparkPct": 0.9707792207792207
           },
           "unset": {
-            "value": 5,
-            "secondary": "8 完成",
-            "sparkPct": 1.6
+            "value": 4,
+            "secondary": "5 完成",
+            "sparkPct": 1.25
           }
         },
         "batch": {
           "cht": {
-            "value": 692,
-            "secondary": "268 完成",
-            "sparkPct": 0.3872832369942196
+            "value": 675,
+            "secondary": "260 完成",
+            "sparkPct": 0.3851851851851852
           },
           "intl": {
             "value": 18,
@@ -4863,15 +4676,16 @@
             "sparkPct": 0.5555555555555556
           },
           "unset": {
-            "value": 0,
-            "secondary": "1 完成"
+            "value": 1,
+            "secondary": "1 完成",
+            "sparkPct": 1
           }
         },
         "bom": {
           "cht": {
-            "value": 142,
+            "value": 137,
             "secondary": "3 → 批次",
-            "sparkPct": 0.02112676056338028
+            "sparkPct": 0.021897810218978103
           },
           "intl": {
             "value": 57,
@@ -4885,8 +4699,8 @@
         },
         "infra": {
           "cht": {
-            "value": 50,
-            "secondary": "SAB 43 · WASM 7",
+            "value": 52,
+            "secondary": "SAB 45 · WASM 7",
             "tone": "danger"
           },
           "intl": {
@@ -4894,8 +4708,8 @@
             "secondary": "SAB 0 · WASM 0"
           },
           "unset": {
-            "value": 2,
-            "secondary": "SAB 2 · WASM 0",
+            "value": 1,
+            "secondary": "SAB 1 · WASM 0",
             "tone": "warn"
           }
         }
@@ -4996,7 +4810,7 @@
           "rlv": 15,
           "selectCount": 0,
           "simulatorCount": 0,
-          "batchTargetCount": 5,
+          "batchTargetCount": 4,
           "bomTargetCount": 7
         },
         {
@@ -5022,8 +4836,8 @@
         },
         {
           "rlv": 20,
-          "selectCount": 9,
-          "simulatorCount": 4,
+          "selectCount": 5,
+          "simulatorCount": 3,
           "batchTargetCount": 1,
           "bomTargetCount": 3
         },
@@ -5036,10 +4850,10 @@
         },
         {
           "rlv": 23,
-          "selectCount": 2,
-          "simulatorCount": 1,
+          "selectCount": 0,
+          "simulatorCount": 0,
           "batchTargetCount": 31,
-          "bomTargetCount": 2
+          "bomTargetCount": 3
         },
         {
           "rlv": 24,
@@ -5071,8 +4885,8 @@
         },
         {
           "rlv": 28,
-          "selectCount": 1,
-          "simulatorCount": 1,
+          "selectCount": 0,
+          "simulatorCount": 0,
           "batchTargetCount": 0,
           "bomTargetCount": 1
         },
@@ -5088,13 +4902,13 @@
           "selectCount": 0,
           "simulatorCount": 0,
           "batchTargetCount": 6,
-          "bomTargetCount": 31
+          "bomTargetCount": 32
         },
         {
           "rlv": 31,
           "selectCount": 0,
           "simulatorCount": 0,
-          "batchTargetCount": 4,
+          "batchTargetCount": 3,
           "bomTargetCount": 2
         },
         {
@@ -5113,8 +4927,8 @@
         },
         {
           "rlv": 34,
-          "selectCount": 2,
-          "simulatorCount": 2,
+          "selectCount": 0,
+          "simulatorCount": 0,
           "batchTargetCount": 4,
           "bomTargetCount": 10
         },
@@ -5144,21 +4958,21 @@
           "selectCount": 3,
           "simulatorCount": 4,
           "batchTargetCount": 3,
-          "bomTargetCount": 2
+          "bomTargetCount": 4
         },
         {
           "rlv": 39,
-          "selectCount": 3,
-          "simulatorCount": 4,
+          "selectCount": 2,
+          "simulatorCount": 3,
           "batchTargetCount": 1,
           "bomTargetCount": 3
         },
         {
           "rlv": 40,
-          "selectCount": 31,
-          "simulatorCount": 47,
+          "selectCount": 24,
+          "simulatorCount": 36,
           "batchTargetCount": 3,
-          "bomTargetCount": 3
+          "bomTargetCount": 4
         },
         {
           "rlv": 41,
@@ -5169,36 +4983,36 @@
         },
         {
           "rlv": 42,
-          "selectCount": 9,
-          "simulatorCount": 12,
+          "selectCount": 8,
+          "simulatorCount": 9,
           "batchTargetCount": 6,
-          "bomTargetCount": 4
+          "bomTargetCount": 2
         },
         {
           "rlv": 43,
-          "selectCount": 8,
-          "simulatorCount": 10,
+          "selectCount": 6,
+          "simulatorCount": 6,
           "batchTargetCount": 9,
           "bomTargetCount": 8
         },
         {
           "rlv": 44,
-          "selectCount": 6,
-          "simulatorCount": 10,
+          "selectCount": 5,
+          "simulatorCount": 5,
           "batchTargetCount": 3,
           "bomTargetCount": 0
         },
         {
           "rlv": 45,
-          "selectCount": 7,
-          "simulatorCount": 6,
+          "selectCount": 6,
+          "simulatorCount": 5,
           "batchTargetCount": 11,
           "bomTargetCount": 12
         },
         {
           "rlv": 46,
-          "selectCount": 7,
-          "simulatorCount": 4,
+          "selectCount": 6,
+          "simulatorCount": 1,
           "batchTargetCount": 0,
           "bomTargetCount": 4
         },
@@ -5228,7 +5042,7 @@
           "selectCount": 4,
           "simulatorCount": 3,
           "batchTargetCount": 9,
-          "bomTargetCount": 5
+          "bomTargetCount": 6
         },
         {
           "rlv": 55,
@@ -5241,13 +5055,13 @@
           "rlv": 70,
           "selectCount": 12,
           "simulatorCount": 14,
-          "batchTargetCount": 5,
+          "batchTargetCount": 3,
           "bomTargetCount": 10
         },
         {
           "rlv": 90,
-          "selectCount": 10,
-          "simulatorCount": 4,
+          "selectCount": 1,
+          "simulatorCount": 2,
           "batchTargetCount": 17,
           "bomTargetCount": 13
         },
@@ -5260,15 +5074,15 @@
         },
         {
           "rlv": 110,
-          "selectCount": 2,
-          "simulatorCount": 2,
+          "selectCount": 1,
+          "simulatorCount": 1,
           "batchTargetCount": 1,
           "bomTargetCount": 0
         },
         {
           "rlv": 115,
-          "selectCount": 21,
-          "simulatorCount": 16,
+          "selectCount": 15,
+          "simulatorCount": 12,
           "batchTargetCount": 19,
           "bomTargetCount": 1
         },
@@ -5297,14 +5111,14 @@
           "rlv": 136,
           "selectCount": 8,
           "simulatorCount": 5,
-          "batchTargetCount": 53,
-          "bomTargetCount": 2
+          "batchTargetCount": 49,
+          "bomTargetCount": 3
         },
         {
           "rlv": 139,
           "selectCount": 10,
           "simulatorCount": 14,
-          "batchTargetCount": 10,
+          "batchTargetCount": 8,
           "bomTargetCount": 0
         },
         {
@@ -5316,29 +5130,29 @@
         },
         {
           "rlv": 145,
-          "selectCount": 33,
-          "simulatorCount": 42,
+          "selectCount": 35,
+          "simulatorCount": 44,
           "batchTargetCount": 5,
           "bomTargetCount": 1
         },
         {
           "rlv": 148,
-          "selectCount": 19,
+          "selectCount": 20,
           "simulatorCount": 18,
           "batchTargetCount": 1,
           "bomTargetCount": 0
         },
         {
           "rlv": 150,
-          "selectCount": 26,
-          "simulatorCount": 30,
-          "batchTargetCount": 11,
+          "selectCount": 25,
+          "simulatorCount": 29,
+          "batchTargetCount": 8,
           "bomTargetCount": 5
         },
         {
           "rlv": 160,
-          "selectCount": 26,
-          "simulatorCount": 23,
+          "selectCount": 25,
+          "simulatorCount": 22,
           "batchTargetCount": 27,
           "bomTargetCount": 18
         },
@@ -5368,7 +5182,7 @@
           "selectCount": 33,
           "simulatorCount": 46,
           "batchTargetCount": 3,
-          "bomTargetCount": 23
+          "bomTargetCount": 24
         },
         {
           "rlv": 265,
@@ -5379,22 +5193,22 @@
         },
         {
           "rlv": 270,
-          "selectCount": 13,
-          "simulatorCount": 12,
+          "selectCount": 15,
+          "simulatorCount": 14,
           "batchTargetCount": 2,
           "bomTargetCount": 0
         },
         {
           "rlv": 273,
-          "selectCount": 6,
-          "simulatorCount": 6,
+          "selectCount": 7,
+          "simulatorCount": 7,
           "batchTargetCount": 6,
           "bomTargetCount": 0
         },
         {
           "rlv": 276,
-          "selectCount": 7,
-          "simulatorCount": 7,
+          "selectCount": 6,
+          "simulatorCount": 6,
           "batchTargetCount": 2,
           "bomTargetCount": 0
         },
@@ -5445,7 +5259,7 @@
           "selectCount": 2,
           "simulatorCount": 3,
           "batchTargetCount": 6,
-          "bomTargetCount": 13
+          "bomTargetCount": 14
         },
         {
           "rlv": 350,
@@ -5463,15 +5277,15 @@
         },
         {
           "rlv": 390,
-          "selectCount": 13,
-          "simulatorCount": 14,
+          "selectCount": 9,
+          "simulatorCount": 13,
           "batchTargetCount": 6,
           "bomTargetCount": 0
         },
         {
           "rlv": 395,
-          "selectCount": 9,
-          "simulatorCount": 10,
+          "selectCount": 10,
+          "simulatorCount": 11,
           "batchTargetCount": 0,
           "bomTargetCount": 0
         },
@@ -5484,8 +5298,8 @@
         },
         {
           "rlv": 403,
-          "selectCount": 8,
-          "simulatorCount": 9,
+          "selectCount": 7,
+          "simulatorCount": 8,
           "batchTargetCount": 2,
           "bomTargetCount": 8
         },
@@ -5519,8 +5333,8 @@
         },
         {
           "rlv": 418,
-          "selectCount": 8,
-          "simulatorCount": 7,
+          "selectCount": 7,
+          "simulatorCount": 6,
           "batchTargetCount": 11,
           "bomTargetCount": 0
         },
@@ -5529,7 +5343,7 @@
           "selectCount": 19,
           "simulatorCount": 22,
           "batchTargetCount": 41,
-          "bomTargetCount": 109
+          "bomTargetCount": 112
         },
         {
           "rlv": 440,
@@ -5603,9 +5417,9 @@
         },
         {
           "rlv": 520,
-          "selectCount": 14,
-          "simulatorCount": 17,
-          "batchTargetCount": 11,
+          "selectCount": 13,
+          "simulatorCount": 16,
+          "batchTargetCount": 13,
           "bomTargetCount": 0
         },
         {
@@ -5619,27 +5433,27 @@
           "rlv": 530,
           "selectCount": 11,
           "simulatorCount": 10,
-          "batchTargetCount": 4,
+          "batchTargetCount": 7,
           "bomTargetCount": 0
         },
         {
           "rlv": 535,
-          "selectCount": 22,
+          "selectCount": 21,
           "simulatorCount": 27,
-          "batchTargetCount": 3,
+          "batchTargetCount": 4,
           "bomTargetCount": 2
         },
         {
           "rlv": 540,
-          "selectCount": 18,
-          "simulatorCount": 20,
-          "batchTargetCount": 10,
-          "bomTargetCount": 47
+          "selectCount": 17,
+          "simulatorCount": 19,
+          "batchTargetCount": 11,
+          "bomTargetCount": 48
         },
         {
           "rlv": 545,
-          "selectCount": 21,
-          "simulatorCount": 21,
+          "selectCount": 20,
+          "simulatorCount": 20,
           "batchTargetCount": 5,
           "bomTargetCount": 1
         },
@@ -5652,29 +5466,29 @@
         },
         {
           "rlv": 555,
-          "selectCount": 23,
-          "simulatorCount": 33,
-          "batchTargetCount": 4,
+          "selectCount": 22,
+          "simulatorCount": 32,
+          "batchTargetCount": 0,
           "bomTargetCount": 1
         },
         {
           "rlv": 560,
-          "selectCount": 22,
+          "selectCount": 21,
           "simulatorCount": 22,
-          "batchTargetCount": 39,
-          "bomTargetCount": 75
+          "batchTargetCount": 33,
+          "bomTargetCount": 78
         },
         {
           "rlv": 570,
-          "selectCount": 6,
-          "simulatorCount": 6,
+          "selectCount": 5,
+          "simulatorCount": 5,
           "batchTargetCount": 1,
           "bomTargetCount": 0
         },
         {
           "rlv": 580,
-          "selectCount": 6,
-          "simulatorCount": 8,
+          "selectCount": 5,
+          "simulatorCount": 7,
           "batchTargetCount": 5,
           "bomTargetCount": 2
         },
@@ -5729,92 +5543,92 @@
         },
         {
           "rlv": 650,
-          "selectCount": 40,
-          "simulatorCount": 43,
-          "batchTargetCount": 13,
+          "selectCount": 39,
+          "simulatorCount": 37,
+          "batchTargetCount": 9,
           "bomTargetCount": 0
         },
         {
           "rlv": 653,
           "selectCount": 30,
-          "simulatorCount": 26,
-          "batchTargetCount": 17,
+          "simulatorCount": 25,
+          "batchTargetCount": 18,
           "bomTargetCount": 0
         },
         {
           "rlv": 656,
-          "selectCount": 43,
-          "simulatorCount": 31,
+          "selectCount": 40,
+          "simulatorCount": 29,
           "batchTargetCount": 22,
           "bomTargetCount": 1
         },
         {
           "rlv": 660,
-          "selectCount": 20,
-          "simulatorCount": 27,
-          "batchTargetCount": 13,
+          "selectCount": 19,
+          "simulatorCount": 26,
+          "batchTargetCount": 12,
           "bomTargetCount": 0
         },
         {
           "rlv": 665,
-          "selectCount": 43,
-          "simulatorCount": 40,
-          "batchTargetCount": 23,
+          "selectCount": 41,
+          "simulatorCount": 38,
+          "batchTargetCount": 21,
           "bomTargetCount": 0
         },
         {
           "rlv": 670,
-          "selectCount": 33,
-          "simulatorCount": 48,
-          "batchTargetCount": 22,
-          "bomTargetCount": 18
+          "selectCount": 30,
+          "simulatorCount": 46,
+          "batchTargetCount": 20,
+          "bomTargetCount": 20
         },
         {
           "rlv": 675,
           "selectCount": 26,
           "simulatorCount": 31,
-          "batchTargetCount": 22,
+          "batchTargetCount": 21,
           "bomTargetCount": 0
         },
         {
           "rlv": 680,
-          "selectCount": 123,
-          "simulatorCount": 104,
-          "batchTargetCount": 35,
+          "selectCount": 115,
+          "simulatorCount": 100,
+          "batchTargetCount": 29,
           "bomTargetCount": 0
         },
         {
           "rlv": 685,
-          "selectCount": 67,
-          "simulatorCount": 58,
-          "batchTargetCount": 76,
-          "bomTargetCount": 10
+          "selectCount": 64,
+          "simulatorCount": 56,
+          "batchTargetCount": 72,
+          "bomTargetCount": 9
         },
         {
           "rlv": 690,
-          "selectCount": 1778,
-          "simulatorCount": 1609,
-          "batchTargetCount": 158,
-          "bomTargetCount": 55
+          "selectCount": 1728,
+          "simulatorCount": 1528,
+          "batchTargetCount": 156,
+          "bomTargetCount": 56
         },
         {
           "rlv": 700,
-          "selectCount": 26,
-          "simulatorCount": 28,
+          "selectCount": 27,
+          "simulatorCount": 29,
           "batchTargetCount": 1,
           "bomTargetCount": 5
         },
         {
           "rlv": 701,
-          "selectCount": 87,
-          "simulatorCount": 81,
+          "selectCount": 85,
+          "simulatorCount": 79,
           "batchTargetCount": 0,
           "bomTargetCount": 0
         },
         {
           "rlv": 702,
-          "selectCount": 18,
-          "simulatorCount": 18,
+          "selectCount": 16,
+          "simulatorCount": 17,
           "batchTargetCount": 0,
           "bomTargetCount": 0
         },
@@ -5827,7 +5641,7 @@
         },
         {
           "rlv": 704,
-          "selectCount": 20,
+          "selectCount": 19,
           "simulatorCount": 18,
           "batchTargetCount": 0,
           "bomTargetCount": 0
@@ -5848,22 +5662,22 @@
         },
         {
           "rlv": 710,
-          "selectCount": 39,
-          "simulatorCount": 58,
-          "batchTargetCount": 5,
+          "selectCount": 37,
+          "simulatorCount": 54,
+          "batchTargetCount": 14,
           "bomTargetCount": 0
         },
         {
           "rlv": 720,
-          "selectCount": 156,
+          "selectCount": 152,
           "simulatorCount": 148,
           "batchTargetCount": 250,
-          "bomTargetCount": 161
+          "bomTargetCount": 159
         },
         {
           "rlv": 721,
-          "selectCount": 28,
-          "simulatorCount": 36,
+          "selectCount": 27,
+          "simulatorCount": 33,
           "batchTargetCount": 2,
           "bomTargetCount": 0
         },
@@ -5897,10 +5711,10 @@
         },
         {
           "rlv": 740,
-          "selectCount": 1177,
-          "simulatorCount": 476,
-          "batchTargetCount": 75,
-          "bomTargetCount": 73
+          "selectCount": 1186,
+          "simulatorCount": 477,
+          "batchTargetCount": 74,
+          "bomTargetCount": 68
         },
         {
           "rlv": 742,
@@ -5946,8 +5760,8 @@
         },
         {
           "rlv": 770,
-          "selectCount": 115,
-          "simulatorCount": 117,
+          "selectCount": 117,
+          "simulatorCount": 124,
           "batchTargetCount": 10,
           "bomTargetCount": 77
         },
@@ -5959,7 +5773,7 @@
           "bomTargetCount": 0
         }
       ],
-      "toolUsageNoRecipeCount": 251
+      "toolUsageNoRecipeCount": 255
     }
   }
 }
