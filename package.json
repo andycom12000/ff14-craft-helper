@@ -40,7 +40,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@google-analytics/data": "^6.0.0",
-    "@playwright/test": "^1.60.0",
+    "@playwright/test": "^1.64.1",
     "@types/d3": "^7.4.3",
     "@vitejs/plugin-vue": "^5.2.0",
     "@vue/test-utils": "^2.4.6",
