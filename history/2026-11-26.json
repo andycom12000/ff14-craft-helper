@@ -1,0 +1,6170 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-26T13:30:40.807Z",
+  "propertyId": "527587379",
+  "windows": {
+    "7d": {
+      "window": {
+        "days": 7,
+        "startDate": "2026-11-19",
+        "endDate": "2026-11-26"
+      },
+      "glance": {
+        "activeUsers": {
+          "total": 299,
+          "new": 121,
+          "returning": 191,
+          "returningPct": 0.6387959866220736
+        },
+        "solver": {
+          "starts": 1151,
+          "completes": 1124,
+          "fails": 8,
+          "completePct": 0.9765421372719374,
+          "humanStarts": 847,
+          "humanCompletes": 832,
+          "humanFails": 7,
+          "humanCompletePct": 0.9822904368358913,
+          "macroCopies": 931
+        },
+        "batch": {
+          "starts": 149,
+          "completes": 93,
+          "fails": 55,
+          "cancelled": 0,
+          "completePct": 0.6241610738255033
+        },
+        "bom": {
+          "calculates": 49,
+          "sentToBatch": 1,
+          "handoffPct": 0.02040816326530612
+        },
+        "infra": {
+          "sabUnavailable": 12,
+          "wasmLoadFailed": 0
+        },
+        "api": {
+          "universalisCalls": 4575,
+          "universalisRealFails": 217,
+          "universalisNoListing": 343,
+          "universalisOtherFails": 0
+        },
+        "adoption": {
+          "batchStarts": 149,
+          "crossServerBatches": 130,
+          "meldAdvisorRuns": 24,
+          "meldApplies": 0
+        }
+      },
+      "pages": [
+        {
+          "path": "/simulator",
+          "title": "製作模擬",
+          "family": "craft",
+          "views": 651,
+          "users": 195,
+          "sessions": 470,
+          "engagement": 0.6872340425531915,
+          "bounce": 0.3127659574468085,
+          "avgSession": 0.05319148936170213
+        },
+        {
+          "path": "/batch",
+          "title": "批量製作",
+          "family": "craft",
+          "views": 341,
+          "users": 110,
+          "sessions": 207,
+          "engagement": 0.7632850241545893,
+          "bounce": 0.23671497584541062,
+          "avgSession": 7.845410628019324
+        },
+        {
+          "path": "/",
+          "title": "吐司工坊",
+          "family": "core",
+          "views": 309,
+          "users": 139,
+          "sessions": 238,
+          "engagement": 0.8109243697478992,
+          "bounce": 0.18907563025210083,
+          "avgSession": 3.6092436974789917
+        },
+        {
+          "path": "/gearset",
+          "title": "配裝管理",
+          "family": "craft",
+          "views": 264,
+          "users": 121,
+          "sessions": 169,
+          "engagement": 0.9704142011834319,
+          "bounce": 0.029585798816568046,
+          "avgSession": 9.863905325443787
+        },
+        {
+          "path": "/bom",
+          "title": "購物清單",
+          "family": "craft",
+          "views": 163,
+          "users": 46,
+          "sessions": 101,
+          "engagement": 0.7227722772277227,
+          "bounce": 0.27722772277227725,
+          "avgSession": 11.465346534653465
+        },
+        {
+          "path": "/changelog",
+          "title": "更新日誌",
+          "family": "meta",
+          "views": 56,
+          "users": 29,
+          "sessions": 48,
+          "engagement": 0.9166666666666666,
+          "bounce": 0.08333333333333333,
+          "avgSession": 3.4791666666666665
+        },
+        {
+          "path": "/timer",
+          "title": "採集計時器",
+          "family": "gather",
+          "views": 49,
+          "users": 16,
+          "sessions": 42,
+          "engagement": 0.9761904761904762,
+          "bounce": 0.023809523809523808,
+          "avgSession": 1.4285714285714286
+        },
+        {
+          "path": "/company-craft",
+          "title": "部隊工坊",
+          "family": "company",
+          "views": 33,
+          "users": 18,
+          "sessions": 20,
+          "engagement": 0.95,
+          "bounce": 0.05,
+          "avgSession": 6.9
+        },
+        {
+          "path": "/settings",
+          "title": "設定",
+          "family": "meta",
+          "views": 22,
+          "users": 19,
+          "sessions": 21,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 12.095238095238095
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "吐司工坊 - FFXIV 制作助手|制作模拟器与批量制作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 2,
+          "sessions": 3,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 63
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "吐司工坊 - FFXIV 制作助手｜制作仿真器与批量制作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 1,
+          "sessions": 2,
+          "engagement": 0.5,
+          "bounce": 0.5,
+          "avgSession": 190
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "吐司工坊 - FFXIV 製作助手｜製作模擬器與批次製作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 1,
+          "sessions": 1,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 34
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "吐司工坊 - FFXIV 製作助手｜製作模擬器與批量製作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 299,
+          "sessions": 937,
+          "engagement": 0.6168623265741728,
+          "bounce": 0.3831376734258271,
+          "avgSession": 77.94557097118464
+        }
+      ],
+      "solverFunnel": [
+        {
+          "step": "solver_start",
+          "count": 1151,
+          "tone": "neutral"
+        },
+        {
+          "step": "solver_complete",
+          "count": 1124,
+          "tone": "success"
+        },
+        {
+          "step": "solver_macro_copy",
+          "count": 931,
+          "tone": "success"
+        }
+      ],
+      "batchFunnel": [
+        {
+          "step": "batch_add",
+          "count": 1005,
+          "tone": "neutral"
+        },
+        {
+          "step": "batch_start",
+          "count": 149,
+          "tone": "neutral"
+        },
+        {
+          "step": "batch_complete",
+          "count": 93,
+          "tone": "success"
+        }
+      ],
+      "simulatorFunnel": {
+        "entry": {
+          "label": "/simulator page_view",
+          "count": 651,
+          "users": 195
+        },
+        "macroCopy": {
+          "label": "solver_macro_copy",
+          "count": 931,
+          "users": 71
+        },
+        "globalContext": [
+          {
+            "label": "recipe_select (any page)",
+            "count": 1225
+          },
+          {
+            "label": "solver_start (any page)",
+            "count": 1151
+          },
+          {
+            "label": "solver_complete (any page)",
+            "count": 1124
+          }
+        ]
+      },
+      "failures": [
+        {
+          "event": "batch",
+          "reason": "Failed to fetch",
+          "count": 53,
+          "costModeBreakdown": [
+            {
+              "costMode": "quick-buy",
+              "count": 53
+            }
+          ]
+        },
+        {
+          "event": "solver",
+          "reason": "找不到可行的製作方案，請確認裝備數值與配方是否正確",
+          "count": 5
+        },
+        {
+          "event": "solver",
+          "reason": "unreachable",
+          "count": 3
+        },
+        {
+          "event": "batch",
+          "reason": "Universalis 查詢逾時 (20s)",
+          "count": 2,
+          "costModeBreakdown": [
+            {
+              "costMode": "macro",
+              "count": 1
+            },
+            {
+              "costMode": "quick-buy",
+              "count": 1
+            }
+          ]
+        }
+      ],
+      "vitals": [
+        {
+          "metric": "INP",
+          "good": 652,
+          "ni": 53,
+          "poor": 14
+        },
+        {
+          "metric": "TTFB",
+          "good": 685,
+          "ni": 47,
+          "poor": 5
+        },
+        {
+          "metric": "CLS",
+          "good": 470,
+          "ni": 26,
+          "poor": 29
+        },
+        {
+          "metric": "FCP",
+          "good": 428,
+          "ni": 19,
+          "poor": 8
+        },
+        {
+          "metric": "LCP",
+          "good": 407,
+          "ni": 15,
+          "poor": 9
+        }
+      ],
+      "q4Funnels": [
+        {
+          "name": "Batch prep → Optimize",
+          "label": "batch_add_recipe → batch_opt_start",
+          "from": 1005,
+          "to": 149,
+          "flag": "danger",
+          "note": "轉換偏低"
+        },
+        {
+          "name": "BOM → Consumed",
+          "label": "bom_calculate → (any consume)",
+          "from": 49,
+          "to": 14,
+          "flag": "danger",
+          "note": "轉換偏低"
+        }
+      ],
+      "marketRegion": [
+        {
+          "event": "solver_start",
+          "notset": 6,
+          "unset": 0,
+          "cht": 803,
+          "intl": 342
+        },
+        {
+          "event": "solver_complete",
+          "notset": 6,
+          "unset": 0,
+          "cht": 781,
+          "intl": 337
+        },
+        {
+          "event": "solver_macro_copy",
+          "notset": 8,
+          "unset": 0,
+          "cht": 635,
+          "intl": 288
+        },
+        {
+          "event": "batch_optimization_start",
+          "notset": 0,
+          "unset": 0,
+          "cht": 64,
+          "intl": 85
+        },
+        {
+          "event": "batch_optimization_complete",
+          "notset": 0,
+          "unset": 0,
+          "cht": 61,
+          "intl": 32
+        },
+        {
+          "event": "bom_calculate",
+          "notset": 1,
+          "unset": 0,
+          "cht": 18,
+          "intl": 30
+        },
+        {
+          "event": "bom_send_to_batch",
+          "notset": 0,
+          "unset": 0,
+          "cht": 0,
+          "intl": 1
+        }
+      ],
+      "gearBucketBreakdown": [
+        {
+          "bucket": "entry",
+          "starts": 30,
+          "completes": 30,
+          "fails": 0,
+          "completeRate": 1,
+          "failRate": 0
+        },
+        {
+          "bucket": "mid",
+          "starts": 204,
+          "completes": 203,
+          "fails": 0,
+          "completeRate": 0.9950980392156863,
+          "failRate": 0
+        },
+        {
+          "bucket": "bis",
+          "starts": 613,
+          "completes": 599,
+          "fails": 7,
+          "completeRate": 0.9771615008156607,
+          "failRate": 0.011419249592169658
+        }
+      ],
+      "misuseSignals": [
+        {
+          "type": "large_queue_in_simulator",
+          "label": "模擬器塞入大量佇列",
+          "gloss": "Queued many recipes in the single-recipe simulator — batch crafting is the intended tool.",
+          "eventCount": 18,
+          "affectedUsers": 13
+        },
+        {
+          "type": "single_recipe_in_batch",
+          "label": "批量頁只放單一配方",
+          "gloss": "Used the batch optimizer for a single recipe — the simulator fits better.",
+          "eventCount": 13,
+          "affectedUsers": 12
+        },
+        {
+          "type": "bom_without_quantity",
+          "label": "BOM 未填數量",
+          "gloss": "Opened the bill of materials without a target quantity, so totals stayed empty.",
+          "eventCount": 4,
+          "affectedUsers": 4
+        }
+      ],
+      "apiFailures": {
+        "matrix": [
+          {
+            "api": "universalis",
+            "status": 404,
+            "count": 362
+          },
+          {
+            "api": "universalis",
+            "status": 0,
+            "count": 220
+          }
+        ],
+        "topEndpoints": [
+          {
+            "api": "universalis",
+            "endpoint": "奧汀/43932",
+            "status": 404,
+            "count": 159
+          },
+          {
+            "api": "universalis",
+            "endpoint": "陸行鳥/35572",
+            "status": 404,
+            "count": 36
+          },
+          {
+            "api": "universalis",
+            "endpoint": "陆行鸟/19841,19877,19846,20187,20179,19865,8,13,19858,19855,19…",
+            "status": 0,
+            "count": 34
+          },
+          {
+            "api": "universalis",
+            "endpoint": "巴哈姆特/48833",
+            "status": 404,
+            "count": 31
+          },
+          {
+            "api": "universalis",
+            "endpoint": "陸行鳥/15997",
+            "status": 404,
+            "count": 30
+          },
+          {
+            "api": "universalis",
+            "endpoint": "伊弗利特/45971,45969,45973,45970,45972,45968,5121,5395,5118,512…",
+            "status": 0,
+            "count": 25
+          },
+          {
+            "api": "universalis",
+            "endpoint": "陆行鸟/12594,12563,12519,12602,12564,12520,5185,12565,12521,12…",
+            "status": 0,
+            "count": 21
+          },
+          {
+            "api": "universalis",
+            "endpoint": "陆行鸟/5521,5527,5390,5064,5336,1967,5493,5169,5549,5170,5171,…",
+            "status": 0,
+            "count": 21
+          },
+          {
+            "api": "universalis",
+            "endpoint": "利維坦/14,43919,44233,44234,43930,43923,43931,43933,43932,4393…",
+            "status": 0,
+            "count": 20
+          },
+          {
+            "api": "universalis",
+            "endpoint": "陆行鸟/4587,5376,5523,5522,14272,4751,4834,4814,12601,12562,12…",
+            "status": 0,
+            "count": 16
+          }
+        ]
+      },
+      "taxonomy": {
+        "rlvRaw": [
+          {
+            "rlv": 1,
+            "events": 10
+          },
+          {
+            "rlv": 14,
+            "events": 7
+          },
+          {
+            "rlv": 20,
+            "events": 1
+          },
+          {
+            "rlv": 38,
+            "events": 1
+          },
+          {
+            "rlv": 45,
+            "events": 6
+          },
+          {
+            "rlv": 50,
+            "events": 6
+          },
+          {
+            "rlv": 55,
+            "events": 9
+          },
+          {
+            "rlv": 70,
+            "events": 1
+          },
+          {
+            "rlv": 90,
+            "events": 11
+          },
+          {
+            "rlv": 100,
+            "events": 53
+          },
+          {
+            "rlv": 142,
+            "events": 2
+          },
+          {
+            "rlv": 145,
+            "events": 7
+          },
+          {
+            "rlv": 148,
+            "events": 3
+          },
+          {
+            "rlv": 150,
+            "events": 17
+          },
+          {
+            "rlv": 160,
+            "events": 4
+          },
+          {
+            "rlv": 180,
+            "events": 1
+          },
+          {
+            "rlv": 210,
+            "events": 2
+          },
+          {
+            "rlv": 255,
+            "events": 1
+          },
+          {
+            "rlv": 265,
+            "events": 10
+          },
+          {
+            "rlv": 270,
+            "events": 3
+          },
+          {
+            "rlv": 273,
+            "events": 1
+          },
+          {
+            "rlv": 276,
+            "events": 1
+          },
+          {
+            "rlv": 279,
+            "events": 2
+          },
+          {
+            "rlv": 282,
+            "events": 4
+          },
+          {
+            "rlv": 285,
+            "events": 2
+          },
+          {
+            "rlv": 288,
+            "events": 4
+          },
+          {
+            "rlv": 290,
+            "events": 12
+          },
+          {
+            "rlv": 300,
+            "events": 1
+          },
+          {
+            "rlv": 380,
+            "events": 2
+          },
+          {
+            "rlv": 395,
+            "events": 7
+          },
+          {
+            "rlv": 400,
+            "events": 5
+          },
+          {
+            "rlv": 403,
+            "events": 3
+          },
+          {
+            "rlv": 406,
+            "events": 5
+          },
+          {
+            "rlv": 409,
+            "events": 3
+          },
+          {
+            "rlv": 415,
+            "events": 8
+          },
+          {
+            "rlv": 430,
+            "events": 7
+          },
+          {
+            "rlv": 440,
+            "events": 3
+          },
+          {
+            "rlv": 480,
+            "events": 1
+          },
+          {
+            "rlv": 513,
+            "events": 2
+          },
+          {
+            "rlv": 517,
+            "events": 9
+          },
+          {
+            "rlv": 525,
+            "events": 5
+          },
+          {
+            "rlv": 530,
+            "events": 4
+          },
+          {
+            "rlv": 540,
+            "events": 3
+          },
+          {
+            "rlv": 545,
+            "events": 2
+          },
+          {
+            "rlv": 550,
+            "events": 1
+          },
+          {
+            "rlv": 555,
+            "events": 3
+          },
+          {
+            "rlv": 560,
+            "events": 7
+          },
+          {
+            "rlv": 570,
+            "events": 2
+          },
+          {
+            "rlv": 590,
+            "events": 1
+          },
+          {
+            "rlv": 610,
+            "events": 2
+          },
+          {
+            "rlv": 611,
+            "events": 9
+          },
+          {
+            "rlv": 642,
+            "events": 5
+          },
+          {
+            "rlv": 650,
+            "events": 12
+          },
+          {
+            "rlv": 653,
+            "events": 8
+          },
+          {
+            "rlv": 656,
+            "events": 1
+          },
+          {
+            "rlv": 660,
+            "events": 4
+          },
+          {
+            "rlv": 665,
+            "events": 2
+          },
+          {
+            "rlv": 670,
+            "events": 3
+          },
+          {
+            "rlv": 675,
+            "events": 11
+          },
+          {
+            "rlv": 680,
+            "events": 21
+          },
+          {
+            "rlv": 685,
+            "events": 25
+          },
+          {
+            "rlv": 690,
+            "events": 309
+          },
+          {
+            "rlv": 700,
+            "events": 24
+          },
+          {
+            "rlv": 701,
+            "events": 87
+          },
+          {
+            "rlv": 702,
+            "events": 30
+          },
+          {
+            "rlv": 703,
+            "events": 17
+          },
+          {
+            "rlv": 704,
+            "events": 15
+          },
+          {
+            "rlv": 705,
+            "events": 1
+          },
+          {
+            "rlv": 706,
+            "events": 2
+          },
+          {
+            "rlv": 710,
+            "events": 1
+          },
+          {
+            "rlv": 720,
+            "events": 13
+          },
+          {
+            "rlv": 721,
+            "events": 21
+          },
+          {
+            "rlv": 723,
+            "events": 1
+          },
+          {
+            "rlv": 724,
+            "events": 6
+          },
+          {
+            "rlv": 725,
+            "events": 4
+          },
+          {
+            "rlv": 726,
+            "events": 4
+          },
+          {
+            "rlv": 740,
+            "events": 126
+          },
+          {
+            "rlv": 741,
+            "events": 3
+          },
+          {
+            "rlv": 742,
+            "events": 5
+          },
+          {
+            "rlv": 743,
+            "events": 1
+          },
+          {
+            "rlv": 746,
+            "events": 14
+          },
+          {
+            "rlv": 750,
+            "events": 140
+          },
+          {
+            "rlv": 751,
+            "events": 4
+          },
+          {
+            "rlv": 770,
+            "events": 29
+          }
+        ],
+        "matrix": [
+          {
+            "isExpert": false,
+            "isCollectable": false,
+            "starts": 542,
+            "completes": 530,
+            "macroCopies": 616,
+            "completeRate": 0.977859778597786,
+            "macroCopyRate": 1.1622641509433962
+          },
+          {
+            "isExpert": false,
+            "isCollectable": true,
+            "starts": 222,
+            "completes": 219,
+            "macroCopies": 212,
+            "completeRate": 0.9864864864864865,
+            "macroCopyRate": 0.9680365296803652
+          },
+          {
+            "isExpert": true,
+            "isCollectable": false,
+            "starts": 26,
+            "completes": 26,
+            "macroCopies": 19,
+            "completeRate": 1,
+            "macroCopyRate": 0.7307692307692307
+          },
+          {
+            "isExpert": true,
+            "isCollectable": true,
+            "starts": 57,
+            "completes": 57,
+            "macroCopies": 84,
+            "completeRate": 1,
+            "macroCopyRate": 1.4736842105263157
+          }
+        ],
+        "craftKindBreakdown": [
+          {
+            "kind": "normal",
+            "starts": 637,
+            "completes": 623,
+            "macroCopies": 678,
+            "completeRate": 0.978021978021978,
+            "macroCopyRate": 1.088282504012841
+          },
+          {
+            "kind": "quick",
+            "starts": 127,
+            "completes": 126,
+            "macroCopies": 150,
+            "completeRate": 0.9921259842519685,
+            "macroCopyRate": 1.1904761904761905
+          },
+          {
+            "kind": "expert",
+            "starts": 83,
+            "completes": 83,
+            "macroCopies": 103,
+            "completeRate": 1,
+            "macroCopyRate": 1.2409638554216869
+          }
+        ]
+      },
+      "byRegion": {
+        "solver": {
+          "cht": {
+            "value": 803,
+            "secondary": "781 完成",
+            "sparkPct": 0.9726027397260274
+          },
+          "intl": {
+            "value": 342,
+            "secondary": "337 完成",
+            "sparkPct": 0.9853801169590644
+          },
+          "unset": {
+            "value": 6,
+            "secondary": "6 完成",
+            "sparkPct": 1
+          }
+        },
+        "batch": {
+          "cht": {
+            "value": 64,
+            "secondary": "61 完成",
+            "sparkPct": 0.953125
+          },
+          "intl": {
+            "value": 85,
+            "secondary": "32 完成",
+            "sparkPct": 0.3764705882352941
+          },
+          "unset": {
+            "value": 0,
+            "secondary": "0 完成"
+          }
+        },
+        "bom": {
+          "cht": {
+            "value": 18,
+            "secondary": "0 → 批次",
+            "sparkPct": 0
+          },
+          "intl": {
+            "value": 30,
+            "secondary": "1 → 批次",
+            "sparkPct": 0.03333333333333333
+          },
+          "unset": {
+            "value": 1,
+            "secondary": "0 → 批次",
+            "sparkPct": 0
+          }
+        },
+        "infra": {
+          "cht": {
+            "value": 10,
+            "secondary": "SAB 10 · WASM 0",
+            "tone": "danger"
+          },
+          "intl": {
+            "value": 2,
+            "secondary": "SAB 2 · WASM 0",
+            "tone": "warn"
+          },
+          "unset": {
+            "value": 0,
+            "secondary": "SAB 0 · WASM 0"
+          }
+        }
+      },
+      "toolUsageByRlv": [
+        {
+          "rlv": 1,
+          "selectCount": 10,
+          "simulatorCount": 7,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 14,
+          "selectCount": 7,
+          "simulatorCount": 7,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 17,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 1,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 18,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 1,
+          "bomTargetCount": 1
+        },
+        {
+          "rlv": 19,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 2,
+          "bomTargetCount": 1
+        },
+        {
+          "rlv": 20,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 26,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 10,
+          "bomTargetCount": 4
+        },
+        {
+          "rlv": 27,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 21,
+          "bomTargetCount": 14
+        },
+        {
+          "rlv": 28,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 8,
+          "bomTargetCount": 4
+        },
+        {
+          "rlv": 29,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 1,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 30,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 46,
+          "bomTargetCount": 36
+        },
+        {
+          "rlv": 31,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 7,
+          "bomTargetCount": 4
+        },
+        {
+          "rlv": 32,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 23,
+          "bomTargetCount": 18
+        },
+        {
+          "rlv": 33,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 0,
+          "bomTargetCount": 1
+        },
+        {
+          "rlv": 34,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 34,
+          "bomTargetCount": 28
+        },
+        {
+          "rlv": 35,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 25,
+          "bomTargetCount": 11
+        },
+        {
+          "rlv": 36,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 6,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 37,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 11,
+          "bomTargetCount": 7
+        },
+        {
+          "rlv": 38,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 1,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 39,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 25,
+          "bomTargetCount": 17
+        },
+        {
+          "rlv": 40,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 13,
+          "bomTargetCount": 5
+        },
+        {
+          "rlv": 41,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 2,
+          "bomTargetCount": 2
+        },
+        {
+          "rlv": 42,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 11,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 43,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 14,
+          "bomTargetCount": 5
+        },
+        {
+          "rlv": 44,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 5,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 45,
+          "selectCount": 6,
+          "simulatorCount": 4,
+          "batchTargetCount": 5,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 46,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 2,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 47,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 2,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 49,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 3,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 50,
+          "selectCount": 6,
+          "simulatorCount": 3,
+          "batchTargetCount": 17,
+          "bomTargetCount": 28
+        },
+        {
+          "rlv": 55,
+          "selectCount": 9,
+          "simulatorCount": 2,
+          "batchTargetCount": 23,
+          "bomTargetCount": 29
+        },
+        {
+          "rlv": 70,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 50,
+          "bomTargetCount": 74
+        },
+        {
+          "rlv": 90,
+          "selectCount": 11,
+          "simulatorCount": 13,
+          "batchTargetCount": 3,
+          "bomTargetCount": 2
+        },
+        {
+          "rlv": 100,
+          "selectCount": 53,
+          "simulatorCount": 27,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 115,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 6,
+          "bomTargetCount": 8
+        },
+        {
+          "rlv": 125,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 6,
+          "bomTargetCount": 8
+        },
+        {
+          "rlv": 130,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 10,
+          "bomTargetCount": 6
+        },
+        {
+          "rlv": 133,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 14,
+          "bomTargetCount": 7
+        },
+        {
+          "rlv": 136,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 6,
+          "bomTargetCount": 4
+        },
+        {
+          "rlv": 139,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 8,
+          "bomTargetCount": 3
+        },
+        {
+          "rlv": 142,
+          "selectCount": 2,
+          "simulatorCount": 2,
+          "batchTargetCount": 9,
+          "bomTargetCount": 8
+        },
+        {
+          "rlv": 145,
+          "selectCount": 7,
+          "simulatorCount": 4,
+          "batchTargetCount": 19,
+          "bomTargetCount": 11
+        },
+        {
+          "rlv": 148,
+          "selectCount": 3,
+          "simulatorCount": 10,
+          "batchTargetCount": 8,
+          "bomTargetCount": 5
+        },
+        {
+          "rlv": 150,
+          "selectCount": 17,
+          "simulatorCount": 17,
+          "batchTargetCount": 16,
+          "bomTargetCount": 7
+        },
+        {
+          "rlv": 160,
+          "selectCount": 4,
+          "simulatorCount": 4,
+          "batchTargetCount": 10,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 180,
+          "selectCount": 1,
+          "simulatorCount": 2,
+          "batchTargetCount": 4,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 210,
+          "selectCount": 2,
+          "simulatorCount": 0,
+          "batchTargetCount": 2,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 255,
+          "selectCount": 1,
+          "simulatorCount": 3,
+          "batchTargetCount": 7,
+          "bomTargetCount": 1
+        },
+        {
+          "rlv": 265,
+          "selectCount": 10,
+          "simulatorCount": 7,
+          "batchTargetCount": 8,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 270,
+          "selectCount": 3,
+          "simulatorCount": 4,
+          "batchTargetCount": 4,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 273,
+          "selectCount": 1,
+          "simulatorCount": 7,
+          "batchTargetCount": 11,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 276,
+          "selectCount": 1,
+          "simulatorCount": 2,
+          "batchTargetCount": 7,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 279,
+          "selectCount": 2,
+          "simulatorCount": 1,
+          "batchTargetCount": 32,
+          "bomTargetCount": 26
+        },
+        {
+          "rlv": 282,
+          "selectCount": 4,
+          "simulatorCount": 2,
+          "batchTargetCount": 12,
+          "bomTargetCount": 8
+        },
+        {
+          "rlv": 285,
+          "selectCount": 2,
+          "simulatorCount": 2,
+          "batchTargetCount": 20,
+          "bomTargetCount": 16
+        },
+        {
+          "rlv": 288,
+          "selectCount": 4,
+          "simulatorCount": 2,
+          "batchTargetCount": 11,
+          "bomTargetCount": 11
+        },
+        {
+          "rlv": 290,
+          "selectCount": 12,
+          "simulatorCount": 14,
+          "batchTargetCount": 35,
+          "bomTargetCount": 39
+        },
+        {
+          "rlv": 300,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 20,
+          "bomTargetCount": 18
+        },
+        {
+          "rlv": 350,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 0,
+          "bomTargetCount": 1
+        },
+        {
+          "rlv": 380,
+          "selectCount": 2,
+          "simulatorCount": 0,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 390,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 2,
+          "bomTargetCount": 6
+        },
+        {
+          "rlv": 395,
+          "selectCount": 7,
+          "simulatorCount": 5,
+          "batchTargetCount": 1,
+          "bomTargetCount": 3
+        },
+        {
+          "rlv": 400,
+          "selectCount": 5,
+          "simulatorCount": 3,
+          "batchTargetCount": 20,
+          "bomTargetCount": 16
+        },
+        {
+          "rlv": 403,
+          "selectCount": 3,
+          "simulatorCount": 3,
+          "batchTargetCount": 22,
+          "bomTargetCount": 22
+        },
+        {
+          "rlv": 406,
+          "selectCount": 5,
+          "simulatorCount": 2,
+          "batchTargetCount": 20,
+          "bomTargetCount": 16
+        },
+        {
+          "rlv": 409,
+          "selectCount": 3,
+          "simulatorCount": 2,
+          "batchTargetCount": 20,
+          "bomTargetCount": 13
+        },
+        {
+          "rlv": 412,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 2,
+          "bomTargetCount": 6
+        },
+        {
+          "rlv": 415,
+          "selectCount": 8,
+          "simulatorCount": 8,
+          "batchTargetCount": 2,
+          "bomTargetCount": 6
+        },
+        {
+          "rlv": 430,
+          "selectCount": 7,
+          "simulatorCount": 6,
+          "batchTargetCount": 4,
+          "bomTargetCount": 29
+        },
+        {
+          "rlv": 440,
+          "selectCount": 3,
+          "simulatorCount": 5,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 480,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 513,
+          "selectCount": 2,
+          "simulatorCount": 4,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 517,
+          "selectCount": 9,
+          "simulatorCount": 6,
+          "batchTargetCount": 18,
+          "bomTargetCount": 14
+        },
+        {
+          "rlv": 520,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 8,
+          "bomTargetCount": 8
+        },
+        {
+          "rlv": 525,
+          "selectCount": 5,
+          "simulatorCount": 5,
+          "batchTargetCount": 3,
+          "bomTargetCount": 3
+        },
+        {
+          "rlv": 530,
+          "selectCount": 4,
+          "simulatorCount": 2,
+          "batchTargetCount": 5,
+          "bomTargetCount": 5
+        },
+        {
+          "rlv": 535,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 2,
+          "bomTargetCount": 2
+        },
+        {
+          "rlv": 540,
+          "selectCount": 3,
+          "simulatorCount": 1,
+          "batchTargetCount": 2,
+          "bomTargetCount": 7
+        },
+        {
+          "rlv": 545,
+          "selectCount": 2,
+          "simulatorCount": 5,
+          "batchTargetCount": 1,
+          "bomTargetCount": 1
+        },
+        {
+          "rlv": 550,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 2,
+          "bomTargetCount": 2
+        },
+        {
+          "rlv": 555,
+          "selectCount": 3,
+          "simulatorCount": 7,
+          "batchTargetCount": 4,
+          "bomTargetCount": 4
+        },
+        {
+          "rlv": 560,
+          "selectCount": 7,
+          "simulatorCount": 7,
+          "batchTargetCount": 4,
+          "bomTargetCount": 20
+        },
+        {
+          "rlv": 570,
+          "selectCount": 2,
+          "simulatorCount": 3,
+          "batchTargetCount": 6,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 590,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 610,
+          "selectCount": 2,
+          "simulatorCount": 5,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 611,
+          "selectCount": 9,
+          "simulatorCount": 10,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 642,
+          "selectCount": 5,
+          "simulatorCount": 5,
+          "batchTargetCount": 1,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 650,
+          "selectCount": 12,
+          "simulatorCount": 19,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 653,
+          "selectCount": 8,
+          "simulatorCount": 7,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 656,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 660,
+          "selectCount": 4,
+          "simulatorCount": 3,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 665,
+          "selectCount": 2,
+          "simulatorCount": 2,
+          "batchTargetCount": 1,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 670,
+          "selectCount": 3,
+          "simulatorCount": 1,
+          "batchTargetCount": 1,
+          "bomTargetCount": 4
+        },
+        {
+          "rlv": 675,
+          "selectCount": 11,
+          "simulatorCount": 9,
+          "batchTargetCount": 2,
+          "bomTargetCount": 1
+        },
+        {
+          "rlv": 680,
+          "selectCount": 21,
+          "simulatorCount": 23,
+          "batchTargetCount": 4,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 685,
+          "selectCount": 25,
+          "simulatorCount": 48,
+          "batchTargetCount": 30,
+          "bomTargetCount": 2
+        },
+        {
+          "rlv": 690,
+          "selectCount": 309,
+          "simulatorCount": 121,
+          "batchTargetCount": 32,
+          "bomTargetCount": 2
+        },
+        {
+          "rlv": 700,
+          "selectCount": 24,
+          "simulatorCount": 16,
+          "batchTargetCount": 9,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 701,
+          "selectCount": 87,
+          "simulatorCount": 39,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 702,
+          "selectCount": 30,
+          "simulatorCount": 18,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 703,
+          "selectCount": 17,
+          "simulatorCount": 7,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 704,
+          "selectCount": 15,
+          "simulatorCount": 9,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 705,
+          "selectCount": 1,
+          "simulatorCount": 0,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 706,
+          "selectCount": 2,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 710,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 2,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 720,
+          "selectCount": 13,
+          "simulatorCount": 20,
+          "batchTargetCount": 15,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 721,
+          "selectCount": 21,
+          "simulatorCount": 16,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 723,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 724,
+          "selectCount": 6,
+          "simulatorCount": 6,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 725,
+          "selectCount": 4,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 726,
+          "selectCount": 4,
+          "simulatorCount": 0,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 740,
+          "selectCount": 126,
+          "simulatorCount": 118,
+          "batchTargetCount": 103,
+          "bomTargetCount": 2
+        },
+        {
+          "rlv": 741,
+          "selectCount": 3,
+          "simulatorCount": 0,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 742,
+          "selectCount": 5,
+          "simulatorCount": 8,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 743,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 746,
+          "selectCount": 14,
+          "simulatorCount": 12,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 750,
+          "selectCount": 140,
+          "simulatorCount": 57,
+          "batchTargetCount": 0,
+          "bomTargetCount": 69
+        },
+        {
+          "rlv": 751,
+          "selectCount": 4,
+          "simulatorCount": 4,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 770,
+          "selectCount": 29,
+          "simulatorCount": 31,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        }
+      ],
+      "toolUsageNoRecipeCount": 105
+    },
+    "14d": {
+      "window": {
+        "days": 14,
+        "startDate": "2026-11-12",
+        "endDate": "2026-11-26"
+      },
+      "glance": {
+        "activeUsers": {
+          "total": 479,
+          "new": 244,
+          "returning": 259,
+          "returningPct": 0.5407098121085595
+        },
+        "solver": {
+          "starts": 2574,
+          "completes": 2647,
+          "fails": 51,
+          "completePct": 1.0283605283605284,
+          "humanStarts": 2035,
+          "humanCompletes": 1968,
+          "humanFails": 47,
+          "humanCompletePct": 0.9670761670761671,
+          "macroCopies": 2078
+        },
+        "batch": {
+          "starts": 234,
+          "completes": 168,
+          "fails": 65,
+          "cancelled": 0,
+          "completePct": 0.717948717948718
+        },
+        "bom": {
+          "calculates": 76,
+          "sentToBatch": 4,
+          "handoffPct": 0.05263157894736842
+        },
+        "infra": {
+          "sabUnavailable": 27,
+          "wasmLoadFailed": 2
+        },
+        "api": {
+          "universalisCalls": 8460,
+          "universalisRealFails": 235,
+          "universalisNoListing": 586,
+          "universalisOtherFails": 0
+        },
+        "adoption": {
+          "batchStarts": 234,
+          "crossServerBatches": 204,
+          "meldAdvisorRuns": 50,
+          "meldApplies": 0
+        }
+      },
+      "pages": [
+        {
+          "path": "/simulator",
+          "title": "製作模擬",
+          "family": "craft",
+          "views": 1260,
+          "users": 320,
+          "sessions": 919,
+          "engagement": 0.6931447225244831,
+          "bounce": 0.3068552774755169,
+          "avgSession": 0.10663764961915125
+        },
+        {
+          "path": "/batch",
+          "title": "批量製作",
+          "family": "craft",
+          "views": 605,
+          "users": 166,
+          "sessions": 370,
+          "engagement": 0.7702702702702703,
+          "bounce": 0.22972972972972974,
+          "avgSession": 6.202702702702703
+        },
+        {
+          "path": "/",
+          "title": "吐司工坊",
+          "family": "core",
+          "views": 577,
+          "users": 225,
+          "sessions": 456,
+          "engagement": 0.8179824561403509,
+          "bounce": 0.18201754385964913,
+          "avgSession": 2.7960526315789473
+        },
+        {
+          "path": "/gearset",
+          "title": "配裝管理",
+          "family": "craft",
+          "views": 495,
+          "users": 178,
+          "sessions": 320,
+          "engagement": 0.975,
+          "bounce": 0.025,
+          "avgSession": 8.371875
+        },
+        {
+          "path": "/bom",
+          "title": "購物清單",
+          "family": "craft",
+          "views": 273,
+          "users": 82,
+          "sessions": 189,
+          "engagement": 0.708994708994709,
+          "bounce": 0.291005291005291,
+          "avgSession": 8.841269841269842
+        },
+        {
+          "path": "/timer",
+          "title": "採集計時器",
+          "family": "gather",
+          "views": 117,
+          "users": 32,
+          "sessions": 91,
+          "engagement": 0.945054945054945,
+          "bounce": 0.054945054945054944,
+          "avgSession": 1.879120879120879
+        },
+        {
+          "path": "/changelog",
+          "title": "更新日誌",
+          "family": "meta",
+          "views": 87,
+          "users": 43,
+          "sessions": 77,
+          "engagement": 0.9090909090909091,
+          "bounce": 0.09090909090909091,
+          "avgSession": 6.220779220779221
+        },
+        {
+          "path": "/company-craft",
+          "title": "部隊工坊",
+          "family": "company",
+          "views": 53,
+          "users": 33,
+          "sessions": 39,
+          "engagement": 0.9487179487179487,
+          "bounce": 0.05128205128205128,
+          "avgSession": 5.923076923076923
+        },
+        {
+          "path": "/settings",
+          "title": "設定",
+          "family": "meta",
+          "views": 37,
+          "users": 28,
+          "sessions": 33,
+          "engagement": 0.9696969696969697,
+          "bounce": 0.030303030303030304,
+          "avgSession": 9.93939393939394
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "吐司工坊 - FFXIV 制作助手|制作模拟器与批量制作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 3,
+          "sessions": 4,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 59.5
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "吐司工坊 - FFXIV 制作助手｜制作仿真器与批量制作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 1,
+          "sessions": 2,
+          "engagement": 0.5,
+          "bounce": 0.5,
+          "avgSession": 190
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "吐司工坊 - FFXIV 製作助手｜製作模擬器與批次製作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 1,
+          "sessions": 1,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 34
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "吐司工坊 - FFXIV 製作助手｜製作模擬器與批量製作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 479,
+          "sessions": 1785,
+          "engagement": 0.6257703081232493,
+          "bounce": 0.3742296918767507,
+          "avgSession": 65.14509803921568
+        }
+      ],
+      "solverFunnel": [
+        {
+          "step": "solver_start",
+          "count": 2574,
+          "tone": "neutral"
+        },
+        {
+          "step": "solver_complete",
+          "count": 2647,
+          "tone": "success"
+        },
+        {
+          "step": "solver_macro_copy",
+          "count": 2078,
+          "tone": "success"
+        }
+      ],
+      "batchFunnel": [
+        {
+          "step": "batch_add",
+          "count": 1385,
+          "tone": "neutral"
+        },
+        {
+          "step": "batch_start",
+          "count": 234,
+          "tone": "neutral"
+        },
+        {
+          "step": "batch_complete",
+          "count": 168,
+          "tone": "success"
+        }
+      ],
+      "simulatorFunnel": {
+        "entry": {
+          "label": "/simulator page_view",
+          "count": 1260,
+          "users": 320
+        },
+        "macroCopy": {
+          "label": "solver_macro_copy",
+          "count": 2078,
+          "users": 104
+        },
+        "globalContext": [
+          {
+            "label": "recipe_select (any page)",
+            "count": 2619
+          },
+          {
+            "label": "solver_start (any page)",
+            "count": 2574
+          },
+          {
+            "label": "solver_complete (any page)",
+            "count": 2647
+          }
+        ]
+      },
+      "failures": [
+        {
+          "event": "batch",
+          "reason": "Failed to fetch",
+          "count": 56,
+          "costModeBreakdown": [
+            {
+              "costMode": "quick-buy",
+              "count": 56
+            }
+          ]
+        },
+        {
+          "event": "solver",
+          "reason": "The solver encountered an internal error.\nPlease submit a bug report.\n\n--- Description ---\n\nSolver p",
+          "count": 37
+        },
+        {
+          "event": "solver",
+          "reason": "找不到可行的製作方案，請確認裝備數值與配方是否正確",
+          "count": 10
+        },
+        {
+          "event": "batch",
+          "reason": "The object can not be cloned.",
+          "count": 5,
+          "costModeBreakdown": [
+            {
+              "costMode": "macro",
+              "count": 5
+            }
+          ]
+        },
+        {
+          "event": "solver",
+          "reason": "unreachable",
+          "count": 4
+        },
+        {
+          "event": "batch",
+          "reason": "Universalis 查詢逾時 (20s)",
+          "count": 4,
+          "costModeBreakdown": [
+            {
+              "costMode": "macro",
+              "count": 3
+            },
+            {
+              "costMode": "quick-buy",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "event": "wasm",
+          "reason": "The object can not be cloned.",
+          "count": 2
+        }
+      ],
+      "vitals": [
+        {
+          "metric": "INP",
+          "good": 1283,
+          "ni": 85,
+          "poor": 23
+        },
+        {
+          "metric": "TTFB",
+          "good": 1321,
+          "ni": 81,
+          "poor": 18
+        },
+        {
+          "metric": "CLS",
+          "good": 885,
+          "ni": 55,
+          "poor": 44
+        },
+        {
+          "metric": "FCP",
+          "good": 818,
+          "ni": 32,
+          "poor": 15
+        },
+        {
+          "metric": "LCP",
+          "good": 775,
+          "ni": 29,
+          "poor": 15
+        }
+      ],
+      "q4Funnels": [
+        {
+          "name": "Batch prep → Optimize",
+          "label": "batch_add_recipe → batch_opt_start",
+          "from": 1385,
+          "to": 234,
+          "flag": "danger",
+          "note": "轉換偏低"
+        },
+        {
+          "name": "BOM → Consumed",
+          "label": "bom_calculate → (any consume)",
+          "from": 76,
+          "to": 17,
+          "flag": "danger",
+          "note": "轉換偏低"
+        }
+      ],
+      "marketRegion": [
+        {
+          "event": "solver_complete",
+          "notset": 6,
+          "unset": 0,
+          "cht": 2149,
+          "intl": 492
+        },
+        {
+          "event": "solver_start",
+          "notset": 6,
+          "unset": 0,
+          "cht": 2066,
+          "intl": 502
+        },
+        {
+          "event": "solver_macro_copy",
+          "notset": 8,
+          "unset": 0,
+          "cht": 1706,
+          "intl": 364
+        },
+        {
+          "event": "batch_optimization_start",
+          "notset": 0,
+          "unset": 0,
+          "cht": 117,
+          "intl": 117
+        },
+        {
+          "event": "batch_optimization_complete",
+          "notset": 0,
+          "unset": 0,
+          "cht": 112,
+          "intl": 56
+        },
+        {
+          "event": "bom_calculate",
+          "notset": 1,
+          "unset": 0,
+          "cht": 29,
+          "intl": 46
+        },
+        {
+          "event": "bom_send_to_batch",
+          "notset": 0,
+          "unset": 0,
+          "cht": 0,
+          "intl": 4
+        }
+      ],
+      "gearBucketBreakdown": [
+        {
+          "bucket": "entry",
+          "starts": 193,
+          "completes": 176,
+          "fails": 15,
+          "completeRate": 0.9119170984455959,
+          "failRate": 0.07772020725388601
+        },
+        {
+          "bucket": "mid",
+          "starts": 583,
+          "completes": 565,
+          "fails": 15,
+          "completeRate": 0.9691252144082333,
+          "failRate": 0.025728987993138937
+        },
+        {
+          "bucket": "bis",
+          "starts": 1259,
+          "completes": 1227,
+          "fails": 17,
+          "completeRate": 0.9745830023828436,
+          "failRate": 0.013502779984114376
+        }
+      ],
+      "misuseSignals": [
+        {
+          "type": "large_queue_in_simulator",
+          "label": "模擬器塞入大量佇列",
+          "gloss": "Queued many recipes in the single-recipe simulator — batch crafting is the intended tool.",
+          "eventCount": 35,
+          "affectedUsers": 19
+        },
+        {
+          "type": "single_recipe_in_batch",
+          "label": "批量頁只放單一配方",
+          "gloss": "Used the batch optimizer for a single recipe — the simulator fits better.",
+          "eventCount": 23,
+          "affectedUsers": 19
+        },
+        {
+          "type": "bom_without_quantity",
+          "label": "BOM 未填數量",
+          "gloss": "Opened the bill of materials without a target quantity, so totals stayed empty.",
+          "eventCount": 7,
+          "affectedUsers": 6
+        }
+      ],
+      "apiFailures": {
+        "matrix": [
+          {
+            "api": "universalis",
+            "status": 404,
+            "count": 616
+          },
+          {
+            "api": "universalis",
+            "status": 0,
+            "count": 241
+          }
+        ],
+        "topEndpoints": [
+          {
+            "api": "universalis",
+            "endpoint": "奧汀/43932",
+            "status": 404,
+            "count": 159
+          },
+          {
+            "api": "universalis",
+            "endpoint": "陸行鳥/35572",
+            "status": 404,
+            "count": 74
+          },
+          {
+            "api": "universalis",
+            "endpoint": "陸行鳥/15153",
+            "status": 404,
+            "count": 40
+          },
+          {
+            "api": "universalis",
+            "endpoint": "陸行鳥/21847",
+            "status": 404,
+            "count": 39
+          },
+          {
+            "api": "universalis",
+            "endpoint": "陆行鸟/19841,19877,19846,20187,20179,19865,8,13,19858,19855,19…",
+            "status": 0,
+            "count": 34
+          },
+          {
+            "api": "universalis",
+            "endpoint": "巴哈姆特/48833",
+            "status": 404,
+            "count": 31
+          },
+          {
+            "api": "universalis",
+            "endpoint": "陸行鳥/15997",
+            "status": 404,
+            "count": 30
+          },
+          {
+            "api": "universalis",
+            "endpoint": "陸行鳥/23895",
+            "status": 404,
+            "count": 27
+          },
+          {
+            "api": "universalis",
+            "endpoint": "伊弗利特/45971,45969,45973,45970,45972,45968,5121,5395,5118,512…",
+            "status": 0,
+            "count": 25
+          },
+          {
+            "api": "universalis",
+            "endpoint": "陸行鳥/21838",
+            "status": 404,
+            "count": 22
+          }
+        ]
+      },
+      "taxonomy": {
+        "rlvRaw": [
+          {
+            "rlv": 1,
+            "events": 17
+          },
+          {
+            "rlv": 2,
+            "events": 15
+          },
+          {
+            "rlv": 14,
+            "events": 14
+          },
+          {
+            "rlv": 20,
+            "events": 8
+          },
+          {
+            "rlv": 24,
+            "events": 2
+          },
+          {
+            "rlv": 26,
+            "events": 1
+          },
+          {
+            "rlv": 28,
+            "events": 1
+          },
+          {
+            "rlv": 38,
+            "events": 1
+          },
+          {
+            "rlv": 40,
+            "events": 8
+          },
+          {
+            "rlv": 45,
+            "events": 6
+          },
+          {
+            "rlv": 50,
+            "events": 25
+          },
+          {
+            "rlv": 55,
+            "events": 9
+          },
+          {
+            "rlv": 57,
+            "events": 10
+          },
+          {
+            "rlv": 58,
+            "events": 1
+          },
+          {
+            "rlv": 59,
+            "events": 1
+          },
+          {
+            "rlv": 60,
+            "events": 1
+          },
+          {
+            "rlv": 70,
+            "events": 1
+          },
+          {
+            "rlv": 90,
+            "events": 11
+          },
+          {
+            "rlv": 100,
+            "events": 161
+          },
+          {
+            "rlv": 115,
+            "events": 1
+          },
+          {
+            "rlv": 125,
+            "events": 2
+          },
+          {
+            "rlv": 130,
+            "events": 1
+          },
+          {
+            "rlv": 133,
+            "events": 1
+          },
+          {
+            "rlv": 142,
+            "events": 3
+          },
+          {
+            "rlv": 145,
+            "events": 9
+          },
+          {
+            "rlv": 148,
+            "events": 6
+          },
+          {
+            "rlv": 150,
+            "events": 36
+          },
+          {
+            "rlv": 160,
+            "events": 11
+          },
+          {
+            "rlv": 180,
+            "events": 1
+          },
+          {
+            "rlv": 210,
+            "events": 2
+          },
+          {
+            "rlv": 255,
+            "events": 2
+          },
+          {
+            "rlv": 265,
+            "events": 13
+          },
+          {
+            "rlv": 270,
+            "events": 7
+          },
+          {
+            "rlv": 273,
+            "events": 2
+          },
+          {
+            "rlv": 276,
+            "events": 8
+          },
+          {
+            "rlv": 279,
+            "events": 9
+          },
+          {
+            "rlv": 282,
+            "events": 14
+          },
+          {
+            "rlv": 285,
+            "events": 8
+          },
+          {
+            "rlv": 288,
+            "events": 9
+          },
+          {
+            "rlv": 290,
+            "events": 32
+          },
+          {
+            "rlv": 300,
+            "events": 1
+          },
+          {
+            "rlv": 380,
+            "events": 2
+          },
+          {
+            "rlv": 390,
+            "events": 10
+          },
+          {
+            "rlv": 395,
+            "events": 20
+          },
+          {
+            "rlv": 400,
+            "events": 9
+          },
+          {
+            "rlv": 403,
+            "events": 12
+          },
+          {
+            "rlv": 406,
+            "events": 8
+          },
+          {
+            "rlv": 409,
+            "events": 14
+          },
+          {
+            "rlv": 412,
+            "events": 8
+          },
+          {
+            "rlv": 415,
+            "events": 22
+          },
+          {
+            "rlv": 418,
+            "events": 2
+          },
+          {
+            "rlv": 430,
+            "events": 16
+          },
+          {
+            "rlv": 440,
+            "events": 3
+          },
+          {
+            "rlv": 450,
+            "events": 2
+          },
+          {
+            "rlv": 480,
+            "events": 1
+          },
+          {
+            "rlv": 510,
+            "events": 1
+          },
+          {
+            "rlv": 512,
+            "events": 1
+          },
+          {
+            "rlv": 513,
+            "events": 15
+          },
+          {
+            "rlv": 514,
+            "events": 1
+          },
+          {
+            "rlv": 516,
+            "events": 1
+          },
+          {
+            "rlv": 517,
+            "events": 19
+          },
+          {
+            "rlv": 520,
+            "events": 2
+          },
+          {
+            "rlv": 525,
+            "events": 8
+          },
+          {
+            "rlv": 530,
+            "events": 5
+          },
+          {
+            "rlv": 535,
+            "events": 2
+          },
+          {
+            "rlv": 540,
+            "events": 3
+          },
+          {
+            "rlv": 545,
+            "events": 7
+          },
+          {
+            "rlv": 550,
+            "events": 1
+          },
+          {
+            "rlv": 555,
+            "events": 16
+          },
+          {
+            "rlv": 558,
+            "events": 3
+          },
+          {
+            "rlv": 560,
+            "events": 13
+          },
+          {
+            "rlv": 570,
+            "events": 3
+          },
+          {
+            "rlv": 580,
+            "events": 1
+          },
+          {
+            "rlv": 590,
+            "events": 1
+          },
+          {
+            "rlv": 610,
+            "events": 2
+          },
+          {
+            "rlv": 611,
+            "events": 10
+          },
+          {
+            "rlv": 642,
+            "events": 5
+          },
+          {
+            "rlv": 650,
+            "events": 37
+          },
+          {
+            "rlv": 653,
+            "events": 13
+          },
+          {
+            "rlv": 656,
+            "events": 4
+          },
+          {
+            "rlv": 660,
+            "events": 8
+          },
+          {
+            "rlv": 665,
+            "events": 6
+          },
+          {
+            "rlv": 670,
+            "events": 5
+          },
+          {
+            "rlv": 675,
+            "events": 35
+          },
+          {
+            "rlv": 680,
+            "events": 39
+          },
+          {
+            "rlv": 685,
+            "events": 54
+          },
+          {
+            "rlv": 690,
+            "events": 903
+          },
+          {
+            "rlv": 700,
+            "events": 25
+          },
+          {
+            "rlv": 701,
+            "events": 119
+          },
+          {
+            "rlv": 702,
+            "events": 40
+          },
+          {
+            "rlv": 703,
+            "events": 20
+          },
+          {
+            "rlv": 704,
+            "events": 23
+          },
+          {
+            "rlv": 705,
+            "events": 9
+          },
+          {
+            "rlv": 706,
+            "events": 6
+          },
+          {
+            "rlv": 710,
+            "events": 5
+          },
+          {
+            "rlv": 720,
+            "events": 38
+          },
+          {
+            "rlv": 721,
+            "events": 26
+          },
+          {
+            "rlv": 723,
+            "events": 3
+          },
+          {
+            "rlv": 724,
+            "events": 6
+          },
+          {
+            "rlv": 725,
+            "events": 4
+          },
+          {
+            "rlv": 726,
+            "events": 4
+          },
+          {
+            "rlv": 740,
+            "events": 166
+          },
+          {
+            "rlv": 741,
+            "events": 3
+          },
+          {
+            "rlv": 742,
+            "events": 6
+          },
+          {
+            "rlv": 743,
+            "events": 1
+          },
+          {
+            "rlv": 746,
+            "events": 14
+          },
+          {
+            "rlv": 750,
+            "events": 205
+          },
+          {
+            "rlv": 751,
+            "events": 4
+          },
+          {
+            "rlv": 770,
+            "events": 68
+          }
+        ],
+        "matrix": [
+          {
+            "isExpert": false,
+            "isCollectable": false,
+            "starts": 1313,
+            "completes": 1275,
+            "macroCopies": 1370,
+            "completeRate": 0.9710586443259711,
+            "macroCopyRate": 1.0745098039215686
+          },
+          {
+            "isExpert": false,
+            "isCollectable": true,
+            "starts": 600,
+            "completes": 571,
+            "macroCopies": 547,
+            "completeRate": 0.9516666666666667,
+            "macroCopyRate": 0.957968476357268
+          },
+          {
+            "isExpert": true,
+            "isCollectable": false,
+            "starts": 30,
+            "completes": 30,
+            "macroCopies": 21,
+            "completeRate": 1,
+            "macroCopyRate": 0.7
+          },
+          {
+            "isExpert": true,
+            "isCollectable": true,
+            "starts": 92,
+            "completes": 92,
+            "macroCopies": 140,
+            "completeRate": 1,
+            "macroCopyRate": 1.5217391304347827
+          }
+        ],
+        "craftKindBreakdown": [
+          {
+            "kind": "normal",
+            "starts": 1602,
+            "completes": 1538,
+            "macroCopies": 1555,
+            "completeRate": 0.9600499375780275,
+            "macroCopyRate": 1.0110533159947985
+          },
+          {
+            "kind": "quick",
+            "starts": 311,
+            "completes": 308,
+            "macroCopies": 362,
+            "completeRate": 0.9903536977491961,
+            "macroCopyRate": 1.1753246753246753
+          },
+          {
+            "kind": "expert",
+            "starts": 122,
+            "completes": 122,
+            "macroCopies": 161,
+            "completeRate": 1,
+            "macroCopyRate": 1.319672131147541
+          }
+        ]
+      },
+      "byRegion": {
+        "solver": {
+          "cht": {
+            "value": 2066,
+            "secondary": "2149 完成",
+            "sparkPct": 1.0401742497579864
+          },
+          "intl": {
+            "value": 502,
+            "secondary": "492 完成",
+            "sparkPct": 0.9800796812749004
+          },
+          "unset": {
+            "value": 6,
+            "secondary": "6 完成",
+            "sparkPct": 1
+          }
+        },
+        "batch": {
+          "cht": {
+            "value": 117,
+            "secondary": "112 完成",
+            "sparkPct": 0.9572649572649573
+          },
+          "intl": {
+            "value": 117,
+            "secondary": "56 完成",
+            "sparkPct": 0.47863247863247865
+          },
+          "unset": {
+            "value": 0,
+            "secondary": "0 完成"
+          }
+        },
+        "bom": {
+          "cht": {
+            "value": 29,
+            "secondary": "0 → 批次",
+            "sparkPct": 0
+          },
+          "intl": {
+            "value": 46,
+            "secondary": "4 → 批次",
+            "sparkPct": 0.08695652173913043
+          },
+          "unset": {
+            "value": 1,
+            "secondary": "0 → 批次",
+            "sparkPct": 0
+          }
+        },
+        "infra": {
+          "cht": {
+            "value": 23,
+            "secondary": "SAB 23 · WASM 0",
+            "tone": "danger"
+          },
+          "intl": {
+            "value": 6,
+            "secondary": "SAB 4 · WASM 2",
+            "tone": "danger"
+          },
+          "unset": {
+            "value": 0,
+            "secondary": "SAB 0 · WASM 0"
+          }
+        }
+      },
+      "toolUsageByRlv": [
+        {
+          "rlv": 1,
+          "selectCount": 17,
+          "simulatorCount": 14,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 2,
+          "selectCount": 15,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 14,
+          "selectCount": 14,
+          "simulatorCount": 14,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 16,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 0,
+          "bomTargetCount": 1
+        },
+        {
+          "rlv": 17,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 1,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 18,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 1,
+          "bomTargetCount": 1
+        },
+        {
+          "rlv": 19,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 2,
+          "bomTargetCount": 1
+        },
+        {
+          "rlv": 20,
+          "selectCount": 8,
+          "simulatorCount": 7,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 24,
+          "selectCount": 2,
+          "simulatorCount": 4,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 26,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 10,
+          "bomTargetCount": 4
+        },
+        {
+          "rlv": 27,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 21,
+          "bomTargetCount": 14
+        },
+        {
+          "rlv": 28,
+          "selectCount": 1,
+          "simulatorCount": 6,
+          "batchTargetCount": 8,
+          "bomTargetCount": 4
+        },
+        {
+          "rlv": 29,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 1,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 30,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 47,
+          "bomTargetCount": 38
+        },
+        {
+          "rlv": 31,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 7,
+          "bomTargetCount": 4
+        },
+        {
+          "rlv": 32,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 23,
+          "bomTargetCount": 18
+        },
+        {
+          "rlv": 33,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 0,
+          "bomTargetCount": 5
+        },
+        {
+          "rlv": 34,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 34,
+          "bomTargetCount": 28
+        },
+        {
+          "rlv": 35,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 25,
+          "bomTargetCount": 11
+        },
+        {
+          "rlv": 36,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 6,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 37,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 11,
+          "bomTargetCount": 7
+        },
+        {
+          "rlv": 38,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 1,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 39,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 25,
+          "bomTargetCount": 20
+        },
+        {
+          "rlv": 40,
+          "selectCount": 8,
+          "simulatorCount": 11,
+          "batchTargetCount": 13,
+          "bomTargetCount": 5
+        },
+        {
+          "rlv": 41,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 2,
+          "bomTargetCount": 2
+        },
+        {
+          "rlv": 42,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 11,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 43,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 18,
+          "bomTargetCount": 8
+        },
+        {
+          "rlv": 44,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 6,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 45,
+          "selectCount": 6,
+          "simulatorCount": 4,
+          "batchTargetCount": 5,
+          "bomTargetCount": 2
+        },
+        {
+          "rlv": 46,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 2,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 47,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 2,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 49,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 3,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 50,
+          "selectCount": 25,
+          "simulatorCount": 12,
+          "batchTargetCount": 18,
+          "bomTargetCount": 29
+        },
+        {
+          "rlv": 55,
+          "selectCount": 9,
+          "simulatorCount": 2,
+          "batchTargetCount": 23,
+          "bomTargetCount": 33
+        },
+        {
+          "rlv": 57,
+          "selectCount": 10,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 58,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 59,
+          "selectCount": 1,
+          "simulatorCount": 2,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 60,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 70,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 50,
+          "bomTargetCount": 75
+        },
+        {
+          "rlv": 90,
+          "selectCount": 11,
+          "simulatorCount": 13,
+          "batchTargetCount": 6,
+          "bomTargetCount": 6
+        },
+        {
+          "rlv": 100,
+          "selectCount": 161,
+          "simulatorCount": 79,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 110,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 9,
+          "bomTargetCount": 10
+        },
+        {
+          "rlv": 115,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 14,
+          "bomTargetCount": 17
+        },
+        {
+          "rlv": 125,
+          "selectCount": 2,
+          "simulatorCount": 4,
+          "batchTargetCount": 8,
+          "bomTargetCount": 10
+        },
+        {
+          "rlv": 130,
+          "selectCount": 1,
+          "simulatorCount": 2,
+          "batchTargetCount": 11,
+          "bomTargetCount": 6
+        },
+        {
+          "rlv": 133,
+          "selectCount": 1,
+          "simulatorCount": 2,
+          "batchTargetCount": 17,
+          "bomTargetCount": 7
+        },
+        {
+          "rlv": 136,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 10,
+          "bomTargetCount": 4
+        },
+        {
+          "rlv": 139,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 15,
+          "bomTargetCount": 3
+        },
+        {
+          "rlv": 142,
+          "selectCount": 3,
+          "simulatorCount": 3,
+          "batchTargetCount": 12,
+          "bomTargetCount": 8
+        },
+        {
+          "rlv": 145,
+          "selectCount": 9,
+          "simulatorCount": 6,
+          "batchTargetCount": 22,
+          "bomTargetCount": 11
+        },
+        {
+          "rlv": 148,
+          "selectCount": 6,
+          "simulatorCount": 13,
+          "batchTargetCount": 11,
+          "bomTargetCount": 5
+        },
+        {
+          "rlv": 150,
+          "selectCount": 36,
+          "simulatorCount": 40,
+          "batchTargetCount": 17,
+          "bomTargetCount": 9
+        },
+        {
+          "rlv": 160,
+          "selectCount": 11,
+          "simulatorCount": 8,
+          "batchTargetCount": 10,
+          "bomTargetCount": 11
+        },
+        {
+          "rlv": 180,
+          "selectCount": 1,
+          "simulatorCount": 2,
+          "batchTargetCount": 4,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 210,
+          "selectCount": 2,
+          "simulatorCount": 0,
+          "batchTargetCount": 2,
+          "bomTargetCount": 2
+        },
+        {
+          "rlv": 255,
+          "selectCount": 2,
+          "simulatorCount": 4,
+          "batchTargetCount": 7,
+          "bomTargetCount": 2
+        },
+        {
+          "rlv": 265,
+          "selectCount": 13,
+          "simulatorCount": 10,
+          "batchTargetCount": 12,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 270,
+          "selectCount": 7,
+          "simulatorCount": 7,
+          "batchTargetCount": 9,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 273,
+          "selectCount": 2,
+          "simulatorCount": 8,
+          "batchTargetCount": 11,
+          "bomTargetCount": 6
+        },
+        {
+          "rlv": 276,
+          "selectCount": 8,
+          "simulatorCount": 6,
+          "batchTargetCount": 7,
+          "bomTargetCount": 4
+        },
+        {
+          "rlv": 279,
+          "selectCount": 9,
+          "simulatorCount": 8,
+          "batchTargetCount": 32,
+          "bomTargetCount": 26
+        },
+        {
+          "rlv": 282,
+          "selectCount": 14,
+          "simulatorCount": 8,
+          "batchTargetCount": 12,
+          "bomTargetCount": 8
+        },
+        {
+          "rlv": 285,
+          "selectCount": 8,
+          "simulatorCount": 5,
+          "batchTargetCount": 20,
+          "bomTargetCount": 16
+        },
+        {
+          "rlv": 288,
+          "selectCount": 9,
+          "simulatorCount": 5,
+          "batchTargetCount": 12,
+          "bomTargetCount": 11
+        },
+        {
+          "rlv": 290,
+          "selectCount": 32,
+          "simulatorCount": 26,
+          "batchTargetCount": 36,
+          "bomTargetCount": 39
+        },
+        {
+          "rlv": 300,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 20,
+          "bomTargetCount": 19
+        },
+        {
+          "rlv": 350,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 11,
+          "bomTargetCount": 13
+        },
+        {
+          "rlv": 380,
+          "selectCount": 2,
+          "simulatorCount": 0,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 390,
+          "selectCount": 10,
+          "simulatorCount": 5,
+          "batchTargetCount": 15,
+          "bomTargetCount": 26
+        },
+        {
+          "rlv": 395,
+          "selectCount": 20,
+          "simulatorCount": 16,
+          "batchTargetCount": 1,
+          "bomTargetCount": 3
+        },
+        {
+          "rlv": 400,
+          "selectCount": 9,
+          "simulatorCount": 5,
+          "batchTargetCount": 20,
+          "bomTargetCount": 16
+        },
+        {
+          "rlv": 403,
+          "selectCount": 12,
+          "simulatorCount": 14,
+          "batchTargetCount": 30,
+          "bomTargetCount": 22
+        },
+        {
+          "rlv": 406,
+          "selectCount": 8,
+          "simulatorCount": 5,
+          "batchTargetCount": 21,
+          "bomTargetCount": 16
+        },
+        {
+          "rlv": 409,
+          "selectCount": 14,
+          "simulatorCount": 13,
+          "batchTargetCount": 20,
+          "bomTargetCount": 13
+        },
+        {
+          "rlv": 412,
+          "selectCount": 8,
+          "simulatorCount": 5,
+          "batchTargetCount": 2,
+          "bomTargetCount": 6
+        },
+        {
+          "rlv": 415,
+          "selectCount": 22,
+          "simulatorCount": 17,
+          "batchTargetCount": 2,
+          "bomTargetCount": 6
+        },
+        {
+          "rlv": 418,
+          "selectCount": 2,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 430,
+          "selectCount": 16,
+          "simulatorCount": 12,
+          "batchTargetCount": 4,
+          "bomTargetCount": 37
+        },
+        {
+          "rlv": 440,
+          "selectCount": 3,
+          "simulatorCount": 5,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 450,
+          "selectCount": 2,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 480,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 510,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 512,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 513,
+          "selectCount": 15,
+          "simulatorCount": 14,
+          "batchTargetCount": 0,
+          "bomTargetCount": 2
+        },
+        {
+          "rlv": 514,
+          "selectCount": 1,
+          "simulatorCount": 2,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 516,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 517,
+          "selectCount": 19,
+          "simulatorCount": 13,
+          "batchTargetCount": 35,
+          "bomTargetCount": 28
+        },
+        {
+          "rlv": 520,
+          "selectCount": 2,
+          "simulatorCount": 3,
+          "batchTargetCount": 12,
+          "bomTargetCount": 18
+        },
+        {
+          "rlv": 525,
+          "selectCount": 8,
+          "simulatorCount": 7,
+          "batchTargetCount": 5,
+          "bomTargetCount": 8
+        },
+        {
+          "rlv": 530,
+          "selectCount": 5,
+          "simulatorCount": 2,
+          "batchTargetCount": 9,
+          "bomTargetCount": 12
+        },
+        {
+          "rlv": 535,
+          "selectCount": 2,
+          "simulatorCount": 2,
+          "batchTargetCount": 16,
+          "bomTargetCount": 16
+        },
+        {
+          "rlv": 540,
+          "selectCount": 3,
+          "simulatorCount": 1,
+          "batchTargetCount": 17,
+          "bomTargetCount": 30
+        },
+        {
+          "rlv": 545,
+          "selectCount": 7,
+          "simulatorCount": 10,
+          "batchTargetCount": 8,
+          "bomTargetCount": 8
+        },
+        {
+          "rlv": 550,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 16,
+          "bomTargetCount": 15
+        },
+        {
+          "rlv": 555,
+          "selectCount": 16,
+          "simulatorCount": 23,
+          "batchTargetCount": 13,
+          "bomTargetCount": 14
+        },
+        {
+          "rlv": 558,
+          "selectCount": 3,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 560,
+          "selectCount": 13,
+          "simulatorCount": 18,
+          "batchTargetCount": 9,
+          "bomTargetCount": 34
+        },
+        {
+          "rlv": 570,
+          "selectCount": 3,
+          "simulatorCount": 4,
+          "batchTargetCount": 6,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 580,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 1,
+          "bomTargetCount": 6
+        },
+        {
+          "rlv": 590,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 2
+        },
+        {
+          "rlv": 610,
+          "selectCount": 2,
+          "simulatorCount": 5,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 611,
+          "selectCount": 10,
+          "simulatorCount": 13,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 642,
+          "selectCount": 5,
+          "simulatorCount": 5,
+          "batchTargetCount": 1,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 650,
+          "selectCount": 37,
+          "simulatorCount": 38,
+          "batchTargetCount": 31,
+          "bomTargetCount": 19
+        },
+        {
+          "rlv": 653,
+          "selectCount": 13,
+          "simulatorCount": 13,
+          "batchTargetCount": 1,
+          "bomTargetCount": 3
+        },
+        {
+          "rlv": 656,
+          "selectCount": 4,
+          "simulatorCount": 3,
+          "batchTargetCount": 7,
+          "bomTargetCount": 11
+        },
+        {
+          "rlv": 660,
+          "selectCount": 8,
+          "simulatorCount": 9,
+          "batchTargetCount": 5,
+          "bomTargetCount": 5
+        },
+        {
+          "rlv": 665,
+          "selectCount": 6,
+          "simulatorCount": 6,
+          "batchTargetCount": 20,
+          "bomTargetCount": 20
+        },
+        {
+          "rlv": 670,
+          "selectCount": 5,
+          "simulatorCount": 3,
+          "batchTargetCount": 1,
+          "bomTargetCount": 4
+        },
+        {
+          "rlv": 675,
+          "selectCount": 35,
+          "simulatorCount": 27,
+          "batchTargetCount": 3,
+          "bomTargetCount": 1
+        },
+        {
+          "rlv": 680,
+          "selectCount": 39,
+          "simulatorCount": 39,
+          "batchTargetCount": 4,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 685,
+          "selectCount": 54,
+          "simulatorCount": 81,
+          "batchTargetCount": 51,
+          "bomTargetCount": 5
+        },
+        {
+          "rlv": 690,
+          "selectCount": 903,
+          "simulatorCount": 639,
+          "batchTargetCount": 83,
+          "bomTargetCount": 12
+        },
+        {
+          "rlv": 700,
+          "selectCount": 25,
+          "simulatorCount": 17,
+          "batchTargetCount": 9,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 701,
+          "selectCount": 119,
+          "simulatorCount": 54,
+          "batchTargetCount": 1,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 702,
+          "selectCount": 40,
+          "simulatorCount": 27,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 703,
+          "selectCount": 20,
+          "simulatorCount": 9,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 704,
+          "selectCount": 23,
+          "simulatorCount": 12,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 705,
+          "selectCount": 9,
+          "simulatorCount": 2,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 706,
+          "selectCount": 6,
+          "simulatorCount": 3,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 710,
+          "selectCount": 5,
+          "simulatorCount": 2,
+          "batchTargetCount": 3,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 720,
+          "selectCount": 38,
+          "simulatorCount": 50,
+          "batchTargetCount": 21,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 721,
+          "selectCount": 26,
+          "simulatorCount": 19,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 723,
+          "selectCount": 3,
+          "simulatorCount": 4,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 724,
+          "selectCount": 6,
+          "simulatorCount": 6,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 725,
+          "selectCount": 4,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 726,
+          "selectCount": 4,
+          "simulatorCount": 0,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 740,
+          "selectCount": 166,
+          "simulatorCount": 206,
+          "batchTargetCount": 104,
+          "bomTargetCount": 2
+        },
+        {
+          "rlv": 741,
+          "selectCount": 3,
+          "simulatorCount": 0,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 742,
+          "selectCount": 6,
+          "simulatorCount": 9,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 743,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 746,
+          "selectCount": 14,
+          "simulatorCount": 12,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 750,
+          "selectCount": 205,
+          "simulatorCount": 95,
+          "batchTargetCount": 45,
+          "bomTargetCount": 78
+        },
+        {
+          "rlv": 751,
+          "selectCount": 4,
+          "simulatorCount": 4,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 770,
+          "selectCount": 68,
+          "simulatorCount": 71,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        }
+      ],
+      "toolUsageNoRecipeCount": 166
+    },
+    "28d": {
+      "window": {
+        "days": 28,
+        "startDate": "2026-10-29",
+        "endDate": "2026-11-26"
+      },
+      "glance": {
+        "activeUsers": {
+          "total": 719,
+          "new": 459,
+          "returning": 319,
+          "returningPct": 0.44367176634214184
+        },
+        "solver": {
+          "starts": 5961,
+          "completes": 5921,
+          "fails": 95,
+          "completePct": 0.9932897164905218,
+          "humanStarts": 4452,
+          "humanCompletes": 4349,
+          "humanFails": 73,
+          "humanCompletePct": 0.9768643306379156,
+          "macroCopies": 4410
+        },
+        "batch": {
+          "starts": 442,
+          "completes": 312,
+          "fails": 122,
+          "cancelled": 0,
+          "completePct": 0.7058823529411765
+        },
+        "bom": {
+          "calculates": 162,
+          "sentToBatch": 11,
+          "handoffPct": 0.06790123456790123
+        },
+        "infra": {
+          "sabUnavailable": 46,
+          "wasmLoadFailed": 7
+        },
+        "api": {
+          "universalisCalls": 15599,
+          "universalisRealFails": 367,
+          "universalisNoListing": 815,
+          "universalisOtherFails": 0
+        },
+        "adoption": {
+          "batchStarts": 442,
+          "crossServerBatches": 391,
+          "meldAdvisorRuns": 119,
+          "meldApplies": 0
+        }
+      },
+      "pages": [
+        {
+          "path": "/simulator",
+          "title": "製作模擬",
+          "family": "craft",
+          "views": 2159,
+          "users": 491,
+          "sessions": 1575,
+          "engagement": 0.6838095238095238,
+          "bounce": 0.3161904761904762,
+          "avgSession": 0.09396825396825396
+        },
+        {
+          "path": "/batch",
+          "title": "批量製作",
+          "family": "craft",
+          "views": 1065,
+          "users": 245,
+          "sessions": 642,
+          "engagement": 0.7601246105919003,
+          "bounce": 0.2398753894080997,
+          "avgSession": 6.5514018691588785
+        },
+        {
+          "path": "/",
+          "title": "吐司工坊",
+          "family": "core",
+          "views": 1002,
+          "users": 342,
+          "sessions": 788,
+          "engagement": 0.7690355329949239,
+          "bounce": 0.23096446700507614,
+          "avgSession": 2.1484771573604062
+        },
+        {
+          "path": "/gearset",
+          "title": "配裝管理",
+          "family": "craft",
+          "views": 844,
+          "users": 254,
+          "sessions": 535,
+          "engagement": 0.9700934579439252,
+          "bounce": 0.029906542056074768,
+          "avgSession": 8.334579439252336
+        },
+        {
+          "path": "/bom",
+          "title": "購物清單",
+          "family": "craft",
+          "views": 503,
+          "users": 116,
+          "sessions": 317,
+          "engagement": 0.6971608832807571,
+          "bounce": 0.3028391167192429,
+          "avgSession": 12.842271293375394
+        },
+        {
+          "path": "/timer",
+          "title": "採集計時器",
+          "family": "gather",
+          "views": 232,
+          "users": 38,
+          "sessions": 167,
+          "engagement": 0.9580838323353293,
+          "bounce": 0.041916167664670656,
+          "avgSession": 2.197604790419162
+        },
+        {
+          "path": "/changelog",
+          "title": "更新日誌",
+          "family": "meta",
+          "views": 107,
+          "users": 51,
+          "sessions": 91,
+          "engagement": 0.8681318681318682,
+          "bounce": 0.13186813186813187,
+          "avgSession": 6.021978021978022
+        },
+        {
+          "path": "/company-craft",
+          "title": "部隊工坊",
+          "family": "company",
+          "views": 81,
+          "users": 44,
+          "sessions": 57,
+          "engagement": 0.9298245614035088,
+          "bounce": 0.07017543859649122,
+          "avgSession": 8.719298245614034
+        },
+        {
+          "path": "/settings",
+          "title": "設定",
+          "family": "meta",
+          "views": 76,
+          "users": 41,
+          "sessions": 54,
+          "engagement": 0.9814814814814815,
+          "bounce": 0.018518518518518517,
+          "avgSession": 14.277777777777779
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "吐司工坊 - FFXIV 制作助手|制作模拟器与批量制作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 7,
+          "sessions": 15,
+          "engagement": 0.9333333333333333,
+          "bounce": 0.06666666666666667,
+          "avgSession": 175.06666666666666
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "吐司工坊 - FFXIV 制作助手｜制作仿真器与批量制作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 1,
+          "sessions": 2,
+          "engagement": 0.5,
+          "bounce": 0.5,
+          "avgSession": 190
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "吐司工坊 - FFXIV 製作助手｜製作模擬器與批次製作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 1,
+          "sessions": 1,
+          "engagement": 1,
+          "bounce": 0,
+          "avgSession": 34
+        },
+        {
+          "path": "/ff14-craft-helper/",
+          "title": "吐司工坊 - FFXIV 製作助手｜製作模擬器與批量製作工具",
+          "family": "meta",
+          "views": 0,
+          "users": 719,
+          "sessions": 3106,
+          "engagement": 0.6249195106245976,
+          "bounce": 0.37508048937540245,
+          "avgSession": 65.0556986477785
+        }
+      ],
+      "solverFunnel": [
+        {
+          "step": "solver_start",
+          "count": 5961,
+          "tone": "neutral"
+        },
+        {
+          "step": "solver_complete",
+          "count": 5921,
+          "tone": "success"
+        },
+        {
+          "step": "solver_macro_copy",
+          "count": 4410,
+          "tone": "success"
+        }
+      ],
+      "batchFunnel": [
+        {
+          "step": "batch_add",
+          "count": 2717,
+          "tone": "neutral"
+        },
+        {
+          "step": "batch_start",
+          "count": 442,
+          "tone": "neutral"
+        },
+        {
+          "step": "batch_complete",
+          "count": 312,
+          "tone": "success"
+        }
+      ],
+      "simulatorFunnel": {
+        "entry": {
+          "label": "/simulator page_view",
+          "count": 2159,
+          "users": 491
+        },
+        "macroCopy": {
+          "label": "solver_macro_copy",
+          "count": 4410,
+          "users": 150
+        },
+        "globalContext": [
+          {
+            "label": "recipe_select (any page)",
+            "count": 5228
+          },
+          {
+            "label": "solver_start (any page)",
+            "count": 5961
+          },
+          {
+            "label": "solver_complete (any page)",
+            "count": 5921
+          }
+        ]
+      },
+      "failures": [
+        {
+          "event": "batch",
+          "reason": "Failed to fetch",
+          "count": 93,
+          "costModeBreakdown": [
+            {
+              "costMode": "quick-buy",
+              "count": 68
+            },
+            {
+              "costMode": "macro",
+              "count": 25
+            }
+          ]
+        },
+        {
+          "event": "solver",
+          "reason": "The solver encountered an internal error.\nPlease submit a bug report.\n\n--- Description ---\n\nSolver p",
+          "count": 53
+        },
+        {
+          "event": "solver",
+          "reason": "找不到可行的製作方案，請確認裝備數值與配方是否正確",
+          "count": 36
+        },
+        {
+          "event": "batch",
+          "reason": "Universalis: 尚未選擇市場伺服器",
+          "count": 16,
+          "costModeBreakdown": [
+            {
+              "costMode": "macro",
+              "count": 10
+            },
+            {
+              "costMode": "quick-buy",
+              "count": 6
+            }
+          ]
+        },
+        {
+          "event": "solver",
+          "reason": "unreachable",
+          "count": 6
+        },
+        {
+          "event": "batch",
+          "reason": "The object can not be cloned.",
+          "count": 5,
+          "costModeBreakdown": [
+            {
+              "costMode": "macro",
+              "count": 5
+            }
+          ]
+        },
+        {
+          "event": "wasm",
+          "reason": "unreachable",
+          "count": 5
+        },
+        {
+          "event": "batch",
+          "reason": "Universalis 查詢逾時 (20s)",
+          "count": 8,
+          "costModeBreakdown": [
+            {
+              "costMode": "macro",
+              "count": 4
+            },
+            {
+              "costMode": "quick-buy",
+              "count": 4
+            }
+          ]
+        },
+        {
+          "event": "wasm",
+          "reason": "The object can not be cloned.",
+          "count": 2
+        }
+      ],
+      "vitals": [
+        {
+          "metric": "INP",
+          "good": 2128,
+          "ni": 141,
+          "poor": 35
+        },
+        {
+          "metric": "TTFB",
+          "good": 2334,
+          "ni": 156,
+          "poor": 40
+        },
+        {
+          "metric": "CLS",
+          "good": 1538,
+          "ni": 121,
+          "poor": 93
+        },
+        {
+          "metric": "FCP",
+          "good": 1383,
+          "ni": 70,
+          "poor": 29
+        },
+        {
+          "metric": "LCP",
+          "good": 1314,
+          "ni": 53,
+          "poor": 25
+        }
+      ],
+      "q4Funnels": [
+        {
+          "name": "Batch prep → Optimize",
+          "label": "batch_add_recipe → batch_opt_start",
+          "from": 2717,
+          "to": 442,
+          "flag": "danger",
+          "note": "轉換偏低"
+        },
+        {
+          "name": "BOM → Consumed",
+          "label": "bom_calculate → (any consume)",
+          "from": 162,
+          "to": 24,
+          "flag": "danger",
+          "note": "轉換偏低"
+        }
+      ],
+      "marketRegion": [
+        {
+          "event": "solver_complete",
+          "notset": 6,
+          "unset": 0,
+          "cht": 4903,
+          "intl": 1012
+        },
+        {
+          "event": "solver_start",
+          "notset": 6,
+          "unset": 0,
+          "cht": 4873,
+          "intl": 1082
+        },
+        {
+          "event": "solver_macro_copy",
+          "notset": 8,
+          "unset": 0,
+          "cht": 4002,
+          "intl": 400
+        },
+        {
+          "event": "batch_optimization_start",
+          "notset": 0,
+          "unset": 0,
+          "cht": 238,
+          "intl": 204
+        },
+        {
+          "event": "batch_optimization_complete",
+          "notset": 0,
+          "unset": 0,
+          "cht": 213,
+          "intl": 99
+        },
+        {
+          "event": "bom_calculate",
+          "notset": 1,
+          "unset": 0,
+          "cht": 71,
+          "intl": 90
+        },
+        {
+          "event": "bom_send_to_batch",
+          "notset": 0,
+          "unset": 0,
+          "cht": 3,
+          "intl": 8
+        }
+      ],
+      "gearBucketBreakdown": [
+        {
+          "bucket": "entry",
+          "starts": 669,
+          "completes": 642,
+          "fails": 25,
+          "completeRate": 0.9596412556053812,
+          "failRate": 0.03736920777279522
+        },
+        {
+          "bucket": "mid",
+          "starts": 1681,
+          "completes": 1649,
+          "fails": 26,
+          "completeRate": 0.9809637120761452,
+          "failRate": 0.015466983938132063
+        },
+        {
+          "bucket": "bis",
+          "starts": 2102,
+          "completes": 2058,
+          "fails": 22,
+          "completeRate": 0.9790675547098002,
+          "failRate": 0.010466222645099905
+        }
+      ],
+      "misuseSignals": [
+        {
+          "type": "large_queue_in_simulator",
+          "label": "模擬器塞入大量佇列",
+          "gloss": "Queued many recipes in the single-recipe simulator — batch crafting is the intended tool.",
+          "eventCount": 82,
+          "affectedUsers": 29
+        },
+        {
+          "type": "single_recipe_in_batch",
+          "label": "批量頁只放單一配方",
+          "gloss": "Used the batch optimizer for a single recipe — the simulator fits better.",
+          "eventCount": 44,
+          "affectedUsers": 28
+        },
+        {
+          "type": "bom_without_quantity",
+          "label": "BOM 未填數量",
+          "gloss": "Opened the bill of materials without a target quantity, so totals stayed empty.",
+          "eventCount": 24,
+          "affectedUsers": 14
+        }
+      ],
+      "apiFailures": {
+        "matrix": [
+          {
+            "api": "universalis",
+            "status": 404,
+            "count": 860
+          },
+          {
+            "api": "universalis",
+            "status": 0,
+            "count": 381
+          }
+        ],
+        "topEndpoints": [
+          {
+            "api": "universalis",
+            "endpoint": "奧汀/43932",
+            "status": 404,
+            "count": 159
+          },
+          {
+            "api": "universalis",
+            "endpoint": "陸行鳥/35572",
+            "status": 404,
+            "count": 91
+          },
+          {
+            "api": "universalis",
+            "endpoint": "陸行鳥/15153",
+            "status": 404,
+            "count": 56
+          },
+          {
+            "api": "universalis",
+            "endpoint": "陸行鳥/38581",
+            "status": 404,
+            "count": 42
+          },
+          {
+            "api": "universalis",
+            "endpoint": "陸行鳥/21847",
+            "status": 404,
+            "count": 40
+          },
+          {
+            "api": "universalis",
+            "endpoint": "陆行鸟/19841,19877,19846,20187,20179,19865,8,13,19858,19855,19…",
+            "status": 0,
+            "count": 34
+          },
+          {
+            "api": "universalis",
+            "endpoint": "陸行鳥/23895",
+            "status": 404,
+            "count": 32
+          },
+          {
+            "api": "universalis",
+            "endpoint": "巴哈姆特/48833",
+            "status": 404,
+            "count": 31
+          },
+          {
+            "api": "universalis",
+            "endpoint": "陸行鳥/15997",
+            "status": 404,
+            "count": 30
+          },
+          {
+            "api": "universalis",
+            "endpoint": "鳳凰/48252",
+            "status": 404,
+            "count": 30
+          }
+        ]
+      },
+      "taxonomy": {
+        "rlvRaw": [
+          {
+            "rlv": 1,
+            "events": 32
+          },
+          {
+            "rlv": 2,
+            "events": 15
+          },
+          {
+            "rlv": 7,
+            "events": 1
+          },
+          {
+            "rlv": 14,
+            "events": 28
+          },
+          {
+            "rlv": 20,
+            "events": 44
+          },
+          {
+            "rlv": 24,
+            "events": 2
+          },
+          {
+            "rlv": 26,
+            "events": 1
+          },
+          {
+            "rlv": 28,
+            "events": 1
+          },
+          {
+            "rlv": 33,
+            "events": 1
+          },
+          {
+            "rlv": 35,
+            "events": 1
+          },
+          {
+            "rlv": 38,
+            "events": 1
+          },
+          {
+            "rlv": 40,
+            "events": 91
+          },
+          {
+            "rlv": 42,
+            "events": 1
+          },
+          {
+            "rlv": 44,
+            "events": 3
+          },
+          {
+            "rlv": 45,
+            "events": 7
+          },
+          {
+            "rlv": 48,
+            "events": 1
+          },
+          {
+            "rlv": 49,
+            "events": 2
+          },
+          {
+            "rlv": 50,
+            "events": 28
+          },
+          {
+            "rlv": 55,
+            "events": 13
+          },
+          {
+            "rlv": 57,
+            "events": 10
+          },
+          {
+            "rlv": 58,
+            "events": 1
+          },
+          {
+            "rlv": 59,
+            "events": 1
+          },
+          {
+            "rlv": 60,
+            "events": 1
+          },
+          {
+            "rlv": 70,
+            "events": 26
+          },
+          {
+            "rlv": 90,
+            "events": 30
+          },
+          {
+            "rlv": 100,
+            "events": 181
+          },
+          {
+            "rlv": 110,
+            "events": 1
+          },
+          {
+            "rlv": 115,
+            "events": 6
+          },
+          {
+            "rlv": 125,
+            "events": 6
+          },
+          {
+            "rlv": 130,
+            "events": 9
+          },
+          {
+            "rlv": 133,
+            "events": 14
+          },
+          {
+            "rlv": 136,
+            "events": 7
+          },
+          {
+            "rlv": 139,
+            "events": 6
+          },
+          {
+            "rlv": 142,
+            "events": 19
+          },
+          {
+            "rlv": 145,
+            "events": 50
+          },
+          {
+            "rlv": 148,
+            "events": 23
+          },
+          {
+            "rlv": 150,
+            "events": 96
+          },
+          {
+            "rlv": 160,
+            "events": 17
+          },
+          {
+            "rlv": 180,
+            "events": 1
+          },
+          {
+            "rlv": 210,
+            "events": 2
+          },
+          {
+            "rlv": 255,
+            "events": 6
+          },
+          {
+            "rlv": 265,
+            "events": 39
+          },
+          {
+            "rlv": 270,
+            "events": 18
+          },
+          {
+            "rlv": 273,
+            "events": 12
+          },
+          {
+            "rlv": 276,
+            "events": 23
+          },
+          {
+            "rlv": 279,
+            "events": 28
+          },
+          {
+            "rlv": 282,
+            "events": 43
+          },
+          {
+            "rlv": 285,
+            "events": 25
+          },
+          {
+            "rlv": 288,
+            "events": 19
+          },
+          {
+            "rlv": 290,
+            "events": 107
+          },
+          {
+            "rlv": 300,
+            "events": 5
+          },
+          {
+            "rlv": 380,
+            "events": 2
+          },
+          {
+            "rlv": 390,
+            "events": 26
+          },
+          {
+            "rlv": 395,
+            "events": 36
+          },
+          {
+            "rlv": 400,
+            "events": 15
+          },
+          {
+            "rlv": 403,
+            "events": 27
+          },
+          {
+            "rlv": 406,
+            "events": 15
+          },
+          {
+            "rlv": 409,
+            "events": 18
+          },
+          {
+            "rlv": 412,
+            "events": 10
+          },
+          {
+            "rlv": 415,
+            "events": 36
+          },
+          {
+            "rlv": 418,
+            "events": 10
+          },
+          {
+            "rlv": 430,
+            "events": 72
+          },
+          {
+            "rlv": 440,
+            "events": 8
+          },
+          {
+            "rlv": 450,
+            "events": 2
+          },
+          {
+            "rlv": 480,
+            "events": 9
+          },
+          {
+            "rlv": 510,
+            "events": 6
+          },
+          {
+            "rlv": 512,
+            "events": 5
+          },
+          {
+            "rlv": 513,
+            "events": 30
+          },
+          {
+            "rlv": 514,
+            "events": 5
+          },
+          {
+            "rlv": 515,
+            "events": 1
+          },
+          {
+            "rlv": 516,
+            "events": 5
+          },
+          {
+            "rlv": 517,
+            "events": 34
+          },
+          {
+            "rlv": 520,
+            "events": 19
+          },
+          {
+            "rlv": 525,
+            "events": 28
+          },
+          {
+            "rlv": 530,
+            "events": 19
+          },
+          {
+            "rlv": 535,
+            "events": 16
+          },
+          {
+            "rlv": 540,
+            "events": 9
+          },
+          {
+            "rlv": 545,
+            "events": 21
+          },
+          {
+            "rlv": 550,
+            "events": 7
+          },
+          {
+            "rlv": 555,
+            "events": 30
+          },
+          {
+            "rlv": 558,
+            "events": 3
+          },
+          {
+            "rlv": 560,
+            "events": 25
+          },
+          {
+            "rlv": 570,
+            "events": 6
+          },
+          {
+            "rlv": 580,
+            "events": 1
+          },
+          {
+            "rlv": 590,
+            "events": 1
+          },
+          {
+            "rlv": 610,
+            "events": 2
+          },
+          {
+            "rlv": 611,
+            "events": 13
+          },
+          {
+            "rlv": 621,
+            "events": 7
+          },
+          {
+            "rlv": 640,
+            "events": 6
+          },
+          {
+            "rlv": 641,
+            "events": 1
+          },
+          {
+            "rlv": 642,
+            "events": 6
+          },
+          {
+            "rlv": 643,
+            "events": 1
+          },
+          {
+            "rlv": 650,
+            "events": 67
+          },
+          {
+            "rlv": 653,
+            "events": 24
+          },
+          {
+            "rlv": 656,
+            "events": 29
+          },
+          {
+            "rlv": 660,
+            "events": 19
+          },
+          {
+            "rlv": 665,
+            "events": 31
+          },
+          {
+            "rlv": 670,
+            "events": 20
+          },
+          {
+            "rlv": 675,
+            "events": 51
+          },
+          {
+            "rlv": 680,
+            "events": 69
+          },
+          {
+            "rlv": 685,
+            "events": 75
+          },
+          {
+            "rlv": 690,
+            "events": 2016
+          },
+          {
+            "rlv": 700,
+            "events": 43
+          },
+          {
+            "rlv": 701,
+            "events": 148
+          },
+          {
+            "rlv": 702,
+            "events": 41
+          },
+          {
+            "rlv": 703,
+            "events": 25
+          },
+          {
+            "rlv": 704,
+            "events": 28
+          },
+          {
+            "rlv": 705,
+            "events": 10
+          },
+          {
+            "rlv": 706,
+            "events": 7
+          },
+          {
+            "rlv": 710,
+            "events": 13
+          },
+          {
+            "rlv": 720,
+            "events": 79
+          },
+          {
+            "rlv": 721,
+            "events": 39
+          },
+          {
+            "rlv": 723,
+            "events": 4
+          },
+          {
+            "rlv": 724,
+            "events": 6
+          },
+          {
+            "rlv": 725,
+            "events": 4
+          },
+          {
+            "rlv": 726,
+            "events": 4
+          },
+          {
+            "rlv": 740,
+            "events": 307
+          },
+          {
+            "rlv": 741,
+            "events": 6
+          },
+          {
+            "rlv": 742,
+            "events": 7
+          },
+          {
+            "rlv": 743,
+            "events": 4
+          },
+          {
+            "rlv": 744,
+            "events": 1
+          },
+          {
+            "rlv": 746,
+            "events": 15
+          },
+          {
+            "rlv": 750,
+            "events": 205
+          },
+          {
+            "rlv": 751,
+            "events": 8
+          },
+          {
+            "rlv": 756,
+            "events": 1
+          },
+          {
+            "rlv": 770,
+            "events": 124
+          }
+        ],
+        "matrix": [
+          {
+            "isExpert": false,
+            "isCollectable": false,
+            "starts": 2763,
+            "completes": 2710,
+            "macroCopies": 2772,
+            "completeRate": 0.9808179515019906,
+            "macroCopyRate": 1.0228782287822877
+          },
+          {
+            "isExpert": false,
+            "isCollectable": true,
+            "starts": 1455,
+            "completes": 1406,
+            "macroCopies": 1372,
+            "completeRate": 0.9663230240549828,
+            "macroCopyRate": 0.9758179231863442
+          },
+          {
+            "isExpert": true,
+            "isCollectable": false,
+            "starts": 69,
+            "completes": 69,
+            "macroCopies": 48,
+            "completeRate": 1,
+            "macroCopyRate": 0.6956521739130435
+          },
+          {
+            "isExpert": true,
+            "isCollectable": true,
+            "starts": 165,
+            "completes": 164,
+            "macroCopies": 218,
+            "completeRate": 0.9939393939393939,
+            "macroCopyRate": 1.329268292682927
+          }
+        ],
+        "craftKindBreakdown": [
+          {
+            "kind": "normal",
+            "starts": 3417,
+            "completes": 3320,
+            "macroCopies": 3217,
+            "completeRate": 0.9716125256072579,
+            "macroCopyRate": 0.9689759036144578
+          },
+          {
+            "kind": "quick",
+            "starts": 801,
+            "completes": 796,
+            "macroCopies": 927,
+            "completeRate": 0.9937578027465668,
+            "macroCopyRate": 1.164572864321608
+          },
+          {
+            "kind": "expert",
+            "starts": 234,
+            "completes": 233,
+            "macroCopies": 266,
+            "completeRate": 0.9957264957264957,
+            "macroCopyRate": 1.1416309012875536
+          }
+        ]
+      },
+      "byRegion": {
+        "solver": {
+          "cht": {
+            "value": 4873,
+            "secondary": "4903 完成",
+            "sparkPct": 1.0061563718448594
+          },
+          "intl": {
+            "value": 1082,
+            "secondary": "1012 完成",
+            "sparkPct": 0.9353049907578558
+          },
+          "unset": {
+            "value": 6,
+            "secondary": "6 完成",
+            "sparkPct": 1
+          }
+        },
+        "batch": {
+          "cht": {
+            "value": 238,
+            "secondary": "213 完成",
+            "sparkPct": 0.8949579831932774
+          },
+          "intl": {
+            "value": 204,
+            "secondary": "99 完成",
+            "sparkPct": 0.4852941176470588
+          },
+          "unset": {
+            "value": 0,
+            "secondary": "0 完成"
+          }
+        },
+        "bom": {
+          "cht": {
+            "value": 71,
+            "secondary": "3 → 批次",
+            "sparkPct": 0.04225352112676056
+          },
+          "intl": {
+            "value": 90,
+            "secondary": "8 → 批次",
+            "sparkPct": 0.08888888888888889
+          },
+          "unset": {
+            "value": 1,
+            "secondary": "0 → 批次",
+            "sparkPct": 0
+          }
+        },
+        "infra": {
+          "cht": {
+            "value": 47,
+            "secondary": "SAB 42 · WASM 5",
+            "tone": "danger"
+          },
+          "intl": {
+            "value": 6,
+            "secondary": "SAB 4 · WASM 2",
+            "tone": "danger"
+          },
+          "unset": {
+            "value": 0,
+            "secondary": "SAB 0 · WASM 0"
+          }
+        }
+      },
+      "toolUsageByRlv": [
+        {
+          "rlv": 1,
+          "selectCount": 32,
+          "simulatorCount": 29,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 2,
+          "selectCount": 15,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 7,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 14,
+          "selectCount": 28,
+          "simulatorCount": 28,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 15,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 1,
+          "bomTargetCount": 4
+        },
+        {
+          "rlv": 16,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 1,
+          "bomTargetCount": 1
+        },
+        {
+          "rlv": 17,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 2,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 18,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 3,
+          "bomTargetCount": 1
+        },
+        {
+          "rlv": 19,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 2,
+          "bomTargetCount": 1
+        },
+        {
+          "rlv": 20,
+          "selectCount": 44,
+          "simulatorCount": 29,
+          "batchTargetCount": 7,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 22,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 1,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 23,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 1,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 24,
+          "selectCount": 2,
+          "simulatorCount": 4,
+          "batchTargetCount": 1,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 25,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 2,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 26,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 31,
+          "bomTargetCount": 23
+        },
+        {
+          "rlv": 27,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 25,
+          "bomTargetCount": 18
+        },
+        {
+          "rlv": 28,
+          "selectCount": 1,
+          "simulatorCount": 6,
+          "batchTargetCount": 8,
+          "bomTargetCount": 5
+        },
+        {
+          "rlv": 29,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 6,
+          "bomTargetCount": 2
+        },
+        {
+          "rlv": 30,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 53,
+          "bomTargetCount": 53
+        },
+        {
+          "rlv": 31,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 7,
+          "bomTargetCount": 4
+        },
+        {
+          "rlv": 32,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 27,
+          "bomTargetCount": 21
+        },
+        {
+          "rlv": 33,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 6,
+          "bomTargetCount": 8
+        },
+        {
+          "rlv": 34,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 36,
+          "bomTargetCount": 30
+        },
+        {
+          "rlv": 35,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 27,
+          "bomTargetCount": 15
+        },
+        {
+          "rlv": 36,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 6,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 37,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 12,
+          "bomTargetCount": 8
+        },
+        {
+          "rlv": 38,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 4,
+          "bomTargetCount": 1
+        },
+        {
+          "rlv": 39,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 27,
+          "bomTargetCount": 20
+        },
+        {
+          "rlv": 40,
+          "selectCount": 91,
+          "simulatorCount": 64,
+          "batchTargetCount": 16,
+          "bomTargetCount": 6
+        },
+        {
+          "rlv": 41,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 3,
+          "bomTargetCount": 3
+        },
+        {
+          "rlv": 42,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 15,
+          "bomTargetCount": 8
+        },
+        {
+          "rlv": 43,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 23,
+          "bomTargetCount": 12
+        },
+        {
+          "rlv": 44,
+          "selectCount": 3,
+          "simulatorCount": 2,
+          "batchTargetCount": 8,
+          "bomTargetCount": 2
+        },
+        {
+          "rlv": 45,
+          "selectCount": 7,
+          "simulatorCount": 5,
+          "batchTargetCount": 14,
+          "bomTargetCount": 12
+        },
+        {
+          "rlv": 46,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 2,
+          "bomTargetCount": 3
+        },
+        {
+          "rlv": 47,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 2,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 48,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 5
+        },
+        {
+          "rlv": 49,
+          "selectCount": 2,
+          "simulatorCount": 3,
+          "batchTargetCount": 5,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 50,
+          "selectCount": 28,
+          "simulatorCount": 17,
+          "batchTargetCount": 19,
+          "bomTargetCount": 29
+        },
+        {
+          "rlv": 55,
+          "selectCount": 13,
+          "simulatorCount": 6,
+          "batchTargetCount": 33,
+          "bomTargetCount": 51
+        },
+        {
+          "rlv": 57,
+          "selectCount": 10,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 58,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 59,
+          "selectCount": 1,
+          "simulatorCount": 2,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 60,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 70,
+          "selectCount": 26,
+          "simulatorCount": 19,
+          "batchTargetCount": 57,
+          "bomTargetCount": 80
+        },
+        {
+          "rlv": 90,
+          "selectCount": 30,
+          "simulatorCount": 24,
+          "batchTargetCount": 17,
+          "bomTargetCount": 11
+        },
+        {
+          "rlv": 100,
+          "selectCount": 181,
+          "simulatorCount": 88,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 110,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 9,
+          "bomTargetCount": 10
+        },
+        {
+          "rlv": 115,
+          "selectCount": 6,
+          "simulatorCount": 8,
+          "batchTargetCount": 16,
+          "bomTargetCount": 17
+        },
+        {
+          "rlv": 125,
+          "selectCount": 6,
+          "simulatorCount": 11,
+          "batchTargetCount": 10,
+          "bomTargetCount": 10
+        },
+        {
+          "rlv": 130,
+          "selectCount": 9,
+          "simulatorCount": 6,
+          "batchTargetCount": 11,
+          "bomTargetCount": 6
+        },
+        {
+          "rlv": 133,
+          "selectCount": 14,
+          "simulatorCount": 5,
+          "batchTargetCount": 18,
+          "bomTargetCount": 7
+        },
+        {
+          "rlv": 136,
+          "selectCount": 7,
+          "simulatorCount": 5,
+          "batchTargetCount": 10,
+          "bomTargetCount": 4
+        },
+        {
+          "rlv": 139,
+          "selectCount": 6,
+          "simulatorCount": 4,
+          "batchTargetCount": 17,
+          "bomTargetCount": 3
+        },
+        {
+          "rlv": 142,
+          "selectCount": 19,
+          "simulatorCount": 13,
+          "batchTargetCount": 13,
+          "bomTargetCount": 8
+        },
+        {
+          "rlv": 145,
+          "selectCount": 50,
+          "simulatorCount": 27,
+          "batchTargetCount": 23,
+          "bomTargetCount": 11
+        },
+        {
+          "rlv": 148,
+          "selectCount": 23,
+          "simulatorCount": 33,
+          "batchTargetCount": 11,
+          "bomTargetCount": 5
+        },
+        {
+          "rlv": 150,
+          "selectCount": 96,
+          "simulatorCount": 104,
+          "batchTargetCount": 21,
+          "bomTargetCount": 12
+        },
+        {
+          "rlv": 160,
+          "selectCount": 17,
+          "simulatorCount": 11,
+          "batchTargetCount": 14,
+          "bomTargetCount": 14
+        },
+        {
+          "rlv": 180,
+          "selectCount": 1,
+          "simulatorCount": 2,
+          "batchTargetCount": 6,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 210,
+          "selectCount": 2,
+          "simulatorCount": 0,
+          "batchTargetCount": 2,
+          "bomTargetCount": 2
+        },
+        {
+          "rlv": 220,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 0,
+          "bomTargetCount": 1
+        },
+        {
+          "rlv": 255,
+          "selectCount": 6,
+          "simulatorCount": 6,
+          "batchTargetCount": 9,
+          "bomTargetCount": 19
+        },
+        {
+          "rlv": 265,
+          "selectCount": 39,
+          "simulatorCount": 40,
+          "batchTargetCount": 13,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 270,
+          "selectCount": 18,
+          "simulatorCount": 15,
+          "batchTargetCount": 9,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 273,
+          "selectCount": 12,
+          "simulatorCount": 14,
+          "batchTargetCount": 12,
+          "bomTargetCount": 6
+        },
+        {
+          "rlv": 276,
+          "selectCount": 23,
+          "simulatorCount": 21,
+          "batchTargetCount": 7,
+          "bomTargetCount": 4
+        },
+        {
+          "rlv": 279,
+          "selectCount": 28,
+          "simulatorCount": 26,
+          "batchTargetCount": 34,
+          "bomTargetCount": 26
+        },
+        {
+          "rlv": 282,
+          "selectCount": 43,
+          "simulatorCount": 27,
+          "batchTargetCount": 12,
+          "bomTargetCount": 8
+        },
+        {
+          "rlv": 285,
+          "selectCount": 25,
+          "simulatorCount": 14,
+          "batchTargetCount": 21,
+          "bomTargetCount": 16
+        },
+        {
+          "rlv": 288,
+          "selectCount": 19,
+          "simulatorCount": 13,
+          "batchTargetCount": 12,
+          "bomTargetCount": 13
+        },
+        {
+          "rlv": 290,
+          "selectCount": 107,
+          "simulatorCount": 81,
+          "batchTargetCount": 41,
+          "bomTargetCount": 39
+        },
+        {
+          "rlv": 300,
+          "selectCount": 5,
+          "simulatorCount": 4,
+          "batchTargetCount": 21,
+          "bomTargetCount": 30
+        },
+        {
+          "rlv": 320,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 2,
+          "bomTargetCount": 6
+        },
+        {
+          "rlv": 350,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 11,
+          "bomTargetCount": 13
+        },
+        {
+          "rlv": 380,
+          "selectCount": 2,
+          "simulatorCount": 0,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 390,
+          "selectCount": 26,
+          "simulatorCount": 23,
+          "batchTargetCount": 15,
+          "bomTargetCount": 26
+        },
+        {
+          "rlv": 395,
+          "selectCount": 36,
+          "simulatorCount": 30,
+          "batchTargetCount": 3,
+          "bomTargetCount": 3
+        },
+        {
+          "rlv": 400,
+          "selectCount": 15,
+          "simulatorCount": 10,
+          "batchTargetCount": 29,
+          "bomTargetCount": 16
+        },
+        {
+          "rlv": 403,
+          "selectCount": 27,
+          "simulatorCount": 23,
+          "batchTargetCount": 32,
+          "bomTargetCount": 22
+        },
+        {
+          "rlv": 406,
+          "selectCount": 15,
+          "simulatorCount": 11,
+          "batchTargetCount": 26,
+          "bomTargetCount": 16
+        },
+        {
+          "rlv": 409,
+          "selectCount": 18,
+          "simulatorCount": 21,
+          "batchTargetCount": 22,
+          "bomTargetCount": 13
+        },
+        {
+          "rlv": 412,
+          "selectCount": 10,
+          "simulatorCount": 6,
+          "batchTargetCount": 4,
+          "bomTargetCount": 6
+        },
+        {
+          "rlv": 415,
+          "selectCount": 36,
+          "simulatorCount": 28,
+          "batchTargetCount": 2,
+          "bomTargetCount": 11
+        },
+        {
+          "rlv": 418,
+          "selectCount": 10,
+          "simulatorCount": 4,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 430,
+          "selectCount": 72,
+          "simulatorCount": 65,
+          "batchTargetCount": 22,
+          "bomTargetCount": 73
+        },
+        {
+          "rlv": 440,
+          "selectCount": 8,
+          "simulatorCount": 9,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 450,
+          "selectCount": 2,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 480,
+          "selectCount": 9,
+          "simulatorCount": 11,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 510,
+          "selectCount": 6,
+          "simulatorCount": 2,
+          "batchTargetCount": 4,
+          "bomTargetCount": 4
+        },
+        {
+          "rlv": 512,
+          "selectCount": 5,
+          "simulatorCount": 19,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 513,
+          "selectCount": 30,
+          "simulatorCount": 24,
+          "batchTargetCount": 0,
+          "bomTargetCount": 2
+        },
+        {
+          "rlv": 514,
+          "selectCount": 5,
+          "simulatorCount": 7,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 515,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 516,
+          "selectCount": 5,
+          "simulatorCount": 11,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 517,
+          "selectCount": 34,
+          "simulatorCount": 34,
+          "batchTargetCount": 38,
+          "bomTargetCount": 28
+        },
+        {
+          "rlv": 520,
+          "selectCount": 19,
+          "simulatorCount": 20,
+          "batchTargetCount": 12,
+          "bomTargetCount": 18
+        },
+        {
+          "rlv": 525,
+          "selectCount": 28,
+          "simulatorCount": 26,
+          "batchTargetCount": 6,
+          "bomTargetCount": 8
+        },
+        {
+          "rlv": 530,
+          "selectCount": 19,
+          "simulatorCount": 14,
+          "batchTargetCount": 9,
+          "bomTargetCount": 12
+        },
+        {
+          "rlv": 535,
+          "selectCount": 16,
+          "simulatorCount": 19,
+          "batchTargetCount": 18,
+          "bomTargetCount": 16
+        },
+        {
+          "rlv": 540,
+          "selectCount": 9,
+          "simulatorCount": 7,
+          "batchTargetCount": 28,
+          "bomTargetCount": 64
+        },
+        {
+          "rlv": 545,
+          "selectCount": 21,
+          "simulatorCount": 31,
+          "batchTargetCount": 12,
+          "bomTargetCount": 8
+        },
+        {
+          "rlv": 550,
+          "selectCount": 7,
+          "simulatorCount": 7,
+          "batchTargetCount": 17,
+          "bomTargetCount": 15
+        },
+        {
+          "rlv": 555,
+          "selectCount": 30,
+          "simulatorCount": 44,
+          "batchTargetCount": 15,
+          "bomTargetCount": 15
+        },
+        {
+          "rlv": 558,
+          "selectCount": 3,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 560,
+          "selectCount": 25,
+          "simulatorCount": 27,
+          "batchTargetCount": 47,
+          "bomTargetCount": 78
+        },
+        {
+          "rlv": 570,
+          "selectCount": 6,
+          "simulatorCount": 7,
+          "batchTargetCount": 13,
+          "bomTargetCount": 4
+        },
+        {
+          "rlv": 580,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 7,
+          "bomTargetCount": 10
+        },
+        {
+          "rlv": 590,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 6,
+          "bomTargetCount": 6
+        },
+        {
+          "rlv": 610,
+          "selectCount": 2,
+          "simulatorCount": 5,
+          "batchTargetCount": 6,
+          "bomTargetCount": 4
+        },
+        {
+          "rlv": 611,
+          "selectCount": 13,
+          "simulatorCount": 18,
+          "batchTargetCount": 6,
+          "bomTargetCount": 4
+        },
+        {
+          "rlv": 620,
+          "selectCount": 0,
+          "simulatorCount": 0,
+          "batchTargetCount": 6,
+          "bomTargetCount": 4
+        },
+        {
+          "rlv": 621,
+          "selectCount": 7,
+          "simulatorCount": 21,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 640,
+          "selectCount": 6,
+          "simulatorCount": 6,
+          "batchTargetCount": 28,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 641,
+          "selectCount": 1,
+          "simulatorCount": 4,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 642,
+          "selectCount": 6,
+          "simulatorCount": 6,
+          "batchTargetCount": 1,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 643,
+          "selectCount": 1,
+          "simulatorCount": 8,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 650,
+          "selectCount": 67,
+          "simulatorCount": 75,
+          "batchTargetCount": 244,
+          "bomTargetCount": 186
+        },
+        {
+          "rlv": 653,
+          "selectCount": 24,
+          "simulatorCount": 24,
+          "batchTargetCount": 33,
+          "bomTargetCount": 25
+        },
+        {
+          "rlv": 656,
+          "selectCount": 29,
+          "simulatorCount": 31,
+          "batchTargetCount": 57,
+          "bomTargetCount": 49
+        },
+        {
+          "rlv": 660,
+          "selectCount": 19,
+          "simulatorCount": 27,
+          "batchTargetCount": 83,
+          "bomTargetCount": 73
+        },
+        {
+          "rlv": 665,
+          "selectCount": 31,
+          "simulatorCount": 41,
+          "batchTargetCount": 67,
+          "bomTargetCount": 53
+        },
+        {
+          "rlv": 670,
+          "selectCount": 20,
+          "simulatorCount": 23,
+          "batchTargetCount": 102,
+          "bomTargetCount": 95
+        },
+        {
+          "rlv": 675,
+          "selectCount": 51,
+          "simulatorCount": 58,
+          "batchTargetCount": 114,
+          "bomTargetCount": 81
+        },
+        {
+          "rlv": 680,
+          "selectCount": 69,
+          "simulatorCount": 63,
+          "batchTargetCount": 57,
+          "bomTargetCount": 43
+        },
+        {
+          "rlv": 685,
+          "selectCount": 75,
+          "simulatorCount": 107,
+          "batchTargetCount": 132,
+          "bomTargetCount": 41
+        },
+        {
+          "rlv": 690,
+          "selectCount": 2016,
+          "simulatorCount": 1705,
+          "batchTargetCount": 184,
+          "bomTargetCount": 60
+        },
+        {
+          "rlv": 700,
+          "selectCount": 43,
+          "simulatorCount": 35,
+          "batchTargetCount": 17,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 701,
+          "selectCount": 148,
+          "simulatorCount": 75,
+          "batchTargetCount": 1,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 702,
+          "selectCount": 41,
+          "simulatorCount": 29,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 703,
+          "selectCount": 25,
+          "simulatorCount": 14,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 704,
+          "selectCount": 28,
+          "simulatorCount": 20,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 705,
+          "selectCount": 10,
+          "simulatorCount": 4,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 706,
+          "selectCount": 7,
+          "simulatorCount": 4,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 710,
+          "selectCount": 13,
+          "simulatorCount": 11,
+          "batchTargetCount": 3,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 720,
+          "selectCount": 79,
+          "simulatorCount": 78,
+          "batchTargetCount": 21,
+          "bomTargetCount": 2
+        },
+        {
+          "rlv": 721,
+          "selectCount": 39,
+          "simulatorCount": 26,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 723,
+          "selectCount": 4,
+          "simulatorCount": 5,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 724,
+          "selectCount": 6,
+          "simulatorCount": 6,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 725,
+          "selectCount": 4,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 726,
+          "selectCount": 4,
+          "simulatorCount": 0,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 740,
+          "selectCount": 307,
+          "simulatorCount": 286,
+          "batchTargetCount": 163,
+          "bomTargetCount": 58
+        },
+        {
+          "rlv": 741,
+          "selectCount": 6,
+          "simulatorCount": 0,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 742,
+          "selectCount": 7,
+          "simulatorCount": 10,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 743,
+          "selectCount": 4,
+          "simulatorCount": 2,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 744,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 746,
+          "selectCount": 15,
+          "simulatorCount": 18,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 750,
+          "selectCount": 205,
+          "simulatorCount": 95,
+          "batchTargetCount": 45,
+          "bomTargetCount": 116
+        },
+        {
+          "rlv": 751,
+          "selectCount": 8,
+          "simulatorCount": 9,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 756,
+          "selectCount": 1,
+          "simulatorCount": 1,
+          "batchTargetCount": 0,
+          "bomTargetCount": 0
+        },
+        {
+          "rlv": 770,
+          "selectCount": 124,
+          "simulatorCount": 127,
+          "batchTargetCount": 65,
+          "bomTargetCount": 0
+        }
+      ],
+      "toolUsageNoRecipeCount": 307
+    }
+  }
+}
